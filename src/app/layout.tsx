@@ -1,0 +1,92 @@
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/contexts/auth-context";
+import { LanguageProvider } from "@/contexts/language-context";
+import { ThemeProvider } from "@/contexts/theme-context";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { SplashScreen } from "@/components/splash-screen";
+import { InstallPrompt } from "@/components/install-prompt";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "Darrell Soft - Kalkulator Hitung Cetakan",
+  description: "Aplikasi kalkulator hitung cetakan profesional",
+  icons: {
+    icon: "/favicon-32x32.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Darrell Soft",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        {/* Inline script to capture beforeinstallprompt event BEFORE React hydrates.
+            This is critical because the event can fire before any React component mounts. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__deferredInstallPrompt = null;
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.__deferredInstallPrompt = e;
+                // Dispatch custom event so React components know the prompt is ready
+                window.dispatchEvent(new Event('installpromptready'));
+              });
+            `,
+          }}
+        />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-geist-sans)' }}
+      >
+        <AuthProvider>
+          <LanguageProvider>
+            <ThemeProvider>
+              <SplashScreen>
+                {children}
+              </SplashScreen>
+            </ThemeProvider>
+          </LanguageProvider>
+        </AuthProvider>
+        <Toaster />
+        <SonnerToaster />
+        <ServiceWorkerRegistration />
+        <InstallPrompt />
+      </body>
+    </html>
+  );
+}

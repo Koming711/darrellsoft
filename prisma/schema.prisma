@@ -1,0 +1,350 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Pengguna {
+  id           String         @id @default(cuid())
+  namaLengkap  String
+  nomorHP      String
+  email        String
+  username     String         @unique
+  password     String
+  role         String         @default("user")
+  createdAt    DateTime       @default(now())
+  validUntil   DateTime?
+  calonPembeli CalonPembeli[]
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  companyName String?
+  address     String?
+  phone       String?
+  email       String?
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Paper {
+  id          String   @id @default(cuid())
+  name        String
+  grammage    Int
+  width       Float
+  height      Float
+  pricePerRim Float
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PrintingCost {
+  id                        String   @id @default(cuid())
+  machineName               String
+  grammage                  Int
+  printAreaWidth            Float
+  printAreaHeight           Float
+  pricePerColor             Float
+  specialColorPrice         Float
+  minimumPrintQuantity      Int
+  priceAboveMinimumPerSheet Float
+  platePricePerSheet        Float
+  userId                    String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model Finishing {
+  id              String   @id @default(cuid())
+  name            String
+  minimumSheets   Int
+  minimumPrice    Float
+  additionalPrice Float
+  pricePerCm      Float
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model CalonPembeli {
+  id          String    @id @default(cuid())
+  nama        String
+  nomorHP     String
+  email       String
+  alamat      String
+  catatan     String
+  status      String    @default("baru")
+  role        String    @default("demo")
+  expiredDate DateTime?
+  username    String?
+  password    String?
+  userId      String?
+  pengguna    Pengguna? @relation(fields: [userId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Pembeli {
+  id          String    @id @default(cuid())
+  nama        String
+  nomorHP     String
+  email       String
+  alamat      String
+  catatan     String
+  role        String    @default("demo")
+  expiredDate DateTime?
+  userId      String?
+  penggunaId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RiwayatCetakan {
+  id                 String   @id @default(cuid())
+  type               String   @default("hitung_cetakan")
+  printName          String
+  customerName       String   @default("")
+  paperName          String
+  paperGrammage      String
+  paperLength        String
+  paperWidth         String
+  cutWidth           String
+  cutHeight          String
+  quantity           String
+  jumlahPesanan      String   @default("")
+  berapaMata         String   @default("")
+  warna              String
+  warnaKhusus        String
+  machineName        String
+  hargaPlat          Float
+  ongkosCetak        Float
+  ongkosCetakDetail  String
+  machineName2       String   @default("")
+  warna2             String   @default("")
+  warnaKhusus2       String   @default("")
+  hargaPlat2         Float    @default(0)
+  ongkosCetak2       Float    @default(0)
+  ongkosCetak2Detail String   @default("")
+  totalPaperPrice    Float
+  pricePerSheet      Float    @default(0)
+  finishingNames     String
+  finishingBreakdown String
+  finishingCost      Float
+  packingCost        Float
+  shippingCost       Float
+  otherCost          Float    @default(0)
+  otherCost2         Float    @default(0)
+  otherCostLabel     String   @default("")
+  otherCostLabel2    String   @default("")
+  glueLengthCm       String   @default("")
+  glueCostPerCm      String   @default("")
+  glueCost           Float    @default(0)
+  glueBorongan       Float    @default(0)
+  subTotal           Float
+  profitPercent      Float
+  profitAmount       Float
+  grandTotal         Float
+  userId             String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model RiwayatFinishing {
+  id              String   @id @default(cuid())
+  namaCustomer    String   @default("")
+  namaCetakan     String
+  jumlahLembar    String
+  lebarCm         String
+  tinggiCm        String
+  finishingNames  String
+  finishingIds    String
+  totalCost       Float
+  hargaPerLembar  Float    @default(0)
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RiwayatOngkosCetak {
+  id                String   @id @default(cuid())
+  namaCustomer      String   @default("")
+  namaCetakan       String
+  machineName       String
+  machineId         String   @default("")
+  jumlahWarna       String
+  warnaKhusus       String   @default("0")
+  hargaPlat         String   @default("0")
+  jumlahLembar      String
+  totalOngkosCetak  Float
+  hargaPerLembar    Float    @default(0)
+  machineId2        String   @default("")
+  machineName2      String   @default("")
+  jumlahWarna2      String   @default("0")
+  warnaKhusus2      String   @default("0")
+  hargaPlat2        String   @default("0")
+  totalOngkosCetak2 Float    @default(0)
+  userId            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model RiwayatHargaKertas {
+  id              String   @id @default(cuid())
+  namaCustomer    String   @default("")
+  namaCetakan     String
+  paperName       String
+  paperId         String   @default("")
+  grammage        String   @default("0")
+  paperWidth      String   @default("0")
+  paperHeight     String   @default("0")
+  pricePerRim     String   @default("0")
+  quantity        String   @default("0")
+  lebarPotong     String   @default("0")
+  tinggiPotong    String   @default("0")
+  totalPrice      Float
+  costPerPiece    Float    @default(0)
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RiwayatPotongKertas {
+  id              String   @id @default(cuid())
+  namaCustomer    String   @default("")
+  namaCetakan     String
+  paperName       String
+  paperId         String   @default("")
+  grammage        String   @default("0")
+  paperWidth      String   @default("0")
+  paperHeight     String   @default("0")
+  cutWidth        String   @default("0")
+  cutHeight       String   @default("0")
+  quantity        String   @default("0")
+  setelanKertas   String   @default("0")
+  sheetsNeeded    String   @default("0")
+  totalPrice      Float    @default(0)
+  pricePerSheet   Float    @default(0)
+  efficiency      Float    @default(0)
+  strategy        String   @default("")
+  jumlahPesanan   String   @default("")
+  berapaMata      String   @default("")
+  resultData      String   @default("")
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Invoice {
+  id               String   @id @default(cuid())
+  invoiceNumber    String   @unique
+  customerName     String
+  customerAddress  String   @default("")
+  customerPhone    String   @default("")
+  customerEmail    String   @default("")
+  invoiceDate      String
+  dueDate          String   @default("")
+  items            String
+  subTotal         Float    @default(0)
+  discount         Float    @default(0)
+  tax              Float    @default(0)
+  grandTotal       Float    @default(0)
+  notes            String   @default("")
+  status           String   @default("draft")
+  riwayatCetakanId String?
+  userId           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Payment {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  packageName       String
+  packageType       String
+  grossAmount       Float
+  customerName      String    @default("")
+  customerEmail     String    @default("")
+  customerPhone     String    @default("")
+  paymentType       String?
+  transactionId     String?
+  transactionTime   DateTime?
+  transactionStatus String    @default("pending")
+  fraudStatus       String?
+  userId            String?
+  metadata          String    @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model SuratJalan {
+  id               String   @id @default(cuid())
+  suratJalanNumber String   @unique
+  customerName     String
+  customerAddress  String   @default("")
+  customerPhone    String   @default("")
+  driverName       String   @default("")
+  vehicleNumber    String   @default("")
+  deliveryDate     String
+  items            String
+  notes            String   @default("")
+  status           String   @default("draft")
+  invoiceId        String?
+  riwayatCetakanId String?
+  userId           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PurchaseOrder {
+  id              String   @id @default(cuid())
+  poNumber        String   @unique
+  supplierName    String
+  supplierAddress String   @default("")
+  supplierPhone   String   @default("")
+  orderDate       String
+  deliveryDate    String   @default("")
+  items           String
+  subtotal        Float    @default(0)
+  tax             Float    @default(0)
+  total           Float    @default(0)
+  notes           String   @default("")
+  status          String   @default("draft")
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
