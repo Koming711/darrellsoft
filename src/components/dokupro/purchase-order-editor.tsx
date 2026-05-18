@@ -116,7 +116,7 @@ export function PurchaseOrderEditor() {
       potonganPerLembar = rd.totalPieces || 0;
     } catch {}
     if (potonganPerLembar > 0) {
-      descLines.push(`Potongan/lembar (${potonganPerLembar})`);
+      descLines.push(`Potongan/lembar dapat ${potonganPerLembar}`);
     }
 
     // Line 5: Jumlah jadi (potongan/lembar × qty)
