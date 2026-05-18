@@ -1,6 +1,6 @@
 'use client'
 
-import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown } from 'lucide-react'
+import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -100,6 +100,9 @@ export default function PengaturanPage() {
   // Profit setting
   const [profitPercent, setProfitPercent] = useState<string>('10')
 
+  // PPN setting
+  const [ppnPercent, setPpnPercent] = useState<string>('11')
+
   // General settings
   const [companyName, setCompanyName] = useState('')
   const [companyLogo, setCompanyLogo] = useState<string | null>(null)
@@ -107,6 +110,18 @@ export default function PengaturanPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  // Preview toggle
+  const [showPreview, setShowPreview] = useState(false)
+
+  // Bank settings
+  const [bankName, setBankName] = useState('')
+  const [bankAccount, setBankAccount] = useState('')
+  const [bankHolder, setBankHolder] = useState('')
+  const [bankName2, setBankName2] = useState('')
+  const [bankAccount2, setBankAccount2] = useState('')
+  const [bankHolder2, setBankHolder2] = useState('')
+  const [npwp, setNpwp] = useState('')
 
   // Database settings
   const [autoBackupDays, setAutoBackupDays] = useState(7)
@@ -169,16 +184,36 @@ export default function PengaturanPage() {
     } catch { /* silent */ }
   }, [])
 
+  // Fetch PPN
+  const fetchPpnSetting = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/settings?key=ppn', { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.value !== null && data.value !== undefined && data.value !== '') {
+          setPpnPercent(data.value.toString())
+        }
+      }
+    } catch { /* silent */ }
+  }, [])
+
   // Fetch general settings
   const fetchGeneralSettings = useCallback(async () => {
     try {
-      const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone']
+      const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone', 'bank_name', 'bank_account', 'bank_holder', 'bank_name2', 'bank_account2', 'bank_holder2', 'npwp']
       const results = await Promise.all(keys.map(k => authFetch(`/api/settings?key=${k}`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)))
       if (results[0]?.value) setCompanyName(results[0].value)
       if (results[1]?.value) setCompanyLogo(results[1].value)
       if (results[2]?.value) setAddress(results[2].value)
       if (results[3]?.value) setEmail(results[3].value)
       if (results[4]?.value) setPhone(results[4].value)
+      if (results[5]?.value) setBankName(results[5].value)
+      if (results[6]?.value) setBankAccount(results[6].value)
+      if (results[7]?.value) setBankHolder(results[7].value)
+      if (results[8]?.value) setBankName2(results[8].value)
+      if (results[9]?.value) setBankAccount2(results[9].value)
+      if (results[10]?.value) setBankHolder2(results[10].value)
+      if (results[11]?.value) setNpwp(results[11].value)
     } catch { /* silent */ }
   }, [])
 
@@ -197,8 +232,8 @@ export default function PengaturanPage() {
   }, [])
 
   useEffect(() => {
-    Promise.all([fetchProfile(), fetchProfitSetting(), fetchGeneralSettings(), fetchColorSettings()]).finally(() => setLoading(false))
-  }, [fetchProfile, fetchProfitSetting, fetchGeneralSettings, fetchColorSettings])
+    Promise.all([fetchProfile(), fetchProfitSetting(), fetchPpnSetting(), fetchGeneralSettings(), fetchColorSettings()]).finally(() => setLoading(false))
+  }, [fetchProfile, fetchProfitSetting, fetchPpnSetting, fetchGeneralSettings, fetchColorSettings])
 
   // Apply colors to CSS variables (immediate live preview)
   const applySidebarColor = (color: string) => {
@@ -325,6 +360,36 @@ export default function PengaturanPage() {
     if (success) notifyDataChange('settings')
   }
 
+  // Save PPN
+  const savePpnSetting = async () => {
+    const val = parseFloat(ppnPercent)
+    if (isNaN(val) || val < 0) { toast.error('PPN harus angka positif'); return false }
+    try {
+      const res = await authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'ppn', value: val.toString() }) })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.error('Save PPN failed:', res.status, data)
+        toast.error(data?.error || 'Gagal menyimpan PPN')
+        return false
+      }
+      return true
+    } catch (err) {
+      console.error('Save PPN error:', err)
+      toast.error('Gagal menyimpan PPN')
+      return false
+    }
+  }
+
+  const handleSavePpn = async () => {
+    setSaving(true)
+    const success = await savePpnSetting()
+    setSaving(false)
+    if (success) {
+      toast.success('PPN berhasil disimpan')
+      notifyDataChange('settings')
+    }
+  }
+
   // Reset company info (Umum tab)
   const handleResetCompany = async () => {
     setSaving(true)
@@ -355,6 +420,13 @@ export default function PengaturanPage() {
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'company_address', value: address }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'company_email', value: email }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'company_phone', value: phone }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_name', value: bankName }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_account', value: bankAccount }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_holder', value: bankHolder }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_name2', value: bankName2 }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_account2', value: bankAccount2 }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_holder2', value: bankHolder2 }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'npwp', value: npwp }) }),
       ])
       toast.success(t('setting_saved'))
       notifyDataChange('settings')
@@ -855,27 +927,168 @@ export default function PengaturanPage() {
         )}
 
         {/* ===== TABS ===== */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="flex flex-col sm:flex-row overflow-x-auto">
-            {[
-              { id: 'umum', label: t('tab_umum'), icon: Monitor },
-              { id: 'database', label: t('tab_database'), icon: Database }
-            ].map((tab) => (
+        <div className="flex gap-1.5 sm:gap-2 mb-4 overflow-x-auto pb-1">
+          {[
+            { id: 'umum', label: t('tab_umum'), icon: Monitor, color: 'blue' },
+            { id: 'profit', label: t('persentase_profit'), icon: Percent, color: 'amber' },
+            { id: 'dokumen', label: 'Data PPN', icon: FileText, color: 'rose' },
+            { id: 'tampilan', label: t('pengaturan_tampilan'), icon: Palette, color: 'violet' },
+            { id: 'database', label: t('tab_database'), icon: Database, color: 'emerald' }
+          ].map((tab) => {
+            const colorMap: Record<string, { active: string; iconBg: string; iconText: string }> = {
+              blue:    { active: 'bg-blue-50 border-blue-400', iconBg: 'bg-blue-100', iconText: 'text-blue-600' },
+              amber:   { active: 'bg-amber-50 border-amber-400', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
+              rose:    { active: 'bg-rose-50 border-rose-400', iconBg: 'bg-rose-100', iconText: 'text-rose-600' },
+              violet:  { active: 'bg-violet-50 border-violet-400', iconBg: 'bg-violet-100', iconText: 'text-violet-600' },
+              emerald: { active: 'bg-emerald-50 border-emerald-400', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
+            }
+            const c = colorMap[tab.color]
+            const isActive = activeTab === tab.id
+            return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${activeTab === tab.id ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50 border-transparent'}`}>
-                <tab.icon className="w-4 h-4 flex-shrink-0" />{tab.label}
+                title={tab.label}
+                className={`flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg border-2 transition-all duration-200 whitespace-nowrap ${isActive ? c.active : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
+                <div className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${isActive ? c.iconBg : 'bg-slate-100'}`}>
+                  <tab.icon className={`w-3.5 h-3.5 transition-colors ${isActive ? c.iconText : 'text-slate-400'}`} />
+                </div>
+                <span className={`hidden sm:inline text-[11px] sm:text-xs font-semibold transition-colors ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>{tab.label}</span>
               </button>
-            ))}
-          </div>
+            )
+          })}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
           <div className="p-4 sm:p-6">
             {/* ===== TAB: UMUM ===== */}
             {activeTab === 'umum' && (
               <div className="space-y-4 sm:space-y-6">
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('pengaturan_umum')}</h3>
-                  <p className="text-xs sm:text-sm text-slate-500 mb-4">{t('pengaturan_umum_desc')}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('pengaturan_umum')}</h3>
+                    <p className="text-xs sm:text-sm text-slate-500">{t('pengaturan_umum_desc')}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${showPreview ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'}`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    {t('pratinjau')}
+                    {showPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
                 </div>
+
+                {/* ===== PRATINJAU (PREVIEW) ===== */}
+                {showPreview && (
+                  <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm overflow-hidden">
+                    <div className="px-3 py-2 bg-slate-100/80 border-b border-slate-200 flex items-center gap-1.5">
+                      <Eye className="w-3 h-3 text-slate-400" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t('pratinjau_dokumen')}</span>
+                    </div>
+                    <div className="p-4 sm:p-5">
+                      {/* Document-style preview */}
+                      <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                        {/* Header - Logo + Company Info */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-white font-bold text-base"
+                            style={{ backgroundColor: companyLogo ? 'transparent' : '#1e293b' }}
+                          >
+                            {companyLogo ? (
+                              <img src={companyLogo} alt="Logo" className="h-full w-full object-contain rounded" />
+                            ) : (
+                              <span>{(companyName || 'C').charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[15px] font-bold text-slate-900 truncate">
+                              {companyName || t('placeholder_nama_perusahaan')}
+                            </p>
+                            {address && (
+                              <div className="flex items-start gap-1 mt-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[11px] text-slate-500 leading-tight">{address}</p>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                              {phone && (
+                                <div className="flex items-center gap-1">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span className="text-[11px] text-slate-500">{phone}</span>
+                                </div>
+                              )}
+                              {email && (
+                                <div className="flex items-center gap-1">
+                                  <Mail className="w-3 h-3 text-slate-400" />
+                                  <span className="text-[11px] text-slate-500">{email}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="border-b-2 border-slate-800 mb-3" />
+
+                        {/* Bank & NPWP Info */}
+                        {(bankName || bankName2 || npwp) && (
+                          <div className="space-y-2">
+                            {bankName && (
+                              <div className="flex items-start gap-2 p-2 bg-teal-50/70 rounded-lg border border-teal-100">
+                                <CreditCard className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-semibold text-teal-700">{bankName}</p>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0">
+                                    {bankAccount && (
+                                      <p className="text-[11px] text-slate-700 font-mono">{bankAccount}</p>
+                                    )}
+                                    {bankHolder && (
+                                      <p className="text-[11px] text-slate-500">a.n. {bankHolder}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {bankName2 && (
+                              <div className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                <CreditCard className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-semibold text-slate-600">{bankName2}</p>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0">
+                                    {bankAccount2 && (
+                                      <p className="text-[11px] text-slate-700 font-mono">{bankAccount2}</p>
+                                    )}
+                                    {bankHolder2 && (
+                                      <p className="text-[11px] text-slate-500">a.n. {bankHolder2}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {npwp && (
+                              <div className="flex items-center gap-2 p-2 bg-amber-50/70 rounded-lg border border-amber-100">
+                                <Hash className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                                <div>
+                                  <span className="text-[10px] font-semibold text-amber-700">NPWP</span>
+                                  <span className="text-[11px] text-slate-700 ml-1.5 font-mono">{npwp}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Empty state */}
+                        {!companyName && !address && !phone && !email && !bankName && !bankName2 && !npwp && (
+                          <div className="text-center py-6">
+                            <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs text-slate-400">{t('pratinjau_kosong')}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('logo_perusahaan')}</label>
@@ -922,6 +1135,62 @@ export default function PengaturanPage() {
                       <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('telepon_placeholder')} className={inputClass} />
                     </div>
                   </div>
+
+                  {/* Bank Info */}
+                  <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Landmark className="w-4 h-4 text-teal-600" />
+                      <h4 className="text-sm font-semibold text-slate-700">{t('bank_utama')}</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nama_bank')}</label>
+                        <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder={t('placeholder_nama_bank')} className={inputClass} />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nomor_rekening')}</label>
+                          <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder={t('placeholder_nomor_rekening')} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('atas_nama')}</label>
+                          <input type="text" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder={t('placeholder_atas_nama')} className={inputClass} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Landmark className="w-4 h-4 text-slate-400" />
+                      <h4 className="text-sm font-semibold text-slate-700">{t('bank_kedua')}</h4>
+                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{t('opsional')}</span>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nama_bank')}</label>
+                        <input type="text" value={bankName2} onChange={(e) => setBankName2(e.target.value)} placeholder={t('placeholder_nama_bank')} className={inputClass} />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nomor_rekening')}</label>
+                          <input type="text" value={bankAccount2} onChange={(e) => setBankAccount2(e.target.value)} placeholder={t('placeholder_nomor_rekening')} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('atas_nama')}</label>
+                          <input type="text" value={bankHolder2} onChange={(e) => setBankHolder2(e.target.value)} placeholder={t('placeholder_atas_nama')} className={inputClass} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-4">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('npwp')}</label>
+                      <input type="text" value={npwp} onChange={(e) => setNpwp(e.target.value)} placeholder={t('placeholder_npwp')} className={inputClass} />
+                    </div>
+                  </div>
+
                   {/* Save & Reset Company Info */}
                   <div className="pt-4 border-t border-slate-200 flex items-center gap-3">
                     <Button onClick={handleSaveCompany} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -1077,155 +1346,195 @@ export default function PengaturanPage() {
               </div>
             )}
 
-          </div>
-        </div>
-
-        {/* ===== PROFIT ===== */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-orange-50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                <Percent className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-800">{t('persentase_profit')}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{t('profit_desc')}</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 sm:p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">{t('profit_per_cetak')}</label>
-                <div className="relative">
-                  <input type="number" min="0" max="999" step="0.1" value={profitPercent} onChange={(e) => setProfitPercent(e.target.value)} placeholder={t('contoh_angka')} className={`${inputClass} pr-10 text-lg font-bold text-amber-700`} disabled={loading} />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500">%</span>
+            {/* ===== TAB: PROFIT ===== */}
+            {activeTab === 'profit' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('persentase_profit')}</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mb-4">{t('profit_desc')}</p>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1.5">{t('profit_desc_detail')}</p>
-              </div>
-              <div className="flex flex-col justify-center">
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-xs font-medium text-amber-600">{t('simulasi')}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-500">{t('sub_total')}</span>
-                      <span className="text-sm font-semibold text-slate-700">Rp 1.000.000</span>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">{t('profit_per_cetak')}</label>
+                      <div className="relative">
+                        <input type="number" min="0" max="999" step="0.1" value={profitPercent} onChange={(e) => setProfitPercent(e.target.value)} placeholder={t('contoh_angka')} className={`${inputClass} pr-10 text-lg font-bold text-amber-700`} disabled={loading} />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500">%</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1.5">{t('profit_desc_detail')}</p>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-amber-600">{t('persentase_profit')} ({profitPercent || 0}%)</span>
-                      <span className="text-sm font-bold text-amber-700">Rp {(1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
-                    </div>
-                    <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
-                      <span className="text-xs font-semibold text-emerald-700">{t('grand_total')}</span>
-                      <span className="text-base font-bold text-emerald-700">Rp {(1000000 + 1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                    <div className="flex flex-col justify-center">
+                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                          <span className="text-xs font-medium text-amber-600">{t('simulasi')}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-500">{t('sub_total')}</span>
+                            <span className="text-sm font-semibold text-slate-700">Rp 1.000.000</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-amber-600">{t('persentase_profit')} ({profitPercent || 0}%)</span>
+                            <span className="text-sm font-bold text-amber-700">Rp {(1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
+                            <span className="text-xs font-semibold text-emerald-700">{t('grand_total')}</span>
+                            <span className="text-base font-bold text-emerald-700">Rp {(1000000 + 1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                  <div className="pt-4 border-t border-slate-200 flex items-center gap-3">
+                    <Button onClick={handleSaveProfit} disabled={saving || loading} className="bg-amber-600 hover:bg-amber-700 text-white">
+                      {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan_profit')}</>}
+                    </Button>
+                    <Button onClick={async () => { setLoading(true); await fetchProfitSetting(); setLoading(false); toast.success(t('profit_refreshed')) }} variant="outline" size="sm" disabled={loading}>
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />Refresh
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="mt-4 flex items-center gap-3">
-              <Button onClick={handleSaveProfit} disabled={saving || loading} className="bg-amber-600 hover:bg-amber-700 text-white">
-                {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan_profit')}</>}
-              </Button>
-              <Button onClick={async () => { setLoading(true); await fetchProfitSetting(); setLoading(false); toast.success(t('profit_refreshed')) }} variant="outline" size="sm" disabled={loading}>
-                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
+            )}
 
-        {/* ===== TAMPILAN ===== */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-fuchsia-50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-                <Palette className="w-5 h-5 text-violet-600" />
+            {/* ===== TAB: DOKUMEN ===== */}
+            {activeTab === 'dokumen' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">Data Perusahaan</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mb-4">Pengaturan data perusahaan untuk dokumen invoice, surat jalan, dan purchase order.</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">PPN (%)</label>
+                      <div className="relative">
+                        <input type="number" min="0" max="100" step="0.1" value={ppnPercent} onChange={(e) => setPpnPercent(e.target.value)} placeholder="11" className={`${inputClass} pr-10 text-lg font-bold text-rose-700`} disabled={loading} />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-rose-500">%</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1.5">Persentase PPN default yang akan diterapkan ke Invoice dan Purchase Order.</p>
+                    </div>
+                    <div className="flex flex-col justify-center">
+                      <div className="bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                          <span className="text-xs font-medium text-rose-600">Simulasi</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-slate-500">Sub Total</span>
+                            <span className="text-sm font-semibold text-slate-700">Rp 1.000.000</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-rose-600">PPN ({ppnPercent || 0}%)</span>
+                            <span className="text-sm font-bold text-rose-700">Rp {(1000000 * (parseFloat(ppnPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="border-t border-rose-200 pt-2 flex justify-between items-center">
+                            <span className="text-xs font-semibold text-emerald-700">Grand Total</span>
+                            <span className="text-base font-bold text-emerald-700">Rp {(1000000 + 1000000 * (parseFloat(ppnPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-slate-200 flex items-center gap-3">
+                    <Button onClick={handleSavePpn} disabled={saving || loading} className="bg-rose-600 hover:bg-rose-700 text-white">
+                      {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4 mr-2" />Simpan PPN</>}
+                    </Button>
+                    <Button onClick={async () => { setLoading(true); await fetchPpnSetting(); setLoading(false); toast.success('PPN berhasil di-refresh') }} variant="outline" size="sm" disabled={loading}>
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />Refresh
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-800">{t('pengaturan_tampilan')}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{t('tema_warna_aplikasi')}</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 sm:p-5">
-            <div className="space-y-5">
-              {/* Language */}
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('bahasa')}</label>
-                <select value={appLanguage} onChange={(e) => setAppLanguage(e.target.value as Language)} className={inputClass}>
-                  <option value="id">{t('bahasa_indonesia')}</option>
-                  <option value="en">{t('english')}</option>
-                </select>
-              </div>
-              {/* Font Size */}
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('ukuran_font')}</label>
-                <select value={fontSize} onChange={(e) => { setFontSize(e.target.value); applyFontSizeLive(e.target.value) }} className={inputClass}>
-                  <option value="small">{t('kecil')}</option>
-                  <option value="medium">{t('sedang')}</option>
-                  <option value="large">{t('besar')}</option>
-                </select>
-              </div>
+            )}
 
-              {/* ===== COLOR PICKERS ===== */}
-              <div className="border-t border-slate-200 pt-5">
-                <div className="flex items-center gap-2 mb-5">
-                  <Pipette className="w-4 h-4 text-violet-600" />
-                  <h4 className="text-sm font-semibold text-slate-700">{t('tema_warna_aplikasi')}</h4>
+            {/* ===== TAB: TAMPILAN ===== */}
+            {activeTab === 'tampilan' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('pengaturan_tampilan')}</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mb-4">{t('tema_warna_aplikasi')}</p>
                 </div>
-                <div className="space-y-6">
-                  <ColorPicker
-                    label={t('color_sidebar')}
-                    icon={<div className="w-4 h-4 rounded bg-slate-400 border border-slate-300" />}
-                    value={sidebarColor}
-                    onChange={handleSidebarColorChange}
-                    presets={colorPresets.sidebar}
-                  />
-                  <ColorPicker
-                    label={t('color_background')}
-                    icon={<div className="w-4 h-4 rounded bg-slate-100 border border-slate-300" />}
-                    value={bgColor}
-                    onChange={handleBgColorChange}
-                    presets={colorPresets.background}
-                  />
-                  <ColorPicker
-                    label={t('color_popup')}
-                    icon={<div className="w-4 h-4 rounded bg-white border border-slate-300" />}
-                    value={popupColor}
-                    onChange={handlePopupColorChange}
-                    presets={colorPresets.popup}
-                  />
-                  <ColorPicker
-                    label={t('color_banner')}
-                    icon={<div className="w-4 h-4 rounded bg-blue-50 border border-slate-300" />}
-                    value={bannerColor}
-                    onChange={handleBannerColorChange}
-                    presets={colorPresets.banner}
-                  />
-                  <ColorPicker
-                    label={t('color_login')}
-                    icon={<div className="w-4 h-4 rounded bg-sky-100 border border-slate-300" />}
-                    value={loginColor}
-                    onChange={handleLoginColorChange}
-                    presets={colorPresets.login}
-                  />
+                <div className="space-y-5">
+                  {/* Language */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('bahasa')}</label>
+                    <select value={appLanguage} onChange={(e) => setAppLanguage(e.target.value as Language)} className={inputClass}>
+                      <option value="id">{t('bahasa_indonesia')}</option>
+                      <option value="en">{t('english')}</option>
+                    </select>
+                  </div>
+                  {/* Font Size */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('ukuran_font')}</label>
+                    <select value={fontSize} onChange={(e) => { setFontSize(e.target.value); applyFontSizeLive(e.target.value) }} className={inputClass}>
+                      <option value="small">{t('kecil')}</option>
+                      <option value="medium">{t('sedang')}</option>
+                      <option value="large">{t('besar')}</option>
+                    </select>
+                  </div>
+
+                  {/* ===== COLOR PICKERS ===== */}
+                  <div className="border-t border-slate-200 pt-5">
+                    <div className="flex items-center gap-2 mb-5">
+                      <Pipette className="w-4 h-4 text-violet-600" />
+                      <h4 className="text-sm font-semibold text-slate-700">{t('tema_warna_aplikasi')}</h4>
+                    </div>
+                    <div className="space-y-6">
+                      <ColorPicker
+                        label={t('color_sidebar')}
+                        icon={<div className="w-4 h-4 rounded bg-slate-400 border border-slate-300" />}
+                        value={sidebarColor}
+                        onChange={handleSidebarColorChange}
+                        presets={colorPresets.sidebar}
+                      />
+                      <ColorPicker
+                        label={t('color_background')}
+                        icon={<div className="w-4 h-4 rounded bg-slate-100 border border-slate-300" />}
+                        value={bgColor}
+                        onChange={handleBgColorChange}
+                        presets={colorPresets.background}
+                      />
+                      <ColorPicker
+                        label={t('color_popup')}
+                        icon={<div className="w-4 h-4 rounded bg-white border border-slate-300" />}
+                        value={popupColor}
+                        onChange={handlePopupColorChange}
+                        presets={colorPresets.popup}
+                      />
+                      <ColorPicker
+                        label={t('color_banner')}
+                        icon={<div className="w-4 h-4 rounded bg-blue-50 border border-slate-300" />}
+                        value={bannerColor}
+                        onChange={handleBannerColorChange}
+                        presets={colorPresets.banner}
+                      />
+                      <ColorPicker
+                        label={t('color_login')}
+                        icon={<div className="w-4 h-4 rounded bg-sky-100 border border-slate-300" />}
+                        value={loginColor}
+                        onChange={handleLoginColorChange}
+                        presets={colorPresets.login}
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-slate-100">
+                      <Button onClick={handleResetColors} variant="outline" size="sm">
+                        <Undo2 className="w-3.5 h-3.5 mr-1.5" />{t('color_default')}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 mt-5 pt-4 border-t border-slate-100">
-                  <Button onClick={handleResetColors} variant="outline" size="sm">
-                    <Undo2 className="w-3.5 h-3.5 mr-1.5" />{t('color_default')}
+                {/* Save Perubahan Button */}
+                <div className="pt-4 border-t border-slate-200">
+                  <Button onClick={handleSaveTampilan} disabled={saving} className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white">
+                    {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan_perubahan')}</>}
                   </Button>
                 </div>
               </div>
-            </div>
-            {/* Save Perubahan Button */}
-            <div className="mt-5 pt-4 border-t border-slate-200">
-              <Button onClick={handleSaveTampilan} disabled={saving} className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white">
-                {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan_perubahan')}</>}
-              </Button>
-            </div>
+            )}
+
           </div>
         </div>
 

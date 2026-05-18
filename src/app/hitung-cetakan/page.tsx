@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, CheckCircle } from 'lucide-react'
 import { useState, useEffect, Suspense, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -129,7 +129,7 @@ function userKey(base: string): string {
 }
 const FORM_STORAGE_KEY = () => userKey('hitung-cetakan-form-data')
 const FORM_STORAGE_VERSION_KEY = () => userKey('hitung-cetakan-form-data-version')
-const FORM_STORAGE_VERSION = 'v5'
+const FORM_STORAGE_VERSION = 'v7'
 
 function HitungCetakanPage() {
   const { t } = useLanguage()
@@ -182,6 +182,7 @@ function HitungCetakanPage() {
   const [calculatedGlueBoronganSheet, setCalculatedGlueBoronganSheet] = useState<number>(0)
   const [prefilled, setPrefilled] = useState(false)
   const [profitPercent, setProfitPercent] = useState<number>(0)
+  const [profitInput, setProfitInput] = useState<string>('')
   const [biayaLain1Label, setBiayaLain1Label] = useState('Biaya Bikin Piso')
   const [biayaLain2Label, setBiayaLain2Label] = useState('Biaya')
 
@@ -206,6 +207,10 @@ function HitungCetakanPage() {
   const previewRef = useRef<HTMLDivElement>(null)
   const waWindowRef = useRef<Window | null>(null)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+
+  // Check dialog state
+  const [checkOpen, setCheckOpen] = useState(false)
+  const [checkResult, setCheckResult] = useState<{ section: string; filled: boolean; detail: string }[]>([])
 
   // === localStorage persistence ===
   const loadFromStorage = () => {
@@ -368,7 +373,7 @@ function HitungCetakanPage() {
     const profitPercentParam = searchParams.get('profitPercent')
 
     if (totalPaperPriceParam) setTotalPaperPrice(parseFloat(totalPaperPriceParam) || 0)
-    if (profitPercentParam) setProfitPercent(parseFloat(profitPercentParam) || 0)
+    if (profitPercentParam) { const pp = parseFloat(profitPercentParam) || 0; setProfitPercent(pp); setProfitInput(pp === 0 ? '' : pp.toString()) }
 
     setFormData(prev => ({
       ...prev,
@@ -504,8 +509,11 @@ function HitungCetakanPage() {
     fetcher('/api/settings?key=profit', { headers: getAuthHeaders() })
       .then(res => res.json())
       .then(data => {
-        if (data.value && !searchParams.get('restoredFromRiwayat')) {
-          setProfitPercent(parseFloat(data.value) || 0)
+        if (data.value !== null && data.value !== undefined && !searchParams.get('restoredFromRiwayat')) {
+          const parsed = parseFloat(data.value)
+          const val = isNaN(parsed) ? 0 : parsed
+          setProfitPercent(val)
+          setProfitInput(val === 0 ? '' : val.toString())
         }
       })
       .catch(() => {})
@@ -514,6 +522,7 @@ function HitungCetakanPage() {
   // Save profit percent to backend so Settings page stays in sync
   const handleProfitChange = (newVal: number) => {
     setProfitPercent(newVal)
+    setProfitInput(newVal === 0 ? '' : newVal.toString())
     // Debounced save to backend
     if (newVal >= 0) {
       fetcher('/api/settings', {
@@ -1327,7 +1336,7 @@ function HitungCetakanPage() {
     }
     setFormData(restoredForm)
     if (r.totalPaperPrice) setTotalPaperPrice(r.totalPaperPrice)
-    if (r.profitPercent) setProfitPercent(r.profitPercent)
+    if (r.profitPercent) { setProfitPercent(r.profitPercent); setProfitInput(r.profitPercent === 0 ? '' : r.profitPercent.toString()) }
     if (r.otherCostLabel) setBiayaLain1Label(r.otherCostLabel)
     if (r.otherCostLabel2) setBiayaLain2Label(r.otherCostLabel2)
     // Restore calculated glue values
@@ -1448,6 +1457,114 @@ function HitungCetakanPage() {
     (formData.cutHeight || formData.paperWidth)
   )
 
+  // Get list of missing fields for toast notification
+  const getMissingFields = (): string[] => {
+    const missing: string[] = []
+    if (!formData.printName.trim()) missing.push('Nama Barang')
+    if (!formData.paperId) missing.push('Kertas')
+    if (!formData.machineId) missing.push('Mesin / Ongkos Cetak')
+    if (!formData.quantity || parseInt(formData.quantity) <= 0) missing.push('Jumlah')
+    if (!formData.warna || parseInt(formData.warna) <= 0) missing.push('Warna Cetak')
+    if (!formData.cutWidth && !formData.paperLength) missing.push('Ukuran Potong (Lebar)')
+    if (!formData.cutHeight && !formData.paperWidth) missing.push('Ukuran Potong (Tinggi)')
+    return missing
+  }
+
+  // Check / hitung harga - show which sections are filled or empty
+  const handleCheck = () => {
+    const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`
+    const checks: { section: string; filled: boolean; detail: string }[] = []
+
+    // 0. Informasi Cetakan
+    const infoParts: string[] = []
+    if (formData.printName.trim()) infoParts.push(`Barang: ${formData.printName}`)
+    if (formData.customerName.trim()) infoParts.push(`Customer: ${formData.customerName}`)
+    if (formData.quantity && parseInt(formData.quantity) > 0) infoParts.push(`Jumlah: ${parseInt(formData.quantity).toLocaleString('id-ID')} lbr`)
+    const ukuran = (formData.cutWidth && formData.cutHeight) ? `${formData.cutWidth}×${formData.cutHeight} cm` : (formData.paperLength && formData.paperWidth) ? `${formData.paperLength}×${formData.paperWidth} cm` : ''
+    if (ukuran) infoParts.push(`Ukuran: ${ukuran}`)
+    const warnaText = formData.warna ? `${formData.warna} warna${formData.warnaKhusus && parseInt(formData.warnaKhusus) > 0 ? ` + ${formData.warnaKhusus} khusus` : ''}` : ''
+    if (warnaText) infoParts.push(`Warna: ${warnaText}`)
+    if (selectedMachine) infoParts.push(`Mesin: ${selectedMachine.machineName}`)
+    if (selectedMachine2) infoParts.push(`Mesin 2: ${selectedMachine2.machineName}`)
+    checks.push({
+      section: 'Informasi Cetakan',
+      filled: infoParts.length > 0,
+      detail: infoParts.length > 0 ? infoParts.join('  •  ') : 'Belum ada data cetakan',
+    })
+
+    // 0b. Harga Bahan Kertas
+    checks.push({
+      section: 'Harga Bahan Kertas',
+      filled: totalPaperPrice > 0,
+      detail: totalPaperPrice > 0
+        ? `${selectedPaper?.name || '-'} — ${rp(totalPaperPrice)}${selectedPaper ? ` (${rp(parseFloat(formData.pricePerSheet) || Math.round(selectedPaper.pricePerRim / 500))}/lbr)` : ''}`
+        : selectedPaper ? `Kertas dipilih (${selectedPaper.name}), harga belum masuk` : 'Kertas belum dipilih',
+    })
+
+    // 1. Ongkos Cetak
+    checks.push({
+      section: 'Ongkos Cetak',
+      filled: calculatedPrintingCost > 0,
+      detail: calculatedPrintingCost > 0
+        ? `${selectedMachine?.machineName || '-'} — ${rp(calculatedPrintingCost)}`
+        : formData.machineId ? 'Mesin dipilih, tapi ongkos masih Rp 0' : 'Mesin belum dipilih',
+    })
+
+    // 2. Ongkos Cetak 2
+    checks.push({
+      section: 'Ongkos Cetak 2',
+      filled: calculatedPrintingCost2 > 0,
+      detail: calculatedPrintingCost2 > 0
+        ? `${selectedMachine2?.machineName || '-'} — ${rp(calculatedPrintingCost2)}`
+        : 'Belum diisi (opsional)',
+    })
+
+    // 3. Finishing
+    checks.push({
+      section: 'Finishing',
+      filled: selectedFinishingItems.length > 0,
+      detail: selectedFinishingItems.length > 0
+        ? selectedFinishingItems.map(f => `${f.name}: ${rp(getFinishingCost(f).cost)}`).join(', ')
+        : 'Belum ditambahkan (opsional)',
+    })
+
+    // 4. Ongkos Lem
+    checks.push({
+      section: 'Ongkos Lem',
+      filled: calculatedGlueCost > 0,
+      detail: calculatedGlueCost > 0
+        ? rp(calculatedGlueCost)
+        : 'Belum diisi (opsional)',
+    })
+
+    // 5. Ongkos Lem Borongan
+    checks.push({
+      section: 'Lem Borongan',
+      filled: calculatedGlueBoronganSheet > 0,
+      detail: calculatedGlueBoronganSheet > 0
+        ? rp(calculatedGlueBoronganSheet)
+        : 'Belum diisi (opsional)',
+    })
+
+    // 6. Biaya Tambahan
+    const tambahanFilled = summaryPacking > 0 || summaryShipping > 0 || summaryBiayaLain1 > 0 || summaryBiayaLain2 > 0
+    const tambahanDetails: string[] = []
+    if (summaryPacking > 0) tambahanDetails.push(`Packing: ${rp(summaryPacking)}`)
+    if (summaryShipping > 0) tambahanDetails.push(`Kirim: ${rp(summaryShipping)}`)
+    if (summaryBiayaLain1 > 0) tambahanDetails.push(`${biayaLain1Label}: ${rp(summaryBiayaLain1)}`)
+    if (summaryBiayaLain2 > 0) tambahanDetails.push(`${biayaLain2Label}: ${rp(summaryBiayaLain2)}`)
+    checks.push({
+      section: 'Biaya Tambahan',
+      filled: tambahanFilled,
+      detail: tambahanFilled
+        ? tambahanDetails.join(', ')
+        : 'Belum diisi (opsional)',
+    })
+
+    setCheckResult(checks)
+    setCheckOpen(true)
+  }
+
   // Grand total is 0 = no calculation yet
   const hasGrandTotal = summaryGrandTotal > 0
 
@@ -1517,10 +1634,10 @@ function HitungCetakanPage() {
   return (
     <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
       <div className="lg:-mt-5">
-        <div className="lg:flex lg:gap-[19px]">
+        <div className="lg:grid lg:grid-cols-4 lg:gap-4">
 
           {/* ========== COLUMN 1: INFO & HARGA ========== */}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
               {/* Section 1: Informasi Cetakan */}
@@ -1723,7 +1840,7 @@ function HitungCetakanPage() {
                       const s = document.getElementById('finishing-select') as HTMLSelectElement
                       if (s && s.value) { handleAddFinishing(s.value); s.value = '' }
                       else toast.error('Pilih finishing terlebih dahulu')
-                    }} className="h-[34px] px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs" size="sm">
+                    }} disabled={!isFormValid} className="h-[34px] px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs disabled:bg-slate-300 disabled:text-slate-500" size="sm">
                       <Plus className="w-3.5 h-3.5 mr-1" /> Tambah
                     </Button>
                   </div>
@@ -1848,10 +1965,25 @@ function HitungCetakanPage() {
                       type="number"
                       min="0"
                       max="100"
-                      value={profitPercent}
+                      placeholder="0"
+                      value={profitInput}
                       onChange={(e) => {
-                        const val = parseFloat(e.target.value)
-                        if (!isNaN(val) && val >= 0 && val <= 100) handleProfitChange(val)
+                        const raw = e.target.value
+                        if (raw === '' || raw === '-') {
+                          setProfitPercent(0)
+                          setProfitInput('')
+                          return
+                        }
+                        const val = parseFloat(raw)
+                        if (!isNaN(val) && val >= 0 && val <= 100) {
+                          setProfitPercent(val)
+                          setProfitInput(raw)
+                        }
+                      }}
+                      onBlur={() => {
+                        const finalVal = profitPercent
+                        setProfitInput(finalVal === 0 ? '' : finalVal.toString())
+                        handleProfitChange(finalVal)
                       }}
                       className={`w-14 text-xs font-bold text-center border rounded px-1 py-0.5 ${summaryProfitAmount > 0 ? 'bg-amber-100 border-amber-300 text-amber-800 focus:ring-1 focus:ring-amber-400' : 'bg-slate-50 border-slate-300 text-slate-500 focus:ring-1 focus:ring-slate-400'} focus:outline-none`}
                     />
@@ -1874,19 +2006,20 @@ function HitungCetakanPage() {
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-1 space-y-0.5">
-                  <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kertas</span><span className="text-slate-400 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
-                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
-                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak 2</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
-                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-[10px]"><span className="text-slate-400">{fin.name}</span><span className="text-slate-400 font-medium">{formatRp(cost)}</span></div> : null })}
-                  {summaryPacking > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Packing</span><span className="text-slate-400 font-medium">{formatRp(summaryPacking)}</span></div>}
-                  {summaryShipping > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kirim</span><span className="text-slate-400 font-medium">{formatRp(summaryShipping)}</span></div>}
-                  {calculatedGlueCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Lem</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueCost)}</span></div>}
-                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Lem Borongan</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
-                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain1Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain1)}</span></div>}
-                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain2Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
+                  <div className="flex justify-between text-xs"><span className="text-black">Kertas</span><span className="text-black font-semibold">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
+                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-xs"><span className="text-black">Ongkos Cetak</span><span className="text-black font-semibold">{formatRp(calculatedPrintingCost)}</span></div>}
+                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-xs"><span className="text-black">Ongkos Cetak 2</span><span className="text-black font-semibold">{formatRp(calculatedPrintingCost2)}</span></div>}
+                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-xs"><span className="text-black">{fin.name}</span><span className="text-black font-semibold">{formatRp(cost)}</span></div> : null })}
+                  {summaryPacking > 0 && <div className="flex justify-between text-xs"><span className="text-black">Packing</span><span className="text-black font-semibold">{formatRp(summaryPacking)}</span></div>}
+                  {summaryShipping > 0 && <div className="flex justify-between text-xs"><span className="text-black">Kirim</span><span className="text-black font-semibold">{formatRp(summaryShipping)}</span></div>}
+                  {calculatedGlueCost > 0 && <div className="flex justify-between text-xs"><span className="text-black">Ongkos Lem</span><span className="text-black font-semibold">{formatRp(calculatedGlueCost)}</span></div>}
+                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-xs"><span className="text-black">Lem Borongan</span><span className="text-black font-semibold">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
+                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-xs"><span className="text-black">{biayaLain1Label}</span><span className="text-black font-semibold">{formatRp(summaryBiayaLain1)}</span></div>}
+                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-xs"><span className="text-black">{biayaLain2Label}</span><span className="text-black font-semibold">{formatRp(summaryBiayaLain2)}</span></div>}
                 </div>
               </div>
               <div className="lg:hidden px-3 pb-3 flex flex-col sm:flex-row gap-2">
+                <Button onClick={handleCheck} disabled={!isFormValid} className="flex-1 h-10 text-sm bg-amber-500 hover:bg-amber-600 text-white disabled:bg-slate-300 disabled:text-slate-500"><CheckCircle className="w-4 h-4 mr-1.5" /> Check</Button>
                 <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-sm">{restoredRiwayatId ? <><RefreshCw className={`w-4 h-4 mr-1.5 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update Riwayat'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat'}</Button>
                 <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-10 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-4 h-4 mr-1.5" /> Preview</Button>
                 <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-10 text-sm bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp</Button>
@@ -1897,7 +2030,7 @@ function HitungCetakanPage() {
           </div>{/* end COLUMN 1 */}
 
           {/* ========== COLUMN 2: ONGKOS CETAK (Desktop Only) ========== */}
-          <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-3">
+          <div className="hidden lg:flex flex-col gap-3">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               {/* Ongkos Cetak */}
               <SectionHeader icon={<Calculator className="w-3.5 h-3.5 text-purple-600" />} label={t('ongkos_cetak_label')} />
@@ -1978,7 +2111,7 @@ function HitungCetakanPage() {
           </div>{/* end COLUMN 2 */}
 
           {/* ========== COLUMN 3: FINISHING & ONGKOS LEM (Desktop Only) ========== */}
-          <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-3">
+          <div className="hidden lg:flex flex-col gap-3">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               {/* Desktop Finishing */}
               <SectionHeader icon={<Layers className="w-3.5 h-3.5 text-rose-600" />} label={t('finishing_label')} badge={selectedFinishingItems.length} />
@@ -1994,7 +2127,7 @@ function HitungCetakanPage() {
                     const s = document.getElementById('finishing-select-desktop') as HTMLSelectElement
                     if (s && s.value) { handleAddFinishing(s.value); s.value = '' }
                     else toast.error('Pilih finishing terlebih dahulu')
-                  }} className="h-[30px] px-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px]" size="sm">
+                  }} disabled={!isFormValid} className="h-[30px] px-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] disabled:bg-slate-300 disabled:text-slate-500" size="sm">
                     <Plus className="w-3 h-3 mr-0.5" /> Tambah
                   </Button>
                 </div>
@@ -2062,7 +2195,7 @@ function HitungCetakanPage() {
           </div>{/* end COLUMN 3 */}
 
           {/* ========== COLUMN 4: BIAYA TAMBAHAN, SUMMARY & DAFTAR (Desktop Only) ========== */}
-          <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-1">
+          <div className="hidden lg:flex flex-col gap-1">
             {/* Biaya Tambahan Card */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               <SectionHeader icon={<Banknote className="w-3.5 h-3.5 text-amber-600" />} label="Biaya Tambahan" />
@@ -2117,10 +2250,25 @@ function HitungCetakanPage() {
                       type="number"
                       min="0"
                       max="100"
-                      value={profitPercent}
+                      placeholder="0"
+                      value={profitInput}
                       onChange={(e) => {
-                        const val = parseFloat(e.target.value)
-                        if (!isNaN(val) && val >= 0 && val <= 100) handleProfitChange(val)
+                        const raw = e.target.value
+                        if (raw === '' || raw === '-') {
+                          setProfitPercent(0)
+                          setProfitInput('')
+                          return
+                        }
+                        const val = parseFloat(raw)
+                        if (!isNaN(val) && val >= 0 && val <= 100) {
+                          setProfitPercent(val)
+                          setProfitInput(raw)
+                        }
+                      }}
+                      onBlur={() => {
+                        const finalVal = profitPercent
+                        setProfitInput(finalVal === 0 ? '' : finalVal.toString())
+                        handleProfitChange(finalVal)
                       }}
                       className={`w-12 text-[10px] font-bold text-center border rounded px-0.5 py-0 ${summaryProfitAmount > 0 ? 'bg-amber-100 border-amber-300 text-amber-800 focus:ring-1 focus:ring-amber-400' : 'bg-slate-50 border-slate-300 text-slate-500 focus:ring-1 focus:ring-slate-400'} focus:outline-none`}
                     />
@@ -2143,25 +2291,26 @@ function HitungCetakanPage() {
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-0.5 space-y-0.5">
-                  <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kertas</span><span className="text-slate-400 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
-                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
-                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak 2</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
-                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-[10px]"><span className="text-slate-400">{fin.name}</span><span className="text-slate-400 font-medium">{formatRp(cost)}</span></div> : null })}
-                  {summaryPacking > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Packing</span><span className="text-slate-400 font-medium">{formatRp(summaryPacking)}</span></div>}
-                  {summaryShipping > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kirim</span><span className="text-slate-400 font-medium">{formatRp(summaryShipping)}</span></div>}
-                  {calculatedGlueCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Lem</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueCost)}</span></div>}
-                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Lem Borongan</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
-                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain1Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain1)}</span></div>}
-                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain2Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
+                  <div className="flex justify-between text-xs"><span className="text-black">Kertas</span><span className="text-black font-semibold">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
+                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-xs"><span className="text-black">Ongkos Cetak</span><span className="text-black font-semibold">{formatRp(calculatedPrintingCost)}</span></div>}
+                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-xs"><span className="text-black">Ongkos Cetak 2</span><span className="text-black font-semibold">{formatRp(calculatedPrintingCost2)}</span></div>}
+                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-xs"><span className="text-black">{fin.name}</span><span className="text-black font-semibold">{formatRp(cost)}</span></div> : null })}
+                  {summaryPacking > 0 && <div className="flex justify-between text-xs"><span className="text-black">Packing</span><span className="text-black font-semibold">{formatRp(summaryPacking)}</span></div>}
+                  {summaryShipping > 0 && <div className="flex justify-between text-xs"><span className="text-black">Kirim</span><span className="text-black font-semibold">{formatRp(summaryShipping)}</span></div>}
+                  {calculatedGlueCost > 0 && <div className="flex justify-between text-xs"><span className="text-black">Ongkos Lem</span><span className="text-black font-semibold">{formatRp(calculatedGlueCost)}</span></div>}
+                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-xs"><span className="text-black">Lem Borongan</span><span className="text-black font-semibold">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
+                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-xs"><span className="text-black">{biayaLain1Label}</span><span className="text-black font-semibold">{formatRp(summaryBiayaLain1)}</span></div>}
+                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-xs"><span className="text-black">{biayaLain2Label}</span><span className="text-black font-semibold">{formatRp(summaryBiayaLain2)}</span></div>}
                 </div>
               </div>
-              <div className="px-2.5 pb-2 flex flex-col gap-1">
-                <div className="flex gap-1">
-                  <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-7 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[10px]">{restoredRiwayatId ? <><RefreshCw className={`w-3 h-3 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
-                  <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3 h-3 mr-1" /> Preview</Button>
-                  <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3 h-3 mr-1" /> WhatsApp</Button>
+              <div className="px-2.5 pb-2 flex flex-col gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button onClick={handleCheck} disabled={!isFormValid} className="h-8 text-[11px] bg-amber-500 hover:bg-amber-600 text-white disabled:bg-slate-300 disabled:text-slate-500"><CheckCircle className="w-3.5 h-3.5 mr-1" /> Check</Button>
+                  <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="h-8 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[11px]">{restoredRiwayatId ? <><RefreshCw className={`w-3.5 h-3.5 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
+                  <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="h-8 text-[11px] bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3.5 h-3.5 mr-1" /> Preview</Button>
+                  <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="h-8 text-[11px] bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp</Button>
                 </div>
-                <Button onClick={resetForm} variant="outline" className="w-full h-7 text-[10px]"><RotateCcw className="w-3 h-3 mr-1" /> Reset Form</Button>
+                <Button onClick={resetForm} variant="outline" className="w-full h-8 text-[11px]"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Form</Button>
               </div>
             </div>
 
@@ -2261,6 +2410,77 @@ function HitungCetakanPage() {
           </div>
         )}
       </div>
+
+      {/* ===== CHECK DIALOG ===== */}
+      <Dialog open={checkOpen} onOpenChange={setCheckOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-amber-500" />
+              Cek Kelengkapan Harga
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-[65vh] overflow-y-auto">
+            {checkResult.map((item, idx) => {
+              const isInfoSection = idx < 2
+              return (
+                <div
+                  key={item.section}
+                  className={`flex items-start gap-3 p-3 rounded-lg border ${
+                    isInfoSection
+                      ? item.filled
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-slate-50 border-slate-200'
+                      : item.filled
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                    isInfoSection
+                      ? item.filled ? 'bg-blue-500' : 'bg-slate-400'
+                      : item.filled ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}>
+                    {isInfoSection ? (
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" /></svg>
+                    ) : item.filled ? (
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01" /></svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-bold ${
+                      isInfoSection
+                        ? item.filled ? 'text-blue-800' : 'text-slate-500'
+                        : item.filled ? 'text-emerald-800' : 'text-red-800'
+                    }`}>
+                      {item.section}
+                    </div>
+                    <div className={`text-xs mt-0.5 ${
+                      isInfoSection
+                        ? item.filled ? 'text-blue-600' : 'text-slate-400'
+                        : item.filled ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {isInfoSection
+                        ? item.detail
+                        : item.filled
+                          ? item.detail
+                          : `${item.section} belum diisi, silahkan isi. Apabila tidak diisi lewatkan saja.`
+                      }
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button onClick={() => setCheckOpen(false)} className="bg-amber-500 hover:bg-amber-600 text-white">
+              Mengerti
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ===== PREVIEW DIALOG ===== */}
       <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) setPreviewCalc(null) }}>

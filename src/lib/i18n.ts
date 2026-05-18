@@ -89,13 +89,30 @@ export const translations = {
     subtitle_pengaturan: 'Konfigurasi sistem dan aplikasi',
 
     // Settings tabs
-    tab_umum: 'Umum',
+    tab_umum: 'Data Perusahaan',
+    tab_dokumen: 'Dokumen',
     tab_database: 'Database',
     tab_tampilan: 'Tampilan',
 
-    // Settings - Umum
-    pengaturan_umum: 'Pengaturan Dokumen',
+    // Settings - Dokumen
+    dokumen_desc: 'Informasi bank & NPWP untuk dokumen Invoice, Surat Jalan, Purchase Order',
+    bank_utama: 'Rekening Bank Utama',
+    bank_kedua: 'Rekening Bank Kedua',
+    opsional: 'Opsional',
+    nama_bank: 'Nama Bank',
+    nomor_rekening: 'Nomor Rekening',
+    atas_nama: 'Atas Nama',
+    npwp: 'NPWP',
+    placeholder_nama_bank: 'Contoh: Bank BCA',
+    placeholder_nomor_rekening: 'Contoh: 1234567890',
+    placeholder_atas_nama: 'Contoh: PT Karya Mandiri',
+    placeholder_npwp: 'Contoh: 01.234.567.8-901.000',
+    pengaturan_umum: 'Data Perusahaan',
     pengaturan_umum_desc: 'Data perusahaan ini hanya digunakan untuk Invoice, Surat Jalan, Purchase Order, dan SPK',
+    pratinjau: 'Pratinjau',
+    pratinjau_dokumen: 'Pratinjau Dokumen',
+    pratinjau_kosong: 'Belum ada data perusahaan. Isi form di bawah untuk melihat pratinjau.',
+    placeholder_nama_perusahaan: 'Nama Perusahaan',
     logo_perusahaan: 'Logo Perusahaan',
     upload_logo: 'Upload Logo',
     mengupload: 'Mengupload...',
@@ -412,13 +429,32 @@ export const translations = {
     subtitle_pengaturan: 'System and application configuration',
 
     // Settings tabs
-    tab_umum: 'General',
+    tab_umum: 'Company Data',
+    tab_dokumen: 'Documents',
     tab_database: 'Database',
     tab_tampilan: 'Display',
 
+    // Settings - Dokumen
+    dokumen_desc: 'Bank & NPWP info for Invoice, Delivery Order, Purchase Order documents',
+    bank_utama: 'Primary Bank Account',
+    bank_kedua: 'Secondary Bank Account',
+    opsional: 'Optional',
+    nama_bank: 'Bank Name',
+    nomor_rekening: 'Account Number',
+    atas_nama: 'Account Holder',
+    npwp: 'NPWP (Tax ID)',
+    placeholder_nama_bank: 'e.g. Bank BCA',
+    placeholder_nomor_rekening: 'e.g. 1234567890',
+    placeholder_atas_nama: 'e.g. PT Karya Mandiri',
+    placeholder_npwp: 'e.g. 01.234.567.8-901.000',
+
     // Settings - Umum
-    pengaturan_umum: 'Document Settings',
+    pengaturan_umum: 'Company Data',
     pengaturan_umum_desc: 'This company data is only used for Invoice, Delivery Order, Purchase Order, and SPK',
+    pratinjau: 'Preview',
+    pratinjau_dokumen: 'Document Preview',
+    pratinjau_kosong: 'No company data yet. Fill in the form below to see the preview.',
+    placeholder_nama_perusahaan: 'Company Name',
     logo_perusahaan: 'Company Logo',
     upload_logo: 'Upload Logo',
     mengupload: 'Uploading...',
