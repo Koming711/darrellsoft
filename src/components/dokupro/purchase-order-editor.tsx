@@ -92,10 +92,10 @@ export function PurchaseOrderEditor() {
     // Build item description from potong kertas data
     const descLines: string[] = [];
 
-    // Line 1: Nama Cetakan
+    // Line 1: Nama Barang
     if (item.namaCetakan) descLines.push(item.namaCetakan);
 
-    // Line 2: Bahan kertas
+    // Line 2: Nama Bahan
     const bahanParts: string[] = [];
     if (item.paperName) bahanParts.push(item.paperName);
     if (item.grammage && item.grammage !== '0') bahanParts.push(item.grammage + 'g');
@@ -103,26 +103,26 @@ export function PurchaseOrderEditor() {
 
     // Line 3: Ukuran potong
     if (item.cutWidth && item.cutHeight && item.cutWidth !== '0' && item.cutHeight !== '0') {
-      descLines.push(`Potong: ${item.cutWidth} x ${item.cutHeight} cm`);
+      descLines.push(`Uk. potong ${item.cutWidth} x ${item.cutHeight}`);
     }
 
-    // Line 4: Jumlah & setelan
-    const qtyParts: string[] = [];
-    if (item.jumlahPesanan) qtyParts.push(`Pesanan: ${item.jumlahPesanan}`);
-    if (item.berapaMata) qtyParts.push(`${item.berapaMata} mata`);
-    if (item.setelanKertas && item.setelanKertas !== '0') qtyParts.push(`Setelan: ${item.setelanKertas}`);
-    if (qtyParts.length > 0) descLines.push(qtyParts.join(' | '));
+    // Line 4: Potongan jadi (potongan/lembar)
+    if (item.setelanKertas && item.setelanKertas !== '0') {
+      descLines.push(`Potongan jadi (${item.setelanKertas}/lembar)`);
+    }
 
     const deskripsi = descLines.join('\n');
-    const jumlahPesanan = parseInt(item.jumlahPesanan) || parseInt(item.quantity) || 1;
-    const hargaPerPcs = jumlahPesanan > 0 ? Math.round(item.totalPrice / jumlahPesanan) : item.pricePerSheet;
+    // Qty = kertas yang dibeli (sheetsNeeded)
+    const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 1;
+    // Harga = harga per lembar
+    const hargaPerLembar = item.pricePerSheet || (qty > 0 ? Math.round(item.totalPrice / qty) : 0);
 
     const items: typeof po.items = [{
       id: 'riwayat-pk-0',
       deskripsi: deskripsi || ref,
-      qty: jumlahPesanan,
+      qty,
       satuan: 'lembar',
-      harga: hargaPerPcs,
+      harga: hargaPerLembar,
     }];
 
     setPurchaseOrder({
