@@ -1,7 +1,12 @@
 'use client'
 
+import { DashboardLayout } from '@/components/dashboard-layout'
 import { InvoiceEditor } from '@/components/dokupro/invoice-editor'
 
 export default function InvoicePage() {
-  return <InvoiceEditor />
+  return (
+    <DashboardLayout title="Invoice" subtitle="Buat invoice dengan pratinjau langsung dan cetak A5">
+      <InvoiceEditor />
+    </DashboardLayout>
+  )
 }
