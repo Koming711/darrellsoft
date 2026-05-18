@@ -123,7 +123,7 @@ export function PurchaseOrderEditor() {
     const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
     if (potonganPerLembar > 0 && qty > 0) {
       const jumlahJadi = potonganPerLembar * qty;
-      descLines.push(`Jumlah jadi ${jumlahJadi}`);
+      descLines.push(`Jumlah jadi ${jumlahJadi} lembar`);
     }
 
     const deskripsi = descLines.join('\n');
