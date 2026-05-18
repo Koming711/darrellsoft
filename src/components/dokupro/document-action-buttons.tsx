@@ -16,7 +16,7 @@ import {
 import { Save, RotateCcw, Printer, AlertTriangle, FileDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DocumentType } from '@/lib/types';
-import { sharePdfViaWhatsApp } from '@/lib/generate-pdf';
+import { generatePdfFromElement, sharePdfViaWhatsApp } from '@/lib/generate-pdf';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -97,22 +97,26 @@ export function DocumentActionButtons({
   const handlePdfWhatsApp = async () => {
     setGeneratingPdf(true);
     try {
-      // Find the preview element - look for the A5 preview scaler inside the document-preview container
+      // Find the preview element
       const previewContainer = document.getElementById('document-preview');
       if (!previewContainer) {
         toast.error('Pratinjau dokumen tidak ditemukan');
         return;
       }
 
-      const previewEl = previewContainer.querySelector('.a5-preview-scaler') as HTMLElement;
+      // Try to find the A5 scaler first, fallback to the inner content div
+      const previewEl = previewContainer.querySelector('.a5-preview-scaler > div') as HTMLElement
+        || previewContainer.querySelector('.a5-preview-scaler') as HTMLElement
+        || previewContainer.querySelector('.a5-preview-container') as HTMLElement;
+
       if (!previewEl) {
         toast.error('Pratinjau dokumen tidak ditemukan');
         return;
       }
 
       const fileName = `${docType}-${Date.now()}.pdf`;
-      await sharePdfViaWhatsApp(previewEl, fileName, documentLabel, waWindowRef);
-      toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp');
+      const blob = await generatePdfFromElement(previewEl, { format: 'a5' });
+      await sharePdfViaWhatsApp(blob, fileName, documentLabel, waWindowRef);
     } catch (err) {
       console.error('PDF generation error:', err);
       toast.error('Gagal membuat PDF');

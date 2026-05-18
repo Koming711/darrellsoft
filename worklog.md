@@ -76,3 +76,28 @@ Stage Summary:
 - Mobile: Uses Web Share API to share PDF file directly to WhatsApp
 - Desktop: Downloads PDF locally and opens WhatsApp with text message
 - No lint errors in new/modified files
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix PDF generation on document pages and change potong kertas WhatsApp to send PDF
+
+Work Log:
+- Analyzed the issue: html2canvas on CSS-scaled preview elements (.a5-preview-scaler with transforms) was failing
+- Rewrote generate-pdf.ts with two approaches:
+  - generatePdfFromElement(): Clones element, removes transforms, renders in off-screen container
+  - generatePdfFromHtml(): Renders HTML string in hidden iframe, then captures with html2canvas
+  - sharePdfViaWhatsApp(): Takes blob instead of element, shares via Web Share API (mobile) or downloads + opens WhatsApp (desktop)
+- Fixed document-action-buttons.tsx to use new API (finds preview element → generates blob → shares)
+- Changed potong kertas page:
+  - handlePdf: Now generates PDF from HTML using generatePdfFromHtml() and shares via WhatsApp (was: opening print dialog)
+  - handleShareWhatsApp: Now also generates PDF and sends via WhatsApp (was: sending text message)
+  - Both buttons show loading state while generating PDF
+  - Removed unused openWhatsApp import
+- All WhatsApp buttons on potong kertas now send PDF format
+
+Stage Summary:
+- Document pages (PO, Invoice, Surat Jalan): PDF button generates A5 PDF from preview and shares via WhatsApp
+- Potong kertas: Both PDF and WhatsApp buttons now generate A4 PDF and share via WhatsApp
+- Mobile: Uses Web Share API to share PDF file directly to WhatsApp
+- Desktop: Downloads PDF + opens WhatsApp with message to attach the file

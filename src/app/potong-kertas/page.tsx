@@ -14,7 +14,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
-import { openWhatsApp } from '@/lib/whatsapp-business'
+import { generatePdfFromHtml, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
 import { useDataChange } from '@/hooks/use-data-change'
 
 const CuttingDiagram = dynamic(
@@ -1066,27 +1066,10 @@ function CalculatorPage() {
       const html = buildFullPrintHtml()
       if (!html) { toast.error('Tidak ada data'); return }
 
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        toast.error('Popup diblokir. Izinkan popup untuk membuat PDF.')
-        return
-      }
-
-      // Inject auto-PDF script into the HTML
-      const pdfHtml = html.replace('</body>', `
-  <script>
-    window.onload = function() {
-      // Small delay for SVG rendering
-      setTimeout(function() {
-        window.print();
-      }, 500);
-    }
-  </script>
-</body>`)
-
-      printWindow.document.write(pdfHtml)
-      printWindow.document.close()
-      toast.success('PDF dibuka! Pilih "Save as PDF" di dialog print.')
+      const blob = await generatePdfFromHtml(html, { format: 'a4' })
+      const fileName = `potong-kertas-${Date.now()}.pdf`
+      await sharePdfViaWhatsApp(blob, fileName, 'Potong Kertas', waWindowRef)
+      toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp')
     } catch (err) {
       console.error('PDF generation error:', err)
       toast.error('Gagal menghasilkan PDF')
@@ -1095,27 +1078,24 @@ function CalculatorPage() {
     }
   }
 
-  const handleShareWhatsApp = () => {
+  const handleShareWhatsApp = async () => {
     if (!results) return
 
-    const r = results
-    const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
-    const gramLabel = grammage ? `${grammage} gsm` : '-'
+    setIsGeneratingPdf(true)
+    try {
+      const html = buildFullPrintHtml()
+      if (!html) { toast.error('Tidak ada data'); return }
 
-    let msg = `*Potong Kertas - www.darrellsoft.com*\n\n`
-    msg += `Nama Bahan: ${paperLabel}\n`
-    msg += `Gramatur: ${gramLabel}\n`
-    msg += `Ukuran Kertas: ${r.paperWidth} × ${r.paperHeight} cm\n`
-    msg += `Ukuran Potong: ${r.cutWidth} × ${r.cutHeight} cm\n`
-    msg += `Kertas yg dibeli: ${r.sheetsNeeded} lembar\n`
-    msg += `Potongan Jadi: ${r.totalPieces}\n`
-    msg += `Harga Kertas: Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}\n`
-    msg += `Terima Kasih.`
-
-    const encoded = encodeURIComponent(msg)
-
-    openWhatsApp(encoded, { waWindowRef })
-    toast.success('Membuka WhatsApp...')
+      const blob = await generatePdfFromHtml(html, { format: 'a4' })
+      const fileName = `potong-kertas-${Date.now()}.pdf`
+      await sharePdfViaWhatsApp(blob, fileName, 'Potong Kertas', waWindowRef)
+      toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp')
+    } catch (err) {
+      console.error('WhatsApp PDF error:', err)
+      toast.error('Gagal mengirim PDF ke WhatsApp')
+    } finally {
+      setIsGeneratingPdf(false)
+    }
   }
 
   // Riwayat table component
@@ -1400,11 +1380,11 @@ function CalculatorPage() {
                 <Printer className="w-3.5 h-3.5" />
                 {t('cetak')}
               </button>
-              <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
-                <Share2 className="w-3.5 h-3.5" />
-                <span className="lg:hidden xl:inline">WhatsApp</span>
-                <span className="hidden lg:inline xl:hidden">WA</span>
+              <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc || isGeneratingPdf}
+                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp PDF">
+                {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                <span className="lg:hidden xl:inline">{isGeneratingPdf ? 'PDF...' : 'WhatsApp'}</span>
+                <span className="hidden lg:inline xl:hidden">{isGeneratingPdf ? '...' : 'WA'}</span>
               </button>
               <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
                 className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
@@ -1728,9 +1708,9 @@ function CalculatorPage() {
               className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
               {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> PDF</>}
             </button>
-            <button onClick={handleShareWhatsApp}
-              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl transition-colors text-xs sm:text-sm">
-              <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WhatsApp
+            <button onClick={handleShareWhatsApp} disabled={isGeneratingPdf}
+              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl transition-colors text-xs sm:text-sm">
+              {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WhatsApp</>}
             </button>
           </div>
         </DraggablePreviewDialog>
