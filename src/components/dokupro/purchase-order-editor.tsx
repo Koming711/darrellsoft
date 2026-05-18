@@ -111,7 +111,7 @@ export function PurchaseOrderEditor() {
 
     // Line 4: Potongan jadi (potongan/lembar)
     if (item.setelanKertas && item.setelanKertas !== '0') {
-      descLines.push(`Potongan jadi ${item.setelanKertas}/lembar`);
+      descLines.push(`Potongan jadi ${item.setelanKertas} lembar`);
     }
 
     const deskripsi = descLines.join('\n');
