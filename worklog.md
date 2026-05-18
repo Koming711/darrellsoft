@@ -101,3 +101,31 @@ Stage Summary:
 - Potong kertas: Both PDF and WhatsApp buttons now generate A4 PDF and share via WhatsApp
 - Mobile: Uses Web Share API to share PDF file directly to WhatsApp
 - Desktop: Downloads PDF + opens WhatsApp with message to attach the file
+
+---
+Task ID: 1
+Agent: main
+Task: Fix PDF generation - "Failed to execute 'createObjectURL' on 'URL': Overload resolution failed" error
+
+Work Log:
+- Identified root cause: the old `generatePdfFromHtml` function used html2canvas + hidden iframe approach which was unreliable in Next.js browser context
+- Rewrote `src/lib/generate-pdf.ts` with new approach:
+  - Created `generatePotongKertasPdf()` using jsPDF directly (no html2canvas) for vector-quality PDF
+  - Kept `generatePdfFromElement()` (html2canvas approach) with better error handling and blob validation
+  - Added blob validation in `sharePdfViaWhatsApp()` - throws clear error if blob is invalid
+  - Fixed `URL.createObjectURL` cleanup timing (added setTimeout to prevent premature revocation)
+  - Removed unused `generatePdfFromHtml()` function
+- Updated `src/app/potong-kertas/page.tsx`:
+  - Changed import from `generatePdfFromHtml` to `generatePotongKertasPdf`
+  - Updated `handlePdf()` and `handleShareWhatsApp()` to use new direct jsPDF approach
+  - Fixed data source: now uses `previewRiwayatData || results` to correctly handle riwayat preview popup
+  - Passes all relevant data (customerName, paperName, jumlahPesanan, berapaMata, setelanKertas, printName) to the PDF generator
+- Updated `src/components/dokupro/document-action-buttons.tsx`:
+  - Added blob validation before calling sharePdfViaWhatsApp
+  - Improved error messages
+
+Stage Summary:
+- PDF generation for potong kertas now uses jsPDF directly (no html2canvas) - much more reliable
+- The programmatic PDF includes: header, info grid, strategy, cutting diagram with colored blocks, steps, block details, and footer
+- Riwayat preview popup correctly generates PDF from preview data (not stale results)
+- Document pages (PO, Invoice, Surat Jalan) still use html2canvas approach with better error handling

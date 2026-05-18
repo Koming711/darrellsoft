@@ -14,7 +14,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
-import { generatePdfFromHtml, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+import { generatePotongKertasPdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
 import { useDataChange } from '@/hooks/use-data-change'
 
 const CuttingDiagram = dynamic(
@@ -1059,14 +1059,21 @@ function CalculatorPage() {
   }
 
   const handlePdf = async () => {
-    if (!results) return
+    // Use preview data if in riwayat preview, otherwise use current results
+    const activeResults = previewRiwayatData || results
+    if (!activeResults) return
 
     setIsGeneratingPdf(true)
     try {
-      const html = buildFullPrintHtml()
-      if (!html) { toast.error('Tidak ada data'); return }
-
-      const blob = await generatePdfFromHtml(html, { format: 'a4' })
+      const blob = await generatePotongKertasPdf({
+        results: activeResults,
+        customerName: selectedCustomer?.name || previewRiwayatInfo?.customer || '-',
+        paperName: selectedPaper?.name || restoredPaperName || previewRiwayatInfo?.paper || 'Custom',
+        jumlahPesanan: previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan,
+        berapaMata: previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata,
+        setelanKertas: previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas,
+        printName: printName || '-',
+      })
       const fileName = `potong-kertas-${Date.now()}.pdf`
       await sharePdfViaWhatsApp(blob, fileName, 'Potong Kertas', waWindowRef)
       toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp')
@@ -1079,14 +1086,21 @@ function CalculatorPage() {
   }
 
   const handleShareWhatsApp = async () => {
-    if (!results) return
+    // Use preview data if in riwayat preview, otherwise use current results
+    const activeResults = previewRiwayatData || results
+    if (!activeResults) return
 
     setIsGeneratingPdf(true)
     try {
-      const html = buildFullPrintHtml()
-      if (!html) { toast.error('Tidak ada data'); return }
-
-      const blob = await generatePdfFromHtml(html, { format: 'a4' })
+      const blob = await generatePotongKertasPdf({
+        results: activeResults,
+        customerName: selectedCustomer?.name || previewRiwayatInfo?.customer || '-',
+        paperName: selectedPaper?.name || restoredPaperName || previewRiwayatInfo?.paper || 'Custom',
+        jumlahPesanan: previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan,
+        berapaMata: previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata,
+        setelanKertas: previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas,
+        printName: printName || '-',
+      })
       const fileName = `potong-kertas-${Date.now()}.pdf`
       await sharePdfViaWhatsApp(blob, fileName, 'Potong Kertas', waWindowRef)
       toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp')

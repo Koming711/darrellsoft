@@ -116,10 +116,16 @@ export function DocumentActionButtons({
 
       const fileName = `${docType}-${Date.now()}.pdf`;
       const blob = await generatePdfFromElement(previewEl, { format: 'a5' });
+
+      if (!blob || !(blob instanceof Blob)) {
+        toast.error('Gagal membuat PDF - blob tidak valid');
+        return;
+      }
+
       await sharePdfViaWhatsApp(blob, fileName, documentLabel, waWindowRef);
     } catch (err) {
       console.error('PDF generation error:', err);
-      toast.error('Gagal membuat PDF');
+      toast.error('Gagal membuat PDF. Coba lagi atau gunakan Cetak.');
     } finally {
       setGeneratingPdf(false);
     }
