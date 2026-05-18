@@ -109,15 +109,20 @@ export function PurchaseOrderEditor() {
       descLines.push(`Uk. potong ${item.cutWidth} x ${item.cutHeight}`);
     }
 
-    // Line 4: Potongan jadi (jumlah lembar hasil potong)
-    const sheetsNeeded = parseInt(item.sheetsNeeded) || 0;
-    if (sheetsNeeded > 0) {
-      descLines.push(`Potongan jadi ${sheetsNeeded} lembar`);
+    // Line 4: Potongan/lembar (setelanKertas)
+    const setelan = parseInt(item.setelanKertas) || 0;
+    if (setelan > 0) {
+      descLines.push(`Potongan/lembar (${setelan})`);
+    }
+
+    // Line 5: Jumlah jadi (potongan/lembar × qty)
+    const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
+    if (setelan > 0 && qty > 0) {
+      const jumlahJadi = setelan * qty;
+      descLines.push(`Jumlah jadi ${jumlahJadi}`);
     }
 
     const deskripsi = descLines.join('\n');
-    // Qty = kertas yang dibeli (sheetsNeeded)
-    const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 1;
     // Harga = harga per lembar
     const hargaPerLembar = item.pricePerSheet || (qty > 0 ? Math.round(item.totalPrice / qty) : 0);
 
@@ -134,7 +139,7 @@ export function PurchaseOrderEditor() {
       referensi: ref,
       pemasok: {
         ...po.pemasok,
-        nama: item.paperName || po.pemasok.nama,
+        nama: item.namaCustomer || po.pemasok.nama,
       },
       items,
       catatan: '',
