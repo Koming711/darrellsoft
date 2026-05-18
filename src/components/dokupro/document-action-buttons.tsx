@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -13,10 +13,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Save, RotateCcw, Printer, AlertTriangle, FileDown, Loader2 } from 'lucide-react';
+import { Save, RotateCcw, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DocumentType } from '@/lib/types';
-import { generatePdfFromElement, sharePdfViaWhatsApp } from '@/lib/generate-pdf';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -45,9 +44,7 @@ export function DocumentActionButtons({
 }: DocumentActionButtonsProps) {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
   const dataEmpty = isDataEmpty(currentData);
-  const waWindowRef = useRef<Window | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -94,43 +91,6 @@ export function DocumentActionButtons({
     toast.success(`Dokumen ${documentLabel.toLowerCase()} direset`);
   };
 
-  const handlePdfWhatsApp = async () => {
-    setGeneratingPdf(true);
-    try {
-      // Find the preview element
-      const previewContainer = document.getElementById('document-preview');
-      if (!previewContainer) {
-        toast.error('Pratinjau dokumen tidak ditemukan');
-        return;
-      }
-
-      // Try to find the A5 scaler first, fallback to the inner content div
-      const previewEl = previewContainer.querySelector('.a5-preview-scaler > div') as HTMLElement
-        || previewContainer.querySelector('.a5-preview-scaler') as HTMLElement
-        || previewContainer.querySelector('.a5-preview-container') as HTMLElement;
-
-      if (!previewEl) {
-        toast.error('Pratinjau dokumen tidak ditemukan');
-        return;
-      }
-
-      const fileName = `${docType}-${Date.now()}.pdf`;
-      const blob = await generatePdfFromElement(previewEl, { format: 'a5' });
-
-      if (!blob || !(blob instanceof Blob)) {
-        toast.error('Gagal membuat PDF - blob tidak valid');
-        return;
-      }
-
-      await sharePdfViaWhatsApp(blob, fileName, documentLabel, waWindowRef);
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      toast.error('Gagal membuat PDF. Coba lagi atau gunakan Cetak.');
-    } finally {
-      setGeneratingPdf(false);
-    }
-  };
-
   return (
     <div className="flex items-center justify-end gap-2 print:hidden">
       <Button
@@ -156,24 +116,6 @@ export function DocumentActionButtons({
       >
         <Printer className="mr-1.5 h-3.5 w-3.5" />
         Cetak
-      </Button>
-      <Button
-        size="sm"
-        onClick={handlePdfWhatsApp}
-        disabled={generatingPdf || dataEmpty}
-        className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {generatingPdf ? (
-          <>
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            PDF...
-          </>
-        ) : (
-          <>
-            <FileDown className="mr-1.5 h-3.5 w-3.5" />
-            PDF
-          </>
-        )}
       </Button>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogTrigger asChild>
