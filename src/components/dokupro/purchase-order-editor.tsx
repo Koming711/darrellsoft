@@ -111,7 +111,7 @@ export function PurchaseOrderEditor() {
 
     // Line 4: Potongan jadi (potongan/lembar)
     if (item.setelanKertas && item.setelanKertas !== '0') {
-      descLines.push(`Potongan jadi (Potongan/Lembar = ${item.setelanKertas} lembar)`);
+      descLines.push(`Potongan jadi ${item.setelanKertas}/lembar`);
     }
 
     const deskripsi = descLines.join('\n');
@@ -252,7 +252,7 @@ export function PurchaseOrderEditor() {
 
         <div className="rounded-lg border bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Kepada Pemasok
+            Kepada Yth.
           </h3>
           <div className="space-y-2">
             <Label className="text-xs">Nama</Label>
