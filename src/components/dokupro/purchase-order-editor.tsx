@@ -95,10 +95,13 @@ export function PurchaseOrderEditor() {
     // Line 1: Nama Barang
     if (item.namaCetakan) descLines.push(item.namaCetakan);
 
-    // Line 2: Nama Bahan
+    // Line 2: Nama Bahan (Paper 150g 65x100)
     const bahanParts: string[] = [];
     if (item.paperName) bahanParts.push(item.paperName);
     if (item.grammage && item.grammage !== '0') bahanParts.push(item.grammage + 'g');
+    if (item.paperWidth && item.paperHeight && item.paperWidth !== '0' && item.paperHeight !== '0') {
+      bahanParts.push(`${item.paperWidth}x${item.paperHeight}`);
+    }
     if (bahanParts.length > 0) descLines.push(bahanParts.join(' '));
 
     // Line 3: Ukuran potong
