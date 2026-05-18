@@ -109,9 +109,10 @@ export function PurchaseOrderEditor() {
       descLines.push(`Uk. potong ${item.cutWidth} x ${item.cutHeight}`);
     }
 
-    // Line 4: Potongan jadi (potongan/lembar)
-    if (item.setelanKertas && item.setelanKertas !== '0') {
-      descLines.push(`Potongan jadi ${item.setelanKertas} lembar`);
+    // Line 4: Potongan jadi (jumlah lembar hasil potong)
+    const sheetsNeeded = parseInt(item.sheetsNeeded) || 0;
+    if (sheetsNeeded > 0) {
+      descLines.push(`Potongan jadi ${sheetsNeeded} lembar`);
     }
 
     const deskripsi = descLines.join('\n');
