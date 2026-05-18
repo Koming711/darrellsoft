@@ -109,16 +109,20 @@ export function PurchaseOrderEditor() {
       descLines.push(`Uk. potong ${item.cutWidth} x ${item.cutHeight}`);
     }
 
-    // Line 4: Potongan/lembar (setelanKertas)
-    const setelan = parseInt(item.setelanKertas) || 0;
-    if (setelan > 0) {
-      descLines.push(`Potongan/lembar (${setelan})`);
+    // Line 4: Potongan/lembar (dari resultData.totalPieces)
+    let potonganPerLembar = 0;
+    try {
+      const rd = JSON.parse(item.resultData || '{}');
+      potonganPerLembar = rd.totalPieces || 0;
+    } catch {}
+    if (potonganPerLembar > 0) {
+      descLines.push(`Potongan/lembar (${potonganPerLembar})`);
     }
 
     // Line 5: Jumlah jadi (potongan/lembar × qty)
     const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
-    if (setelan > 0 && qty > 0) {
-      const jumlahJadi = setelan * qty;
+    if (potonganPerLembar > 0 && qty > 0) {
+      const jumlahJadi = potonganPerLembar * qty;
       descLines.push(`Jumlah jadi ${jumlahJadi}`);
     }
 
