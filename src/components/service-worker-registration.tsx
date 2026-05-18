@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2025-05-13-v2'
+const APP_VERSION = '2025-05-18-v1'
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -28,8 +28,12 @@ export function ServiceWorkerRegistration() {
           if (key && (
             key.includes('potong-kertas') ||
             key.includes('hitung-cetakan') ||
+            key.includes('hitung-finishing') ||
+            key.includes('hitung-ongkos') ||
+            key.includes('hitung-harga') ||
             key.includes('form-data-version') ||
             key.includes('potong-kertas-form-version') ||
+            key.includes('dokupro') ||
             key.includes('install_prompt_dismissed')
           )) {
             keysToRemove.push(key)
