@@ -50,3 +50,29 @@ Stage Summary:
 - Production build: Next.js 16.1.3, 74 routes (15 static pages + 59 dynamic API routes)
 - Database: Supabase PostgreSQL (pooler mode) in production, SQLite locally
 - All pages and APIs verified working on Vercel
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Add PDF button to each document page (Purchase Order, Invoice, Surat Jalan) that generates PDF and sends via WhatsApp
+
+Work Log:
+- Analyzed existing document pages: Purchase Order, Invoice, Surat Jalan - all use DocumentActionButtons component
+- Reviewed existing WhatsApp integration (openWhatsApp in whatsapp-business.ts) and PDF generation (html2canvas + jsPDF in riwayat-content.tsx)
+- Created /src/lib/generate-pdf.ts utility with:
+  - generatePdfFromElement(): Renders DOM element to canvas via html2canvas, converts to A5 PDF via jsPDF, returns Blob
+  - sharePdfViaWhatsApp(): On mobile uses Web Share API (navigator.share with files) to share PDF directly to WhatsApp; on desktop downloads PDF + opens WhatsApp with text message
+- Updated /src/components/dokupro/document-action-buttons.tsx:
+  - Added "PDF" button with FileDown icon and green color scheme
+  - Button generates PDF from the preview element (.a5-preview-scaler inside #document-preview)
+  - Uses sharePdfViaWhatsApp() to handle PDF creation and WhatsApp sharing
+  - Shows loading state with spinner while generating PDF
+  - Disabled when data is empty or PDF is being generated
+- All 3 document pages (Purchase Order, Invoice, Surat Jalan) automatically get the PDF button since they all use DocumentActionButtons
+
+Stage Summary:
+- PDF button added to all 3 document pages
+- Clicking PDF button generates A5 PDF from preview and shares via WhatsApp
+- Mobile: Uses Web Share API to share PDF file directly to WhatsApp
+- Desktop: Downloads PDF locally and opens WhatsApp with text message
+- No lint errors in new/modified files
