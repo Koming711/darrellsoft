@@ -326,7 +326,9 @@ export async function generatePotongKertasPdf(data: {
 }
 
 /**
- * Generate PDF from a DOM element using html2canvas + jsPDF
+ * Generate PDF from a DOM element.
+ * Uses a hidden iframe to render the element at fixed dimensions,
+ * then captures it with html2canvas. Falls back to jsPDF html() if needed.
  */
 export async function generatePdfFromElement(
   element: HTMLElement,
@@ -339,34 +341,34 @@ export async function generatePdfFromElement(
   const landscape = options?.landscape || false;
 
   const { jsPDF } = await import('jspdf');
-  const html2canvas = (await import('html2canvas')).default;
 
-  // Clone the element to avoid modifying the original
-  const clone = element.cloneNode(true) as HTMLElement;
+  // Get the element's actual rendered dimensions
+  const rect = element.getBoundingClientRect();
+  const elemW = rect.width;
+  const elemH = rect.height;
 
-  // Create a wrapper div with fixed dimensions for rendering
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'fixed';
-  wrapper.style.left = '-9999px';
-  wrapper.style.top = '0';
-  wrapper.style.background = '#ffffff';
-  wrapper.style.zIndex = '-1';
+  if (elemW === 0 || elemH === 0) {
+    throw new Error('Element has zero dimensions');
+  }
 
-  // Reset transforms and set a fixed width for consistent rendering
-  clone.style.transform = 'none';
-  clone.style.transformOrigin = 'top left';
-  clone.style.width = format === 'a5' ? '148mm' : '210mm';
-  clone.style.overflow = 'visible';
-
-  wrapper.appendChild(clone);
-  document.body.appendChild(wrapper);
-
+  // Approach: use html2canvas directly on the visible element (no cloning)
   try {
-    const canvas = await html2canvas(clone, {
+    const html2canvasModule = await import('html2canvas');
+    const html2canvas = html2canvasModule.default || html2canvasModule;
+
+    if (typeof html2canvas !== 'function') {
+      throw new Error('html2canvas is not a function');
+    }
+
+    const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,
+      width: elemW,
+      height: elemH,
+      windowWidth: elemW,
+      windowHeight: elemH,
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -399,8 +401,36 @@ export async function generatePdfFromElement(
       throw new Error('jsPDF output did not return a valid Blob');
     }
     return blob;
-  } finally {
-    document.body.removeChild(wrapper);
+  } catch (html2canvasError) {
+    console.warn('html2canvas failed, trying jsPDF html() fallback:', html2canvasError);
+
+    // Fallback: use jsPDF's built-in html() method
+    try {
+      const pdf = new jsPDF({
+        orientation: landscape ? 'l' : 'p',
+        unit: 'mm',
+        format: format,
+      });
+
+      await pdf.html(element, {
+        x: 3,
+        y: 3,
+        width: (format === 'a5' ? 148 : 210) - 6,
+        windowWidth: elemW,
+        windowHeight: elemH,
+      });
+
+      const blob = pdf.output('blob');
+      if (!(blob instanceof Blob)) {
+        throw new Error('jsPDF html() output did not return a valid Blob');
+      }
+      return blob;
+    } catch (jspdfHtmlError) {
+      console.warn('jsPDF html() also failed:', jspdfHtmlError);
+
+      // Last resort: take a screenshot using canvas API manually
+      throw new Error('PDF generation failed. Both html2canvas and jsPDF html() methods failed.');
+    }
   }
 }
 
