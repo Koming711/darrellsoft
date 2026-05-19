@@ -186,12 +186,12 @@ export function PurchaseOrderEditor() {
       >
         <CompanyFields company={po.company} onChange={updateCompany} />
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs">No. Purchase Order</Label>
               <Input
                 value={po.nomor}
@@ -260,11 +260,11 @@ export function PurchaseOrderEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Kepada Yth.
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">Nama</Label>
             <Input
               value={po.pemasok.nama}
@@ -296,32 +296,35 @@ export function PurchaseOrderEditor() {
           showPrice
         />
 
-        <div className="space-y-2">
-          <Label className="text-xs">PPN (%)</Label>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={po.ppn}
-            onChange={(e) => setPurchaseOrder({ ...po, ppn: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <div className="rounded-lg bg-amber-50 p-3">
-          <p className="text-sm text-amber-800">
-            Total: <span className="font-bold">{formatRupiah(total)}</span>
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Catatan
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Informasi Tambahan
           </h3>
-          <Textarea
-            value={po.catatan}
-            onChange={(e) => setPurchaseOrder({ ...po, catatan: e.target.value })}
-            placeholder="Catatan tambahan..."
-            rows={3}
-          />
+          <div className="space-y-1.5">
+            <Label className="text-xs">PPN (%)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={po.ppn}
+              onChange={(e) => setPurchaseOrder({ ...po, ppn: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div className="mt-3 rounded-lg bg-amber-50 p-3">
+            <p className="text-sm text-amber-800">
+              Total: <span className="font-bold">{formatRupiah(total)}</span>
+            </p>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <Label className="text-xs">Catatan</Label>
+            <Textarea
+              value={po.catatan}
+              onChange={(e) => setPurchaseOrder({ ...po, catatan: e.target.value })}
+              placeholder="Catatan tambahan..."
+              rows={3}
+            />
+          </div>
         </div>
       </DocumentEditorLayout>
 

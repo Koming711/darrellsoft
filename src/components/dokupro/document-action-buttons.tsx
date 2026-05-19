@@ -132,87 +132,174 @@ export function DocumentActionButtons({
   };
 
   return (
-    <div className="flex items-center justify-end gap-2 print:hidden">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleReset}
-        className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
-      >
-        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-        Reset
-      </Button>
-      <Button
-        size="sm"
-        onClick={() => {
-          const origTitle = document.title;
-          document.title = ' ';
-          setTimeout(() => {
-            window.print();
-            document.title = origTitle;
-          }, 100);
-        }}
-        className="bg-emerald-600 hover:bg-emerald-700"
-      >
-        <Printer className="mr-1.5 h-3.5 w-3.5" />
-        Cetak
-      </Button>
-      <Button
-        size="sm"
-        onClick={handlePdfWhatsApp}
-        disabled={generatingPdf || dataEmpty}
-        className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {generatingPdf ? (
-          <>
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            PDF...
-          </>
-        ) : (
-          <>
-            <FileDown className="mr-1.5 h-3.5 w-3.5" />
-            PDF
-          </>
-        )}
-      </Button>
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={saving || dataEmpty}
-            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save className="mr-1.5 h-3.5 w-3.5" />
-            {saving ? 'Menyimpan...' : 'Simpan'}
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-              </div>
-              <AlertDialogTitle className="text-left">Data sudah benar?</AlertDialogTitle>
-            </div>
-            <AlertDialogDescription className="text-left pl-[52px]">
-              Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="mt-0">Batal</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmOpen(false);
-                handleSave();
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700"
+    <div className="print:hidden">
+      {/* Desktop: single row */}
+      <div className="hidden sm:flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
+        >
+          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          Reset
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            const origTitle = document.title;
+            document.title = ' ';
+            setTimeout(() => {
+              window.print();
+              document.title = origTitle;
+            }, 100);
+          }}
+          className="bg-emerald-600 hover:bg-emerald-700"
+        >
+          <Printer className="mr-1.5 h-3.5 w-3.5" />
+          Cetak
+        </Button>
+        <Button
+          size="sm"
+          onClick={handlePdfWhatsApp}
+          disabled={generatingPdf || dataEmpty}
+          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {generatingPdf ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              PDF...
+            </>
+          ) : (
+            <>
+              <FileDown className="mr-1.5 h-3.5 w-3.5" />
+              PDF
+            </>
+          )}
+        </Button>
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={saving || dataEmpty}
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Ya, Simpan
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {saving ? 'Menyimpan...' : 'Simpan'}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                </div>
+                <AlertDialogTitle className="text-left">Data sudah benar?</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="text-left pl-[52px]">
+                Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="mt-0">Batal</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmOpen(false);
+                  handleSave();
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Ya, Simpan
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {/* Mobile: 2x2 grid */}
+      <div className="grid grid-cols-2 gap-2 sm:hidden">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          className="border-gray-200 text-gray-600 hover:bg-gray-50 h-9"
+        >
+          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          Reset
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            const origTitle = document.title;
+            document.title = ' ';
+            setTimeout(() => {
+              window.print();
+              document.title = origTitle;
+            }, 100);
+          }}
+          className="bg-emerald-600 hover:bg-emerald-700 h-9"
+        >
+          <Printer className="mr-1.5 h-3.5 w-3.5" />
+          Cetak
+        </Button>
+        <Button
+          size="sm"
+          onClick={handlePdfWhatsApp}
+          disabled={generatingPdf || dataEmpty}
+          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 h-9"
+        >
+          {generatingPdf ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              PDF...
+            </>
+          ) : (
+            <>
+              <FileDown className="mr-1.5 h-3.5 w-3.5" />
+              PDF
+            </>
+          )}
+        </Button>
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={saving || dataEmpty}
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 h-9"
+            >
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {saving ? 'Menyimpan...' : 'Simpan'}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                </div>
+                <AlertDialogTitle className="text-left">Data sudah benar?</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="text-left pl-[52px]">
+                Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="mt-0">Batal</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmOpen(false);
+                  handleSave();
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Ya, Simpan
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }

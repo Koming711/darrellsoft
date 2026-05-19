@@ -199,3 +199,25 @@ Stage Summary:
 - All user types (Pengguna, CalonPembeli, Pembeli) now have their expiry dates enforced
 - Expired users see a popup saying "Akun sudah expired. Silahkan diperpanjang lagi akunnya." and must logout
 - The check runs on: login, every 10s session verification, and profile fetch
+---
+Task ID: 2
+Agent: main
+Task: Tidy up document pages (Invoice, PO, Surat Jalan) for mobile view
+
+Work Log:
+- Analyzed all document editor components and identified mobile issues
+- Rewrote DocumentEditorLayout: mobile preview hidden behind floating "Pratinjau" button, full-screen overlay for preview on mobile, desktop keeps side-by-side layout
+- Fixed DocumentActionButtons: mobile uses 2x2 grid layout instead of overflowing single row
+- Fixed Purchase Order editor: wrapped loose PPN/Total/Catatan fields into proper "Informasi Tambahan" card
+- Fixed Surat Jalan editor: separated vehicle info and catatan into proper cards, removed duplicate "Informasi Tambahan" header for catatan
+- Fixed ItemsFields: moved delete button from absolute position to inline flow with item number, reduced textarea min-height on mobile
+- Applied consistent mobile padding (p-3 sm:p-4) and tighter spacing (space-y-1.5) across all editor cards
+- Applied same mobile padding to CompanyFields component
+
+Stage Summary:
+- 7 files modified: document-editor-layout.tsx, document-action-buttons.tsx, invoice-editor.tsx, purchase-order-editor.tsx, surat-jalan-editor.tsx, items-fields.tsx, company-fields.tsx
+- Mobile: preview accessible via floating "Pratinjau" FAB button → full-screen overlay
+- Mobile: action buttons use 2x2 grid (Reset/Cetak top, PDF/Simpan bottom)
+- All cards have tighter mobile padding and spacing
+- Items show numbered (#1, #2) with delete button in flow (not absolute)
+- All 3 document pages (invoice, purchase-order, surat-jalan) tested and load correctly

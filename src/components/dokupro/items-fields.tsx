@@ -50,28 +50,31 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
         </Button>
       </div>
       <div className="space-y-3">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <div key={item.id} className="relative rounded-lg border bg-muted/30 p-3 space-y-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-2 h-6 w-6 text-muted-foreground hover:text-destructive"
-              onClick={() => removeItem(item.id)}
-              disabled={items.length <= 1}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-[10px] font-semibold text-slate-400 mt-1 shrink-0">#{index + 1}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => removeItem(item.id)}
+                disabled={items.length <= 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">Nama Barang</Label>
               <Textarea
                 value={item.deskripsi}
                 onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
                 placeholder="Nama barang"
-                className="text-sm min-h-[80px]"
-                rows={3}
+                className="text-sm min-h-[60px]"
+                rows={2}
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${showPrice ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <div className="space-y-1">
                 <Label className="text-xs">Qty</Label>
                 <Input

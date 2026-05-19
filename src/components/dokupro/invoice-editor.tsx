@@ -178,19 +178,19 @@ export function InvoiceEditor() {
       >
         <CompanyFields company={invoice.company} onChange={updateCompany} />
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs">No. Invoice</Label>
               <Input
                 value={invoice.nomor}
                 onChange={(e) => setInvoice({ ...invoice, nomor: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs">Tanggal</Label>
               <Input
                 type="date"
@@ -247,11 +247,11 @@ export function InvoiceEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Kepada Yth :
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">Nama Customer</Label>
             <Input
               value={invoice.client.nama}
@@ -283,11 +283,11 @@ export function InvoiceEditor() {
           showPrice
         />
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Informasi Tambahan
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">PPN (%)</Label>
             <Input
               type="number"

@@ -14,7 +14,7 @@ export function CompanyFields({ company }: CompanyFieldsProps) {
   const hasBank = company.bankName || company.bankName2 || company.npwp;
 
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
           <Building2 className="w-3.5 h-3.5 text-slate-500" />

@@ -131,19 +131,19 @@ export function SuratJalanEditor() {
       >
         <CompanyFields company={sj.company} onChange={updateCompany} />
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs">No. Surat Jalan</Label>
               <Input
                 value={sj.nomor}
                 onChange={(e) => setSuratJalan({ ...sj, nomor: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs">Tanggal</Label>
               <Input
                 type="date"
@@ -200,11 +200,11 @@ export function SuratJalanEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Diterima Oleh
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">Nama</Label>
             <Input
               value={sj.penerima.nama}
@@ -212,7 +212,7 @@ export function SuratJalanEditor() {
               placeholder="Nama penerima"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">Kontak</Label>
             <Input
               value={sj.penerima.kontak}
@@ -220,7 +220,7 @@ export function SuratJalanEditor() {
               placeholder="No. telepon / email"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">Alamat</Label>
             <Input
               value={sj.penerima.alamat}
@@ -230,11 +230,11 @@ export function SuratJalanEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Informasi Tambahan
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">No. Kendaraan</Label>
             <Input
               value={sj.noKendaraan}
@@ -242,7 +242,7 @@ export function SuratJalanEditor() {
               placeholder="B 1234 XYZ"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="text-xs">Pengemudi</Label>
             <Input
               value={sj.pengemudi}
@@ -258,16 +258,18 @@ export function SuratJalanEditor() {
           showPrice={false}
         />
 
-        <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Catatan
           </h3>
-          <Textarea
-            value={sj.catatan}
-            onChange={(e) => setSuratJalan({ ...sj, catatan: e.target.value })}
-            placeholder="Catatan tambahan..."
-            rows={3}
-          />
+          <div className="space-y-1.5">
+            <Textarea
+              value={sj.catatan}
+              onChange={(e) => setSuratJalan({ ...sj, catatan: e.target.value })}
+              placeholder="Catatan tambahan..."
+              rows={3}
+            />
+          </div>
         </div>
       </DocumentEditorLayout>
 
