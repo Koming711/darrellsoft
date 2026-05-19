@@ -191,36 +191,49 @@ function drawItemsTableWithPrice(
   const { m, cw, y, items, maxRows } = opts
   const tableTop = y
 
-  // Column widths — matches preview proportions
-  // Qty: w-10 ≈ 16mm, Harga: w-[72px] ≈ 28mm, Jumlah: w-[72px] ≈ 28mm
-  const colQty = 16
-  const colPrice = 28
-  const colTotal = 28
+  // Column widths — adjusted for A5 to give Nama Barang more space
+  // Qty: narrow, Harga: moderate, Jumlah: moderate
+  const colQty = 14
+  const colPrice = 24
+  const colTotal = 26
   const colDesc = cw - colQty - colPrice - colTotal
-  const rowH = 6.5
+  const minRowH = 6.5
+  const lineH = 3.2
   const cellPad = 1.5
 
-  // Header — black bg, white text
-  pdf.setFillColor(0, 0, 0)
-  pdf.rect(m, y, cw, rowH, 'F')
-  pdf.setFontSize(7.5)
-  pdf.setFont('helvetica', 'bold')
-  pdf.setTextColor(255, 255, 255)
-  pdf.text('Qty', m + colQty - cellPad, y + rowH - 2, { align: 'right' })
-  pdf.text('Nama Barang', m + colQty + cellPad, y + rowH - 2)
-  pdf.text('Harga Satuan', m + colQty + colDesc + colPrice - cellPad, y + rowH - 2, { align: 'right' })
-  pdf.text('Jumlah', m + cw - cellPad, y + rowH - 2, { align: 'right' })
-
-  let curY = y + rowH
-
-  // Pad items
+  // Pre-calculate each row's height based on description length
   const rows = [...items]
   while (rows.length < maxRows) {
     rows.push({ deskripsi: '', qty: 0, harga: 0 })
   }
 
+  const rowHeights: number[] = rows.map((item, i) => {
+    if (i >= items.length || !item.deskripsi) return minRowH
+    const descLines = pdf.splitTextToSize(item.deskripsi, colDesc - cellPad * 2)
+    const neededH = Math.max(minRowH, 3 + descLines.length * lineH)
+    return neededH
+  })
+
+  // Header — black bg, white text
+  const headerH = minRowH
+  pdf.setFillColor(0, 0, 0)
+  pdf.rect(m, y, cw, headerH, 'F')
+  pdf.setFontSize(7.5)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setTextColor(255, 255, 255)
+  pdf.text('Qty', m + colQty - cellPad, y + headerH - 2, { align: 'right' })
+  pdf.text('Nama Barang', m + colQty + cellPad, y + headerH - 2)
+  pdf.text('Harga Satuan', m + colQty + colDesc + colPrice - cellPad, y + headerH - 2, { align: 'right' })
+  pdf.text('Jumlah', m + cw - cellPad, y + headerH - 2, { align: 'right' })
+
+  let curY = y + headerH
+
+  // Draw rows with dynamic heights
   rows.forEach((item, i) => {
     const hasData = i < items.length
+    const rowH = rowHeights[i]
+
+    // Background
     const bgColor = i % 2 === 1 ? [245, 245, 245] : [255, 255, 255]
     pdf.setFillColor(bgColor[0], bgColor[1], bgColor[2])
     pdf.rect(m, curY, cw, rowH, 'F')
@@ -230,28 +243,28 @@ function drawItemsTableWithPrice(
       pdf.setFontSize(7.5)
       pdf.setFont('helvetica', 'normal')
 
-      // Qty — right aligned
-      pdf.text(String(item.qty), m + colQty - cellPad, curY + rowH - 2, { align: 'right' })
+      // Qty — right aligned, vertically centered in row
+      const textBaseY = curY + rowH - 2
+      pdf.text(String(item.qty), m + colQty - cellPad, textBaseY, { align: 'right' })
 
       // Description — multi-line support, left aligned
       const descLines = pdf.splitTextToSize(item.deskripsi || '', colDesc - cellPad * 2)
-      pdf.text(descLines[0] || '', m + colQty + cellPad, curY + rowH - 2)
-      // If multi-line, draw remaining lines (smaller)
+      const descStartY = curY + 4
+      pdf.text(descLines[0] || '', m + colQty + cellPad, descStartY)
       if (descLines.length > 1) {
-        pdf.setFontSize(6.5)
-        for (let li = 1; li < descLines.length && li < 3; li++) {
-          pdf.text(descLines[li], m + colQty + cellPad, curY + rowH - 2 + li * 3)
+        for (let li = 1; li < descLines.length; li++) {
+          pdf.text(descLines[li], m + colQty + cellPad, descStartY + li * lineH)
         }
       }
 
-      // Harga satuan — right aligned
+      // Harga satuan — right aligned, vertically at bottom of row
       pdf.setFontSize(7.5)
       pdf.setFont('helvetica', 'normal')
-      pdf.text(rp(item.harga), m + colQty + colDesc + colPrice - cellPad, curY + rowH - 2, { align: 'right' })
+      pdf.text(rp(item.harga), m + colQty + colDesc + colPrice - cellPad, textBaseY, { align: 'right' })
 
-      // Jumlah — right aligned, bold
+      // Jumlah — right aligned, bold, vertically at bottom of row
       pdf.setFont('helvetica', 'bold')
-      pdf.text(rp(item.qty * item.harga), m + cw - cellPad, curY + rowH - 2, { align: 'right' })
+      pdf.text(rp(item.qty * item.harga), m + cw - cellPad, textBaseY, { align: 'right' })
     }
     curY += rowH
   })
@@ -276,29 +289,42 @@ function drawItemsTableNoPrice(
   const { m, cw, y, items, maxRows } = opts
   const tableTop = y
 
-  const colQty = 16
+  const colQty = 14
   const colDesc = cw - colQty
-  const rowH = 6.5
+  const minRowH = 6.5
+  const lineH = 3.2
   const cellPad = 1.5
 
-  // Header
-  pdf.setFillColor(0, 0, 0)
-  pdf.rect(m, y, cw, rowH, 'F')
-  pdf.setFontSize(7.5)
-  pdf.setFont('helvetica', 'bold')
-  pdf.setTextColor(255, 255, 255)
-  pdf.text('Qty', m + colQty - cellPad, y + rowH - 2, { align: 'right' })
-  pdf.text('Nama Barang', m + colQty + cellPad, y + rowH - 2)
-
-  let curY = y + rowH
-
+  // Pre-calculate each row's height based on description length
   const rows = [...items]
   while (rows.length < maxRows) {
     rows.push({ deskripsi: '', qty: 0 })
   }
 
+  const rowHeights: number[] = rows.map((item, i) => {
+    if (i >= items.length || !item.deskripsi) return minRowH
+    const descLines = pdf.splitTextToSize(item.deskripsi, colDesc - cellPad * 2)
+    const neededH = Math.max(minRowH, 3 + descLines.length * lineH)
+    return neededH
+  })
+
+  // Header
+  const headerH = minRowH
+  pdf.setFillColor(0, 0, 0)
+  pdf.rect(m, y, cw, headerH, 'F')
+  pdf.setFontSize(7.5)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setTextColor(255, 255, 255)
+  pdf.text('Qty', m + colQty - cellPad, y + headerH - 2, { align: 'right' })
+  pdf.text('Nama Barang', m + colQty + cellPad, y + headerH - 2)
+
+  let curY = y + headerH
+
   rows.forEach((item, i) => {
     const hasData = i < items.length
+    const rowH = rowHeights[i]
+
+    // Background
     const bgColor = i % 2 === 1 ? [245, 245, 245] : [255, 255, 255]
     pdf.setFillColor(bgColor[0], bgColor[1], bgColor[2])
     pdf.rect(m, curY, cw, rowH, 'F')
@@ -310,11 +336,11 @@ function drawItemsTableNoPrice(
       pdf.text(String(item.qty), m + colQty - cellPad, curY + rowH - 2, { align: 'right' })
 
       const descLines = pdf.splitTextToSize(item.deskripsi || '', colDesc - cellPad * 2)
-      pdf.text(descLines[0] || '', m + colQty + cellPad, curY + rowH - 2)
+      const descStartY = curY + 4
+      pdf.text(descLines[0] || '', m + colQty + cellPad, descStartY)
       if (descLines.length > 1) {
-        pdf.setFontSize(6.5)
-        for (let li = 1; li < descLines.length && li < 3; li++) {
-          pdf.text(descLines[li], m + colQty + cellPad, curY + rowH - 2 + li * 3)
+        for (let li = 1; li < descLines.length; li++) {
+          pdf.text(descLines[li], m + colQty + cellPad, descStartY + li * lineH)
         }
       }
     }
