@@ -406,8 +406,8 @@ export async function generatePdfFromElement(
 
 /**
  * Share a PDF blob via WhatsApp.
- * - On mobile: uses Web Share API (allows sharing files to WhatsApp)
- * - On desktop: downloads the PDF, then opens WhatsApp with text message
+ * - Mobile: uses Web Share API to share PDF file directly to WhatsApp Business
+ * - Desktop: downloads the PDF, then opens WhatsApp Desktop / WhatsApp Web
  */
 export async function sharePdfViaWhatsApp(
   blob: Blob,
@@ -421,22 +421,25 @@ export async function sharePdfViaWhatsApp(
   }
 
   const file = new File([blob], fileName, { type: 'application/pdf' });
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  // Check if Web Share API with file support is available (mobile)
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+  // ===== MOBILE: Share PDF file directly via Web Share API =====
+  if (isMobile && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
         files: [file],
         text: `Dokumen ${documentLabel} - www.darrellsoft.com`,
       });
-      return;
+      return; // Successfully shared
     } catch (err: unknown) {
-      // User cancelled share or share failed - fallback to download + WhatsApp text
+      // User cancelled share sheet
       if (err instanceof Error && err.name === 'AbortError') return;
+      // Share failed, fall through to fallback
     }
   }
 
-  // Fallback for desktop: download PDF + open WhatsApp with text
+  // ===== DESKTOP (or mobile fallback): Download PDF + open WhatsApp =====
+  // Step 1: Download PDF file
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -444,13 +447,15 @@ export async function sharePdfViaWhatsApp(
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  // Delay cleanup so the download can start
   setTimeout(() => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 5000);
 
-  // Open WhatsApp with text message
+  // Step 2: Open WhatsApp directly
+  // Small delay so download starts first
+  await new Promise(resolve => setTimeout(resolve, 500));
+
   const msg = `Dokumen ${documentLabel} dalam format PDF sudah diunduh. Silakan lampirkan file PDF tersebut.`;
   const encoded = encodeURIComponent(msg);
 
