@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
       if (pengguna.validUntil) {
         if (new Date(pengguna.validUntil) < new Date()) {
-          return NextResponse.json({ error: 'Akun sudah kadaluarsa. Hubungi administrator.' }, { status: 403 })
+          return NextResponse.json({ error: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.', expired: true }, { status: 403 })
         }
       }
 
@@ -75,6 +75,11 @@ export async function POST(request: NextRequest) {
       // Status "ditolak" → blokir
       if (calon.status === 'ditolak') {
         return NextResponse.json({ error: 'Pendaftaran Anda ditolak oleh administrator.', rejected: true }, { status: 403 })
+      }
+
+      // Check expiry date for CalonPembeli
+      if (calon.expiredDate && new Date(calon.expiredDate) < new Date()) {
+        return NextResponse.json({ error: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.', expired: true }, { status: 403 })
       }
 
       // Status "baru" atau "aktif" → langsung izinkan login

@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
-import { AlertTriangle, LogOut, Smartphone, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DashboardLayoutProps {
@@ -26,6 +26,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const [sessionWarning, setSessionWarning] = useState<string | null>(null)
   const [forceLogoutAvailable, setForceLogoutAvailable] = useState(false)
   const [isReclaiming, setIsReclaiming] = useState(false)
+  const [accountExpired, setAccountExpired] = useState(false)
   const sessionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // === AUTO-LOGOUT STATE ===
@@ -56,6 +57,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === LOGOUT HANDLER ===
   const handleLogout = useCallback(() => {
     clearAuthUser()
+    setAccountExpired(false)
+    setSessionWarning(null)
+    setForceLogoutAvailable(false)
     if (sessionIntervalRef.current) clearInterval(sessionIntervalRef.current)
     if (autoLogoutIntervalRef.current) clearInterval(autoLogoutIntervalRef.current)
     sessionIntervalRef.current = null
@@ -87,8 +91,18 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         setUser(authUser)
 
         // Fetch user profile for header dates (fire and forget)
+        // Also checks for account expiry
         authFetch('/api/auth/me')
-          .then(r => r.ok ? r.json() : null)
+          .then(r => {
+            if (r.status === 403) return r.json().then(data => {
+              if (data?.expired && !cancelled) {
+                setAccountExpired(true)
+                setSessionWarning(data.error || 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.')
+              }
+              return null
+            })
+            return r.ok ? r.json() : null
+          })
           .then(data => { if (data && !cancelled) setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null }) })
           .catch(() => {})
 
@@ -124,9 +138,15 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
             setPermVersion(v => v + 1)
           }
-          if (!data.valid && data.warningMessage) {
-            setSessionWarning(data.warningMessage)
-            setForceLogoutAvailable(!!data.forceLogoutAvailable)
+          if (!data.valid) {
+            // Account expired - show expired popup
+            if (data.expired) {
+              setAccountExpired(true)
+              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+            } else if (data.warningMessage) {
+              setSessionWarning(data.warningMessage)
+              setForceLogoutAvailable(!!data.forceLogoutAvailable)
+            }
           }
         } catch {
           // Session verification failed (network error etc.) - continue anyway
@@ -177,9 +197,14 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       })
       .then(r => r.json())
       .then(data => {
-        if (!data.valid && data.warningMessage) {
-          setSessionWarning(data.warningMessage)
-          setForceLogoutAvailable(!!data.forceLogoutAvailable)
+        if (!data.valid) {
+          if (data.expired) {
+            setAccountExpired(true)
+            setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+          } else if (data.warningMessage) {
+            setSessionWarning(data.warningMessage)
+            setForceLogoutAvailable(!!data.forceLogoutAvailable)
+          }
         }
         // Sync latest permissions from server to localStorage
         if (data.permissions && authUser.role) {
@@ -322,8 +347,37 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         </main>
       </div>
 
+      {/* ===== MODAL: ACCOUNT EXPIRED ===== */}
+      {accountExpired && sessionWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="rounded-2xl shadow-2xl border border-red-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--app-popup-bg)' }}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                <TimerOff className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Akun Kadaluarsa</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Masa berlaku akun telah habis</p>
+              </div>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
+              <p className="text-sm text-red-700 leading-relaxed">{sessionWarning}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+              autoFocus
+            >
+              <span className="flex items-center justify-center gap-2">
+                <LogOut className="w-4 h-4" /> OK, Mengerti
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ===== MODAL: SESSION WARNING (Multi-Device) ===== */}
-      {sessionWarning && (
+      {sessionWarning && !accountExpired && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="rounded-2xl shadow-2xl border border-red-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--app-popup-bg)' }}>
             <div className="flex items-start gap-3 mb-4">

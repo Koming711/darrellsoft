@@ -53,6 +53,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ valid: true })
     }
 
+    // === CHECK ACCOUNT EXPIRY ===
+    // Admin and superadmin are exempt from expiry checks
+    const isAdminRole = role === 'admin' || role === 'superadmin'
+    if (!isAdminRole) {
+      // 1. Check Pengguna.validUntil
+      const pengguna = await db.pengguna.findUnique({
+        where: { username },
+        select: { validUntil: true, id: true }
+      })
+      if (pengguna?.validUntil && new Date(pengguna.validUntil) < new Date()) {
+        return NextResponse.json({
+          valid: false,
+          expired: true,
+          warningMessage: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.',
+          permissions: { features: {}, subPermissions: {} },
+          securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+        }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+      }
+
+      // 2. Check CalonPembeli.expiredDate (if the user is a CalonPembeli)
+      const calon = await db.calonPembeli.findFirst({
+        where: { username },
+        select: { expiredDate: true }
+      })
+      if (calon?.expiredDate && new Date(calon.expiredDate) < new Date()) {
+        return NextResponse.json({
+          valid: false,
+          expired: true,
+          warningMessage: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.',
+          permissions: { features: {}, subPermissions: {} },
+          securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+        }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+      }
+
+      // 3. Check Pembeli.expiredDate (if the user is linked to a Pembeli record)
+      if (pengguna?.id) {
+        const pembeli = await db.pembeli.findFirst({
+          where: { penggunaId: pengguna.id },
+          select: { expiredDate: true }
+        })
+        if (pembeli?.expiredDate && new Date(pembeli.expiredDate) < new Date()) {
+          return NextResponse.json({
+            valid: false,
+            expired: true,
+            warningMessage: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.',
+            permissions: { features: {}, subPermissions: {} },
+            securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+          }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+        }
+      }
+    }
+
     // === LOAD LATEST PERMISSIONS FROM DATABASE ===
     // Start with defaults so new features are always included
     const defaultFeatures = buildDefaultPermissions(role)
@@ -82,9 +134,6 @@ export async function POST(request: NextRequest) {
     } catch {}
 
     const permissions = { features, subPermissions }
-
-    // Admin and superadmin always have session tracking (regardless of single_device setting)
-    const isAdminRole = role === 'admin' || role === 'superadmin'
 
     // Load security settings (auto-logout, warning) in the same response
     let securitySettings: { auto_logout_min: number; logout_warning_sec: number } = { auto_logout_min: 0, logout_warning_sec: 0 }

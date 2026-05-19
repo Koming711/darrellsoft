@@ -28,7 +28,41 @@ export async function GET(request: Request) {
     })
 
     if (!pengguna) {
+      // Check if this is a CalonPembeli user
+      const calon = await db.calonPembeli.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          nama: true,
+          username: true,
+          email: true,
+          nomorHP: true,
+          role: true,
+          createdAt: true,
+          expiredDate: true,
+        }
+      })
+
+      if (calon) {
+        // Check CalonPembeli expiry
+        if (calon.expiredDate && new Date(calon.expiredDate) < new Date()) {
+          return NextResponse.json({ error: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.', expired: true }, { status: 403 })
+        }
+        return NextResponse.json({
+          ...calon,
+          namaLengkap: calon.nama,
+          validUntil: calon.expiredDate,
+        }, {
+          headers: { 'Cache-Control': 'no-store, max-age=0' }
+        })
+      }
+
       return NextResponse.json({ error: 'Pengguna tidak ditemukan' }, { status: 404 })
+    }
+
+    // Check Pengguna expiry (except admin/superadmin)
+    if (pengguna.role !== 'admin' && pengguna.role !== 'superadmin' && pengguna.validUntil && new Date(pengguna.validUntil) < new Date()) {
+      return NextResponse.json({ error: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.', expired: true }, { status: 403 })
     }
 
     return NextResponse.json(pengguna, {

@@ -177,3 +177,25 @@ Stage Summary:
 - All shared layout code extracted into reusable helper functions
 - Multi-line descriptions now properly rendered in PDF
 - No TypeScript errors in our files
+---
+Task ID: 1
+Agent: main
+Task: Fix expired accounts still being usable - add expiry enforcement across all user types
+
+Work Log:
+- Read and analyzed the pengguna page, login API, verify-session API, auth/me API, and dashboard-layout
+- Identified 3 gaps: (1) CalonPembeli.expiredDate not checked at login, (2) verify-session doesn't check any expiry, (3) no frontend popup for expired accounts
+- Added CalonPembeli.expiredDate check in login API (line 80-83)
+- Updated Pengguna expiry message to match: "Akun sudah expired. Silahkan diperpanjang lagi akunnya." with expired:true flag
+- Added comprehensive expiry checking in verify-session API: checks Pengguna.validUntil, CalonPembeli.expiredDate, and Pembeli.expiredDate
+- Added accountExpired state and TimerOff icon in dashboard-layout.tsx
+- Added expired popup modal with "Akun Kadaluarsa" title and "OK, Mengerti" button
+- Updated /api/auth/me to also check expiry for both Pengguna and CalonPembeli
+- Modified handleLogout to clear accountExpired and sessionWarning states
+- Admin/superadmin are exempt from all expiry checks
+
+Stage Summary:
+- 4 files modified: login/route.ts, verify-session/route.ts, auth/me/route.ts, dashboard-layout.tsx
+- All user types (Pengguna, CalonPembeli, Pembeli) now have their expiry dates enforced
+- Expired users see a popup saying "Akun sudah expired. Silahkan diperpanjang lagi akunnya." and must logout
+- The check runs on: login, every 10s session verification, and profile fetch
