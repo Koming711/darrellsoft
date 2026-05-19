@@ -15,8 +15,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Save, RotateCcw, Printer, AlertTriangle, FileDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DocumentType } from '@/lib/types';
-import { generatePdfFromElement, sharePdfViaWhatsApp } from '@/lib/generate-pdf';
+import type { DocumentType, InvoiceData, PurchaseOrderData, SuratJalanData } from '@/lib/types';
+import {
+  generateInvoicePdf,
+  generatePurchaseOrderPdf,
+  generateSuratJalanPdf,
+  sharePdfViaWhatsApp,
+} from '@/lib/generate-pdf';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -97,25 +102,20 @@ export function DocumentActionButtons({
   const handlePdfWhatsApp = async () => {
     setGeneratingPdf(true);
     try {
-      // Find the preview element
-      const previewContainer = document.getElementById('document-preview');
-      if (!previewContainer) {
-        toast.error('Pratinjau dokumen tidak ditemukan');
-        return;
-      }
-
-      // Try to find the A5 scaler first, fallback to the inner content div
-      const previewEl = previewContainer.querySelector('.a5-preview-scaler > div') as HTMLElement
-        || previewContainer.querySelector('.a5-preview-scaler') as HTMLElement
-        || previewContainer.querySelector('.a5-preview-container') as HTMLElement;
-
-      if (!previewEl) {
-        toast.error('Pratinjau dokumen tidak ditemukan');
-        return;
-      }
-
       const fileName = `${docType}-${Date.now()}.pdf`;
-      const blob = await generatePdfFromElement(previewEl, { format: 'a5' });
+      let blob: Blob;
+
+      // Generate PDF programmatically based on document type
+      if (docType === 'invoice') {
+        blob = await generateInvoicePdf(currentData as unknown as InvoiceData);
+      } else if (docType === 'purchase-order') {
+        blob = await generatePurchaseOrderPdf(currentData as unknown as PurchaseOrderData);
+      } else if (docType === 'surat-jalan') {
+        blob = await generateSuratJalanPdf(currentData as unknown as SuratJalanData);
+      } else {
+        toast.error('Tipe dokumen tidak didukung untuk PDF');
+        return;
+      }
 
       if (!blob || !(blob instanceof Blob)) {
         toast.error('Gagal membuat PDF - blob tidak valid');

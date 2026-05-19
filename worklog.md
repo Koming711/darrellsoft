@@ -129,3 +129,25 @@ Stage Summary:
 - The programmatic PDF includes: header, info grid, strategy, cutting diagram with colored blocks, steps, block details, and footer
 - Riwayat preview popup correctly generates PDF from preview data (not stale results)
 - Document pages (PO, Invoice, Surat Jalan) still use html2canvas approach with better error handling
+---
+Task ID: 1
+Agent: Main
+Task: Fix PDF generation for Invoice, PO, Surat Jalan document pages (html2canvas was failing)
+
+Work Log:
+- Analyzed the root cause: html2canvas dynamic import was fundamentally broken in the browser environment, causing "Both html2canvas and jsPDF html() methods failed" error
+- Created 3 new programmatic PDF generators using jsPDF directly (no html2canvas dependency):
+  - `generateInvoicePdf(data: InvoiceData)` - A5 format with company header, client info, items table (Qty|Nama Barang|Harga Satuan|Jumlah), totals, PPN, terbilang, catatan, signatures (Diterima Oleh | Hormat Kami)
+  - `generatePurchaseOrderPdf(data: PurchaseOrderData)` - A5 format with company header, pemasok info, items table, totals, PPN, terbilang, catatan, signatures (Disetujui Oleh | Diketahui | Toko)
+  - `generateSuratJalanPdf(data: SuratJalanData)` - A5 format with company header, penerima info, vehicle info, items table (Qty|Nama Barang only - no prices), catatan, signatures (Pengirim | Penerima)
+- Updated `document-action-buttons.tsx` to use the new generators instead of the broken `generatePdfFromElement()` which relied on html2canvas
+- Removed the `generatePdfFromElement()` function entirely from generate-pdf.ts
+- Kept `generatePotongKertasPdf()`, `sharePdfViaWhatsApp()`, and `downloadPdf()` functions unchanged
+- Fixed TypeScript type casting error (Record<string, unknown> → InvoiceData/PurchaseOrderData/SuratJalanData)
+- Verified no TypeScript errors and app compiles correctly
+
+Stage Summary:
+- PDF generation now works using pure jsPDF (no html2canvas) for all document types
+- Invoice, PO, Surat Jalan PDFs are generated programmatically matching the preview layout
+- WhatsApp sharing (Web Share API on mobile, download+WhatsApp link on desktop) is preserved
+- All document PDFs use A5 format (148mm × 210mm) matching the preview
