@@ -151,3 +151,29 @@ Stage Summary:
 - Invoice, PO, Surat Jalan PDFs are generated programmatically matching the preview layout
 - WhatsApp sharing (Web Share API on mobile, download+WhatsApp link on desktop) is preserved
 - All document PDFs use A5 format (148mm × 210mm) matching the preview
+
+---
+Task ID: 2
+Agent: Main
+Task: Fix PDF layout to match preview/print output exactly
+
+Work Log:
+- Analyzed all differences between preview components and PDF generators
+- Key issues found: font sizes too small, logo box too small (10mm→12mm), multi-line descriptions truncated, column widths wrong, signature gaps too short, label text case mismatch
+- Completely rewrote all 3 PDF generators with shared helper functions
+- Created reusable helper functions: drawDocHeader(), drawDivider(), drawRecipientBlock(), drawItemsTableWithPrice(), drawItemsTableNoPrice(), drawTotals(), drawTerbilang(), drawCatatan(), drawSignatures2Col(), drawSignatures3Col(), drawFooter()
+- Fixed font sizes: company name 13pt (was 11), address 9pt (was 7), table 7.5pt (was 6.5), totals 9.5pt (was 8), TOTAL 10pt (was 9)
+- Fixed logo box: 12mm × 12mm (was 10mm × 10mm)
+- Fixed column widths: Qty=16mm, Price=28mm, Total=28mm matching preview proportions
+- Added multi-line description support (up to 3 lines) using splitTextToSize()
+- Fixed signature gaps: Invoice 22mm, PO 22mm, Surat Jalan 35mm (was 18mm)
+- Fixed label text: "Kepada Yth :" (title case for Invoice), "KEPADA YTH :" (uppercase for PO), "Diterima Oleh" (for Surat Jalan)
+- Added subtitle support for PO ("Pesanan Pembelian") and SJ ("Pengiriman Barang")
+- Reduced margin from 8mm to 6mm for better space utilization
+- Added jsPDF type import to fix TypeScript errors
+
+Stage Summary:
+- PDF layout now matches the browser preview / print output for all 3 document types
+- All shared layout code extracted into reusable helper functions
+- Multi-line descriptions now properly rendered in PDF
+- No TypeScript errors in our files
