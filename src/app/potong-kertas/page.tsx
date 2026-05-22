@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus } from 'lucide-react'
+import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -14,7 +14,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
-import { generatePotongKertasPdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 
 const CuttingDiagram = dynamic(
@@ -657,6 +657,34 @@ function CalculatorPage() {
     setSavingRiwayat(false)
   }
 
+  const handlePO = async () => {
+    if (!results) {
+      toast.error('Hitung potongan terlebih dahulu!')
+      return
+    }
+    setSavingRiwayat(true)
+    try {
+      // Simpan ke riwayat potong kertas dulu
+      const res = await fetcher('/api/riwayat-potong-kertas', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildPayload())
+      })
+      if (res.ok) {
+        const saved = await res.json()
+        notifyDataChange('riwayat-potong-kertas')
+        fetchRiwayat()
+        // Navigasi ke halaman PO dengan riwayatId
+        router.push(`/purchase-order?riwayatId=${saved.id}`)
+      } else {
+        toast.error('Gagal menyimpan data riwayat')
+      }
+    } catch {
+      toast.error('Gagal menyimpan data riwayat')
+    }
+    setSavingRiwayat(false)
+  }
+
   const handleUpdateRiwayat = async () => {
     if (!restoredRiwayatId) {
       toast.error('Tidak ada data yang di-restore')
@@ -1059,24 +1087,34 @@ function CalculatorPage() {
   }
 
   const handlePdf = async () => {
-    // Use preview data if in riwayat preview, otherwise use current results
-    const activeResults = previewRiwayatData || results
-    if (!activeResults) return
+    if (!results) return
 
     setIsGeneratingPdf(true)
     try {
-      const blob = await generatePotongKertasPdf({
-        results: activeResults,
-        customerName: selectedCustomer?.name || previewRiwayatInfo?.customer || '-',
-        paperName: selectedPaper?.name || restoredPaperName || previewRiwayatInfo?.paper || 'Custom',
-        jumlahPesanan: previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan,
-        berapaMata: previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata,
-        setelanKertas: previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas,
-        printName: printName || '-',
-      })
-      const fileName = `potong-kertas-${Date.now()}.pdf`
-      await sharePdfViaWhatsApp(blob, fileName, 'Potong Kertas', waWindowRef)
-      toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp')
+      const html = buildFullPrintHtml()
+      if (!html) { toast.error('Tidak ada data'); return }
+
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        toast.error('Popup diblokir. Izinkan popup untuk membuat PDF.')
+        return
+      }
+
+      // Inject auto-PDF script into the HTML
+      const pdfHtml = html.replace('</body>', `
+  <script>
+    window.onload = function() {
+      // Small delay for SVG rendering
+      setTimeout(function() {
+        window.print();
+      }, 500);
+    }
+  </script>
+</body>`)
+
+      printWindow.document.write(pdfHtml)
+      printWindow.document.close()
+      toast.success('PDF dibuka! Pilih "Save as PDF" di dialog print.')
     } catch (err) {
       console.error('PDF generation error:', err)
       toast.error('Gagal menghasilkan PDF')
@@ -1085,31 +1123,27 @@ function CalculatorPage() {
     }
   }
 
-  const handleShareWhatsApp = async () => {
-    // Use preview data if in riwayat preview, otherwise use current results
-    const activeResults = previewRiwayatData || results
-    if (!activeResults) return
+  const handleShareWhatsApp = () => {
+    if (!results) return
 
-    setIsGeneratingPdf(true)
-    try {
-      const blob = await generatePotongKertasPdf({
-        results: activeResults,
-        customerName: selectedCustomer?.name || previewRiwayatInfo?.customer || '-',
-        paperName: selectedPaper?.name || restoredPaperName || previewRiwayatInfo?.paper || 'Custom',
-        jumlahPesanan: previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan,
-        berapaMata: previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata,
-        setelanKertas: previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas,
-        printName: printName || '-',
-      })
-      const fileName = `potong-kertas-${Date.now()}.pdf`
-      await sharePdfViaWhatsApp(blob, fileName, 'Potong Kertas', waWindowRef)
-      toast.success('PDF berhasil dibuat dan dikirim ke WhatsApp')
-    } catch (err) {
-      console.error('WhatsApp PDF error:', err)
-      toast.error('Gagal mengirim PDF ke WhatsApp')
-    } finally {
-      setIsGeneratingPdf(false)
-    }
+    const r = results
+    const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
+    const gramLabel = grammage ? `${grammage} gsm` : '-'
+
+    let msg = `*Potong Kertas - www.darrellsoft.com*\n\n`
+    msg += `Nama Bahan: ${paperLabel}\n`
+    msg += `Gramatur: ${gramLabel}\n`
+    msg += `Ukuran Kertas: ${r.paperWidth} × ${r.paperHeight} cm\n`
+    msg += `Ukuran Potong: ${r.cutWidth} × ${r.cutHeight} cm\n`
+    msg += `Kertas yg dibeli: ${r.sheetsNeeded} lembar\n`
+    msg += `Potongan Jadi: ${r.totalPieces}\n`
+    msg += `Harga Kertas: Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}\n`
+    msg += `Terima Kasih.`
+
+    const encoded = encodeURIComponent(msg)
+
+    openWhatsApp(encoded, { waWindowRef })
+    toast.success('Membuka WhatsApp...')
   }
 
   // Riwayat table component
@@ -1372,7 +1406,7 @@ function CalculatorPage() {
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button onClick={handleCalculateCuts} disabled={isCalculating || !(parseFloat(paperWidth) > 0) || !(parseFloat(paperHeight) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
                 className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
                 {isCalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -1382,6 +1416,11 @@ function CalculatorPage() {
                 className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
                 {restoredRiwayatId && <RefreshCw className={`w-3 h-3 ${savingRiwayat ? 'animate-spin' : ''}`} />}
                 {restoredRiwayatId ? (savingRiwayat ? 'Updating...' : 'Update Riwayat') : (savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat')}
+              </button>
+              <button onClick={handlePO} disabled={!results || savingRiwayat || needsRecalc}
+                className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
+                <FileText className="w-3.5 h-3.5" />
+                PO
               </button>
             </div>
             <div className="grid grid-cols-4 gap-2">
@@ -1394,11 +1433,11 @@ function CalculatorPage() {
                 <Printer className="w-3.5 h-3.5" />
                 {t('cetak')}
               </button>
-              <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc || isGeneratingPdf}
-                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp PDF">
-                {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
-                <span className="lg:hidden xl:inline">{isGeneratingPdf ? 'PDF...' : 'WhatsApp'}</span>
-                <span className="hidden lg:inline xl:hidden">{isGeneratingPdf ? '...' : 'WA'}</span>
+              <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
+                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="lg:hidden xl:inline">WhatsApp</span>
+                <span className="hidden lg:inline xl:hidden">WA</span>
               </button>
               <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
                 className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
@@ -1722,9 +1761,9 @@ function CalculatorPage() {
               className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
               {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> PDF</>}
             </button>
-            <button onClick={handleShareWhatsApp} disabled={isGeneratingPdf}
-              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl transition-colors text-xs sm:text-sm">
-              {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WhatsApp</>}
+            <button onClick={handleShareWhatsApp}
+              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl transition-colors text-xs sm:text-sm">
+              <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WhatsApp
             </button>
           </div>
         </DraggablePreviewDialog>
