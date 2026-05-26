@@ -137,11 +137,11 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
       {/* Signatures */}
       <div className="print-sig-grid grid grid-cols-2 gap-6 mt-3 text-[15px] text-center print:text-[13px] print:mt-[1mm] print:gap-2">
         <div>
-          <p className="font-semibold text-black" style={{ marginBottom: '3.5rem' }}>Pengirim</p>
+          <p className="font-semibold text-black" style={{ marginBottom: '3.5rem' }}>Penerima</p>
           <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
         <div>
-          <p className="font-semibold text-black" style={{ marginBottom: '3.5rem' }}>Penerima</p>
+          <p className="font-semibold text-black" style={{ marginBottom: '3.5rem' }}>Pengirim</p>
           <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
       </div>
