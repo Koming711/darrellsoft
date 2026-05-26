@@ -7,6 +7,24 @@ export async function GET(request: NextRequest) {
     const user = getServerUser(request)
     const dataFilter = await getDataFilter(user)
 
+    // Get user expiry info
+    let expiryInfo: { validUntil: string | null; remainingDays: number | null } = { validUntil: null, remainingDays: null }
+    if (user?.id) {
+      const pengguna = await db.pengguna.findUnique({ where: { id: user.id }, select: { validUntil: true, role: true } })
+      if (pengguna && pengguna.role !== 'admin' && pengguna.role !== 'superadmin' && pengguna.validUntil) {
+        expiryInfo.validUntil = pengguna.validUntil.toISOString()
+        const remaining = Math.ceil((new Date(pengguna.validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        expiryInfo.remainingDays = Math.max(0, remaining)
+      } else if (!pengguna) {
+        const calon = await db.calonPembeli.findUnique({ where: { id: user.id }, select: { expiredDate: true } })
+        if (calon?.expiredDate) {
+          expiryInfo.validUntil = calon.expiredDate.toISOString()
+          const remaining = Math.ceil((new Date(calon.expiredDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          expiryInfo.remainingDays = Math.max(0, remaining)
+        }
+      }
+    }
+
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     sevenDaysAgo.setHours(0, 0, 0, 0)
@@ -205,6 +223,7 @@ export async function GET(request: NextRequest) {
     const todayOrderCount = todayCetakanAgg._count + todayInvoiceHistory.length
 
     return NextResponse.json({
+      expiryInfo,
       summary: {
         calculations: {
           cetakan: cetakanAgg._count,

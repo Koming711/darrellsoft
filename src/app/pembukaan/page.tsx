@@ -24,6 +24,7 @@ import {
   Clock,
   Calculator,
   TrendingUp,
+  CalendarClock,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { formatRupiah, formatTanggal } from '@/lib/format'
@@ -66,6 +67,10 @@ interface HistoryEntry {
 }
 
 interface DashboardData {
+  expiryInfo: {
+    validUntil: string | null
+    remainingDays: number | null
+  }
   summary: {
     calculations: {
       cetakan: number
@@ -91,6 +96,9 @@ interface DashboardData {
       invoice: number
       purchaseOrder: number
       revenue: number
+      modal: number
+      todaySales: number
+      todayOrderCount: number
     }
   }
   recent: {
@@ -287,6 +295,18 @@ export default function PembukaanPage() {
             isCurrency
             profitBadge={summary?.totals.modal && summary.totals.modal > 0 ? `${(((summary.totals.uangCapek ?? 0) / summary.totals.modal) * 100).toFixed(1)}%` : undefined}
           />
+          {data?.expiryInfo && data.expiryInfo.validUntil && (
+            <StatCard
+              icon={<CalendarClock className="w-5 h-5" />}
+              label="Expired Trial"
+              count={data.expiryInfo.remainingDays ?? 0}
+              total={0}
+              color={(data.expiryInfo.remainingDays ?? 0) <= 7 ? 'red' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'orange' : 'teal'}
+              loading={loading}
+              subtitle={new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              isDays
+            />
+          )}
         </div>
 
         {/* Document Cards */}
@@ -584,9 +604,9 @@ export default function PembukaanPage() {
 
 // --- Stat Card Component ---
 function StatCard({
-  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge,
+  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge, isDays,
 }: {
-  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string
+  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
@@ -594,6 +614,9 @@ function StatCard({
     amber: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
     violet: { bg: 'bg-violet-50', border: 'border-violet-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
     rose: { bg: 'bg-rose-50', border: 'border-rose-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
+    red: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100 text-red-600', text: 'text-red-700' },
+    orange: { bg: 'bg-orange-50', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+    teal: { bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
   }
   const c = colorMap[color] || colorMap.emerald
 
@@ -609,7 +632,7 @@ function StatCard({
         <>
           <div className={`w-8 h-8 rounded-lg ${c.iconBg} flex items-center justify-center mb-2`}>{icon}</div>
           <p className="text-xs text-slate-500 mb-0.5 break-words">{label} {profitBadge && <span className="text-[15px] font-bold text-violet-700">{profitBadge}</span>}</p>
-          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{isCurrency ? formatRupiahShort(count) : count}</p>
+          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{isCurrency ? formatRupiahShort(count) : isDays ? `${count} hari` : count}</p>
           {!isCurrency && total > 0 && <p className="text-[10px] text-slate-400">{formatRupiahShort(total)}</p>}
           {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
         </>
