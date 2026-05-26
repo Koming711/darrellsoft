@@ -254,39 +254,26 @@ export default function PembukaanPage() {
         {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
           <button
             onClick={() => router.push('/checkout')}
-            className={`${
-              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-50 border-red-200 hover:bg-red-100' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-50 border-orange-200 hover:bg-orange-100' : 'bg-teal-50 border-teal-200 hover:bg-teal-100'
-            } border rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer`}
+            className="bg-teal-600 border border-teal-700 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
           >
-            <div className={`w-10 h-10 rounded-lg ${
-              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-100 text-red-600' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-100 text-orange-600' : 'bg-teal-100 text-teal-600'
-            } flex items-center justify-center shrink-0`}>
+            <div className="w-10 h-10 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
               <CalendarClock className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-slate-500">Expired Akun Demo</p>
+              <p className="text-xs text-teal-100">Expired Akun Demo</p>
               <div className="flex items-baseline gap-2 flex-wrap">
-                <p className={`text-base sm:text-lg font-bold ${
-                  (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-700' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-700' : 'text-teal-700'
-                } leading-tight`}>
+                <p className="text-base sm:text-lg font-bold text-white leading-tight">
                   {data.expiryInfo.remainingDays} hari lagi
                 </p>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-teal-100">
                   s/d {new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               </div>
-              <p className={`text-[11px] mt-1 ${
-                (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-500' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-500' : 'text-teal-600'
-              }`}>
+              <p className="text-[11px] mt-1 text-teal-100">
                 Lanjutkan sebelum akun mati dan data hilang
               </p>
             </div>
-            {(data.expiryInfo.remainingDays ?? 0) <= 7 && (
-              <span className="text-xs font-medium text-red-600 bg-red-100 rounded-full px-2.5 py-1 whitespace-nowrap">Segera berakhir!</span>
-            )}
-            <ChevronRight className={`w-5 h-5 shrink-0 ${
-              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-400' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-400' : 'text-teal-400'
-            }`} />
+            <ChevronRight className="w-5 h-5 shrink-0 text-white/70" />
           </button>
         )}
 
