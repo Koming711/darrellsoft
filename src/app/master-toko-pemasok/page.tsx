@@ -50,7 +50,7 @@ export default function MasterTokoPemasokPage() {
     try {
       const response = await authFetch('/api/toko-pemasok')
       const result = await response.json()
-      setData(result)
+      setData(Array.isArray(result) ? result : [])
     } catch (error) {
       console.error('Error fetching toko pemasok:', error)
       toast.error('Gagal memuat data toko/pemasok')
