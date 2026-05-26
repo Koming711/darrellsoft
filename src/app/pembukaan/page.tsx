@@ -308,7 +308,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
-            label="Uang Capek"
+            label="Total Uang Capek"
             count={summary?.totals.uangCapek ?? 0}
             total={0}
             color="violet"
