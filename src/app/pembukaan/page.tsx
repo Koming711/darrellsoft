@@ -278,7 +278,7 @@ export default function PembukaanPage() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             icon={<FileText className="w-5 h-5" />}
             label="Total Pesanan"
@@ -305,15 +305,6 @@ export default function PembukaanPage() {
             loading={loading}
             isCurrency
             subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} pesanan` : undefined}
-          />
-          <StatCard
-            icon={<Calculator className="w-5 h-5" />}
-            label="Modal"
-            count={summary?.totals.modal ?? 0}
-            total={0}
-            color="amber"
-            loading={loading}
-            isCurrency
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
