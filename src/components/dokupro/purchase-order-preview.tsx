@@ -168,7 +168,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
       {/* Signatures - 3 columns */}
       <div className="print-sig-grid grid grid-cols-3 gap-3 mt-3 text-[10px] text-center print:text-[8px] print:mt-[1mm]">
         <div>
-          <p className="font-semibold mb-4 print:mb-4 text-black">Disetujui Oleh</p>
+          <p className="font-semibold mb-4 print:mb-4 text-black">Toko</p>
           <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
         <div>
@@ -176,7 +176,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
           <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
         <div>
-          <p className="font-semibold mb-4 print:mb-4 text-black">Toko</p>
+          <p className="font-semibold mb-4 print:mb-4 text-black">Disetujui Oleh</p>
           <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
       </div>
