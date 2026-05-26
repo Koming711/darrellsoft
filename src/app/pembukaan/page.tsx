@@ -328,33 +328,6 @@ export default function PembukaanPage() {
           />
         </div>
 
-        {/* Document Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <DocCard
-            icon={<FileText className="w-5 h-5" />}
-            label="Invoice"
-            count={invoiceHistory.length}
-            total={summary?.totals.invoice ?? 0}
-            color="blue"
-            loading={loading}
-          />
-          <DocCard
-            icon={<Truck className="w-5 h-5" />}
-            label="Surat Jalan"
-            count={suratJalanHistory.length}
-            color="teal"
-            loading={loading}
-          />
-          <DocCard
-            icon={<ShoppingCart className="w-5 h-5" />}
-            label="Purchase Order"
-            count={poHistory.length}
-            total={summary?.totals.purchaseOrder ?? 0}
-            color="orange"
-            loading={loading}
-          />
-        </div>
-
         {/* Riwayat Sections */}
         <div className="space-y-3">
           {/* Hitung Cetakan */}
