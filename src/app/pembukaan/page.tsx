@@ -289,7 +289,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
-            label="Penjualan Hari Ini"
+            label="Pendapatan Hari Ini"
             count={summary?.totals.todaySales ?? 0}
             total={0}
             color="rose"
