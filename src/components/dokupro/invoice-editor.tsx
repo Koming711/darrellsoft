@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,15 @@ import { Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { InvoiceData } from '@/lib/types';
+
+interface CustomerItem {
+  id: string;
+  name: string;
+  companyName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+}
 
 interface RiwayatCetakanItem {
   id: string;
@@ -72,6 +81,12 @@ export function InvoiceEditor() {
   const [referensiInput, setReferensiInput] = useState(invoice.referensi);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // Customer dropdown state
+  const [customerList, setCustomerList] = useState<CustomerItem[]>([]);
+  const [clientInput, setClientInput] = useState(invoice.client.nama);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [clientTyping, setClientTyping] = useState(false);
+
   const fetchRiwayatCetakan = useCallback(async () => {
     try {
       const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() });
@@ -84,11 +99,27 @@ export function InvoiceEditor() {
     }
   }, []);
 
+  // Fetch customer list
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/customers', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerList(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => { loadCompanyFromAPI() }, [loadCompanyFromAPI]);
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
+  useEffect(() => { fetchCustomers() }, [fetchCustomers]);
 
   // Sync referensiInput when invoice.referensi changes externally
   useEffect(() => { setReferensiInput(invoice.referensi) }, [invoice.referensi]);
+  // Sync clientInput when invoice.client.nama changes externally
+  useEffect(() => { setClientInput(invoice.client.nama) }, [invoice.client.nama]);
 
   // Filter riwayat list by input
   const filteredRiwayatList = riwayatList.filter((r) => {
@@ -169,6 +200,41 @@ export function InvoiceEditor() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riwayatIdFromUrl, riwayatList]);
+
+  // Filter customer list (only when user is actively typing)
+  const filteredCustomerList = useMemo(() =>
+    clientTyping
+      ? customerList.filter((c) => {
+          const search = clientInput.toLowerCase().trim();
+          if (!search) return true;
+          return c.name.toLowerCase().includes(search) ||
+                 (c.companyName || '').toLowerCase().includes(search) ||
+                 (c.phone || '').toLowerCase().includes(search) ||
+                 (c.address || '').toLowerCase().includes(search);
+        })
+      : customerList
+  , [clientTyping, customerList, clientInput]);
+
+  const handleClientInputChange = (value: string) => {
+    setClientInput(value);
+    setClientTyping(true);
+    updateClient('nama', value);
+    setClientDropdownOpen(true);
+  };
+
+  const handleClientSelect = (item: CustomerItem) => {
+    setClientInput(item.name);
+    setClientTyping(false);
+    setInvoice({
+      ...invoice,
+      client: {
+        nama: item.name,
+        kontak: item.phone || item.email || '',
+        alamat: item.address || '',
+      },
+    });
+    setClientDropdownOpen(false);
+  };
 
   const updateCompany = (company: typeof invoice.company) => {
     setInvoice({ ...invoice, company });
@@ -340,11 +406,60 @@ export function InvoiceEditor() {
           </h3>
           <div className="space-y-1.5">
             <Label className="text-xs">Nama Customer</Label>
-            <Input
-              value={invoice.client.nama}
-              onChange={(e) => updateClient('nama', e.target.value)}
-              placeholder="Nama perusahaan / individu"
-            />
+            <Popover open={clientDropdownOpen} onOpenChange={setClientDropdownOpen}>
+              <PopoverAnchor asChild>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Ketik atau pilih customer..."
+                    value={clientInput}
+                    onChange={(e) => handleClientInputChange(e.target.value)}
+                    onFocus={() => { setClientDropdownOpen(true); setClientTyping(false); }}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    onMouseDown={(e) => { e.preventDefault(); setClientTyping(false); setClientDropdownOpen(!clientDropdownOpen); }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                </div>
+              </PopoverAnchor>
+              <PopoverContent
+                align="start"
+                className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                {filteredCustomerList.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Master Customer</div>
+                    {filteredCustomerList.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); handleClientSelect(c) }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${invoice.client.nama === c.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                      >
+                        <span className="truncate">{c.name}</span>
+                        {c.companyName && <span className="text-slate-400 ml-1.5 text-[11px]">({c.companyName})</span>}
+                        {(c.phone || c.address) && (
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {c.phone && <span>{c.phone}</span>}
+                            {c.phone && c.address && <span> · </span>}
+                            {c.address && <span className="truncate">{c.address}</span>}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {filteredCustomerList.length === 0 && (
+                  <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada data customer</div>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Nomor Telp</Label>
