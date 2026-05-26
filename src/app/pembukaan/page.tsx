@@ -288,15 +288,6 @@ export default function PembukaanPage() {
             loading={loading}
           />
           <StatCard
-            icon={<DollarSign className="w-5 h-5" />}
-            label={`Total Pendapatan ${new Date().toLocaleDateString('id-ID', { month: 'long' })}`}
-            count={summary?.totals.revenue ?? 0}
-            total={0}
-            color="sky"
-            loading={loading}
-            isCurrency
-          />
-          <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
             label="Penjualan Hari Ini"
             count={summary?.totals.todaySales ?? 0}
@@ -305,6 +296,15 @@ export default function PembukaanPage() {
             loading={loading}
             isCurrency
             subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} pesanan` : undefined}
+          />
+          <StatCard
+            icon={<DollarSign className="w-5 h-5" />}
+            label={`Total Pendapatan ${new Date().toLocaleDateString('id-ID', { month: 'long' })}`}
+            count={summary?.totals.revenue ?? 0}
+            total={0}
+            color="sky"
+            loading={loading}
+            isCurrency
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
