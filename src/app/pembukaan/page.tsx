@@ -234,7 +234,7 @@ export default function PembukaanPage() {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-normal uppercase text-slate-800">{greeting}</h2>
-            <p className="text-[21px] sm:text-[29px] font-extrabold text-slate-800 truncate">Halo, {displayName}</p>
+            <p className="text-lg sm:text-[27px] font-extrabold text-slate-800 truncate">Halo, {displayName}</p>
           </div>
         </div>
 
