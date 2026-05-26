@@ -329,6 +329,7 @@ function CalculatorPage() {
     return ''
   })
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
+  const [customerTyping, setCustomerTyping] = useState(false)
   const customerInputRef = useRef<HTMLInputElement>(null)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
   const [isSavingCustomer, setIsSavingCustomer] = useState(false)
@@ -340,9 +341,9 @@ function CalculatorPage() {
     }
   }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, customerInput])
 
-  const filteredCustomersList = customers.filter(c =>
-    c.name.toLowerCase().includes(customerInput.toLowerCase())
-  )
+  const filteredCustomersList = customerTyping
+    ? customers.filter(c => c.name.toLowerCase().includes(customerInput.toLowerCase()))
+    : customers
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -367,11 +368,13 @@ function CalculatorPage() {
   const handleCustomerSelect = (customer: any) => {
     setSelectedCustomerId(customer.id)
     setCustomerInput(customer.name)
+    setCustomerTyping(false)
     setCustomerDropdownOpen(false)
   }
 
   const handleCustomerInputChange = (value: string) => {
     setCustomerInput(value)
+    setCustomerTyping(true)
     // If user clears input, deselect
     if (!value.trim()) {
       setSelectedCustomerId('')
@@ -388,6 +391,7 @@ function CalculatorPage() {
   }
 
   const handleCustomerInputFocus = () => {
+    setCustomerTyping(false)
     setCustomerDropdownOpen(true)
   }
 
@@ -1271,11 +1275,16 @@ function CalculatorPage() {
                       onBlur={handleCustomerInputBlur}
                       className={inp + ' pr-9' + (isSavingCustomer ? ' opacity-60' : '')}
                     />
-                    {/* Dropdown chevron icon */}
+                    {/* Dropdown chevron icon - clickable */}
                     {!isSavingCustomer && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        onMouseDown={(e) => { e.preventDefault(); setCustomerTyping(false); setCustomerDropdownOpen(!customerDropdownOpen); }}
+                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </div>
+                      </button>
                     )}
                     {isSavingCustomer && (
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
