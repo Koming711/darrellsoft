@@ -59,6 +59,15 @@ export const GROUP_FEATURES = [
     ]
   },
   {
+    id: 'master-toko-pemasok', name: 'Master Toko/Pemasok',
+    subPermissions: [
+      { id: 'master-toko-pemasok-lihat', name: 'Daftar Toko/Pemasok' },
+      { id: 'master-toko-pemasok-tambah', name: 'Tambah Toko/Pemasok' },
+      { id: 'master-toko-pemasok-edit', name: 'Edit Toko/Pemasok' },
+      { id: 'master-toko-pemasok-hapus', name: 'Hapus Toko/Pemasok' },
+    ]
+  },
+  {
     id: 'daftar-pengguna', name: 'Daftar Pengguna',
     subPermissions: [
       { id: 'daftar-pengguna-tambah', name: 'Tambah' },

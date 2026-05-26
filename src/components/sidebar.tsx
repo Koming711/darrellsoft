@@ -23,6 +23,7 @@ import {
   Truck,
   ShoppingCart,
   BookOpen,
+  Store,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -122,6 +123,13 @@ const menuItems = [
     href: '/master-customer',
     icon: Users,
     featureId: 'master-customer',
+    section: 'master_cetakan',
+  },
+  {
+    titleKey: 'master_toko_pemasok' as TranslationKey,
+    href: '/master-toko-pemasok',
+    icon: Store,
+    featureId: 'master-toko-pemasok',
     section: 'master_cetakan',
   },
   {
