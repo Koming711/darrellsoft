@@ -254,7 +254,7 @@ export default function PembukaanPage() {
         {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
           <button
             onClick={() => router.push('/checkout')}
-            className="bg-teal-600 border border-teal-700 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
+            className="bg-teal-600 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
           >
             <div className="w-10 h-10 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
               <CalendarClock className="w-5 h-5" />
