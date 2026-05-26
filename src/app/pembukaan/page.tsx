@@ -25,8 +25,10 @@ import {
   Calculator,
   TrendingUp,
   CalendarClock,
+  ChevronRight,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 
 // --- Types ---
@@ -166,6 +168,7 @@ function parseDocInfo(entry: HistoryEntry) {
 export default function PembukaanPage() {
   const { t } = useLanguage()
   const { user } = useAuth()
+  const router = useRouter()
   const [greeting, setGreeting] = useState(getGreeting)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -249,9 +252,12 @@ export default function PembukaanPage() {
 
         {/* Expired Akun Demo - only for demo role */}
         {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
-          <div className={`${
-            (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-50 border-red-200' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'
-          } border rounded-xl p-4 flex items-center gap-4`}>
+          <button
+            onClick={() => router.push('/checkout')}
+            className={`${
+              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-50 border-red-200 hover:bg-red-100' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-50 border-orange-200 hover:bg-orange-100' : 'bg-teal-50 border-teal-200 hover:bg-teal-100'
+            } border rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer`}
+          >
             <div className={`w-10 h-10 rounded-lg ${
               (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-100 text-red-600' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-100 text-orange-600' : 'bg-teal-100 text-teal-600'
             } flex items-center justify-center shrink-0`}>
@@ -273,7 +279,12 @@ export default function PembukaanPage() {
             {(data.expiryInfo.remainingDays ?? 0) <= 7 && (
               <span className="text-xs font-medium text-red-600 bg-red-100 rounded-full px-2.5 py-1 whitespace-nowrap">Segera berakhir!</span>
             )}
-          </div>
+            <span className={`text-xs font-semibold whitespace-nowrap flex items-center gap-1 ${
+              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-600' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-600' : 'text-teal-600'
+            }`}>
+              Lanjutkan <ChevronRight className="w-4 h-4" />
+            </span>
+          </button>
         )}
 
         {/* Summary Cards */}
