@@ -26,6 +26,9 @@ import {
   TrendingUp,
   CalendarClock,
   ChevronRight,
+  History,
+  BarChart3,
+  Receipt,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -327,6 +330,34 @@ export default function PembukaanPage() {
             profitBadge={summary?.totals.modal && summary.totals.modal > 0 ? `${(((summary.totals.uangCapek ?? 0) / summary.totals.modal) * 100).toFixed(1)}%` : undefined}
           />
         </div>
+
+        {/* Quick Access Icons */}
+        <div className="grid grid-cols-4 gap-3 sm:gap-4">
+          <QuickIcon
+            icon={<ShoppingCart className="w-5 h-5" />}
+            label="Pembelian"
+            color="bg-blue-50 text-blue-600 border-blue-200"
+            onClick={() => router.push('/hitung-cetakan')}
+          />
+          <QuickIcon
+            icon={<History className="w-5 h-5" />}
+            label="Riwayat"
+            color="bg-amber-50 text-amber-600 border-amber-200"
+            onClick={() => router.push('/riwayat')}
+          />
+          <QuickIcon
+            icon={<BarChart3 className="w-5 h-5" />}
+            label="Laporan"
+            color="bg-emerald-50 text-emerald-600 border-emerald-200"
+            onClick={() => router.push('/administrasi')}
+          />
+          <QuickIcon
+            icon={<Receipt className="w-5 h-5" />}
+            label="Invoice"
+            color="bg-violet-50 text-violet-600 border-violet-200"
+            onClick={() => router.push('/invoice')}
+          />
+        </div>
       </div>
     </DashboardLayout>
   )
@@ -401,5 +432,23 @@ function DocCard({
         </>
       )}
     </div>
+  )
+}
+
+// --- Quick Icon Component ---
+function QuickIcon({
+  icon, label, color, onClick,
+}: {
+  icon: React.ReactNode; label: string; color: string; onClick: () => void
+}) {
+  const [bg, text, border] = color.split(' ')
+  return (
+    <button
+      onClick={onClick}
+      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
+    >
+      <div className={`${text}`}>{icon}</div>
+      <span className={`text-[11px] sm:text-xs font-medium ${text}`}>{label}</span>
+    </button>
   )
 }
