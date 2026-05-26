@@ -225,6 +225,7 @@ function CalculatorPage() {
   const [savingRiwayat, setSavingRiwayat] = useState(false)
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
   const [needsRecalc, setNeedsRecalc] = useState(false)
+  const justCalculatedRef = useRef(false)
   const [riwayatList, setRiwayatList] = useState<any[]>([])
 
   // Preview state
@@ -245,7 +246,7 @@ function CalculatorPage() {
     localStorage.setItem(STORAGE_KEY(), JSON.stringify(formData))
   }, [formData])
 
-  // Mark needsRecalc when any form field changes after a restore
+  // Mark needsRecalc when any form field changes
   // (defined as ref+state pair; the useEffect is placed after customerInput declaration)
   const restoreDoneRef = useRef(false)
 
@@ -335,9 +336,13 @@ function CalculatorPage() {
   const customerWrapperRef = useRef<HTMLDivElement>(null)
   const [isSavingCustomer, setIsSavingCustomer] = useState(false)
 
-  // Mark needsRecalc when any form field changes after a restore
+  // Mark needsRecalc when any form field changes (after initial calculation or restore)
   useEffect(() => {
-    if (restoredRiwayatId && restoreDoneRef.current) {
+    if (justCalculatedRef.current) {
+      justCalculatedRef.current = false
+      return
+    }
+    if (results) {
       setNeedsRecalc(true)
     }
   }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, customerInput])
@@ -484,6 +489,7 @@ function CalculatorPage() {
 
   const handleCalculateCuts = async () => {
     setNeedsRecalc(false)
+    justCalculatedRef.current = true
     setIsCalculating(true)
     await new Promise(resolve => setTimeout(resolve, 50))
 
