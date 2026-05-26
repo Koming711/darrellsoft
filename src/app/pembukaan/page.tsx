@@ -70,6 +70,7 @@ interface DashboardData {
   expiryInfo: {
     validUntil: string | null
     remainingDays: number | null
+    accountName: string | null
   }
   summary: {
     calculations: {
@@ -248,7 +249,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard
             icon={<FileText className="w-5 h-5" />}
             label="Total Pesanan"
@@ -295,18 +296,18 @@ export default function PembukaanPage() {
             isCurrency
             profitBadge={summary?.totals.modal && summary.totals.modal > 0 ? `${(((summary.totals.uangCapek ?? 0) / summary.totals.modal) * 100).toFixed(1)}%` : undefined}
           />
-          {data?.expiryInfo && data.expiryInfo.validUntil && (
-            <StatCard
-              icon={<CalendarClock className="w-5 h-5" />}
-              label="Expired Trial"
-              count={data.expiryInfo.remainingDays ?? 0}
-              total={0}
-              color={(data.expiryInfo.remainingDays ?? 0) <= 7 ? 'red' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'orange' : 'teal'}
-              loading={loading}
-              subtitle={new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-              isDays
-            />
-          )}
+          <StatCard
+            icon={<CalendarClock className="w-5 h-5" />}
+            label="Expired Akun Demo"
+            count={data?.expiryInfo?.validUntil ? (data.expiryInfo.remainingDays ?? 0) : -1}
+            total={0}
+            color={(data?.expiryInfo?.remainingDays ?? 0) <= 0 ? 'red' : (data?.expiryInfo?.remainingDays ?? 0) <= 7 ? 'red' : (data?.expiryInfo?.remainingDays ?? 0) <= 30 ? 'orange' : 'teal'}
+            loading={loading}
+            subtitle={data?.expiryInfo?.validUntil ? new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : undefined}
+            isDays={!!data?.expiryInfo?.validUntil}
+            noDataLabel={!data?.expiryInfo?.validUntil ? 'Belum ada' : undefined}
+            accountName={data?.expiryInfo?.accountName ?? undefined}
+          />
         </div>
 
         {/* Document Cards */}
@@ -604,9 +605,9 @@ export default function PembukaanPage() {
 
 // --- Stat Card Component ---
 function StatCard({
-  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge, isDays,
+  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge, isDays, accountName, noDataLabel,
 }: {
-  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean
+  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean; accountName?: string; noDataLabel?: string
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
@@ -632,8 +633,9 @@ function StatCard({
         <>
           <div className={`w-8 h-8 rounded-lg ${c.iconBg} flex items-center justify-center mb-2`}>{icon}</div>
           <p className="text-xs text-slate-500 mb-0.5 break-words">{label} {profitBadge && <span className="text-[15px] font-bold text-violet-700">{profitBadge}</span>}</p>
-          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{isCurrency ? formatRupiahShort(count) : isDays ? `${count} hari` : count}</p>
+          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{noDataLabel ? noDataLabel : isCurrency ? formatRupiahShort(count) : isDays ? `${count} hari` : count}</p>
           {!isCurrency && total > 0 && <p className="text-[10px] text-slate-400">{formatRupiahShort(total)}</p>}
+          {accountName && <p className="text-[10px] text-slate-500 mt-0.5 truncate" title={accountName}>{accountName}</p>}
           {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
         </>
       )}

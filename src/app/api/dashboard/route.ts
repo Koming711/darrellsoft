@@ -8,19 +8,47 @@ export async function GET(request: NextRequest) {
     const dataFilter = await getDataFilter(user)
 
     // Get user expiry info
-    let expiryInfo: { validUntil: string | null; remainingDays: number | null } = { validUntil: null, remainingDays: null }
+    let expiryInfo: { validUntil: string | null; remainingDays: number | null; accountName: string | null } = { validUntil: null, remainingDays: null, accountName: null }
     if (user?.id) {
-      const pengguna = await db.pengguna.findUnique({ where: { id: user.id }, select: { validUntil: true, role: true } })
-      if (pengguna && pengguna.role !== 'admin' && pengguna.role !== 'superadmin' && pengguna.validUntil) {
+      const pengguna = await db.pengguna.findUnique({ where: { id: user.id }, select: { validUntil: true, role: true, namaLengkap: true } })
+      if (pengguna && (pengguna.role === 'admin' || pengguna.role === 'superadmin')) {
+        // Admin: find the soonest expiring demo account (CalonPembeli)
+        const soonestDemo = await db.calonPembeli.findFirst({
+          where: { expiredDate: { not: null, gte: new Date() }, role: 'demo' },
+          orderBy: { expiredDate: 'asc' },
+          select: { expiredDate: true, nama: true },
+        })
+        if (soonestDemo?.expiredDate) {
+          expiryInfo.validUntil = soonestDemo.expiredDate.toISOString()
+          const remaining = Math.ceil((new Date(soonestDemo.expiredDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          expiryInfo.remainingDays = Math.max(0, remaining)
+          expiryInfo.accountName = soonestDemo.nama
+        } else {
+          // No active demo accounts, check for expired ones
+          const anyDemo = await db.calonPembeli.findFirst({
+            where: { expiredDate: { not: null }, role: 'demo' },
+            orderBy: { expiredDate: 'desc' },
+            select: { expiredDate: true, nama: true },
+          })
+          if (anyDemo?.expiredDate) {
+            expiryInfo.validUntil = anyDemo.expiredDate.toISOString()
+            const remaining = Math.ceil((new Date(anyDemo.expiredDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            expiryInfo.remainingDays = Math.max(0, remaining)
+            expiryInfo.accountName = anyDemo.nama
+          }
+        }
+      } else if (pengguna && pengguna.validUntil) {
         expiryInfo.validUntil = pengguna.validUntil.toISOString()
         const remaining = Math.ceil((new Date(pengguna.validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         expiryInfo.remainingDays = Math.max(0, remaining)
+        expiryInfo.accountName = pengguna.namaLengkap
       } else if (!pengguna) {
-        const calon = await db.calonPembeli.findUnique({ where: { id: user.id }, select: { expiredDate: true } })
+        const calon = await db.calonPembeli.findUnique({ where: { id: user.id }, select: { expiredDate: true, nama: true } })
         if (calon?.expiredDate) {
           expiryInfo.validUntil = calon.expiredDate.toISOString()
           const remaining = Math.ceil((new Date(calon.expiredDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           expiryInfo.remainingDays = Math.max(0, remaining)
+          expiryInfo.accountName = calon.nama
         }
       }
     }
