@@ -176,6 +176,34 @@ export async function GET(request: NextRequest) {
 
     const totalRevenue = monthlyRevenue
 
+    // Calculate today's sales (Penjualan Hari Ini)
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayFilter = { createdAt: { gte: todayStart } }
+
+    const todayCetakanAgg = await db.riwayatCetakan.aggregate({
+      where: { ...dataFilter, ...todayFilter },
+      _count: true,
+      _sum: { grandTotal: true },
+    })
+
+    const todayInvoiceHistory = await db.documentHistory.findMany({
+      where: { docType: 'invoice', ...todayFilter },
+      select: { dataJson: true },
+    })
+    let todayInvoiceRevenue = 0
+    for (const inv of todayInvoiceHistory) {
+      try {
+        const data = JSON.parse(inv.dataJson)
+        const subtotal = (data.items || []).reduce((sum: number, item: { qty: number; harga: number }) => sum + item.qty * item.harga, 0)
+        const ppn = subtotal * ((data.ppn || 0) / 100)
+        todayInvoiceRevenue += subtotal + ppn
+      } catch {}
+    }
+
+    const todaySales = (todayCetakanAgg._sum.grandTotal || 0) + todayInvoiceRevenue
+    const todayOrderCount = todayCetakanAgg._count + todayInvoiceHistory.length
+
     return NextResponse.json({
       summary: {
         calculations: {
@@ -203,6 +231,8 @@ export async function GET(request: NextRequest) {
           purchaseOrder: purchaseOrderTotal,
           revenue: totalRevenue,
           modal: (cetakanAgg._sum.grandTotal || 0) - (cetakanAgg._sum.profitAmount || 0),
+          todaySales,
+          todayOrderCount,
         },
       },
       recent: {

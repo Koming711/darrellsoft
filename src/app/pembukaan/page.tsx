@@ -23,6 +23,7 @@ import {
   BookOpen,
   Clock,
   Calculator,
+  TrendingUp,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { formatRupiah, formatTanggal } from '@/lib/format'
@@ -239,7 +240,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard
             icon={<FileText className="w-5 h-5" />}
             label="Total Pesanan"
@@ -256,6 +257,16 @@ export default function PembukaanPage() {
             color="sky"
             loading={loading}
             isCurrency
+          />
+          <StatCard
+            icon={<TrendingUp className="w-5 h-5" />}
+            label="Penjualan Hari Ini"
+            count={summary?.totals.todaySales ?? 0}
+            total={0}
+            color="rose"
+            loading={loading}
+            isCurrency
+            subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} pesanan` : undefined}
           />
           <StatCard
             icon={<Calculator className="w-5 h-5" />}
@@ -582,6 +593,7 @@ function StatCard({
     sky: { bg: 'bg-sky-50', border: 'border-sky-200', iconBg: 'bg-sky-100 text-sky-600', text: 'text-sky-700' },
     amber: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
     violet: { bg: 'bg-violet-50', border: 'border-violet-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
+    rose: { bg: 'bg-rose-50', border: 'border-rose-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
   }
   const c = colorMap[color] || colorMap.emerald
 
