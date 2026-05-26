@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
     const todayCetakanAgg = await db.riwayatCetakan.aggregate({
       where: { ...dataFilter, ...todayFilter },
       _count: true,
-      _sum: { grandTotal: true },
+      _sum: { grandTotal: true, profitAmount: true },
     })
 
     const todayInvoiceHistory = await db.documentHistory.findMany({
@@ -214,6 +214,7 @@ export async function GET(request: NextRequest) {
 
     const todaySales = (todayCetakanAgg._sum.grandTotal || 0) + todayInvoiceRevenue
     const todayOrderCount = todayCetakanAgg._count + todayInvoiceHistory.length
+    const todayUangCapek = todayCetakanAgg._sum.profitAmount || 0
 
     return NextResponse.json({
       expiryInfo,
@@ -245,6 +246,7 @@ export async function GET(request: NextRequest) {
           modal: (cetakanAgg._sum.grandTotal || 0) - (cetakanAgg._sum.profitAmount || 0),
           todaySales,
           todayOrderCount,
+          todayUangCapek,
         },
       },
       recent: {
