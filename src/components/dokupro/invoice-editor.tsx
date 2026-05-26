@@ -340,7 +340,8 @@ export function InvoiceEditor() {
               <Label className="text-xs">No. Invoice</Label>
               <Input
                 value={invoice.nomor}
-                onChange={(e) => setInvoice({ ...invoice, nomor: e.target.value })}
+                readOnly
+                className="bg-slate-50 text-slate-500 cursor-not-allowed"
               />
             </div>
             <div className="space-y-1.5">

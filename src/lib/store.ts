@@ -201,12 +201,17 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
   resetDocument: (type) => {
     const state = get();
     const nextNumber = (currentNomor: string, prefix: string) => {
-      const parts = currentNomor.split('/');
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2); // last 2 digits
+      const newPrefix = `${prefix}/${month}/${year}/`;
+      // If current nomor starts with same prefix (same month/year), increment the number
       let num = 1;
-      if (parts.length >= 3) {
-        num = parseInt(parts[2], 10) || 1;
+      if (currentNomor.startsWith(newPrefix)) {
+        const parts = currentNomor.split('/');
+        num = parseInt(parts[3], 10) || 1;
       }
-      return `${prefix}/${new Date().getFullYear()}/${String(num + 1).padStart(4, '0')}`;
+      return `${newPrefix}${String(num + 1).padStart(4, '0')}`;
     };
 
     switch (type) {

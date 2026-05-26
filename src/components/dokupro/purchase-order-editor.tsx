@@ -277,7 +277,8 @@ export function PurchaseOrderEditor() {
               <Label className="text-xs">No. Purchase Order</Label>
               <Input
                 value={po.nomor}
-                onChange={(e) => setPurchaseOrder({ ...po, nomor: e.target.value })}
+                readOnly
+                className="bg-slate-50 text-slate-500 cursor-not-allowed"
               />
             </div>
             <div className="space-y-2">

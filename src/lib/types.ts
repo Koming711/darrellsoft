@@ -140,7 +140,7 @@ export function createDefaultInvoice(): InvoiceData {
   return {
     type: 'invoice',
     company: { ...DEFAULT_COMPANY },
-    nomor: 'INV/2026/0001',
+    nomor: `INV/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
     tanggal: getToday(),
     referensi: '',
     client: { nama: '', kontak: '', alamat: '' },
@@ -154,7 +154,7 @@ export function createDefaultSuratJalan(): SuratJalanData {
   return {
     type: 'surat-jalan',
     company: { ...DEFAULT_COMPANY },
-    nomor: 'SJ/2026/0001',
+    nomor: `SJ/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
     tanggal: getToday(),
     referensi: '',
     penerima: { nama: '', kontak: '', alamat: '' },
@@ -169,7 +169,7 @@ export function createDefaultPurchaseOrder(): PurchaseOrderData {
   return {
     type: 'purchase-order',
     company: { ...DEFAULT_COMPANY },
-    nomor: 'PO/2026/0001',
+    nomor: `PO/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
     tanggal: getToday(),
     referensi: '',
     pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
@@ -183,7 +183,7 @@ export function createDefaultSPK(): SPKData {
   return {
     type: 'spk',
     company: { ...DEFAULT_COMPANY },
-    nomor: 'SPK/2026/0001',
+    nomor: `SPK/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
     tanggal: getToday(),
     referensi: '',
     penerima: { nama: '', kontak: '', alamat: '' },

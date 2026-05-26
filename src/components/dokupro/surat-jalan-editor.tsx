@@ -227,7 +227,8 @@ export function SuratJalanEditor() {
               <Label className="text-xs">No. Surat Jalan</Label>
               <Input
                 value={sj.nomor}
-                onChange={(e) => setSuratJalan({ ...sj, nomor: e.target.value })}
+                readOnly
+                className="bg-slate-50 text-slate-500 cursor-not-allowed"
               />
             </div>
             <div className="space-y-1.5">
