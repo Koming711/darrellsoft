@@ -17,6 +17,14 @@ import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
 import type { PurchaseOrderData } from '@/lib/types';
 
+interface TokoPemasokItem {
+  id: string;
+  namaToko: string;
+  jenisBarang: string;
+  kontak: string;
+  alamat: string;
+}
+
 interface RiwayatPotongKertasItem {
   id: string;
   namaCustomer: string;
@@ -56,6 +64,11 @@ export function PurchaseOrderEditor() {
   const [referensiInput, setReferensiInput] = useState(po.referensi);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // Toko/Pemasok dropdown state
+  const [tokoList, setTokoList] = useState<TokoPemasokItem[]>([]);
+  const [pemasokInput, setPemasokInput] = useState(po.pemasok.nama);
+  const [pemasokDropdownOpen, setPemasokDropdownOpen] = useState(false);
+
   const fetchRiwayatPotongKertas = useCallback(async () => {
     try {
       const res = await fetch('/api/riwayat-potong-kertas', { headers: getAuthHeaders() });
@@ -71,8 +84,25 @@ export function PurchaseOrderEditor() {
   useEffect(() => { loadCompanyFromAPI() }, [loadCompanyFromAPI]);
   useEffect(() => { fetchRiwayatPotongKertas() }, [fetchRiwayatPotongKertas]);
 
+  // Fetch toko/pemasok list
+  const fetchTokoPemasok = useCallback(async () => {
+    try {
+      const res = await fetch('/api/toko-pemasok', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setTokoList(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
+  useEffect(() => { fetchTokoPemasok() }, [fetchTokoPemasok]);
+
   // Sync referensiInput when po.referensi changes externally
   useEffect(() => { setReferensiInput(po.referensi) }, [po.referensi]);
+  // Sync pemasokInput when po.pemasok.nama changes externally
+  useEffect(() => { setPemasokInput(po.pemasok.nama) }, [po.pemasok.nama]);
 
   // Auto-select referensi when coming from potong kertas with riwayatId
   useEffect(() => {
@@ -179,6 +209,35 @@ export function PurchaseOrderEditor() {
     });
   };
 
+  // Filter toko/pemasok list by input
+  const filteredTokoList = tokoList.filter((t) => {
+    const search = pemasokInput.toLowerCase().trim();
+    if (!search) return true;
+    return t.namaToko.toLowerCase().includes(search) ||
+           t.jenisBarang.toLowerCase().includes(search) ||
+           t.kontak.toLowerCase().includes(search) ||
+           t.alamat.toLowerCase().includes(search);
+  });
+
+  const handlePemasokInputChange = (value: string) => {
+    setPemasokInput(value);
+    updatePemasok('nama', value);
+    setPemasokDropdownOpen(true);
+  };
+
+  const handlePemasokSelect = (item: TokoPemasokItem) => {
+    setPemasokInput(item.namaToko);
+    setPurchaseOrder({
+      ...po,
+      pemasok: {
+        nama: item.namaToko,
+        kontak: item.kontak,
+        alamat: item.alamat,
+      },
+    });
+    setPemasokDropdownOpen(false);
+  };
+
   const subtotal = po.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (po.ppn / 100);
   const total = subtotal + ppnAmount;
@@ -283,11 +342,55 @@ export function PurchaseOrderEditor() {
           </h3>
           <div className="space-y-1.5">
             <Label className="text-xs">Nama</Label>
-            <Input
-              value={po.pemasok.nama}
-              onChange={(e) => updatePemasok('nama', e.target.value)}
-              placeholder="Nama pemasok / perusahaan"
-            />
+            <Popover open={pemasokDropdownOpen} onOpenChange={setPemasokDropdownOpen}>
+              <PopoverAnchor asChild>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Ketik atau pilih toko/pemasok..."
+                    value={pemasokInput}
+                    onChange={(e) => handlePemasokInputChange(e.target.value)}
+                    onFocus={() => setPemasokDropdownOpen(true)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </div>
+              </PopoverAnchor>
+              <PopoverContent
+                align="start"
+                className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                {filteredTokoList.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Toko / Pemasok</div>
+                    {filteredTokoList.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); handlePemasokSelect(t) }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${po.pemasok.nama === t.namaToko ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                      >
+                        <span className="truncate">{t.namaToko}</span>
+                        {t.jenisBarang && <span className="text-slate-400 ml-1.5 text-[11px]">({t.jenisBarang})</span>}
+                        {(t.kontak || t.alamat) && (
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {t.kontak && <span>{t.kontak}</span>}
+                            {t.kontak && t.alamat && <span> · </span>}
+                            {t.alamat && <span className="truncate">{t.alamat}</span>}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {filteredTokoList.length === 0 && (
+                  <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada data toko/pemasok</div>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Kontak</Label>
