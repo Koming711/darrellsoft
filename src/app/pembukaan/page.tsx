@@ -291,7 +291,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<FileText className="w-5 h-5" />}
-            label="Total Pesanan"
+            label="Transaksi Hari Ini"
             count={invoiceHistory.length}
             total={summary?.totals.invoice ?? 0}
             color="emerald"
