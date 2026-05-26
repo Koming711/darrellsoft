@@ -68,6 +68,7 @@ export function PurchaseOrderEditor() {
   const [tokoList, setTokoList] = useState<TokoPemasokItem[]>([]);
   const [pemasokInput, setPemasokInput] = useState(po.pemasok.nama);
   const [pemasokDropdownOpen, setPemasokDropdownOpen] = useState(false);
+  const [pemasokTyping, setPemasokTyping] = useState(false);
 
   const fetchRiwayatPotongKertas = useCallback(async () => {
     try {
@@ -209,24 +210,28 @@ export function PurchaseOrderEditor() {
     });
   };
 
-  // Filter toko/pemasok list by input
-  const filteredTokoList = tokoList.filter((t) => {
-    const search = pemasokInput.toLowerCase().trim();
-    if (!search) return true;
-    return t.namaToko.toLowerCase().includes(search) ||
-           t.jenisBarang.toLowerCase().includes(search) ||
-           t.kontak.toLowerCase().includes(search) ||
-           t.alamat.toLowerCase().includes(search);
-  });
+  // Filter toko/pemasok list by input (only when user is actively typing)
+  const filteredTokoList = pemasokTyping
+    ? tokoList.filter((t) => {
+        const search = pemasokInput.toLowerCase().trim();
+        if (!search) return true;
+        return t.namaToko.toLowerCase().includes(search) ||
+               t.jenisBarang.toLowerCase().includes(search) ||
+               t.kontak.toLowerCase().includes(search) ||
+               t.alamat.toLowerCase().includes(search);
+      })
+    : tokoList;
 
   const handlePemasokInputChange = (value: string) => {
     setPemasokInput(value);
+    setPemasokTyping(true);
     updatePemasok('nama', value);
     setPemasokDropdownOpen(true);
   };
 
   const handlePemasokSelect = (item: TokoPemasokItem) => {
     setPemasokInput(item.namaToko);
+    setPemasokTyping(false);
     setPurchaseOrder({
       ...po,
       pemasok: {
@@ -351,12 +356,17 @@ export function PurchaseOrderEditor() {
                     placeholder="Ketik atau pilih toko/pemasok..."
                     value={pemasokInput}
                     onChange={(e) => handlePemasokInputChange(e.target.value)}
-                    onFocus={() => setPemasokDropdownOpen(true)}
+                    onFocus={() => { setPemasokDropdownOpen(true); setPemasokTyping(false); }}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
                   />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    onMouseDown={(e) => { e.preventDefault(); setPemasokTyping(false); setPemasokDropdownOpen(!pemasokDropdownOpen); }}
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
+                  </button>
                 </div>
               </PopoverAnchor>
               <PopoverContent
