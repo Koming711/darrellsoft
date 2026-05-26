@@ -275,15 +275,18 @@ export default function PembukaanPage() {
                   s/d {new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               </div>
+              <p className={`text-[11px] mt-1 ${
+                (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-500' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-500' : 'text-teal-600'
+              }`}>
+                Lanjutkan sebelum akun mati dan data hilang
+              </p>
             </div>
             {(data.expiryInfo.remainingDays ?? 0) <= 7 && (
               <span className="text-xs font-medium text-red-600 bg-red-100 rounded-full px-2.5 py-1 whitespace-nowrap">Segera berakhir!</span>
             )}
-            <span className={`text-xs font-semibold whitespace-nowrap flex items-center gap-1 ${
-              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-600' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-600' : 'text-teal-600'
-            }`}>
-              Lanjutkan <ChevronRight className="w-4 h-4" />
-            </span>
+            <ChevronRight className={`w-5 h-5 shrink-0 ${
+              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-400' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-400' : 'text-teal-400'
+            }`} />
           </button>
         )}
 
