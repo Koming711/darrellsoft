@@ -1179,7 +1179,7 @@ function CalculatorPage() {
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-7">#</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[12%]">Tgl</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[22%]">Customer</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[18%]">Barang</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[18%]">Nama Barang</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Kertas</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Kertas</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Potong</th>
