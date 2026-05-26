@@ -72,7 +72,7 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
       <div className="mb-3 print:mb-[1mm] grid grid-cols-2 gap-3 print:gap-1.5">
         <div className="doc-recipient">
           <p className="text-[9px] font-semibold uppercase tracking-wider mb-0.5 print:text-[8px] text-neutral-600">
-            Diterima Oleh
+            Kepada Yth :
           </p>
           <p className="text-xs font-medium print:text-[10px] text-black">{data.penerima.nama || '-'}</p>
           {data.penerima.kontak && (

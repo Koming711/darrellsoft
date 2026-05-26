@@ -223,7 +223,7 @@ export function SuratJalanEditor() {
 
         <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Diterima Oleh
+            Kepada Yth :
           </h3>
           <div className="space-y-1.5">
             <Label className="text-xs">Nama</Label>
