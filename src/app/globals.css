@@ -475,10 +475,12 @@
   }
 
   #document-preview table thead tr {
-    background-color: #000 !important;
+    background-color: #fff !important;
+    border-top: 2px solid #000 !important;
+    border-bottom: 1px solid #000 !important;
   }
   #document-preview table thead tr th {
-    color: #fff !important;
+    color: #000 !important;
   }
   #document-preview .print-logo-box:not(:has(img)) {
     background-color: #000 !important;
@@ -494,8 +496,8 @@
   #document-preview table tbody tr {
     background-color: #fff !important;
   }
-  #document-preview table tbody tr:nth-child(even) {
-    background-color: #f3f3f3 !important;
+  #document-preview table tbody tr:last-child {
+    border-bottom: 1px solid #000 !important;
   }
 
   #document-preview .company-info .company-name {
