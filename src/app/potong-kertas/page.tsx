@@ -332,6 +332,7 @@ function CalculatorPage() {
   const [customerTyping, setCustomerTyping] = useState(false)
   const customerInputRef = useRef<HTMLInputElement>(null)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
+  const customerWrapperRef = useRef<HTMLDivElement>(null)
   const [isSavingCustomer, setIsSavingCustomer] = useState(false)
 
   // Mark needsRecalc when any form field changes after a restore
@@ -348,8 +349,7 @@ function CalculatorPage() {
   // Close dropdown on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node) &&
-          customerInputRef.current && !customerInputRef.current.contains(e.target as Node)) {
+      if (customerWrapperRef.current && !customerWrapperRef.current.contains(e.target as Node)) {
         setCustomerDropdownOpen(false)
       }
     }
@@ -1264,7 +1264,7 @@ function CalculatorPage() {
               <div className="space-y-1.5">
                 <div className="relative">
                   <label className={lbl}>{t('nama_customer')}</label>
-                  <div className="relative">
+                  <div ref={customerWrapperRef} className="relative">
                     <input
                       ref={customerInputRef}
                       type="text"
