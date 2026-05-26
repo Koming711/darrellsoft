@@ -247,6 +247,35 @@ export default function PembukaanPage() {
           </div>
         </div>
 
+        {/* Expired Akun Demo - only for demo role */}
+        {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
+          <div className={`${
+            (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-50 border-red-200' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'
+          } border rounded-xl p-4 flex items-center gap-4`}>
+            <div className={`w-10 h-10 rounded-lg ${
+              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-100 text-red-600' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-100 text-orange-600' : 'bg-teal-100 text-teal-600'
+            } flex items-center justify-center shrink-0`}>
+              <CalendarClock className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-500">Expired Akun Demo</p>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className={`text-base sm:text-lg font-bold ${
+                  (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-700' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-700' : 'text-teal-700'
+                } leading-tight`}>
+                  {data.expiryInfo.remainingDays} hari lagi
+                </p>
+                <span className="text-xs text-slate-400">
+                  s/d {new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+            {(data.expiryInfo.remainingDays ?? 0) <= 7 && (
+              <span className="text-xs font-medium text-red-600 bg-red-100 rounded-full px-2.5 py-1 whitespace-nowrap">Segera berakhir!</span>
+            )}
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard
@@ -296,35 +325,6 @@ export default function PembukaanPage() {
             profitBadge={summary?.totals.modal && summary.totals.modal > 0 ? `${(((summary.totals.uangCapek ?? 0) / summary.totals.modal) * 100).toFixed(1)}%` : undefined}
           />
         </div>
-
-        {/* Expired Akun Demo - only for demo role */}
-        {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
-          <div className={`${
-            (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-50 border-red-200' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-50 border-orange-200' : 'bg-teal-50 border-teal-200'
-          } border rounded-xl p-4 flex items-center gap-4`}>
-            <div className={`w-10 h-10 rounded-lg ${
-              (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'bg-red-100 text-red-600' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'bg-orange-100 text-orange-600' : 'bg-teal-100 text-teal-600'
-            } flex items-center justify-center shrink-0`}>
-              <CalendarClock className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-slate-500">Expired Akun Demo</p>
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <p className={`text-base sm:text-lg font-bold ${
-                  (data.expiryInfo.remainingDays ?? 0) <= 7 ? 'text-red-700' : (data.expiryInfo.remainingDays ?? 0) <= 30 ? 'text-orange-700' : 'text-teal-700'
-                } leading-tight`}>
-                  {data.expiryInfo.remainingDays} hari lagi
-                </p>
-                <span className="text-xs text-slate-400">
-                  s/d {new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
-              </div>
-            </div>
-            {(data.expiryInfo.remainingDays ?? 0) <= 7 && (
-              <span className="text-xs font-medium text-red-600 bg-red-100 rounded-full px-2.5 py-1 whitespace-nowrap">Segera berakhir!</span>
-            )}
-          </div>
-        )}
 
         {/* Document Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
