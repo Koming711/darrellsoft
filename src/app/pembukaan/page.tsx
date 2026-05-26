@@ -6,6 +6,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { authFetch } from '@/lib/auth-fetch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -30,8 +37,6 @@ import {
   BarChart3,
   Receipt,
   Package,
-  ChevronDown,
-  X,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -186,8 +191,8 @@ export default function PembukaanPage() {
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [docLoading, setDocLoading] = useState(false)
 
-  // Active quick icon tab
-  const [activeTab, setActiveTab] = useState<string | null>(null)
+  // Popup state
+  const [showPembelianPopup, setShowPembelianPopup] = useState(false)
 
   const displayName = user?.name || user?.username || 'Pengguna'
 
@@ -343,141 +348,83 @@ export default function PembukaanPage() {
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
-            activeColor="bg-blue-500 text-white border-blue-500"
-            active={activeTab === 'pembelian'}
-            onClick={() => setActiveTab(activeTab === 'pembelian' ? null : 'pembelian')}
+            onClick={() => setShowPembelianPopup(true)}
           />
           <QuickIcon
             icon={<History className="w-5 h-5" />}
             label="Riwayat"
             color="bg-amber-50 text-amber-600 border-amber-200"
-            activeColor="bg-amber-500 text-white border-amber-500"
-            active={activeTab === 'riwayat'}
-            onClick={() => setActiveTab(activeTab === 'riwayat' ? null : 'riwayat')}
+            onClick={() => router.push('/riwayat')}
           />
           <QuickIcon
             icon={<BarChart3 className="w-5 h-5" />}
             label="Laporan"
             color="bg-emerald-50 text-emerald-600 border-emerald-200"
-            activeColor="bg-emerald-500 text-white border-emerald-500"
-            active={activeTab === 'laporan'}
-            onClick={() => setActiveTab(activeTab === 'laporan' ? null : 'laporan')}
+            onClick={() => router.push('/administrasi')}
           />
           <QuickIcon
             icon={<Receipt className="w-5 h-5" />}
             label="Invoice"
             color="bg-violet-50 text-violet-600 border-violet-200"
-            activeColor="bg-violet-500 text-white border-violet-500"
-            active={activeTab === 'invoice'}
-            onClick={() => setActiveTab(activeTab === 'invoice' ? null : 'invoice')}
+            onClick={() => router.push('/invoice')}
           />
         </div>
 
-        {/* Expanded Content */}
-        {activeTab === 'pembelian' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Riwayat Purchase Order</h3>
-              <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {docLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />)}
-              </div>
-            ) : poHistory.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-6 text-center">
-                <Package className="mx-auto h-6 w-6 text-blue-300" />
-                <p className="mt-2 text-sm text-blue-400">Belum ada data purchase order</p>
-              </div>
-            ) : (
-              <div className="max-h-80 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                {poHistory.map(po => {
-                  const info = parseDocInfo(po)
-                  return (
-                    <div
-                      key={po.id}
-                      className="flex items-center gap-3 bg-white border border-slate-150 rounded-lg px-3 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/purchase-order`)}
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                        <ShoppingCart className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{po.nomor}</p>
-                          {info.namaBarang && (
-                            <span className="text-[11px] text-slate-400 truncate hidden sm:inline">· {info.namaBarang}</span>
-                          )}
+        {/* Popup Pembelian - Riwayat Purchase Order */}
+        <Dialog open={showPembelianPopup} onOpenChange={setShowPembelianPopup}>
+          <DialogContent className="sm:max-w-xl p-0 gap-0" showCloseButton={false}>
+            <DialogHeader className="px-5 pt-5 pb-3">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <ShoppingCart className="w-4 h-4" />
+                </div>
+                Riwayat Purchase Order
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">Daftar purchase order yang pernah dibuat</DialogDescription>
+            </DialogHeader>
+            <div className="px-5 pb-5">
+              {docLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />)}
+                </div>
+              ) : poHistory.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-8 text-center">
+                  <Package className="mx-auto h-8 w-8 text-blue-300" />
+                  <p className="mt-2 text-sm text-blue-400">Belum ada data purchase order</p>
+                </div>
+              ) : (
+                <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {poHistory.map(po => {
+                    const info = parseDocInfo(po)
+                    return (
+                      <div
+                        key={po.id}
+                        className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5 hover:bg-blue-50/50 transition-colors"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                          <ShoppingCart className="w-4 h-4" />
                         </div>
-                        <p className="text-xs text-slate-500 truncate">{po.pihakKedua}{po.tanggal ? ` · ${formatDateShort(po.tanggal)}` : ''}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-800 truncate">{po.nomor}</p>
+                            {info.namaBarang && (
+                              <span className="text-[11px] text-slate-400 truncate hidden sm:inline">· {info.namaBarang}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 truncate">{po.pihakKedua}{po.tanggal ? ` · ${formatDateShort(po.tanggal)}` : ''}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-blue-600">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : po.total}</p>
+                          {info.totalQty > 0 && <p className="text-[10px] text-slate-400">{info.totalQty} item</p>}
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-blue-600">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : po.total}</p>
-                        {info.totalQty > 0 && <p className="text-[10px] text-slate-400">{info.totalQty} item</p>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'riwayat' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Riwayat</h3>
-              <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-            <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-6 text-center">
-              <History className="mx-auto h-6 w-6 text-amber-300" />
-              <p className="mt-2 text-sm text-amber-500">Klik untuk melihat riwayat lengkap</p>
-              <button onClick={() => router.push('/riwayat')} className="mt-2 text-xs font-medium text-amber-600 hover:text-amber-700 underline">
-                Buka halaman Riwayat
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'laporan' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Laporan</h3>
-              <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="rounded-lg border border-dashed border-emerald-200 bg-emerald-50/50 p-6 text-center">
-              <BarChart3 className="mx-auto h-6 w-6 text-emerald-300" />
-              <p className="mt-2 text-sm text-emerald-500">Klik untuk melihat laporan lengkap</p>
-              <button onClick={() => router.push('/administrasi')} className="mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 underline">
-                Buka halaman Laporan
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'invoice' && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Invoice</h3>
-              <button onClick={() => setActiveTab(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/50 p-6 text-center">
-              <Receipt className="mx-auto h-6 w-6 text-violet-300" />
-              <p className="mt-2 text-sm text-violet-500">Klik untuk melihat invoice lengkap</p>
-              <button onClick={() => router.push('/invoice')} className="mt-2 text-xs font-medium text-violet-600 hover:text-violet-700 underline">
-                Buka halaman Invoice
-              </button>
-            </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )
@@ -557,15 +504,15 @@ function DocCard({
 
 // --- Quick Icon Component ---
 function QuickIcon({
-  icon, label, color, activeColor, active, onClick,
+  icon, label, color, onClick,
 }: {
-  icon: React.ReactNode; label: string; color: string; activeColor?: string; active?: boolean; onClick: () => void
+  icon: React.ReactNode; label: string; color: string; onClick: () => void
 }) {
-  const [bg, text, border] = (active && activeColor ? activeColor : color).split(' ')
+  const [bg, text, border] = color.split(' ')
   return (
     <button
       onClick={onClick}
-      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer ${active ? 'shadow-md scale-105' : ''}`}
+      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
     >
       <div className={`${text}`}>{icon}</div>
       <span className={`text-[11px] sm:text-xs font-medium ${text}`}>{label}</span>
