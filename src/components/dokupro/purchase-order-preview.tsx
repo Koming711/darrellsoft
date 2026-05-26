@@ -79,6 +79,9 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
             KEPADA YTH :
           </p>
           <p className="text-xs font-medium print:text-[10px] text-black">{data.pemasok.nama || '-'}</p>
+          {data.pemasok.jenisBarang && (
+            <p className="text-[10px] print:text-[9px] text-neutral-600">{data.pemasok.jenisBarang}</p>
+          )}
           {data.pemasok.kontak && (
             <p className="text-[10px] print:text-[9px] text-neutral-600">{data.pemasok.kontak}</p>
           )}

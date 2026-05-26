@@ -76,6 +76,7 @@ export interface PurchaseOrderData {
   referensi: string;
   pemasok: {
     nama: string;
+    jenisBarang: string;
     kontak: string;
     alamat: string;
   };
@@ -171,7 +172,7 @@ export function createDefaultPurchaseOrder(): PurchaseOrderData {
     nomor: 'PO/2026/0001',
     tanggal: getToday(),
     referensi: '',
-    pemasok: { nama: '', kontak: '', alamat: '' },
+    pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
     items: [createDefaultItem()],
     ppn: 11,
     catatan: '',

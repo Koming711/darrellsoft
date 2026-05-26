@@ -231,6 +231,7 @@ export function PurchaseOrderEditor() {
       ...po,
       pemasok: {
         nama: item.namaToko,
+        jenisBarang: item.jenisBarang,
         kontak: item.kontak,
         alamat: item.alamat,
       },
@@ -391,6 +392,14 @@ export function PurchaseOrderEditor() {
                 )}
               </PopoverContent>
             </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Jenis Barang</Label>
+            <Input
+              value={po.pemasok.jenisBarang}
+              onChange={(e) => updatePemasok('jenisBarang', e.target.value)}
+              placeholder="Jenis barang"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Kontak</Label>
