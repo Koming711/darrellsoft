@@ -1,0 +1,14 @@
+node_modules
+.next
+db
+upload
+skills
+.git
+examples
+download
+mini-services
+.zscripts
+.daemon.pid
+.daemon.log
+dev.log
+worklog.md

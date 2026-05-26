@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,6 +47,10 @@ export function PurchaseOrderEditor() {
   const resetDocument = useDokuproStore((s) => s.resetDocument);
   const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
 
+  const searchParams = useSearchParams();
+  const riwayatIdFromUrl = searchParams.get('riwayatId');
+  const autoSelectRef = useRef(false);
+
   // Riwayat potong kertas dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatPotongKertasItem[]>([]);
   const [referensiInput, setReferensiInput] = useState(po.referensi);
@@ -68,6 +73,18 @@ export function PurchaseOrderEditor() {
 
   // Sync referensiInput when po.referensi changes externally
   useEffect(() => { setReferensiInput(po.referensi) }, [po.referensi]);
+
+  // Auto-select referensi when coming from potong kertas with riwayatId
+  useEffect(() => {
+    if (riwayatIdFromUrl && riwayatList.length > 0 && !autoSelectRef.current) {
+      const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+      if (found) {
+        autoSelectRef.current = true;
+        handleReferensiSelect(found);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riwayatIdFromUrl, riwayatList]);
 
   // Filter riwayat list by input
   const filteredRiwayatList = riwayatList.filter((r) => {

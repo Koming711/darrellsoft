@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +15,9 @@ import { HistoryTable } from './history-table';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
+import { Truck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import type { InvoiceData } from '@/lib/types';
 
 interface RiwayatCetakanItem {
@@ -56,6 +60,12 @@ export function InvoiceEditor() {
   const setInvoice = useDokuproStore((s) => s.setInvoice);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
   const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
+  const router = useRouter();
+
+  const searchParams = useSearchParams();
+  const riwayatIdFromUrl = searchParams.get('riwayatId');
+  const autoSelectRef = useRef(false);
+  const [savingSj, setSavingSj] = useState(false);
 
   // Riwayat cetakan dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatCetakanItem[]>([]);
@@ -143,6 +153,23 @@ export function InvoiceEditor() {
     setDropdownOpen(false);
   };
 
+  // Auto-select referensi when coming from hitung cetakan with riwayatId
+  useEffect(() => {
+    if (riwayatIdFromUrl && riwayatList.length > 0 && !autoSelectRef.current) {
+      const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+      if (found) {
+        autoSelectRef.current = true;
+        // Reset invoice store first to clear stale data
+        resetDocument('invoice');
+        // Use setTimeout to ensure reset is applied before setting new data
+        setTimeout(() => {
+          handleReferensiSelect(found);
+        }, 0);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riwayatIdFromUrl, riwayatList]);
+
   const updateCompany = (company: typeof invoice.company) => {
     setInvoice({ ...invoice, company });
   };
@@ -162,18 +189,78 @@ export function InvoiceEditor() {
     setInvoice(data as InvoiceData);
   };
 
+  const handleSuratJalan = async () => {
+    // Check if data has content
+    const pihakKedua = invoice.client?.nama;
+    const hasItem = invoice.items?.some((item) => item.deskripsi.trim() !== '');
+    if (!pihakKedua?.trim() || !hasItem) {
+      toast.error('Lengkapi data invoice terlebih dahulu!');
+      return;
+    }
+
+    setSavingSj(true);
+    try {
+      // Save invoice to history first
+      const res = await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          docType: 'invoice',
+          nomor: invoice.nomor || '-',
+          tanggal: invoice.tanggal || '',
+          pihakKedua: invoice.client?.nama || '-',
+          total: '-',
+          dataJson: JSON.stringify(invoice),
+        }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+        toast.success('Invoice disimpan ke riwayat');
+        // Reset invoice form after saving
+        resetDocument('invoice');
+        router.push(`/surat-jalan?invoiceId=${saved.id}`);
+      } else if (res.status === 409) {
+        // Invoice already saved, get existing ID and navigate
+        const errData = await res.json().catch(() => ({}));
+        if (errData.id) {
+          resetDocument('invoice');
+          router.push(`/surat-jalan?invoiceId=${errData.id}`);
+        } else {
+          toast('Invoice sudah ada di riwayat.');
+        }
+      } else {
+        toast.error('Gagal menyimpan invoice');
+      }
+    } catch {
+      toast.error('Gagal menyimpan invoice');
+    }
+    setSavingSj(false);
+  };
+
   return (
     <>
       <DocumentEditorLayout
         title="Invoice"
         previewContent={<InvoicePreview data={invoice} />}
         actions={
-          <DocumentActionButtons
-            docType="invoice"
-            documentLabel="Invoice"
-            currentData={invoice}
-            onReset={() => resetDocument('invoice')}
-          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <DocumentActionButtons
+              docType="invoice"
+              documentLabel="Invoice"
+              currentData={invoice}
+              onReset={() => resetDocument('invoice')}
+            />
+            <Button
+              size="sm"
+              onClick={handleSuratJalan}
+              disabled={savingSj}
+              className="bg-orange-600 hover:bg-orange-700 h-8 sm:h-9"
+            >
+              <Truck className="mr-1.5 h-3.5 w-3.5" />
+              {savingSj ? 'Menyimpan...' : 'Surat Jalan'}
+            </Button>
+          </div>
         }
       >
         <CompanyFields company={invoice.company} onChange={updateCompany} />

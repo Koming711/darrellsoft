@@ -96,6 +96,8 @@ export function saveRolePermissions(
 
 /** Map pathname to feature ID for permission checking */
 export function getFeatureIdForPath(pathname: string): string | null {
+  if (pathname === '/dashboard') return 'dashboard'
+  if (pathname === '/pembukaan') return 'pembukaan'
   if (pathname === '/potong-kertas') return 'potong-kertas'
   if (pathname === '/hitung-cetakan') return 'hitung-cetakan'
   if (pathname === '/hitung-finishing') return 'hitung-finishing'
@@ -113,5 +115,54 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/administrasi/pengguna') return 'pengguna'
   if (pathname === '/administrasi/pengaturan') return 'pengaturan'
   if (pathname === '/administrasi') return 'pengguna' // default to first accessible admin feature
+  return null
+}
+
+/** Map feature ID back to a pathname */
+export function getPathForFeatureId(featureId: string): string | null {
+  const map: Record<string, string> = {
+    'dashboard': '/dashboard',
+    'pembukaan': '/pembukaan',
+    'potong-kertas': '/potong-kertas',
+    'hitung-cetakan': '/hitung-cetakan',
+    'hitung-finishing': '/hitung-finishing',
+    'hitung-ongkos-cetak': '/hitung-ongkos-cetak',
+    'hitung-harga-kertas': '/hitung-harga-kertas',
+    'master-harga-kertas': '/master-harga-kertas',
+    'master-ongkos-cetak': '/master-ongkos-cetak',
+    'master-finishing': '/master-finishing',
+    'master-customer': '/master-customer',
+    'riwayat': '/riwayat',
+    'invoice': '/invoice',
+    'surat-jalan': '/surat-jalan',
+    'purchase-order': '/purchase-order',
+    'hak-akses': '/administrasi/hak-akses',
+    'pengguna': '/administrasi/pengguna',
+    'pengaturan': '/administrasi/pengaturan',
+  }
+  return map[featureId] || null
+}
+
+/** Get the first accessible page path for a role (used for redirect when access denied) */
+export function getFirstAccessiblePath(roleId: string): string | null {
+  // Priority order for default landing pages
+  const priorityFeatures = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'invoice', 'riwayat']
+  const features = getFeaturePermissions(roleId)
+
+  for (const featureId of priorityFeatures) {
+    if (features[featureId]) {
+      const path = getPathForFeatureId(featureId)
+      if (path) return path
+    }
+  }
+
+  // Fall back to any accessible feature
+  for (const [featureId, allowed] of Object.entries(features)) {
+    if (allowed) {
+      const path = getPathForFeatureId(featureId)
+      if (path) return path
+    }
+  }
+
   return null
 }

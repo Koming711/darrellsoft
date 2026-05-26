@@ -1,5 +1,3 @@
-// Dashboard removed - Mar 29 15:40
-
 'use client'
 
 import Link from 'next/link'
@@ -24,6 +22,7 @@ import {
   Receipt,
   Truck,
   ShoppingCart,
+  BookOpen,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -33,6 +32,13 @@ import { TranslationKey } from '@/lib/i18n'
 
 // Menu items with their feature IDs for permission checking
 const menuItems = [
+  {
+    titleKey: 'pembukaan' as TranslationKey,
+    href: '/pembukaan',
+    icon: BookOpen,
+    featureId: 'pembukaan',
+    section: undefined,
+  },
   {
     titleKey: 'potong_kertas' as TranslationKey,
     href: '/potong-kertas',
@@ -46,6 +52,27 @@ const menuItems = [
     icon: Calculator,
     featureId: 'hitung-cetakan',
     section: 'hitung_biaya_produksi',
+  },
+  {
+    titleKey: 'invoice' as TranslationKey,
+    href: '/invoice',
+    icon: Receipt,
+    featureId: 'invoice',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'surat_jalan' as TranslationKey,
+    href: '/surat-jalan',
+    icon: Truck,
+    featureId: 'surat-jalan',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'purchase_order' as TranslationKey,
+    href: '/purchase-order',
+    icon: ShoppingCart,
+    featureId: 'purchase-order',
+    section: 'dokumen',
   },
   {
     titleKey: 'hitung_finishing' as TranslationKey,
@@ -96,27 +123,6 @@ const menuItems = [
     icon: Users,
     featureId: 'master-customer',
     section: 'master_cetakan',
-  },
-  {
-    titleKey: 'invoice' as TranslationKey,
-    href: '/invoice',
-    icon: Receipt,
-    featureId: 'invoice',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'surat_jalan' as TranslationKey,
-    href: '/surat-jalan',
-    icon: Truck,
-    featureId: 'surat-jalan',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'purchase_order' as TranslationKey,
-    href: '/purchase-order',
-    icon: ShoppingCart,
-    featureId: 'purchase-order',
-    section: 'dokumen',
   },
   {
     titleKey: 'hak_akses' as TranslationKey,

@@ -5,6 +5,8 @@
 
 // ===== FEATURE DEFINITIONS =====
 export const SIMPLE_FEATURES = [
+  { id: 'dashboard', name: 'Halaman Utama' },
+  { id: 'pembukaan', name: 'Pembukaan' },
   { id: 'potong-kertas', name: 'Potong Kertas' },
   { id: 'hitung-cetakan', name: 'Hitung Cetakan' },
   { id: 'hitung-finishing', name: 'Hitung Finishing' },
@@ -104,9 +106,9 @@ export function buildDefaultPermissions(roleId: string): Record<string, boolean>
     let allowed = false
     if (roleId === 'superadmin') allowed = true
     else if (roleId === 'admin') allowed = true
-    else if (roleId === 'manager') allowed = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order'].includes(f.id)
-    else if (roleId === 'demo') allowed = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
-    else if (roleId === 'user') allowed = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
+    else if (roleId === 'manager') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order'].includes(f.id)
+    else if (roleId === 'demo') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
+    else if (roleId === 'user') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
     perms[f.id] = allowed
   }
 

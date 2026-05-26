@@ -1,49 +1,9 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Helper: build default permissions (server-side)
-function buildDefaultPermissions(roleId: string): Record<string, boolean> {
-  const simpleFeatures = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'hak-akses', 'pengguna', 'pengaturan']
-  const groupFeatures = ['master-customer', 'master-harga-kertas', 'master-ongkos-cetak', 'master-finishing', 'daftar-pengguna', 'calon-pembeli', 'pembeli']
-  const perms: Record<string, boolean> = {}
-  for (const f of simpleFeatures) {
-    let allowed = false
-    if (roleId === 'superadmin') allowed = true
-    else if (roleId === 'admin') allowed = true
-    else if (roleId === 'manager') allowed = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat'].includes(f)
-    else if (roleId === 'demo' || roleId === 'user') allowed = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f)
-    perms[f] = allowed
-  }
-  for (const g of groupFeatures) {
-    perms[g] = roleId === 'superadmin' || roleId === 'admin' || roleId === 'manager'
-  }
-  return perms
-}
-
-function buildDefaultSubPermissions(roleId: string): Record<string, Record<string, boolean>> {
-  const groupDefs = [
-    { id: 'master-customer', subs: ['master-customer-tambah', 'master-customer-edit', 'master-customer-hapus'] },
-    { id: 'master-harga-kertas', subs: ['master-harga-kertas-lihat', 'master-harga-kertas-tambah', 'master-harga-kertas-edit', 'master-harga-kertas-hapus'] },
-    { id: 'master-ongkos-cetak', subs: ['master-ongkos-cetak-lihat', 'master-ongkos-cetak-tambah', 'master-ongkos-cetak-edit', 'master-ongkos-cetak-hapus'] },
-    { id: 'master-finishing', subs: ['master-finishing-lihat', 'master-finishing-tambah', 'master-finishing-edit', 'master-finishing-hapus'] },
-    { id: 'daftar-pengguna', subs: ['daftar-pengguna-tambah', 'daftar-pengguna-edit', 'daftar-pengguna-hapus'] },
-    { id: 'calon-pembeli', subs: ['calon-pembeli-tambah', 'calon-pembeli-edit', 'calon-pembeli-hapus', 'calon-pembeli-konversi'] },
-    { id: 'pembeli', subs: ['pembeli-tambah', 'pembeli-edit', 'pembeli-hapus'] },
-  ]
-  const allSubs: Record<string, Record<string, boolean>> = {}
-  const isFull = roleId === 'superadmin' || roleId === 'admin'
-  const isManager = roleId === 'manager'
-  for (const group of groupDefs) {
-    const subs: Record<string, boolean> = {}
-    for (const sub of group.subs) {
-      if (isFull) subs[sub] = true
-      else if (isManager) subs[sub] = sub.includes('tambah') || sub.includes('edit')
-      else subs[sub] = false
-    }
-    allSubs[group.id] = subs
-  }
-  return allSubs
-}
+import {
+  buildDefaultPermissions,
+  buildDefaultSubPermissions,
+} from '@/lib/permission-defaults'
 
 export async function POST(request: NextRequest) {
   try {

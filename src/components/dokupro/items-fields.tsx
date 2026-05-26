@@ -38,13 +38,16 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
     );
   };
 
+  // Disable Tambah if no item has meaningful data yet
+  const hasAnyData = items.some((item) => item.deskripsi.trim() !== '' || (showPrice && item.harga > 0));
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Item
         </h3>
-        <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs">
+        <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
           <Plus className="mr-1 h-3 w-3" />
           Tambah
         </Button>
@@ -74,7 +77,7 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
                 rows={2}
               />
             </div>
-            <div className={`grid gap-2 ${showPrice ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-2 ${showPrice ? 'grid-cols-3' : 'grid-cols-1'}`}>
               <div className="space-y-1">
                 <Label className="text-xs">Qty</Label>
                 <Input
@@ -87,7 +90,7 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
               </div>
               {showPrice && (
                 <div className="space-y-1">
-                  <Label className="text-xs">Harga</Label>
+                  <Label className="text-xs">Harga Satuan</Label>
                   <Input
                     type="number"
                     min={0}
@@ -95,6 +98,14 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
                     onChange={(e) => updateItem(item.id, 'harga', Number(e.target.value) || 0)}
                     className="text-sm"
                   />
+                </div>
+              )}
+              {showPrice && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Total Harga</Label>
+                  <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm font-medium text-emerald-700">
+                    {(item.qty * item.harga).toLocaleString('id-ID')}
+                  </div>
                 </div>
               )}
             </div>

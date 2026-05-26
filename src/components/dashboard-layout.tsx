@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sidebar, MobileHeader } from './sidebar'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
-import { hasFeatureAccess, getFeatureIdForPath, saveRolePermissions } from '@/lib/permissions'
+import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,7 +19,6 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const router = useRouter()
   const pathname = usePathname()
 
   // === SESSION CHECK STATE ===
@@ -40,6 +39,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
 
   // === NO ACCESS STATE ===
   const [noAccess, setNoAccess] = useState(false)
+
+  // === INIT GUARD (prevent double init in StrictMode) ===
+  const initDoneRef = useRef(false)
 
   // === USER PROFILE (for header dates) ===
   const [userProfile, setUserProfile] = useState<{ createdAt: string | null; validUntil: string | null } | null>(null)
@@ -64,8 +66,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     if (autoLogoutIntervalRef.current) clearInterval(autoLogoutIntervalRef.current)
     sessionIntervalRef.current = null
     autoLogoutIntervalRef.current = null
-    router.push('/')
-  }, [router])
+    window.location.href = '/'
+  }, [])
 
   // Stay logged in handler (resets activity + dismisses countdown)
   const handleStayLoggedIn = useCallback(() => {
@@ -75,23 +77,24 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     setCountdown(0)
   }, [])
 
-  // === INITIAL AUTH + SETTINGS LOAD ===
+  // === INITIAL AUTH + SETTINGS LOAD (runs once) ===
   useEffect(() => {
+    if (initDoneRef.current) return
+    initDoneRef.current = true
+
     let cancelled = false
 
     const init = async () => {
       try {
         const authUser = getAuthUser()
         if (!authUser) {
-          router.push('/')
-          setReady(true)
+          if (!cancelled) setReady(true)
           return
         }
         if (cancelled) return
         setUser(authUser)
 
         // Fetch user profile for header dates (fire and forget)
-        // Also checks for account expiry
         authFetch('/api/auth/me')
           .then(r => {
             if (r.status === 403) return r.json().then(data => {
@@ -106,18 +109,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           .then(data => { if (data && !cancelled) setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null }) })
           .catch(() => {})
 
-        // Check page-level permissions
-        const featureId = getFeatureIdForPath(pathname)
-        if (featureId && authUser.role && authUser.role !== 'superadmin') {
-          if (!hasFeatureAccess(authUser.role, featureId)) {
-            setNoAccess(true)
-            setReady(true)
-            return
-          }
-        }
-
-        // Wait for session verification BEFORE setting ready
-        // This ensures auth is validated before children start fetching data
+        // Wait for session verification BEFORE checking permissions
         try {
           const sessionRes = await authFetch('/api/auth/verify-session', {
             method: 'POST',
@@ -139,7 +131,6 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             setPermVersion(v => v + 1)
           }
           if (!data.valid) {
-            // Account expired - show expired popup
             if (data.expired) {
               setAccountExpired(true)
               setSessionWarning(data.warningMessage || 'Akun sudah expired.')
@@ -149,12 +140,11 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             }
           }
         } catch {
-          // Session verification failed (network error etc.) - continue anyway
-          // Don't block the entire app if verify-session is down
+          // Session verification failed - continue anyway
         }
 
       } catch {
-        router.push('/')
+        // On error, don't redirect — just show the page
       } finally {
         if (!cancelled) setReady(true)
       }
@@ -163,7 +153,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     init()
 
     return () => { cancelled = true }
-  }, [router])
+  }, [])
 
   // === PERMISSION CHECK ON ROUTE CHANGE ===
   useEffect(() => {
@@ -174,15 +164,12 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     if (featureId) {
       const allowed = hasFeatureAccess(user.role, featureId)
       setNoAccess(!allowed)
-      if (!allowed) {
-        router.replace('/')
-      }
     } else {
       setNoAccess(false)
     }
-  }, [pathname, user, ready, router, permVersion])
+  }, [pathname, user, ready, permVersion])
 
-  // === PERIODIC SESSION CHECK (every 30s) ===
+  // === PERIODIC SESSION CHECK (every 10s) ===
   useEffect(() => {
     if (!ready || !user) return
 
@@ -206,19 +193,17 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             setForceLogoutAvailable(!!data.forceLogoutAvailable)
           }
         }
-        // Sync latest permissions from server to localStorage
         if (data.permissions && authUser.role) {
           saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
-          setPermVersion(v => v + 1) // force re-render of Sidebar
+          setPermVersion(v => v + 1)
         }
-        // Sync security settings
         if (data.securitySettings) {
           setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
           setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
         }
       })
       .catch(() => {})
-    }, 10000) // sync every 10 seconds
+    }, 10000)
 
     return () => {
       if (sessionIntervalRef.current) {
@@ -246,19 +231,16 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       const elapsed = (Date.now() - lastActivityRef.current) / 1000
       const autoLogoutSec = autoLogoutMin * 60
 
-      // Trigger logout
       if (elapsed >= autoLogoutSec) {
         handleLogout()
         return
       }
 
-      // Show/update countdown warning
       if (logoutWarningSec > 0 && elapsed >= autoLogoutSec - logoutWarningSec) {
         countdownActiveRef.current = true
         setShowCountdown(true)
         setCountdown(Math.ceil(autoLogoutSec - elapsed))
       } else if (countdownActiveRef.current) {
-        // User became active again, dismiss countdown
         countdownActiveRef.current = false
         setShowCountdown(false)
         setCountdown(0)
@@ -282,7 +264,28 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     )
   }
 
-  if (!user) return null
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 mx-auto">
+            <AlertTriangle className="w-8 h-8 text-blue-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Belum Login</h2>
+          <p className="text-sm text-slate-500 mb-4">Silakan login terlebih dahulu untuk mengakses halaman ini.</p>
+          <button
+            onClick={() => {
+              clearAuthUser()
+              window.location.href = '/login'
+            }}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+          >
+            Masuk
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // === NO ACCESS SCREEN ===
   if (noAccess) {
@@ -308,7 +311,10 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 Hubungi administrator jika Anda membutuhkan akses.
               </p>
               <button
-                onClick={() => router.push('/')}
+                onClick={() => {
+                  const firstAccessible = user ? getFirstAccessiblePath(user.role) : '/login'
+                  window.location.href = firstAccessible || '/login'
+                }}
                 className="mt-4 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
               >
                 Kembali ke Beranda

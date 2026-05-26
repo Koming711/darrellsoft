@@ -606,21 +606,20 @@ function CalculatorPage() {
     localStorage.removeItem(STORAGE_RESULTS_KEY())
   }
 
-  const isDataSameAsLastRiwayat = () => {
+  const isDataSameAsAnyRiwayat = () => {
     if (riwayatList.length === 0) return false
-    const last = riwayatList[0]
-    return (
-      (last.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
-      (last.namaCetakan || '-') === (printName || '-') &&
-      (last.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
-      last.paperWidth === (paperWidth || '0') &&
-      last.paperHeight === (paperHeight || '0') &&
-      last.cutWidth === (cutWidth || '0') &&
-      last.cutHeight === (cutHeight || '0') &&
-      last.quantity === (quantity || '0') &&
-      last.totalPrice === (results?.totalPrice || 0) &&
-      (last.jumlahPesanan || '') === (jumlahPesanan || '') &&
-      (last.berapaMata || '') === (berapaMata || '')
+    return riwayatList.some(r =>
+      (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
+      (r.namaCetakan || '-') === (printName || '-') &&
+      (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
+      r.paperWidth === (paperWidth || '0') &&
+      r.paperHeight === (paperHeight || '0') &&
+      r.cutWidth === (cutWidth || '0') &&
+      r.cutHeight === (cutHeight || '0') &&
+      r.quantity === (quantity || '0') &&
+      r.totalPrice === (results?.totalPrice || 0) &&
+      (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
+      (r.berapaMata || '') === (berapaMata || '')
     )
   }
 
@@ -629,7 +628,7 @@ function CalculatorPage() {
       toast.error('Hitung potongan terlebih dahulu!')
       return
     }
-    if (isDataSameAsLastRiwayat()) {
+    if (isDataSameAsAnyRiwayat()) {
       toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' })
       return
     }
@@ -660,6 +659,27 @@ function CalculatorPage() {
   const handlePO = async () => {
     if (!results) {
       toast.error('Hitung potongan terlebih dahulu!')
+      return
+    }
+    if (isDataSameAsAnyRiwayat()) {
+      toast('Data sudah ada di riwayat, langsung ke Purchase Order.', { description: 'Data yang sama tidak disimpan ulang.' })
+      // Cari riwayat yang sama untuk mendapatkan ID-nya
+      const existing = riwayatList.find(r =>
+        (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
+        (r.namaCetakan || '-') === (printName || '-') &&
+        (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
+        r.paperWidth === (paperWidth || '0') &&
+        r.paperHeight === (paperHeight || '0') &&
+        r.cutWidth === (cutWidth || '0') &&
+        r.cutHeight === (cutHeight || '0') &&
+        r.quantity === (quantity || '0') &&
+        r.totalPrice === (results?.totalPrice || 0) &&
+        (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
+        (r.berapaMata || '') === (berapaMata || '')
+      )
+      if (existing) {
+        router.push(`/purchase-order?riwayatId=${existing.id}`)
+      }
       return
     }
     setSavingRiwayat(true)
@@ -1478,7 +1498,7 @@ function CalculatorPage() {
               params.set('fromPotongKertas', '1')
               router.push(`/hitung-cetakan?${params.toString()}`)
               // Simpan riwayat di background (non-blocking)
-              if (results && !isDataSameAsLastRiwayat()) {
+              if (results && !isDataSameAsAnyRiwayat()) {
                 fetcher('/api/riwayat-potong-kertas', {
                   method: 'POST',
                   headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },

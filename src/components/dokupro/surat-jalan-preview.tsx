@@ -108,18 +108,15 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
       <div className="overflow-x-auto mb-3 print:mb-[1mm]">
         <table className="w-full text-[10px] print:text-[9px] print-table-8mm">
           <thead>
-            <tr style={{ backgroundColor: '#000000' }}>
-              <th className="py-1.5 px-1 text-right font-semibold text-white w-10 print:py-0">Qty</th>
-              <th className="py-1.5 px-1 text-left font-semibold text-white print:py-0">Nama Barang</th>
+            <tr style={{ borderTop: '2px solid #000000', borderBottom: '2px solid #000000' }}>
+              <th className="py-1.5 px-1 text-right font-semibold text-black w-10 print:py-0">Qty</th>
+              <th className="py-1.5 px-1 text-left font-semibold text-black print:py-0">Nama Barang</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((item, i) => (
               <tr
                 key={item.id}
-                style={{
-                  backgroundColor: i % 2 === 1 ? '#F5F5F5' : '#FFFFFF',
-                }}
               >
                 <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{i < data.items.length ? item.qty : ''}</td>
                 <td className="py-1.5 px-1 print:py-0 whitespace-pre-line" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{item.deskripsi || ''}</td>

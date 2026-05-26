@@ -11,6 +11,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'docType, nomor, dataJson wajib diisi' }, { status: 400 });
     }
 
+    // Check for duplicate: same docType + same content (regardless of nomor)
+    const parsed = JSON.parse(dataJson);
+    const items = parsed.items || [];
+    const client = parsed.client || parsed.penerima || parsed.pemasok || {};
+    const pihakNama = client.nama || pihakKedua || '-';
+
+    // Build a content-based fingerprint (without nomor — same content = duplicate)
+    const itemFingerprint = items.map((it: any) =>
+      `${it.deskripsi || ''}|${it.qty || 0}|${it.harga || 0}`
+    ).join(';;');
+
+    const fingerprint = `${docType}||${pihakNama}||${itemFingerprint}`;
+
+    // Check ALL existing records with same docType
+    const existingRecords = await db.documentHistory.findMany({
+      where: { docType },
+    });
+
+    for (const existing of existingRecords) {
+      try {
+        const existParsed = JSON.parse(existing.dataJson);
+        const existItems = existParsed.items || [];
+        const existClient = existParsed.client || existParsed.penerima || existParsed.pemasok || {};
+        const existPihakNama = existClient.nama || existing.pihakKedua || '-';
+        const existFingerprint = `${existing.docType}||${existPihakNama}||${existItems.map((it: any) =>
+          `${it.deskripsi || ''}|${it.qty || 0}|${it.harga || 0}`
+        ).join(';;')}`;
+
+        if (fingerprint === existFingerprint) {
+          return NextResponse.json({ error: 'Data sudah ada di riwayat, tidak disimpan ulang.', duplicate: true, id: existing.id }, { status: 409 });
+        }
+      } catch {
+        // If parsing fails for this record, skip and check next
+      }
+    }
+
     const history = await db.documentHistory.create({
       data: {
         docType,

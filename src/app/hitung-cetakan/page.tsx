@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react'
 import { useState, useEffect, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -625,24 +625,26 @@ function HitungCetakanPage() {
       setCalculatedPrintingCost2(0)
     }
 
-    // Ongkos Lem
+    // Ongkos Lem: (cm × harga/cm) × jumlahPesanan
     const cmLem = parseFloat(formData.glueLengthCm) || 0
     const hargaPerCmLem = parseFloat(formData.glueCostPerCm) || 0
-    if (cmLem > 0 && hargaPerCmLem > 0 && qty > 0) {
-      setCalculatedGlueCost(cmLem * hargaPerCmLem * qty)
+    const jumlahPesananLem = parseInt(formData.jumlahPesanan) || 0
+    if (cmLem > 0 && hargaPerCmLem > 0 && jumlahPesananLem > 0) {
+      setCalculatedGlueCost(cmLem * hargaPerCmLem * jumlahPesananLem)
     } else {
       setCalculatedGlueCost(0)
     }
 
     const boronganPerSheet = parseFloat(formData.glueBoronganPerSheet) || 0
-    if (boronganPerSheet > 0 && qty > 0) {
-      setCalculatedGlueBoronganSheet(boronganPerSheet * qty)
+    const jumlahPesanan = parseInt(formData.jumlahPesanan) || 0
+    if (boronganPerSheet > 0 && jumlahPesanan > 0) {
+      setCalculatedGlueBoronganSheet(boronganPerSheet * jumlahPesanan)
     } else {
       setCalculatedGlueBoronganSheet(0)
     }
 
     setCalculatedCost(calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost)
-  }, [selectedMachine, selectedMachine2, selectedFinishingItems, formData.quantity, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.cutWidth, formData.cutHeight, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost])
+  }, [selectedMachine, selectedMachine2, selectedFinishingItems, formData.quantity, formData.jumlahPesanan, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.cutWidth, formData.cutHeight, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost])
 
   const buildPrintHtml = (calc: PrintCalculation) => {
     const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`
@@ -1258,7 +1260,31 @@ function HitungCetakanPage() {
     setTotalPaperPrice(0)
   }
 
+  const isDataSameAsAnyRiwayat = () => {
+    if (riwayatCetakanList.length === 0) return false
+    const payload = buildRiwayatPayload()
+    return riwayatCetakanList.some(r =>
+      (r.printName || '') === (payload.printName || '') &&
+      (r.customerName || '') === (payload.customerName || '') &&
+      (r.paperName || '') === (payload.paperName || '') &&
+      (r.paperLength || '') === (payload.paperLength || '') &&
+      (r.paperWidth || '') === (payload.paperWidth || '') &&
+      (r.cutWidth || '') === (payload.cutWidth || '') &&
+      (r.cutHeight || '') === (payload.cutHeight || '') &&
+      (r.quantity || '') === (payload.quantity || '') &&
+      (r.jumlahPesanan || '') === (payload.jumlahPesanan || '') &&
+      (r.berapaMata || '') === (payload.berapaMata || '') &&
+      (r.machineName || '') === (payload.machineName || '') &&
+      (r.warna || '') === (payload.warna || '') &&
+      r.grandTotal === payload.grandTotal
+    )
+  }
+
   const handleSaveRiwayat = async () => {
+    if (isDataSameAsAnyRiwayat()) {
+      toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' })
+      return
+    }
     setSavingRiwayat(true)
     try {
       const res = await fetcher('/api/riwayat-cetakan', {
@@ -1281,6 +1307,31 @@ function HitungCetakanPage() {
       toast.error('Lengkapi data dan hitung terlebih dahulu!')
       return
     }
+    // Check if data already exists in riwayat
+    if (isDataSameAsAnyRiwayat()) {
+      const payload = buildRiwayatPayload()
+      const existing = riwayatCetakanList.find(r =>
+        (r.printName || '') === (payload.printName || '') &&
+        (r.customerName || '') === (payload.customerName || '') &&
+        (r.paperName || '') === (payload.paperName || '') &&
+        (r.paperLength || '') === (payload.paperLength || '') &&
+        (r.paperWidth || '') === (payload.paperWidth || '') &&
+        (r.cutWidth || '') === (payload.cutWidth || '') &&
+        (r.cutHeight || '') === (payload.cutHeight || '') &&
+        (r.quantity || '') === (payload.quantity || '') &&
+        (r.jumlahPesanan || '') === (payload.jumlahPesanan || '') &&
+        (r.berapaMata || '') === (payload.berapaMata || '') &&
+        (r.machineName || '') === (payload.machineName || '') &&
+        (r.warna || '') === (payload.warna || '') &&
+        r.grandTotal === payload.grandTotal
+      )
+      if (existing) {
+        toast('Data sudah ada di riwayat, langsung ke Invoice.', { description: 'Data yang sama tidak disimpan ulang.' })
+        resetFormForRiwayat()
+        router.push(`/invoice?riwayatId=${existing.id}`)
+      }
+      return
+    }
     setSavingRiwayat(true)
     try {
       // Simpan ke riwayat cetakan dulu
@@ -1293,6 +1344,8 @@ function HitungCetakanPage() {
         const saved = await res.json()
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
+        toast.success('Data tersimpan di riwayat!')
+        resetFormForRiwayat()
         // Navigasi ke halaman invoice dengan riwayatId
         router.push(`/invoice?riwayatId=${saved.id}`)
       } else {
@@ -1327,10 +1380,11 @@ function HitungCetakanPage() {
     setRestoredRiwayatId(r.id)
     const rQty = parseInt(r.quantity) || 0
     // Restore ongkos lem input asli dari DB jika ada, jika tidak fallback dari total
+    const rJumlahPesanan = parseInt(r.jumlahPesanan) || rQty
     const restoredGlueLengthCm = r.glueLengthCm || (r.glueCost ? '1' : '')
-    const restoredGlueCostPerCm = r.glueCostPerCm || (r.glueCost && rQty > 0 ? (r.glueCost / rQty).toString() : '')
-    // glueBorongan di DB menyimpan total (harga/lembar × qty), jadi bagi kembali untuk dapat harga/lembar asli
-    const restoredBoronganPerSheet = r.glueBorongan && rQty > 0 ? Math.round(r.glueBorongan / rQty).toString() : ''
+    const restoredGlueCostPerCm = r.glueCostPerCm || (r.glueCost && rJumlahPesanan > 0 ? (r.glueCost / rJumlahPesanan).toString() : '')
+    // glueBorongan di DB menyimpan total (harga/lembar × jumlahPesanan), jadi bagi kembali untuk dapat harga/lembar asli
+    const restoredBoronganPerSheet = r.glueBorongan && rJumlahPesanan > 0 ? Math.round(r.glueBorongan / rJumlahPesanan).toString() : ''
     const restoredForm = {
       customerName: r.customerName || '',
       printName: r.printName || '',
@@ -1431,7 +1485,7 @@ function HitungCetakanPage() {
       hargaPlat2: r.hargaPlat2?.toString() || '0',
       glueLengthCm: '',
       glueCostPerCm: '',
-      glueBoronganPerSheet: r.glueBorongan && qty > 0 ? Math.round(r.glueBorongan / qty).toString() : '0',
+      glueBoronganPerSheet: r.glueBorongan && (parseInt(r.jumlahPesanan) || qty) > 0 ? Math.round(r.glueBorongan / (parseInt(r.jumlahPesanan) || qty)).toString() : '0',
       biayaLain1: r.otherCost?.toString() || '0',
       biayaLain2: r.otherCost2?.toString() || '0',
       totalPaperPrice: r.totalPaperPrice || 0,
@@ -1484,6 +1538,25 @@ function HitungCetakanPage() {
 
   // Grand total is 0 = no calculation yet
   const hasGrandTotal = summaryGrandTotal > 0
+
+  // Check popup state
+  const [checkOpen, setCheckOpen] = useState(false)
+
+  const checkItems = [
+    { label: 'Ongkos Cetak', filled: calculatedPrintingCost > 0 },
+    { label: 'Ongkos Cetak 2', filled: !!formData.machineId2 },
+    { label: 'Finishing', filled: selectedFinishingItems.length > 0 },
+    { label: 'Ongkos Lem', filled: calculatedGlueCost > 0 },
+    { label: 'Ongkos Lem Borongan', filled: calculatedGlueBoronganSheet > 0 },
+    { label: 'Biaya Tambahan', filled: !!(formData.packingCost || formData.shippingCost || formData.biayaLain1 || formData.biayaLain2) },
+    { label: 'Total Harga', filled: hasGrandTotal },
+  ]
+
+  const filledCount = checkItems.filter(i => i.filled).length
+
+  const handleCheck = () => {
+    setCheckOpen(true)
+  }
 
   // Plat total helper
   const platTotal = (() => {
@@ -1551,7 +1624,7 @@ function HitungCetakanPage() {
   return (
     <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
       <div className="lg:-mt-5">
-        <div className="lg:flex lg:gap-[19px]">
+        <div className="lg:grid lg:grid-cols-4 lg:gap-3">
 
           {/* ========== COLUMN 1: INFO & HARGA ========== */}
           <div className="flex-1 min-w-0">
@@ -1877,7 +1950,7 @@ function HitungCetakanPage() {
                 </div>
                 <div className={`p-2.5 rounded-xl ${summaryProfitAmount > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-100 border border-slate-200'}`}>
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5"><Percent className={`w-3.5 h-3.5 ${summaryProfitAmount > 0 ? 'text-amber-600' : 'text-slate-400'}`} /><span className={`text-xs font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-400'}`}>Uang Capek</span>
+                    <div className="flex items-center gap-1.5"><Percent className={`w-3.5 h-3.5 ${summaryProfitAmount > 0 ? 'text-amber-600' : 'text-slate-600'}`} /><span className={`text-xs font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-700'}`}>Uang Capek</span>
                     <input
                       type="number"
                       min="0"
@@ -1902,11 +1975,11 @@ function HitungCetakanPage() {
                         setProfitInput(finalVal === 0 ? '' : finalVal.toString())
                         handleProfitChange(finalVal)
                       }}
-                      className={`w-14 text-xs font-bold text-center border rounded px-1 py-0.5 ${summaryProfitAmount > 0 ? 'bg-amber-100 border-amber-300 text-amber-800 focus:ring-1 focus:ring-amber-400' : 'bg-slate-50 border-slate-300 text-slate-500 focus:ring-1 focus:ring-slate-400'} focus:outline-none`}
+                      className={`w-14 text-xs font-bold text-center border rounded px-1 py-0.5 ${summaryProfitAmount > 0 ? 'bg-amber-100 border-amber-300 text-amber-800 focus:ring-1 focus:ring-amber-400' : 'bg-white border-slate-300 text-slate-700 focus:ring-1 focus:ring-slate-400'} focus:outline-none`}
                     />
-                    <span className={`text-xs font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-400'}`}>%</span>
+                    <span className={`text-xs font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-700'}`}>%</span>
                     </div>
-                    <span className={`text-xs font-bold ${summaryProfitAmount > 0 ? 'text-amber-700' : 'text-slate-400'}`}>Rp {Math.round(summaryProfitAmount).toLocaleString('id-ID')}</span>
+                    <span className={`text-xs font-bold ${summaryProfitAmount > 0 ? 'text-amber-700' : 'text-slate-700'}`}>Rp {Math.round(summaryProfitAmount).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
                 <div className={`p-3 rounded-xl ${hasGrandTotal ? 'bg-gradient-to-r from-emerald-600 to-teal-600' : 'bg-slate-300'}`}>
@@ -1923,19 +1996,20 @@ function HitungCetakanPage() {
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-1 space-y-0.5">
-                  <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kertas</span><span className="text-slate-400 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
-                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
-                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak 2</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
-                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-[10px]"><span className="text-slate-400">{fin.name}</span><span className="text-slate-400 font-medium">{formatRp(cost)}</span></div> : null })}
-                  {summaryPacking > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Packing</span><span className="text-slate-400 font-medium">{formatRp(summaryPacking)}</span></div>}
-                  {summaryShipping > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kirim</span><span className="text-slate-400 font-medium">{formatRp(summaryShipping)}</span></div>}
-                  {calculatedGlueCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Lem</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueCost)}</span></div>}
-                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Lem Borongan</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
-                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain1Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain1)}</span></div>}
-                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain2Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
+                  <div className="flex justify-between text-xs"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
+                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Ongkos Cetak</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
+                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Ongkos Cetak 2</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
+                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-xs"><span className="text-slate-800">{fin.name}</span><span className="text-slate-800 font-medium">{formatRp(cost)}</span></div> : null })}
+                  {summaryPacking > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Packing</span><span className="text-slate-800 font-medium">{formatRp(summaryPacking)}</span></div>}
+                  {summaryShipping > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Kirim</span><span className="text-slate-800 font-medium">{formatRp(summaryShipping)}</span></div>}
+                  {calculatedGlueCost > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Ongkos Lem</span><span className="text-slate-800 font-medium">{formatRp(calculatedGlueCost)}</span></div>}
+                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Lem Borongan</span><span className="text-slate-800 font-medium">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
+                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">{biayaLain1Label}</span><span className="text-slate-800 font-medium">{formatRp(summaryBiayaLain1)}</span></div>}
+                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">{biayaLain2Label}</span><span className="text-slate-800 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
                 </div>
               </div>
               <div className="lg:hidden px-3 pb-3 flex flex-col sm:flex-row gap-2">
+                <Button onClick={handleCheck} className="flex-1 h-10 text-sm bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-4 h-4 mr-1.5" /> Cek</Button>
                 <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-sm">{restoredRiwayatId ? <><RefreshCw className={`w-4 h-4 mr-1.5 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update Riwayat'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat'}</Button>
                 <Button onClick={handleInvoice} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-10 text-sm bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-4 h-4 mr-1.5" /> Invoice</Button>
                 <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-10 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-4 h-4 mr-1.5" /> Preview</Button>
@@ -2208,26 +2282,27 @@ function HitungCetakanPage() {
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-0.5 space-y-0.5">
-                  <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kertas</span><span className="text-slate-400 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
-                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
-                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Cetak 2</span><span className="text-slate-400 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
-                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-[10px]"><span className="text-slate-400">{fin.name}</span><span className="text-slate-400 font-medium">{formatRp(cost)}</span></div> : null })}
-                  {summaryPacking > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Packing</span><span className="text-slate-400 font-medium">{formatRp(summaryPacking)}</span></div>}
-                  {summaryShipping > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Kirim</span><span className="text-slate-400 font-medium">{formatRp(summaryShipping)}</span></div>}
-                  {calculatedGlueCost > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Ongkos Lem</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueCost)}</span></div>}
-                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">Lem Borongan</span><span className="text-slate-400 font-medium">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
-                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain1Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain1)}</span></div>}
-                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-[10px]"><span className="text-slate-400">{biayaLain2Label}</span><span className="text-slate-400 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
+                  <div className="flex justify-between text-[11px]"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
+                  {calculatedPrintingCost > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Ongkos Cetak</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
+                  {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Ongkos Cetak 2</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
+                  {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-[11px]"><span className="text-slate-800">{fin.name}</span><span className="text-slate-800 font-medium">{formatRp(cost)}</span></div> : null })}
+                  {summaryPacking > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Packing</span><span className="text-slate-800 font-medium">{formatRp(summaryPacking)}</span></div>}
+                  {summaryShipping > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Kirim</span><span className="text-slate-800 font-medium">{formatRp(summaryShipping)}</span></div>}
+                  {calculatedGlueCost > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Ongkos Lem</span><span className="text-slate-800 font-medium">{formatRp(calculatedGlueCost)}</span></div>}
+                  {calculatedGlueBoronganSheet > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Lem Borongan</span><span className="text-slate-800 font-medium">{formatRp(calculatedGlueBoronganSheet)}</span></div>}
+                  {summaryBiayaLain1 > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">{biayaLain1Label}</span><span className="text-slate-800 font-medium">{formatRp(summaryBiayaLain1)}</span></div>}
+                  {summaryBiayaLain2 > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">{biayaLain2Label}</span><span className="text-slate-800 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
                 </div>
               </div>
-              <div className="px-2.5 pb-2 flex flex-col gap-1">
-                <div className="flex gap-1">
-                  <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-7 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[10px]">{restoredRiwayatId ? <><RefreshCw className={`w-3 h-3 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
-                  <Button onClick={handleInvoice} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-7 text-[10px] bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-3 h-3 mr-1" /> Invoice</Button>
-                  <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-7 text-[10px] bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3 h-3 mr-1" /> Preview</Button>
-                  <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3 h-3 mr-1" /> WhatsApp</Button>
+              <div className="px-2.5 pb-2 flex flex-col gap-1.5">
+                <Button onClick={handleCheck} className="w-full h-8 text-[11px] font-semibold bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-3.5 h-3.5 mr-1" /> Cek Kelengkapan</Button>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="h-8 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[11px] font-semibold">{restoredRiwayatId ? <><RefreshCw className={`w-3.5 h-3.5 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
+                  <Button onClick={handleInvoice} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="h-8 text-[11px] font-semibold bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Invoice</Button>
+                  <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="h-8 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3.5 h-3.5 mr-1" /> Preview</Button>
+                  <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="h-8 text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp</Button>
                 </div>
-                <Button onClick={resetForm} variant="outline" className="w-full h-7 text-[10px]"><RotateCcw className="w-3 h-3 mr-1" /> Reset Form</Button>
+                <Button onClick={resetForm} variant="outline" className="w-full h-8 text-[11px] font-semibold"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Form</Button>
               </div>
             </div>
 
@@ -2248,49 +2323,45 @@ function HitungCetakanPage() {
             <table className="w-full text-[14px] min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">#</th>
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell">Nama Barang</th>
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Kertas</th>
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Mesin</th>
-                  <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden xl:table-cell">Finishing</th>
-                  <th className="text-right py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">Jml Pesanan</th>
-                  <th className="text-right py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">Harga/Pcs</th>
-                  <th className="text-right py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                  <th className="text-center py-1 px-1 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">#</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '200px'}}>Nama Barang</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Uang Capek</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden xl:table-cell">Finishing</th>
+                  <th className="text-right py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Jml Pesanan</th>
+                  <th className="text-right py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Harga/Pcs</th>
+                  <th className="text-right py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                  <th className="text-center py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {riwayatCetakanList.slice(0, 50).map((r, idx) => (
                   <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                    <td className="py-1 px-1 text-slate-400">{idx + 1}</td>
-                    <td className="py-1 px-1 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                    <td className="py-1 px-1 text-slate-700 font-medium max-w-[120px] truncate">
+                    <td className="py-2 px-2 text-slate-400">{idx + 1}</td>
+                    <td className="py-2 px-2 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
+                    <td className="py-2 px-2 text-slate-700 font-medium max-w-[120px] truncate">
                       {r.customerName && r.customerName !== '' ? r.customerName : '-'}
                     </td>
-                    <td className="py-1 px-1 text-slate-600 hidden sm:table-cell max-w-[120px] truncate">
+                    <td className="py-2 px-2 text-slate-600 hidden sm:table-cell max-w-[200px] truncate">
                       {r.printName || '-'}
                     </td>
-                    <td className="py-1 px-1 text-slate-600 hidden md:table-cell max-w-[100px] truncate">
-                      {r.paperName || '-'}
+                    <td className="py-2 px-2 text-slate-500 hidden md:table-cell whitespace-nowrap">
+                      {r.profitAmount && r.profitAmount > 0 ? `Rp ${Math.round(r.profitAmount).toLocaleString('id-ID')}` : '-'}
                     </td>
-                    <td className="py-1 px-1 text-slate-500 hidden lg:table-cell whitespace-nowrap">
-                      {r.machineName && r.machineName !== '' ? r.machineName : '-'}
-                    </td>
-                    <td className="py-1 px-1 text-slate-600 hidden xl:table-cell max-w-[150px] truncate" title={r.finishingNames || '-'}>
+                    <td className="py-2 px-2 text-slate-600 hidden xl:table-cell max-w-[150px] truncate" title={r.finishingNames || '-'}>
                       {r.finishingNames && r.finishingNames !== '' ? r.finishingNames : '-'}
                     </td>
-                    <td className="py-1 px-1 text-slate-600 text-right whitespace-nowrap">
+                    <td className="py-2 px-2 text-slate-600 text-right whitespace-nowrap">
                       {parseInt(r.jumlahPesanan || r.quantity || 0).toLocaleString('id-ID')}
                     </td>
-                    <td className="py-1 px-1 text-slate-600 text-right whitespace-nowrap">
+                    <td className="py-2 px-2 text-slate-600 text-right whitespace-nowrap">
                       Rp {(parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 0) > 0 ? Math.round((r.grandTotal || 0) / (parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 1)).toLocaleString('id-ID') : '0'}
                     </td>
-                    <td className="py-1 px-1 text-rose-700 font-bold text-right whitespace-nowrap">
+                    <td className="py-2 px-2 text-rose-700 font-bold text-right whitespace-nowrap">
                       Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}
                     </td>
-                    <td className="py-1 px-1 text-center">
+                    <td className="py-2 px-2 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handlePreviewRiwayat(r)}
@@ -2586,6 +2657,43 @@ function HitungCetakanPage() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Check Kelengkapan Dialog */}
+      <Dialog open={checkOpen} onOpenChange={setCheckOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-cyan-600" />
+              Cek Kelengkapan Data
+              <span className={`ml-auto text-sm font-bold ${filledCount === checkItems.length ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {filledCount}/{checkItems.length}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto py-2">
+            {checkItems.map((item, idx) => (
+              <div key={idx} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm ${item.filled ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                {item.filled
+                  ? <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500 flex-shrink-0" />
+                  : <XCircle className="w-4.5 h-4.5 text-red-400 flex-shrink-0" />
+                }
+                <span className={item.filled ? 'text-emerald-800 font-medium' : 'text-red-700 font-medium'}>
+                  {item.label}
+                </span>
+                <span className={`ml-auto text-xs ${item.filled ? 'text-emerald-500' : 'text-red-400'}`}>
+                  {item.filled ? 'Sudah' : 'Belum'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className={`mt-3 p-3 rounded-lg text-center ${filledCount === checkItems.length ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+            {filledCount === checkItems.length
+              ? <p className="text-emerald-700 font-bold text-sm">✅ Semua data sudah lengkap!</p>
+              : <p className="text-amber-700 font-bold text-sm">⚠️ {checkItems.length - filledCount} item belum diisi</p>
+            }
+          </div>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

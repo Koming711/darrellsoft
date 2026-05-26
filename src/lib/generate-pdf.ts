@@ -192,10 +192,10 @@ function drawItemsTableWithPrice(
   const tableTop = y
 
   // Column widths — adjusted for A5 to give Nama Barang more space
-  // Qty: narrow, Harga: moderate, Jumlah: moderate
+  // Qty: narrow, Harga: moderate, Jumlah: wider for 11-digit amounts
   const colQty = 14
   const colPrice = 24
-  const colTotal = 26
+  const colTotal = 30
   const colDesc = cw - colQty - colPrice - colTotal
   const minRowH = 6.5
   const lineH = 3.2
@@ -243,28 +243,29 @@ function drawItemsTableWithPrice(
       pdf.setFontSize(7.5)
       pdf.setFont('helvetica', 'normal')
 
-      // Qty — right aligned, vertically centered in row
-      const textBaseY = curY + rowH - 2
-      pdf.text(String(item.qty), m + colQty - cellPad, textBaseY, { align: 'right' })
+      // All columns top-aligned (same baseline as first description line)
+      const textY = curY + 4
+
+      // Qty — right aligned
+      pdf.text(String(item.qty), m + colQty - cellPad, textY, { align: 'right' })
 
       // Description — multi-line support, left aligned
       const descLines = pdf.splitTextToSize(item.deskripsi || '', colDesc - cellPad * 2)
-      const descStartY = curY + 4
-      pdf.text(descLines[0] || '', m + colQty + cellPad, descStartY)
+      pdf.text(descLines[0] || '', m + colQty + cellPad, textY)
       if (descLines.length > 1) {
         for (let li = 1; li < descLines.length; li++) {
-          pdf.text(descLines[li], m + colQty + cellPad, descStartY + li * lineH)
+          pdf.text(descLines[li], m + colQty + cellPad, textY + li * lineH)
         }
       }
 
-      // Harga satuan — right aligned, vertically at bottom of row
+      // Harga satuan — right aligned
       pdf.setFontSize(7.5)
       pdf.setFont('helvetica', 'normal')
-      pdf.text(rp(item.harga), m + colQty + colDesc + colPrice - cellPad, textBaseY, { align: 'right' })
+      pdf.text(rp(item.harga), m + colQty + colDesc + colPrice - cellPad, textY, { align: 'right' })
 
-      // Jumlah — right aligned, bold, vertically at bottom of row
+      // Jumlah — right aligned, bold
       pdf.setFont('helvetica', 'bold')
-      pdf.text(rp(item.qty * item.harga), m + cw - cellPad, textBaseY, { align: 'right' })
+      pdf.text(rp(item.qty * item.harga), m + cw - cellPad, textY, { align: 'right' })
     }
     curY += rowH
   })
@@ -333,14 +334,15 @@ function drawItemsTableNoPrice(
       pdf.setTextColor(0, 0, 0)
       pdf.setFontSize(7.5)
       pdf.setFont('helvetica', 'normal')
-      pdf.text(String(item.qty), m + colQty - cellPad, curY + rowH - 2, { align: 'right' })
+
+      const textY = curY + 4
+      pdf.text(String(item.qty), m + colQty - cellPad, textY, { align: 'right' })
 
       const descLines = pdf.splitTextToSize(item.deskripsi || '', colDesc - cellPad * 2)
-      const descStartY = curY + 4
-      pdf.text(descLines[0] || '', m + colQty + cellPad, descStartY)
+      pdf.text(descLines[0] || '', m + colQty + cellPad, textY)
       if (descLines.length > 1) {
         for (let li = 1; li < descLines.length; li++) {
-          pdf.text(descLines[li], m + colQty + cellPad, descStartY + li * lineH)
+          pdf.text(descLines[li], m + colQty + cellPad, textY + li * lineH)
         }
       }
     }
@@ -497,9 +499,9 @@ function drawFooter(pdf: jsPDF, pageW: number, pageH: number) {
   pdf.setFontSize(5.5)
   pdf.setFont('helvetica', 'italic')
   pdf.setTextColor(120, 120, 120)
-  pdf.text('Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.', pageW / 2, pageH - 7, { align: 'center' })
+  pdf.text('Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.', pageW / 2, pageH - 4, { align: 'center' })
   pdf.setFontSize(5)
-  pdf.text('www.darrellsoft.com', pageW / 2, pageH - 4, { align: 'center' })
+  pdf.text('www.darrellsoft.com', pageW / 2, pageH - 1.5, { align: 'center' })
 }
 
 // ============================================================
@@ -649,14 +651,13 @@ export async function generatePotongKertasPdf(data: {
   // Footer
   const pageH = pdf.internal.pageSize.getHeight()
   pdf.setFontSize(6); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(148, 163, 184)
-  pdf.text('www.darrellsoft.com', pageW / 2, pageH - 4, { align: 'center' })
+  pdf.text('www.darrellsoft.com', pageW / 2, pageH - 1.5, { align: 'center' })
   pdf.setTextColor(0, 0, 0)
   return pdf.output('blob')
 }
 
 // ============================================================
 // Invoice PDF — matches InvoicePreview exactly
-// ============================================================
 
 export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
@@ -664,7 +665,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()  // 148
   const pageH = pdf.internal.pageSize.getHeight() // 210
-  const m = 6
+  const m = 10
   const cw = pageW - m * 2
   let y = m
 
@@ -727,7 +728,7 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
-  const m = 6
+  const m = 10
   const cw = pageW - m * 2
   let y = m
 
@@ -789,7 +790,7 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
-  const m = 6
+  const m = 10
   const cw = pageW - m * 2
   let y = m
 
@@ -860,23 +861,26 @@ export async function sharePdfViaWhatsApp(
     throw new Error('Invalid blob: PDF generation may have failed')
   }
 
-  const file = new File([blob], fileName, { type: 'application/pdf' })
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
-  // ===== MOBILE: Share PDF file directly via Web Share API =====
-  if (isMobile && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        files: [file],
-        text: `Dokumen ${documentLabel} - www.darrellsoft.com`,
-      })
-      return
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return
+  // ===== MOBILE: Share PDF file directly to WhatsApp via Web Share API =====
+  if (isMobile && navigator.share && navigator.canShare) {
+    const file = new File([blob], fileName, { type: 'application/pdf' })
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          text: `Dokumen ${documentLabel} - www.darrellsoft.com`,
+        })
+        return
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        // Fall through to download + open WhatsApp
+      }
     }
   }
 
-  // ===== DESKTOP: Download PDF + open WhatsApp =====
+  // ===== DESKTOP / FALLBACK: Download PDF + open WhatsApp app =====
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

@@ -84,6 +84,9 @@ export function DocumentActionButtons({
         toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);
         window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
         onReset();
+      } else if (res.status === 409) {
+        const errData = await res.json().catch(() => ({}));
+        toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' });
       } else {
         toast.error('Gagal menyimpan');
       }
@@ -180,10 +183,9 @@ export function DocumentActionButtons({
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <Button
-              variant="outline"
               size="sm"
               disabled={saving || dataEmpty}
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="mr-1.5 h-3.5 w-3.5" />
               {saving ? 'Menyimpan...' : 'Simpan'}
@@ -208,7 +210,7 @@ export function DocumentActionButtons({
                   setConfirmOpen(false);
                   handleSave();
                 }}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 Ya, Simpan
               </AlertDialogAction>
@@ -264,10 +266,9 @@ export function DocumentActionButtons({
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <Button
-              variant="outline"
               size="sm"
               disabled={saving || dataEmpty}
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 h-9"
+              className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 h-9"
             >
               <Save className="mr-1.5 h-3.5 w-3.5" />
               {saving ? 'Menyimpan...' : 'Simpan'}
@@ -292,7 +293,7 @@ export function DocumentActionButtons({
                   setConfirmOpen(false);
                   handleSave();
                 }}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 Ya, Simpan
               </AlertDialogAction>

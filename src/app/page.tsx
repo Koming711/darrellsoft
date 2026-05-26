@@ -351,13 +351,13 @@ export default function Home() {
             exit={{ opacity: 0, height: 0 }}
             className="md:hidden border-t border-gray-100 bg-white"
           >
-            <div className="px-4 py-4 flex flex-col gap-3">
-              <a href="#fitur" onClick={() => setMobileMenuOpen(false)} className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 py-2">Fitur</a>
-              <a href="#keunggulan" onClick={() => setMobileMenuOpen(false)} className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 py-2">Keunggulan</a>
-              <a href="#harga" onClick={() => setMobileMenuOpen(false)} className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 py-2">Harga</a>
-              <a href="#testimoni" onClick={() => setMobileMenuOpen(false)} className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 py-2">Testimoni</a>
-              <Button onClick={() => goToLogin()} className="w-full ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white mt-1">
-                Masuk <ChevronRight className="ml-1 w-4 h-4" />
+            <div className="px-4 py-2 flex flex-col gap-1">
+              <a href="#fitur" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Fitur</a>
+              <a href="#keunggulan" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Keunggulan</a>
+              <a href="#harga" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Harga</a>
+              <a href="#testimoni" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Testimoni</a>
+              <Button onClick={() => goToLogin()} className="w-full ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white mt-0.5 text-xs py-1.5">
+                Masuk <ChevronRight className="ml-1 w-3 h-3" />
               </Button>
             </div>
           </motion.div>

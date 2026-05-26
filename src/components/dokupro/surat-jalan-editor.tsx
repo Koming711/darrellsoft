@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +33,10 @@ export function SuratJalanEditor() {
   const resetDocument = useDokuproStore((s) => s.resetDocument);
   const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
 
+  const searchParams = useSearchParams();
+  const invoiceIdFromUrl = searchParams.get('invoiceId');
+  const autoSelectRef = useRef(false);
+
   // Invoice history dropdown state
   const [invoiceList, setInvoiceList] = useState<InvoiceHistoryItem[]>([]);
   const [referensiInput, setReferensiInput] = useState(sj.referensi);
@@ -55,6 +60,22 @@ export function SuratJalanEditor() {
   // Sync referensiInput when sj.referensi changes externally
   useEffect(() => { setReferensiInput(sj.referensi) }, [sj.referensi]);
 
+  // Auto-select invoice when coming from Invoice page with invoiceId
+  useEffect(() => {
+    if (invoiceIdFromUrl && invoiceList.length > 0 && !autoSelectRef.current) {
+      const found = invoiceList.find((inv) => String(inv.id) === String(invoiceIdFromUrl));
+      if (found) {
+        autoSelectRef.current = true;
+        // Reset surat jalan first to clear stale data
+        resetDocument('surat-jalan');
+        setTimeout(() => {
+          handleInvoiceSelect(found);
+        }, 0);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceIdFromUrl, invoiceList]);
+
   // Filter invoice list by input
   const filteredInvoiceList = invoiceList.filter((inv) => {
     const search = referensiInput.toLowerCase().trim();
@@ -73,13 +94,13 @@ export function SuratJalanEditor() {
   const handleInvoiceSelect = (inv: InvoiceHistoryItem) => {
     try {
       const invoiceData: InvoiceData = JSON.parse(inv.dataJson);
-      setSuratJalan({
-        ...sj,
+      setSuratJalan((prev) => ({
+        ...prev,
         referensi: inv.nomor,
         penerima: {
-          nama: invoiceData.client?.nama || sj.penerima.nama,
-          kontak: invoiceData.client?.kontak || sj.penerima.kontak,
-          alamat: invoiceData.client?.alamat || sj.penerima.alamat,
+          nama: invoiceData.client?.nama || prev.penerima.nama,
+          kontak: invoiceData.client?.kontak || prev.penerima.kontak,
+          alamat: invoiceData.client?.alamat || prev.penerima.alamat,
         },
         items: invoiceData.items?.length > 0
           ? invoiceData.items.map((item) => ({
@@ -89,12 +110,12 @@ export function SuratJalanEditor() {
               satuan: item.satuan || '',
               harga: item.harga || 0,
             }))
-          : sj.items,
+          : prev.items,
         catatan: '',
-      });
+      }));
     } catch {
       // If parsing fails, just set the referensi
-      setSuratJalan({ ...sj, referensi: inv.nomor });
+      setSuratJalan((prev) => ({ ...prev, referensi: inv.nomor }));
     }
     setReferensiInput(inv.nomor);
     setDropdownOpen(false);

@@ -61,7 +61,8 @@ function LoginContent() {
     const authUser = getAuthUser()
     if (authUser) {
       setIsRedirecting(true)
-      router.push('/potong-kertas')
+      // Use hard navigation to ensure DashboardLayout reads fresh auth state
+      window.location.href = '/pembukaan'
       return
     }
 
@@ -75,7 +76,7 @@ function LoginContent() {
         }
       })
       .catch(() => {})
-  }, [router, isRedirecting])
+  }, [isRedirecting])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -136,7 +137,9 @@ function LoginContent() {
       } else {
         // Apply theme in background, don't block redirect
         applyThemeAfterLogin()
-        router.push('/potong-kertas')
+        // Use hard navigation to ensure DashboardLayout reads fresh auth state
+        // (router.push can fail in iframe contexts)
+        window.location.href = '/pembukaan'
       }
     } catch (err: any) {
       console.error('Login network error:', err)
@@ -233,7 +236,7 @@ function LoginContent() {
           setDemoPopupOpen(true)
         } else {
           applyThemeAfterLogin()
-          setTimeout(() => router.push('/potong-kertas'), 1500)
+          setTimeout(() => { window.location.href = '/pembukaan' }, 1500)
         }
       } else {
         // Notify other tabs about the new calon pembeli
@@ -639,17 +642,17 @@ function LoginContent() {
               <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
             </div>
             <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); router.push('/potong-kertas') }}
+              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
               autoFocus
             >
               Ok
             </button>
             <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); router.push('/potong-kertas') }}
+              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
               className="w-full text-sm text-slate-500 hover:text-slate-700 mt-3 py-1 transition-colors"
             >
-              Masuk ke Dashboard
+              Masuk ke Halaman Utama
             </button>
           </div>
         </div>
