@@ -51,6 +51,7 @@ export async function PUT(
     const updated = await db.riwayatPotongKertas.update({
       where: { id },
       data: {
+        nomorPotongKertas: body.nomorPotongKertas ?? item.nomorPotongKertas,
         namaCustomer: body.namaCustomer ?? item.namaCustomer,
         namaCetakan: body.namaCetakan ?? item.namaCetakan,
         paperName: body.paperName ?? item.paperName,

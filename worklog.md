@@ -93,3 +93,33 @@ Stage Summary:
 - Clicking a PO card on pembelian page shows a full potong kertas preview popup with cutting diagram
 - New API endpoint available: GET /api/riwayat-potong-kertas/[id]
 - All lint checks pass, dev server compiles successfully
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add automatic nomor potong kertas (PK/MM/YY/NNNN format) to potong kertas page
+
+Work Log:
+- Added `nomorPotongKertas` field to `RiwayatPotongKertas` model in Prisma schema
+- Ran `bun run db:push` to sync database
+- Updated API routes:
+  - POST `/api/riwayat-potong-kertas` - saves nomorPotongKertas
+  - PUT `/api/riwayat-potong-kertas/[id]` - updates nomorPotongKertas
+- Updated potong kertas page:
+  - Added `nomorPotongKertas` to FormData interface and initial state
+  - Bumped STORAGE_VERSION to 'v7' (clears old localStorage)
+  - Added `nomorPotongKertas` state with auto-generation logic
+  - `generateNextPKNumber()` scans existing riwayat to find next sequential number
+  - Format: `PK/MM/YY/NNNN` (e.g., PK/07/25/0001)
+  - Added read-only "No. Potong Kertas" input at top of form
+  - Number resets to next on save/reset/restore
+  - Added "Nomor" column to RiwayatTable showing the PK number in blue
+  - `buildPayload()` now includes `nomorPotongKertas`
+  - `handleRestore()` now restores `nomorPotongKertas`
+
+Stage Summary:
+- Potong kertas now has auto-generated document numbers in format PK/MM/YY/NNNN
+- Number is visible at the top of the form (read-only, auto-generated)
+- Number appears in the riwayat table as first column after index
+- Number increments based on existing records in the same month/year
+- All lint checks pass, dev server compiles successfully
