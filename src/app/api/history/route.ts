@@ -65,20 +65,40 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/history?docType=invoice — List history by document type
+// GET /api/history?docType=invoice&startDate=2024-01-01&endDate=2024-12-31 — List history by document type
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const docType = searchParams.get('docType');
+    const startDateStr = searchParams.get('startDate');
+    const endDateStr = searchParams.get('endDate');
 
     if (!docType) {
       return NextResponse.json({ error: 'docType wajib diisi' }, { status: 400 });
     }
 
+    // Build date filter
+    const dateFilter: Record<string, Date> = {};
+    if (startDateStr) {
+      const start = new Date(startDateStr);
+      start.setHours(0, 0, 0, 0);
+      dateFilter.gte = start;
+    }
+    if (endDateStr) {
+      const end = new Date(endDateStr);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.lte = end;
+    }
+
+    const where: Record<string, unknown> = { docType };
+    if (Object.keys(dateFilter).length > 0) {
+      where.createdAt = dateFilter;
+    }
+
     const history = await db.documentHistory.findMany({
-      where: { docType },
+      where,
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take: 100,
     });
 
     return NextResponse.json({ success: true, data: history });

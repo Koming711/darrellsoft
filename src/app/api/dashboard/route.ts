@@ -7,6 +7,11 @@ export async function GET(request: NextRequest) {
     const user = getServerUser(request)
     const dataFilter = await getDataFilter(user)
 
+    // Parse date range from query params
+    const { searchParams } = new URL(request.url)
+    const startDateStr = searchParams.get('startDate')
+    const endDateStr = searchParams.get('endDate')
+
     // Get user expiry info (only for demo role)
     let expiryInfo: { validUntil: string | null; remainingDays: number | null } = { validUntil: null, remainingDays: null }
     if (user?.id && user.role === 'demo') {
@@ -18,11 +23,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    sevenDaysAgo.setHours(0, 0, 0, 0)
+    // Build date filter based on query params or default 7 days
+    let rangeStart: Date
+    let rangeEnd: Date | undefined
 
-    const dateFilter = { createdAt: { gte: sevenDaysAgo } }
+    if (startDateStr) {
+      rangeStart = new Date(startDateStr)
+      rangeStart.setHours(0, 0, 0, 0)
+    } else {
+      rangeStart = new Date()
+      rangeStart.setDate(rangeStart.getDate() - 7)
+      rangeStart.setHours(0, 0, 0, 0)
+    }
+
+    if (endDateStr) {
+      rangeEnd = new Date(endDateStr)
+      rangeEnd.setHours(23, 59, 59, 999)
+    }
+
+    const dateFilter = rangeEnd
+      ? { createdAt: { gte: rangeStart, lte: rangeEnd } }
+      : { createdAt: { gte: rangeStart } }
     const combinedFilter = { ...dataFilter, ...dateFilter }
 
     // DocumentHistory filters for each doc type

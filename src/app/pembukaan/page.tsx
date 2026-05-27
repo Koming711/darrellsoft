@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import {
   Table,
@@ -20,6 +21,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Calendar } from '@/components/ui/calendar'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 import {
   FileText,
@@ -37,10 +44,14 @@ import {
   BarChart3,
   Receipt,
   Package,
+  CalendarIcon,
+  Filter,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatRupiah, formatTanggal } from '@/lib/format'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 // --- Types ---
 interface CetakanRecord {
@@ -122,6 +133,52 @@ interface DashboardData {
   daily: Record<string, { calculations: number; documents: number }>
 }
 
+// --- Date filter types ---
+type FilterType = 'today' | 'week' | 'month' | 'custom'
+
+function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date): { startDate: string; endDate: string } {
+  const today = new Date()
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  switch (filter) {
+    case 'today': {
+      return { startDate: formatDate(today), endDate: formatDate(today) }
+    }
+    case 'week': {
+      const startOfWeek = new Date(today)
+      // Get Monday of current week
+      const day = startOfWeek.getDay()
+      const diff = day === 0 ? -6 : 1 - day
+      startOfWeek.setDate(startOfWeek.getDate() + diff)
+      return { startDate: formatDate(startOfWeek), endDate: formatDate(today) }
+    }
+    case 'month': {
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+      return { startDate: formatDate(startOfMonth), endDate: formatDate(today) }
+    }
+    case 'custom': {
+      return {
+        startDate: customStart ? formatDate(customStart) : formatDate(today),
+        endDate: customEnd ? formatDate(customEnd) : formatDate(today),
+      }
+    }
+  }
+}
+
+function getFilterLabel(filter: FilterType): string {
+  switch (filter) {
+    case 'today': return 'Hari Ini'
+    case 'week': return 'Minggu Ini'
+    case 'month': return 'Bulan Ini'
+    case 'custom': return 'Custom'
+  }
+}
+
 // --- Greeting ---
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -140,12 +197,17 @@ function formatDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
 }
 
+function formatDateDisplay(d: Date | undefined): string {
+  if (!d) return 'Pilih tanggal'
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
 // --- Empty State ---
 function EmptyState() {
   return (
     <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
       <Clock className="mx-auto h-6 w-6 text-gray-300" />
-      <p className="mt-2 text-sm text-gray-400">Belum ada data 7 hari terakhir</p>
+      <p className="mt-2 text-sm text-gray-400">Belum ada data</p>
     </div>
   )
 }
@@ -185,6 +247,14 @@ export default function PembukaanPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Date filter state
+  const [filterType, setFilterType] = useState<FilterType>('today')
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
+  const [showCustomDialog, setShowCustomDialog] = useState(false)
+  const [tempStartDate, setTempStartDate] = useState<Date | undefined>(undefined)
+  const [tempEndDate, setTempEndDate] = useState<Date | undefined>(undefined)
+
   // Document history states
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
   const [suratJalanHistory, setSuratJalanHistory] = useState<HistoryEntry[]>([])
@@ -206,7 +276,8 @@ export default function PembukaanPage() {
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await authFetch('/api/dashboard')
+      const { startDate, endDate } = getFilterDates(filterType, customStartDate, customEndDate)
+      const res = await authFetch(`/api/dashboard?startDate=${startDate}&endDate=${endDate}`)
       if (res.ok) {
         const json = await res.json()
         setData(json)
@@ -216,15 +287,16 @@ export default function PembukaanPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filterType, customStartDate, customEndDate])
 
   const fetchDocHistory = useCallback(async () => {
     setDocLoading(true)
     try {
+      const { startDate, endDate } = getFilterDates(filterType, customStartDate, customEndDate)
       const [invRes, sjRes, poRes] = await Promise.all([
-        fetch('/api/history?docType=invoice'),
-        fetch('/api/history?docType=surat-jalan'),
-        fetch('/api/history?docType=purchase-order'),
+        fetch(`/api/history?docType=invoice&startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/history?docType=surat-jalan&startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/history?docType=purchase-order&startDate=${startDate}&endDate=${endDate}`),
       ])
       if (invRes.ok) { const json = await invRes.json(); setInvoiceHistory(json.data || []) }
       if (sjRes.ok) { const json = await sjRes.json(); setSuratJalanHistory(json.data || []) }
@@ -234,7 +306,7 @@ export default function PembukaanPage() {
     } finally {
       setDocLoading(false)
     }
-  }, [])
+  }, [filterType, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchDashboard()
@@ -248,8 +320,34 @@ export default function PembukaanPage() {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchDocHistory])
 
+  const handleFilterChange = (type: FilterType) => {
+    if (type === 'custom') {
+      setTempStartDate(customStartDate)
+      setTempEndDate(customEndDate)
+      setShowCustomDialog(true)
+    } else {
+      setFilterType(type)
+    }
+  }
+
+  const handleCustomApply = () => {
+    if (tempStartDate && tempEndDate) {
+      setCustomStartDate(tempStartDate)
+      setCustomEndDate(tempEndDate)
+      setFilterType('custom')
+      setShowCustomDialog(false)
+    }
+  }
+
   const summary = data?.summary
   const recent = data?.recent
+
+  const filterButtons: { type: FilterType; label: string }[] = [
+    { type: 'today', label: 'Hari Ini' },
+    { type: 'week', label: 'Minggu Ini' },
+    { type: 'month', label: 'Bulan Ini' },
+    { type: 'custom', label: 'Custom' },
+  ]
 
   return (
     <DashboardLayout title={t('pembukaan')} subtitle={t('subtitle_pembukaan')}>
@@ -368,6 +466,36 @@ export default function PembukaanPage() {
             color="bg-violet-50 text-violet-600 border-violet-200"
             onClick={() => router.push('/invoice')}
           />
+        </div>
+
+        {/* Date Filter Section */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 mr-1">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-medium text-slate-500">Periode:</span>
+          </div>
+          {filterButtons.map(btn => (
+            <Button
+              key={btn.type}
+              variant="outline"
+              size="sm"
+              onClick={() => handleFilterChange(btn.type)}
+              className={cn(
+                'h-8 px-3 text-xs font-medium rounded-lg transition-all',
+                filterType === btn.type
+                  ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+              )}
+            >
+              {btn.type === 'custom' && <CalendarIcon className="w-3.5 h-3.5 mr-1" />}
+              {btn.label}
+            </Button>
+          ))}
+          {filterType === 'custom' && customStartDate && customEndDate && (
+            <span className="text-xs text-slate-400 ml-1">
+              {formatDateDisplay(customStartDate)} — {formatDateDisplay(customEndDate)}
+            </span>
+          )}
         </div>
 
         {/* Riwayat Sections */}
@@ -685,6 +813,94 @@ export default function PembukaanPage() {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Custom Date Range Dialog */}
+        <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+          <DialogContent className="sm:max-w-md p-0 gap-0">
+            <DialogHeader className="px-5 pt-5 pb-3">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <CalendarIcon className="w-4 h-4" />
+                </div>
+                Pilih Rentang Tanggal
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">Tentukan periode untuk menampilkan riwayat</DialogDescription>
+            </DialogHeader>
+            <div className="px-5 pb-4 space-y-4">
+              {/* Start Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-600">Tanggal Mulai</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal h-9 text-sm',
+                        !tempStartDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formatDateDisplay(tempStartDate)}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={tempStartDate}
+                      onSelect={setTempStartDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-600">Tanggal Akhir</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal h-9 text-sm',
+                        !tempEndDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formatDateDisplay(tempEndDate)}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={tempEndDate}
+                      onSelect={setTempEndDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <DialogFooter className="px-5 pb-5 pt-0 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCustomDialog(false)}
+                className="text-xs"
+              >
+                Batal
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleCustomApply}
+                disabled={!tempStartDate || !tempEndDate}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Terapkan
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
