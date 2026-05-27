@@ -235,11 +235,18 @@ function HitungCetakanPage() {
 
   // Load saved form data on mount
   useEffect(() => {
-    const saved = loadFromStorage()
-    if (saved) {
-      if (saved.formData) setFormData(saved.formData)
-      if (saved.selectedFinishings) setSelectedFinishings(saved.selectedFinishings)
-      if (saved.totalPaperPrice) setTotalPaperPrice(saved.totalPaperPrice)
+    // If navigating with reset flag (from Potong Kertas), skip localStorage restore
+    const params = new URLSearchParams(window.location.search)
+    const shouldReset = params.get('reset') === '1' || params.get('fromPotongKertas') === '1'
+    if (!shouldReset) {
+      const saved = loadFromStorage()
+      if (saved) {
+        if (saved.formData) setFormData(saved.formData)
+        if (saved.selectedFinishings) setSelectedFinishings(saved.selectedFinishings)
+        if (saved.totalPaperPrice) setTotalPaperPrice(saved.totalPaperPrice)
+      }
+    } else {
+      clearStorage()
     }
     setHydrated(true)
   }, [])

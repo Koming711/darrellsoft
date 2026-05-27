@@ -1511,6 +1511,7 @@ function CalculatorPage() {
               if (results?.totalPieces) params.set('totalPieces', results.totalPieces.toString())
               if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
               params.set('fromPotongKertas', '1')
+              params.set('reset', '1')
               router.push(`/hitung-cetakan?${params.toString()}`)
               // Simpan riwayat di background (non-blocking)
               if (results && !isDataSameAsAnyRiwayat()) {
