@@ -9,15 +9,12 @@ import {
   ShoppingBag,
   Package,
   CalendarIcon,
-  Filter,
   ChevronDown,
   ChevronUp,
-  Eye,
   Trash2,
-  Clock,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
-import { formatRupiah, formatTanggal } from '@/lib/format'
+import { formatRupiah } from '@/lib/format'
 import { toast } from 'sonner'
 import { fetcher } from '@/lib/fetcher'
 import { getAuthHeaders } from '@/lib/auth'
@@ -186,10 +183,6 @@ export default function PembelianPage() {
     return sum + (info.totalHarga || 0)
   }, 0)
 
-  const totalItems = poHistory.reduce((sum, po) => {
-    const info = parseDocInfo(po)
-    return sum + info.totalQty
-  }, 0)
 
   const filterButtons: { type: FilterType; label: string }[] = [
     { type: 'today', label: 'Hari Ini' },
@@ -199,10 +192,10 @@ export default function PembelianPage() {
   ]
 
   return (
-    <DashboardLayout title={t('pembelian')} subtitle={t('subtitle_pembelian')}>
+    <DashboardLayout title="Pembelian Barang" subtitle={t('subtitle_pembelian')}>
       <div className="space-y-4 sm:space-y-6 pb-6">
         {/* Summary Cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
               <ShoppingBag className="w-5 h-5" />
@@ -217,21 +210,11 @@ export default function PembelianPage() {
             <p className="text-xs text-slate-500 mb-0.5">Nilai Pembelian</p>
             <p className="text-base sm:text-lg font-bold text-emerald-700 leading-tight">{formatRupiahShort(totalPembelian)}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
-            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
-              <Package className="w-5 h-5" />
-            </div>
-            <p className="text-xs text-slate-500 mb-0.5">Total Item</p>
-            <p className="text-base sm:text-lg font-bold text-amber-700 leading-tight">{totalItems.toLocaleString('id-ID')}</p>
-          </div>
         </div>
 
         {/* Filter */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 mr-1">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-medium text-slate-500">Periode:</span>
-          </div>
+
           {filterButtons.map(btn => (
             <Button
               key={btn.type}
