@@ -114,7 +114,8 @@ export default function PembelianPage() {
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
 
-  // Custom date inputs (simple approach)
+  // Custom date dialog
+  const [showCustomDialog, setShowCustomDialog] = useState(false)
   const [customStartStr, setCustomStartStr] = useState('')
   const [customEndStr, setCustomEndStr] = useState('')
 
@@ -140,7 +141,7 @@ export default function PembelianPage() {
 
   const handleFilterChange = (type: FilterType) => {
     if (type === 'custom') {
-      setFilterType('custom')
+      setShowCustomDialog(true)
     } else {
       setFilterType(type)
     }
@@ -150,6 +151,8 @@ export default function PembelianPage() {
     if (customStartStr && customEndStr) {
       setCustomStartDate(new Date(customStartStr))
       setCustomEndDate(new Date(customEndStr))
+      setFilterType('custom')
+      setShowCustomDialog(false)
     } else {
       toast.error('Pilih tanggal mulai dan tanggal akhir')
     }
@@ -215,7 +218,6 @@ export default function PembelianPage() {
 
         {/* Filter */}
         <div className="flex items-center gap-2 flex-wrap">
-
           {filterButtons.map(btn => (
             <Button
               key={btn.type}
@@ -232,31 +234,6 @@ export default function PembelianPage() {
               {btn.label}
             </Button>
           ))}
-          {filterType === 'custom' && (
-            <div className="flex items-center gap-2 ml-1">
-              <input
-                type="date"
-                value={customStartStr}
-                onChange={e => setCustomStartStr(e.target.value)}
-                className="h-8 border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-1.5 focus:ring-blue-500"
-              />
-              <span className="text-xs text-slate-400">—</span>
-              <input
-                type="date"
-                value={customEndStr}
-                onChange={e => setCustomEndStr(e.target.value)}
-                className="h-8 border border-slate-200 rounded-lg px-2 text-xs text-slate-600 focus:outline-none focus:ring-1.5 focus:ring-blue-500"
-              />
-              <Button
-                size="sm"
-                onClick={applyCustomFilter}
-                className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={!customStartStr || !customEndStr}
-              >
-                Terapkan
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* PO List */}
@@ -384,6 +361,51 @@ export default function PembelianPage() {
             })}
           </div>
         )}
+
+        {/* Custom Date Dialog */}
+        <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Pilih Tanggal</DialogTitle>
+              <DialogDescription>
+                Pilih rentang tanggal pembelian yang ingin dilihat
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Dari Tanggal</label>
+                <input
+                  type="date"
+                  value={customStartStr}
+                  onChange={e => setCustomStartStr(e.target.value)}
+                  className="w-full h-9 border border-slate-200 rounded-lg px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Sampai Tanggal</label>
+                <input
+                  type="date"
+                  value={customEndStr}
+                  onChange={e => setCustomEndStr(e.target.value)}
+                  className="w-full h-9 border border-slate-200 rounded-lg px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-3">
+              <Button variant="outline" size="sm" onClick={() => setShowCustomDialog(false)} className="text-xs">
+                Batal
+              </Button>
+              <Button
+                size="sm"
+                onClick={applyCustomFilter}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!customStartStr || !customEndStr}
+              >
+                Terapkan
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
