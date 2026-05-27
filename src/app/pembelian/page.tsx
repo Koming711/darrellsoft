@@ -87,17 +87,19 @@ interface ParsedItem {
   ukuranBahan: string
   ukuranPotong: string
   hargaPerLembar: number
+  jumlahPesanan: string
   jumlahKertas: number
   totalHargaKertas: number
 }
 
-function parseDeskripsiLines(deskripsi: string): { namaBarang: string; namaBahan: string; gramatur: string; ukuranBahan: string; ukuranPotong: string } {
+function parseDeskripsiLines(deskripsi: string): { namaBarang: string; namaBahan: string; gramatur: string; ukuranBahan: string; ukuranPotong: string; jumlahPesanan: string } {
   const lines = deskripsi.split('\n').map(l => l.trim()).filter(Boolean)
   let namaBarang = ''
   let namaBahan = ''
   let gramatur = ''
   let ukuranBahan = ''
   let ukuranPotong = ''
+  let jumlahPesanan = ''
 
   if (lines.length > 0) {
     namaBarang = lines[0]
@@ -129,7 +131,16 @@ function parseDeskripsiLines(deskripsi: string): { namaBarang: string; namaBahan
     }
   }
 
-  return { namaBarang, namaBahan, gramatur, ukuranBahan, ukuranPotong }
+  // Find "Jumlah jadi" line → jumlah pesanan
+  for (const line of lines) {
+    const jmlMatch = line.match(/Jumlah\s+jadi\s*(\d[\d.]*)\s*lembar/i)
+    if (jmlMatch) {
+      jumlahPesanan = jmlMatch[1] + ' lembar'
+      break
+    }
+  }
+
+  return { namaBarang, namaBahan, gramatur, ukuranBahan, ukuranPotong, jumlahPesanan }
 }
 
 function parseDocInfo(entry: HistoryEntry) {
@@ -156,6 +167,7 @@ function parseDocInfo(entry: HistoryEntry) {
         ukuranBahan: parsed2.ukuranBahan,
         ukuranPotong: parsed2.ukuranPotong,
         hargaPerLembar: it.harga || 0,
+        jumlahPesanan: parsed2.jumlahPesanan,
         jumlahKertas: it.qty || 0,
         totalHargaKertas: (it.qty || 0) * (it.harga || 0),
       }
@@ -368,6 +380,7 @@ export default function PembelianPage() {
                                 { label: 'Ukuran Bahan', value: item.ukuranBahan },
                                 { label: 'Ukuran Potong', value: item.ukuranPotong },
                                 { label: 'Harga/lembar', value: item.hargaPerLembar > 0 ? formatRupiah(item.hargaPerLembar) : '-' },
+                                { label: 'Jumlah Pesanan', value: item.jumlahPesanan },
                                 { label: 'Jumlah Kertas', value: item.jumlahKertas > 0 ? `${item.jumlahKertas.toLocaleString('id-ID')} lembar` : '-' },
                                 { label: 'Total Harga Kertas', value: item.totalHargaKertas > 0 ? formatRupiah(item.totalHargaKertas) : '-' },
                               ]
