@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, requireAuth } from '@/lib/server-auth'
+import { getServerUser, requireAuth, getDataFilter } from '@/lib/server-auth'
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = getServerUser(request)
+    const { id } = await params
+
+    const item = await db.riwayatPotongKertas.findUnique({ where: { id } })
+    if (!item) {
+      return NextResponse.json({ error: 'Riwayat tidak ditemukan' }, { status: 404 })
+    }
+
+    // Check access: must be owner or admin
+    const dataFilter = await getDataFilter(user)
+    if (dataFilter.userId && item.userId !== dataFilter.userId) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+    }
+
+    return NextResponse.json(item)
+  } catch (error) {
+    console.error('Error fetching riwayat potong kertas:', error)
+    return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
+  }
+}
 
 export async function PUT(
   request: NextRequest,

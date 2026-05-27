@@ -9,14 +9,17 @@ import {
   ShoppingBag,
   Package,
   Trash2,
+  Loader2,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { formatRupiah } from '@/lib/format'
 import { toast } from 'sonner'
 import { fetcher } from '@/lib/fetcher'
 import { getAuthHeaders } from '@/lib/auth'
 import { notifyDataChange } from '@/lib/data-sync'
 import { cn } from '@/lib/utils'
+import type { CuttingResult } from '@/lib/cutting-engine'
 import {
   Dialog,
   DialogContent,
@@ -24,6 +27,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+
+const CuttingDiagram = dynamic(
+  () => import('@/components/cutting-results').then(m => ({ default: m.CuttingDiagram })),
+  { ssr: false, loading: () => <div className="h-40 flex items-center justify-center text-xs text-slate-400">Memuat diagram...</div> }
+)
 
 // --- Types ---
 interface HistoryEntry {
@@ -77,70 +85,6 @@ function formatRupiahShort(n: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
 }
 
-interface ParsedItem {
-  namaToko: string
-  namaBarang: string
-  namaBahan: string
-  gramatur: string
-  ukuranBahan: string
-  ukuranPotong: string
-  hargaPerLembar: number
-  jumlahPesanan: string
-  jumlahKertas: number
-  totalHargaKertas: number
-}
-
-function parseDeskripsiLines(deskripsi: string): { namaBarang: string; namaBahan: string; gramatur: string; ukuranBahan: string; ukuranPotong: string; jumlahPesanan: string } {
-  const lines = deskripsi.split('\n').map(l => l.trim()).filter(Boolean)
-  let namaBarang = ''
-  let namaBahan = ''
-  let gramatur = ''
-  let ukuranBahan = ''
-  let ukuranPotong = ''
-  let jumlahPesanan = ''
-
-  if (lines.length > 0) {
-    namaBarang = lines[0]
-  }
-
-  // Line 2: "PaperName 150g 65x100" → nama bahan, gramatur, ukuran bahan
-  if (lines.length > 1) {
-    const bahanLine = lines[1]
-    // Try to extract grammatur (e.g. "150g")
-    const gramMatch = bahanLine.match(/(\d+(?:\.\d+)?)g/)
-    if (gramMatch) gramatur = gramMatch[1] + 'g'
-    // Try to extract ukuran bahan (e.g. "65x100" or "65×100")
-    const ukuranMatch = bahanLine.match(/(\d+(?:\.\d+)?)[x×](\d+(?:\.\d+)?)/)
-    if (ukuranMatch) ukuranBahan = ukuranMatch[1] + '×' + ukuranMatch[2]
-    // Nama bahan = everything before grammatur/ukuran
-    let bahanName = bahanLine
-    if (gramMatch) bahanName = bahanName.replace(gramMatch[0], '').trim()
-    if (ukuranMatch) bahanName = bahanName.replace(ukuranMatch[0], '').trim()
-    bahanName = bahanName.replace(/\s+/g, ' ').trim()
-    if (bahanName) namaBahan = bahanName
-  }
-
-  // Find "Uk. potong" line
-  for (const line of lines) {
-    const potongMatch = line.match(/Uk\.?\s*potong\s*(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i)
-    if (potongMatch) {
-      ukuranPotong = potongMatch[1] + '×' + potongMatch[2]
-      break
-    }
-  }
-
-  // Find "Jumlah pesanan" line
-  for (const line of lines) {
-    const jmlMatch = line.match(/Jumlah\s+pesanan\s*(\d[\d.]*)\s*pcs/i)
-    if (jmlMatch) {
-      jumlahPesanan = jmlMatch[1] + ' pcs'
-      break
-    }
-  }
-
-  return { namaBarang, namaBahan, gramatur, ukuranBahan, ukuranPotong, jumlahPesanan }
-}
-
 function parseDocInfo(entry: HistoryEntry) {
   try {
     const parsed = JSON.parse(entry.dataJson)
@@ -150,32 +94,17 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0
     const statusPembayaran = parsed.statusPembayaran || 'belum-bayar'
     const catatan = parsed.catatan || ''
+    const riwayatPotongKertasId = parsed.riwayatPotongKertasId || ''
+    const referensi = parsed.referensi || ''
 
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
     const totalHarga = subtotal + (subtotal * ppn / 100)
 
     const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
 
-    // Parse each item into detailed fields
-    const allItems: ParsedItem[] = items.map((it: { deskripsi: string; qty: number; harga: number }) => {
-      const parsed2 = parseDeskripsiLines(it.deskripsi || '')
-      return {
-        namaToko,
-        namaBarang: parsed2.namaBarang,
-        namaBahan: parsed2.namaBahan,
-        gramatur: parsed2.gramatur,
-        ukuranBahan: parsed2.ukuranBahan,
-        ukuranPotong: parsed2.ukuranPotong,
-        hargaPerLembar: it.harga || 0,
-        jumlahPesanan: parsed2.jumlahPesanan,
-        jumlahKertas: it.qty || 0,
-        totalHargaKertas: (it.qty || 0) * (it.harga || 0),
-      }
-    })
-
-    return { namaToko, totalQty, totalHarga, allItems, ppn, statusPembayaran, catatan }
+    return { namaToko, totalQty, totalHarga, ppn, statusPembayaran, catatan, riwayatPotongKertasId, referensi }
   } catch {
-    return { namaToko: '', totalQty: 0, totalHarga: 0, allItems: [] as ParsedItem[], ppn: 0, statusPembayaran: 'belum-bayar', catatan: '' }
+    return { namaToko: '', totalQty: 0, totalHarga: 0, ppn: 0, statusPembayaran: 'belum-bayar', catatan: '', riwayatPotongKertasId: '', referensi: '' }
   }
 }
 
@@ -185,6 +114,25 @@ export default function PembelianPage() {
   const [loading, setLoading] = useState(true)
   const [previewId, setPreviewId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  // Potong kertas preview data
+  const [cuttingResult, setCuttingResult] = useState<CuttingResult | null>(null)
+  const [pkInfo, setPkInfo] = useState<{
+    namaCustomer: string
+    paperName: string
+    jumlahPesanan: string
+    berapaMata: string
+    setelanKertas: string
+    grammage: string
+    cutWidth: string
+    cutHeight: string
+    paperWidth: string
+    paperHeight: string
+    totalPrice: number
+    pricePerSheet: number
+    sheetsNeeded: string
+  } | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // Date filter
   const [filterType, setFilterType] = useState<FilterType>('month')
@@ -255,6 +203,80 @@ export default function PembelianPage() {
     setPreviewId(null)
   }
 
+  // Fetch potong kertas data when PO is clicked
+  const handlePOClick = useCallback(async (poEntry: HistoryEntry) => {
+    const info = parseDocInfo(poEntry)
+    setPreviewId(poEntry.id)
+    setCuttingResult(null)
+    setPkInfo(null)
+    setLoadingPreview(true)
+
+    if (info.riwayatPotongKertasId) {
+      try {
+        const res = await fetcher(`/api/riwayat-potong-kertas/${info.riwayatPotongKertasId}`, {
+          headers: getAuthHeaders(),
+        })
+        if (res.ok) {
+          const riwayat = await res.json()
+
+          // Set potong kertas info
+          setPkInfo({
+            namaCustomer: riwayat.namaCustomer || '',
+            paperName: riwayat.paperName || '',
+            jumlahPesanan: riwayat.jumlahPesanan || '',
+            berapaMata: riwayat.berapaMata || '',
+            setelanKertas: riwayat.setelanKertas || '',
+            grammage: riwayat.grammage || '',
+            cutWidth: riwayat.cutWidth || '',
+            cutHeight: riwayat.cutHeight || '',
+            paperWidth: riwayat.paperWidth || '',
+            paperHeight: riwayat.paperHeight || '',
+            totalPrice: riwayat.totalPrice || 0,
+            pricePerSheet: riwayat.pricePerSheet || 0,
+            sheetsNeeded: riwayat.sheetsNeeded || '',
+          })
+
+          // Parse resultData
+          if (riwayat.resultData) {
+            try {
+              const parsed = JSON.parse(riwayat.resultData)
+              setCuttingResult(parsed)
+            } catch {}
+          }
+
+          // If no resultData, try to recalculate
+          if (!riwayat.resultData) {
+            const pw = parseFloat(riwayat.paperWidth)
+            const ph = parseFloat(riwayat.paperHeight)
+            const cw = parseFloat(riwayat.cutWidth)
+            const ch = parseFloat(riwayat.cutHeight)
+            const qty = parseInt(riwayat.quantity) || 0
+            const setelan = parseInt(riwayat.setelanKertas) || 0
+            const price = parseFloat(riwayat.pricePerSheet) || 0
+
+            if (pw && ph && cw && ch) {
+              try {
+                const { calculateCuts } = await import('@/lib/cutting-engine')
+                const result = calculateCuts({
+                  paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+                  quantity: qty + setelan, pricePerSheet: price, optimizationMode: 'maximal',
+                  customerName: riwayat.namaCustomer || '',
+                  paperMaterial: riwayat.paperName || '',
+                  grammage: parseFloat(riwayat.grammage) || 0,
+                })
+                setCuttingResult(result)
+              } catch {}
+            }
+          }
+        }
+      } catch {
+        // If fetch fails, just show PO info without cutting preview
+      }
+    }
+
+    setLoadingPreview(false)
+  }, [])
+
   // Calculate totals
   const totalPembelian = poHistory.reduce((sum, po) => {
     const info = parseDocInfo(po)
@@ -268,6 +290,10 @@ export default function PembelianPage() {
     { type: 'month', label: 'Bulan Ini' },
     { type: 'custom', label: 'Custom' },
   ]
+
+  // Find the selected PO entry for the preview popup
+  const selectedPO = previewId ? poHistory.find(p => p.id === previewId) : null
+  const selectedPOInfo = selectedPO ? parseDocInfo(selectedPO) : null
 
   return (
     <DashboardLayout title="Pembelian Barang" subtitle={t('subtitle_pembelian')}>
@@ -328,7 +354,7 @@ export default function PembelianPage() {
             {poHistory.map(po => {
               const info = parseDocInfo(po)
               return (
-                <Card key={po.id} className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors cursor-pointer" onClick={() => setPreviewId(po.id)}>
+                <Card key={po.id} className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors cursor-pointer" onClick={() => handlePOClick(po)}>
                   <CardContent className="p-0">
                     <div className="flex items-center gap-3 px-4 py-3">
                       <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
@@ -370,153 +396,227 @@ export default function PembelianPage() {
           </div>
         )}
 
-        {/* Preview Popup */}
-        <Dialog open={!!previewId} onOpenChange={() => setPreviewId(null)}>
-          <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-            {(() => {
-              const po = poHistory.find(p => p.id === previewId)
-              if (!po) return null
-              const info = parseDocInfo(po)
-              return (
-                <>
-                  <DialogHeader className="pb-0">
-                    <DialogTitle className="sr-only">Detail Pembelian</DialogTitle>
-                    <DialogDescription className="sr-only">Rincian pembelian barang</DialogDescription>
-                  </DialogHeader>
-                  {/* Preview Card */}
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    {/* Header: Nama Toko + PO Number */}
-                    <div className="flex items-start justify-between mb-3 pb-3 border-b-2 border-slate-800">
-                      <div>
-                        <p className="text-lg font-bold text-slate-800">{info.namaToko || '-'}</p>
+        {/* Preview Popup - Potong Kertas Style */}
+        <Dialog open={!!previewId} onOpenChange={() => { setPreviewId(null); setCuttingResult(null); setPkInfo(null) }}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            {selectedPO && selectedPOInfo ? (
+              <>
+                <DialogHeader className="pb-0">
+                  <DialogTitle className="sr-only">Preview Potong Kertas</DialogTitle>
+                  <DialogDescription className="sr-only">Preview hasil potong kertas dari PO</DialogDescription>
+                </DialogHeader>
+
+                {loadingPreview ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    <span className="ml-2 text-sm text-slate-500">Memuat data...</span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    {/* Header: Nama Toko (big) + PO Number (big) */}
+                    <div className="px-4 pt-4 pb-3 border-b-2 border-slate-800">
+                      <div className="flex items-start justify-between">
+                        <p className="text-xl font-bold text-slate-800 leading-tight">{selectedPOInfo.namaToko || '-'}</p>
+                        <div className="text-right shrink-0 ml-3">
+                          <p className="text-xl font-bold text-slate-800 leading-tight">{selectedPO.nomor}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{selectedPO.tanggal ? formatDateShort(selectedPO.tanggal) : ''}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-slate-800">{po.nomor}</p>
-                        <p className="text-xs text-slate-500">{po.tanggal ? formatDateShort(po.tanggal) : ''}</p>
+                      {/* Status Pembayaran */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[11px] text-slate-500 font-medium">Status Pembayaran</span>
+                        <span className={cn(
+                          'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold',
+                          selectedPOInfo.statusPembayaran === 'lunas'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : selectedPOInfo.statusPembayaran === 'dp'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-red-100 text-red-700'
+                        )}>
+                          {selectedPOInfo.statusPembayaran === 'lunas' ? 'LUNAS' : selectedPOInfo.statusPembayaran === 'dp' ? 'DP' : 'BELUM BAYAR'}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Items Preview */}
-                    {info.allItems.map((item, idx) => (
-                      <div key={idx} className="mb-3 last:mb-0">
-                        <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Toko</span>
-                            <span className="text-xs text-slate-700 font-medium">{item.namaToko || '-'}</span>
-                          </div>
-                          {item.namaBarang && (
+                    {cuttingResult && pkInfo ? (
+                      <>
+                        {/* Cutting Diagram */}
+                        <div className="px-4 pt-3">
+                          <CuttingDiagram results={cuttingResult} maxHeight="40vh" />
+                        </div>
+
+                        {/* Calculation Summary */}
+                        <div className="px-4 py-3 space-y-2">
+                          {/* Referensi / Nama Cetakan */}
+                          {selectedPOInfo.referensi && (
                             <div className="flex items-baseline gap-2">
-                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Barang</span>
-                              <span className="text-xs text-slate-700">{item.namaBarang}</span>
+                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Cetakan</span>
+                              <span className="text-xs text-slate-700 font-medium">{selectedPOInfo.referensi}</span>
                             </div>
                           )}
-                          {item.namaBahan && (
+                          {/* Customer / Toko */}
+                          {pkInfo.namaCustomer && (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Customer</span>
+                              <span className="text-xs text-slate-700">{pkInfo.namaCustomer}</span>
+                            </div>
+                          )}
+                          {/* Paper Name */}
+                          {pkInfo.paperName && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Bahan</span>
-                              <span className="text-xs text-slate-700">{item.namaBahan}</span>
+                              <span className="text-xs text-slate-700">{pkInfo.paperName}</span>
                             </div>
                           )}
-                          {item.gramatur && (
+                          {/* Gramatur */}
+                          {pkInfo.grammage && pkInfo.grammage !== '0' && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Gramatur</span>
-                              <span className="text-xs text-slate-700">{item.gramatur}</span>
+                              <span className="text-xs text-slate-700">{pkInfo.grammage}g</span>
                             </div>
                           )}
-                          {item.ukuranBahan && (
+                          {/* Ukuran Bahan */}
+                          {pkInfo.paperWidth && pkInfo.paperHeight && pkInfo.paperWidth !== '0' && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Ukuran Bahan</span>
-                              <span className="text-xs text-slate-700">{item.ukuranBahan}</span>
+                              <span className="text-xs text-slate-700">{pkInfo.paperWidth}×{pkInfo.paperHeight} cm</span>
                             </div>
                           )}
-                          {item.ukuranPotong && (
+                          {/* Ukuran Potong */}
+                          {pkInfo.cutWidth && pkInfo.cutHeight && pkInfo.cutWidth !== '0' && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Ukuran Potong</span>
-                              <span className="text-xs text-slate-700">{item.ukuranPotong}</span>
+                              <span className="text-xs text-slate-700">{pkInfo.cutWidth}×{pkInfo.cutHeight} cm</span>
                             </div>
                           )}
-                          {item.hargaPerLembar > 0 && (
+                          {/* Potongan per Lembar */}
+                          {cuttingResult.totalPieces > 0 && (
                             <div className="flex items-baseline gap-2">
-                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Harga/lembar</span>
-                              <span className="text-xs text-slate-700">{formatRupiah(item.hargaPerLembar)}</span>
+                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Potongan/Lembar</span>
+                              <span className="text-xs text-slate-700 font-medium">{cuttingResult.totalPieces} pcs</span>
                             </div>
                           )}
-                          {item.jumlahPesanan && (
+                          {/* Jumlah Pesanan */}
+                          {pkInfo.jumlahPesanan && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Jumlah Pesanan</span>
-                              <span className="text-xs text-slate-700">{item.jumlahPesanan}</span>
+                              <span className="text-xs text-slate-700">{pkInfo.jumlahPesanan} pcs</span>
                             </div>
                           )}
-                          {item.jumlahKertas > 0 && (
+                          {/* Jumlah Kertas */}
+                          {(cuttingResult.sheetsNeeded > 0 || pkInfo.sheetsNeeded) && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Jumlah Kertas</span>
-                              <span className="text-xs text-slate-700">{item.jumlahKertas.toLocaleString('id-ID')} lembar</span>
+                              <span className="text-xs text-slate-700">{(cuttingResult.sheetsNeeded || parseInt(pkInfo.sheetsNeeded) || 0).toLocaleString('id-ID')} lembar</span>
                             </div>
                           )}
-                          {item.totalHargaKertas > 0 && (
+                          {/* Harga per Lembar */}
+                          {(cuttingResult.pricePerSheet > 0 || pkInfo.pricePerSheet > 0) && (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Harga/Lembar</span>
+                              <span className="text-xs text-slate-700">{formatRupiah(cuttingResult.pricePerSheet || pkInfo.pricePerSheet)}</span>
+                            </div>
+                          )}
+                          {/* Total Harga */}
+                          {(cuttingResult.totalPrice > 0 || pkInfo.totalPrice > 0) && (
                             <div className="flex items-baseline gap-2">
                               <span className="text-[11px] text-slate-400 shrink-0 w-28">Total Harga Kertas</span>
-                              <span className="text-xs font-semibold text-emerald-700">{formatRupiah(item.totalHargaKertas)}</span>
+                              <span className="text-xs font-semibold text-emerald-700">{formatRupiah(cuttingResult.totalPrice || pkInfo.totalPrice)}</span>
+                            </div>
+                          )}
+                          {/* Efficiency */}
+                          {cuttingResult.efficiency > 0 && (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Efisiensi</span>
+                              <span className={cn(
+                                'text-xs font-semibold',
+                                cuttingResult.efficiency >= 80 ? 'text-emerald-600' : cuttingResult.efficiency >= 60 ? 'text-amber-600' : 'text-red-600'
+                              )}>{cuttingResult.efficiency.toFixed(1)}%</span>
+                            </div>
+                          )}
+                          {/* Strategy */}
+                          {cuttingResult.strategy && (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[11px] text-slate-400 shrink-0 w-28">Strategi</span>
+                              <span className="text-xs text-slate-700">{cuttingResult.strategy}</span>
                             </div>
                           )}
                         </div>
-                      </div>
-                    ))}
 
-                    {/* Totals */}
-                    <div className="border-t-2 border-slate-800 mt-3 pt-2 space-y-1">
-                      {info.ppn > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500">PPN ({info.ppn}%)</span>
-                          <span className="text-slate-600">
-                            {formatRupiahShort(info.allItems.reduce((s, it) => s + it.totalHargaKertas, 0) * info.ppn / 100)}
-                          </span>
+                        {/* Steps */}
+                        {cuttingResult.steps && cuttingResult.steps.length > 0 && (
+                          <div className="px-4 pb-3">
+                            <p className="text-[11px] text-slate-400 font-medium mb-1.5">Langkah Potong</p>
+                            <div className="space-y-1">
+                              {cuttingResult.steps.map((step, idx) => (
+                                <div key={idx} className="flex items-start gap-2">
+                                  <div className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[8px] font-bold mt-0.5">{idx + 1}</div>
+                                  <span className="text-[11px] text-slate-600 leading-relaxed">{step}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* PPN + Total */}
+                        {selectedPOInfo.ppn > 0 && (
+                          <div className="border-t border-slate-200 px-4 py-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500">PPN ({selectedPOInfo.ppn}%)</span>
+                              <span className="text-slate-600">
+                                {formatRupiahShort((cuttingResult.totalPrice || pkInfo.totalPrice) * selectedPOInfo.ppn / 100)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <div className="border-t-2 border-slate-800 px-4 py-2">
+                          <div className="flex items-center justify-between text-sm font-bold">
+                            <span className="text-slate-800">Grand Total</span>
+                            <span className="text-slate-800">{formatRupiahShort(selectedPOInfo.totalHarga)}</span>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between text-sm font-bold">
-                        <span className="text-slate-800">Total</span>
-                        <span className="text-slate-800">{formatRupiahShort(info.totalHarga)}</span>
+                      </>
+                    ) : (
+                      /* Fallback: Show PO info without cutting diagram */
+                      <div className="px-4 py-6 text-center">
+                        <Package className="mx-auto h-10 w-10 text-slate-300 mb-2" />
+                        <p className="text-sm text-slate-500">Preview potong kertas tidak tersedia</p>
+                        <p className="text-xs text-slate-400 mt-1">PO ini tidak terhubung dengan data potong kertas</p>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Status Pembayaran */}
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-500 font-medium">Status Pembayaran</span>
-                      <span className={cn(
-                        'inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold',
-                        info.statusPembayaran === 'lunas'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : info.statusPembayaran === 'dp'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-red-100 text-red-700'
-                      )}>
-                        {info.statusPembayaran === 'lunas' ? 'LUNAS' : info.statusPembayaran === 'dp' ? 'DP' : 'BELUM BAYAR'}
-                      </span>
-                    </div>
+                    {/* Catatan */}
+                    {selectedPOInfo.catatan && (
+                      <div className="border-t border-slate-100 px-4 py-2 bg-slate-50">
+                        <p className="text-[11px] text-slate-400 font-medium mb-0.5">Catatan</p>
+                        <p className="text-xs text-slate-600">{selectedPOInfo.catatan}</p>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs px-3 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
-                      onClick={() => setDeleteConfirmId(po.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Hapus
-                    </Button>
-                    <div className="flex-1" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs px-4"
-                      onClick={() => setPreviewId(null)}
-                    >
-                      Tutup
-                    </Button>
-                  </div>
-                </>
-              )
-            })()}
+                {/* Actions */}
+                <div className="flex items-center gap-2 mt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                    onClick={() => setDeleteConfirmId(selectedPO.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Hapus
+                  </Button>
+                  <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-4"
+                    onClick={() => { setPreviewId(null); setCuttingResult(null); setPkInfo(null) }}
+                  >
+                    Tutup
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </DialogContent>
         </Dialog>
 

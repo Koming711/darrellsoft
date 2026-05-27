@@ -200,6 +200,7 @@ export function PurchaseOrderEditor() {
       },
       items,
       catatan: '',
+      riwayatPotongKertasId: item.id,
     });
     setDropdownOpen(false);
   };

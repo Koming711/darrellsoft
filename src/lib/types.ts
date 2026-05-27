@@ -84,6 +84,7 @@ export interface PurchaseOrderData {
   ppn: number;
   catatan: string;
   statusPembayaran: string; // 'belum-bayar' | 'dp' | 'lunas'
+  riwayatPotongKertasId?: string; // Link to originating potong kertas calculation
 }
 
 export interface SPKData {

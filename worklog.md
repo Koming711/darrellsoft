@@ -69,3 +69,27 @@ This ensures Next.js doesn't try to add any middleware-level redirects for the d
 - `bun run lint` passes with no new errors introduced by these changes
 - Dev server compiles successfully
 - The existing "No Access" screen provides a safe fallback with a user-initiated navigation button
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add potong kertas preview popup when clicking PO card on pembelian barang page
+
+Work Log:
+- Added `riwayatPotongKertasId?: string` to `PurchaseOrderData` type in `/src/lib/types.ts`
+- Modified `handleReferensiSelect()` in `/src/components/dokupro/purchase-order-editor.tsx` to store `riwayatPotongKertasId: item.id` when creating PO from potong kertas
+- Added GET handler to `/src/app/api/riwayat-potong-kertas/[id]/route.ts` to fetch a single riwayat by ID
+- Completely rewrote `/src/app/pembelian/page.tsx` to show potong kertas preview popup when clicking a PO card:
+  - Dynamically imports `CuttingDiagram` component (SSR-safe)
+  - When PO card is clicked, fetches riwayat potong kertas data via API using `riwayatPotongKertasId`
+  - Parses `resultData` from riwayat to get `CuttingResult` for the diagram
+  - Falls back to recalculating from stored dimensions if `resultData` is empty
+  - Popup shows: large nama toko + PO number (same font size), cutting diagram, calculation details (nama bahan, gramatur, ukuran bahan, ukuran potong, potongan/lembar, jumlah pesanan, jumlah kertas, harga/lembar, total harga, efisiensi, strategi, langkah potong), status pembayaran badge, PPN + grand total, catatan
+  - If no riwayat link exists, shows fallback message "Preview potong kertas tidak tersedia"
+  - Kept delete and close actions at the bottom
+
+Stage Summary:
+- PO data now links back to originating potong kertas calculation via `riwayatPotongKertasId`
+- Clicking a PO card on pembelian page shows a full potong kertas preview popup with cutting diagram
+- New API endpoint available: GET /api/riwayat-potong-kertas/[id]
+- All lint checks pass, dev server compiles successfully
