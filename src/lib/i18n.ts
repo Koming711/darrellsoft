@@ -23,7 +23,7 @@ export const translations = {
 
     // Sidebar
     dashboard: 'Halaman Utama',
-    pembukaan: 'Pembukaan',
+    pembukaan: 'Beranda',
     hitung_biaya_produksi: 'Hitung Total Biaya',
     potong_kertas: 'Potong Kertas',
     hitung_cetakan: 'Hitung Cetakan',
@@ -75,7 +75,7 @@ export const translations = {
 
     // Page Subtitles
     subtitle_dashboard: 'Selamat datang di Darrell Soft',
-    subtitle_pembukaan: 'Halaman Pembukaan',
+    subtitle_pembukaan: 'Beranda',
     subtitle_potong_kertas: 'Kalkulator pemotongan kertas profesional',
     subtitle_master_harga_kertas: 'Kelola data harga kertas',
     subtitle_master_ongkos_cetak: 'Kelola data ongkos cetak',
@@ -370,7 +370,7 @@ export const translations = {
 
     // Sidebar
     dashboard: 'Home Page',
-    pembukaan: 'Opening',
+    pembukaan: 'Beranda',
     hitung_biaya_produksi: 'Total Cost Calc',
     potong_kertas: 'Paper Cutting',
     hitung_cetakan: 'Print Calculator',
@@ -422,7 +422,7 @@ export const translations = {
 
     // Page Subtitles
     subtitle_dashboard: 'Welcome to Darrell Soft',
-    subtitle_pembukaan: 'Opening Page',
+    subtitle_pembukaan: 'Beranda',
     subtitle_potong_kertas: 'Professional paper cutting calculator',
     subtitle_master_harga_kertas: 'Manage paper price data',
     subtitle_master_ongkos_cetak: 'Manage print cost data',
