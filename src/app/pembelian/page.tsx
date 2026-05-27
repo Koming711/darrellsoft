@@ -131,11 +131,11 @@ function parseDeskripsiLines(deskripsi: string): { namaBarang: string; namaBahan
     }
   }
 
-  // Find "Jumlah jadi" line → jumlah pesanan
+  // Find "Jumlah pesanan" line
   for (const line of lines) {
-    const jmlMatch = line.match(/Jumlah\s+jadi\s*(\d[\d.]*)\s*lembar/i)
+    const jmlMatch = line.match(/Jumlah\s+pesanan\s*(\d[\d.]*)\s*pcs/i)
     if (jmlMatch) {
-      jumlahPesanan = jmlMatch[1] + ' lembar'
+      jumlahPesanan = jmlMatch[1] + ' pcs'
       break
     }
   }

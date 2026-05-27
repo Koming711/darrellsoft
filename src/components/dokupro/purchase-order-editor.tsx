@@ -167,7 +167,12 @@ export function PurchaseOrderEditor() {
       descLines.push(`Potongan/lembar dapat ${potonganPerLembar}`);
     }
 
-    // Line 5: Jumlah jadi (potongan/lembar × qty)
+    // Line 5: Jumlah pesanan
+    if (item.jumlahPesanan) {
+      descLines.push(`Jumlah pesanan ${item.jumlahPesanan} pcs`);
+    }
+
+    // Line 6: Jumlah jadi (potongan/lembar × qty)
     const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
     if (potonganPerLembar > 0 && qty > 0) {
       const jumlahJadi = potonganPerLembar * qty;
@@ -348,7 +353,7 @@ export function PurchaseOrderEditor() {
             Kepada Yth.
           </h3>
           <div className="space-y-1.5">
-            <Label className="text-xs">Nama</Label>
+            <Label className="text-xs">Nama Toko</Label>
             <Popover open={pemasokDropdownOpen} onOpenChange={setPemasokDropdownOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
