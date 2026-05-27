@@ -331,21 +331,32 @@ export default function PembelianPage() {
                     {/* Expanded Detail */}
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
-                        {/* Items */}
+                        {/* Items as Rows */}
                         {info.allItems.length > 0 && (
                           <div className="space-y-2 mb-3">
                             {info.allItems.map((item, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-500 shrink-0">
+                              <div key={idx} className="bg-white rounded-lg border border-slate-150 p-3 shadow-sm">
+                                <div className="flex items-start gap-2.5">
+                                  <span className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5">
                                     {idx + 1}
                                   </span>
-                                  <span className="text-slate-700 truncate">{item.deskripsi || '-'}</span>
-                                </div>
-                                <div className="flex items-center gap-4 shrink-0 ml-3">
-                                  <span className="text-slate-500 w-14 text-right">{item.qty.toLocaleString('id-ID')} pcs</span>
-                                  <span className="text-slate-600 w-24 text-right">{item.harga > 0 ? formatRupiah(item.harga) : '-'}</span>
-                                  <span className="text-slate-800 font-medium w-28 text-right">{item.harga > 0 ? formatRupiah(item.qty * item.harga) : '-'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-slate-800 leading-snug">{item.deskripsi || '-'}</p>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Qty</span>
+                                        <span className="text-xs font-medium text-slate-600">{item.qty.toLocaleString('id-ID')} pcs</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Harga</span>
+                                        <span className="text-xs font-medium text-slate-600">{item.harga > 0 ? formatRupiah(item.harga) : '-'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Jumlah</span>
+                                        <span className="text-xs font-semibold text-emerald-700">{item.harga > 0 ? formatRupiah(item.qty * item.harga) : '-'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -353,7 +364,7 @@ export default function PembelianPage() {
                         )}
 
                         {/* PPN & Total */}
-                        <div className="border-t border-slate-200 pt-2 space-y-1">
+                        <div className="bg-white rounded-lg border border-slate-150 p-3 shadow-sm space-y-2">
                           {info.ppn > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-slate-500">PPN ({info.ppn}%)</span>
@@ -362,7 +373,7 @@ export default function PembelianPage() {
                               </span>
                             </div>
                           )}
-                          <div className="flex items-center justify-between text-xs font-semibold">
+                          <div className="flex items-center justify-between text-sm font-bold">
                             <span className="text-slate-700">Total</span>
                             <span className="text-emerald-700">{formatRupiahShort(info.totalHarga)}</span>
                           </div>
