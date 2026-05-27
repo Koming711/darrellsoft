@@ -79,26 +79,91 @@ function formatRupiahShort(n: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
 }
 
+interface ParsedItem {
+  namaToko: string
+  namaBarang: string
+  namaBahan: string
+  gramatur: string
+  ukuranBahan: string
+  ukuranPotong: string
+  hargaPerLembar: number
+  jumlahKertas: number
+  totalHargaKertas: number
+}
+
+function parseDeskripsiLines(deskripsi: string): { namaBarang: string; namaBahan: string; gramatur: string; ukuranBahan: string; ukuranPotong: string } {
+  const lines = deskripsi.split('\n').map(l => l.trim()).filter(Boolean)
+  let namaBarang = ''
+  let namaBahan = ''
+  let gramatur = ''
+  let ukuranBahan = ''
+  let ukuranPotong = ''
+
+  if (lines.length > 0) {
+    namaBarang = lines[0]
+  }
+
+  // Line 2: "PaperName 150g 65x100" → nama bahan, gramatur, ukuran bahan
+  if (lines.length > 1) {
+    const bahanLine = lines[1]
+    // Try to extract grammatur (e.g. "150g")
+    const gramMatch = bahanLine.match(/(\d+(?:\.\d+)?)g/)
+    if (gramMatch) gramatur = gramMatch[1] + 'g'
+    // Try to extract ukuran bahan (e.g. "65x100" or "65×100")
+    const ukuranMatch = bahanLine.match(/(\d+(?:\.\d+)?)[x×](\d+(?:\.\d+)?)/)
+    if (ukuranMatch) ukuranBahan = ukuranMatch[1] + '×' + ukuranMatch[2]
+    // Nama bahan = everything before grammatur/ukuran
+    let bahanName = bahanLine
+    if (gramMatch) bahanName = bahanName.replace(gramMatch[0], '').trim()
+    if (ukuranMatch) bahanName = bahanName.replace(ukuranMatch[0], '').trim()
+    bahanName = bahanName.replace(/\s+/g, ' ').trim()
+    if (bahanName) namaBahan = bahanName
+  }
+
+  // Find "Uk. potong" line
+  for (const line of lines) {
+    const potongMatch = line.match(/Uk\.?\s*potong\s*(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i)
+    if (potongMatch) {
+      ukuranPotong = potongMatch[1] + '×' + potongMatch[2]
+      break
+    }
+  }
+
+  return { namaBarang, namaBahan, gramatur, ukuranBahan, ukuranPotong }
+}
+
 function parseDocInfo(entry: HistoryEntry) {
   try {
     const parsed = JSON.parse(entry.dataJson)
     const items = parsed.items || []
-    const firstItem = items[0]
-    const namaBarang = firstItem?.deskripsi || ''
-    const hargaSatuan = firstItem?.harga || 0
-    const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
-    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
+    const pemasok = parsed.pemasok || {}
+    const namaToko = pemasok.nama || entry.pihakKedua || ''
     const ppn = parsed.ppn || 0
+
+    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    // Collect all item names
-    const allItems = items.map((it: { deskripsi: string; qty: number; harga: number }) => ({
-      deskripsi: it.deskripsi || '',
-      qty: it.qty || 0,
-      harga: it.harga || 0,
-    }))
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, allItems, ppn }
+
+    const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
+
+    // Parse each item into detailed fields
+    const allItems: ParsedItem[] = items.map((it: { deskripsi: string; qty: number; harga: number }) => {
+      const parsed2 = parseDeskripsiLines(it.deskripsi || '')
+      return {
+        namaToko,
+        namaBarang: parsed2.namaBarang,
+        namaBahan: parsed2.namaBahan,
+        gramatur: parsed2.gramatur,
+        ukuranBahan: parsed2.ukuranBahan,
+        ukuranPotong: parsed2.ukuranPotong,
+        hargaPerLembar: it.harga || 0,
+        jumlahKertas: it.qty || 0,
+        totalHargaKertas: (it.qty || 0) * (it.harga || 0),
+      }
+    })
+
+    return { namaToko, totalQty, totalHarga, allItems, ppn }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, allItems: [] as { deskripsi: string; qty: number; harga: number }[], ppn: 0 }
+    return { namaToko: '', totalQty: 0, totalHarga: 0, allItems: [] as ParsedItem[], ppn: 0 }
   }
 }
 
@@ -294,32 +359,41 @@ export default function PembelianPage() {
                         {/* Items as Rows */}
                         {info.allItems.length > 0 && (
                           <div className="space-y-2 mb-3">
-                            {info.allItems.map((item, idx) => (
-                              <div key={idx} className="bg-white rounded-lg border border-slate-150 p-3 shadow-sm">
-                                <div className="flex items-start gap-2.5">
-                                  <span className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5">
-                                    {idx + 1}
-                                  </span>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-slate-800 leading-snug">{item.deskripsi || '-'}</p>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Qty</span>
-                                        <span className="text-xs font-medium text-slate-600">{item.qty.toLocaleString('id-ID')} pcs</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Harga</span>
-                                        <span className="text-xs font-medium text-slate-600">{item.harga > 0 ? formatRupiah(item.harga) : '-'}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Jumlah</span>
-                                        <span className="text-xs font-semibold text-emerald-700">{item.harga > 0 ? formatRupiah(item.qty * item.harga) : '-'}</span>
-                                      </div>
+                            {info.allItems.map((item, idx) => {
+                              const rows: { label: string; value: string }[] = [
+                                { label: 'Nama Toko', value: item.namaToko },
+                                { label: 'Nama Barang', value: item.namaBarang },
+                                { label: 'Nama Bahan', value: item.namaBahan },
+                                { label: 'Gramatur', value: item.gramatur },
+                                { label: 'Ukuran Bahan', value: item.ukuranBahan },
+                                { label: 'Ukuran Potong', value: item.ukuranPotong },
+                                { label: 'Harga/lembar', value: item.hargaPerLembar > 0 ? formatRupiah(item.hargaPerLembar) : '-' },
+                                { label: 'Jumlah Kertas', value: item.jumlahKertas > 0 ? `${item.jumlahKertas.toLocaleString('id-ID')} lembar` : '-' },
+                                { label: 'Total Harga Kertas', value: item.totalHargaKertas > 0 ? formatRupiah(item.totalHargaKertas) : '-' },
+                              ]
+                              return (
+                                <div key={idx} className="bg-white rounded-lg border border-slate-150 p-3 shadow-sm">
+                                  <div className="flex items-start gap-2.5">
+                                    <span className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5">
+                                      {idx + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      {rows.map((row, rIdx) => (
+                                        row.value ? (
+                                          <div key={rIdx} className="flex items-baseline gap-2">
+                                            <span className="text-[11px] text-slate-400 shrink-0 w-28">{row.label}</span>
+                                            <span className={cn(
+                                              'text-xs',
+                                              row.label === 'Total Harga Kertas' ? 'font-semibold text-emerald-700' : 'text-slate-700'
+                                            )}>{row.value}</span>
+                                          </div>
+                                        ) : null
+                                      ))}
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         )}
 
@@ -329,7 +403,7 @@ export default function PembelianPage() {
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-slate-500">PPN ({info.ppn}%)</span>
                               <span className="text-slate-600">
-                                {formatRupiahShort(info.allItems.reduce((s, it) => s + it.qty * it.harga, 0) * info.ppn / 100)}
+                                {formatRupiahShort(info.allItems.reduce((s, it) => s + it.totalHargaKertas, 0) * info.ppn / 100)}
                               </span>
                             </div>
                           )}
