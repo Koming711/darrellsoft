@@ -150,6 +150,8 @@ function parseDocInfo(entry: HistoryEntry) {
     const pemasok = parsed.pemasok || {}
     const namaToko = pemasok.nama || entry.pihakKedua || ''
     const ppn = parsed.ppn || 0
+    const statusPembayaran = parsed.statusPembayaran || 'belum-bayar'
+    const catatan = parsed.catatan || ''
 
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
     const totalHarga = subtotal + (subtotal * ppn / 100)
@@ -173,9 +175,9 @@ function parseDocInfo(entry: HistoryEntry) {
       }
     })
 
-    return { namaToko, totalQty, totalHarga, allItems, ppn }
+    return { namaToko, totalQty, totalHarga, allItems, ppn, statusPembayaran, catatan }
   } catch {
-    return { namaToko: '', totalQty: 0, totalHarga: 0, allItems: [] as ParsedItem[], ppn: 0 }
+    return { namaToko: '', totalQty: 0, totalHarga: 0, allItems: [] as ParsedItem[], ppn: 0, statusPembayaran: 'belum-bayar', catatan: '' }
   }
 }
 
@@ -365,53 +367,91 @@ export default function PembelianPage() {
                       </div>
                     </div>
 
-                    {/* Expanded Detail */}
+                    {/* Expanded Detail - Preview Potong Kertas */}
                     {isExpanded && (
-                      <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
-                        {/* Items as Rows */}
-                        {info.allItems.length > 0 && (
-                          <div className="space-y-2 mb-3">
-                            {info.allItems.map((item, idx) => {
-                              const rows: { label: string; value: string }[] = [
-                                { label: 'Nama Toko', value: item.namaToko },
-                                { label: 'Nama Barang', value: item.namaBarang },
-                                { label: 'Nama Bahan', value: item.namaBahan },
-                                { label: 'Gramatur', value: item.gramatur },
-                                { label: 'Ukuran Bahan', value: item.ukuranBahan },
-                                { label: 'Ukuran Potong', value: item.ukuranPotong },
-                                { label: 'Harga/lembar', value: item.hargaPerLembar > 0 ? formatRupiah(item.hargaPerLembar) : '-' },
-                                { label: 'Jumlah Pesanan', value: item.jumlahPesanan },
-                                { label: 'Jumlah Kertas', value: item.jumlahKertas > 0 ? `${item.jumlahKertas.toLocaleString('id-ID')} lembar` : '-' },
-                                { label: 'Total Harga Kertas', value: item.totalHargaKertas > 0 ? formatRupiah(item.totalHargaKertas) : '-' },
-                              ]
-                              return (
-                                <div key={idx} className="bg-white rounded-lg border border-slate-150 p-3 shadow-sm">
-                                  <div className="flex items-start gap-2.5">
-                                    <span className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-[11px] font-semibold shrink-0 mt-0.5">
-                                      {idx + 1}
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      {rows.map((row, rIdx) => (
-                                        row.value ? (
-                                          <div key={rIdx} className="flex items-baseline gap-2">
-                                            <span className="text-[11px] text-slate-400 shrink-0 w-28">{row.label}</span>
-                                            <span className={cn(
-                                              'text-xs',
-                                              row.label === 'Total Harga Kertas' ? 'font-semibold text-emerald-700' : 'text-slate-700'
-                                            )}>{row.value}</span>
-                                          </div>
-                                        ) : null
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
+                      <div className="border-t border-slate-100 bg-white px-4 py-4">
+                        {/* Header: Nama Toko + PO Number */}
+                        <div className="flex items-start justify-between mb-3 pb-3 border-b-2 border-slate-800">
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{info.namaToko || '-'}</p>
+                            {po.pihakKedua && info.namaToko !== po.pihakKedua && (
+                              <p className="text-[11px] text-slate-400 mt-0.5">{po.pihakKedua}</p>
+                            )}
                           </div>
-                        )}
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-slate-800">{po.nomor}</p>
+                            <p className="text-[11px] text-slate-500">{po.tanggal ? formatDateShort(po.tanggal) : ''}</p>
+                          </div>
+                        </div>
 
-                        {/* PPN & Total */}
-                        <div className="bg-white rounded-lg border border-slate-150 p-3 shadow-sm space-y-2">
+                        {/* Items Preview */}
+                        {info.allItems.map((item, idx) => (
+                          <div key={idx} className="mb-3 last:mb-0">
+                            <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Toko</span>
+                                <span className="text-xs text-slate-700 font-medium">{item.namaToko || '-'}</span>
+                              </div>
+                              {item.namaBarang && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Barang</span>
+                                  <span className="text-xs text-slate-700">{item.namaBarang}</span>
+                                </div>
+                              )}
+                              {item.namaBahan && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Nama Bahan</span>
+                                  <span className="text-xs text-slate-700">{item.namaBahan}</span>
+                                </div>
+                              )}
+                              {item.gramatur && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Gramatur</span>
+                                  <span className="text-xs text-slate-700">{item.gramatur}</span>
+                                </div>
+                              )}
+                              {item.ukuranBahan && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Ukuran Bahan</span>
+                                  <span className="text-xs text-slate-700">{item.ukuranBahan}</span>
+                                </div>
+                              )}
+                              {item.ukuranPotong && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Ukuran Potong</span>
+                                  <span className="text-xs text-slate-700">{item.ukuranPotong}</span>
+                                </div>
+                              )}
+                              {item.hargaPerLembar > 0 && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Harga/lembar</span>
+                                  <span className="text-xs text-slate-700">{formatRupiah(item.hargaPerLembar)}</span>
+                                </div>
+                              )}
+                              {item.jumlahPesanan && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Jumlah Pesanan</span>
+                                  <span className="text-xs text-slate-700">{item.jumlahPesanan}</span>
+                                </div>
+                              )}
+                              {item.jumlahKertas > 0 && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Jumlah Kertas</span>
+                                  <span className="text-xs text-slate-700">{item.jumlahKertas.toLocaleString('id-ID')} lembar</span>
+                                </div>
+                              )}
+                              {item.totalHargaKertas > 0 && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-slate-400 shrink-0 w-28">Total Harga Kertas</span>
+                                  <span className="text-xs font-semibold text-emerald-700">{formatRupiah(item.totalHargaKertas)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Totals */}
+                        <div className="border-t-2 border-slate-800 mt-3 pt-2 space-y-1">
                           {info.ppn > 0 && (
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-slate-500">PPN ({info.ppn}%)</span>
@@ -421,9 +461,24 @@ export default function PembelianPage() {
                             </div>
                           )}
                           <div className="flex items-center justify-between text-sm font-bold">
-                            <span className="text-slate-700">Total</span>
-                            <span className="text-emerald-700">{formatRupiahShort(info.totalHarga)}</span>
+                            <span className="text-slate-800">Total</span>
+                            <span className="text-slate-800">{formatRupiahShort(info.totalHarga)}</span>
                           </div>
+                        </div>
+
+                        {/* Status Pembayaran */}
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-[11px] text-slate-500 font-medium">Status Pembayaran</span>
+                          <span className={cn(
+                            'inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold',
+                            info.statusPembayaran === 'lunas'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : info.statusPembayaran === 'dp'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-red-100 text-red-700'
+                          )}>
+                            {info.statusPembayaran === 'lunas' ? 'LUNAS' : info.statusPembayaran === 'dp' ? 'DP' : 'BELUM BAYAR'}
+                          </span>
                         </div>
 
                         {/* Actions */}

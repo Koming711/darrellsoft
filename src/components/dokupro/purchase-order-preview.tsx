@@ -157,6 +157,21 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
         </p>
       </div>
 
+      {/* Status Pembayaran */}
+      {data.statusPembayaran && (
+        <div className="mb-3 print:mb-[0.5mm]">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold print:text-[9px] ${
+            data.statusPembayaran === 'lunas'
+              ? 'bg-emerald-100 text-emerald-700'
+              : data.statusPembayaran === 'dp'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-red-100 text-red-700'
+          }`}>
+            {data.statusPembayaran === 'lunas' ? 'LUNAS' : data.statusPembayaran === 'dp' ? 'DP' : 'BELUM BAYAR'}
+          </span>
+        </div>
+      )}
+
       {/* Notes */}
       {data.catatan && (
         <div className="mb-3 print:mb-[0.5mm] rounded p-2 text-[11px] print:text-[9px] print:p-1" style={{ backgroundColor: '#F5F5F5', color: '#000000' }}>
