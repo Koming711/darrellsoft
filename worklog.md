@@ -123,3 +123,27 @@ Stage Summary:
 - Number appears in the riwayat table as first column after index
 - Number increments based on existing records in the same month/year
 - All lint checks pass, dev server compiles successfully
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix riwayat potong kertas save not working + verify auto-numbering
+
+Work Log:
+- Investigated why saving to riwayat potong kertas was failing
+- Tested the POST API endpoint directly and found 500 Internal Server Error
+- Added detailed error output to the API route catch block for debugging
+- Discovered the root cause: Prisma Client was stale — didn't include the `nomorPotongKertas` field
+- The error was: "Unknown argument `nomorPotongKertas`. Available options are marked with ?."
+- Even though `bunx prisma generate` was run, the Turbopack dev server was caching the old Prisma Client in `.next`
+- Fixed by: killing the dev server, deleting the entire `.next` directory, and restarting
+- After clearing the cache, the POST request returned 201 Created successfully
+- Verified the `nomorPotongKertas` field is properly stored in the database
+- Kept the improved error detail in the API route for future debugging
+- Cleaned up test data
+
+Stage Summary:
+- Root cause: Stale Prisma Client in Turbopack cache (`.next` directory)
+- Fix: Clear `.next` directory and restart dev server after schema changes
+- The `nomorPotongKertas` auto-numbering feature (PK/MM/YY/NNNN) is now working correctly
+- The save-to-riwayat functionality is fully operational
