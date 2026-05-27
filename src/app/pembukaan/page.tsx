@@ -43,7 +43,6 @@ import {
   History,
   BarChart3,
   Receipt,
-  Package,
   CalendarIcon,
   Filter,
 } from 'lucide-react'
@@ -261,9 +260,6 @@ export default function PembukaanPage() {
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [docLoading, setDocLoading] = useState(false)
 
-  // Popup state
-  const [showPembelianPopup, setShowPembelianPopup] = useState(false)
-
   const displayName = user?.name || user?.username || 'Pengguna'
 
   useEffect(() => {
@@ -446,7 +442,7 @@ export default function PembukaanPage() {
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
-            onClick={() => setShowPembelianPopup(true)}
+            onClick={() => router.push('/pembelian')}
           />
           <QuickIcon
             icon={<History className="w-5 h-5" />}
@@ -710,7 +706,7 @@ export default function PembukaanPage() {
           {/* Purchase Order - Clickable Card */}
           <Card
             className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setShowPembelianPopup(true)}
+            onClick={() => router.push('/pembelian')}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -763,77 +759,6 @@ export default function PembukaanPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Popup Pembelian - Riwayat Purchase Order */}
-        <Dialog open={showPembelianPopup} onOpenChange={setShowPembelianPopup}>
-          <DialogContent className="sm:max-w-lg p-0 gap-0" showCloseButton={false}>
-            <DialogHeader className="px-5 pt-5 pb-3">
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <ShoppingCart className="w-4 h-4" />
-                </div>
-                Daftar Pembelian
-              </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">Riwayat purchase order yang pernah dibuat</DialogDescription>
-            </DialogHeader>
-            <div className="px-5 pb-5">
-              {docLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-lg animate-pulse" />)}
-                </div>
-              ) : poHistory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-8 text-center">
-                  <Package className="mx-auto h-8 w-8 text-blue-300" />
-                  <p className="mt-2 text-sm text-blue-400">Belum ada data pembelian</p>
-                </div>
-              ) : (
-                <div className="max-h-[65vh] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                  {poHistory.map(po => {
-                    const info = parseDocInfo(po)
-                    return (
-                      <div
-                        key={po.id}
-                        className="bg-white border border-slate-200 rounded-lg px-4 py-3 hover:bg-slate-50/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
-                              <ShoppingCart className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-800 truncate">{po.nomor}</p>
-                              <p className="text-xs text-slate-500 truncate mt-0.5">{po.pihakKedua}</p>
-                              <div className="flex items-center gap-3 mt-1.5">
-                                {info.namaBarang && (
-                                  <span className="text-[11px] text-slate-600 truncate max-w-[180px]" title={info.namaBarang}>
-                                    📦 {info.namaBarang.split('\n')[0]}
-                                  </span>
-                                )}
-                                {info.totalQty > 0 && (
-                                  <span className="text-[11px] text-slate-400 shrink-0">
-                                    ×{info.totalQty.toLocaleString('id-ID')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-bold text-emerald-700">
-                              {info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : po.total}
-                            </p>
-                            {po.tanggal && (
-                              <p className="text-[10px] text-slate-400 mt-0.5">{formatDateShort(po.tanggal)}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Custom Date Range Dialog */}
         <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
