@@ -227,6 +227,13 @@ function CalculatorPage() {
   // Nomor Potong Kertas (auto-generated)
   const [nomorPotongKertas, setNomorPotongKertas] = useState(initialForm.current.nomorPotongKertas || '')
 
+  // Riwayat states
+  const [savingRiwayat, setSavingRiwayat] = useState(false)
+  const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
+  const [needsRecalc, setNeedsRecalc] = useState(false)
+  const justCalculatedRef = useRef(false)
+  const [riwayatList, setRiwayatList] = useState<any[]>([])
+
   // Auto-generate next PK number from riwayat list
   const generateNextPKNumber = useCallback(() => {
     const now = new Date()
@@ -254,13 +261,6 @@ function CalculatorPage() {
       numberGeneratedRef.current = true
     }
   }, [riwayatList, generateNextPKNumber])
-
-  // Riwayat states
-  const [savingRiwayat, setSavingRiwayat] = useState(false)
-  const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
-  const [needsRecalc, setNeedsRecalc] = useState(false)
-  const justCalculatedRef = useRef(false)
-  const [riwayatList, setRiwayatList] = useState<any[]>([])
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
