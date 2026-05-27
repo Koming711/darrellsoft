@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import {
   ShoppingBag,
   Package,
-  CalendarIcon,
   ChevronDown,
   ChevronUp,
   Trash2,
@@ -141,16 +140,18 @@ export default function PembelianPage() {
 
   const handleFilterChange = (type: FilterType) => {
     if (type === 'custom') {
-      // Validate custom dates
-      if (customStartStr && customEndStr) {
-        setCustomStartDate(new Date(customStartStr))
-        setCustomEndDate(new Date(customEndStr))
-        setFilterType('custom')
-      } else {
-        toast.error('Pilih tanggal mulai dan tanggal akhir')
-      }
+      setFilterType('custom')
     } else {
       setFilterType(type)
+    }
+  }
+
+  const applyCustomFilter = () => {
+    if (customStartStr && customEndStr) {
+      setCustomStartDate(new Date(customStartStr))
+      setCustomEndDate(new Date(customEndStr))
+    } else {
+      toast.error('Pilih tanggal mulai dan tanggal akhir')
     }
   }
 
@@ -228,7 +229,6 @@ export default function PembelianPage() {
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
               )}
             >
-              {btn.type === 'custom' && <CalendarIcon className="w-3.5 h-3.5 mr-1" />}
               {btn.label}
             </Button>
           ))}
@@ -249,7 +249,7 @@ export default function PembelianPage() {
               />
               <Button
                 size="sm"
-                onClick={() => handleFilterChange('custom')}
+                onClick={applyCustomFilter}
                 className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={!customStartStr || !customEndStr}
               >
