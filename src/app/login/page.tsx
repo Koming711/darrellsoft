@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, MailCheck, Copy, Check, ExternalLink, MessageCircle } from 'lucide-react'
+import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
@@ -46,15 +46,15 @@ function LoginContent() {
 
   // Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false)
-  const [fpUsername, setFpUsername] = useState('')
+  const [fpEmail, setFpEmail] = useState('')
   const [fpLoading, setFpLoading] = useState(false)
   const [fpError, setFpError] = useState('')
-  // Step 1: account found
-  const [fpAccount, setFpAccount] = useState<{ name: string; role: string; maskedEmail: string; hasEmail: boolean } | null>(null)
-  // Step 2: result after sending (email or whatsapp)
-  const [fpResult, setFpResult] = useState<{ emailSent: boolean; maskedEmail: string; message: string; resetUrl: string } | null>(null)
-  const [fpSendingEmail, setFpSendingEmail] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [fpAccount, setFpAccount] = useState<{ name: string; username: string; userId: string; userType: string } | null>(null)
+  const [fpNewPassword, setFpNewPassword] = useState('')
+  const [fpConfirmPassword, setFpConfirmPassword] = useState('')
+  const [fpShowPassword, setFpShowPassword] = useState(false)
+  const [fpShowConfirm, setFpShowConfirm] = useState(false)
+  const [fpSuccess, setFpSuccess] = useState(false)
 
   // Demo popup state
   const [demoPopupOpen, setDemoPopupOpen] = useState(false)
@@ -167,24 +167,24 @@ function LoginContent() {
     }
   }
 
-  // Step 1: Search for account
-  const handleForgotPassword = async (e: React.FormEvent) => {
+  // Step 1: Search account by email
+  const handleFpSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     setFpError('')
     setFpAccount(null)
-    setFpResult(null)
+    setFpSuccess(false)
     setFpLoading(true)
 
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: fpUsername, action: 'search' }),
+        body: JSON.stringify({ email: fpEmail, action: 'search' }),
       })
       const data = await res.json()
 
       if (res.status === 404) {
-        setFpError(data.message || 'Username tidak ditemukan')
+        setFpError(data.message || 'Email tidak ditemukan')
         setFpLoading(false)
         return
       }
@@ -195,7 +195,7 @@ function LoginContent() {
         return
       }
 
-      setFpAccount({ name: data.name, role: data.role, maskedEmail: data.maskedEmail, hasEmail: data.hasEmail })
+      setFpAccount({ name: data.name, username: data.username, userId: data.userId, userType: data.userType })
     } catch {
       setFpError('Terjadi kesalahan jaringan')
     } finally {
@@ -203,66 +203,55 @@ function LoginContent() {
     }
   }
 
-  // Step 2a: Send email
-  const handleSendEmail = async () => {
+  // Step 2: Reset password directly
+  const handleFpReset = async (e: React.FormEvent) => {
+    e.preventDefault()
     setFpError('')
-    setFpSendingEmail(true)
+
+    if (fpNewPassword.length < 6) {
+      setFpError('Password baru minimal 6 karakter')
+      return
+    }
+
+    if (fpNewPassword !== fpConfirmPassword) {
+      setFpError('Password dan konfirmasi password tidak sama')
+      return
+    }
+
+    setFpLoading(true)
 
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: fpUsername, action: 'send-email' }),
+        body: JSON.stringify({ email: fpEmail, newPassword: fpNewPassword, action: 'reset' }),
       })
       const data = await res.json()
 
       if (!res.ok) {
         setFpError(data.error || 'Terjadi kesalahan')
-        setFpSendingEmail(false)
+        setFpLoading(false)
         return
       }
 
-      setFpResult({ emailSent: data.emailSent, maskedEmail: data.maskedEmail, message: data.message, resetUrl: data.resetUrl || '' })
+      setFpSuccess(true)
     } catch {
       setFpError('Terjadi kesalahan jaringan')
     } finally {
-      setFpSendingEmail(false)
+      setFpLoading(false)
     }
   }
 
-  // Step 2b: Send via WhatsApp
-  const handleWhatsApp = async () => {
+  const resetFpState = () => {
+    setShowForgotPassword(false)
+    setFpEmail('')
     setFpError('')
-    setFpSendingEmail(true)
-
-    try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: fpUsername, action: 'whatsapp' }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setFpError(data.error || 'Terjadi kesalahan')
-        setFpSendingEmail(false)
-        return
-      }
-
-      // Open WhatsApp with pre-filled message containing reset link
-      const waText = encodeURIComponent(
-        `Halo Admin Darrell Soft, saya lupa password akun saya.\n\nUsername: ${data.username}\nNama: ${data.name}\n\nLink reset password: ${data.resetUrl}\n\nMohon bantuan untuk reset password. Terima kasih!`
-      )
-      const waUrl = `https://wa.me/6285888082208?text=${waText}`
-      window.open(waUrl, '_blank')
-
-      // Also show the link in the dialog as backup
-      setFpResult({ emailSent: false, maskedEmail: '', message: 'Link reset password telah disiapkan. Cek WhatsApp Anda atau salin link di bawah.', resetUrl: data.resetUrl })
-    } catch {
-      setFpError('Terjadi kesalahan jaringan')
-    } finally {
-      setFpSendingEmail(false)
-    }
+    setFpAccount(null)
+    setFpNewPassword('')
+    setFpConfirmPassword('')
+    setFpShowPassword(false)
+    setFpShowConfirm(false)
+    setFpSuccess(false)
   }
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -505,7 +494,7 @@ function LoginContent() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => { setShowForgotPassword(true); setFpUsername(''); setFpError(''); setFpAccount(null); setFpResult(null) }}
+                    onClick={() => { setShowForgotPassword(true); resetFpState() }}
                     className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
                     {t('lupa_password')}
@@ -744,19 +733,41 @@ function LoginContent() {
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-start gap-3 mb-4">
+            <div className="flex items-start gap-3 mb-5">
               <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
                 <KeyRound className="w-5 h-5 text-blue-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-slate-800">{t('lupa_password')}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{t('lupa_password_desc')}</p>
+                <h3 className="text-lg font-bold text-slate-800">Lupa Password?</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Masukkan email Anda lalu atur password baru langsung — tanpa perlu cek email.</p>
               </div>
             </div>
 
-            {/* Step 1: Search account */}
-            {!fpAccount && !fpResult ? (
-              <form onSubmit={handleForgotPassword} className="space-y-4">
+            {fpSuccess ? (
+              /* Success state */
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <p className="text-sm font-semibold text-green-800">Password Berhasil Diubah!</p>
+                  </div>
+                  <div className="ml-7">
+                    <p className="text-sm text-green-700 leading-relaxed">
+                      Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetFpState}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  Masuk Sekarang
+                </button>
+              </div>
+            ) : !fpAccount ? (
+              /* Step 1: Enter email to find account */
+              <form onSubmit={handleFpSearch} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -764,19 +775,16 @@ function LoginContent() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('username')}</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
-                      type="text"
-                      placeholder={t('masukkan_username')}
+                      type="email"
+                      placeholder="Masukkan email akun Anda"
                       required
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      value={fpUsername}
-                      onChange={(e) => { setFpUsername(e.target.value); setFpError('') }}
+                      autoComplete="email"
+                      value={fpEmail}
+                      onChange={(e) => { setFpEmail(e.target.value); setFpError('') }}
                       className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -786,23 +794,19 @@ function LoginContent() {
                   disabled={fpLoading}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
-                  {fpLoading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Mencari...</>
-                  ) : (
-                    'Cari Akun'
-                  )}
+                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Mencari...</> : 'Cari Akun'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowForgotPassword(false); setFpUsername(''); setFpError(''); setFpAccount(null); setFpResult(null) }}
+                  onClick={resetFpState}
                   className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
                 >
                   {t('kembali_ke_login')}
                 </button>
               </form>
-            ) : fpAccount && !fpResult ? (
-              /* Step 2: Choose method - Email or WhatsApp */
-              <div className="space-y-4">
+            ) : (
+              /* Step 2: Enter new password */
+              <form onSubmit={handleFpReset} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -810,153 +814,90 @@ function LoginContent() {
                   </div>
                 )}
 
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <p className="text-sm font-semibold text-green-800">Akun Ditemukan</p>
-                  </div>
-                  <div className="space-y-1 ml-7">
-                    <p className="text-sm text-green-700"><span className="font-medium">Nama:</span> {fpAccount.name}</p>
-                    <p className="text-sm text-green-700"><span className="font-medium">Role:</span> {fpAccount.role}</p>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <p className="text-sm text-green-700">
+                      Akun <strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} ditemukan
+                    </p>
                   </div>
                 </div>
 
-                <p className="text-sm text-slate-600 text-center font-medium">Pilih metode reset password:</p>
-
-                {/* Email option */}
-                {fpAccount.hasEmail && (
-                  <button
-                    type="button"
-                    onClick={handleSendEmail}
-                    disabled={fpSendingEmail}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    {fpSendingEmail ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim...</>
-                    ) : (
-                      <>
-                        <Mail className="w-4 h-4" />
-                        Kirim via Email ({fpAccount.maskedEmail})
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* WhatsApp option */}
-                <button
-                  type="button"
-                  onClick={handleWhatsApp}
-                  disabled={fpSendingEmail}
-                  className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {fpSendingEmail ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim...</>
-                  ) : (
-                    <>
-                      <MessageCircle className="w-4 h-4" />
-                      Hubungi Admin via WhatsApp
-                    </>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Password Baru <span className="text-xs text-slate-400">(minimal 6 karakter)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={fpShowPassword ? 'text' : 'password'}
+                      placeholder="Buat password baru"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      value={fpNewPassword}
+                      onChange={(e) => { setFpNewPassword(e.target.value); setFpError('') }}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setFpShowPassword(!fpShowPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                    >
+                      {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {fpNewPassword.length > 0 && fpNewPassword.length < 6 && (
+                    <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({fpNewPassword.length}/6)</p>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Konfirmasi Password Baru</label>
+                  <div className="relative">
+                    <input
+                      type={fpShowConfirm ? 'text' : 'password'}
+                      placeholder="Ulangi password baru"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      value={fpConfirmPassword}
+                      onChange={(e) => { setFpConfirmPassword(e.target.value); setFpError('') }}
+                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-slate-300'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setFpShowConfirm(!fpShowConfirm)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                    >
+                      {fpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword && (
+                    <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={fpLoading || fpNewPassword.length < 6 || fpConfirmPassword.length < 6 || fpNewPassword !== fpConfirmPassword}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Ubah Password'}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => { setFpAccount(null); setFpError('') }}
+                  onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
                   className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
                 >
-                  ← Cari Username Lain
+                  ← Ganti Email
                 </button>
-              </div>
-            ) : fpResult ? (
-              /* Step 3: Result */
-              <div className="space-y-4">
-                {fpResult.emailSent ? (
-                  <>
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MailCheck className="w-5 h-5 text-green-600" />
-                        <p className="text-sm font-semibold text-green-800">Email Terkirim</p>
-                      </div>
-                      <div className="ml-7">
-                        <p className="text-sm text-green-700 leading-relaxed">
-                          Link reset password telah dikirim ke email <strong>{fpResult.maskedEmail}</strong>. Silakan cek inbox atau folder spam Anda.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                      <p className="text-sm text-blue-800 leading-relaxed">
-                        Klik tautan dalam email untuk membuat password baru. Tautan berlaku selama <strong>1 jam</strong>.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
-                        <p className="text-sm font-semibold text-amber-800">Email Gagal Dikirim</p>
-                      </div>
-                      <div className="ml-7">
-                        <p className="text-sm text-amber-700 leading-relaxed">
-                          {fpResult.message}
-                        </p>
-                      </div>
-                    </div>
-
-                    {fpResult.resetUrl && (
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-medium text-slate-600">Link Reset Password:</p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={fpResult.resetUrl}
-                            className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-700 select-all focus:outline-none"
-                            onClick={(e) => (e.target as HTMLInputElement).select()}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(fpResult.resetUrl)
-                              setCopied(true)
-                              setTimeout(() => setCopied(false), 2000)
-                            }}
-                            className="flex-shrink-0 p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors"
-                            title="Salin link"
-                          >
-                            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
-                          </button>
-                        </div>
-                        <a
-                          href={fpResult.resetUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          Buka Link Reset Password
-                        </a>
-                      </div>
-                    )}
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                      <p className="text-sm text-blue-800 leading-relaxed">
-                        Link berlaku selama <strong>1 jam</strong>. Simpan atau salin link ini sebelum menutup dialog.
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => { setShowForgotPassword(false); setFpUsername(''); setFpError(''); setFpAccount(null); setFpResult(null); setCopied(false) }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
-                >
-                  {t('kembali_ke_login')}
-                </button>
-              </div>
-            ) : null}
+              </form>
+            )}
           </div>
         </div>
       )}
