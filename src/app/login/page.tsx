@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, MessageCircle } from 'lucide-react'
+import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
@@ -46,20 +46,15 @@ function LoginContent() {
 
   // Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false)
-  const [fpMethod, setFpMethod] = useState<'email' | 'whatsapp'>('email')
   const [fpEmail, setFpEmail] = useState('')
-  const [fpPhone, setFpPhone] = useState('')
   const [fpLoading, setFpLoading] = useState(false)
   const [fpError, setFpError] = useState('')
-  const [fpAccount, setFpAccount] = useState<{ name: string; username: string; userId: string; userType: string; phone?: string } | null>(null)
+  const [fpAccount, setFpAccount] = useState<{ name: string; username: string; userId: string; userType: string } | null>(null)
   const [fpNewPassword, setFpNewPassword] = useState('')
   const [fpConfirmPassword, setFpConfirmPassword] = useState('')
   const [fpShowPassword, setFpShowPassword] = useState(false)
   const [fpShowConfirm, setFpShowConfirm] = useState(false)
   const [fpSuccess, setFpSuccess] = useState(false)
-  const [fpWaSent, setFpWaSent] = useState(false)
-  const [fpWaMessage, setFpWaMessage] = useState('')
-  const [companyPhone, setCompanyPhone] = useState<string | null>(null)
 
   // Demo popup state
   const [demoPopupOpen, setDemoPopupOpen] = useState(false)
@@ -91,9 +86,7 @@ function LoginContent() {
           setLoginBgColor(data.theme_login_color.trim())
           document.documentElement.style.setProperty('--app-login-bg', data.theme_login_color.trim())
         }
-        if (data.company_phone?.trim()) {
-          setCompanyPhone(data.company_phone.trim())
-        }
+
       })
       .catch(() => {})
   }, [isRedirecting])
@@ -175,7 +168,7 @@ function LoginContent() {
     }
   }
 
-  // Step 1: Search account by email or phone
+  // Step 1: Search account by email
   const handleFpSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     setFpError('')
@@ -184,25 +177,15 @@ function LoginContent() {
     setFpLoading(true)
 
     try {
-      const isPhone = fpMethod === 'whatsapp'
-      const body: Record<string, string> = {
-        action: isPhone ? 'search-phone' : 'search',
-      }
-      if (isPhone) {
-        body.phone = fpPhone
-      } else {
-        body.email = fpEmail
-      }
-
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ action: 'search', email: fpEmail }),
       })
       const data = await res.json()
 
       if (res.status === 404) {
-        setFpError(data.message || (isPhone ? 'Nomor WhatsApp tidak ditemukan' : 'Email tidak ditemukan'))
+        setFpError(data.message || 'Email tidak ditemukan')
         setFpLoading(false)
         return
       }
@@ -213,7 +196,7 @@ function LoginContent() {
         return
       }
 
-      setFpAccount({ name: data.name, username: data.username, userId: data.userId, userType: data.userType, phone: data.phone })
+      setFpAccount({ name: data.name, username: data.username, userId: data.userId, userType: data.userType })
     } catch {
       setFpError('Terjadi kesalahan jaringan')
     } finally {
@@ -239,21 +222,10 @@ function LoginContent() {
     setFpLoading(true)
 
     try {
-      const isPhone = fpMethod === 'whatsapp'
-      const body: Record<string, string> = {
-        action: isPhone ? 'reset-phone' : 'reset',
-        newPassword: fpNewPassword,
-      }
-      if (isPhone) {
-        body.phone = fpPhone
-      } else {
-        body.email = fpEmail
-      }
-
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ action: 'reset', email: fpEmail, newPassword: fpNewPassword }),
       })
       const data = await res.json()
 
@@ -271,57 +243,10 @@ function LoginContent() {
     }
   }
 
-  // Send password to user's WhatsApp via API
-  const handleFpSendWa = async () => {
-    setFpError('')
-    setFpLoading(true)
 
-    try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: fpPhone, action: 'send-wa' }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setFpError(data.error || 'Terjadi kesalahan')
-        setFpLoading(false)
-        return
-      }
-
-      // Password sent successfully to WhatsApp
-      setFpWaSent(true)
-      setFpWaMessage(data.message || 'Password baru telah dikirim ke WhatsApp Anda.')
-      setFpSuccess(true)
-    } catch {
-      setFpError('Terjadi kesalahan jaringan')
-    } finally {
-      setFpLoading(false)
-    }
-  }
-
-  // Open WhatsApp chat to company as fallback
-  const handleFpChatWa = () => {
-    if (!companyPhone) {
-      setFpError('Nomor WhatsApp perusahaan belum tersedia. Silakan hubungi administrator.')
-      return
-    }
-
-    let waNumber = companyPhone.replace(/[\s\-()+]/g, '')
-    if (waNumber.startsWith('0')) {
-      waNumber = '62' + waNumber.substring(1)
-    }
-
-    const message = `Halo, saya lupa password akun saya di Darrell Soft.\n\nNama: ${fpAccount?.name || '-'}\nUsername: ${fpAccount?.username || '-'}\n\nMohon bantuan untuk reset password. Terima kasih.`
-    const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`
-
-    window.open(waUrl, '_blank')
-  }
 
   const resetFpFields = () => {
     setFpEmail('')
-    setFpPhone('')
     setFpError('')
     setFpAccount(null)
     setFpNewPassword('')
@@ -329,9 +254,6 @@ function LoginContent() {
     setFpShowPassword(false)
     setFpShowConfirm(false)
     setFpSuccess(false)
-    setFpWaSent(false)
-    setFpWaMessage('')
-    setFpMethod('email')
   }
 
   const closeFpDialog = () => {
@@ -819,55 +741,39 @@ function LoginContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start gap-3 mb-5">
-              <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${fpMethod === 'whatsapp' ? 'bg-emerald-100' : 'bg-blue-100'}`}>
-                <KeyRound className={`w-5 h-5 ${fpMethod === 'whatsapp' ? 'text-emerald-600' : 'text-blue-600'}`} />
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100">
+                <KeyRound className="w-5 h-5 text-blue-600" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-slate-800">Lupa Password?</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Pilih metode untuk mengatur ulang password Anda.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Atur ulang password Anda melalui email.</p>
               </div>
             </div>
 
-            {/* === SUCCESS STATE (WA sent or Email reset) === */}
+            {/* === SUCCESS STATE === */}
             {fpSuccess ? (
               <div className="space-y-4">
-                {fpMethod === 'whatsapp' && fpWaSent ? (
-                  /* WA password sent successfully */
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <p className="text-sm font-semibold text-green-800">Password Terkirim ke WhatsApp!</p>
-                    </div>
-                    <div className="ml-7">
-                      <p className="text-sm text-green-700 leading-relaxed">{fpWaMessage}</p>
-                    </div>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <p className="text-sm font-semibold text-green-800">Password Berhasil Diubah!</p>
                   </div>
-                ) : (
-                  /* Email reset success */
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <p className="text-sm font-semibold text-green-800">Password Berhasil Diubah!</p>
-                    </div>
-                    <div className="ml-7">
-                      <p className="text-sm text-green-700 leading-relaxed">
-                        Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
-                      </p>
-                    </div>
+                  <div className="ml-7">
+                    <p className="text-sm text-green-700 leading-relaxed">
+                      Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
+                    </p>
                   </div>
-                )}
+                </div>
                 <button
                   type="button"
                   onClick={closeFpDialog}
-                  className={`w-full font-semibold py-2.5 rounded-xl transition-colors ${
-                    fpMethod === 'whatsapp' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 >
                   Masuk Sekarang
                 </button>
               </div>
             ) : !fpAccount ? (
-              /* === STEP 1: Choose method & search account === */
+              /* === STEP 1: Search account by email === */
               <form onSubmit={handleFpSearch} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
@@ -876,82 +782,27 @@ function LoginContent() {
                   </div>
                 )}
 
-                {/* Method selector */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setFpMethod('email'); setFpError('') }}
-                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all ${
-                      fpMethod === 'email'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <Mail className="w-4 h-4" />
-                    Via Email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setFpMethod('whatsapp'); setFpError('') }}
-                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all ${
-                      fpMethod === 'whatsapp'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Via WhatsApp
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="email"
+                      placeholder="Masukkan email akun Anda"
+                      required
+                      autoComplete="email"
+                      value={fpEmail}
+                      onChange={(e) => { setFpEmail(e.target.value); setFpError('') }}
+                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Atur password baru langsung — tanpa perlu cek email.</p>
                 </div>
-
-                {/* Email input */}
-                {fpMethod === 'email' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="email"
-                        placeholder="Masukkan email akun Anda"
-                        required
-                        autoComplete="email"
-                        value={fpEmail}
-                        onChange={(e) => { setFpEmail(e.target.value); setFpError('') }}
-                        className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">Atur password baru langsung — tanpa perlu cek email.</p>
-                  </div>
-                )}
-
-                {/* WhatsApp input */}
-                {fpMethod === 'whatsapp' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Nomor WhatsApp</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="tel"
-                        placeholder="Contoh: 081234567890"
-                        required
-                        autoComplete="tel"
-                        value={fpPhone}
-                        onChange={(e) => { setFpPhone(e.target.value); setFpError('') }}
-                        className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">Password baru akan dikirim ke WhatsApp Anda.</p>
-                  </div>
-                )}
 
                 <button
                   type="submit"
                   disabled={fpLoading}
-                  className={`w-full font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                    fpMethod === 'whatsapp'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white'
-                      : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white'
-                  }`}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Mencari...</> : 'Cari Akun'}
                 </button>
@@ -963,71 +814,8 @@ function LoginContent() {
                   {t('kembali_ke_login')}
                 </button>
               </form>
-            ) : fpMethod === 'whatsapp' ? (
-              /* === STEP 2 (WhatsApp): Send password to WA === */
-              <div className="space-y-4">
-                {fpError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>{fpError}</span>
-                  </div>
-                )}
-
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <p className="text-sm text-green-700">
-                      Akun <strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} ditemukan
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
-                  <p className="text-sm text-emerald-800 leading-relaxed">
-                    Password baru akan dikirim langsung ke WhatsApp <strong>{fpAccount.phone || fpPhone}</strong>. Password tidak akan ditampilkan di layar untuk keamanan.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleFpSendWa}
-                    disabled={fpLoading}
-                    className="w-full bg-[#25D366] hover:bg-[#20BD5A] disabled:bg-emerald-300 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
-                  >
-                    {fpLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> Mengirim...</> : <><MessageCircle className="w-5 h-5" /> Kirim Password ke WhatsApp</>}
-                  </button>
-                </div>
-
-                {companyPhone && (
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-slate-200" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-slate-400">atau</span>
-                    </div>
-                  </div>
-                )}
-
-                {companyPhone && (
-                  <button
-                    type="button"
-                    onClick={handleFpChatWa}
-                    className="w-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Chat Admin via WhatsApp
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => { setFpAccount(null); setFpError('') }}
-                  className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
-                >
-                  ← Ganti Nomor
-                </button>
-              </div>
             ) : (
-              /* === STEP 2 (Email): Enter new password directly === */
+              /* === STEP 2: Enter new password directly === */
               <form onSubmit={handleFpReset} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
