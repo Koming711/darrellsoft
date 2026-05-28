@@ -41,7 +41,6 @@ export const translations = {
     invoice: 'Invoice',
     surat_jalan: 'Surat Jalan',
     purchase_order: 'Purchase Order',
-    pembelian: 'Pembelian',
     dokumen: 'Dokumen',
     riwayat_hitung: 'Riwayat Hitung Cetak',
     riwayat: 'Riwayat',
@@ -74,6 +73,11 @@ export const translations = {
     google_signin_error: 'Gagal masuk dengan Google. Coba lagi.',
     google_signin_config: 'Google Sign-In belum dikonfigurasi. Hubungi administrator.',
 
+    // Forgot Password
+    lupa_password: 'Lupa Password?',
+    lupa_password_desc: 'Masukkan username untuk mencari akun Anda',
+    kembali_ke_login: 'Kembali ke Login',
+
     // Page Subtitles
     subtitle_dashboard: 'Selamat datang di Darrell Soft',
     subtitle_pembukaan: 'Beranda',
@@ -86,7 +90,6 @@ export const translations = {
     subtitle_invoice: 'Kelola invoice penjualan',
     subtitle_surat_jalan: 'Kelola surat jalan pengiriman',
     subtitle_purchase_order: 'Kelola purchase order pembelian',
-    subtitle_pembelian: 'Daftar riwayat pembelian',
     subtitle_riwayat: 'Lihat semua riwayat perhitungan cetakan',
     subtitle_hitung_finishing: 'Kalkulator biaya finishing cetakan',
     subtitle_hitung_ongkos_kertas: 'Kalkulator ongkos cetakan lengkap',
@@ -390,7 +393,6 @@ export const translations = {
     invoice: 'Invoice',
     surat_jalan: 'Delivery Note',
     purchase_order: 'Purchase Order',
-    pembelian: 'Pembelian',
     dokumen: 'Documents',
     riwayat_hitung: 'Print Calculation History',
     riwayat: 'History',
@@ -423,6 +425,11 @@ export const translations = {
     google_signin_error: 'Failed to sign in with Google. Please try again.',
     google_signin_config: 'Google Sign-In is not configured. Contact administrator.',
 
+    // Forgot Password
+    lupa_password: 'Forgot Password?',
+    lupa_password_desc: 'Enter your username to find your account',
+    kembali_ke_login: 'Back to Login',
+
     // Page Subtitles
     subtitle_dashboard: 'Welcome to Darrell Soft',
     subtitle_pembukaan: 'Beranda',
@@ -435,7 +442,6 @@ export const translations = {
     subtitle_invoice: 'Manage sales invoices',
     subtitle_surat_jalan: 'Manage delivery notes',
     subtitle_purchase_order: 'Manage purchase orders',
-    subtitle_pembelian: 'Purchase history list',
     subtitle_riwayat: 'View all print calculation history',
     subtitle_hitung_finishing: 'Finishing cost calculator',
     subtitle_hitung_ongkos_kertas: 'Paper material cost calculator',

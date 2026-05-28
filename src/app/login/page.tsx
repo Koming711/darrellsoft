@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, MailCheck, Copy, Check, ExternalLink, MessageCircle } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
@@ -43,6 +43,18 @@ function LoginContent() {
   const [regConfirmPassword, setRegConfirmPassword] = useState('')
   const [regError, setRegError] = useState('')
   const [regLoading, setRegLoading] = useState(false)
+
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [fpUsername, setFpUsername] = useState('')
+  const [fpLoading, setFpLoading] = useState(false)
+  const [fpError, setFpError] = useState('')
+  // Step 1: account found
+  const [fpAccount, setFpAccount] = useState<{ name: string; role: string; maskedEmail: string; hasEmail: boolean } | null>(null)
+  // Step 2: result after sending (email or whatsapp)
+  const [fpResult, setFpResult] = useState<{ emailSent: boolean; maskedEmail: string; message: string; resetUrl: string } | null>(null)
+  const [fpSendingEmail, setFpSendingEmail] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // Demo popup state
   const [demoPopupOpen, setDemoPopupOpen] = useState(false)
@@ -152,6 +164,104 @@ function LoginContent() {
         setLoginError('Terjadi kesalahan jaringan. Coba lagi dalam beberapa detik.')
       }
       setLoginLoading(false)
+    }
+  }
+
+  // Step 1: Search for account
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFpError('')
+    setFpAccount(null)
+    setFpResult(null)
+    setFpLoading(true)
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: fpUsername, action: 'search' }),
+      })
+      const data = await res.json()
+
+      if (res.status === 404) {
+        setFpError(data.message || 'Username tidak ditemukan')
+        setFpLoading(false)
+        return
+      }
+
+      if (!res.ok) {
+        setFpError(data.error || 'Terjadi kesalahan')
+        setFpLoading(false)
+        return
+      }
+
+      setFpAccount({ name: data.name, role: data.role, maskedEmail: data.maskedEmail, hasEmail: data.hasEmail })
+    } catch {
+      setFpError('Terjadi kesalahan jaringan')
+    } finally {
+      setFpLoading(false)
+    }
+  }
+
+  // Step 2a: Send email
+  const handleSendEmail = async () => {
+    setFpError('')
+    setFpSendingEmail(true)
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: fpUsername, action: 'send-email' }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFpError(data.error || 'Terjadi kesalahan')
+        setFpSendingEmail(false)
+        return
+      }
+
+      setFpResult({ emailSent: data.emailSent, maskedEmail: data.maskedEmail, message: data.message, resetUrl: data.resetUrl || '' })
+    } catch {
+      setFpError('Terjadi kesalahan jaringan')
+    } finally {
+      setFpSendingEmail(false)
+    }
+  }
+
+  // Step 2b: Send via WhatsApp
+  const handleWhatsApp = async () => {
+    setFpError('')
+    setFpSendingEmail(true)
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: fpUsername, action: 'whatsapp' }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFpError(data.error || 'Terjadi kesalahan')
+        setFpSendingEmail(false)
+        return
+      }
+
+      // Open WhatsApp with pre-filled message containing reset link
+      const waText = encodeURIComponent(
+        `Halo Admin Darrell Soft, saya lupa password akun saya.\n\nUsername: ${data.username}\nNama: ${data.name}\n\nLink reset password: ${data.resetUrl}\n\nMohon bantuan untuk reset password. Terima kasih!`
+      )
+      const waUrl = `https://wa.me/6285888082208?text=${waText}`
+      window.open(waUrl, '_blank')
+
+      // Also show the link in the dialog as backup
+      setFpResult({ emailSent: false, maskedEmail: '', message: 'Link reset password telah disiapkan. Cek WhatsApp Anda atau salin link di bawah.', resetUrl: data.resetUrl })
+    } catch {
+      setFpError('Terjadi kesalahan jaringan')
+    } finally {
+      setFpSendingEmail(false)
     }
   }
 
@@ -382,16 +492,25 @@ function LoginContent() {
                     t('masuk')
                   )}
                 </button>
-                <p className="text-center text-sm text-slate-500">
-                  {t('belum_punya_akun')}{' '}
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-slate-500">
+                    {t('belum_punya_akun')}{' '}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('register')}
+                      className="text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      {t('daftar_sekarang')}
+                    </button>
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('register')}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
+                    onClick={() => { setShowForgotPassword(true); setFpUsername(''); setFpError(''); setFpAccount(null); setFpResult(null) }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    {t('daftar_sekarang')}
+                    {t('lupa_password')}
                   </button>
-                </p>
+                </div>
               </form>
             ) : regSuccess ? (
               <div className="text-center py-4 space-y-4">
@@ -620,6 +739,227 @@ function LoginContent() {
         </p>
       </div>
       </div>
+
+      {/* ===== FORGOT PASSWORD DIALOG ===== */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                <KeyRound className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-800">{t('lupa_password')}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{t('lupa_password_desc')}</p>
+              </div>
+            </div>
+
+            {/* Step 1: Search account */}
+            {!fpAccount && !fpResult ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                {fpError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {fpError}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('username')}</label>
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder={t('masukkan_username')}
+                      required
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      value={fpUsername}
+                      onChange={(e) => { setFpUsername(e.target.value); setFpError('') }}
+                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={fpLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {fpLoading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Mencari...</>
+                  ) : (
+                    'Cari Akun'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForgotPassword(false); setFpUsername(''); setFpError(''); setFpAccount(null); setFpResult(null) }}
+                  className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
+                >
+                  {t('kembali_ke_login')}
+                </button>
+              </form>
+            ) : fpAccount && !fpResult ? (
+              /* Step 2: Choose method - Email or WhatsApp */
+              <div className="space-y-4">
+                {fpError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {fpError}
+                  </div>
+                )}
+
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <p className="text-sm font-semibold text-green-800">Akun Ditemukan</p>
+                  </div>
+                  <div className="space-y-1 ml-7">
+                    <p className="text-sm text-green-700"><span className="font-medium">Nama:</span> {fpAccount.name}</p>
+                    <p className="text-sm text-green-700"><span className="font-medium">Role:</span> {fpAccount.role}</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-slate-600 text-center font-medium">Pilih metode reset password:</p>
+
+                {/* Email option */}
+                {fpAccount.hasEmail && (
+                  <button
+                    type="button"
+                    onClick={handleSendEmail}
+                    disabled={fpSendingEmail}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {fpSendingEmail ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim...</>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4" />
+                        Kirim via Email ({fpAccount.maskedEmail})
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* WhatsApp option */}
+                <button
+                  type="button"
+                  onClick={handleWhatsApp}
+                  disabled={fpSendingEmail}
+                  className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {fpSendingEmail ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim...</>
+                  ) : (
+                    <>
+                      <MessageCircle className="w-4 h-4" />
+                      Hubungi Admin via WhatsApp
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setFpAccount(null); setFpError('') }}
+                  className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
+                >
+                  ← Cari Username Lain
+                </button>
+              </div>
+            ) : fpResult ? (
+              /* Step 3: Result */
+              <div className="space-y-4">
+                {fpResult.emailSent ? (
+                  <>
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MailCheck className="w-5 h-5 text-green-600" />
+                        <p className="text-sm font-semibold text-green-800">Email Terkirim</p>
+                      </div>
+                      <div className="ml-7">
+                        <p className="text-sm text-green-700 leading-relaxed">
+                          Link reset password telah dikirim ke email <strong>{fpResult.maskedEmail}</strong>. Silakan cek inbox atau folder spam Anda.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <p className="text-sm text-blue-800 leading-relaxed">
+                        Klik tautan dalam email untuk membuat password baru. Tautan berlaku selama <strong>1 jam</strong>.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <p className="text-sm font-semibold text-amber-800">Email Gagal Dikirim</p>
+                      </div>
+                      <div className="ml-7">
+                        <p className="text-sm text-amber-700 leading-relaxed">
+                          {fpResult.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    {fpResult.resetUrl && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-medium text-slate-600">Link Reset Password:</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={fpResult.resetUrl}
+                            className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-700 select-all focus:outline-none"
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(fpResult.resetUrl)
+                              setCopied(true)
+                              setTimeout(() => setCopied(false), 2000)
+                            }}
+                            className="flex-shrink-0 p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors"
+                            title="Salin link"
+                          >
+                            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
+                          </button>
+                        </div>
+                        <a
+                          href={fpResult.resetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Buka Link Reset Password
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <p className="text-sm text-blue-800 leading-relaxed">
+                        Link berlaku selama <strong>1 jam</strong>. Simpan atau salin link ini sebelum menutup dialog.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => { setShowForgotPassword(false); setFpUsername(''); setFpError(''); setFpAccount(null); setFpResult(null); setCopied(false) }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  {t('kembali_ke_login')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* ===== DEMO POPUP DIALOG ===== */}
       {demoPopupOpen && (

@@ -83,8 +83,6 @@ export interface PurchaseOrderData {
   items: DocumentItem[];
   ppn: number;
   catatan: string;
-  statusPembayaran: string; // 'belum-bayar' | 'dp' | 'lunas'
-  riwayatPotongKertasId?: string; // Link to originating potong kertas calculation
 }
 
 export interface SPKData {
@@ -178,7 +176,6 @@ export function createDefaultPurchaseOrder(): PurchaseOrderData {
     items: [createDefaultItem()],
     ppn: 11,
     catatan: '',
-    statusPembayaran: 'belum-bayar',
   };
 }
 

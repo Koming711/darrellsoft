@@ -167,12 +167,7 @@ export function PurchaseOrderEditor() {
       descLines.push(`Potongan/lembar dapat ${potonganPerLembar}`);
     }
 
-    // Line 5: Jumlah pesanan
-    if (item.jumlahPesanan) {
-      descLines.push(`Jumlah pesanan ${item.jumlahPesanan} pcs`);
-    }
-
-    // Line 6: Jumlah jadi (potongan/lembar × qty)
+    // Line 5: Jumlah jadi (potongan/lembar × qty)
     const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
     if (potonganPerLembar > 0 && qty > 0) {
       const jumlahJadi = potonganPerLembar * qty;
@@ -200,7 +195,6 @@ export function PurchaseOrderEditor() {
       },
       items,
       catatan: '',
-      riwayatPotongKertasId: item.id,
     });
     setDropdownOpen(false);
   };
@@ -354,7 +348,7 @@ export function PurchaseOrderEditor() {
             Kepada Yth.
           </h3>
           <div className="space-y-1.5">
-            <Label className="text-xs">Nama Toko</Label>
+            <Label className="text-xs">Nama</Label>
             <Popover open={pemasokDropdownOpen} onOpenChange={setPemasokDropdownOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
@@ -447,33 +441,6 @@ export function PurchaseOrderEditor() {
             Informasi Tambahan
           </h3>
           <div className="space-y-1.5">
-            <Label className="text-xs">Status Pembayaran</Label>
-            <div className="flex gap-2">
-              {[
-                { value: 'belum-bayar', label: 'Belum Bayar' },
-                { value: 'dp', label: 'DP' },
-                { value: 'lunas', label: 'Lunas' },
-              ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setPurchaseOrder({ ...po, statusPembayaran: opt.value })}
-                  className={`flex-1 h-8 rounded-md text-xs font-medium border transition-colors ${
-                    (po.statusPembayaran || 'belum-bayar') === opt.value
-                      ? opt.value === 'lunas'
-                        ? 'bg-emerald-500 text-white border-emerald-500'
-                        : opt.value === 'dp'
-                          ? 'bg-amber-500 text-white border-amber-500'
-                          : 'bg-red-500 text-white border-red-500'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-1.5 mt-3">
             <Label className="text-xs">PPN (%)</Label>
             <Input
               type="number"
