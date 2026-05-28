@@ -11,7 +11,7 @@ export async function GET() {
     const settings = await db.setting.findMany({
       where: {
         key: {
-          in: ['company_name', 'company_logo', 'app_language', 'theme_login_color']
+          in: ['company_name', 'company_logo', 'app_language', 'theme_login_color', 'company_phone']
         }
       }
     })
@@ -21,6 +21,7 @@ export async function GET() {
       company_logo: null,
       app_language: null,
       theme_login_color: null,
+      company_phone: null,
     }
 
     for (const s of settings) {
@@ -30,6 +31,6 @@ export async function GET() {
     return NextResponse.json(result)
   } catch (error) {
     console.error('Error fetching public settings:', error)
-    return NextResponse.json({ company_name: null, company_logo: null, app_language: null, theme_login_color: null }, { status: 200 })
+    return NextResponse.json({ company_name: null, company_logo: null, app_language: null, theme_login_color: null, company_phone: null }, { status: 200 })
   }
 }
