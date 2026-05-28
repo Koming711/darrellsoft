@@ -1,6 +1,6 @@
 'use client'
 
-import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText } from 'lucide-react'
+import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, MessageCircle } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -123,6 +123,11 @@ export default function PengaturanPage() {
   const [bankHolder2, setBankHolder2] = useState('')
   const [npwp, setNpwp] = useState('')
 
+  // WhatsApp API settings
+  const [waApiKey, setWaApiKey] = useState('')
+  const [waApiUrl, setWaApiUrl] = useState('https://api.fonnte.com/send')
+  const [waTestLoading, setWaTestLoading] = useState(false)
+
   // Database settings
   const [autoBackupDays, setAutoBackupDays] = useState(7)
   const [backupLoading, setBackupLoading] = useState(false)
@@ -200,7 +205,7 @@ export default function PengaturanPage() {
   // Fetch general settings
   const fetchGeneralSettings = useCallback(async () => {
     try {
-      const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone', 'bank_name', 'bank_account', 'bank_holder', 'bank_name2', 'bank_account2', 'bank_holder2', 'npwp']
+      const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone', 'bank_name', 'bank_account', 'bank_holder', 'bank_name2', 'bank_account2', 'bank_holder2', 'npwp', 'wa_api_key', 'wa_api_url']
       const results = await Promise.all(keys.map(k => authFetch(`/api/settings?key=${k}`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)))
       if (results[0]?.value) setCompanyName(results[0].value)
       if (results[1]?.value) setCompanyLogo(results[1].value)
@@ -214,6 +219,8 @@ export default function PengaturanPage() {
       if (results[9]?.value) setBankAccount2(results[9].value)
       if (results[10]?.value) setBankHolder2(results[10].value)
       if (results[11]?.value) setNpwp(results[11].value)
+      if (results[12]?.value) setWaApiKey(results[12].value)
+      if (results[13]?.value) setWaApiUrl(results[13].value)
     } catch { /* silent */ }
   }, [])
 
@@ -427,6 +434,8 @@ export default function PengaturanPage() {
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_account2', value: bankAccount2 }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_holder2', value: bankHolder2 }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'npwp', value: npwp }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'wa_api_key', value: waApiKey }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'wa_api_url', value: waApiUrl }) }),
       ])
       toast.success(t('setting_saved'))
       notifyDataChange('settings')
@@ -1188,6 +1197,27 @@ export default function PengaturanPage() {
                     <div>
                       <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('npwp')}</label>
                       <input type="text" value={npwp} onChange={(e) => setNpwp(e.target.value)} placeholder={t('placeholder_npwp')} className={inputClass} />
+                    </div>
+                  </div>
+
+                  {/* WhatsApp API Settings */}
+                  <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                      <h4 className="text-sm font-semibold text-slate-700">WhatsApp API</h4>
+                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Fonnte</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-3">Untuk mengirim password otomatis ke WhatsApp user saat lupa password. Daftar di <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">fonnte.com</a> untuk mendapatkan API key.</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">API Key Fonnte</label>
+                        <input type="password" value={waApiKey} onChange={(e) => setWaApiKey(e.target.value)} placeholder="Masukkan API key dari Fonnte" className={inputClass} />
+                      </div>
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">API URL</label>
+                        <input type="url" value={waApiUrl} onChange={(e) => setWaApiUrl(e.target.value)} placeholder="https://api.fonnte.com/send" className={inputClass} />
+                        <p className="text-[11px] text-slate-400 mt-1">Default: https://api.fonnte.com/send</p>
+                      </div>
                     </div>
                   </div>
 

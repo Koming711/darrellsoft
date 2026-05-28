@@ -57,6 +57,10 @@ function LoginContent() {
   const [fpShowPassword, setFpShowPassword] = useState(false)
   const [fpShowConfirm, setFpShowConfirm] = useState(false)
   const [fpSuccess, setFpSuccess] = useState(false)
+  const [fpWaSent, setFpWaSent] = useState(false)
+  const [fpWaMessage, setFpWaMessage] = useState('')
+  const [fpWaError, setFpWaError] = useState('')
+  const [fpTempPassword, setFpTempPassword] = useState('')
   const [companyPhone, setCompanyPhone] = useState<string | null>(null)
 
   // Demo popup state
@@ -269,14 +273,52 @@ function LoginContent() {
     }
   }
 
-  // Open WhatsApp with pre-filled message to company
-  const handleFpWhatsApp = () => {
+  // Send password to user's WhatsApp via API
+  const handleFpSendWa = async () => {
+    setFpError('')
+    setFpWaError('')
+    setFpLoading(true)
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fpPhone, action: 'send-wa' }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFpError(data.error || 'Terjadi kesalahan')
+        setFpLoading(false)
+        return
+      }
+
+      if (data.passwordSent) {
+        // Password sent successfully to WhatsApp
+        setFpWaSent(true)
+        setFpWaMessage(data.message || 'Password baru telah dikirim ke WhatsApp Anda.')
+        setFpSuccess(true)
+      } else {
+        // WA failed but password was changed — show temp password
+        setFpWaSent(false)
+        setFpWaError(data.waError || 'Gagal mengirim ke WhatsApp')
+        setFpTempPassword(data.tempPassword || '')
+        setFpWaMessage(data.message || '')
+      }
+    } catch {
+      setFpError('Terjadi kesalahan jaringan')
+    } finally {
+      setFpLoading(false)
+    }
+  }
+
+  // Open WhatsApp chat to company as fallback
+  const handleFpChatWa = () => {
     if (!companyPhone) {
       setFpError('Nomor WhatsApp perusahaan belum tersedia. Silakan hubungi administrator.')
       return
     }
 
-    // Format phone number for WhatsApp link (remove + and spaces, ensure starts with country code)
     let waNumber = companyPhone.replace(/[\s\-()+]/g, '')
     if (waNumber.startsWith('0')) {
       waNumber = '62' + waNumber.substring(1)
@@ -298,6 +340,10 @@ function LoginContent() {
     setFpShowPassword(false)
     setFpShowConfirm(false)
     setFpSuccess(false)
+    setFpWaSent(false)
+    setFpWaMessage('')
+    setFpWaError('')
+    setFpTempPassword('')
     setFpMethod('email')
   }
 
@@ -784,10 +830,10 @@ function LoginContent() {
       {/* ===== FORGOT PASSWORD DIALOG ===== */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start gap-3 mb-5">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                <KeyRound className="w-5 h-5 text-blue-600" />
+              <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${fpMethod === 'whatsapp' ? 'bg-emerald-100' : 'bg-blue-100'}`}>
+                <KeyRound className={`w-5 h-5 ${fpMethod === 'whatsapp' ? 'text-emerald-600' : 'text-blue-600'}`} />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-slate-800">Lupa Password?</h3>
@@ -795,30 +841,71 @@ function LoginContent() {
               </div>
             </div>
 
+            {/* === SUCCESS STATE (WA sent or Email reset) === */}
             {fpSuccess ? (
-              /* Success state */
               <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <p className="text-sm font-semibold text-green-800">Password Berhasil Diubah!</p>
+                {fpMethod === 'whatsapp' && fpWaSent ? (
+                  /* WA password sent successfully */
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <p className="text-sm font-semibold text-green-800">Password Terkirim!</p>
+                    </div>
+                    <div className="ml-7">
+                      <p className="text-sm text-green-700 leading-relaxed">{fpWaMessage}</p>
+                    </div>
                   </div>
-                  <div className="ml-7">
-                    <p className="text-sm text-green-700 leading-relaxed">
-                      Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
-                    </p>
+                ) : fpMethod === 'whatsapp' && fpWaError ? (
+                  /* WA failed but password was generated — show temp password */
+                  <div className="space-y-3">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <p className="text-sm font-semibold text-amber-800">WhatsApp Gagal Terkirim</p>
+                      </div>
+                      <p className="text-sm text-amber-700 ml-7">{fpWaMessage}</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <p className="text-xs text-blue-600 font-medium mb-1">Password sementara Anda:</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-lg font-bold tracking-wider text-blue-800 bg-white px-3 py-1.5 rounded-lg border border-blue-200 flex-1 text-center">{fpTempPassword}</code>
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard.writeText(fpTempPassword); toast.success('Password disalin!') }}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Salin
+                        </button>
+                      </div>
+                      <p className="text-xs text-blue-500 mt-2">Silakan login dengan password ini, lalu ubah password di profil Anda.</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Email reset success */
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <p className="text-sm font-semibold text-green-800">Password Berhasil Diubah!</p>
+                    </div>
+                    <div className="ml-7">
+                      <p className="text-sm text-green-700 leading-relaxed">
+                        Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={closeFpDialog}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+                  className={`w-full font-semibold py-2.5 rounded-xl transition-colors ${
+                    fpMethod === 'whatsapp' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
                 >
                   Masuk Sekarang
                 </button>
               </div>
             ) : !fpAccount ? (
-              /* Step 1: Choose method & search account */
+              /* === STEP 1: Choose method & search account === */
               <form onSubmit={handleFpSearch} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
@@ -891,7 +978,7 @@ function LoginContent() {
                         className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">Nomor WhatsApp yang terdaftar di akun Anda.</p>
+                    <p className="text-xs text-slate-400 mt-1">Password baru akan dikirim ke WhatsApp Anda.</p>
                   </div>
                 )}
 
@@ -914,8 +1001,8 @@ function LoginContent() {
                   {t('kembali_ke_login')}
                 </button>
               </form>
-            ) : (
-              /* Step 2: Account found — reset password or contact via WhatsApp */
+            ) : fpMethod === 'whatsapp' ? (
+              /* === STEP 2 (WhatsApp): Send password to WA === */
               <div className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
@@ -933,116 +1020,188 @@ function LoginContent() {
                   </div>
                 </div>
 
-                {/* WhatsApp method: show WhatsApp button + direct reset option */}
-                {fpMethod === 'whatsapp' && (
-                  <>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
-                      <p className="text-sm text-emerald-800 font-medium">Hubungi kami via WhatsApp untuk reset password:</p>
-                      <button
-                        type="button"
-                        onClick={handleFpWhatsApp}
-                        className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        Chat WhatsApp
-                      </button>
-                      {!companyPhone && (
-                        <p className="text-xs text-amber-600">Nomor WhatsApp perusahaan belum dikonfigurasi. Silakan hubungi administrator.</p>
-                      )}
-                    </div>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                  <p className="text-sm text-emerald-800 leading-relaxed">
+                    Klik tombol di bawah untuk mengirim password baru ke WhatsApp <strong>{fpAccount.phone || fpPhone}</strong>:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleFpSendWa}
+                    disabled={fpLoading}
+                    className="w-full bg-[#25D366] hover:bg-[#20BD5A] disabled:bg-emerald-300 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
+                  >
+                    {fpLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> Mengirim...</> : <><MessageCircle className="w-5 h-5" /> Kirim Password ke WhatsApp</>}
+                  </button>
+                </div>
 
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-slate-200" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white px-2 text-slate-400">atau atur sendiri</span>
-                      </div>
-                    </div>
-                  </>
+                {/* Fallback: chat WA to company or set password manually */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-slate-400">atau</span>
+                  </div>
+                </div>
+
+                {companyPhone && (
+                  <button
+                    type="button"
+                    onClick={handleFpChatWa}
+                    className="w-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Chat Admin via WhatsApp
+                  </button>
                 )}
 
-                {/* Password reset form (available for both methods) */}
-                <form onSubmit={handleFpReset} className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Password Baru <span className="text-xs text-slate-400">(minimal 6 karakter)</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={fpShowPassword ? 'text' : 'password'}
-                        placeholder="Buat password baru"
-                        required
-                        minLength={6}
-                        autoComplete="new-password"
-                        value={fpNewPassword}
-                        onChange={(e) => { setFpNewPassword(e.target.value); setFpError('') }}
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() => setFpShowPassword(!fpShowPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
-                      >
-                        {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                {/* Manual password reset option */}
+                <details className="group">
+                  <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 transition-colors text-center">
+                    Atur password sendiri ▾
+                  </summary>
+                  <form onSubmit={handleFpReset} className="space-y-3 mt-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Password Baru <span className="text-xs text-slate-400">(min. 6)</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={fpShowPassword ? 'text' : 'password'}
+                          placeholder="Buat password baru"
+                          required
+                          minLength={6}
+                          autoComplete="new-password"
+                          value={fpNewPassword}
+                          onChange={(e) => { setFpNewPassword(e.target.value); setFpError('') }}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <button type="button" tabIndex={-1} onClick={() => setFpShowPassword(!fpShowPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                          {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                    {fpNewPassword.length > 0 && fpNewPassword.length < 6 && (
-                      <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({fpNewPassword.length}/6)</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Konfirmasi Password Baru</label>
-                    <div className="relative">
-                      <input
-                        type={fpShowConfirm ? 'text' : 'password'}
-                        placeholder="Ulangi password baru"
-                        required
-                        minLength={6}
-                        autoComplete="new-password"
-                        value={fpConfirmPassword}
-                        onChange={(e) => { setFpConfirmPassword(e.target.value); setFpError('') }}
-                        className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                          fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-slate-300'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() => setFpShowConfirm(!fpShowConfirm)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
-                      >
-                        {fpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Konfirmasi</label>
+                      <div className="relative">
+                        <input
+                          type={fpShowConfirm ? 'text' : 'password'}
+                          placeholder="Ulangi password baru"
+                          required
+                          minLength={6}
+                          autoComplete="new-password"
+                          value={fpConfirmPassword}
+                          onChange={(e) => { setFpConfirmPassword(e.target.value); setFpError('') }}
+                          className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                            fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-slate-300'
+                          }`}
+                        />
+                        <button type="button" tabIndex={-1} onClick={() => setFpShowConfirm(!fpShowConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                          {fpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                    {fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword && (
-                      <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={fpLoading || fpNewPassword.length < 6 || fpConfirmPassword.length < 6 || fpNewPassword !== fpConfirmPassword}
-                    className={`w-full font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                      fpMethod === 'whatsapp'
-                        ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white'
-                        : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white'
-                    }`}
-                  >
-                    {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Ubah Password'}
-                  </button>
-                </form>
+                    <button
+                      type="submit"
+                      disabled={fpLoading || fpNewPassword.length < 6 || fpConfirmPassword.length < 6 || fpNewPassword !== fpConfirmPassword}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+                    >
+                      {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Ubah Password'}
+                    </button>
+                  </form>
+                </details>
 
                 <button
                   type="button"
                   onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
                   className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
                 >
-                  ← Ganti {fpMethod === 'whatsapp' ? 'Nomor' : 'Email'}
+                  ← Ganti Nomor
                 </button>
               </div>
+            ) : (
+              /* === STEP 2 (Email): Enter new password directly === */
+              <form onSubmit={handleFpReset} className="space-y-4">
+                {fpError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {fpError}
+                  </div>
+                )}
+
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <p className="text-sm text-green-700">
+                      Akun <strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} ditemukan
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Password Baru <span className="text-xs text-slate-400">(minimal 6 karakter)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={fpShowPassword ? 'text' : 'password'}
+                      placeholder="Buat password baru"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      value={fpNewPassword}
+                      onChange={(e) => { setFpNewPassword(e.target.value); setFpError('') }}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button type="button" tabIndex={-1} onClick={() => setFpShowPassword(!fpShowPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                      {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {fpNewPassword.length > 0 && fpNewPassword.length < 6 && (
+                    <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({fpNewPassword.length}/6)</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Konfirmasi Password Baru</label>
+                  <div className="relative">
+                    <input
+                      type={fpShowConfirm ? 'text' : 'password'}
+                      placeholder="Ulangi password baru"
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      value={fpConfirmPassword}
+                      onChange={(e) => { setFpConfirmPassword(e.target.value); setFpError('') }}
+                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-slate-300'
+                      }`}
+                    />
+                    <button type="button" tabIndex={-1} onClick={() => setFpShowConfirm(!fpShowConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                      {fpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword && (
+                    <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={fpLoading || fpNewPassword.length < 6 || fpConfirmPassword.length < 6 || fpNewPassword !== fpConfirmPassword}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Ubah Password'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
+                  className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
+                >
+                  ← Ganti Email
+                </button>
+              </form>
             )}
           </div>
         </div>
