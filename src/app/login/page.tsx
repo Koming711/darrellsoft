@@ -242,8 +242,7 @@ function LoginContent() {
     }
   }
 
-  const resetFpState = () => {
-    setShowForgotPassword(false)
+  const resetFpFields = () => {
     setFpEmail('')
     setFpError('')
     setFpAccount(null)
@@ -252,6 +251,11 @@ function LoginContent() {
     setFpShowPassword(false)
     setFpShowConfirm(false)
     setFpSuccess(false)
+  }
+
+  const closeFpDialog = () => {
+    setShowForgotPassword(false)
+    resetFpFields()
   }
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -494,7 +498,7 @@ function LoginContent() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => { setShowForgotPassword(true); resetFpState() }}
+                    onClick={() => { resetFpFields(); setShowForgotPassword(true) }}
                     className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
                     {t('lupa_password')}
@@ -759,7 +763,7 @@ function LoginContent() {
                 </div>
                 <button
                   type="button"
-                  onClick={resetFpState}
+                  onClick={closeFpDialog}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 >
                   Masuk Sekarang
@@ -798,7 +802,7 @@ function LoginContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={resetFpState}
+                  onClick={closeFpDialog}
                   className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
                 >
                   {t('kembali_ke_login')}
