@@ -17,12 +17,6 @@ export interface CompanyInfo {
   website?: string;
   ppn?: number;
   logo?: string; // base64 data URL
-  bankName?: string;
-  bankAccount?: string;
-  bankHolder?: string;
-  bankName2?: string;
-  bankAccount2?: string;
-  bankHolder2?: string;
 }
 
 export interface SignatureInfo {
@@ -76,7 +70,6 @@ export interface PurchaseOrderData {
   referensi: string;
   pemasok: {
     nama: string;
-    jenisBarang: string;
     kontak: string;
     alamat: string;
   };
@@ -140,7 +133,7 @@ export function createDefaultInvoice(): InvoiceData {
   return {
     type: 'invoice',
     company: { ...DEFAULT_COMPANY },
-    nomor: `INV/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: 'INV/2026/0001',
     tanggal: getToday(),
     referensi: '',
     client: { nama: '', kontak: '', alamat: '' },
@@ -154,7 +147,7 @@ export function createDefaultSuratJalan(): SuratJalanData {
   return {
     type: 'surat-jalan',
     company: { ...DEFAULT_COMPANY },
-    nomor: `SJ/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: 'SJ/2026/0001',
     tanggal: getToday(),
     referensi: '',
     penerima: { nama: '', kontak: '', alamat: '' },
@@ -169,10 +162,10 @@ export function createDefaultPurchaseOrder(): PurchaseOrderData {
   return {
     type: 'purchase-order',
     company: { ...DEFAULT_COMPANY },
-    nomor: `PO/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: 'PO/2026/0001',
     tanggal: getToday(),
     referensi: '',
-    pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
+    pemasok: { nama: '', kontak: '', alamat: '' },
     items: [createDefaultItem()],
     ppn: 11,
     catatan: '',
@@ -183,7 +176,7 @@ export function createDefaultSPK(): SPKData {
   return {
     type: 'spk',
     company: { ...DEFAULT_COMPANY },
-    nomor: `SPK/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: 'SPK/2026/0001',
     tanggal: getToday(),
     referensi: '',
     penerima: { nama: '', kontak: '', alamat: '' },

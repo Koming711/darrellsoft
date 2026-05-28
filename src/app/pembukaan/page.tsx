@@ -43,6 +43,7 @@ import {
   History,
   BarChart3,
   Receipt,
+  Package,
   CalendarIcon,
   Filter,
 } from 'lucide-react'
@@ -260,6 +261,9 @@ export default function PembukaanPage() {
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [docLoading, setDocLoading] = useState(false)
 
+  // Popup state
+  const [showPembelianPopup, setShowPembelianPopup] = useState(false)
+
   const displayName = user?.name || user?.username || 'Pengguna'
 
   useEffect(() => {
@@ -442,7 +446,7 @@ export default function PembukaanPage() {
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
-            onClick={() => router.push('/pembelian')}
+            onClick={() => setShowPembelianPopup(true)}
           />
           <QuickIcon
             icon={<History className="w-5 h-5" />}
@@ -703,62 +707,114 @@ export default function PembukaanPage() {
             </CardContent>
           </Card>
 
-          {/* Purchase Order - Clickable Card */}
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => router.push('/pembelian')}
-          >
+          {/* Purchase Order */}
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-slate-400" />
-                Riwayat Pembelian
+                Riwayat Purchase Order
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                   {poHistory.length}
                 </span>
-                <ChevronRight className="w-4 h-4 text-slate-300 ml-auto" />
               </CardTitle>
             </CardHeader>
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 poHistory.length > 0 ? (
-                  <div className="space-y-2">
-                    {poHistory.slice(0, 3).map(po => {
-                      const info = parseDocInfo(po)
-                      return (
-                        <div
-                          key={po.id}
-                          className="flex items-center gap-3 bg-slate-50/80 border border-slate-100 rounded-lg px-3 py-2"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                            <ShoppingCart className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs font-semibold text-slate-800 truncate">{po.nomor}</p>
-                              {info.namaBarang && (
-                                <span className="text-[10px] text-slate-400 truncate hidden sm:inline">· {info.namaBarang.split('\n')[0]}</span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-400 truncate">{po.pihakKedua}{po.tanggal ? ` · ${formatDateShort(po.tanggal)}` : ''}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs font-bold text-emerald-700">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : po.total}</p>
-                            {info.totalQty > 0 && <p className="text-[9px] text-slate-400">{info.totalQty} item</p>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {poHistory.length > 3 && (
-                      <p className="text-[11px] text-blue-500 font-medium text-center pt-1">
-                        + {poHistory.length - 3} lainnya, klik untuk lihat semua
-                      </p>
-                    )}
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
+                    <Table className="min-w-[650px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {poHistory.map((entry, i) => {
+                          const info = parseDocInfo(entry)
+                          return (
+                            <TableRow key={entry.id} className="group">
+                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
                   </div>
                 ) : <EmptyState />
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Popup Pembelian - Riwayat Purchase Order */}
+        <Dialog open={showPembelianPopup} onOpenChange={setShowPembelianPopup}>
+          <DialogContent className="sm:max-w-xl p-0 gap-0" showCloseButton={false}>
+            <DialogHeader className="px-5 pt-5 pb-3">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <ShoppingCart className="w-4 h-4" />
+                </div>
+                Riwayat Purchase Order
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">Daftar purchase order yang pernah dibuat</DialogDescription>
+            </DialogHeader>
+            <div className="px-5 pb-5">
+              {docLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />)}
+                </div>
+              ) : poHistory.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-8 text-center">
+                  <Package className="mx-auto h-8 w-8 text-blue-300" />
+                  <p className="mt-2 text-sm text-blue-400">Belum ada data purchase order</p>
+                </div>
+              ) : (
+                <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {poHistory.map(po => {
+                    const info = parseDocInfo(po)
+                    return (
+                      <div
+                        key={po.id}
+                        className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5 hover:bg-blue-50/50 transition-colors"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                          <ShoppingCart className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-800 truncate">{po.nomor}</p>
+                            {info.namaBarang && (
+                              <span className="text-[11px] text-slate-400 truncate hidden sm:inline">· {info.namaBarang}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 truncate">{po.pihakKedua}{po.tanggal ? ` · ${formatDateShort(po.tanggal)}` : ''}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-blue-600">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : po.total}</p>
+                          {info.totalQty > 0 && <p className="text-[10px] text-slate-400">{info.totalQty} item</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Custom Date Range Dialog */}
         <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>

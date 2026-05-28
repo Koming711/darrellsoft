@@ -24,7 +24,6 @@ import {
   ShoppingCart,
   BookOpen,
   Store,
-  ShoppingBag,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -73,13 +72,6 @@ const menuItems = [
     titleKey: 'purchase_order' as TranslationKey,
     href: '/purchase-order',
     icon: ShoppingCart,
-    featureId: 'purchase-order',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'pembelian' as TranslationKey,
-    href: '/pembelian',
-    icon: ShoppingBag,
     featureId: 'purchase-order',
     section: 'dokumen',
   },

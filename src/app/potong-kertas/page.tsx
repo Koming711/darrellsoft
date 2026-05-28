@@ -33,7 +33,7 @@ function userKey(base: string): string {
 const STORAGE_KEY = () => userKey('potong-kertas-form')
 const STORAGE_RESULTS_KEY = () => userKey('potong-kertas-results')
 const STORAGE_VERSION_KEY = () => userKey('potong-kertas-form-version')
-const STORAGE_VERSION = 'v7'
+const STORAGE_VERSION = 'v6'
 
 interface FormData {
   paperWidth: string
@@ -51,7 +51,6 @@ interface FormData {
   printName: string
   isCustomPaper: boolean
   optimizationMode: string
-  nomorPotongKertas: string
 }
 
 function getInitialFormState(): FormData {
@@ -60,7 +59,6 @@ function getInitialFormState(): FormData {
       paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
       selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '',
       quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
-      nomorPotongKertas: '',
     }
   }
   try {
@@ -77,7 +75,6 @@ function getInitialFormState(): FormData {
     paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
     selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '',
     quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
-    nomorPotongKertas: '',
   }
 }
 
@@ -224,43 +221,12 @@ function CalculatorPage() {
   // Flag to skip selectedPaper useEffect during restore
   const isRestoringRef = useRef(false)
 
-  // Nomor Potong Kertas (auto-generated)
-  const [nomorPotongKertas, setNomorPotongKertas] = useState(initialForm.current.nomorPotongKertas || '')
-
   // Riwayat states
   const [savingRiwayat, setSavingRiwayat] = useState(false)
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
   const [needsRecalc, setNeedsRecalc] = useState(false)
   const justCalculatedRef = useRef(false)
   const [riwayatList, setRiwayatList] = useState<any[]>([])
-
-  // Auto-generate next PK number from riwayat list
-  const generateNextPKNumber = useCallback(() => {
-    const now = new Date()
-    const m = String(now.getMonth() + 1).padStart(2, '0')
-    const y = String(now.getFullYear()).slice(-2)
-    const prefix = `PK/${m}/${y}/`
-    // Find the highest number with this prefix
-    let maxNum = 0
-    for (const r of riwayatList) {
-      const nomor = r.nomorPotongKertas || ''
-      if (nomor.startsWith(prefix)) {
-        const numPart = parseInt(nomor.slice(prefix.length), 10)
-        if (numPart > maxNum) maxNum = numPart
-      }
-    }
-    const nextNum = String(maxNum + 1).padStart(4, '0')
-    return `${prefix}${nextNum}`
-  }, [riwayatList])
-
-  // Generate number on first load or when list loads
-  const numberGeneratedRef = useRef(false)
-  useEffect(() => {
-    if (!numberGeneratedRef.current) {
-      setNomorPotongKertas(generateNextPKNumber())
-      numberGeneratedRef.current = true
-    }
-  }, [riwayatList, generateNextPKNumber])
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -274,7 +240,6 @@ function CalculatorPage() {
     paperWidth, paperHeight, cutWidth, cutHeight,
     selectedCustomerId, selectedPaperId, grammage, pricePerSheet,
     quantity, jumlahPesanan, berapaMata, setelanKertas, printName, isCustomPaper, optimizationMode,
-    nomorPotongKertas,
   }
 
   useEffect(() => {
@@ -586,7 +551,6 @@ function CalculatorPage() {
     setRestoredRiwayatId(null)
     setNeedsRecalc(false)
     restoreDoneRef.current = false
-    setNomorPotongKertas(generateNextPKNumber())
     localStorage.removeItem(STORAGE_KEY())
     localStorage.removeItem(STORAGE_RESULTS_KEY())
     toast.success('Data berhasil direset')
@@ -604,7 +568,6 @@ function CalculatorPage() {
   }
 
   const buildPayload = () => ({
-    nomorPotongKertas,
     namaCustomer: selectedCustomer?.name || '-',
     resultData: results ? JSON.stringify(results) : '',
     namaCetakan: printName || '-',
@@ -649,7 +612,6 @@ function CalculatorPage() {
     setOptimizationMode('maximal')
     setCustomerInput('')
     setExtraCosts([])
-    setNomorPotongKertas(generateNextPKNumber())
     localStorage.removeItem(STORAGE_KEY())
     localStorage.removeItem(STORAGE_RESULTS_KEY())
   }
@@ -836,7 +798,6 @@ function CalculatorPage() {
     // Set flag to prevent selectedPaper useEffect from overriding restored values
     isRestoringRef.current = true
     setRestoredRiwayatId(r.id)
-    setNomorPotongKertas(r.nomorPotongKertas || '')
     setPrintName(r.namaCetakan || '')
     setGrammage(r.grammage || '')
     setPaperWidth(r.paperWidth || '')
@@ -1222,15 +1183,15 @@ function CalculatorPage() {
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/80">
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-7">#</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[14%]">Nomor</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[10%]">Tgl</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[14%]">Customer</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[14%]">Nama Barang</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell w-[8%]">Kertas</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell w-[8%]">Uk. Kertas</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[12%]">Tgl</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[22%]">Customer</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[18%]">Nama Barang</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Kertas</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Kertas</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Potong</th>
             <th className="text-right py-1 px-2 text-slate-500 font-semibold whitespace-nowrap w-14">Jml</th>
-            <th className="text-right py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[16%]">Total</th>
-            <th className="text-center py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[14%]">Aksi</th>
+            <th className="text-right py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[20%]">Total</th>
+            <th className="text-center py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[16%]">Aksi</th>
           </tr>
         </thead>
         <tbody>
@@ -1238,21 +1199,21 @@ function CalculatorPage() {
             return (
               <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
                 <td className="py-1 px-1 text-slate-400">{idx + 1}</td>
-                <td className="py-1 px-1 text-blue-700 font-semibold whitespace-nowrap text-[13px]">
-                  {r.nomorPotongKertas || '-'}
-                </td>
                 <td className="py-1 px-1 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                <td className="py-1 px-1 text-slate-700 font-medium truncate hidden md:table-cell">
+                <td className="py-1 px-1 text-slate-700 font-medium truncate">
                   {r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-600 truncate hidden md:table-cell">
+                <td className="py-1 px-1 text-slate-600 truncate">
                   {r.namaCetakan || '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-600 truncate hidden lg:table-cell">
+                <td className="py-1 px-1 text-slate-600 truncate hidden md:table-cell">
                   {r.paperName || '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden md:table-cell">
                   {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
+                </td>
+                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden md:table-cell">
+                  {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
                 </td>
                 <td className="py-1 px-2 text-slate-600 text-right whitespace-nowrap">
                   {parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}
@@ -1307,10 +1268,6 @@ function CalculatorPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-2.5">
             <div className="space-y-1.5">
               <div className="space-y-1.5">
-                <div>
-                  <label className={lbl}>No. Potong Kertas</label>
-                  <input type="text" value={nomorPotongKertas} readOnly className={inpDisabled} />
-                </div>
                 <div className="relative">
                   <label className={lbl}>{t('nama_customer')}</label>
                   <div ref={customerWrapperRef} className="relative">

@@ -244,30 +244,29 @@ model RiwayatHargaKertas {
 }
 
 model RiwayatPotongKertas {
-  id                String   @id @default(cuid())
-  nomorPotongKertas String   @default("")
-  namaCustomer      String   @default("")
-  namaCetakan       String
-  paperName         String
-  paperId           String   @default("")
-  grammage          String   @default("0")
-  paperWidth        String   @default("0")
-  paperHeight       String   @default("0")
-  cutWidth          String   @default("0")
-  cutHeight         String   @default("0")
-  quantity          String   @default("0")
-  setelanKertas     String   @default("0")
-  sheetsNeeded      String   @default("0")
-  totalPrice        Float    @default(0)
-  pricePerSheet     Float    @default(0)
-  efficiency        Float    @default(0)
-  strategy          String   @default("")
-  jumlahPesanan     String   @default("")
-  berapaMata        String   @default("")
-  resultData        String   @default("")
-  userId            String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(cuid())
+  namaCustomer    String   @default("")
+  namaCetakan     String
+  paperName       String
+  paperId         String   @default("")
+  grammage        String   @default("0")
+  paperWidth      String   @default("0")
+  paperHeight     String   @default("0")
+  cutWidth        String   @default("0")
+  cutHeight       String   @default("0")
+  quantity        String   @default("0")
+  setelanKertas   String   @default("0")
+  sheetsNeeded    String   @default("0")
+  totalPrice      Float    @default(0)
+  pricePerSheet   Float    @default(0)
+  efficiency      Float    @default(0)
+  strategy        String   @default("")
+  jumlahPesanan   String   @default("")
+  berapaMata      String   @default("")
+  resultData      String   @default("")
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Invoice {
@@ -371,4 +370,15 @@ model DocumentHistory {
   dataJson   String
   userId     String?
   createdAt  DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  userType  String   @default("pengguna") // "pengguna" or "calon_pembeli"
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
