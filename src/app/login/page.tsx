@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound } from 'lucide-react'
+import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
@@ -748,6 +748,13 @@ function LoginContent() {
                 <h3 className="text-lg font-bold text-slate-800">Lupa Password?</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Atur ulang password Anda melalui email.</p>
               </div>
+              <button
+                type="button"
+                onClick={closeFpDialog}
+                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {/* === SUCCESS STATE === */}
