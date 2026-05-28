@@ -293,13 +293,15 @@ function LoginContent() {
         return
       }
 
+      // Always set fpSuccess=true so dialog transitions to result state
+      setFpSuccess(true)
+
       if (data.passwordSent) {
         // Password sent successfully to WhatsApp
         setFpWaSent(true)
         setFpWaMessage(data.message || 'Password baru telah dikirim ke WhatsApp Anda.')
-        setFpSuccess(true)
       } else {
-        // WA failed but password was changed — show temp password
+        // WA failed but password was changed — show temp password as fallback
         setFpWaSent(false)
         setFpWaError(data.waError || 'Gagal mengirim ke WhatsApp')
         setFpTempPassword(data.tempPassword || '')
