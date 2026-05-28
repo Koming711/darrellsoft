@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email tidak ditemukan.' }, { status: 404 })
     }
 
-    // Reset password by phone (direct)
+    // Reset password by phone (direct - used when user manually sets password)
     if (action === 'reset-phone') {
       if (!phone || typeof phone !== 'string' || !phone.trim()) {
         return NextResponse.json({ error: 'Nomor WhatsApp wajib diisi' }, { status: 400 })
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nomor WhatsApp tidak ditemukan.' }, { status: 404 })
     }
 
-    // Send password to WhatsApp (generate random password & send via WA API)
+    // Send password to WhatsApp ONLY — never show on screen (secure)
     if (action === 'send-wa') {
       if (!phone || typeof phone !== 'string' || !phone.trim()) {
         return NextResponse.json({ error: 'Nomor WhatsApp wajib diisi' }, { status: 400 })
@@ -202,10 +202,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Nomor WhatsApp tidak ditemukan.' }, { status: 404 })
       }
 
+      // Check if WhatsApp API is configured first
+      const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
+      const apiKey = apiKeySetting?.value?.trim()
+
+      if (!apiKey) {
+        return NextResponse.json({
+          error: 'Fitur kirim password via WhatsApp belum dikonfigurasi oleh administrator. Silakan gunakan metode "Via Email" atau hubungi administrator.',
+        }, { status: 400 })
+      }
+
       // Generate random temporary password
       const tempPassword = generateRandomPassword(8)
 
-      // Update the password in database
+      // Send password to WhatsApp FIRST (before updating DB)
+      const waMessage = `🔐 *Reset Password Berhasil*\n\nHalo *${foundUser.name}*,\n\nPassword akun Anda telah direset. Berikut password baru Anda:\n\n🔑 *${tempPassword}*\n\nSilakan login dengan password di atas, lalu segera ubah password di menu profil untuk keamanan.\n\n— Darrell Soft`
+
+      const waResult = await sendWhatsAppMessage(foundUser.nomorHP, waMessage)
+
+      if (!waResult.success) {
+        // WA failed — DO NOT update password, DO NOT show password on screen
+        return NextResponse.json({
+          error: `Gagal mengirim password ke WhatsApp: ${waResult.error}. Password tidak diubah. Silakan coba lagi atau gunakan metode "Via Email".`,
+        }, { status: 500 })
+      }
+
+      // WA sent successfully — NOW update the password
       if (foundUser.type === 'pengguna') {
         await db.pengguna.update({
           where: { id: foundUser.id },
@@ -215,22 +237,6 @@ export async function POST(request: NextRequest) {
         await db.calonPembeli.update({
           where: { id: foundUser.id },
           data: { password: tempPassword },
-        })
-      }
-
-      // Send password to WhatsApp
-      const waMessage = `🔐 *Reset Password Berhasil*\n\nHalo *${foundUser.name}*,\n\nPassword akun Anda telah direset. Berikut password sementara Anda:\n\n🔑 *${tempPassword}*\n\nSilakan login dengan password di atas, lalu segera ubah password Anda di menu profil untuk keamanan.\n\n— Darrell Soft`
-
-      const waResult = await sendWhatsAppMessage(foundUser.nomorHP, waMessage)
-
-      if (!waResult.success) {
-        // Password was updated but WA failed — still return success with a warning
-        return NextResponse.json({
-          success: true,
-          passwordSent: false,
-          waError: waResult.error,
-          message: 'Password berhasil diubah, tapi gagal dikirim ke WhatsApp. Silakan gunakan metode lain atau hubungi administrator.',
-          tempPassword: tempPassword, // Only show when WA fails
         })
       }
 
