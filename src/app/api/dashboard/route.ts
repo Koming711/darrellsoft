@@ -241,6 +241,88 @@ export async function GET(request: NextRequest) {
     // Uang Capek Hari Ini: from RiwayatCetakan profitAmount (only when invoices exist)
     const todayUangCapek = todayInvoiceHistory.length > 0 ? (todayCetakanAgg._sum.profitAmount || 0) : 0
 
+    // ====== Sales Pipeline: grouped by nomorUrut ======
+    // Get recent RiwayatCetakan as the base for the pipeline
+    const pipelineCetakan = await db.riwayatCetakan.findMany({
+      where: combinedFilter,
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+      select: { id: true, nomorUrut: true, type: true, printName: true, customerName: true, grandTotal: true, profitAmount: true, createdAt: true },
+    })
+
+    // Collect nomorUruts and IDs for batch lookups
+    const pipelineNomorUruts = pipelineCetakan.map(c => c.nomorUrut).filter(Boolean)
+    const pipelineCetakanIds = pipelineCetakan.map(c => c.id)
+
+    // Find matching Potong Kertas records (same nomorUrut)
+    const matchingPKs = pipelineNomorUruts.length > 0
+      ? await db.riwayatPotongKertas.findMany({
+          where: { nomorUrut: { in: pipelineNomorUruts } },
+          select: { id: true, nomorUrut: true, totalPrice: true },
+        })
+      : []
+
+    // Find Invoices linked to these cetakan records
+    const linkedInvoices = pipelineCetakanIds.length > 0
+      ? await db.invoice.findMany({
+          where: { riwayatCetakanId: { in: pipelineCetakanIds } },
+          select: { id: true, riwayatCetakanId: true, invoiceNumber: true },
+        })
+      : []
+
+    // Find Surat Jalan linked to these cetakan records
+    const linkedSJs = pipelineCetakanIds.length > 0
+      ? await db.suratJalan.findMany({
+          where: { riwayatCetakanId: { in: pipelineCetakanIds } },
+          select: { id: true, riwayatCetakanId: true, suratJalanNumber: true },
+        })
+      : []
+
+    // Find Purchase Orders from DocumentHistory with matching referensi in cetakan printNames
+    const pipelinePrintNames = pipelineCetakan.map(c => c.printName).filter(Boolean)
+    const linkedPOs = pipelinePrintNames.length > 0
+      ? await db.documentHistory.findMany({
+          where: { docType: 'purchase-order', ...dataFilter, ...dateFilter },
+          select: { id: true, nomor: true, pihakKedua: true, dataJson: true },
+        })
+      : []
+
+    // Build lookup maps
+    const pkByNomorUrut = new Map(matchingPKs.map(pk => [pk.nomorUrut, pk]))
+    const invoiceByCetakanId = new Map(linkedInvoices.map(inv => [inv.riwayatCetakanId, inv]))
+    const sjByCetakanId = new Map(linkedSJs.map(sj => [sj.riwayatCetakanId, sj]))
+
+    // Build PO lookup: check if PO's dataJson referensi matches any cetakan printName
+    const poByReferensi = new Map<string, { id: string; nomor: string }>()
+    for (const po of linkedPOs) {
+      try {
+        const data = JSON.parse(po.dataJson)
+        const referensi = data.referensi || ''
+        if (referensi) {
+          poByReferensi.set(referensi, { id: po.id, nomor: po.nomor })
+        }
+      } catch {}
+    }
+
+    // Build pipeline data
+    const salesPipeline = pipelineCetakan.map(c => ({
+      id: c.id,
+      nomorUrut: c.nomorUrut,
+      customerName: c.customerName,
+      printName: c.printName,
+      grandTotal: c.grandTotal,
+      profitAmount: c.profitAmount,
+      createdAt: c.createdAt,
+      hasPK: pkByNomorUrut.has(c.nomorUrut),
+      pkTotalPrice: pkByNomorUrut.get(c.nomorUrut)?.totalPrice || 0,
+      hasInvoice: invoiceByCetakanId.has(c.id),
+      invoiceNumber: invoiceByCetakanId.get(c.id)?.invoiceNumber || null,
+      hasSJ: sjByCetakanId.has(c.id),
+      suratJalanNumber: sjByCetakanId.get(c.id)?.suratJalanNumber || null,
+      hasPO: poByReferensi.has(c.printName),
+      poNumber: poByReferensi.get(c.printName)?.nomor || null,
+    }))
+
     return NextResponse.json({
       expiryInfo,
       summary: {
@@ -278,6 +360,7 @@ export async function GET(request: NextRequest) {
       recent: {
         cetakan: recentCetakan,
         potongKertas: recentPotongKertas,
+        salesPipeline,
         invoice: recentInvoice.map(inv => {
           let total = 0
           let itemCount = 0
