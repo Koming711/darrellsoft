@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Search, Eye, Loader2, Receipt, Printer } from 'lucide-react'
+import { Search, Eye, Loader2, Receipt } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
@@ -162,10 +162,6 @@ export default function RiwayatPage() {
   const handlePreview = (item: HistoryEntry) => {
     setPreviewItem(item)
     setPreviewOpen(true)
-  }
-
-  const handlePrint = () => {
-    window.print()
   }
 
   const invoiceData = useMemo(() => {
@@ -330,14 +326,6 @@ export default function RiwayatPage() {
         >
           {/* sr-only title for accessibility, no visible header */}
           <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
-
-          {/* Compact action bar */}
-          <div className="flex items-center justify-end px-3 pt-3 pb-1">
-            <button onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
-              <Printer className="w-3.5 h-3.5" /> Cetak
-            </button>
-          </div>
 
           {invoiceData && (
             <div className="px-2 pb-3 sm:px-3 lg:px-4" ref={previewWrapperRef} id="document-preview">
