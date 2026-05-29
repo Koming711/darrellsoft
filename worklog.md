@@ -125,3 +125,22 @@ Stage Summary:
 - PO/Invoice/SJ auto-fill from reference is now reliable — direct API fetch eliminates the race condition with list loading
 - All three document editors consistently use the same robust auto-select pattern
 - Pages tested and load correctly (HTTP 200)
+---
+Task ID: riwayat-preview-invoice
+Agent: main
+Task: Make Preview button on Riwayat Penjualan show the actual Invoice pratinjau (same as Invoice page)
+
+Work Log:
+- Investigated invoice preview architecture: InvoicePreview component renders A5-format visual invoice inside `.a5-preview-container`
+- Removed delete button from Riwayat Penjualan page (user request: "tombol delete di halaman riwayat penjualan di delete")
+- Replaced the simple text-based preview dialog with InvoicePreview component rendering
+- Added `parseInvoiceData()` function to reconstruct `InvoiceData` from stored `dataJson`
+- Preserved company info from stored data with fallback to `DEFAULT_COMPANY`
+- Added A5 preview container (same as Invoice page) with proper aspect ratio
+- Added "Cetak" (Print) button in preview dialog header
+- Cleaned up unused imports (Trash2, History, Calendar, useMemo re-added for invoiceData memoization)
+
+Stage Summary:
+- Preview button now shows the actual invoice pratinjau image (A5 format with company logo, items table, totals, terbilang, signatures, footer)
+- Delete button removed from Riwayat Penjualan page
+- Page loads successfully (HTTP 200)
