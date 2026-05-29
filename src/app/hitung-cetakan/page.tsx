@@ -2345,7 +2345,11 @@ function HitungCetakanPage() {
               <tbody>
                 {riwayatCetakanList.slice(0, 50).map((r, idx) => (
                   <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                    <td className="py-2 px-2 text-slate-600 font-mono font-semibold text-xs whitespace-nowrap">{r.nomorUrut || (idx + 1)}</td>
+                    <td className="py-2 px-2 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide bg-blue-50 text-blue-700 border border-blue-200">
+                        {r.nomorUrut || (idx + 1)}
+                      </span>
+                    </td>
                     <td className="py-2 px-2 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
                     <td className="py-2 px-2 text-slate-700 font-medium max-w-[120px] truncate">
                       {r.customerName && r.customerName !== '' ? r.customerName : '-'}

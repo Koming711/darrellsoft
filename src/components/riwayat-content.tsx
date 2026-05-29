@@ -237,9 +237,14 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
     {
       key: 'nomorUrut',
       title: 'Nomor',
-      render: (h: RiwayatItem) => (
-        <span className="text-xs font-mono font-semibold text-slate-600 whitespace-nowrap">{h.nomorUrut || '-'}</span>
-      )
+      render: (h: RiwayatItem) => {
+        const isPotong = h.type !== 'hitung_cetakan'
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide ${isPotong ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+            {h.nomorUrut || '-'}
+          </span>
+        )
+      }
     },
     {
       key: 'jenis',

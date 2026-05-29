@@ -237,7 +237,16 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                 return (
                   <TableRow key={entry.id} className="group">
                     <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
-                    <TableCell className="py-2.5 text-xs font-medium text-gray-900">{entry.nomor}</TableCell>
+                    <TableCell className="py-2.5 text-xs">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide ${
+                        entry.docType === 'invoice' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                        entry.docType === 'surat-jalan' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                        entry.docType === 'purchase-order' ? 'bg-violet-50 text-violet-700 border border-violet-200' :
+                        'bg-slate-50 text-slate-700 border border-slate-200'
+                      }`}>
+                        {entry.nomor}
+                      </span>
+                    </TableCell>
                     <TableCell className="py-2.5 text-xs text-gray-500">
                       {entry.tanggal ? formatTanggal(entry.tanggal) : '-'}
                     </TableCell>
