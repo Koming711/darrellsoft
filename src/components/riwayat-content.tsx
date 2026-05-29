@@ -14,6 +14,7 @@ import { useDataChange } from '@/hooks/use-data-change'
 
 interface RiwayatItem {
   id: string
+  nomorUrut: string
   type: string
   printName: string
   customerName: string
@@ -233,6 +234,13 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
   const isItemHitungCetak = (h: RiwayatItem) => h.type === 'hitung_cetakan'
 
   const columns = [
+    {
+      key: 'nomorUrut',
+      title: 'Nomor',
+      render: (h: RiwayatItem) => (
+        <span className="text-xs font-mono font-semibold text-slate-600 whitespace-nowrap">{h.nomorUrut || '-'}</span>
+      )
+    },
     {
       key: 'jenis',
       title: 'Jenis',

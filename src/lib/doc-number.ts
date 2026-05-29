@@ -8,9 +8,9 @@ import { db } from '@/lib/db'
  * Format: {prefix}-{YYYYMM}-{NNNN} e.g. INV-202501-0001
  */
 export async function generateDocNumber(
-  model: 'invoice' | 'suratJalan' | 'purchaseOrder',
-  numberField: 'invoiceNumber' | 'suratJalanNumber' | 'poNumber',
-  prefix: 'INV' | 'SJ' | 'PO',
+  model: 'invoice' | 'suratJalan' | 'purchaseOrder' | 'riwayatCetakan' | 'riwayatPotongKertas',
+  numberField: 'invoiceNumber' | 'suratJalanNumber' | 'poNumber' | 'nomorUrut',
+  prefix: 'INV' | 'SJ' | 'PO' | 'HC' | 'PK',
   dataFilter: Record<string, any>,
   maxRetries = 3
 ): Promise<string> {

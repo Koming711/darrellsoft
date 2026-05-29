@@ -1203,7 +1203,7 @@ function CalculatorPage() {
       <table className="w-full text-[14px] min-w-[600px] table-fixed">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/80">
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-7">#</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[90px]">Nomor</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[12%]">Tgl</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[22%]">Customer</th>
             <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[18%]">Nama Barang</th>
@@ -1219,7 +1219,7 @@ function CalculatorPage() {
           {items.map((r, idx) => {
             return (
               <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                <td className="py-1 px-1 text-slate-400">{idx + 1}</td>
+                <td className="py-1 px-1 text-slate-600 font-mono font-semibold text-xs whitespace-nowrap">{r.nomorUrut || (idx + 1)}</td>
                 <td className="py-1 px-1 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
                 <td className="py-1 px-1 text-slate-700 font-medium truncate">
                   {r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}
