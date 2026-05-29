@@ -136,7 +136,6 @@ model Setting {
 
 model RiwayatCetakan {
   id                 String   @id @default(cuid())
-  nomorUrut          String   @default("")  @unique
   type               String   @default("hitung_cetakan")
   printName          String
   customerName       String   @default("")
@@ -246,7 +245,6 @@ model RiwayatHargaKertas {
 
 model RiwayatPotongKertas {
   id              String   @id @default(cuid())
-  nomorUrut       String   @default("")  @unique
   namaCustomer    String   @default("")
   namaCetakan     String
   paperName       String
