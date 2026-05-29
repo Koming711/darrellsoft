@@ -175,11 +175,11 @@ export default function RiwayatPage() {
     const updateScale = () => {
       const vw = window.innerWidth
       const vh = window.innerHeight
-      // Popup margins: 16px each side on mobile, dialog padding + close button
       const marginX = 24 // dialog margin left+right
-      const marginY = 48 // dialog margin top+bottom + close button area
+      const marginY = 32 // dialog margin top+bottom
+      const topPad = 48  // pt-10 (40px) + p-2 bottom (8px)
       const availW = vw - marginX * 2
-      const availH = vh - marginY * 2
+      const availH = vh - marginY * 2 - topPad // subtract top padding for close button
       setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
     }
     if (previewOpen) {
@@ -313,10 +313,10 @@ export default function RiwayatPage() {
       {/* ===== PREVIEW DIALOG — Invoice A5 popup ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent
-          className="max-w-none w-auto overflow-hidden p-2 gap-0"
+          className="max-w-none w-auto overflow-hidden p-2 pt-10 gap-0"
           style={{
             width: `${576 * previewScale + 16}px`,   // scaled width + padding
-            maxHeight: `calc(100dvh - 48px)`,
+            maxHeight: `calc(100dvh - 32px)`,
           }}
           aria-label="Pratinjau Invoice"
         >
