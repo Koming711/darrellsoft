@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter } from '@/lib/server-auth'
 
+const SLASH_FORMAT_PREFIXES = ['PK', 'HC']
+
 function buildDatePrefix(prefix: string, year: number, month: string): string {
-  if (prefix === 'PK') {
+  if (SLASH_FORMAT_PREFIXES.includes(prefix)) {
     const yy = String(year).slice(-2)
     return `${prefix}/${month}/${yy}`
   }
@@ -11,7 +13,7 @@ function buildDatePrefix(prefix: string, year: number, month: string): string {
 }
 
 function parseLastSeq(number: string, prefix: string): number {
-  if (prefix === 'PK') {
+  if (SLASH_FORMAT_PREFIXES.includes(prefix)) {
     const parts = number.split('/')
     const lastNum = parseInt(parts[parts.length - 1], 10)
     return isNaN(lastNum) ? 0 : lastNum
@@ -22,7 +24,7 @@ function parseLastSeq(number: string, prefix: string): number {
 }
 
 function buildDocNumber(datePrefix: string, seq: number, prefix: string): string {
-  if (prefix === 'PK') {
+  if (SLASH_FORMAT_PREFIXES.includes(prefix)) {
     return `${datePrefix}/${String(seq).padStart(4, '0')}`
   }
   return `${datePrefix}-${String(seq).padStart(4, '0')}`
@@ -36,9 +38,9 @@ export async function GET(request: NextRequest) {
     }
     const dataFilter = await getDataFilter(user)
     const { searchParams } = new URL(request.url)
-    const model = searchParams.get('model') // 'riwayatPotongKertas' | 'riwayatCetakan'
-    const field = searchParams.get('field') // 'nomorUrut'
-    const prefix = searchParams.get('prefix') // 'PK' | 'HC'
+    const model = searchParams.get('model')
+    const field = searchParams.get('field')
+    const prefix = searchParams.get('prefix')
 
     if (!model || !field || !prefix) {
       return NextResponse.json({ error: 'Missing model, field, or prefix' }, { status: 400 })
