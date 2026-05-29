@@ -55,17 +55,17 @@ const menuItems = [
     section: 'hitung_biaya_produksi',
   },
   {
-    titleKey: 'invoice' as TranslationKey,
-    href: '/invoice',
-    icon: Receipt,
-    featureId: 'invoice',
-    section: 'dokumen',
-  },
-  {
     titleKey: 'surat_jalan' as TranslationKey,
     href: '/surat-jalan',
     icon: Truck,
     featureId: 'surat-jalan',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'invoice' as TranslationKey,
+    href: '/invoice',
+    icon: Receipt,
+    featureId: 'invoice',
     section: 'dokumen',
   },
   {
