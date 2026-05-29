@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { History, Search, Eye, Trash2, Loader2, FileText, Receipt, Calendar } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Search, Eye, Loader2, FileText, Receipt } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
@@ -106,24 +106,6 @@ export default function RiwayatPage() {
     setPreviewOpen(true)
   }
 
-  const handleDelete = async (item: HistoryEntry) => {
-    if (!confirm('Beneran mau dihapus nih?')) return
-    try {
-      const res = await authFetch(`/api/history/${item.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      })
-      if (res.ok) {
-        toast.success('Riwayat invoice berhasil dihapus')
-        setHistories(prev => prev.filter(h => h.id !== item.id))
-      } else {
-        toast.error('Gagal menghapus riwayat')
-      }
-    } catch {
-      toast.error('Gagal menghapus riwayat')
-    }
-  }
-
   const filteredHistories = histories.filter(h => {
     const term = searchTerm.toLowerCase()
     const info = parseDocInfo(h)
@@ -223,7 +205,6 @@ export default function RiwayatPage() {
               data={filteredHistories}
               columns={columns}
               keyField="id"
-              onDelete={handleDelete}
               showAsButtons={true}
               emptyMessage="Belum ada riwayat invoice"
               emptyIcon={<Receipt className="w-12 h-12 mx-auto text-slate-400" />}
@@ -238,10 +219,6 @@ export default function RiwayatPage() {
                   <button onClick={() => handlePreview(item)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
                     <Eye className="w-3.5 h-3.5" /> Preview
-                  </button>
-                  <button onClick={() => handleDelete(item)}
-                    className="py-2 px-3 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
