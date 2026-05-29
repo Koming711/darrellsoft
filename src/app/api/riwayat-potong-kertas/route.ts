@@ -5,8 +5,24 @@ import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 export async function GET(request: NextRequest) {
   try {
     const user = getServerUser(request)
+    const dataFilter = await getDataFilter(user)
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    // If an ID is provided, fetch a single specific record
+    if (id) {
+      const riwayat = await db.riwayatPotongKertas.findFirst({
+        where: { id, ...dataFilter }
+      })
+      if (!riwayat) {
+        return NextResponse.json({ error: 'Riwayat not found' }, { status: 404 })
+      }
+      return NextResponse.json(riwayat)
+    }
+
+    // Otherwise fetch all records
     const riwayat = await db.riwayatPotongKertas.findMany({
-      where: await getDataFilter(user),
+      where: dataFilter,
       orderBy: { createdAt: 'desc' }
     })
     return NextResponse.json(riwayat)

@@ -234,8 +234,10 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
-    const todaySales = (todayCetakanAgg._sum.grandTotal || 0) + todayInvoiceRevenue
-    const todayOrderCount = todayCetakanAgg._count + todayInvoiceHistory.length
+    // Pendapatan Hari Ini should be based on invoices only (actual sales),
+    // not from RiwayatCetakan (which are just calculations/quotes)
+    const todaySales = todayInvoiceRevenue
+    const todayOrderCount = todayInvoiceHistory.length
     const todayUangCapek = todayCetakanAgg._sum.profitAmount || 0
 
     return NextResponse.json({

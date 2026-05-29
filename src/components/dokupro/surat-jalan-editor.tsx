@@ -93,54 +93,7 @@ export function SuratJalanEditor() {
   // Sync penerimaInput when sj.penerima.nama changes externally
   useEffect(() => { setPenerimaInput(sj.penerima.nama) }, [sj.penerima.nama]);
 
-  // Auto-select invoice when coming from Invoice page with invoiceId
-  // Uses functional setSuratJalan to avoid stale closure
-  // Retry up to 3 times if the invoice isn't in the list yet
-  useEffect(() => {
-    if (!invoiceIdFromUrl) return;
-    if (autoSelectDoneRef.current === invoiceIdFromUrl) return;
-
-    const found = invoiceList.find((inv) => String(inv.id) === String(invoiceIdFromUrl));
-    if (!found) {
-      let attempts = 0;
-      const retry = async () => {
-        if (autoSelectDoneRef.current === invoiceIdFromUrl) return;
-        attempts++;
-        if (attempts > 3) return;
-        await new Promise(r => setTimeout(r, 500));
-        const data = await fetchInvoiceHistory();
-        const retryFound = (data as InvoiceHistoryItem[]).find((inv) => String(inv.id) === String(invoiceIdFromUrl));
-        if (retryFound) {
-          autoSelectDoneRef.current = invoiceIdFromUrl;
-          handleInvoiceSelect(retryFound);
-        } else {
-          retry();
-        }
-      };
-      retry();
-      return;
-    }
-
-    autoSelectDoneRef.current = invoiceIdFromUrl;
-    handleInvoiceSelect(found);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceIdFromUrl, invoiceList]);
-
-  // Filter invoice list by input
-  const filteredInvoiceList = invoiceList.filter((inv) => {
-    const search = referensiInput.toLowerCase().trim();
-    if (!search) return true;
-    const nomor = (inv.nomor || '').toLowerCase();
-    const pihak = (inv.pihakKedua || '').toLowerCase();
-    return nomor.includes(search) || pihak.includes(search);
-  });
-
-  const handleReferensiInputChange = (value: string) => {
-    setReferensiInput(value);
-    setSuratJalan((prev) => ({ ...prev, referensi: value }));
-    setDropdownOpen(true);
-  };
-
+  // Handle invoice selection — defined before auto-select effect to avoid hoisting issues
   const handleInvoiceSelect = (inv: InvoiceHistoryItem) => {
     try {
       const invoiceData: InvoiceData = JSON.parse(inv.dataJson);
@@ -169,6 +122,75 @@ export function SuratJalanEditor() {
     }
     setReferensiInput(inv.nomor);
     setDropdownOpen(false);
+  };
+
+  // Auto-select invoice when coming from Invoice page with invoiceId
+  // Fetches the specific invoice directly by ID for reliability (no race condition with list loading)
+  useEffect(() => {
+    if (!invoiceIdFromUrl) return;
+    if (autoSelectDoneRef.current === invoiceIdFromUrl) return;
+
+    let cancelled = false;
+
+    const fetchAndApply = async () => {
+      // First, try to find it in the already-loaded list (fast path)
+      const foundInList = invoiceList.find((inv) => String(inv.id) === String(invoiceIdFromUrl));
+      if (foundInList) {
+        if (!cancelled) {
+          autoSelectDoneRef.current = invoiceIdFromUrl;
+          handleInvoiceSelect(foundInList);
+        }
+        return;
+      }
+
+      // Not in list yet — fetch directly by ID from the API (reliable path)
+      try {
+        const res = await fetch(`/api/history/${invoiceIdFromUrl}`, { headers: getAuthHeaders() });
+        if (res.ok && !cancelled) {
+          const result = await res.json();
+          if (result.success && result.data) {
+            autoSelectDoneRef.current = invoiceIdFromUrl;
+            handleInvoiceSelect(result.data as InvoiceHistoryItem);
+          }
+        }
+      } catch {
+        // Fallback: retry once after a short delay
+        if (cancelled) return;
+        await new Promise(r => setTimeout(r, 800));
+        if (cancelled) return;
+        try {
+          const res = await fetch(`/api/history/${invoiceIdFromUrl}`, { headers: getAuthHeaders() });
+          if (res.ok) {
+            const result = await res.json();
+            if (result.success && result.data) {
+              autoSelectDoneRef.current = invoiceIdFromUrl;
+              handleInvoiceSelect(result.data as InvoiceHistoryItem);
+            }
+          }
+        } catch {
+          // Give up silently
+        }
+      }
+    };
+
+    fetchAndApply();
+
+    return () => { cancelled = true; };
+  }, [invoiceIdFromUrl]);
+
+  // Filter invoice list by input
+  const filteredInvoiceList = invoiceList.filter((inv) => {
+    const search = referensiInput.toLowerCase().trim();
+    if (!search) return true;
+    const nomor = (inv.nomor || '').toLowerCase();
+    const pihak = (inv.pihakKedua || '').toLowerCase();
+    return nomor.includes(search) || pihak.includes(search);
+  });
+
+  const handleReferensiInputChange = (value: string) => {
+    setReferensiInput(value);
+    setSuratJalan((prev) => ({ ...prev, referensi: value }));
+    setDropdownOpen(true);
   };
 
   // Filter customer list (only when user is actively typing)

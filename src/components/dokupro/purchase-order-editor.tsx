@@ -107,42 +107,6 @@ export function PurchaseOrderEditor() {
   // Sync pemasokInput when po.pemasok.nama changes externally
   useEffect(() => { setPemasokInput(po.pemasok.nama) }, [po.pemasok.nama]);
 
-  // Auto-select referensi when coming from potong kertas with riwayatId
-  // Uses functional setPurchaseOrder to avoid stale closure over `po`
-  // Retry up to 3 times if the newly saved riwayat isn't in the list yet
-  useEffect(() => {
-    if (!riwayatIdFromUrl) return;
-    // Skip if we already auto-selected this exact riwayatId
-    if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
-
-    const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
-    if (!found) {
-      // Riwayat not in the list yet — could be a newly saved record that hasn't propagated.
-      // Retry up to 3 times with a small delay.
-      let attempts = 0;
-      const retry = async () => {
-        if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
-        attempts++;
-        if (attempts > 3) return;
-        await new Promise(r => setTimeout(r, 500));
-        const data = await fetchRiwayatPotongKertas();
-        const retryFound = (data as RiwayatPotongKertasItem[]).find((r) => r.id === riwayatIdFromUrl);
-        if (retryFound) {
-          autoSelectDoneRef.current = riwayatIdFromUrl;
-          applyReferensi(retryFound);
-        } else {
-          retry();
-        }
-      };
-      retry();
-      return;
-    }
-
-    autoSelectDoneRef.current = riwayatIdFromUrl;
-    applyReferensi(found);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riwayatIdFromUrl, riwayatList]);
-
   // Apply referensi data using functional setPurchaseOrder to avoid stale `po` closure
   const applyReferensi = (item: RiwayatPotongKertasItem) => {
     const ref = item.namaCetakan || item.paperName || '';
@@ -203,6 +167,61 @@ export function PurchaseOrderEditor() {
     }));
     setDropdownOpen(false);
   };
+
+  // Auto-select referensi when coming from potong kertas with riwayatId
+  // Fetches the specific riwayat directly by ID for reliability (no race condition with list loading)
+  useEffect(() => {
+    if (!riwayatIdFromUrl) return;
+    // Skip if we already auto-selected this exact riwayatId
+    if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
+
+    let cancelled = false;
+
+    const fetchAndApply = async () => {
+      // First, try to find it in the already-loaded list (fast path)
+      const foundInList = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+      if (foundInList) {
+        if (!cancelled) {
+          autoSelectDoneRef.current = riwayatIdFromUrl;
+          applyReferensi(foundInList);
+        }
+        return;
+      }
+
+      // Not in list yet — fetch directly by ID from the API (reliable path)
+      try {
+        const res = await fetch(`/api/riwayat-potong-kertas?id=${riwayatIdFromUrl}`, { headers: getAuthHeaders() });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data && !data.error) {
+            autoSelectDoneRef.current = riwayatIdFromUrl;
+            applyReferensi(data as RiwayatPotongKertasItem);
+          }
+        }
+      } catch {
+        // Fallback: retry once after a short delay
+        if (cancelled) return;
+        await new Promise(r => setTimeout(r, 800));
+        if (cancelled) return;
+        try {
+          const res = await fetch(`/api/riwayat-potong-kertas?id=${riwayatIdFromUrl}`, { headers: getAuthHeaders() });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && !data.error) {
+              autoSelectDoneRef.current = riwayatIdFromUrl;
+              applyReferensi(data as RiwayatPotongKertasItem);
+            }
+          }
+        } catch {
+          // Give up silently
+        }
+      }
+    };
+
+    fetchAndApply();
+
+    return () => { cancelled = true; };
+  }, [riwayatIdFromUrl]);
 
   // Filter riwayat list by input
   const filteredRiwayatList = riwayatList.filter((r) => {
