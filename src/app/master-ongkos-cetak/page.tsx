@@ -1,9 +1,8 @@
 'use client'
 
-import { Printer, Plus, Search, Loader2, DollarSign } from 'lucide-react'
+import { Printer, Plus, Search, Loader2, DollarSign, Pencil, Trash2, Cog } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { MobileTable } from '@/components/mobile-table'
 import { Button } from '@/components/ui/button'
 import { DialogForm } from '@/components/dialog-form'
 import { useLanguage } from '@/contexts/language-context'
@@ -13,6 +12,25 @@ import { authFetch } from '@/lib/auth-fetch'
 import { hasSubPermission } from '@/lib/permissions'
 import { notifyDataChange } from '@/lib/data-sync'
 import { useDataChange } from '@/hooks/use-data-change'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface PrintingCost {
   id: string
@@ -29,6 +47,8 @@ interface PrintingCost {
   updatedAt: string
 }
 
+const formatRp = (n: number) => `Rp ${n.toLocaleString('id-ID')}`
+
 export default function MasterOngkosCetakPage() {
   const { t } = useLanguage()
   const currentUser = getAuthUser()
@@ -41,7 +61,7 @@ export default function MasterOngkosCetakPage() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCost, setEditingCost] = useState<PrintingCost | null>(null)
-  const printRef = useRef<HTMLDivElement>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPrintingCosts()
@@ -78,25 +98,23 @@ export default function MasterOngkosCetakPage() {
     setDialogOpen(true)
   }
 
-  const handleDelete = async (cost: PrintingCost) => {
-    if (confirm('Beneran mau dihapus nih?')) {
-      try {
-        const response = await authFetch(`/api/printing-costs/${cost.id}`, {
-          method: 'DELETE'
-        })
-        if (response.ok) {
-          toast.success('Ongkos cetak berhasil dihapus')
-          // Optimistic update: remove from state immediately
-          setPrintingCosts(prev => prev.filter(c => c.id !== cost.id))
-          notifyDataChange('printing-costs')
-        } else {
-          toast.error('Gagal menghapus ongkos cetak')
-        }
-      } catch (error) {
-        console.error('Error deleting printing cost:', error)
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await authFetch(`/api/printing-costs/${id}`, {
+        method: 'DELETE'
+      })
+      if (response.ok) {
+        toast.success('Ongkos cetak berhasil dihapus')
+        setPrintingCosts(prev => prev.filter(c => c.id !== id))
+        notifyDataChange('printing-costs')
+      } else {
         toast.error('Gagal menghapus ongkos cetak')
       }
+    } catch (error) {
+      console.error('Error deleting printing cost:', error)
+      toast.error('Gagal menghapus ongkos cetak')
     }
+    setDeleteId(null)
   }
 
   const handlePrint = () => {
@@ -124,34 +142,27 @@ export default function MasterOngkosCetakPage() {
       </style>
     `)
     printWindow.document.write('</head><body>')
-
-    // Add title
     printWindow.document.write('<h1>Master Ongkos Cetak</h1>')
-
-    // Add print date
     printWindow.document.write(`<p style="text-align: right; font-size: 11px; margin-bottom: 10px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`)
-
-    // Add table
     printWindow.document.write('<table>')
-    printWindow.document.write('<thead>')
-    printWindow.document.write('<tr>')
+    printWindow.document.write('<thead><tr>')
     printWindow.document.write('<th>No</th>')
     printWindow.document.write('<th>Nama Mesin</th>')
+    printWindow.document.write('<th>Grammage</th>')
     printWindow.document.write('<th class="center">Area Cetak (cm)</th>')
     printWindow.document.write('<th class="right">Harga/Warna</th>')
     printWindow.document.write('<th class="right">Warna Khusus</th>')
     printWindow.document.write('<th class="center">Min. Cetak</th>')
     printWindow.document.write('<th class="right">Lebih Cetak/Lembar</th>')
     printWindow.document.write('<th class="right">Plat/Lembar</th>')
-    printWindow.document.write('</tr>')
-    printWindow.document.write('</thead>')
-    printWindow.document.write('<tbody>')
+    printWindow.document.write('</tr></thead><tbody>')
 
     filteredCosts.forEach((cost, index) => {
       printWindow.document.write(`
         <tr>
           <td>${index + 1}</td>
           <td>${cost.machineName}</td>
+          <td>${cost.grammage}g</td>
           <td class="center">${cost.printAreaWidth} x ${cost.printAreaHeight}</td>
           <td class="right">Rp ${cost.pricePerColor.toLocaleString('id-ID')}</td>
           <td class="right">Rp ${cost.specialColorPrice.toLocaleString('id-ID')}</td>
@@ -163,16 +174,10 @@ export default function MasterOngkosCetakPage() {
     })
 
     printWindow.document.write('</tbody></table>')
-
-    // Add footer
     printWindow.document.write('<div class="footer">Total Data: ' + filteredCosts.length + '</div>')
     printWindow.document.write('</body></html>')
     printWindow.document.close()
-
-    setTimeout(() => {
-      printWindow.print()
-    }, 250)
-
+    setTimeout(() => { printWindow.print() }, 250)
     toast.success('Mencetak tabel...')
   }
 
@@ -197,7 +202,6 @@ export default function MasterOngkosCetakPage() {
         const savedCost = await response.json()
         toast.success(editingCost ? 'Ongkos cetak berhasil diperbarui' : 'Ongkos cetak berhasil ditambahkan')
         setDialogOpen(false)
-        // Optimistic update: use API response data to update state immediately
         if (editingCost) {
           setPrintingCosts(prev => prev.map(c => c.id === savedCost.id ? savedCost : c))
         } else {
@@ -213,119 +217,237 @@ export default function MasterOngkosCetakPage() {
     }
   }
 
-  const columns = [
-    {
-      key: 'machineName',
-      title: 'Nama Mesin',
-      render: (cost: PrintingCost) => (
-        <div className="flex items-center gap-3">
-          <DollarSign className="w-5 h-5 text-green-600 flex-shrink-0" />
-          <span className="font-medium text-slate-800 truncate">{cost.machineName}</span>
-        </div>
-      )
-    },
-    {
-      key: 'printArea',
-      title: 'Area Cetak (cm)',
-      render: (cost: PrintingCost) => `${cost.printAreaWidth} x ${cost.printAreaHeight}`
-    },
-    {
-      key: 'pricePerColor',
-      title: 'Harga/Warna',
-      render: (cost: PrintingCost) => (
-        <span className="text-emerald-600 font-medium">
-          Rp {cost.pricePerColor.toLocaleString('id-ID')}
-        </span>
-      )
-    },
-    {
-      key: 'specialColorPrice',
-      title: 'Warna Khusus',
-      render: (cost: PrintingCost) => (
-        <span className="text-blue-600 font-medium">
-          Rp {cost.specialColorPrice.toLocaleString('id-ID')}
-        </span>
-      )
-    },
-    {
-      key: 'minimumPrintQuantity',
-      title: 'Min. Cetak',
-      render: (cost: PrintingCost) => `${cost.minimumPrintQuantity} lembar`
-    },
-    {
-      key: 'priceAboveMinimumPerSheet',
-      title: 'Lebih Cetak/Lembar',
-      render: (cost: PrintingCost) => (
-        <span className="text-orange-600 font-medium">
-          Rp {cost.priceAboveMinimumPerSheet.toLocaleString('id-ID')}
-        </span>
-      )
-    },
-    {
-      key: 'platePricePerSheet',
-      title: 'Harga Plat/Lembar',
-      render: (cost: PrintingCost) => (
-        <span className="text-purple-600 font-medium">
-          Rp {cost.platePricePerSheet.toLocaleString('id-ID')}
-        </span>
-      )
-    }
-  ]
-
   return (
     <DashboardLayout
       title={t('master_ongkos_cetak')}
       subtitle={t('subtitle_master_ongkos_cetak')}
     >
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        {/* Search & Add Button */}
-        <div className="p-4 lg:p-6 border-b border-slate-200 space-y-4 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
-          <div className="relative w-full lg:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 lg:w-5 lg:h-5 text-slate-400" />
+      <div className="space-y-4 sm:space-y-6 pb-6">
+        {/* Header: Search + Actions */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               placeholder="Cari mesin..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 lg:pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
           </div>
-          <div className="flex gap-2 w-full lg:w-auto">
-            <Button onClick={handlePrint} variant="outline" className="flex-1 lg:flex-none">
-              <Printer className="w-4 h-4 mr-2" />
-              Cetak Tabel
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button onClick={handlePrint} variant="outline" size="sm" className="flex-1 sm:flex-none border-slate-200">
+              <Printer className="w-3.5 h-3.5 mr-1.5" />
+              Cetak
             </Button>
             {canAdd && (
-              <Button onClick={handleAdd} className="flex-1 lg:flex-none">
-                <Plus className="w-4 h-4 mr-2" />
-                Tambah Baru
+              <Button onClick={handleAdd} size="sm" className="flex-1 sm:flex-none">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                Tambah
               </Button>
             )}
           </div>
         </div>
 
         {/* Table */}
-        <div className="p-4 lg:p-6 min-h-[600px]">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="ml-2 text-sm text-slate-500">Memuat data...</span>
+          </div>
+        ) : filteredCosts.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center">
+            <DollarSign className="mx-auto h-10 w-10 text-slate-300" />
+            <p className="mt-2 text-sm text-slate-500">Tidak ada data ongkos cetak</p>
+            {searchTerm && (
+              <p className="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian</p>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border bg-white overflow-hidden">
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                    <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-gray-500">Nama Mesin</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-gray-500">Grammage</TableHead>
+                    <TableHead className="text-[11px] font-semibold text-gray-500">Area Cetak</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga/Warna</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Warna Khusus</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Min. Cetak</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Lebih Cetak/Lbr</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Plat/Lembar</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCosts.map((cost, idx) => (
+                    <TableRow key={cost.id} className="group">
+                      <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
+                      <TableCell className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                            <Cog className="w-3.5 h-3.5 text-blue-600" />
+                          </div>
+                          <span className="text-xs font-medium text-slate-800 truncate max-w-[160px]">{cost.machineName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2.5 text-xs text-slate-600">{cost.grammage}g</TableCell>
+                      <TableCell className="py-2.5 text-xs text-slate-600 whitespace-nowrap">{cost.printAreaWidth} × {cost.printAreaHeight} cm</TableCell>
+                      <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700">{formatRp(cost.pricePerColor)}</TableCell>
+                      <TableCell className="py-2.5 text-xs text-right font-medium text-blue-700">{formatRp(cost.specialColorPrice)}</TableCell>
+                      <TableCell className="py-2.5 text-xs text-right text-slate-600">{cost.minimumPrintQuantity} lbr</TableCell>
+                      <TableCell className="py-2.5 text-xs text-right font-medium text-orange-700">{formatRp(cost.priceAboveMinimumPerSheet)}</TableCell>
+                      <TableCell className="py-2.5 text-xs text-right font-medium text-purple-700">{formatRp(cost.platePricePerSheet)}</TableCell>
+                      <TableCell className="py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleEdit(cost)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <AlertDialog open={deleteId === cost.id} onOpenChange={(open) => !open && setDeleteId(null)}>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => setDeleteId(cost.id)}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Hapus Ongkos Cetak?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Data mesin <strong>{cost.machineName}</strong> akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(cost.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Hapus
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          ) : (
-            <div className="w-full">
-              <MobileTable
-                data={filteredCosts}
-                columns={columns}
-                keyField="id"
-                onEdit={canEdit ? handleEdit : undefined}
-                onDelete={canDelete ? handleDelete : undefined}
-                showAsButtons={true}
-                emptyMessage="Tidak ada data ongkos cetak ditemukan"
-                emptyIcon={<DollarSign className="w-16 h-16 mx-auto text-slate-400" />}
-              />
+
+            {/* Mobile Card List */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredCosts.map((cost) => (
+                <div key={cost.id} className="p-4 space-y-3">
+                  {/* Header: Machine Name */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                      <Cog className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{cost.machineName}</p>
+                      <p className="text-[11px] text-slate-400">Grammage: {cost.grammage}g</p>
+                    </div>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2">
+                      <p className="text-[9px] text-emerald-500 font-medium">Harga/Warna</p>
+                      <p className="text-xs font-bold text-emerald-700">{formatRp(cost.pricePerColor)}</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-2">
+                      <p className="text-[9px] text-blue-500 font-medium">Warna Khusus</p>
+                      <p className="text-xs font-bold text-blue-700">{formatRp(cost.specialColorPrice)}</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                      <p className="text-[9px] text-slate-500 font-medium">Area Cetak</p>
+                      <p className="text-xs font-bold text-slate-700">{cost.printAreaWidth} × {cost.printAreaHeight} cm</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                      <p className="text-[9px] text-slate-500 font-medium">Min. Cetak</p>
+                      <p className="text-xs font-bold text-slate-700">{cost.minimumPrintQuantity} lbr</p>
+                    </div>
+                    <div className="bg-orange-50 border border-orange-100 rounded-lg p-2">
+                      <p className="text-[9px] text-orange-500 font-medium">Lebih Cetak/Lbr</p>
+                      <p className="text-xs font-bold text-orange-700">{formatRp(cost.priceAboveMinimumPerSheet)}</p>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-100 rounded-lg p-2">
+                      <p className="text-[9px] text-purple-500 font-medium">Plat/Lembar</p>
+                      <p className="text-xs font-bold text-purple-700">{formatRp(cost.platePricePerSheet)}</p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  {(canEdit || canDelete) && (
+                    <div className="flex items-center gap-2 pt-1">
+                      {canEdit && (
+                        <button
+                          onClick={() => handleEdit(cost)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => setDeleteId(cost.id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            {/* Footer: Count */}
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50">
+              <p className="text-[11px] text-slate-400">Total: {filteredCosts.length} mesin cetak</p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Delete Confirmation Dialog (mobile) */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Ongkos Cetak?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Data ini akan dihapus permanen dan tidak dapat dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && handleDelete(deleteId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add/Edit Dialog */}
       <DialogForm

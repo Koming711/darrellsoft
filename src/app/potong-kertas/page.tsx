@@ -672,7 +672,6 @@ function CalculatorPage() {
       return
     }
     if (isDataSameAsAnyRiwayat()) {
-      toast('Data sudah ada di riwayat, langsung ke Purchase Order.', { description: 'Data yang sama tidak disimpan ulang.' })
       // Cari riwayat yang sama untuk mendapatkan ID-nya
       const existing = riwayatList.find(r =>
         (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
@@ -688,7 +687,29 @@ function CalculatorPage() {
         (r.berapaMata || '') === (berapaMata || '')
       )
       if (existing) {
+        toast('Data sudah ada di riwayat, langsung ke Purchase Order.', { description: 'Data yang sama tidak disimpan ulang.' })
         router.push(`/purchase-order?riwayatId=${existing.id}`)
+      } else {
+        // isDataSameAsAnyRiwayat returned true but find didn't match — save a new riwayat
+        setSavingRiwayat(true)
+        try {
+          const res = await fetcher('/api/riwayat-potong-kertas', {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPayload())
+          })
+          if (res.ok) {
+            const saved = await res.json()
+            notifyDataChange('riwayat-potong-kertas')
+            fetchRiwayat()
+            router.push(`/purchase-order?riwayatId=${saved.id}`)
+          } else {
+            toast.error('Gagal menyimpan data riwayat')
+          }
+        } catch {
+          toast.error('Gagal menyimpan data riwayat')
+        }
+        setSavingRiwayat(false)
       }
       return
     }

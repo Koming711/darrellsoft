@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth';
 
-// POST /api/history — Save a document to history
+// POST /api/history — Save a document to history (per-user isolation)
 export async function POST(req: NextRequest) {
   try {
+    const user = getServerUser(req);
+    const authErr = requireAuth(req);
+    if (authErr) return authErr;
+
     const body = await req.json();
     const { docType, nomor, tanggal, pihakKedua, total, dataJson } = body;
 
@@ -11,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'docType, nomor, dataJson wajib diisi' }, { status: 400 });
     }
 
-    // Check for duplicate: same docType + same content (regardless of nomor)
+    // Check for duplicate: same docType + same content (within user's own records)
     const parsed = JSON.parse(dataJson);
     const items = parsed.items || [];
     const client = parsed.client || parsed.penerima || parsed.pemasok || {};
@@ -24,9 +29,10 @@ export async function POST(req: NextRequest) {
 
     const fingerprint = `${docType}||${pihakNama}||${itemFingerprint}`;
 
-    // Check ALL existing records with same docType
+    // Only check THIS user's records for duplicates
+    const dataFilter = await getDataFilter(user);
     const existingRecords = await db.documentHistory.findMany({
-      where: { docType },
+      where: { docType, ...dataFilter },
     });
 
     for (const existing of existingRecords) {
@@ -55,6 +61,7 @@ export async function POST(req: NextRequest) {
         pihakKedua: pihakKedua || '-',
         total: total || '-',
         dataJson,
+        userId: user!.id,
       },
     });
 
@@ -65,9 +72,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/history?docType=invoice&startDate=2024-01-01&endDate=2024-12-31 — List history by document type
+// GET /api/history?docType=invoice&startDate=2024-01-01&endDate=2024-12-31 — List history by document type (per-user isolation)
 export async function GET(req: NextRequest) {
   try {
+    const user = getServerUser(req);
+    const authErr = requireAuth(req);
+    if (authErr) return authErr;
+
     const { searchParams } = new URL(req.url);
     const docType = searchParams.get('docType');
     const startDateStr = searchParams.get('startDate');
@@ -76,6 +87,9 @@ export async function GET(req: NextRequest) {
     if (!docType) {
       return NextResponse.json({ error: 'docType wajib diisi' }, { status: 400 });
     }
+
+    // Apply per-user filter
+    const dataFilter = await getDataFilter(user);
 
     // Build date filter
     const dateFilter: Record<string, Date> = {};
@@ -90,7 +104,7 @@ export async function GET(req: NextRequest) {
       dateFilter.lte = end;
     }
 
-    const where: Record<string, unknown> = { docType };
+    const where: Record<string, unknown> = { docType, ...dataFilter };
     if (Object.keys(dateFilter).length > 0) {
       where.createdAt = dateFilter;
     }

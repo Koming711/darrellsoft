@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerUser, requireAuth, canAccessRecord } from '@/lib/server-auth';
 
-// GET /api/history/[id] — Get a single history entry
+// GET /api/history/[id] — Get a single history entry (per-user isolation)
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authErr = requireAuth(request);
+    if (authErr) return authErr;
+    const user = getServerUser(request)!;
+
     const { id } = await params;
     const entry = await db.documentHistory.findUnique({ where: { id } });
 
     if (!entry) {
       return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+    }
+
+    // Check ownership
+    if (!canAccessRecord(user, entry.userId)) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     }
 
     return NextResponse.json({ success: true, data: entry });
@@ -21,13 +31,28 @@ export async function GET(
   }
 }
 
-// DELETE /api/history/[id] — Delete a history entry
+// DELETE /api/history/[id] — Delete a history entry (per-user isolation)
 export async function DELETE(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authErr = requireAuth(request);
+    if (authErr) return authErr;
+    const user = getServerUser(request)!;
+
     const { id } = await params;
+
+    // Check ownership first
+    const existing = await db.documentHistory.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+    }
+
+    if (!canAccessRecord(user, existing.userId)) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+    }
+
     await db.documentHistory.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

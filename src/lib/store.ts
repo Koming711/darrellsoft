@@ -258,8 +258,6 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
   },
 
   loadCompanyFromAPI: async () => {
-    const state = get();
-
     try {
       const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone', 'bank_name', 'bank_account', 'bank_holder', 'bank_name2', 'bank_account2', 'bank_holder2', 'npwp', 'ppn'];
 
@@ -273,6 +271,9 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
 
       // Check if we got any actual data from API
       const hasAnyData = results.some(r => r?.value);
+      // Read LATEST state right before updating to avoid race conditions
+      // (other async operations like auto-select from riwayatId may have updated the store)
+      const state = get();
       if (!hasAnyData && state.companyLoaded) return;
 
       // Build CompanyInfo from settings, only override if value exists
@@ -297,7 +298,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
       const newSettings: CompanySettings = { ...state.settings, company };
       saveToStorage(STORAGE_KEYS.settings, newSettings);
 
-      // Sync to all documents
+      // Sync to all documents — use LATEST state to preserve any concurrent updates (e.g. auto-select from riwayatId)
       const inv = { ...state.invoice, company, ppn: company.ppn ?? state.invoice.ppn };
       const sj = { ...state.suratJalan, company };
       const po = { ...state.purchaseOrder, company, ppn: company.ppn ?? state.purchaseOrder.ppn };

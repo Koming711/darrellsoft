@@ -1,18 +1,20 @@
-import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 
-const prisma = new PrismaClient()
-
-// GET all invoices
-export async function GET(request: Request) {
+// GET all invoices (per-user isolation)
+export async function GET(request: NextRequest) {
   try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
 
-    const where: any = {}
-    if (userId) where.userId = userId
+    const dataFilter = await getDataFilter(user)
+    const where: any = { ...dataFilter }
     if (status && status !== 'all') where.status = status
     if (search) {
       where.OR = [
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
       ]
     }
 
-    const invoices = await prisma.invoice.findMany({
+    const invoices = await db.invoice.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     })
@@ -33,9 +35,13 @@ export async function GET(request: Request) {
   }
 }
 
-// POST create invoice
-export async function POST(request: Request) {
+// POST create invoice (auto-assign userId from auth)
+export async function POST(request: NextRequest) {
   try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
     const body = await request.json()
     const {
       customerName,
@@ -52,17 +58,17 @@ export async function POST(request: Request) {
       notes,
       status,
       riwayatCetakanId,
-      userId,
     } = body
 
-    // Generate invoice number
-    const count = await prisma.invoice.count()
+    // Generate invoice number (scoped per-user for uniqueness)
+    const dataFilter = await getDataFilter(user)
+    const count = await db.invoice.count({ where: dataFilter })
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
     const invoiceNumber = `INV-${year}${month}-${String(count + 1).padStart(4, '0')}`
 
-    const invoice = await prisma.invoice.create({
+    const invoice = await db.invoice.create({
       data: {
         invoiceNumber,
         customerName: customerName || '',
@@ -79,7 +85,7 @@ export async function POST(request: Request) {
         notes: notes || '',
         status: status || 'draft',
         riwayatCetakanId: riwayatCetakanId || null,
-        userId: userId || null,
+        userId: user!.id,
       },
     })
 

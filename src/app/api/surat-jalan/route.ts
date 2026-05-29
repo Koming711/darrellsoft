@@ -1,18 +1,20 @@
-import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 
-const prisma = new PrismaClient()
-
-// GET all surat jalan
-export async function GET(request: Request) {
+// GET all surat jalan (per-user isolation)
+export async function GET(request: NextRequest) {
   try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
 
-    const where: any = {}
-    if (userId) where.userId = userId
+    const dataFilter = await getDataFilter(user)
+    const where: any = { ...dataFilter }
     if (status && status !== 'all') where.status = status
     if (search) {
       where.OR = [
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
       ]
     }
 
-    const suratJalanList = await prisma.suratJalan.findMany({
+    const suratJalanList = await db.suratJalan.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     })
@@ -33,9 +35,13 @@ export async function GET(request: Request) {
   }
 }
 
-// POST create surat jalan
-export async function POST(request: Request) {
+// POST create surat jalan (auto-assign userId from auth)
+export async function POST(request: NextRequest) {
   try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
     const body = await request.json()
     const {
       customerName,
@@ -49,17 +55,17 @@ export async function POST(request: Request) {
       status,
       invoiceId,
       riwayatCetakanId,
-      userId,
     } = body
 
-    // Generate surat jalan number
-    const count = await prisma.suratJalan.count()
+    // Generate surat jalan number (scoped per-user)
+    const dataFilter = await getDataFilter(user)
+    const count = await db.suratJalan.count({ where: dataFilter })
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
     const suratJalanNumber = `SJ-${year}${month}-${String(count + 1).padStart(4, '0')}`
 
-    const suratJalan = await prisma.suratJalan.create({
+    const suratJalan = await db.suratJalan.create({
       data: {
         suratJalanNumber,
         customerName: customerName || '',
@@ -73,7 +79,7 @@ export async function POST(request: Request) {
         status: status || 'draft',
         invoiceId: invoiceId || null,
         riwayatCetakanId: riwayatCetakanId || null,
-        userId: userId || null,
+        userId: user!.id,
       },
     })
 
