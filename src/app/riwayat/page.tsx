@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Search, Eye, Loader2, FileText, Receipt } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Search, Eye, Loader2, Receipt, Printer } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
@@ -9,6 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner'
 import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
+import { InvoicePreview } from '@/components/dokupro/invoice-preview'
+import type { InvoiceData, CompanyInfo } from '@/lib/types'
+import { DEFAULT_COMPANY } from '@/lib/types'
 
 interface HistoryEntry {
   id: string
@@ -54,6 +57,59 @@ function parseDocInfo(entry: HistoryEntry): ParsedInfo {
     }
   } catch {
     return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '', items: [], ppn: 0, catatan: '', client: { nama: '', kontak: '', alamat: '' } }
+  }
+}
+
+function parseInvoiceData(entry: HistoryEntry): InvoiceData {
+  try {
+    const parsed = JSON.parse(entry.dataJson)
+    const company: CompanyInfo = {
+      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+      email: parsed.company?.email || DEFAULT_COMPANY.email,
+      npwp: parsed.company?.npwp || '',
+      website: parsed.company?.website || '',
+      ppn: parsed.company?.ppn ?? parsed.ppn ?? 11,
+      logo: parsed.company?.logo || '',
+      bankName: parsed.company?.bankName || '',
+      bankAccount: parsed.company?.bankAccount || '',
+      bankHolder: parsed.company?.bankHolder || '',
+      bankName2: parsed.company?.bankName2 || '',
+      bankAccount2: parsed.company?.bankAccount2 || '',
+      bankHolder2: parsed.company?.bankHolder2 || '',
+    }
+    const client = parsed.client || { nama: '', kontak: '', alamat: '' }
+    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+      id: it.id || `item-${i}`,
+      deskripsi: it.deskripsi || '',
+      qty: it.qty || 0,
+      satuan: it.satuan || '',
+      harga: it.harga || 0,
+    }))
+    return {
+      type: 'invoice',
+      company,
+      nomor: parsed.nomor || entry.nomor || '',
+      tanggal: parsed.tanggal || entry.tanggal || '',
+      referensi: parsed.referensi || '',
+      client,
+      items,
+      ppn: parsed.ppn ?? 11,
+      catatan: parsed.catatan || '',
+    }
+  } catch {
+    return {
+      type: 'invoice',
+      company: { ...DEFAULT_COMPANY },
+      nomor: entry.nomor || '',
+      tanggal: entry.tanggal || '',
+      referensi: '',
+      client: { nama: '', kontak: '', alamat: '' },
+      items: [],
+      ppn: 11,
+      catatan: '',
+    }
   }
 }
 
@@ -105,6 +161,15 @@ export default function RiwayatPage() {
     setPreviewItem(item)
     setPreviewOpen(true)
   }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const invoiceData = useMemo(() => {
+    if (!previewItem) return null
+    return parseInvoiceData(previewItem)
+  }, [previewItem])
 
   const filteredHistories = histories.filter(h => {
     const term = searchTerm.toLowerCase()
@@ -227,88 +292,29 @@ export default function RiwayatPage() {
         </div>
       </div>
 
-      {/* ===== PREVIEW DIALOG ===== */}
+      {/* ===== PREVIEW DIALOG — Invoice Pratinjau ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
-          <DialogHeader className="p-4 pb-0">
+        <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0">
+          <DialogHeader className="p-4 pb-0 flex flex-row items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-violet-600" />
-              Detail Invoice
+              <Receipt className="w-5 h-5 text-violet-600" />
+              Pratinjau Invoice
             </DialogTitle>
+            <button onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
+              <Printer className="w-3.5 h-3.5" /> Cetak
+            </button>
           </DialogHeader>
 
-          {previewItem && (() => {
-            const info = parseDocInfo(previewItem)
-            return (
-              <div className="p-4 bg-white space-y-3">
-                {/* Header */}
-                <div className="text-center pb-3 border-b-2 border-slate-200">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <Receipt className="w-5 h-5 text-violet-600" />
-                    <h1 className="text-lg font-bold text-slate-900">Invoice</h1>
-                  </div>
-                  <p className="text-sm font-semibold text-violet-700">{previewItem.nomor}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {previewItem.tanggal ? formatDate(previewItem.tanggal) : formatDate(previewItem.createdAt)}
-                  </p>
+          {invoiceData && (
+            <div className="p-4 flex justify-center" id="document-preview">
+              <div className="a5-preview-container mx-auto bg-white" style={{ aspectRatio: '148 / 210' }}>
+                <div className="a5-preview-scaler">
+                  <InvoicePreview data={invoiceData} />
                 </div>
-
-                {/* Client Info */}
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <p className="text-[10px] text-slate-500 font-medium mb-1">Customer</p>
-                  <p className="text-sm font-bold text-slate-800">{previewItem.pihakKedua || info.client.nama || '-'}</p>
-                  {info.client.alamat && <p className="text-xs text-slate-500">{info.client.alamat}</p>}
-                  {info.client.kontak && <p className="text-xs text-slate-500">{info.client.kontak}</p>}
-                </div>
-
-                {/* Items Table */}
-                {info.items.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Item</p>
-                    <div className="rounded-lg border border-slate-200 overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left py-2 px-2 font-semibold text-slate-600">Deskripsi</th>
-                            <th className="text-right py-2 px-2 font-semibold text-slate-600 w-12">Qty</th>
-                            <th className="text-right py-2 px-2 font-semibold text-slate-600 w-24">Harga</th>
-                            <th className="text-right py-2 px-2 font-semibold text-slate-600 w-28">Jumlah</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {info.items.map((it, i) => (
-                            <tr key={i} className="border-b border-slate-100">
-                              <td className="py-2 px-2 text-slate-700">{it.deskripsi || '-'}</td>
-                              <td className="py-2 px-2 text-slate-600 text-right">{it.qty} {it.satuan || ''}</td>
-                              <td className="py-2 px-2 text-slate-600 text-right">{formatRp(it.harga)}</td>
-                              <td className="py-2 px-2 text-slate-700 text-right font-medium">{formatRp(it.qty * it.harga)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Totals */}
-                <div className="bg-slate-900 text-white rounded-lg p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] text-slate-400">Total Harga</p>
-                    {info.ppn > 0 && <p className="text-[9px] text-slate-500">termasuk PPN {info.ppn}%</p>}
-                  </div>
-                  <p className="text-xl font-extrabold text-emerald-400">{formatRp(info.totalHarga)}</p>
-                </div>
-
-                {/* Catatan */}
-                {info.catatan && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <p className="text-[10px] text-amber-600 font-medium mb-0.5">Catatan</p>
-                    <p className="text-xs text-amber-800">{info.catatan}</p>
-                  </div>
-                )}
               </div>
-            )
-          })()}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>
