@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter } from '@/lib/server-auth'
 
+function buildDatePrefix(prefix: string, year: number, month: string): string {
+  if (prefix === 'PK') {
+    const yy = String(year).slice(-2)
+    return `${prefix}/${month}/${yy}`
+  }
+  return `${prefix}-${year}${month}`
+}
+
+function parseLastSeq(number: string, prefix: string): number {
+  if (prefix === 'PK') {
+    const parts = number.split('/')
+    const lastNum = parseInt(parts[parts.length - 1], 10)
+    return isNaN(lastNum) ? 0 : lastNum
+  }
+  const parts = number.split('-')
+  const lastNum = parseInt(parts[parts.length - 1], 10)
+  return isNaN(lastNum) ? 0 : lastNum
+}
+
+function buildDocNumber(datePrefix: string, seq: number, prefix: string): string {
+  if (prefix === 'PK') {
+    return `${datePrefix}/${String(seq).padStart(4, '0')}`
+  }
+  return `${datePrefix}-${String(seq).padStart(4, '0')}`
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = getServerUser(request)
@@ -21,7 +47,7 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
-    const datePrefix = `${prefix}-${year}${month}`
+    const datePrefix = buildDatePrefix(prefix, year, month)
 
     const lastDoc = await (db as any)[model].findFirst({
       where: {
@@ -34,14 +60,13 @@ export async function GET(request: NextRequest) {
     let nextNum = 1
     if (lastDoc) {
       const existingNumber: string = lastDoc[field]
-      const parts = existingNumber.split('-')
-      const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) {
-        nextNum = lastNum + 1
+      const lastSeq = parseLastSeq(existingNumber, prefix)
+      if (lastSeq > 0) {
+        nextNum = lastSeq + 1
       }
     }
 
-    const docNumber = `${datePrefix}-${String(nextNum).padStart(4, '0')}`
+    const docNumber = buildDocNumber(datePrefix, nextNum, prefix)
     return NextResponse.json({ nextNumber: docNumber })
   } catch (error) {
     console.error('Error previewing doc number:', error)
