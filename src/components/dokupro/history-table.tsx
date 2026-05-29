@@ -267,8 +267,8 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                     {docType === 'invoice' && (() => {
                       const uc = uangCapekMap.get(entry.id) ?? 0;
                       return (
-                        <TableCell className={`py-2.5 text-xs text-right font-medium whitespace-nowrap ${uc > 0 ? 'text-violet-700' : uc < 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                          {uc !== 0 ? formatRupiah(uc) : '-'}
+                        <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
+                          {uc > 0 ? formatRupiah(uc) : '-'}
                         </TableCell>
                       );
                     })()}
