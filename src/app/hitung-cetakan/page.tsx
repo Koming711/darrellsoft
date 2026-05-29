@@ -203,6 +203,15 @@ function HitungCetakanPage() {
     } catch {}
   }
 
+  // Next document number preview
+  const [nextDocNumber, setNextDocNumber] = useState<string>('')
+  const fetchNextDocNumber = () => {
+    fetcher('/api/doc-number?model=riwayatCetakan&field=nomorUrut&prefix=HC', { headers: getAuthHeaders() })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.nextNumber) setNextDocNumber(data.nextNumber) })
+      .catch(() => {})
+  }
+
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewCalc, setPreviewCalc] = useState<PrintCalculation | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -545,6 +554,7 @@ function HitungCetakanPage() {
     fetchPrintingCosts()
     fetchFinishings()
     fetchRiwayatCetakan()
+    fetchNextDocNumber()
     // Jangan override profitPercent saat restore
     fetchProfitSetting()
   }, [])
@@ -1303,6 +1313,7 @@ function HitungCetakanPage() {
         toast.success('Riwayat hitung cetakan berhasil disimpan!')
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
+        fetchNextDocNumber()
         resetFormForRiwayat()
       } else { toast.error('Gagal menyimpan riwayat') }
     } catch { toast.error('Gagal menyimpan riwayat') }
@@ -1455,6 +1466,7 @@ function HitungCetakanPage() {
         notifyDataChange('riwayat-cetakan')
         if (restoredRiwayatId === id) setRestoredRiwayatId(null)
         fetchRiwayatCetakan()
+        fetchNextDocNumber()
       } else { toast.error('Gagal menghapus riwayat') }
     } catch { toast.error('Gagal menghapus riwayat') }
   }
@@ -1644,6 +1656,13 @@ function HitungCetakanPage() {
               </div>
               <div className="px-4 py-3">
                 <div className="space-y-2">
+                  {/* Nomor Urut Preview */}
+                  {nextDocNumber && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">No.</span>
+                      <span className="text-sm font-bold text-slate-700 font-mono tracking-wide">{nextDocNumber}</span>
+                    </div>
+                  )}
                   <div>
                     <label className={labelClass}>{t('nama_customer')} <span className="text-red-500">*</span></label>
                     <div className="relative">

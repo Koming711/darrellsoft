@@ -228,6 +228,9 @@ function CalculatorPage() {
   const justCalculatedRef = useRef(false)
   const [riwayatList, setRiwayatList] = useState<any[]>([])
 
+  // Next document number preview
+  const [nextDocNumber, setNextDocNumber] = useState<string>('')
+
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewRiwayatData, setPreviewRiwayatData] = useState<CuttingResult | null>(null)
@@ -264,10 +267,18 @@ function CalculatorPage() {
       .catch(() => setCustomers([]))
   }
 
+  const fetchNextDocNumber = () => {
+    authFetch('/api/doc-number?model=riwayatPotongKertas&field=nomorUrut&prefix=PK')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.nextNumber) setNextDocNumber(data.nextNumber) })
+      .catch(() => {})
+  }
+
   useEffect(() => {
     fetchCustomersData()
     fetchPapersData()
     fetchRiwayat()
+    fetchNextDocNumber()
   }, [])
 
   useDataChange(['papers', 'customers', 'finishings', 'settings'], (entity) => {
@@ -653,6 +664,7 @@ function CalculatorPage() {
         toast.success('Riwayat berhasil disimpan!')
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
+        fetchNextDocNumber()
         resetFormForRiwayat()
       } else {
         const errData = await res.json().catch(() => null)
@@ -923,6 +935,7 @@ function CalculatorPage() {
         notifyDataChange('riwayat-potong-kertas')
         if (restoredRiwayatId === id) setRestoredRiwayatId(null)
         fetchRiwayat()
+        fetchNextDocNumber()
       } else {
         toast.error('Gagal menghapus riwayat')
       }
@@ -1292,6 +1305,13 @@ function CalculatorPage() {
           {/* Info Cetak */}
           <div className="bg-white rounded-xl border border-slate-200 p-2.5">
             <div className="space-y-1.5">
+              {/* Nomor Urut Preview */}
+              {nextDocNumber && (
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">No.</span>
+                  <span className="text-sm font-bold text-slate-700 font-mono tracking-wide">{nextDocNumber}</span>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <div className="relative">
                   <label className={lbl}>{t('nama_customer')}</label>
