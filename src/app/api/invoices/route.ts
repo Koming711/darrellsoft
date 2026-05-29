@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { generateDocNumber } from '@/lib/doc-number'
 
 // GET all invoices (per-user isolation)
 export async function GET(request: NextRequest) {
@@ -60,13 +61,9 @@ export async function POST(request: NextRequest) {
       riwayatCetakanId,
     } = body
 
-    // Generate invoice number (scoped per-user for uniqueness)
+    // Generate sequential invoice number (never reuses deleted numbers)
     const dataFilter = await getDataFilter(user)
-    const count = await db.invoice.count({ where: dataFilter })
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const invoiceNumber = `INV-${year}${month}-${String(count + 1).padStart(4, '0')}`
+    const invoiceNumber = await generateDocNumber('invoice', 'invoiceNumber', 'INV', dataFilter)
 
     const invoice = await db.invoice.create({
       data: {

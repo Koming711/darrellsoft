@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { generateDocNumber } from '@/lib/doc-number'
 
 // GET all surat jalan (per-user isolation)
 export async function GET(request: NextRequest) {
@@ -57,13 +58,9 @@ export async function POST(request: NextRequest) {
       riwayatCetakanId,
     } = body
 
-    // Generate surat jalan number (scoped per-user)
+    // Generate sequential surat jalan number (never reuses deleted numbers)
     const dataFilter = await getDataFilter(user)
-    const count = await db.suratJalan.count({ where: dataFilter })
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const suratJalanNumber = `SJ-${year}${month}-${String(count + 1).padStart(4, '0')}`
+    const suratJalanNumber = await generateDocNumber('suratJalan', 'suratJalanNumber', 'SJ', dataFilter)
 
     const suratJalan = await db.suratJalan.create({
       data: {
