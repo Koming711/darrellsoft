@@ -222,11 +222,11 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                 {showPriceColumns && (
                   <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
                 )}
-                {showPriceColumns && (
-                  <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
-                )}
                 {docType === 'invoice' && (
                   <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                )}
+                {showPriceColumns && (
+                  <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                 )}
                 <TableHead className="text-right text-[11px] font-semibold text-gray-500">Aksi</TableHead>
               </TableRow>
@@ -259,11 +259,6 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                         {info && info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}
                       </TableCell>
                     )}
-                    {showPriceColumns && (
-                      <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700">
-                        {info && info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}
-                      </TableCell>
-                    )}
                     {docType === 'invoice' && (() => {
                       const uc = uangCapekMap.get(entry.id) ?? 0;
                       return (
@@ -272,6 +267,11 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                         </TableCell>
                       );
                     })()}
+                    {showPriceColumns && (
+                      <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700">
+                        {info && info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}
+                      </TableCell>
+                    )}
                     <TableCell className="py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
