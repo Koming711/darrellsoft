@@ -680,8 +680,8 @@ export default function PembukaanPage() {
                           <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -697,8 +697,8 @@ export default function PembukaanPage() {
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+                              <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
-                              <TableCell className={`py-2.5 text-xs text-right font-medium whitespace-nowrap ${uc > 0 ? 'text-violet-700' : uc < 0 ? 'text-red-600' : 'text-gray-400'}`}>{uc !== 0 ? formatRupiah(uc) : '-'}</TableCell>
                             </TableRow>
                           )
                         })}
