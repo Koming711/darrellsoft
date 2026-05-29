@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote } from 'lucide-react'
+import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote, Receipt } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
@@ -11,6 +11,12 @@ import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { notifyDataChange } from '@/lib/data-sync'
 import { useDataChange } from '@/hooks/use-data-change'
+
+interface InvoiceInfo {
+  id: string
+  invoiceNumber: string
+  riwayatCetakanId: string | null
+}
 
 interface RiwayatItem {
   id: string
@@ -64,7 +70,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState(defaultFilterType)
   const [histories, setHistories] = useState<RiwayatItem[]>([])
+  const [invoices, setInvoices] = useState<InvoiceInfo[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Build a map of riwayatCetakanId → invoiceNumber
+  const invoiceMap = useRef<Map<string, string>>(new Map())
 
   // Preview
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -76,17 +86,38 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
     fetchRiwayat()
   }, [])
 
-  useDataChange(['riwayat-cetakan', 'riwayat-potong-kertas'], () => {
+  useDataChange(['riwayat-cetakan', 'riwayat-potong-kertas', 'invoices'], () => {
     fetchRiwayat()
   })
 
   const fetchRiwayat = async () => {
     setLoading(true)
     try {
-      const res = await authFetch('/api/riwayat-cetakan', { headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
+      const headers = getAuthHeaders()
+      const [cetakanRes, invoiceRes] = await Promise.all([
+        authFetch('/api/riwayat-cetakan', { headers }),
+        authFetch('/api/invoices', { headers }),
+      ])
+      if (cetakanRes.ok) {
+        const data = await cetakanRes.json()
         setHistories(Array.isArray(data) ? data : [])
+      }
+      if (invoiceRes.ok) {
+        const invData = await invoiceRes.json()
+        const invList: InvoiceInfo[] = Array.isArray(invData) ? invData.map((inv: any) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          riwayatCetakanId: inv.riwayatCetakanId,
+        })) : []
+        setInvoices(invList)
+        // Build lookup map
+        const map = new Map<string, string>()
+        for (const inv of invList) {
+          if (inv.riwayatCetakanId) {
+            map.set(inv.riwayatCetakanId, inv.invoiceNumber)
+          }
+        }
+        invoiceMap.current = map
       }
     } catch {
       toast.error('Gagal memuat riwayat')
@@ -243,6 +274,21 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
           <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide ${isPotong ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
             {h.nomorUrut || '-'}
           </span>
+        )
+      }
+    },
+    {
+      key: 'invoiceNumber',
+      title: 'No. Invoice',
+      render: (h: RiwayatItem) => {
+        const invNum = invoiceMap.current.get(h.id)
+        return invNum ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide bg-violet-50 text-violet-700 border border-violet-200">
+            <Receipt className="w-3 h-3" />
+            {invNum}
+          </span>
+        ) : (
+          <span className="text-slate-300 text-xs">-</span>
         )
       }
     },
@@ -420,6 +466,12 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
                   <p className="text-xs text-slate-500 mt-1">
                     {previewItem.printName} · {formatDate(previewItem.createdAt)}
                   </p>
+                  {invoiceMap.current.get(previewItem.id) && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-200">
+                      <Receipt className="w-3.5 h-3.5 text-violet-600" />
+                      <span className="text-xs font-bold text-violet-700">Invoice: {invoiceMap.current.get(previewItem.id)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* === INFORMASI CETAKAN === */}

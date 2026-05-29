@@ -8,10 +8,10 @@ export default function RiwayatPage() {
   const { t } = useLanguage()
 
   return (
-    <DashboardLayout title={t('riwayat')} subtitle={t('subtitle_riwayat')}>
+    <DashboardLayout title="Riwayat Penjualan" subtitle="Daftar riwayat penjualan beserta nomor invoice">
       <RiwayatContent
-        title={t('riwayat')}
-        subtitle={t('subtitle_riwayat')}
+        title="Riwayat Penjualan"
+        subtitle="Daftar riwayat penjualan beserta nomor invoice"
         defaultFilterType="all"
       />
     </DashboardLayout>
