@@ -490,7 +490,7 @@ export default function PembukaanPage() {
           />
           <QuickIcon
             icon={<History className="w-5 h-5" />}
-            label="Riwayat"
+            label="Riwayat Penjualan"
             color="bg-amber-50 text-amber-600 border-amber-200"
             onClick={() => router.push('/riwayat')}
           />
