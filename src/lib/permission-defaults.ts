@@ -12,7 +12,7 @@ export const SIMPLE_FEATURES = [
   { id: 'hitung-finishing', name: 'Hitung Finishing' },
   { id: 'hitung-ongkos-cetak', name: 'Hitung Ongkos Cetak' },
   { id: 'hitung-harga-kertas', name: 'Hitung Harga Kertas' },
-  { id: 'riwayat', name: 'Riwayat Penjualan' },
+  { id: 'riwayat', name: 'Riwayat' },
   { id: 'hak-akses', name: 'Hak Akses' },
   { id: 'pengguna', name: 'Pengguna & Pembeli' },
   { id: 'pengaturan', name: 'Pengaturan' },

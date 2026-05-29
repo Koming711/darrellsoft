@@ -203,15 +203,6 @@ function HitungCetakanPage() {
     } catch {}
   }
 
-  // Next document number preview
-  const [nextDocNumber, setNextDocNumber] = useState<string>('')
-  const fetchNextDocNumber = () => {
-    fetcher('/api/doc-number?prefix=PK', { headers: getAuthHeaders() })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.nextNumber) setNextDocNumber(data.nextNumber) })
-      .catch(() => {})
-  }
-
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewCalc, setPreviewCalc] = useState<PrintCalculation | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -554,7 +545,6 @@ function HitungCetakanPage() {
     fetchPrintingCosts()
     fetchFinishings()
     fetchRiwayatCetakan()
-    fetchNextDocNumber()
     // Jangan override profitPercent saat restore
     fetchProfitSetting()
   }, [])
@@ -1313,7 +1303,6 @@ function HitungCetakanPage() {
         toast.success('Riwayat hitung cetakan berhasil disimpan!')
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
-        fetchNextDocNumber()
         resetFormForRiwayat()
       } else { toast.error('Gagal menyimpan riwayat') }
     } catch { toast.error('Gagal menyimpan riwayat') }
@@ -1466,7 +1455,6 @@ function HitungCetakanPage() {
         notifyDataChange('riwayat-cetakan')
         if (restoredRiwayatId === id) setRestoredRiwayatId(null)
         fetchRiwayatCetakan()
-        fetchNextDocNumber()
       } else { toast.error('Gagal menghapus riwayat') }
     } catch { toast.error('Gagal menghapus riwayat') }
   }
@@ -1656,16 +1644,6 @@ function HitungCetakanPage() {
               </div>
               <div className="px-4 py-3">
                 <div className="space-y-2">
-                  {/* Nomor Urut Preview */}
-                  <div>
-                    <label className={labelClass}>No. Potong Kertas</label>
-                    <input
-                      type="text"
-                      value={nextDocNumber || '-'}
-                      readOnly
-                      className={`${inputClass} bg-slate-100 cursor-not-allowed`}
-                    />
-                  </div>
                   <div>
                     <label className={labelClass}>{t('nama_customer')} <span className="text-red-500">*</span></label>
                     <div className="relative">
@@ -2352,7 +2330,7 @@ function HitungCetakanPage() {
             <table className="w-full text-[14px] min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Nomor</th>
+                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">#</th>
                   <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
                   <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
                   <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '200px'}}>Nama Barang</th>
@@ -2367,11 +2345,7 @@ function HitungCetakanPage() {
               <tbody>
                 {riwayatCetakanList.slice(0, 50).map((r, idx) => (
                   <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                    <td className="py-2 px-2 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide bg-blue-50 text-blue-700 border border-blue-200">
-                        {r.nomorUrut || (idx + 1)}
-                      </span>
-                    </td>
+                    <td className="py-2 px-2 text-slate-400">{idx + 1}</td>
                     <td className="py-2 px-2 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
                     <td className="py-2 px-2 text-slate-700 font-medium max-w-[120px] truncate">
                       {r.customerName && r.customerName !== '' ? r.customerName : '-'}

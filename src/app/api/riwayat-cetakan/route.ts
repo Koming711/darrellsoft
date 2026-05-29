@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
-import { generateDocNumber } from '@/lib/doc-number'
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,13 +39,8 @@ export async function POST(request: NextRequest) {
     const user = getServerUser(request)!
     const body = await request.json()
 
-    // Generate sequential number (never reuses deleted numbers)
-    const dataFilter = await getDataFilter(user)
-    const nomorUrut = await generateDocNumber('riwayatCetakan', 'nomorUrut', 'PK', dataFilter)
-
     const riwayat = await db.riwayatCetakan.create({
       data: {
-        nomorUrut,
         type: body.type || 'hitung_cetakan',
         printName: body.printName || '',
         customerName: body.customerName || '',

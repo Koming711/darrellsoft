@@ -228,9 +228,6 @@ function CalculatorPage() {
   const justCalculatedRef = useRef(false)
   const [riwayatList, setRiwayatList] = useState<any[]>([])
 
-  // Next document number preview
-  const [nextDocNumber, setNextDocNumber] = useState<string>('')
-
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewRiwayatData, setPreviewRiwayatData] = useState<CuttingResult | null>(null)
@@ -267,18 +264,10 @@ function CalculatorPage() {
       .catch(() => setCustomers([]))
   }
 
-  const fetchNextDocNumber = () => {
-    authFetch('/api/doc-number?prefix=PK')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.nextNumber) setNextDocNumber(data.nextNumber) })
-      .catch(() => {})
-  }
-
   useEffect(() => {
     fetchCustomersData()
     fetchPapersData()
     fetchRiwayat()
-    fetchNextDocNumber()
   }, [])
 
   useDataChange(['papers', 'customers', 'finishings', 'settings'], (entity) => {
@@ -664,7 +653,6 @@ function CalculatorPage() {
         toast.success('Riwayat berhasil disimpan!')
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
-        fetchNextDocNumber()
         resetFormForRiwayat()
       } else {
         const errData = await res.json().catch(() => null)
@@ -935,7 +923,6 @@ function CalculatorPage() {
         notifyDataChange('riwayat-potong-kertas')
         if (restoredRiwayatId === id) setRestoredRiwayatId(null)
         fetchRiwayat()
-        fetchNextDocNumber()
       } else {
         toast.error('Gagal menghapus riwayat')
       }
@@ -1213,53 +1200,49 @@ function CalculatorPage() {
   // Riwayat table component
   const RiwayatTable = ({ items }: { items: any[] }) => (
     <div className="overflow-x-auto">
-      <table className="w-full text-[13px] min-w-[700px]">
+      <table className="w-full text-[14px] min-w-[600px] table-fixed">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/80">
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Nomor</th>
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Tgl</th>
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Customer</th>
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Nama Barang</th>
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Kertas</th>
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Uk. Kertas</th>
-            <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Uk. Potong</th>
-            <th className="text-right py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Jml</th>
-            <th className="text-right py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Total</th>
-            <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Aksi</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-7">#</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[12%]">Tgl</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[22%]">Customer</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[18%]">Nama Barang</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Kertas</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Kertas</th>
+            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Potong</th>
+            <th className="text-right py-1 px-2 text-slate-500 font-semibold whitespace-nowrap w-14">Jml</th>
+            <th className="text-right py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[20%]">Total</th>
+            <th className="text-center py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[16%]">Aksi</th>
           </tr>
         </thead>
         <tbody>
           {items.map((r, idx) => {
             return (
-              <tr key={r.id} className={`border-b border-slate-100 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                <td className="py-2 px-2 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    {r.nomorUrut || (idx + 1)}
-                  </span>
-                </td>
-                <td className="py-2 px-2 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                <td className="py-2 px-2 text-slate-700 font-medium max-w-[140px] truncate" title={r.namaCustomer}>
+              <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
+                <td className="py-1 px-1 text-slate-400">{idx + 1}</td>
+                <td className="py-1 px-1 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
+                <td className="py-1 px-1 text-slate-700 font-medium truncate">
                   {r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}
                 </td>
-                <td className="py-2 px-2 text-slate-600 max-w-[160px] truncate" title={r.namaCetakan}>
+                <td className="py-1 px-1 text-slate-600 truncate">
                   {r.namaCetakan || '-'}
                 </td>
-                <td className="py-2 px-2 text-slate-600 max-w-[100px] truncate hidden md:table-cell" title={r.paperName}>
+                <td className="py-1 px-1 text-slate-600 truncate hidden md:table-cell">
                   {r.paperName || '-'}
                 </td>
-                <td className="py-2 px-2 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden md:table-cell">
                   {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
                 </td>
-                <td className="py-2 px-2 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden md:table-cell">
                   {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
                 </td>
-                <td className="py-2 px-2 text-slate-600 text-right whitespace-nowrap">
+                <td className="py-1 px-2 text-slate-600 text-right whitespace-nowrap">
                   {parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}
                 </td>
-                <td className="py-2 px-2 text-rose-700 font-bold text-right whitespace-nowrap">
+                <td className="py-1 pl-3 pr-1 text-rose-700 font-bold text-right whitespace-nowrap text-[14px]">
                   Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}
                 </td>
-                <td className="py-2 px-2 text-center">
+                <td className="py-1 px-3 text-center">
                   <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => handlePreviewRiwayat(r)}
@@ -1305,16 +1288,6 @@ function CalculatorPage() {
           {/* Info Cetak */}
           <div className="bg-white rounded-xl border border-slate-200 p-2.5">
             <div className="space-y-1.5">
-              {/* Nomor Urut Preview */}
-              <div className="space-y-1">
-                <label className={lbl}>No. Potong Kertas</label>
-                <input
-                  type="text"
-                  value={nextDocNumber || '-'}
-                  readOnly
-                  className={inpDisabled}
-                />
-              </div>
               <div className="space-y-1.5">
                 <div className="relative">
                   <label className={lbl}>{t('nama_customer')}</label>
