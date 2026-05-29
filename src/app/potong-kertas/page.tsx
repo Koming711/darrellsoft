@@ -268,7 +268,7 @@ function CalculatorPage() {
   }
 
   const fetchNextDocNumber = () => {
-    authFetch('/api/doc-number?model=riwayatPotongKertas&field=nomorUrut&prefix=PK')
+    authFetch('/api/doc-number?prefix=PK')
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.nextNumber) setNextDocNumber(data.nextNumber) })
       .catch(() => {})

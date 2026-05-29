@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Generate sequential number (never reuses deleted numbers)
     const dataFilter = await getDataFilter(user)
-    const nomorUrut = await generateDocNumber('riwayatCetakan', 'nomorUrut', 'HC', dataFilter)
+    const nomorUrut = await generateDocNumber('riwayatCetakan', 'nomorUrut', 'PK', dataFilter)
 
     const riwayat = await db.riwayatCetakan.create({
       data: {
