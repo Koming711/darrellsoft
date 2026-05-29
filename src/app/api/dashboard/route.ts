@@ -84,13 +84,13 @@ export async function GET(request: NextRequest) {
         where: combinedFilter,
         orderBy: { createdAt: 'desc' },
         take: 10,
-        select: { id: true, printName: true, customerName: true, profitAmount: true, finishingNames: true, jumlahPesanan: true, grandTotal: true, createdAt: true },
+        select: { id: true, nomorUrut: true, type: true, printName: true, customerName: true, quantity: true, profitAmount: true, finishingNames: true, jumlahPesanan: true, grandTotal: true, createdAt: true },
       }),
       db.riwayatPotongKertas.findMany({
         where: combinedFilter,
         orderBy: { createdAt: 'desc' },
         take: 10,
-        select: { id: true, namaCetakan: true, namaCustomer: true, paperName: true, paperWidth: true, paperHeight: true, cutWidth: true, cutHeight: true, jumlahPesanan: true, totalPrice: true, createdAt: true },
+        select: { id: true, nomorUrut: true, namaCetakan: true, namaCustomer: true, paperName: true, paperWidth: true, paperHeight: true, cutWidth: true, cutHeight: true, jumlahPesanan: true, totalPrice: true, createdAt: true },
       }),
       db.documentHistory.findMany({
         where: invoiceFilter,

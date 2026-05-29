@@ -150,3 +150,25 @@ Stage Summary:
 - This ensures the counter is always consistent with the global `@unique` database constraints
 - No duplicate document numbers can ever be generated
 - Deleted numbers are never reused (MAX+1 approach preserved)
+
+---
+Task ID: update-beranda-riwayat-columns
+Agent: main
+Task: Update Riwayat Hitung Cetakan and Riwayat Potong Kertas table columns on Beranda page
+
+Work Log:
+- Updated dashboard API (`/api/dashboard/route.ts`) to include `nomorUrut`, `type`, and `quantity` fields in the `select` for RiwayatCetakan records, and `nomorUrut` for RiwayatPotongKertas records
+- Updated `CetakanRecord` interface to add `nomorUrut`, `type`, `quantity` fields
+- Updated `PotongKertasRecord` interface to add `nomorUrut` field
+- Updated Hitung Cetakan table: added "Nomor" column (with colored badge matching riwayat page style), removed "Finishing" column
+  - Columns now: No, Nomor, Tgl, Customer, Nama Barang, Uang Capek, Jml Pesanan, Harga/Pcs, Total
+- Updated Potong Kertas table: added "Nomor" column (with emerald badge), removed "Uk. Kertas" column (less important for summary view)
+  - Columns now: No, Nomor, Tgl, Customer, Nama Barang, Kertas, Uk. Potong, Jml, Total
+- Nomor badge styling: emerald for Potong Kertas, blue for Hitung Cetakan (matches the riwayat-content page style)
+- All pages compile and load successfully (HTTP 200)
+
+Stage Summary:
+- Both beranda riwayat tables now include the document number (nomorUrut) column with styled badges
+- Hitung Cetakan table: removed Finishing column (not critical for overview), added Nomor column
+- Potong Kertas table: removed Uk. Kertas column, added Nomor column
+- Badge styling matches the dedicated riwayat page (emerald for PK, blue for HC)
