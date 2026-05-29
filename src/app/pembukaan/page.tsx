@@ -94,6 +94,24 @@ interface HistoryEntry {
   createdAt: string;
 }
 
+interface SalesPipelineItem {
+  id: string
+  nomorUrut: string
+  customerName: string
+  printName: string
+  grandTotal: number
+  profitAmount: number
+  createdAt: string
+  hasPK: boolean
+  pkTotalPrice: number
+  hasInvoice: boolean
+  invoiceNumber: string | null
+  hasSJ: boolean
+  suratJalanNumber: string | null
+  hasPO: boolean
+  poNumber: string | null
+}
+
 interface DashboardData {
   expiryInfo: {
     validUntil: string | null
@@ -133,6 +151,7 @@ interface DashboardData {
   recent: {
     cetakan: CetakanRecord[]
     potongKertas: PotongKertasRecord[]
+    salesPipeline: SalesPipelineItem[]
   }
   daily: Record<string, { calculations: number; documents: number }>
 }
@@ -204,6 +223,22 @@ function formatDateShort(iso: string): string {
 function formatDateDisplay(d: Date | undefined): string {
   if (!d) return 'Pilih tanggal'
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+// --- Pipeline Status Badge ---
+function PipelineBadge({ label, done, detail }: { label: string; done: boolean; detail?: string | null }) {
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+        done
+          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+          : 'bg-gray-50 text-gray-300 border border-gray-200'
+      }`}
+      title={detail || (done ? `${label} ✓` : `${label} belum`)}
+    >
+      {done ? '✓' : '○'} {label}
+    </span>
+  )
 }
 
 // --- Empty State ---
@@ -647,6 +682,73 @@ export default function PembukaanPage() {
                             </TableCell>
                             <TableCell className="py-2.5 text-xs text-right text-gray-700">{parseInt(r.jumlahPesanan || '0').toLocaleString('id-ID')}</TableCell>
                             <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{formatRupiah(r.totalPrice || 0)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : <EmptyState />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Riwayat Penjualan - Sales Pipeline */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-slate-400" />
+                Riwayat Penjualan
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                  {data?.recent?.salesPipeline?.length ?? 0}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? <TableSkeleton /> : (
+                data?.recent?.salesPipeline && data.recent.salesPipeline.length > 0 ? (
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
+                    <Table className="min-w-[700px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nomor</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Status</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.recent.salesPipeline.map((item, idx) => (
+                          <TableRow key={item.id} className="group">
+                            <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide bg-blue-50 text-blue-700 border border-blue-200">
+                                {item.nomorUrut || '-'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(item.createdAt)}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{item.customerName || '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-700 max-w-[150px] truncate" title={item.printName || ''}>{item.printName || '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <PipelineBadge label="PK" done={item.hasPK} />
+                                <span className="text-gray-300 text-[9px]">→</span>
+                                <PipelineBadge label="HC" done={true} />
+                                <span className="text-gray-300 text-[9px]">→</span>
+                                <PipelineBadge label="INV" done={item.hasInvoice} detail={item.invoiceNumber} />
+                                <span className="text-gray-300 text-[9px]">→</span>
+                                <PipelineBadge label="SJ" done={item.hasSJ} detail={item.suratJalanNumber} />
+                                <span className="text-gray-300 text-[9px]">→</span>
+                                <PipelineBadge label="PO" done={item.hasPO} detail={item.poNumber} />
+                              </div>
+                            </TableCell>
+                            <TableCell className={`py-2.5 text-xs whitespace-nowrap font-semibold ${item.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
+                              {item.profitAmount > 0 ? formatRupiah(item.profitAmount) : '-'}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{formatRupiah(item.grandTotal || 0)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

@@ -172,3 +172,30 @@ Stage Summary:
 - Hitung Cetakan table: removed Finishing column (not critical for overview), added Nomor column
 - Potong Kertas table: removed Uk. Kertas column, added Nomor column
 - Badge styling matches the dedicated riwayat page (emerald for PK, blue for HC)
+
+---
+Task ID: add-riwayat-penjualan
+Agent: main
+Task: Add Riwayat Penjualan (Sales Pipeline) card to beranda page, positioned left of Invoice card
+
+Work Log:
+- Added sales pipeline data generation to dashboard API (`/api/dashboard/route.ts`):
+  - Gets recent RiwayatCetakan records as pipeline base
+  - Batch lookups for matching Potong Kertas (by nomorUrut), Invoice (by riwayatCetakanId), Surat Jalan (by riwayatCetakanId), Purchase Order (by referensi in dataJson)
+  - Returns `salesPipeline` array in `recent` section of dashboard response
+  - Each pipeline item has: id, nomorUrut, customerName, printName, grandTotal, profitAmount, createdAt, hasPK, hasInvoice, invoiceNumber, hasSJ, suratJalanNumber, hasPO, poNumber
+- Added `SalesPipelineItem` interface to pembukaan page
+- Updated `DashboardData` interface to include `salesPipeline` in `recent`
+- Added `PipelineBadge` component - shows workflow step status (✓ PK / ○ PK) with green/gray styling
+- Added "Riwayat Penjualan" card positioned before Invoice card in the riwayat section
+  - Table columns: No, Nomor, Tgl, Customer, Nama Barang, Status, Uang Capek, Total
+  - Status column shows pipeline flow: PK → HC → INV → SJ → PO with badge indicators
+  - Each badge shows ✓ (done, green) or ○ (not done, gray) with tooltip showing document number
+  - HC is always ✓ since the pipeline is based on Hitung Cetakan records
+
+Stage Summary:
+- New "Riwayat Penjualan" card shows the complete sales workflow pipeline
+- Groups related documents by nomorUrut: PK✓ → HC✓ → INV✓/○ → SJ✓/○ → PO✓/○
+- Positioned to the left of (before) the Invoice card
+- Pipeline status badges provide at-a-glance view of each sale's progress
+- API uses efficient batch queries (4 additional queries regardless of record count)
