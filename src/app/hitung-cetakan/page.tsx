@@ -206,7 +206,7 @@ function HitungCetakanPage() {
   // Next document number preview
   const [nextDocNumber, setNextDocNumber] = useState<string>('')
   const fetchNextDocNumber = () => {
-    fetcher('/api/doc-number?model=riwayatCetakan&field=nomorUrut&prefix=HC', { headers: getAuthHeaders() })
+    fetcher('/api/doc-number?prefix=PK', { headers: getAuthHeaders() })
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.nextNumber) setNextDocNumber(data.nextNumber) })
       .catch(() => {})
@@ -1658,7 +1658,7 @@ function HitungCetakanPage() {
                 <div className="space-y-2">
                   {/* Nomor Urut Preview */}
                   <div>
-                    <label className={labelClass}>No. Hitung Cetakan</label>
+                    <label className={labelClass}>No. Potong Kertas</label>
                     <input
                       type="text"
                       value={nextDocNumber || '-'}

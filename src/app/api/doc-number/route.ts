@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter } from '@/lib/server-auth'
 
-const SLASH_FORMAT_PREFIXES = ['PK', 'HC']
+const SLASH_FORMAT_PREFIXES = ['PK']
 
 function buildDatePrefix(prefix: string, year: number, month: string): string {
   if (SLASH_FORMAT_PREFIXES.includes(prefix)) {
@@ -38,12 +38,10 @@ export async function GET(request: NextRequest) {
     }
     const dataFilter = await getDataFilter(user)
     const { searchParams } = new URL(request.url)
-    const model = searchParams.get('model')
-    const field = searchParams.get('field')
     const prefix = searchParams.get('prefix')
 
-    if (!model || !field || !prefix) {
-      return NextResponse.json({ error: 'Missing model, field, or prefix' }, { status: 400 })
+    if (!prefix) {
+      return NextResponse.json({ error: 'Missing prefix' }, { status: 400 })
     }
 
     const now = new Date()
@@ -51,23 +49,45 @@ export async function GET(request: NextRequest) {
     const month = String(now.getMonth() + 1).padStart(2, '0')
     const datePrefix = buildDatePrefix(prefix, year, month)
 
-    const lastDoc = await (db as any)[model].findFirst({
-      where: {
-        ...dataFilter,
-        [field]: { startsWith: datePrefix },
-      },
-      orderBy: { [field]: 'desc' },
-    })
+    let maxSeq = 0
 
-    let nextNum = 1
-    if (lastDoc) {
-      const existingNumber: string = lastDoc[field]
-      const lastSeq = parseLastSeq(existingNumber, prefix)
-      if (lastSeq > 0) {
-        nextNum = lastSeq + 1
+    // For PK prefix: shared counter across both tables
+    if (prefix === 'PK') {
+      const lastPK = await db.riwayatPotongKertas.findFirst({
+        where: { ...dataFilter, nomorUrut: { startsWith: datePrefix } },
+        orderBy: { nomorUrut: 'desc' },
+      })
+      if (lastPK) {
+        const seq = parseLastSeq(lastPK.nomorUrut, 'PK')
+        if (seq > maxSeq) maxSeq = seq
+      }
+
+      const lastHC = await db.riwayatCetakan.findFirst({
+        where: { ...dataFilter, nomorUrut: { startsWith: datePrefix } },
+        orderBy: { nomorUrut: 'desc' },
+      })
+      if (lastHC) {
+        const seq = parseLastSeq(lastHC.nomorUrut, 'PK')
+        if (seq > maxSeq) maxSeq = seq
+      }
+    } else {
+      // Non-shared: single table lookup
+      const model = searchParams.get('model')
+      const field = searchParams.get('field')
+      if (!model || !field) {
+        return NextResponse.json({ error: 'Missing model or field' }, { status: 400 })
+      }
+      const lastDoc = await (db as any)[model].findFirst({
+        where: { ...dataFilter, [field]: { startsWith: datePrefix } },
+        orderBy: { [field]: 'desc' },
+      })
+      if (lastDoc) {
+        const seq = parseLastSeq(lastDoc[field], prefix)
+        if (seq > maxSeq) maxSeq = seq
       }
     }
 
+    const nextNum = maxSeq + 1
     const docNumber = buildDocNumber(datePrefix, nextNum, prefix)
     return NextResponse.json({ nextNumber: docNumber })
   } catch (error) {
