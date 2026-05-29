@@ -5,7 +5,7 @@ import { Search, Eye, Loader2, Receipt, Printer } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -324,20 +324,23 @@ export default function RiwayatPage() {
 
       {/* ===== PREVIEW DIALOG — Invoice Pratinjau ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0">
-          <DialogHeader className="p-4 pb-0 flex flex-row items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-violet-600" />
-              Pratinjau Invoice
-            </DialogTitle>
+        <DialogContent
+          className="sm:max-w-[620px] lg:max-w-[640px] w-[calc(100%-1rem)] sm:w-full max-h-[96vh] overflow-y-auto p-0 gap-0"
+          aria-label="Pratinjau Invoice"
+        >
+          {/* sr-only title for accessibility, no visible header */}
+          <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
+
+          {/* Compact action bar */}
+          <div className="flex items-center justify-end px-3 pt-3 pb-1">
             <button onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
               <Printer className="w-3.5 h-3.5" /> Cetak
             </button>
-          </DialogHeader>
+          </div>
 
           {invoiceData && (
-            <div className="p-2 lg:p-4" ref={previewWrapperRef} id="document-preview">
+            <div className="px-2 pb-3 sm:px-3 lg:px-4" ref={previewWrapperRef} id="document-preview">
               {/* Outer container: matches the scaled dimensions so no layout overflow */}
               <div style={{
                 width: previewScale < 1 ? `${576 * previewScale}px` : 576,
