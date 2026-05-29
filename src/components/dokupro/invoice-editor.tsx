@@ -189,37 +189,58 @@ export function InvoiceEditor() {
   };
 
   // Auto-select referensi when coming from hitung cetakan with riwayatId
-  // Uses functional setInvoice to avoid stale closure
-  // Retry up to 3 times if the newly saved riwayat isn't in the list yet
+  // Fetches the specific riwayat directly by ID for reliability (no race condition with list loading)
   useEffect(() => {
     if (!riwayatIdFromUrl) return;
     if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
 
-    const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
-    if (!found) {
-      let attempts = 0;
-      const retry = async () => {
-        if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
-        attempts++;
-        if (attempts > 3) return;
-        await new Promise(r => setTimeout(r, 500));
-        const data = await fetchRiwayatCetakan();
-        const retryFound = (data as RiwayatCetakanItem[]).find((r) => r.id === riwayatIdFromUrl);
-        if (retryFound) {
-          autoSelectDoneRef.current = riwayatIdFromUrl;
-          applyReferensi(retryFound);
-        } else {
-          retry();
-        }
-      };
-      retry();
-      return;
-    }
+    let cancelled = false;
 
-    autoSelectDoneRef.current = riwayatIdFromUrl;
-    applyReferensi(found);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riwayatIdFromUrl, riwayatList]);
+    const fetchAndApply = async () => {
+      // First, try to find it in the already-loaded list (fast path)
+      const foundInList = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+      if (foundInList) {
+        if (!cancelled) {
+          autoSelectDoneRef.current = riwayatIdFromUrl;
+          applyReferensi(foundInList);
+        }
+        return;
+      }
+
+      // Not in list yet — fetch directly by ID from the API (reliable path)
+      try {
+        const res = await fetch(`/api/riwayat-cetakan?id=${riwayatIdFromUrl}`, { headers: getAuthHeaders() });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data && !data.error) {
+            autoSelectDoneRef.current = riwayatIdFromUrl;
+            applyReferensi(data as RiwayatCetakanItem);
+          }
+        }
+      } catch {
+        // Fallback: retry once after a short delay
+        if (cancelled) return;
+        await new Promise(r => setTimeout(r, 800));
+        if (cancelled) return;
+        try {
+          const res = await fetch(`/api/riwayat-cetakan?id=${riwayatIdFromUrl}`, { headers: getAuthHeaders() });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && !data.error) {
+              autoSelectDoneRef.current = riwayatIdFromUrl;
+              applyReferensi(data as RiwayatCetakanItem);
+            }
+          }
+        } catch {
+          // Give up silently
+        }
+      }
+    };
+
+    fetchAndApply();
+
+    return () => { cancelled = true; };
+  }, [riwayatIdFromUrl]);
 
   // Filter customer list (only when user is actively typing)
   const filteredCustomerList = useMemo(() =>

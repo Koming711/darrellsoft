@@ -99,3 +99,29 @@ Stage Summary:
 - Auto-select now tracks specific riwayatId/invoiceId (not just boolean flag) for correct re-navigation
 - Retry mechanism ensures newly saved records are found even with slight propagation delays
 - All three pages (invoice, surat-jalan, purchase-order) tested and load correctly (HTTP 200)
+---
+Task ID: fix-pendapatan-hari-ini
+Agent: main
+Task: Fix "Pendapatan Hari Ini" box showing wrong order count + Fix PO auto-fill race condition
+
+Work Log:
+- **Pendapatan Hari Ini fix**: Changed `todaySales` and `todayOrderCount` in dashboard API to be based on invoices only (not RiwayatCetakan calculations)
+  - Before: `todayOrderCount = todayCetakanAgg._count + todayInvoiceHistory.length` (double-counted)
+  - After: `todayOrderCount = todayInvoiceHistory.length` (invoice-based only)
+  - Before: `todaySales = (todayCetakanAgg._sum.grandTotal || 0) + todayInvoiceRevenue` (potential double-count)
+  - After: `todaySales = todayInvoiceRevenue` (invoice revenue only)
+- **PO auto-fill race condition fix**: Replaced unreliable list-based auto-select with direct API fetch by ID
+  - Added `?id=` query param support to `/api/riwayat-potong-kertas` and `/api/riwayat-cetakan` routes for direct record fetch
+  - Rewrote auto-select effects in PO editor, invoice editor, and surat-jalan editor:
+    - Fast path: check already-loaded list first
+    - Reliable path: fetch directly by ID from API (no race with list loading)
+    - Fallback: retry once with 800ms delay
+    - Proper cleanup function (cancelled flag) to prevent stale updates on unmount
+  - Moved `applyReferensi`/`handleInvoiceSelect` definitions before the auto-select effects to fix hoisting lint errors
+  - Removed dependency on `riwayatList`/`invoiceList` from effect deps (only depends on URL param now)
+
+Stage Summary:
+- "Pendapatan Hari Ini" now correctly counts only invoice-based orders (not calculation records)
+- PO/Invoice/SJ auto-fill from reference is now reliable — direct API fetch eliminates the race condition with list loading
+- All three document editors consistently use the same robust auto-select pattern
+- Pages tested and load correctly (HTTP 200)
