@@ -168,25 +168,19 @@ export default function RiwayatPage() {
     return parseInvoiceData(previewItem)
   }, [previewItem])
 
-  // Scale A5 preview to fit mobile/desktop viewport
+  // Scale A5 preview to fit inside a popup on both mobile & desktop
   useEffect(() => {
     const DESIGN_W = 576
     const DESIGN_H = DESIGN_W * (210 / 148) // ≈817px A5
     const updateScale = () => {
       const vw = window.innerWidth
       const vh = window.innerHeight
-      if (vw < 640) {
-        // Mobile: dialog is fullscreen, just leave room for close button + safe area
-        const pad = 16 // small inner padding
-        const availW = vw - pad * 2
-        const availH = vh - pad * 2 - 32 // 32px for close button row
-        setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
-      } else {
-        // Desktop: popup style
-        const availW = Math.min(vw, 620) - 48 // dialog max-w minus padding
-        const availH = Math.min(vh * 0.9, 700) - 16
-        setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
-      }
+      // Popup margins: 16px each side on mobile, dialog padding + close button
+      const marginX = 24 // dialog margin left+right
+      const marginY = 48 // dialog margin top+bottom + close button area
+      const availW = vw - marginX * 2
+      const availH = vh - marginY * 2
+      setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
     }
     if (previewOpen) {
       const t = setTimeout(updateScale, 60)
@@ -316,17 +310,21 @@ export default function RiwayatPage() {
         </div>
       </div>
 
-      {/* ===== PREVIEW DIALOG — Invoice A5 fit to mobile ===== */}
+      {/* ===== PREVIEW DIALOG — Invoice A5 popup ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent
-          className="max-w-none sm:max-w-[620px] w-screen sm:w-full h-dvh sm:h-auto max-h-dvh sm:max-h-[96vh] rounded-none sm:rounded-lg border-0 sm:border overflow-hidden p-0 gap-0"
+          className="max-w-none w-auto overflow-hidden p-2 gap-0"
+          style={{
+            width: `${576 * previewScale + 16}px`,   // scaled width + padding
+            maxHeight: `calc(100dvh - 48px)`,
+          }}
           aria-label="Pratinjau Invoice"
         >
           {/* sr-only title for accessibility */}
           <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
 
           {invoiceData && (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="flex items-center justify-center">
               {/* Scaled A5 preview */}
               <div style={{
                 width: `${576 * previewScale}px`,
