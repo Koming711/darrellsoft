@@ -216,7 +216,7 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
 
   const filteredHistories = histories.filter(h => {
     const term = searchTerm.toLowerCase()
-    const matchesSearch = h.printName.toLowerCase().includes(term) || h.customerName.toLowerCase().includes(term) || h.paperName.toLowerCase().includes(term) || h.machineName.toLowerCase().includes(term)
+    const matchesSearch = (h.printName || '').toLowerCase().includes(term) || (h.customerName || '').toLowerCase().includes(term) || (h.paperName || '').toLowerCase().includes(term) || (h.machineName || '').toLowerCase().includes(term)
     const isHitungCetak = h.type === 'hitung_cetakan'
     const matchesFilter = filterType === 'all' || (filterType === 'Hitung Cetakan' && isHitungCetak) || (filterType === 'Potong Kertas' && !isHitungCetak)
     return matchesSearch && matchesFilter
@@ -565,7 +565,7 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
                         <div className="mt-1.5 pt-1.5 border-t border-rose-200">
                           <p className="text-[9px] text-rose-500 font-medium mb-0.5">Detail:</p>
                           <div className="space-y-1">
-                            {previewItem.finishingBreakdown.split(' | ').map((fb, i) => (
+                            {(previewItem.finishingBreakdown || '').split(' | ').map((fb, i) => (
                               <p key={i} className="text-[9px] text-rose-600 leading-relaxed">{fb}</p>
                             ))}
                           </div>
