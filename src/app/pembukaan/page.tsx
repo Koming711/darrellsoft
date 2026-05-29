@@ -483,6 +483,12 @@ export default function PembukaanPage() {
         {/* Quick Access Icons */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <QuickIcon
+            icon={<Receipt className="w-5 h-5" />}
+            label="Invoice"
+            color="bg-violet-50 text-violet-600 border-violet-200"
+            onClick={() => router.push('/invoice')}
+          />
+          <QuickIcon
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
@@ -493,12 +499,6 @@ export default function PembukaanPage() {
             label="Riwayat"
             color="bg-amber-50 text-amber-600 border-amber-200"
             onClick={() => router.push('/riwayat')}
-          />
-          <QuickIcon
-            icon={<Receipt className="w-5 h-5" />}
-            label="Invoice"
-            color="bg-violet-50 text-violet-600 border-violet-200"
-            onClick={() => router.push('/invoice')}
           />
         </div>
 
