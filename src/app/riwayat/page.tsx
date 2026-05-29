@@ -176,10 +176,18 @@ export default function RiwayatPage() {
       const style = getComputedStyle(previewWrapperRef.current)
       const paddingLeft = parseFloat(style.paddingLeft) || 0
       const paddingRight = parseFloat(style.paddingRight) || 0
+      const paddingBottom = parseFloat(style.paddingBottom) || 0
       const availableWidth = previewWrapperRef.current.clientWidth - paddingLeft - paddingRight
-      const availableHeight = window.innerHeight - 80 // account for dialog chrome
+      // Use wrapper's actual available height when possible, fallback to viewport
+      const wrapperHeight = previewWrapperRef.current.clientHeight - paddingBottom
+      const viewportHeight = window.innerHeight
+      // On mobile: dialog chrome (close btn, border, margin) takes ~160px
+      // Use the smaller of wrapper height or viewport minus chrome
+      const isMobile = viewportHeight < 768
+      const chromeBuffer = isMobile ? 160 : 120
+      const availableHeight = Math.min(wrapperHeight || 9999, viewportHeight - chromeBuffer)
       const designWidth = 576
-      const designHeight = designWidth * (210 / 148) // A5 ratio
+      const designHeight = designWidth * (210 / 148) // A5 ratio ≈ 817px
       const scaleByWidth = availableWidth / designWidth
       const scaleByHeight = availableHeight / designHeight
       // Use the smaller scale so the preview fits BOTH width and height
@@ -187,7 +195,7 @@ export default function RiwayatPage() {
       setPreviewScale(scale)
     }
     if (previewOpen) {
-      const timer = setTimeout(updateScale, 50)
+      const timer = setTimeout(updateScale, 100)
       window.addEventListener('resize', updateScale)
       return () => {
         clearTimeout(timer)
@@ -320,14 +328,14 @@ export default function RiwayatPage() {
       {/* ===== PREVIEW DIALOG — Invoice Pratinjau ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent
-          className="sm:max-w-[620px] lg:max-w-[640px] w-[calc(100%-1rem)] sm:w-full max-h-[96vh] overflow-hidden sm:overflow-y-auto p-0 gap-0"
+          className="sm:max-w-[620px] lg:max-w-[640px] w-[calc(100%-0.5rem)] sm:w-full max-h-[90vh] sm:max-h-[96vh] overflow-hidden sm:overflow-y-auto p-0 gap-0"
           aria-label="Pratinjau Invoice"
         >
           {/* sr-only title for accessibility, no visible header */}
           <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
 
           {invoiceData && (
-            <div className="px-2 pb-3 sm:px-3 lg:px-4" ref={previewWrapperRef} id="document-preview">
+            <div className="px-1 pb-1 sm:px-3 lg:px-4" ref={previewWrapperRef} id="document-preview">
               {/* Outer container: matches the scaled dimensions so no layout overflow */}
               <div style={{
                 width: previewScale < 1 ? `${576 * previewScale}px` : 576,
