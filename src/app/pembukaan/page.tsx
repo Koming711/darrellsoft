@@ -42,7 +42,6 @@ import {
   CalendarClock,
   ChevronRight,
   History,
-  BarChart3,
   Receipt,
   Package,
   CalendarIcon,
@@ -432,7 +431,7 @@ export default function PembukaanPage() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
             label="Pendapatan Hari Ini"
@@ -482,7 +481,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Quick Access Icons */}
-        <div className="grid grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <QuickIcon
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
@@ -504,7 +503,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Date Filter Section */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
           <div className="flex items-center gap-1.5 mr-1">
             <Filter className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-medium text-slate-500">Periode:</span>
@@ -534,7 +533,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Riwayat Sections */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Hitung Cetakan */}
           <Card>
             <CardHeader className="pb-2">
@@ -549,7 +548,7 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.cetakan && recent.cetakan.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
                     <Table className="min-w-[700px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -574,7 +573,7 @@ export default function PembukaanPage() {
                               <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.customerName || '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[200px] truncate" title={r.printName || ''}>{r.printName || '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-700 whitespace-nowrap">
+                              <TableCell className={`py-2.5 text-xs whitespace-nowrap font-semibold ${r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
                                 {r.profitAmount > 0 ? formatRupiah(r.profitAmount) : '-'}
                               </TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[150px] truncate" title={r.finishingNames || ''}>
@@ -608,7 +607,7 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.potongKertas && recent.potongKertas.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -663,7 +662,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 invoiceHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
                     <Table className="min-w-[750px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -718,7 +717,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 suratJalanHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
                     <Table className="min-w-[450px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -759,7 +758,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 poHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
