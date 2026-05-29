@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -51,8 +51,55 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   spk: 'SPK',
 };
 
+// Parse dataJson to extract referensi and total from PO records
+function parsePORef(entry: HistoryEntry): { referensi: string; total: number } {
+  try {
+    const parsed = JSON.parse(entry.dataJson);
+    const items = parsed.items || [];
+    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
+    const ppn = parsed.ppn || 0;
+    const total = subtotal + (subtotal * ppn / 100);
+    return { referensi: parsed.referensi || '', total };
+  } catch {
+    return { referensi: '', total: 0 };
+  }
+}
+
+// Calculate uang capek for each invoice by matching referensi with PO costs
+function calculateUangCapek(invoices: HistoryEntry[], poRecords: HistoryEntry[]): Map<string, number> {
+  const result = new Map<string, number>();
+
+  // Build PO cost lookup by referensi
+  const poByRef = new Map<string, number>();
+  for (const po of poRecords) {
+    const { referensi, total } = parsePORef(po);
+    if (referensi) {
+      poByRef.set(referensi, (poByRef.get(referensi) || 0) + total);
+    }
+  }
+
+  // Calculate uang capek per invoice
+  for (const inv of invoices) {
+    try {
+      const parsed = JSON.parse(inv.dataJson);
+      const items = parsed.items || [];
+      const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
+      const ppn = parsed.ppn || 0;
+      const totalHarga = subtotal + (subtotal * ppn / 100);
+      const referensi = parsed.referensi || '';
+      const poCost = referensi ? (poByRef.get(referensi) || 0) : 0;
+      result.set(inv.id, totalHarga - poCost);
+    } catch {
+      result.set(inv.id, 0);
+    }
+  }
+
+  return result;
+}
+
 export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTableProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [poHistory, setPoHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchHistory = useCallback(async () => {
@@ -67,16 +114,37 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
     }
   }, [docType]);
 
+  // Fetch PO history for uang capek calculation (only when docType is invoice)
+  const fetchPOHistory = useCallback(async () => {
+    if (docType !== 'invoice') return;
+    try {
+      const res = await fetch('/api/history?docType=purchase-order', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        setPoHistory(json.data || []);
+      }
+    } catch {
+      // ignore
+    }
+  }, [docType]);
+
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
+    fetchPOHistory();
+  }, [fetchHistory, fetchPOHistory]);
 
   // Listen for save events from DocumentActionButtons
   useEffect(() => {
-    const handler = () => fetchHistory();
+    const handler = () => { fetchHistory(); fetchPOHistory(); };
     window.addEventListener('dokupro:history-updated', handler);
     return () => window.removeEventListener('dokupro:history-updated', handler);
-  }, [fetchHistory]);
+  }, [fetchHistory, fetchPOHistory]);
+
+  // Calculate uang capek per invoice
+  const uangCapekMap = useMemo(() => {
+    if (docType !== 'invoice') return new Map<string, number>();
+    return calculateUangCapek(history, poHistory);
+  }, [docType, history, poHistory]);
 
   const handleLoad = async (id: string) => {
     setLoading(true);
@@ -172,6 +240,9 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                 {showPriceColumns && (
                   <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                 )}
+                {docType === 'invoice' && (
+                  <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                )}
                 <TableHead className="text-right text-[11px] font-semibold text-gray-500">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -208,6 +279,14 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                         {info && info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}
                       </TableCell>
                     )}
+                    {docType === 'invoice' && (() => {
+                      const uc = uangCapekMap.get(entry.id) ?? 0;
+                      return (
+                        <TableCell className={`py-2.5 text-xs text-right font-medium whitespace-nowrap ${uc > 0 ? 'text-violet-700' : uc < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                          {uc !== 0 ? formatRupiah(uc) : '-'}
+                        </TableCell>
+                      );
+                    })()}
                     <TableCell className="py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
