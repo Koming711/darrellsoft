@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Search, Eye, Loader2, Receipt } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
@@ -130,7 +130,6 @@ export default function RiwayatPage() {
   const [loading, setLoading] = useState(true)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
-  const previewWrapperRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(1)
 
   const fetchHistory = useCallback(async () => {
@@ -169,46 +168,30 @@ export default function RiwayatPage() {
     return parseInvoiceData(previewItem)
   }, [previewItem])
 
-  // Scale preview to fit container — use viewport directly for reliability on mobile
+  // Scale A5 preview to fit mobile/desktop viewport
   useEffect(() => {
+    const DESIGN_W = 576
+    const DESIGN_H = DESIGN_W * (210 / 148) // ≈817px A5
     const updateScale = () => {
-      const designWidth = 576
-      const designHeight = designWidth * (210 / 148) // A5 ratio ≈ 817px
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-      const isMobile = viewportWidth < 640
-
-      if (isMobile) {
-        // On mobile: calculate directly from viewport with generous buffer
-        // Dialog has max-w-[calc(100%-2rem)] = 16px margin each side (32px total)
-        // Close button takes ~40px at top, plus bottom safe area
-        const availableWidth = viewportWidth - 40 // 16px dialog margin each side + some extra padding
-        const availableHeight = viewportHeight - 100 // close button + top/bottom margins + safe area
-        const scaleByWidth = availableWidth / designWidth
-        const scaleByHeight = availableHeight / designHeight
-        const scale = Math.min(scaleByWidth, scaleByHeight, 1)
-        setPreviewScale(scale)
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      if (vw < 640) {
+        // Mobile: dialog is fullscreen, just leave room for close button + safe area
+        const pad = 16 // small inner padding
+        const availW = vw - pad * 2
+        const availH = vh - pad * 2 - 32 // 32px for close button row
+        setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
       } else {
-        // On desktop: use wrapper dimensions
-        if (!previewWrapperRef.current) return
-        const style = getComputedStyle(previewWrapperRef.current)
-        const paddingLeft = parseFloat(style.paddingLeft) || 0
-        const paddingRight = parseFloat(style.paddingRight) || 0
-        const availableWidth = previewWrapperRef.current.clientWidth - paddingLeft - paddingRight
-        const availableHeight = 600 // reasonable desktop popup height
-        const scaleByWidth = availableWidth / designWidth
-        const scaleByHeight = availableHeight / designHeight
-        const scale = Math.min(scaleByWidth, scaleByHeight, 1)
-        setPreviewScale(scale)
+        // Desktop: popup style
+        const availW = Math.min(vw, 620) - 48 // dialog max-w minus padding
+        const availH = Math.min(vh * 0.9, 700) - 16
+        setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
       }
     }
     if (previewOpen) {
-      const timer = setTimeout(updateScale, 50)
+      const t = setTimeout(updateScale, 60)
       window.addEventListener('resize', updateScale)
-      return () => {
-        clearTimeout(timer)
-        window.removeEventListener('resize', updateScale)
-      }
+      return () => { clearTimeout(t); window.removeEventListener('resize', updateScale) }
     }
   }, [previewOpen])
 
@@ -333,30 +316,30 @@ export default function RiwayatPage() {
         </div>
       </div>
 
-      {/* ===== PREVIEW DIALOG — Invoice Pratinjau ===== */}
+      {/* ===== PREVIEW DIALOG — Invoice A5 fit to mobile ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent
-          className="sm:max-w-[620px] lg:max-w-[640px] w-full sm:w-full h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[96vh] overflow-hidden p-0 gap-0"
+          className="max-w-none sm:max-w-[620px] w-screen sm:w-full h-dvh sm:h-auto max-h-dvh sm:max-h-[96vh] rounded-none sm:rounded-lg border-0 sm:border overflow-hidden p-0 gap-0"
           aria-label="Pratinjau Invoice"
         >
-          {/* sr-only title for accessibility, no visible header */}
+          {/* sr-only title for accessibility */}
           <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
 
           {invoiceData && (
-            <div className="w-full h-full sm:h-auto flex items-center justify-center sm:block sm:px-3 sm:py-2 sm:lg:px-4" ref={previewWrapperRef} id="document-preview">
-              {/* Outer container: matches the scaled dimensions so no layout overflow */}
+            <div className="w-full h-full flex items-center justify-center">
+              {/* Scaled A5 preview */}
               <div style={{
-                width: previewScale < 1 ? `${576 * previewScale}px` : 576,
-                height: previewScale < 1 ? `${576 * (210 / 148) * previewScale}px` : undefined,
+                width: `${576 * previewScale}px`,
+                height: `${576 * (210 / 148) * previewScale}px`,
                 overflow: 'hidden',
               }}>
-                {/* Inner container: renders at full 576px design width, then scaled down */}
                 <div style={{
                   width: 576,
+                  height: 576 * (210 / 148),
                   transform: `scale(${previewScale})`,
                   transformOrigin: 'top left',
                 }}>
-                  <div className="a5-preview-container bg-white" style={{ aspectRatio: '148 / 210', maxWidth: 576 }}>
+                  <div className="bg-white" style={{ width: 576, height: 576 * (210 / 148) }}>
                     <div className="a5-preview-scaler">
                       <InvoicePreview data={invoiceData} />
                     </div>
