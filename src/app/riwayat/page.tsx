@@ -169,25 +169,24 @@ export default function RiwayatPage() {
     return parseInvoiceData(previewItem)
   }, [previewItem])
 
-  // Scale preview to fit container on mobile
+  // Scale preview to fit container — consider both width AND height
   useEffect(() => {
     const updateScale = () => {
       if (!previewWrapperRef.current) return
-      // Subtract padding (p-2 = 8px each side on mobile, p-4 = 16px each on desktop)
       const style = getComputedStyle(previewWrapperRef.current)
       const paddingLeft = parseFloat(style.paddingLeft) || 0
       const paddingRight = parseFloat(style.paddingRight) || 0
       const availableWidth = previewWrapperRef.current.clientWidth - paddingLeft - paddingRight
-      // A5 preview is designed at 576px max-width
+      const availableHeight = window.innerHeight - 80 // account for dialog chrome
       const designWidth = 576
-      if (availableWidth < designWidth) {
-        setPreviewScale(availableWidth / designWidth)
-      } else {
-        setPreviewScale(1)
-      }
+      const designHeight = designWidth * (210 / 148) // A5 ratio
+      const scaleByWidth = availableWidth / designWidth
+      const scaleByHeight = availableHeight / designHeight
+      // Use the smaller scale so the preview fits BOTH width and height
+      const scale = Math.min(scaleByWidth, scaleByHeight, 1)
+      setPreviewScale(scale)
     }
     if (previewOpen) {
-      // Small delay to let dialog render and get correct dimensions
       const timer = setTimeout(updateScale, 50)
       window.addEventListener('resize', updateScale)
       return () => {
@@ -321,7 +320,7 @@ export default function RiwayatPage() {
       {/* ===== PREVIEW DIALOG — Invoice Pratinjau ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent
-          className="sm:max-w-[620px] lg:max-w-[640px] w-[calc(100%-1rem)] sm:w-full max-h-[96vh] overflow-y-auto p-0 gap-0"
+          className="sm:max-w-[620px] lg:max-w-[640px] w-[calc(100%-1rem)] sm:w-full max-h-[96vh] overflow-hidden sm:overflow-y-auto p-0 gap-0"
           aria-label="Pratinjau Invoice"
         >
           {/* sr-only title for accessibility, no visible header */}
