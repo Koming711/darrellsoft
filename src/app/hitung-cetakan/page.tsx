@@ -1657,12 +1657,15 @@ function HitungCetakanPage() {
               <div className="px-4 py-3">
                 <div className="space-y-2">
                   {/* Nomor Urut Preview */}
-                  {nextDocNumber && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">No.</span>
-                      <span className="text-sm font-bold text-slate-700 font-mono tracking-wide">{nextDocNumber}</span>
-                    </div>
-                  )}
+                  <div>
+                    <label className={labelClass}>No. Hitung Cetakan</label>
+                    <input
+                      type="text"
+                      value={nextDocNumber || '-'}
+                      readOnly
+                      className={`${inputClass} bg-slate-100 cursor-not-allowed`}
+                    />
+                  </div>
                   <div>
                     <label className={labelClass}>{t('nama_customer')} <span className="text-red-500">*</span></label>
                     <div className="relative">

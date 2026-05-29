@@ -1306,12 +1306,15 @@ function CalculatorPage() {
           <div className="bg-white rounded-xl border border-slate-200 p-2.5">
             <div className="space-y-1.5">
               {/* Nomor Urut Preview */}
-              {nextDocNumber && (
-                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">No.</span>
-                  <span className="text-sm font-bold text-slate-700 font-mono tracking-wide">{nextDocNumber}</span>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className={lbl}>No. Potong Kertas</label>
+                <input
+                  type="text"
+                  value={nextDocNumber || '-'}
+                  readOnly
+                  className={inpDisabled}
+                />
+              </div>
               <div className="space-y-1.5">
                 <div className="relative">
                   <label className={lbl}>{t('nama_customer')}</label>
