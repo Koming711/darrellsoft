@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter } from '@/lib/server-auth'
+import { getServerUser } from '@/lib/server-auth'
 
 const SLASH_FORMAT_PREFIXES = ['PK']
 
@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const dataFilter = await getDataFilter(user)
     const { searchParams } = new URL(request.url)
     const prefix = searchParams.get('prefix')
 
@@ -51,10 +50,10 @@ export async function GET(request: NextRequest) {
 
     let maxSeq = 0
 
-    // For PK prefix: shared counter across both tables
+    // For PK prefix: shared counter across both tables (global - no userId filter)
     if (prefix === 'PK') {
       const lastPK = await db.riwayatPotongKertas.findFirst({
-        where: { ...dataFilter, nomorUrut: { startsWith: datePrefix } },
+        where: { nomorUrut: { startsWith: datePrefix } },
         orderBy: { nomorUrut: 'desc' },
       })
       if (lastPK) {
@@ -63,7 +62,7 @@ export async function GET(request: NextRequest) {
       }
 
       const lastHC = await db.riwayatCetakan.findFirst({
-        where: { ...dataFilter, nomorUrut: { startsWith: datePrefix } },
+        where: { nomorUrut: { startsWith: datePrefix } },
         orderBy: { nomorUrut: 'desc' },
       })
       if (lastHC) {
@@ -71,14 +70,14 @@ export async function GET(request: NextRequest) {
         if (seq > maxSeq) maxSeq = seq
       }
     } else {
-      // Non-shared: single table lookup
+      // Non-shared: single table lookup (global - no userId filter to prevent duplicates)
       const model = searchParams.get('model')
       const field = searchParams.get('field')
       if (!model || !field) {
         return NextResponse.json({ error: 'Missing model or field' }, { status: 400 })
       }
       const lastDoc = await (db as any)[model].findFirst({
-        where: { ...dataFilter, [field]: { startsWith: datePrefix } },
+        where: { [field]: { startsWith: datePrefix } },
         orderBy: { [field]: 'desc' },
       })
       if (lastDoc) {

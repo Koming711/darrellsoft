@@ -125,3 +125,28 @@ Stage Summary:
 - PO/Invoice/SJ auto-fill from reference is now reliable — direct API fetch eliminates the race condition with list loading
 - All three document editors consistently use the same robust auto-select pattern
 - Pages tested and load correctly (HTTP 200)
+
+---
+Task ID: fix-duplicate-doc-numbers
+Agent: main
+Task: Fix duplicate document numbers for Invoice, Surat Jalan, and Purchase Order
+
+Work Log:
+- Identified root cause: `generateDocNumber` used `dataFilter` (which includes `userId`) for `findFirst` queries, making the counter per-user
+- But `@unique` constraints on `invoiceNumber`, `suratJalanNumber`, `poNumber` are GLOBAL (not scoped by user)
+- This mismatch means User B could compute INV-202505-0001 (per-user counter starts from 1) but it collides with User A's existing record at the DB level
+- Fixed `src/lib/doc-number.ts`:
+  - Removed `dataFilter` from `findFirst` queries in both shared PK counter and non-shared (INV/SJ/PO) counter paths
+  - Changed `findSharedMaxSeq(datePrefix, dataFilter)` → `findSharedMaxSeq(datePrefix)` (removed dataFilter param)
+  - Counter is now global across all users, consistent with global `@unique` constraints
+- Fixed `src/app/api/doc-number/route.ts` (preview API):
+  - Same change: removed `dataFilter` from `findFirst` queries
+  - Removed unused `getDataFilter` import
+- Verified no existing duplicate numbers in the database (all tables empty for INV/SJ/PO)
+- Dev server running without errors
+
+Stage Summary:
+- Document numbering counter is now GLOBAL (shared across all users) for INV, SJ, PO, and PK prefixes
+- This ensures the counter is always consistent with the global `@unique` database constraints
+- No duplicate document numbers can ever be generated
+- Deleted numbers are never reused (MAX+1 approach preserved)

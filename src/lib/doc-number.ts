@@ -43,12 +43,12 @@ function buildDocNumber(datePrefix: string, seq: number, prefix: string): string
  * Find the max sequence across both riwayatPotongKertas and riwayatCetakan
  * for the shared PK counter.
  */
-async function findSharedMaxSeq(datePrefix: string, dataFilter: Record<string, any>): Promise<number> {
+async function findSharedMaxSeq(datePrefix: string): Promise<number> {
   let maxSeq = 0
 
-  // Check riwayatPotongKertas
+  // Check riwayatPotongKertas (global - no userId filter to prevent duplicates)
   const lastPK = await db.riwayatPotongKertas.findFirst({
-    where: { ...dataFilter, nomorUrut: { startsWith: datePrefix } },
+    where: { nomorUrut: { startsWith: datePrefix } },
     orderBy: { nomorUrut: 'desc' },
   })
   if (lastPK) {
@@ -56,9 +56,9 @@ async function findSharedMaxSeq(datePrefix: string, dataFilter: Record<string, a
     if (seq > maxSeq) maxSeq = seq
   }
 
-  // Check riwayatCetakan
+  // Check riwayatCetakan (global - no userId filter to prevent duplicates)
   const lastHC = await db.riwayatCetakan.findFirst({
-    where: { ...dataFilter, nomorUrut: { startsWith: datePrefix } },
+    where: { nomorUrut: { startsWith: datePrefix } },
     orderBy: { nomorUrut: 'desc' },
   })
   if (lastHC) {
@@ -92,10 +92,10 @@ export async function generateDocNumber(
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = buildDatePrefix(prefix, year, month)
 
-  // Shared PK counter: check both tables
+  // Shared PK counter: check both tables (global counter)
   if (prefix === 'PK') {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const maxSeq = await findSharedMaxSeq(datePrefix, dataFilter)
+      const maxSeq = await findSharedMaxSeq(datePrefix)
       const nextNum = maxSeq + 1
       const docNumber = buildDocNumber(datePrefix, nextNum, prefix)
 
@@ -112,11 +112,10 @@ export async function generateDocNumber(
     return buildDocNumber(fallbackPrefix, parseInt(fallbackNum), prefix)
   }
 
-  // Non-shared counter (INV, SJ, PO, HC)
+  // Non-shared counter (INV, SJ, PO, HC) — global to prevent duplicates across users
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const lastDoc = await (db[model] as any).findFirst({
       where: {
-        ...dataFilter,
         [numberField]: { startsWith: datePrefix },
       },
       orderBy: { [numberField]: 'desc' },
