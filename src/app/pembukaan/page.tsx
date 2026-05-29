@@ -764,7 +764,7 @@ export default function PembukaanPage() {
 
         {/* Popup Pembelian - Riwayat Purchase Order */}
         <Dialog open={showPembelianPopup} onOpenChange={setShowPembelianPopup}>
-          <DialogContent className="sm:max-w-xl p-0 gap-0" showCloseButton={false}>
+          <DialogContent className="sm:max-w-2xl p-0 gap-0" showCloseButton={false}>
             <DialogHeader className="px-5 pt-5 pb-3">
               <DialogTitle className="flex items-center gap-2 text-base">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
@@ -777,7 +777,7 @@ export default function PembukaanPage() {
             <div className="px-5 pb-5">
               {docLoading ? (
                 <div className="space-y-2">
-                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />)}
+                  {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
                 </div>
               ) : poHistory.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-8 text-center">
@@ -785,33 +785,32 @@ export default function PembukaanPage() {
                   <p className="mt-2 text-sm text-blue-400">Belum ada data purchase order</p>
                 </div>
               ) : (
-                <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                  {poHistory.map(po => {
-                    const info = parseDocInfo(po)
-                    return (
-                      <div
-                        key={po.id}
-                        className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2.5 hover:bg-blue-50/50 transition-colors"
-                      >
-                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                          <ShoppingCart className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-800 truncate">{po.nomor}</p>
-                            {info.namaBarang && (
-                              <span className="text-[11px] text-slate-400 truncate hidden sm:inline">· {info.namaBarang}</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 truncate">{po.pihakKedua}{po.tanggal ? ` · ${formatDateShort(po.tanggal)}` : ''}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-blue-600">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : po.total}</p>
-                          {info.totalQty > 0 && <p className="text-[10px] text-slate-400">{info.totalQty} item</p>}
-                        </div>
-                      </div>
-                    )
-                  })}
+                <div className="rounded-lg border bg-white max-h-[60vh] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                        <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">Nomor PO</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
+                        <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {poHistory.map((po, i) => {
+                        const info = parseDocInfo(po)
+                        return (
+                          <TableRow key={po.id} className="hover:bg-blue-50/50">
+                            <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+                            <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{po.nomor}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{po.tanggal ? formatTanggal(po.tanggal) : '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-600 max-w-[160px] truncate">{po.pihakKedua || '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-right font-medium text-blue-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
