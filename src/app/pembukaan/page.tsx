@@ -496,12 +496,6 @@ export default function PembukaanPage() {
             onClick={() => router.push('/riwayat')}
           />
           <QuickIcon
-            icon={<BarChart3 className="w-5 h-5" />}
-            label="Laporan"
-            color="bg-emerald-50 text-emerald-600 border-emerald-200"
-            onClick={() => router.push('/administrasi')}
-          />
-          <QuickIcon
             icon={<Receipt className="w-5 h-5" />}
             label="Invoice"
             color="bg-violet-50 text-violet-600 border-violet-200"
