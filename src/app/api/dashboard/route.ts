@@ -238,7 +238,21 @@ export async function GET(request: NextRequest) {
     // not from RiwayatCetakan (which are just calculations/quotes)
     const todaySales = todayInvoiceRevenue
     const todayOrderCount = todayInvoiceHistory.length
-    const todayUangCapek = todayCetakanAgg._sum.profitAmount || 0
+    // Uang Capek Hari Ini: Invoice Revenue - PO Costs (only when invoices exist)
+    const todayPOHistory = await db.documentHistory.findMany({
+      where: { docType: 'purchase-order', ...dataFilter, ...todayFilter },
+      select: { dataJson: true },
+    })
+    let todayPOCost = 0
+    for (const po of todayPOHistory) {
+      try {
+        const data = JSON.parse(po.dataJson)
+        const subtotal = (data.items || []).reduce((sum: number, item: { qty: number; harga: number }) => sum + item.qty * item.harga, 0)
+        const ppn = subtotal * ((data.ppn || 0) / 100)
+        todayPOCost += subtotal + ppn
+      } catch {}
+    }
+    const todayUangCapek = todayInvoiceHistory.length > 0 ? Math.max(0, todayInvoiceRevenue - todayPOCost) : 0
 
     return NextResponse.json({
       expiryInfo,
@@ -260,14 +274,15 @@ export async function GET(request: NextRequest) {
         totals: {
           cetakan: cetakanAgg._sum.grandTotal || 0,
           finishing: finishingAgg._sum.totalCost || 0,
-          uangCapek: cetakanAgg._sum.profitAmount || 0,
+          // Uang Capek = Invoice Revenue - PO Costs (only when invoices exist)
+          uangCapek: invoiceAgg._count > 0 ? Math.max(0, invoiceTotal - purchaseOrderTotal) : 0,
           ongkosCetak: (ongkosCetakAgg._sum.totalOngkosCetak || 0) + (ongkosCetakAgg._sum.totalOngkosCetak2 || 0),
           hargaKertas: hargaKertasAgg._sum.totalPrice || 0,
           potongKertas: potongKertasAgg._sum.totalPrice || 0,
           invoice: invoiceTotal,
           purchaseOrder: purchaseOrderTotal,
           revenue: totalRevenue,
-          modal: (cetakanAgg._sum.grandTotal || 0) - (cetakanAgg._sum.profitAmount || 0),
+          modal: invoiceAgg._count > 0 ? invoiceTotal - Math.max(0, invoiceTotal - purchaseOrderTotal) : 0,
           todaySales,
           todayOrderCount,
           todayUangCapek,
