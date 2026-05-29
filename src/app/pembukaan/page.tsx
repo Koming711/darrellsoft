@@ -56,8 +56,11 @@ import { cn } from '@/lib/utils'
 // --- Types ---
 interface CetakanRecord {
   id: string
+  nomorUrut: string
+  type: string
   printName: string
   customerName: string
+  quantity: string
   profitAmount: number
   finishingNames: string
   jumlahPesanan: string
@@ -67,6 +70,7 @@ interface CetakanRecord {
 
 interface PotongKertasRecord {
   id: string
+  nomorUrut: string
   namaCetakan: string
   namaCustomer: string
   paperName: string
@@ -549,15 +553,15 @@ export default function PembukaanPage() {
               {loading ? <TableSkeleton /> : (
                 recent?.cetakan && recent.cetakan.length > 0 ? (
                   <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
-                    <Table className="min-w-[700px]">
+                    <Table className="min-w-[750px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nomor</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Finishing</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml Pesanan</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga/Pcs</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
@@ -567,17 +571,20 @@ export default function PembukaanPage() {
                         {recent.cetakan.map((r, idx) => {
                           const qty = parseInt(r.jumlahPesanan || '0')
                           const hargaPcs = qty > 0 ? Math.round((r.grandTotal || 0) / qty) : 0
+                          const isPotong = r.type !== 'hitung_cetakan'
                           return (
                             <TableRow key={r.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
+                              <TableCell className="py-2.5 text-xs">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide ${isPotong ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                                  {r.nomorUrut || '-'}
+                                </span>
+                              </TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.customerName || '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[200px] truncate" title={r.printName || ''}>{r.printName || '-'}</TableCell>
                               <TableCell className={`py-2.5 text-xs whitespace-nowrap font-semibold ${r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
                                 {r.profitAmount > 0 ? formatRupiah(r.profitAmount) : '-'}
-                              </TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[150px] truncate" title={r.finishingNames || ''}>
-                                {r.finishingNames || '-'}
                               </TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{qty.toLocaleString('id-ID')}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{hargaPcs > 0 ? formatRupiah(hargaPcs) : '-'}</TableCell>
@@ -608,15 +615,15 @@ export default function PembukaanPage() {
               {loading ? <TableSkeleton /> : (
                 recent?.potongKertas && recent.potongKertas.length > 0 ? (
                   <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
-                    <Table className="min-w-[650px]">
+                    <Table className="min-w-[700px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nomor</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Kertas</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Uk. Kertas</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Uk. Potong</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
@@ -626,13 +633,15 @@ export default function PembukaanPage() {
                         {recent.potongKertas.map((r, idx) => (
                           <TableRow key={r.id} className="group">
                             <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
+                            <TableCell className="py-2.5 text-xs">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {r.nomorUrut || '-'}
+                              </span>
+                            </TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.namaCustomer || '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-700 max-w-[120px] truncate">{r.namaCetakan || '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-700 max-w-[100px] truncate">{r.paperName || '-'}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">
-                              {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
-                            </TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">
                               {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
                             </TableCell>
