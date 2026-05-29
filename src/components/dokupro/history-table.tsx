@@ -24,6 +24,7 @@ import {
 import { RotateCcw, Trash2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatRupiah, formatTanggal } from '@/lib/format';
+import { getAuthHeaders } from '@/lib/auth';
 import type { DocumentType } from '@/lib/types';
 
 export interface HistoryEntry {
@@ -56,7 +57,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch(`/api/history?docType=${docType}`);
+      const res = await fetch(`/api/history?docType=${docType}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const json = await res.json();
         setHistory(json.data || []);
@@ -80,7 +81,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
   const handleLoad = async (id: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/history/${id}`);
+      const res = await fetch(`/api/history/${id}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const json = await res.json();
         const parsed = JSON.parse(json.data.dataJson);
@@ -96,7 +97,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/history/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (res.ok) {
         toast.success('Riwayat berhasil dihapus');
         fetchHistory();

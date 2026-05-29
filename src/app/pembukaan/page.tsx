@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { useAuth } from '@/contexts/auth-context'
 import { authFetch } from '@/lib/auth-fetch'
+import { getAuthHeaders } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
@@ -293,10 +294,11 @@ export default function PembukaanPage() {
     setDocLoading(true)
     try {
       const { startDate, endDate } = getFilterDates(filterType, customStartDate, customEndDate)
+      const headers = getAuthHeaders()
       const [invRes, sjRes, poRes] = await Promise.all([
-        fetch(`/api/history?docType=invoice&startDate=${startDate}&endDate=${endDate}`),
-        fetch(`/api/history?docType=surat-jalan&startDate=${startDate}&endDate=${endDate}`),
-        fetch(`/api/history?docType=purchase-order&startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/history?docType=invoice&startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetch(`/api/history?docType=surat-jalan&startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetch(`/api/history?docType=purchase-order&startDate=${startDate}&endDate=${endDate}`, { headers }),
       ])
       if (invRes.ok) { const json = await invRes.json(); setInvoiceHistory(json.data || []) }
       if (sjRes.ok) { const json = await sjRes.json(); setSuratJalanHistory(json.data || []) }

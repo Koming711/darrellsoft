@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, isAdmin } from '@/lib/server-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,10 +46,10 @@ export async function GET(request: NextRequest) {
       : { createdAt: { gte: rangeStart } }
     const combinedFilter = { ...dataFilter, ...dateFilter }
 
-    // DocumentHistory filters for each doc type
-    const invoiceFilter = { docType: 'invoice', ...dateFilter }
-    const suratJalanFilter = { docType: 'surat-jalan', ...dateFilter }
-    const purchaseOrderFilter = { docType: 'purchase-order', ...dateFilter }
+    // DocumentHistory filters for each doc type — now with per-user isolation
+    const invoiceFilter = { docType: 'invoice', ...dataFilter, ...dateFilter }
+    const suratJalanFilter = { docType: 'surat-jalan', ...dataFilter, ...dateFilter }
+    const purchaseOrderFilter = { docType: 'purchase-order', ...dataFilter, ...dateFilter }
 
     // Aggregate counts and totals for each riwayat type (last 7 days)
     const [
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date()
     monthStart.setDate(1)
     monthStart.setHours(0, 0, 0, 0)
-    const monthlyInvoiceFilter = { docType: 'invoice', createdAt: { gte: monthStart } }
+    const monthlyInvoiceFilter = { docType: 'invoice', ...dataFilter, createdAt: { gte: monthStart } }
     let monthlyRevenue = 0
     const monthlyInvoices = await db.documentHistory.findMany({
       where: monthlyInvoiceFilter,
@@ -192,8 +192,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Document history with per-user filter
     const allDocDates = await db.documentHistory.findMany({
-      where: { ...dateFilter },
+      where: { ...dataFilter, ...dateFilter },
       select: { docType: true, createdAt: true },
     })
 
@@ -220,7 +221,7 @@ export async function GET(request: NextRequest) {
     })
 
     const todayInvoiceHistory = await db.documentHistory.findMany({
-      where: { docType: 'invoice', ...todayFilter },
+      where: { docType: 'invoice', ...dataFilter, ...todayFilter },
       select: { dataJson: true },
     })
     let todayInvoiceRevenue = 0

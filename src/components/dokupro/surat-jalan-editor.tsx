@@ -44,7 +44,7 @@ export function SuratJalanEditor() {
 
   const searchParams = useSearchParams();
   const invoiceIdFromUrl = searchParams.get('invoiceId');
-  const autoSelectRef = useRef(false);
+  const autoSelectDoneRef = useRef<string | null>(null); // track which invoiceId was auto-selected
 
   // Invoice history dropdown state
   const [invoiceList, setInvoiceList] = useState<InvoiceHistoryItem[]>([]);
@@ -63,10 +63,12 @@ export function SuratJalanEditor() {
       if (res.ok) {
         const result = await res.json();
         setInvoiceList(result.data || []);
+        return result.data || [];
       }
     } catch {
       // silently fail
     }
+    return [];
   }, []);
 
   // Fetch customer list
@@ -92,18 +94,35 @@ export function SuratJalanEditor() {
   useEffect(() => { setPenerimaInput(sj.penerima.nama) }, [sj.penerima.nama]);
 
   // Auto-select invoice when coming from Invoice page with invoiceId
+  // Uses functional setSuratJalan to avoid stale closure
+  // Retry up to 3 times if the invoice isn't in the list yet
   useEffect(() => {
-    if (invoiceIdFromUrl && invoiceList.length > 0 && !autoSelectRef.current) {
-      const found = invoiceList.find((inv) => String(inv.id) === String(invoiceIdFromUrl));
-      if (found) {
-        autoSelectRef.current = true;
-        // Reset surat jalan first to clear stale data
-        resetDocument('surat-jalan');
-        setTimeout(() => {
-          handleInvoiceSelect(found);
-        }, 0);
-      }
+    if (!invoiceIdFromUrl) return;
+    if (autoSelectDoneRef.current === invoiceIdFromUrl) return;
+
+    const found = invoiceList.find((inv) => String(inv.id) === String(invoiceIdFromUrl));
+    if (!found) {
+      let attempts = 0;
+      const retry = async () => {
+        if (autoSelectDoneRef.current === invoiceIdFromUrl) return;
+        attempts++;
+        if (attempts > 3) return;
+        await new Promise(r => setTimeout(r, 500));
+        const data = await fetchInvoiceHistory();
+        const retryFound = (data as InvoiceHistoryItem[]).find((inv) => String(inv.id) === String(invoiceIdFromUrl));
+        if (retryFound) {
+          autoSelectDoneRef.current = invoiceIdFromUrl;
+          handleInvoiceSelect(retryFound);
+        } else {
+          retry();
+        }
+      };
+      retry();
+      return;
     }
+
+    autoSelectDoneRef.current = invoiceIdFromUrl;
+    handleInvoiceSelect(found);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceIdFromUrl, invoiceList]);
 
@@ -118,7 +137,7 @@ export function SuratJalanEditor() {
 
   const handleReferensiInputChange = (value: string) => {
     setReferensiInput(value);
-    setSuratJalan({ ...sj, referensi: value });
+    setSuratJalan((prev) => ({ ...prev, referensi: value }));
     setDropdownOpen(true);
   };
 
@@ -176,26 +195,26 @@ export function SuratJalanEditor() {
   const handlePenerimaSelect = (item: CustomerItem) => {
     setPenerimaInput(item.name);
     setPenerimaTyping(false);
-    setSuratJalan({
-      ...sj,
+    setSuratJalan((prev) => ({
+      ...prev,
       penerima: {
         nama: item.name,
         kontak: item.phone || item.email || '',
         alamat: item.address || '',
       },
-    });
+    }));
     setPenerimaDropdownOpen(false);
   };
 
   const updateCompany = (company: typeof sj.company) => {
-    setSuratJalan({ ...sj, company });
+    setSuratJalan((prev) => ({ ...prev, company }));
   };
 
   const updatePenerima = (field: string, value: string) => {
-    setSuratJalan({
-      ...sj,
-      penerima: { ...sj.penerima, [field]: value },
-    });
+    setSuratJalan((prev) => ({
+      ...prev,
+      penerima: { ...prev.penerima, [field]: value },
+    }));
   };
 
   const handleLoad = (data: unknown) => {
@@ -236,7 +255,7 @@ export function SuratJalanEditor() {
               <Input
                 type="date"
                 value={sj.tanggal}
-                onChange={(e) => setSuratJalan({ ...sj, tanggal: e.target.value })}
+                onChange={(e) => setSuratJalan((prev) => ({ ...prev, tanggal: e.target.value }))}
               />
             </div>
           </div>
@@ -375,7 +394,7 @@ export function SuratJalanEditor() {
             <Label className="text-xs">No. Kendaraan</Label>
             <Input
               value={sj.noKendaraan}
-              onChange={(e) => setSuratJalan({ ...sj, noKendaraan: e.target.value })}
+              onChange={(e) => setSuratJalan((prev) => ({ ...prev, noKendaraan: e.target.value }))}
               placeholder="B 1234 XYZ"
             />
           </div>
@@ -383,7 +402,7 @@ export function SuratJalanEditor() {
             <Label className="text-xs">Pengemudi</Label>
             <Input
               value={sj.pengemudi}
-              onChange={(e) => setSuratJalan({ ...sj, pengemudi: e.target.value })}
+              onChange={(e) => setSuratJalan((prev) => ({ ...prev, pengemudi: e.target.value }))}
               placeholder="Nama pengemudi"
             />
           </div>
@@ -391,7 +410,7 @@ export function SuratJalanEditor() {
 
         <ItemsFields
           items={sj.items}
-          onChange={(items) => setSuratJalan({ ...sj, items })}
+          onChange={(items) => setSuratJalan((prev) => ({ ...prev, items }))}
           showPrice={false}
         />
 
@@ -402,7 +421,7 @@ export function SuratJalanEditor() {
           <div className="space-y-1.5">
             <Textarea
               value={sj.catatan}
-              onChange={(e) => setSuratJalan({ ...sj, catatan: e.target.value })}
+              onChange={(e) => setSuratJalan((prev) => ({ ...prev, catatan: e.target.value }))}
               placeholder="Catatan tambahan..."
               rows={3}
             />

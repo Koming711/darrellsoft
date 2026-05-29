@@ -73,7 +73,7 @@ export function InvoiceEditor() {
 
   const searchParams = useSearchParams();
   const riwayatIdFromUrl = searchParams.get('riwayatId');
-  const autoSelectRef = useRef(false);
+  const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
   const [savingSj, setSavingSj] = useState(false);
 
   // Riwayat cetakan dropdown state
@@ -93,10 +93,12 @@ export function InvoiceEditor() {
       if (res.ok) {
         const data = await res.json();
         setRiwayatList(data);
+        return data;
       }
     } catch {
       // silently fail
     }
+    return [];
   }, []);
 
   // Fetch customer list
@@ -132,27 +134,24 @@ export function InvoiceEditor() {
 
   const handleReferensiInputChange = (value: string) => {
     setReferensiInput(value);
-    setInvoice({ ...invoice, referensi: value });
+    setInvoice((prev) => ({ ...prev, referensi: value }));
     setDropdownOpen(true);
   };
 
-  const handleReferensiSelect = (item: RiwayatCetakanItem) => {
+  // Apply referensi data using functional setInvoice to avoid stale closure
+  const applyReferensi = (item: RiwayatCetakanItem) => {
     const ref = item.printName || '';
     setReferensiInput(ref);
 
     // Build single item with multi-line description
     const descLines: string[] = [];
-
-    // Line 1: Nama Barang
     if (item.printName) descLines.push(item.printName);
 
-    // Line 2: Nama Bahan
     const bahanParts: string[] = [];
     if (item.paperName) bahanParts.push(item.paperName);
     if (item.paperGrammage) bahanParts.push(item.paperGrammage + 'g');
     if (bahanParts.length > 0) descLines.push(bahanParts.join(' '));
 
-    // Line 3+: Finishing: label on its own line, then each rincian on its own line
     if (item.finishingNames) {
       const finishings = item.finishingNames.split(',').map(f => f.trim()).filter(Boolean);
       descLines.push('Finishing:');
@@ -163,7 +162,7 @@ export function InvoiceEditor() {
     const jumlahPesanan = parseInt(item.jumlahPesanan) || 1;
     const hargaPerPcs = jumlahPesanan > 0 ? Math.round(item.grandTotal / jumlahPesanan) : 0;
 
-    const items: typeof invoice.items = [{
+    const newItems: InvoiceData['items'] = [{
       id: 'riwayat-0',
       deskripsi: deskripsi || ref,
       qty: jumlahPesanan,
@@ -171,33 +170,54 @@ export function InvoiceEditor() {
       harga: hargaPerPcs,
     }];
 
-    setInvoice({
-      ...invoice,
+    // Use functional form to always get the LATEST state
+    setInvoice((prev) => ({
+      ...prev,
       referensi: ref,
       client: {
-        ...invoice.client,
-        nama: item.customerName || invoice.client.nama,
+        ...prev.client,
+        nama: item.customerName || prev.client.nama,
       },
-      items,
+      items: newItems,
       catatan: '',
-    });
+    }));
     setDropdownOpen(false);
   };
 
+  const handleReferensiSelect = (item: RiwayatCetakanItem) => {
+    applyReferensi(item);
+  };
+
   // Auto-select referensi when coming from hitung cetakan with riwayatId
+  // Uses functional setInvoice to avoid stale closure
+  // Retry up to 3 times if the newly saved riwayat isn't in the list yet
   useEffect(() => {
-    if (riwayatIdFromUrl && riwayatList.length > 0 && !autoSelectRef.current) {
-      const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
-      if (found) {
-        autoSelectRef.current = true;
-        // Reset invoice store first to clear stale data
-        resetDocument('invoice');
-        // Use setTimeout to ensure reset is applied before setting new data
-        setTimeout(() => {
-          handleReferensiSelect(found);
-        }, 0);
-      }
+    if (!riwayatIdFromUrl) return;
+    if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
+
+    const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+    if (!found) {
+      let attempts = 0;
+      const retry = async () => {
+        if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
+        attempts++;
+        if (attempts > 3) return;
+        await new Promise(r => setTimeout(r, 500));
+        const data = await fetchRiwayatCetakan();
+        const retryFound = (data as RiwayatCetakanItem[]).find((r) => r.id === riwayatIdFromUrl);
+        if (retryFound) {
+          autoSelectDoneRef.current = riwayatIdFromUrl;
+          applyReferensi(retryFound);
+        } else {
+          retry();
+        }
+      };
+      retry();
+      return;
     }
+
+    autoSelectDoneRef.current = riwayatIdFromUrl;
+    applyReferensi(found);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riwayatIdFromUrl, riwayatList]);
 
@@ -225,26 +245,26 @@ export function InvoiceEditor() {
   const handleClientSelect = (item: CustomerItem) => {
     setClientInput(item.name);
     setClientTyping(false);
-    setInvoice({
-      ...invoice,
+    setInvoice((prev) => ({
+      ...prev,
       client: {
         nama: item.name,
         kontak: item.phone || item.email || '',
         alamat: item.address || '',
       },
-    });
+    }));
     setClientDropdownOpen(false);
   };
 
   const updateCompany = (company: typeof invoice.company) => {
-    setInvoice({ ...invoice, company });
+    setInvoice((prev) => ({ ...prev, company }));
   };
 
   const updateClient = (field: string, value: string) => {
-    setInvoice({
-      ...invoice,
-      client: { ...invoice.client, [field]: value },
-    });
+    setInvoice((prev) => ({
+      ...prev,
+      client: { ...prev.client, [field]: value },
+    }));
   };
 
   const subtotal = invoice.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
@@ -269,7 +289,7 @@ export function InvoiceEditor() {
       // Save invoice to history first
       const res = await fetch('/api/history', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           docType: 'invoice',
           nomor: invoice.nomor || '-',
@@ -349,7 +369,7 @@ export function InvoiceEditor() {
               <Input
                 type="date"
                 value={invoice.tanggal}
-                onChange={(e) => setInvoice({ ...invoice, tanggal: e.target.value })}
+                onChange={(e) => setInvoice((prev) => ({ ...prev, tanggal: e.target.value }))}
               />
             </div>
           </div>
@@ -482,7 +502,7 @@ export function InvoiceEditor() {
 
         <ItemsFields
           items={invoice.items}
-          onChange={(items) => setInvoice({ ...invoice, items })}
+          onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
           showPrice
         />
 
@@ -497,7 +517,7 @@ export function InvoiceEditor() {
               min={0}
               max={100}
               value={invoice.ppn}
-              onChange={(e) => setInvoice({ ...invoice, ppn: Number(e.target.value) || 0 })}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: Number(e.target.value) || 0 }))}
             />
           </div>
           <div className="mt-3 rounded-lg bg-emerald-50 p-3">
@@ -510,7 +530,7 @@ export function InvoiceEditor() {
             <Label className="text-xs">Catatan</Label>
             <Textarea
               value={invoice.catatan}
-              onChange={(e) => setInvoice({ ...invoice, catatan: e.target.value })}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, catatan: e.target.value }))}
               placeholder="Catatan tambahan..."
               rows={3}
             />

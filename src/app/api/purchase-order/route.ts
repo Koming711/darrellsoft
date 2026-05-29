@@ -1,14 +1,20 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 
-// GET all purchase orders
-export async function GET(request: Request) {
+// GET all purchase orders (per-user isolation)
+export async function GET(request: NextRequest) {
   try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
 
-    const where: any = {}
+    const dataFilter = await getDataFilter(user)
+    const where: any = { ...dataFilter }
     if (status && status !== 'all') where.status = status
     if (search) {
       where.OR = [
@@ -29,9 +35,13 @@ export async function GET(request: Request) {
   }
 }
 
-// POST create purchase order
-export async function POST(request: Request) {
+// POST create purchase order (auto-assign userId from auth)
+export async function POST(request: NextRequest) {
   try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
     const body = await request.json()
     const {
       supplierName,
@@ -45,11 +55,11 @@ export async function POST(request: Request) {
       total,
       notes,
       status,
-      userId,
     } = body
 
-    // Generate PO number
-    const count = await db.purchaseOrder.count()
+    // Generate PO number (scoped per-user)
+    const dataFilter = await getDataFilter(user)
+    const count = await db.purchaseOrder.count({ where: dataFilter })
     const now = new Date()
     const year = now.getFullYear()
     const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
         total: total || 0,
         notes: notes || '',
         status: status || 'draft',
-        userId: userId || null,
+        userId: user!.id,
       },
     })
 

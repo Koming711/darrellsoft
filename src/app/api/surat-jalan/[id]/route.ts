@@ -1,16 +1,25 @@
-import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { getServerUser, requireAuth, canAccessRecord } from '@/lib/server-auth'
 
 // GET single surat jalan
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+    const user = getServerUser(request)!
+
     const { id } = await params
-    const suratJalan = await prisma.suratJalan.findUnique({ where: { id } })
+    const suratJalan = await db.suratJalan.findUnique({ where: { id } })
     if (!suratJalan) {
       return NextResponse.json({ error: 'Surat Jalan not found' }, { status: 404 })
     }
+
+    // Check ownership
+    if (!canAccessRecord(user, suratJalan.userId)) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+    }
+
     return NextResponse.json(suratJalan)
   } catch (error) {
     console.error('GET /api/surat-jalan/[id] error:', error)
@@ -19,11 +28,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 // PUT update surat jalan
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+    const user = getServerUser(request)!
+
     const { id } = await params
+
+    // Check ownership first
+    const existing = await db.suratJalan.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Surat Jalan not found' }, { status: 404 })
+    }
+    if (!canAccessRecord(user, existing.userId)) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+    }
+
     const body = await request.json()
-    const suratJalan = await prisma.suratJalan.update({
+    // Prevent userId from being changed
+    delete body.userId
+
+    const suratJalan = await db.suratJalan.update({
       where: { id },
       data: body,
     })
@@ -35,10 +61,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 // DELETE surat jalan
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+    const user = getServerUser(request)!
+
     const { id } = await params
-    await prisma.suratJalan.delete({ where: { id } })
+
+    // Check ownership first
+    const existing = await db.suratJalan.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Surat Jalan not found' }, { status: 404 })
+    }
+    if (!canAccessRecord(user, existing.userId)) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+    }
+
+    await db.suratJalan.delete({ where: { id } })
     return NextResponse.json({ message: 'Surat Jalan deleted' })
   } catch (error) {
     console.error('DELETE /api/surat-jalan/[id] error:', error)

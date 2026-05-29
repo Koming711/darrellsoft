@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Save, RotateCcw, Printer, AlertTriangle, FileDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getAuthHeaders } from '@/lib/auth';
 import type { DocumentType, InvoiceData, PurchaseOrderData, SuratJalanData } from '@/lib/types';
 import {
   generateInvoicePdf,
@@ -69,7 +70,7 @@ export function DocumentActionButtons({
 
       const res = await fetch('/api/history', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           docType,
           nomor: data.nomor || '-',

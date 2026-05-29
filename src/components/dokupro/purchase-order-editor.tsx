@@ -57,7 +57,7 @@ export function PurchaseOrderEditor() {
 
   const searchParams = useSearchParams();
   const riwayatIdFromUrl = searchParams.get('riwayatId');
-  const autoSelectRef = useRef(false);
+  const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
 
   // Riwayat potong kertas dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatPotongKertasItem[]>([]);
@@ -76,10 +76,12 @@ export function PurchaseOrderEditor() {
       if (res.ok) {
         const data = await res.json();
         setRiwayatList(data);
+        return data;
       }
     } catch {
       // silently fail
     }
+    return [];
   }, []);
 
   useEffect(() => { loadCompanyFromAPI() }, [loadCompanyFromAPI]);
@@ -106,16 +108,101 @@ export function PurchaseOrderEditor() {
   useEffect(() => { setPemasokInput(po.pemasok.nama) }, [po.pemasok.nama]);
 
   // Auto-select referensi when coming from potong kertas with riwayatId
+  // Uses functional setPurchaseOrder to avoid stale closure over `po`
+  // Retry up to 3 times if the newly saved riwayat isn't in the list yet
   useEffect(() => {
-    if (riwayatIdFromUrl && riwayatList.length > 0 && !autoSelectRef.current) {
-      const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
-      if (found) {
-        autoSelectRef.current = true;
-        handleReferensiSelect(found);
-      }
+    if (!riwayatIdFromUrl) return;
+    // Skip if we already auto-selected this exact riwayatId
+    if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
+
+    const found = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+    if (!found) {
+      // Riwayat not in the list yet — could be a newly saved record that hasn't propagated.
+      // Retry up to 3 times with a small delay.
+      let attempts = 0;
+      const retry = async () => {
+        if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
+        attempts++;
+        if (attempts > 3) return;
+        await new Promise(r => setTimeout(r, 500));
+        const data = await fetchRiwayatPotongKertas();
+        const retryFound = (data as RiwayatPotongKertasItem[]).find((r) => r.id === riwayatIdFromUrl);
+        if (retryFound) {
+          autoSelectDoneRef.current = riwayatIdFromUrl;
+          applyReferensi(retryFound);
+        } else {
+          retry();
+        }
+      };
+      retry();
+      return;
     }
+
+    autoSelectDoneRef.current = riwayatIdFromUrl;
+    applyReferensi(found);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riwayatIdFromUrl, riwayatList]);
+
+  // Apply referensi data using functional setPurchaseOrder to avoid stale `po` closure
+  const applyReferensi = (item: RiwayatPotongKertasItem) => {
+    const ref = item.namaCetakan || item.paperName || '';
+    setReferensiInput(ref);
+
+    // Build item description from potong kertas data
+    const descLines: string[] = [];
+    if (item.namaCetakan) descLines.push(item.namaCetakan);
+
+    const bahanParts: string[] = [];
+    if (item.paperName) bahanParts.push(item.paperName);
+    if (item.grammage && item.grammage !== '0') bahanParts.push(item.grammage + 'g');
+    if (item.paperWidth && item.paperHeight && item.paperWidth !== '0' && item.paperHeight !== '0') {
+      bahanParts.push(`${item.paperWidth}x${item.paperHeight}`);
+    }
+    if (bahanParts.length > 0) descLines.push(bahanParts.join(' '));
+
+    if (item.cutWidth && item.cutHeight && item.cutWidth !== '0' && item.cutHeight !== '0') {
+      descLines.push(`Uk. potong ${item.cutWidth} x ${item.cutHeight}`);
+    }
+
+    let potonganPerLembar = 0;
+    try {
+      const rd = JSON.parse(item.resultData || '{}');
+      potonganPerLembar = rd.totalPieces || 0;
+    } catch {}
+    if (potonganPerLembar > 0) {
+      descLines.push(`Potongan/lembar dapat ${potonganPerLembar}`);
+    }
+
+    const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
+    if (potonganPerLembar > 0 && qty > 0) {
+      const jumlahJadi = potonganPerLembar * qty;
+      descLines.push(`Jumlah jadi ${jumlahJadi} lembar`);
+    }
+
+    const deskripsi = descLines.join('\n');
+    const hargaPerLembar = item.pricePerSheet || (qty > 0 ? Math.round(item.totalPrice / qty) : 0);
+
+    const newItems: PurchaseOrderData['items'] = [{
+      id: 'riwayat-pk-0',
+      deskripsi: deskripsi || ref,
+      qty,
+      satuan: 'lembar',
+      harga: hargaPerLembar,
+    }];
+
+    // Use functional form to always get the LATEST state — avoids race with loadCompanyFromAPI
+    setPurchaseOrder((prev) => ({
+      ...prev,
+      referensi: ref,
+      pemasok: {
+        ...prev.pemasok,
+        nama: item.namaCustomer || prev.pemasok.nama,
+      },
+      items: newItems,
+      catatan: '',
+    }));
+    setDropdownOpen(false);
+  };
 
   // Filter riwayat list by input
   const filteredRiwayatList = riwayatList.filter((r) => {
@@ -129,85 +216,24 @@ export function PurchaseOrderEditor() {
 
   const handleReferensiInputChange = (value: string) => {
     setReferensiInput(value);
-    setPurchaseOrder({ ...po, referensi: value });
+    setPurchaseOrder((prev) => ({ ...prev, referensi: value }));
     setDropdownOpen(true);
   };
 
+  // Manual referensi select from dropdown — also uses functional form
   const handleReferensiSelect = (item: RiwayatPotongKertasItem) => {
-    const ref = item.namaCetakan || item.paperName || '';
-    setReferensiInput(ref);
-
-    // Build item description from potong kertas data
-    const descLines: string[] = [];
-
-    // Line 1: Nama Barang
-    if (item.namaCetakan) descLines.push(item.namaCetakan);
-
-    // Line 2: Nama Bahan (Paper 150g 65x100)
-    const bahanParts: string[] = [];
-    if (item.paperName) bahanParts.push(item.paperName);
-    if (item.grammage && item.grammage !== '0') bahanParts.push(item.grammage + 'g');
-    if (item.paperWidth && item.paperHeight && item.paperWidth !== '0' && item.paperHeight !== '0') {
-      bahanParts.push(`${item.paperWidth}x${item.paperHeight}`);
-    }
-    if (bahanParts.length > 0) descLines.push(bahanParts.join(' '));
-
-    // Line 3: Ukuran potong
-    if (item.cutWidth && item.cutHeight && item.cutWidth !== '0' && item.cutHeight !== '0') {
-      descLines.push(`Uk. potong ${item.cutWidth} x ${item.cutHeight}`);
-    }
-
-    // Line 4: Potongan/lembar (dari resultData.totalPieces)
-    let potonganPerLembar = 0;
-    try {
-      const rd = JSON.parse(item.resultData || '{}');
-      potonganPerLembar = rd.totalPieces || 0;
-    } catch {}
-    if (potonganPerLembar > 0) {
-      descLines.push(`Potongan/lembar dapat ${potonganPerLembar}`);
-    }
-
-    // Line 5: Jumlah jadi (potongan/lembar × qty)
-    const qty = parseInt(item.sheetsNeeded) || parseInt(item.quantity) || 0;
-    if (potonganPerLembar > 0 && qty > 0) {
-      const jumlahJadi = potonganPerLembar * qty;
-      descLines.push(`Jumlah jadi ${jumlahJadi} lembar`);
-    }
-
-    const deskripsi = descLines.join('\n');
-    // Harga = harga per lembar
-    const hargaPerLembar = item.pricePerSheet || (qty > 0 ? Math.round(item.totalPrice / qty) : 0);
-
-    const items: typeof po.items = [{
-      id: 'riwayat-pk-0',
-      deskripsi: deskripsi || ref,
-      qty,
-      satuan: 'lembar',
-      harga: hargaPerLembar,
-    }];
-
-    setPurchaseOrder({
-      ...po,
-      referensi: ref,
-      pemasok: {
-        ...po.pemasok,
-        nama: item.namaCustomer || po.pemasok.nama,
-      },
-      items,
-      catatan: '',
-    });
-    setDropdownOpen(false);
+    applyReferensi(item);
   };
 
   const updateCompany = (company: typeof po.company) => {
-    setPurchaseOrder({ ...po, company });
+    setPurchaseOrder((prev) => ({ ...prev, company }));
   };
 
   const updatePemasok = (field: string, value: string) => {
-    setPurchaseOrder({
-      ...po,
-      pemasok: { ...po.pemasok, [field]: value },
-    });
+    setPurchaseOrder((prev) => ({
+      ...prev,
+      pemasok: { ...prev.pemasok, [field]: value },
+    }));
   };
 
   // Filter toko/pemasok list by input (only when user is actively typing)
@@ -232,15 +258,15 @@ export function PurchaseOrderEditor() {
   const handlePemasokSelect = (item: TokoPemasokItem) => {
     setPemasokInput(item.namaToko);
     setPemasokTyping(false);
-    setPurchaseOrder({
-      ...po,
+    setPurchaseOrder((prev) => ({
+      ...prev,
       pemasok: {
         nama: item.namaToko,
         jenisBarang: item.jenisBarang,
         kontak: item.kontak,
         alamat: item.alamat,
       },
-    });
+    }));
     setPemasokDropdownOpen(false);
   };
 
@@ -286,7 +312,7 @@ export function PurchaseOrderEditor() {
               <Input
                 type="date"
                 value={po.tanggal}
-                onChange={(e) => setPurchaseOrder({ ...po, tanggal: e.target.value })}
+                onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, tanggal: e.target.value }))}
               />
             </div>
           </div>
@@ -432,7 +458,7 @@ export function PurchaseOrderEditor() {
 
         <ItemsFields
           items={po.items}
-          onChange={(items) => setPurchaseOrder({ ...po, items })}
+          onChange={(items) => setPurchaseOrder((prev) => ({ ...prev, items }))}
           showPrice
         />
 
@@ -447,7 +473,7 @@ export function PurchaseOrderEditor() {
               min={0}
               max={100}
               value={po.ppn}
-              onChange={(e) => setPurchaseOrder({ ...po, ppn: Number(e.target.value) || 0 })}
+              onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, ppn: Number(e.target.value) || 0 }))}
             />
           </div>
           <div className="mt-3 rounded-lg bg-amber-50 p-3">
@@ -460,7 +486,7 @@ export function PurchaseOrderEditor() {
             <Label className="text-xs">Catatan</Label>
             <Textarea
               value={po.catatan}
-              onChange={(e) => setPurchaseOrder({ ...po, catatan: e.target.value })}
+              onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, catatan: e.target.value }))}
               placeholder="Catatan tambahan..."
               rows={3}
             />
