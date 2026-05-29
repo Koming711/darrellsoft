@@ -48,7 +48,7 @@ import {
   CalendarIcon,
   Filter,
 } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -234,10 +234,42 @@ function parseDocInfo(entry: HistoryEntry) {
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
     const ppn = parsed.ppn || 0;
     const totalHarga = subtotal + (subtotal * ppn / 100);
-    return { namaBarang, hargaSatuan, totalQty, totalHarga };
+    const referensi = parsed.referensi || '';
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, referensi };
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0 };
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '' };
   }
+}
+
+// Calculate uang capek (profit) for each invoice by matching with PO costs
+function calculateUangCapek(invoices: HistoryEntry[], poRecords: HistoryEntry[]): Map<string, number> {
+  const result = new Map<string, number>()
+  
+  // Build PO lookup by referensi
+  const poByRef = new Map<string, number>()
+  for (const po of poRecords) {
+    try {
+      const parsed = JSON.parse(po.dataJson)
+      const ref = parsed.referensi || ''
+      const items = parsed.items || []
+      const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
+      const ppn = parsed.ppn || 0
+      const total = subtotal + (subtotal * ppn / 100)
+      if (ref) {
+        poByRef.set(ref, (poByRef.get(ref) || 0) + total)
+      }
+    } catch {}
+  }
+
+  // Calculate uang capek per invoice
+  for (const inv of invoices) {
+    const info = parseDocInfo(inv)
+    const poCost = info.referensi ? (poByRef.get(info.referensi) || 0) : 0
+    const uangCapek = info.totalHarga - poCost
+    result.set(inv.id, uangCapek)
+  }
+
+  return result
 }
 
 export default function PembukaanPage() {
@@ -261,6 +293,9 @@ export default function PembukaanPage() {
   const [suratJalanHistory, setSuratJalanHistory] = useState<HistoryEntry[]>([])
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [docLoading, setDocLoading] = useState(false)
+
+  // Calculate uang capek per invoice
+  const invoiceUangCapek = useMemo(() => calculateUangCapek(invoiceHistory, poHistory), [invoiceHistory, poHistory])
 
   // Popup state
   const [showPembelianPopup, setShowPembelianPopup] = useState(false)
@@ -631,7 +666,7 @@ export default function PembukaanPage() {
               {docLoading ? <TableSkeleton /> : (
                 invoiceHistory.length > 0 ? (
                   <div className="rounded-lg border bg-white max-h-[400px] overflow-auto -mx-4 px-4 md:mx-0 md:px-0">
-                    <Table className="min-w-[650px]">
+                    <Table className="min-w-[750px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
@@ -642,11 +677,13 @@ export default function PembukaanPage() {
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {invoiceHistory.map((entry, i) => {
                           const info = parseDocInfo(entry)
+                          const uc = invoiceUangCapek.get(entry.id) ?? 0
                           return (
                             <TableRow key={entry.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
@@ -657,6 +694,7 @@ export default function PembukaanPage() {
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                              <TableCell className={`py-2.5 text-xs text-right font-medium whitespace-nowrap ${uc > 0 ? 'text-violet-700' : uc < 0 ? 'text-red-600' : 'text-gray-400'}`}>{uc !== 0 ? formatRupiah(uc) : '-'}</TableCell>
                             </TableRow>
                           )
                         })}
