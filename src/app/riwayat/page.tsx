@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, Eye, Loader2, Receipt } from 'lucide-react'
+import { Search, Eye, Loader2, Receipt, FileText } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
@@ -12,6 +12,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
+import { generateInvoicePdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
 
 interface HistoryEntry {
   id: string
@@ -131,6 +132,7 @@ export default function RiwayatPage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewScale, setPreviewScale] = useState(1)
+  const [sendingPdf, setSendingPdf] = useState(false)
 
   const fetchHistory = useCallback(async () => {
     setLoading(true)
@@ -168,6 +170,22 @@ export default function RiwayatPage() {
     return parseInvoiceData(previewItem)
   }, [previewItem])
 
+  const handleSendPdf = useCallback(async () => {
+    if (!invoiceData) return
+    setSendingPdf(true)
+    try {
+      const blob = await generateInvoicePdf(invoiceData)
+      const fileName = `Invoice_${invoiceData.nomor || 'draft'}.pdf`
+      await sharePdfViaWhatsApp(blob, fileName, `Invoice ${invoiceData.nomor}`)
+      toast.success('PDF dikirim ke WhatsApp')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal mengirim PDF')
+    } finally {
+      setSendingPdf(false)
+    }
+  }, [invoiceData])
+
   // Scale A5 preview to fit inside a popup on both mobile & desktop
   useEffect(() => {
     const DESIGN_W = 576
@@ -178,8 +196,9 @@ export default function RiwayatPage() {
       const marginX = 24 // dialog margin left+right
       const marginY = 32 // dialog margin top+bottom
       const topPad = 48  // pt-10 (40px) + p-2 bottom (8px)
+      const btnArea = 56 // PDF button height + gap
       const availW = vw - marginX * 2
-      const availH = vh - marginY * 2 - topPad // subtract top padding for close button
+      const availH = vh - marginY * 2 - topPad - btnArea
       setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
     }
     if (previewOpen) {
@@ -324,7 +343,7 @@ export default function RiwayatPage() {
           <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
 
           {invoiceData && (
-            <div className="flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
               {/* Scaled A5 preview */}
               <div style={{
                 width: `${576 * previewScale}px`,
@@ -344,6 +363,20 @@ export default function RiwayatPage() {
                   </div>
                 </div>
               </div>
+
+              {/* PDF to WhatsApp button */}
+              <button
+                onClick={handleSendPdf}
+                disabled={sendingPdf}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+              >
+                {sendingPdf ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                {sendingPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
+              </button>
             </div>
           )}
         </DialogContent>
