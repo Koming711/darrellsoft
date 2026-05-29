@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Search, Eye, Loader2, Receipt, Printer } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
@@ -130,6 +130,8 @@ export default function RiwayatPage() {
   const [loading, setLoading] = useState(true)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
+  const previewWrapperRef = useRef<HTMLDivElement>(null)
+  const [previewScale, setPreviewScale] = useState(1)
 
   const fetchHistory = useCallback(async () => {
     setLoading(true)
@@ -170,6 +172,34 @@ export default function RiwayatPage() {
     if (!previewItem) return null
     return parseInvoiceData(previewItem)
   }, [previewItem])
+
+  // Scale preview to fit container on mobile
+  useEffect(() => {
+    const updateScale = () => {
+      if (!previewWrapperRef.current) return
+      // Subtract padding (p-2 = 8px each side on mobile, p-4 = 16px each on desktop)
+      const style = getComputedStyle(previewWrapperRef.current)
+      const paddingLeft = parseFloat(style.paddingLeft) || 0
+      const paddingRight = parseFloat(style.paddingRight) || 0
+      const availableWidth = previewWrapperRef.current.clientWidth - paddingLeft - paddingRight
+      // A5 preview is designed at 576px max-width
+      const designWidth = 576
+      if (availableWidth < designWidth) {
+        setPreviewScale(availableWidth / designWidth)
+      } else {
+        setPreviewScale(1)
+      }
+    }
+    if (previewOpen) {
+      // Small delay to let dialog render and get correct dimensions
+      const timer = setTimeout(updateScale, 50)
+      window.addEventListener('resize', updateScale)
+      return () => {
+        clearTimeout(timer)
+        window.removeEventListener('resize', updateScale)
+      }
+    }
+  }, [previewOpen])
 
   const filteredHistories = histories.filter(h => {
     const term = searchTerm.toLowerCase()
@@ -307,10 +337,25 @@ export default function RiwayatPage() {
           </DialogHeader>
 
           {invoiceData && (
-            <div className="p-4 flex justify-center" id="document-preview">
-              <div className="a5-preview-container mx-auto bg-white" style={{ aspectRatio: '148 / 210' }}>
-                <div className="a5-preview-scaler">
-                  <InvoicePreview data={invoiceData} />
+            <div className="p-2 lg:p-4" ref={previewWrapperRef} id="document-preview">
+              {/* Outer container: matches the scaled dimensions so no layout overflow */}
+              <div style={{
+                width: previewScale < 1 ? `${576 * previewScale}px` : 576,
+                height: previewScale < 1 ? `${576 * (210 / 148) * previewScale}px` : undefined,
+                overflow: 'hidden',
+                margin: '0 auto',
+              }}>
+                {/* Inner container: renders at full 576px design width, then scaled down */}
+                <div style={{
+                  width: 576,
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: 'top left',
+                }}>
+                  <div className="a5-preview-container bg-white" style={{ aspectRatio: '148 / 210', maxWidth: 576 }}>
+                    <div className="a5-preview-scaler">
+                      <InvoicePreview data={invoiceData} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
