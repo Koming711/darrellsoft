@@ -539,6 +539,61 @@ export default function PembukaanPage() {
 
         {/* Riwayat Sections */}
         <div className="space-y-4">
+          {/* Invoice */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-400" />
+                Riwayat Invoice
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                  {invoiceHistory.length}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {docLoading ? <TableSkeleton /> : (
+                invoiceHistory.length > 0 ? (
+                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
+                    <Table className="min-w-[750px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Customer</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoiceHistory.map((entry, i) => {
+                          const info = parseDocInfo(entry)
+                          const uc = invoiceUangCapek.get(entry.id) ?? 0
+                          return (
+                            <TableRow key={entry.id} className="group">
+                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+                              <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : <EmptyState />
+              )}
+            </CardContent>
+          </Card>
+
           {/* Hitung Cetakan */}
           <Card>
             <CardHeader className="pb-2">
@@ -658,39 +713,37 @@ export default function PembukaanPage() {
             </CardContent>
           </Card>
 
-          {/* Invoice */}
+          {/* Purchase Order */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-slate-400" />
-                Riwayat Invoice
+                <ShoppingCart className="w-4 h-4 text-slate-400" />
+                Riwayat Purchase Order
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-                  {invoiceHistory.length}
+                  {poHistory.length}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
-                invoiceHistory.length > 0 ? (
+                poHistory.length > 0 ? (
                   <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
-                    <Table className="min-w-[750px]">
+                    <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Customer</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {invoiceHistory.map((entry, i) => {
+                        {poHistory.map((entry, i) => {
                           const info = parseDocInfo(entry)
-                          const uc = invoiceUangCapek.get(entry.id) ?? 0
                           return (
                             <TableRow key={entry.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
@@ -700,7 +753,6 @@ export default function PembukaanPage() {
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
-                              <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
                             </TableRow>
                           )
@@ -746,58 +798,6 @@ export default function PembukaanPage() {
                             <TableCell className="py-2.5 text-xs text-gray-600 max-w-[200px] truncate">{entry.pihakKedua}</TableCell>
                           </TableRow>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : <EmptyState />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Purchase Order */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-slate-400" />
-                Riwayat Purchase Order
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-                  {poHistory.length}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {docLoading ? <TableSkeleton /> : (
-                poHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
-                    <Table className="min-w-[650px]">
-                      <TableHeader>
-                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {poHistory.map((entry, i) => {
-                          const info = parseDocInfo(entry)
-                          return (
-                            <TableRow key={entry.id} className="group">
-                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
-                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
-                            </TableRow>
-                          )
-                        })}
                       </TableBody>
                     </Table>
                   </div>
