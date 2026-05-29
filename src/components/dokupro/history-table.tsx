@@ -51,30 +51,15 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   spk: 'SPK',
 };
 
-// Parse dataJson to extract referensi and total from PO records
-function parsePORef(entry: HistoryEntry): { referensi: string; total: number } {
-  try {
-    const parsed = JSON.parse(entry.dataJson);
-    const items = parsed.items || [];
-    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
-    const ppn = parsed.ppn || 0;
-    const total = subtotal + (subtotal * ppn / 100);
-    return { referensi: parsed.referensi || '', total };
-  } catch {
-    return { referensi: '', total: 0 };
-  }
-}
-
-// Calculate uang capek for each invoice by matching referensi with PO costs
-function calculateUangCapek(invoices: HistoryEntry[], poRecords: HistoryEntry[]): Map<string, number> {
+// Calculate uang capek for each invoice by matching referensi with riwayat cetakan profitAmount
+function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { printName: string; profitAmount: number }[]): Map<string, number> {
   const result = new Map<string, number>();
 
-  // Build PO cost lookup by referensi
-  const poByRef = new Map<string, number>();
-  for (const po of poRecords) {
-    const { referensi, total } = parsePORef(po);
-    if (referensi) {
-      poByRef.set(referensi, (poByRef.get(referensi) || 0) + total);
+  // Build cetakan lookup by printName
+  const cetakanByPrintName = new Map<string, number>();
+  for (const c of cetakanRecords) {
+    if (c.printName) {
+      cetakanByPrintName.set(c.printName, (cetakanByPrintName.get(c.printName) || 0) + c.profitAmount);
     }
   }
 
@@ -82,13 +67,9 @@ function calculateUangCapek(invoices: HistoryEntry[], poRecords: HistoryEntry[])
   for (const inv of invoices) {
     try {
       const parsed = JSON.parse(inv.dataJson);
-      const items = parsed.items || [];
-      const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
-      const ppn = parsed.ppn || 0;
-      const totalHarga = subtotal + (subtotal * ppn / 100);
       const referensi = parsed.referensi || '';
-      const poCost = referensi ? (poByRef.get(referensi) || 0) : 0;
-      result.set(inv.id, totalHarga - poCost);
+      const uangCapek = referensi ? (cetakanByPrintName.get(referensi) || 0) : 0;
+      result.set(inv.id, uangCapek);
     } catch {
       result.set(inv.id, 0);
     }
@@ -99,7 +80,7 @@ function calculateUangCapek(invoices: HistoryEntry[], poRecords: HistoryEntry[])
 
 export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTableProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [poHistory, setPoHistory] = useState<HistoryEntry[]>([]);
+  const [cetakanList, setCetakanList] = useState<{ printName: string; profitAmount: number }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchHistory = useCallback(async () => {
@@ -114,14 +95,18 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
     }
   }, [docType]);
 
-  // Fetch PO history for uang capek calculation (only when docType is invoice)
-  const fetchPOHistory = useCallback(async () => {
+  // Fetch riwayat cetakan for uang capek calculation (only when docType is invoice)
+  const fetchCetakan = useCallback(async () => {
     if (docType !== 'invoice') return;
     try {
-      const res = await fetch('/api/history?docType=purchase-order', { headers: getAuthHeaders() });
+      const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() });
       if (res.ok) {
-        const json = await res.json();
-        setPoHistory(json.data || []);
+        const data = await res.json();
+        const mapped = (Array.isArray(data) ? data : []).map((r: { printName: string; profitAmount: number }) => ({
+          printName: r.printName || '',
+          profitAmount: r.profitAmount || 0,
+        }));
+        setCetakanList(mapped);
       }
     } catch {
       // ignore
@@ -130,21 +115,21 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
 
   useEffect(() => {
     fetchHistory();
-    fetchPOHistory();
-  }, [fetchHistory, fetchPOHistory]);
+    fetchCetakan();
+  }, [fetchHistory, fetchCetakan]);
 
   // Listen for save events from DocumentActionButtons
   useEffect(() => {
-    const handler = () => { fetchHistory(); fetchPOHistory(); };
+    const handler = () => { fetchHistory(); fetchCetakan(); };
     window.addEventListener('dokupro:history-updated', handler);
     return () => window.removeEventListener('dokupro:history-updated', handler);
-  }, [fetchHistory, fetchPOHistory]);
+  }, [fetchHistory, fetchCetakan]);
 
   // Calculate uang capek per invoice
   const uangCapekMap = useMemo(() => {
     if (docType !== 'invoice') return new Map<string, number>();
-    return calculateUangCapek(history, poHistory);
-  }, [docType, history, poHistory]);
+    return calculateUangCapek(history, cetakanList);
+  }, [docType, history, cetakanList]);
 
   const handleLoad = async (id: string) => {
     setLoading(true);

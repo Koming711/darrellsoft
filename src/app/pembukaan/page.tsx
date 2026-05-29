@@ -241,31 +241,22 @@ function parseDocInfo(entry: HistoryEntry) {
   }
 }
 
-// Calculate uang capek (profit) for each invoice by matching with PO costs
-function calculateUangCapek(invoices: HistoryEntry[], poRecords: HistoryEntry[]): Map<string, number> {
+// Calculate uang capek (profit) for each invoice by matching referensi with riwayat cetakan profitAmount
+function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { printName: string; profitAmount: number }[]): Map<string, number> {
   const result = new Map<string, number>()
   
-  // Build PO lookup by referensi
-  const poByRef = new Map<string, number>()
-  for (const po of poRecords) {
-    try {
-      const parsed = JSON.parse(po.dataJson)
-      const ref = parsed.referensi || ''
-      const items = parsed.items || []
-      const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
-      const ppn = parsed.ppn || 0
-      const total = subtotal + (subtotal * ppn / 100)
-      if (ref) {
-        poByRef.set(ref, (poByRef.get(ref) || 0) + total)
-      }
-    } catch {}
+  // Build cetakan lookup by printName
+  const cetakanByPrintName = new Map<string, number>()
+  for (const c of cetakanRecords) {
+    if (c.printName) {
+      cetakanByPrintName.set(c.printName, (cetakanByPrintName.get(c.printName) || 0) + c.profitAmount)
+    }
   }
 
   // Calculate uang capek per invoice
   for (const inv of invoices) {
     const info = parseDocInfo(inv)
-    const poCost = info.referensi ? (poByRef.get(info.referensi) || 0) : 0
-    const uangCapek = info.totalHarga - poCost
+    const uangCapek = info.referensi ? (cetakanByPrintName.get(info.referensi) || 0) : 0
     result.set(inv.id, uangCapek)
   }
 
@@ -292,10 +283,11 @@ export default function PembukaanPage() {
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
   const [suratJalanHistory, setSuratJalanHistory] = useState<HistoryEntry[]>([])
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
+  const [cetakanList, setCetakanList] = useState<{ printName: string; profitAmount: number }[]>([])
   const [docLoading, setDocLoading] = useState(false)
 
-  // Calculate uang capek per invoice
-  const invoiceUangCapek = useMemo(() => calculateUangCapek(invoiceHistory, poHistory), [invoiceHistory, poHistory])
+  // Calculate uang capek per invoice from riwayat cetakan profitAmount
+  const invoiceUangCapek = useMemo(() => calculateUangCapek(invoiceHistory, cetakanList), [invoiceHistory, cetakanList])
 
   // Popup state
   const [showPembelianPopup, setShowPembelianPopup] = useState(false)
@@ -338,6 +330,18 @@ export default function PembukaanPage() {
       if (invRes.ok) { const json = await invRes.json(); setInvoiceHistory(json.data || []) }
       if (sjRes.ok) { const json = await sjRes.json(); setSuratJalanHistory(json.data || []) }
       if (poRes.ok) { const json = await poRes.json(); setPoHistory(json.data || []) }
+      // Fetch riwayat cetakan for uang capek calculation
+      try {
+        const cetRes = await fetch('/api/riwayat-cetakan', { headers })
+        if (cetRes.ok) {
+          const cetData = await cetRes.json()
+          const mapped = (Array.isArray(cetData) ? cetData : []).map((r: { printName: string; profitAmount: number }) => ({
+            printName: r.printName || '',
+            profitAmount: r.profitAmount || 0,
+          }))
+          setCetakanList(mapped)
+        }
+      } catch {}
     } catch {
       // ignore
     } finally {
