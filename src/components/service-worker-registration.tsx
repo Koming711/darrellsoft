@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2025-05-18-v1'
+const APP_VERSION = '2026-06-01-v1'
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
