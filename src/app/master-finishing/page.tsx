@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Layers, Plus, Search, Printer, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Layers, Plus, Search, Printer, Pencil, Trash2, Loader2, DatabaseBackup, Upload } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { Button } from '@/components/ui/button'
@@ -69,6 +69,7 @@ export default function MasterFinishingPage() {
     optAdditionalPrice: false,
     optPricePerCm: false,
   })
+  const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
   useEffect(() => {
     fetchFinishings()
@@ -96,6 +97,67 @@ export default function MasterFinishingPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleBackup = async () => {
+    setBackupLoading('backup')
+    try {
+      const res = await authFetch(`/api/database/backup-master?table=finishing`)
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data finishing'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? match[1] : `backup-finishing-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup berhasil diunduh')
+    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data finishing') }
+    setBackupLoading(null)
+  }
+
+  const handleRestore = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      if (!confirm('Data finishing yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+      setBackupLoading('restore')
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('table', 'finishing')
+        const res = await authFetch('/api/database/restore-master', {
+          method: 'POST',
+          body: fd,
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          toast.success(`Restore berhasil (${data.count} data)`)
+          fetchFinishings()
+          notifyDataChange('finishings')
+        } else {
+          toast.error(data.error || 'Gagal restore data finishing')
+        }
+      } catch { toast.error('File backup tidak valid') }
+      setBackupLoading(null)
+    }
+    input.click()
   }
 
   const filteredFinishings = Array.isArray(finishings) ? finishings.filter(finishing =>
@@ -332,7 +394,7 @@ export default function MasterFinishingPage() {
       subtitle={t('subtitle_master_finishing')}
     >
       {/* Desktop: Single-page fit-to-viewport layout */}
-      <div className="hidden lg:flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+      <div className="hidden lg:flex flex-col bg-card rounded-xl shadow-sm border border-slate-200 overflow-hidden"
            style={{ height: 'calc(100vh - 10rem)' }}>
         {/* Compact Toolbar */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50/50 flex-shrink-0">
@@ -343,7 +405,7 @@ export default function MasterFinishingPage() {
               placeholder="Cari finishing..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -354,6 +416,26 @@ export default function MasterFinishingPage() {
             <Button onClick={handlePrint} variant="outline" size="sm" className="gap-1.5">
               <Printer className="w-3.5 h-3.5" />
               Cetak
+            </Button>
+            <Button
+              onClick={handleBackup}
+              variant="outline"
+              size="sm"
+              disabled={backupLoading === 'backup'}
+              className="gap-1.5"
+            >
+              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
+              Backup
+            </Button>
+            <Button
+              onClick={handleRestore}
+              variant="outline"
+              size="sm"
+              disabled={backupLoading === 'restore'}
+              className="gap-1.5"
+            >
+              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              Restore
             </Button>
             {canAdd && (
               <Button onClick={handleAdd} size="sm" className="gap-1.5">
@@ -461,7 +543,7 @@ export default function MasterFinishingPage() {
       </div>
 
       {/* Mobile: Original layout */}
-      <div className="lg:hidden bg-white rounded-xl shadow-sm border border-slate-200">
+      <div className="lg:hidden bg-card rounded-xl shadow-sm border border-slate-200">
         <div className="p-4 border-b border-slate-200 space-y-3">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -477,6 +559,24 @@ export default function MasterFinishingPage() {
             <Button onClick={handlePrint} variant="outline" className="flex-1">
               <Printer className="w-4 h-4 mr-2" />
               Cetak Tabel
+            </Button>
+            <Button
+              onClick={handleBackup}
+              variant="outline"
+              disabled={backupLoading === 'backup'}
+              className="flex-1"
+            >
+              {backupLoading === 'backup' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DatabaseBackup className="w-4 h-4 mr-2" />}
+              Backup
+            </Button>
+            <Button
+              onClick={handleRestore}
+              variant="outline"
+              disabled={backupLoading === 'restore'}
+              className="flex-1"
+            >
+              {backupLoading === 'restore' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              Restore
             </Button>
             {canAdd && (
               <Button onClick={handleAdd} className="flex-1">

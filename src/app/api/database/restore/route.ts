@@ -1,238 +1,279 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAdmin, getServerUser } from '@/lib/server-auth'
+import ExcelJS from 'exceljs'
 import fs from 'fs'
 import path from 'path'
 
-// ⛔ PROTECTED tables: Pengguna, CalonPembeli, Pembeli
-// These are NEVER deleted or modified during restore.
-// Only admin/superadmin can manage them through the UI.
-// During restore, we MERGE (add missing records) but never overwrite or delete existing ones.
+function getUserFromRequest(req: NextRequest) {
+  let userId = req.cookies.get('userId')?.value
+  let userRole = req.cookies.get('userRole')?.value
+
+  if (!userId || !userRole) {
+    userId = userId || req.headers.get('x-user-id')
+    userRole = userRole || req.headers.get('x-user-role')
+  }
+
+  if (!userId || !userRole) return null
+  return { id: userId, role: userRole }
+}
+
+// Only user-owned tables (matching backup route)
+const USER_TABLES: Record<string, {
+  model: any
+  name: string
+  intFields?: string[]
+  floatFields?: string[]
+  dateFields?: string[]
+  mergeMode?: boolean // if true, merge instead of replace
+}> = {
+  Customer: { model: db.customer, name: 'Customer', dateFields: ['createdAt', 'updatedAt'] },
+  Paper: { model: db.paper, name: 'Paper', intFields: ['grammage'], floatFields: ['width', 'height', 'pricePerRim'], dateFields: ['createdAt', 'updatedAt'] },
+  PrintingCost: { model: db.printingCost, name: 'PrintingCost', intFields: ['grammage', 'minimumPrintQuantity'], floatFields: ['printAreaWidth', 'printAreaHeight', 'pricePerColor', 'specialColorPrice', 'priceAboveMinimumPerSheet', 'platePricePerSheet'], dateFields: ['createdAt', 'updatedAt'] },
+  Finishing: { model: db.finishing, name: 'Finishing', intFields: ['minimumSheets'], floatFields: ['minimumPrice', 'additionalPrice', 'pricePerCm'], dateFields: ['createdAt', 'updatedAt'] },
+  TokoPemasok: { model: db.tokoPemasok, name: 'TokoPemasok', dateFields: ['createdAt', 'updatedAt'] },
+  Invoice: { model: db.invoice, name: 'Invoice', floatFields: ['subTotal', 'discount', 'tax', 'grandTotal'], dateFields: ['createdAt', 'updatedAt'] },
+  SuratJalan: { model: db.suratJalan, name: 'SuratJalan', dateFields: ['createdAt', 'updatedAt'] },
+  PurchaseOrder: { model: db.purchaseOrder, name: 'PurchaseOrder', floatFields: ['subtotal', 'tax', 'total'], dateFields: ['createdAt', 'updatedAt'] },
+  DocumentHistory: { model: db.documentHistory, name: 'DocumentHistory', dateFields: ['createdAt'] },
+  RiwayatCetakan: { model: db.riwayatCetakan, name: 'RiwayatCetakan', floatFields: ['hargaPlat', 'ongkosCetak', 'hargaPlat2', 'ongkosCetak2', 'totalPaperPrice', 'pricePerSheet', 'finishingCost', 'packingCost', 'shippingCost', 'otherCost', 'otherCost2', 'glueCost', 'glueBorongan', 'subTotal', 'profitPercent', 'profitAmount', 'grandTotal'], dateFields: ['createdAt', 'updatedAt'] },
+  RiwayatFinishing: { model: db.riwayatFinishing, name: 'RiwayatFinishing', floatFields: ['totalCost', 'hargaPerLembar'], dateFields: ['createdAt', 'updatedAt'] },
+  RiwayatOngkosCetak: { model: db.riwayatOngkosCetak, name: 'RiwayatOngkosCetak', floatFields: ['totalOngkosCetak', 'hargaPerLembar', 'totalOngkosCetak2'], dateFields: ['createdAt', 'updatedAt'] },
+  RiwayatHargaKertas: { model: db.riwayatHargaKertas, name: 'RiwayatHargaKertas', floatFields: ['totalPrice', 'costPerPiece'], dateFields: ['createdAt', 'updatedAt'] },
+  RiwayatPotongKertas: { model: db.riwayatPotongKertas, name: 'RiwayatPotongKertas', floatFields: ['totalPrice', 'pricePerSheet', 'efficiency'], dateFields: ['createdAt', 'updatedAt'] },
+  CalonPembeli: { model: db.calonPembeli, name: 'CalonPembeli', dateFields: ['createdAt', 'updatedAt', 'expiredDate'], mergeMode: true },
+  Pembeli: { model: db.pembeli, name: 'Pembeli', dateFields: ['createdAt', 'updatedAt', 'expiredDate'], mergeMode: true },
+}
+
+/** Cast row types from Excel string values to proper Prisma types */
+function castRow(row: Record<string, any>, tableKey: string): Record<string, any> {
+  const result: Record<string, any> = { ...row }
+  const types = USER_TABLES[tableKey]
+  if (!types) return result
+
+  // Strip id field — let Prisma generate new ones
+  delete result.id
+
+  // Convert integer fields
+  for (const field of (types.intFields || [])) {
+    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
+      const num = Number(result[field])
+      result[field] = isNaN(num) ? 0 : Math.round(num)
+    } else {
+      delete result[field]
+    }
+  }
+
+  // Convert float fields
+  for (const field of (types.floatFields || [])) {
+    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
+      const num = Number(result[field])
+      result[field] = isNaN(num) ? 0 : num
+    } else {
+      delete result[field]
+    }
+  }
+
+  // Convert date fields
+  for (const field of (types.dateFields || [])) {
+    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
+      const d = new Date(result[field])
+      if (isNaN(d.getTime())) {
+        delete result[field]
+      } else {
+        result[field] = d.toISOString()
+      }
+    } else {
+      delete result[field]
+    }
+  }
+
+  return result
+}
+
+/** Parse Excel backup file (multi-sheet format) and return data per table */
+async function parseExcelBackup(fileBuffer: Buffer): Promise<Record<string, any[]>> {
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(fileBuffer)
+
+  const result: Record<string, any[]> = {}
+
+  for (const sheet of workbook.worksheets) {
+    // Only process sheets starting with "Data_"
+    if (!sheet.name.startsWith('Data_')) continue
+
+    // Extract table name from sheet name: "Data_Customer" → "Customer"
+    const tableKey = sheet.name.substring(5)
+    const data: Record<string, any>[] = []
+    let headers: string[] = []
+
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        // Header row
+        headers = []
+        row.eachCell((cell, colNumber) => {
+          headers[colNumber - 1] = cell.text
+        })
+      } else if (headers.length > 0) {
+        const record: Record<string, any> = {}
+        row.eachCell((cell, colNumber) => {
+          const key = headers[colNumber - 1]
+          if (key) {
+            let value: any = cell.text
+            // Try to parse numbers
+            if (value !== '' && !isNaN(Number(value)) && cell.type === ExcelJS.ValueType.Number) {
+              value = Number(value)
+            }
+            record[key] = value
+          }
+        })
+        // Skip empty rows
+        if (Object.keys(record).length > 0 && !(Object.values(record).every((v) => v === ''))) {
+          data.push(record)
+        }
+      }
+    })
+
+    result[tableKey] = data
+  }
+
+  return result
+}
+
+/** Restore logic: only touches data belonging to the current user */
+async function restoreDatabase(data: Record<string, any[]>, userId: string) {
+  // ⛔ PROTECT: Save existing CalonPembeli & Pembeli for merge
+  const existingCalonPembeli = await db.calonPembeli.findMany({ where: { userId } })
+  const existingPembeli = await db.pembeli.findMany({ where: { userId } })
+
+  // Delete only the current user's data (NOT other users' data)
+  const deleteOrder = [
+    'RiwayatCetakan', 'RiwayatFinishing', 'RiwayatOngkosCetak',
+    'RiwayatHargaKertas', 'RiwayatPotongKertas',
+    'DocumentHistory', 'Invoice', 'SuratJalan', 'PurchaseOrder',
+    'TokoPemasok', 'Finishing', 'PrintingCost', 'Paper', 'Customer',
+  ]
+  // CalonPembeli & Pembeli are merge-only, never deleted
+
+  for (const tableKey of deleteOrder) {
+    const config = USER_TABLES[tableKey]
+    if (config?.model) {
+      await config.model.deleteMany({ where: { userId } })
+    }
+  }
+
+  let restoredTables = 0
+
+  // Restore tables in order
+  const restoreOrder = [
+    'Customer', 'Paper', 'PrintingCost', 'Finishing', 'TokoPemasok',
+    'Invoice', 'SuratJalan', 'PurchaseOrder', 'DocumentHistory',
+    'CalonPembeli', 'Pembeli',
+    'RiwayatCetakan', 'RiwayatFinishing', 'RiwayatOngkosCetak',
+    'RiwayatHargaKertas', 'RiwayatPotongKertas',
+  ]
+
+  for (const tableKey of restoreOrder) {
+    const rows = data[tableKey]
+    if (!rows || !Array.isArray(rows) || rows.length === 0) continue
+    const config = USER_TABLES[tableKey]
+    if (!config?.model) continue
+
+    if (config.mergeMode) {
+      // ⛔ CalonPembeli / Pembeli: MERGE only — add missing records
+      const existingIds = new Set(
+        (tableKey === 'CalonPembeli' ? existingCalonPembeli : existingPembeli).map(p => p.id)
+      )
+      const newRecords = rows.filter((r: any) => !existingIds.has(r.id))
+      if (newRecords.length > 0) {
+        const castedData = newRecords.map((r: any) => {
+          const casted = castRow(r, tableKey)
+          casted.userId = userId // ensure userId belongs to current user
+          return casted
+        })
+        await config.model.createMany({ data: castedData })
+      }
+    } else {
+      // Normal tables: restore all with current userId
+      const castedData = rows.map((r: any) => {
+        const casted = castRow(r, tableKey)
+        casted.userId = userId // ensure userId belongs to current user
+        return casted
+      })
+      await config.model.createMany({ data: castedData })
+    }
+    restoredTables++
+  }
+
+  return restoredTables
+}
 
 export async function POST(req: NextRequest) {
-  const err = requireAdmin(req); if (err) return err;
+  const user = getUserFromRequest(req)
+  if (!user) {
+    return NextResponse.json({ error: 'Anda harus login terlebih dahulu' }, { status: 401 })
+  }
+
   try {
-    const body = await req.json()
-    const { fileName, backupData } = body
+    const contentType = req.headers.get('content-type') || ''
+    let data: Record<string, any[]>
 
-    let data: any
+    if (contentType.includes('multipart/form-data')) {
+      // Excel file upload
+      const formData = await req.formData()
+      const file = formData.get('file') as File | null
+      if (!file) {
+        return NextResponse.json({ success: false, error: 'File tidak ditemukan' }, { status: 400 })
+      }
+      const buffer = Buffer.from(await file.arrayBuffer())
+      data = await parseExcelBackup(buffer)
+    } else {
+      // JSON body (backward compatibility with old JSON backups & server restore)
+      const body = await req.json()
+      const { fileName, backupData } = body
 
-    if (backupData && typeof backupData === 'object' && backupData.database) {
-      // Restore from uploaded JSON data directly
-      data = backupData
-    } else if (fileName && typeof fileName === 'string') {
-      // Restore from a saved backup file
-      const filePath = path.join(process.cwd(), 'backups', fileName)
-      if (!fs.existsSync(filePath)) {
+      if (backupData && typeof backupData === 'object' && backupData.database) {
+        data = backupData.database
+      } else if (fileName && typeof fileName === 'string') {
+        const filePath = path.join(process.cwd(), 'backups', fileName)
+        if (!fs.existsSync(filePath)) {
+          return NextResponse.json(
+            { success: false, error: 'File backup tidak ditemukan' },
+            { status: 404 }
+          )
+        }
+        const raw = fs.readFileSync(filePath, 'utf-8')
+        const parsed = JSON.parse(raw)
+        data = parsed.database
+      } else {
         return NextResponse.json(
-          { success: false, error: 'File backup tidak ditemukan' },
-          { status: 404 }
+          { success: false, error: 'Data backup tidak valid' },
+          { status: 400 }
         )
       }
-      const raw = fs.readFileSync(filePath, 'utf-8')
-      data = JSON.parse(raw)
-    } else {
-      return NextResponse.json(
-        { success: false, error: 'Data backup tidak valid' },
-        { status: 400 }
-      )
     }
 
-    if (!data.database || typeof data.database !== 'object') {
+    if (!data || typeof data !== 'object') {
       return NextResponse.json(
         { success: false, error: 'Format backup tidak valid' },
         { status: 400 }
       )
     }
 
-    // Validate required fields
-    const requiredTables = ['Pengguna', 'Customer', 'Paper', 'PrintingCost', 'Finishing', 'CalonPembeli', 'Pembeli', 'Setting', 'RiwayatCetakan']
-    for (const table of requiredTables) {
-      if (!Array.isArray(data.database[table])) {
-        return NextResponse.json(
-          { success: false, error: `Format backup tidak valid: tabel ${table} tidak ditemukan` },
-          { status: 400 }
-        )
+    // Filter data to only include user-owned tables (skip global tables like User, Pengguna, Post, Setting)
+    const allowedTables = new Set(Object.keys(USER_TABLES))
+    const filteredData: Record<string, any[]> = {}
+    for (const [key, rows] of Object.entries(data)) {
+      if (allowedTables.has(key)) {
+        filteredData[key] = rows
       }
     }
 
-    // =====================================================
-    // ⛔ PROTECT: Save existing Pengguna, CalonPembeli, Pembeli
-    // These are NEVER deleted during restore
-    // =====================================================
-    const existingPengguna = await db.pengguna.findMany()
-    const existingCalonPembeli = await db.calonPembeli.findMany()
-    const existingPembeli = await db.pembeli.findMany()
-
-    // Preserve master_cleared flags before wiping settings
-    let preservedMasterCleared: { key: string; value: string }[] = []
-    try {
-      const flags = await db.setting.findMany({ where: { key: { startsWith: 'master_cleared_' } } })
-      preservedMasterCleared = flags.map(f => ({ key: f.key, value: f.value }))
-    } catch {}
-
-    // Delete non-protected data only
-    await db.riwayatCetakan.deleteMany()
-    await db.finishing.deleteMany()
-    await db.printingCost.deleteMany()
-    await db.paper.deleteMany()
-    await db.customer.deleteMany()
-    await db.setting.deleteMany()
-    await db.post.deleteMany()
-    await db.user.deleteMany()
-    // ⛔ NOT deleting: CalonPembeli, Pembeli, Pengguna
-
-    // Restore data in correct order (respect foreign keys)
-
-    if (data.database.User && data.database.User.length > 0) {
-      await db.user.createMany({ data: data.database.User.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    // ⛔ Pengguna: MERGE only — restore from backup but keep ALL existing records
-    // Existing records are never modified or deleted
-    if (data.database.Pengguna && data.database.Pengguna.length > 0) {
-      const existingIds = new Set(existingPengguna.map(p => p.id))
-      const existingUsernames = new Set(existingPengguna.map(p => p.username))
-      const newRecords = data.database.Pengguna.filter((r: any) =>
-        !existingIds.has(r.id) && !existingUsernames.has(r.username)
-      )
-      if (newRecords.length > 0) {
-        await db.pengguna.createMany({ data: newRecords.map((r: any) => {
-          const { id, ...rest } = r
-          return rest
-        }) })
-      }
-    }
-    // Always ensure existing Pengguna are preserved
-    for (const p of existingPengguna) {
-      const exists = await db.pengguna.findUnique({ where: { id: p.id } })
-      if (!exists) {
-        await db.pengguna.create({ data: p })
-      }
-    }
-
-    if (data.database.Post && data.database.Post.length > 0) {
-      await db.post.createMany({ data: data.database.Post.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.Customer && data.database.Customer.length > 0) {
-      await db.customer.createMany({ data: data.database.Customer.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.Paper && data.database.Paper.length > 0) {
-      await db.paper.createMany({ data: data.database.Paper.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.PrintingCost && data.database.PrintingCost.length > 0) {
-      await db.printingCost.createMany({ data: data.database.PrintingCost.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.Finishing && data.database.Finishing.length > 0) {
-      await db.finishing.createMany({ data: data.database.Finishing.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    // ⛔ CalonPembeli: MERGE only — keep existing, add missing from backup
-    if (data.database.CalonPembeli && data.database.CalonPembeli.length > 0) {
-      const existingIds = new Set(existingCalonPembeli.map(p => p.id))
-      const newRecords = data.database.CalonPembeli.filter((r: any) => !existingIds.has(r.id))
-      if (newRecords.length > 0) {
-        await db.calonPembeli.createMany({ data: newRecords.map((r: any) => {
-          const { id, ...rest } = r
-          return rest
-        }) })
-      }
-    }
-
-    // ⛔ Pembeli: MERGE only — keep existing, add missing from backup
-    if (data.database.Pembeli && data.database.Pembeli.length > 0) {
-      const existingIds = new Set(existingPembeli.map(p => p.id))
-      const newRecords = data.database.Pembeli.filter((r: any) => !existingIds.has(r.id))
-      if (newRecords.length > 0) {
-        await db.pembeli.createMany({ data: newRecords.map((r: any) => {
-          const { id, ...rest } = r
-          return rest
-        }) })
-      }
-    }
-
-    if (data.database.Setting && data.database.Setting.length > 0) {
-      await db.setting.createMany({ data: data.database.Setting.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    // Restore preserved master_cleared flags (prevents auto-reseed for existing accounts)
-    for (const flag of preservedMasterCleared) {
-      await db.setting.upsert({
-        where: { key: flag.key },
-        update: { value: flag.value },
-        create: { key: flag.key, value: flag.value },
-      })
-    }
-
-    if (data.database.RiwayatCetakan && data.database.RiwayatCetakan.length > 0) {
-      await db.riwayatCetakan.createMany({ data: data.database.RiwayatCetakan.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.RiwayatFinishing && data.database.RiwayatFinishing.length > 0) {
-      await db.riwayatFinishing.deleteMany()
-      await db.riwayatFinishing.createMany({ data: data.database.RiwayatFinishing.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.RiwayatOngkosCetak && data.database.RiwayatOngkosCetak.length > 0) {
-      await db.riwayatOngkosCetak.deleteMany()
-      await db.riwayatOngkosCetak.createMany({ data: data.database.RiwayatOngkosCetak.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.RiwayatHargaKertas && data.database.RiwayatHargaKertas.length > 0) {
-      await db.riwayatHargaKertas.deleteMany()
-      await db.riwayatHargaKertas.createMany({ data: data.database.RiwayatHargaKertas.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
-
-    if (data.database.RiwayatPotongKertas && data.database.RiwayatPotongKertas.length > 0) {
-      await db.riwayatPotongKertas.deleteMany()
-      await db.riwayatPotongKertas.createMany({ data: data.database.RiwayatPotongKertas.map((r: any) => {
-        const { id, ...rest } = r
-        return rest
-      }) })
-    }
+    const restoredTables = await restoreDatabase(filteredData, user.id)
 
     return NextResponse.json({
       success: true,
-      message: 'Database berhasil di-restore (data Pengguna & Pembeli dilindungi)',
-      timestamp: data.timestamp,
-      restoredTables: Object.keys(data.database).length,
+      message: 'Data berhasil di-restore (hanya data user Anda yang dipulihkan)',
+      restoredTables,
     })
   } catch (error) {
     console.error('Restore error:', error)

@@ -95,7 +95,7 @@ export default function KeamananPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* AKUN DEMO */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 lg:p-6 border-b border-slate-200">
             <h2 className="text-lg font-bold text-slate-800">Akun Demo</h2>
             <p className="text-sm text-slate-500 mt-0.5">Pengaturan untuk akun pengguna demo</p>
@@ -134,7 +134,7 @@ export default function KeamananPage() {
         </div>
 
         {/* KEAMANAN */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 lg:p-6 border-b border-slate-200">
             <h2 className="text-lg font-bold text-slate-800">Keamanan Login</h2>
             <p className="text-sm text-slate-500 mt-0.5">Pengaturan keamanan akun pengguna</p>

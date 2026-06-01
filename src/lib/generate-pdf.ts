@@ -34,6 +34,41 @@ function fmtDate(dateStr: string): string {
   }
 }
 
+/** Format date short: 01 Jan 25 */
+function fmtDateShort(dateStr: string): string {
+  if (!dateStr) return '-'
+  try {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })
+  } catch {
+    return dateStr
+  }
+}
+
+/** Try to add a base64 logo image to the PDF. Returns true if successful. */
+function tryAddLogoImage(pdf: jsPDF, logoDataUrl: string | undefined, x: number, y: number, size: number): boolean {
+  if (!logoDataUrl) return false
+  try {
+    // Detect format from data URL
+    const pngMatch = logoDataUrl.match(/^data:image\/png;base64,/)
+    const jpegMatch = logoDataUrl.match(/^data:image\/jpeg;base64,/)
+    const jpgMatch = logoDataUrl.match(/^data:image\/jpg;base64,/)
+    const webpMatch = logoDataUrl.match(/^data:image\/webp;base64,/)
+
+    let format: string | null = null
+    if (pngMatch) format = 'PNG'
+    else if (jpegMatch || jpgMatch) format = 'JPEG'
+    else if (webpMatch) format = 'PNG' // jsPDF may handle webp as PNG
+
+    if (!format) return false
+
+    pdf.addImage(logoDataUrl, format, x, y, size, size)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** Draw a standard document header (logo + company info + title). Returns new Y. */
 function drawDocHeader(
   pdf: jsPDF,
@@ -42,39 +77,55 @@ function drawDocHeader(
     company: InvoiceData['company']
     title: string
     subtitle?: string
+    jatuhTempo?: string  // optional due date display in header
   }
 ): number {
-  const { pageW, m, y, company, title, subtitle } = opts
-  const companyInitial = (company.nama || 'C').charAt(0).toUpperCase()
+  const { pageW, m, y, company, title, subtitle, jatuhTempo } = opts
 
-  // Logo box — 12×12mm rounded, black bg
-  pdf.setFillColor(0, 0, 0)
-  pdf.roundedRect(m, y, 12, 12, 1.2, 1.2, 'F')
-  pdf.setFontSize(12)
-  pdf.setFont('helvetica', 'bold')
-  pdf.setTextColor(255, 255, 255)
-  pdf.text(companyInitial, m + 6, y + 7.5, { align: 'center' })
+  const logoSize = 12
+  const logoX = m
+  const logoY = y
+
+  // Logo — try base64 image first, fallback to initial letter in black box
+  const logoAdded = tryAddLogoImage(pdf, company.logo, logoX, logoY, logoSize)
+
+  if (!logoAdded) {
+    const companyInitial = (company.nama || 'C').charAt(0).toUpperCase()
+    pdf.setFillColor(0, 0, 0)
+    pdf.roundedRect(logoX, logoY, logoSize, logoSize, 1.2, 1.2, 'F')
+    pdf.setFontSize(12)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setTextColor(255, 255, 255)
+    pdf.text(companyInitial, logoX + 6, logoY + 7.5, { align: 'center' })
+  }
 
   const infoX = m + 15
 
-  // Company name — matches preview text-[17px] bold
+  // Company name
   pdf.setTextColor(0, 0, 0)
   pdf.setFontSize(13)
   pdf.setFont('helvetica', 'bold')
-  pdf.text(company.nama || 'Nama Perusahaan', infoX, y + 4)
+  pdf.text(company.nama || '', infoX, y + 4)
 
-  // Address — matches preview text-[12px]
+  // Address
   pdf.setFontSize(9)
   pdf.setFont('helvetica', 'normal')
   pdf.setTextColor(97, 97, 97)
-  pdf.text(company.alamat || '', infoX, y + 8.5)
+  let nextY = y + 8.5
+  if (company.alamat) {
+    pdf.text(company.alamat, infoX, nextY)
+    nextY += 4
+  }
 
-  // Telepon & Email — matches preview flex gap-4 text-[12px]
+  // Telepon & Email
   const contactLine = [company.telepon, company.email].filter(Boolean).join('    ')
-  pdf.text(contactLine, infoX, y + 12.5)
+  if (contactLine) {
+    pdf.text(contactLine, infoX, nextY)
+    nextY += 4
+  }
 
-  // Bank info — matches preview text-[10px]
-  let bankY = y + 16.5
+  // Bank info
+  let bankY = nextY
   if (company.bankName) {
     pdf.setFontSize(7.5)
     pdf.setTextColor(97, 97, 97)
@@ -90,7 +141,7 @@ function drawDocHeader(
     bankY += 3.5
   }
 
-  // Title (right side) — matches preview text-lg bold
+  // Title (right side)
   const rightX = pageW - m
   pdf.setFontSize(14)
   pdf.setFont('helvetica', 'bold')
@@ -102,6 +153,15 @@ function drawDocHeader(
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(97, 97, 97)
     pdf.text(subtitle, rightX, y + 9.5, { align: 'right' })
+  }
+
+  // Jatuh Tempo — matches preview: shown in header area (right side, below subtitle)
+  if (jatuhTempo) {
+    const jtY = subtitle ? y + 14 : y + 10
+    pdf.setFontSize(7.5)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setTextColor(180, 83, 9) // amber-700
+    pdf.text(`Jatuh Tempo: ${fmtDateShort(jatuhTempo)}`, rightX, jtY, { align: 'right' })
   }
 
   return Math.max(bankY, y + 20) + 2
@@ -121,14 +181,15 @@ function drawRecipientBlock(
   opts: {
     m: number; pageW: number; y: number
     label: string      // e.g. "Kepada Yth :"
-    recipient: { nama: string; kontak: string; alamat: string }
+    recipient: { nama: string; kontak: string; alamat: string; jenisBarang?: string }
     docLabel: string    // e.g. "No. Invoice"
     docNumber: string
     dateLabel: string   // e.g. "Tanggal"
     dateValue: string
+    referensi?: string  // optional Ref. field
   }
 ): number {
-  const { m, pageW, y, label, recipient, docLabel, docNumber, dateLabel, dateValue } = opts
+  const { m, pageW, y, label, recipient, docLabel, docNumber, dateLabel, dateValue, referensi } = opts
 
   // Left — recipient
   pdf.setFontSize(7.5)
@@ -139,19 +200,31 @@ function drawRecipientBlock(
   pdf.setFontSize(9)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
-  pdf.text(recipient.nama || '-', m, y + 5)
+  let recipientY = y + 5
+  pdf.text(recipient.nama || '-', m, recipientY)
+
+  // jenisBarang — for Purchase Order (matches preview)
+  if (recipient.jenisBarang) {
+    recipientY += 3.5
+    pdf.setFontSize(7.5)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setTextColor(97, 97, 97)
+    pdf.text(recipient.jenisBarang, m, recipientY)
+  }
 
   if (recipient.kontak) {
+    recipientY += 3.5
     pdf.setFontSize(7.5)
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(97, 97, 97)
-    pdf.text(recipient.kontak, m, y + 9)
+    pdf.text(recipient.kontak, m, recipientY)
   }
   if (recipient.alamat) {
+    recipientY += 3.5
     pdf.setFontSize(7.5)
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(97, 97, 97)
-    pdf.text(recipient.alamat, m, y + 12.5)
+    pdf.text(recipient.alamat, m, recipientY)
   }
 
   // Right — doc details
@@ -176,10 +249,25 @@ function drawRecipientBlock(
   pdf.setTextColor(0, 0, 0)
   pdf.text(dateValue, rightX, y + 12.5, { align: 'right' })
 
-  return y + 17
+  // Referensi — matches preview: "Ref." label + value
+  if (referensi) {
+    pdf.setFontSize(7.5)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setTextColor(97, 97, 97)
+    pdf.text('Ref.', rightX, y + 16.5, { align: 'right' })
+
+    pdf.setFontSize(9)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setTextColor(0, 0, 0)
+    pdf.text(referensi, rightX, y + 20, { align: 'right' })
+  }
+
+  // Calculate block height based on content
+  const refExtra = referensi ? 8 : 0
+  return y + 17 + refExtra
 }
 
-/** Draw items table with prices. Returns new Y. */
+/** Draw items table with prices — matches preview with border-top/bottom header, no zebra, no outer border. Returns new Y. */
 function drawItemsTableWithPrice(
   pdf: jsPDF,
   opts: {
@@ -191,8 +279,7 @@ function drawItemsTableWithPrice(
   const { m, cw, y, items, maxRows } = opts
   const tableTop = y
 
-  // Column widths — adjusted for A5 to give Nama Barang more space
-  // Qty: narrow, Harga: moderate, Jumlah: wider for 11-digit amounts
+  // Column widths — adjusted for A5
   const colQty = 14
   const colPrice = 24
   const colTotal = 30
@@ -214,13 +301,16 @@ function drawItemsTableWithPrice(
     return neededH
   })
 
-  // Header — black bg, white text
+  // Header — matches preview: border top/bottom, black text on white bg
   const headerH = minRowH
-  pdf.setFillColor(0, 0, 0)
-  pdf.rect(m, y, cw, headerH, 'F')
+  pdf.setDrawColor(0, 0, 0)
+  pdf.setLineWidth(0.6)
+  pdf.line(m, y, m + cw, y) // top border
+  pdf.line(m, y + headerH, m + cw, y + headerH) // bottom border
+
   pdf.setFontSize(7.5)
   pdf.setFont('helvetica', 'bold')
-  pdf.setTextColor(255, 255, 255)
+  pdf.setTextColor(0, 0, 0)
   pdf.text('Qty', m + colQty - cellPad, y + headerH - 2, { align: 'right' })
   pdf.text('Nama Barang', m + colQty + cellPad, y + headerH - 2)
   pdf.text('Harga Satuan', m + colQty + colDesc + colPrice - cellPad, y + headerH - 2, { align: 'right' })
@@ -228,22 +318,18 @@ function drawItemsTableWithPrice(
 
   let curY = y + headerH
 
-  // Draw rows with dynamic heights
+  // Draw rows — no zebra striping, all white bg (matches preview)
   rows.forEach((item, i) => {
     const hasData = i < items.length
     const rowH = rowHeights[i]
 
-    // Background
-    const bgColor = i % 2 === 1 ? [245, 245, 245] : [255, 255, 255]
-    pdf.setFillColor(bgColor[0], bgColor[1], bgColor[2])
-    pdf.rect(m, curY, cw, rowH, 'F')
+    // No background fill — matches preview (white bg, no zebra)
 
     if (hasData) {
       pdf.setTextColor(0, 0, 0)
       pdf.setFontSize(7.5)
       pdf.setFont('helvetica', 'normal')
 
-      // All columns top-aligned (same baseline as first description line)
       const textY = curY + 4
 
       // Qty — right aligned
@@ -270,15 +356,12 @@ function drawItemsTableWithPrice(
     curY += rowH
   })
 
-  // Outer border
-  pdf.setDrawColor(180, 180, 180)
-  pdf.setLineWidth(0.15)
-  pdf.rect(m, tableTop, cw, curY - tableTop)
+  // No outer border — matches preview (no border around table)
 
   return curY + 3
 }
 
-/** Draw items table WITHOUT prices (for Surat Jalan). Returns new Y. */
+/** Draw items table WITHOUT prices (for Surat Jalan) — matches preview. Returns new Y. */
 function drawItemsTableNoPrice(
   pdf: jsPDF,
   opts: {
@@ -309,13 +392,16 @@ function drawItemsTableNoPrice(
     return neededH
   })
 
-  // Header
+  // Header — matches preview: border top/bottom, black text on white bg
   const headerH = minRowH
-  pdf.setFillColor(0, 0, 0)
-  pdf.rect(m, y, cw, headerH, 'F')
+  pdf.setDrawColor(0, 0, 0)
+  pdf.setLineWidth(0.6)
+  pdf.line(m, y, m + cw, y) // top border
+  pdf.line(m, y + headerH, m + cw, y + headerH) // bottom border
+
   pdf.setFontSize(7.5)
   pdf.setFont('helvetica', 'bold')
-  pdf.setTextColor(255, 255, 255)
+  pdf.setTextColor(0, 0, 0)
   pdf.text('Qty', m + colQty - cellPad, y + headerH - 2, { align: 'right' })
   pdf.text('Nama Barang', m + colQty + cellPad, y + headerH - 2)
 
@@ -325,10 +411,7 @@ function drawItemsTableNoPrice(
     const hasData = i < items.length
     const rowH = rowHeights[i]
 
-    // Background
-    const bgColor = i % 2 === 1 ? [245, 245, 245] : [255, 255, 255]
-    pdf.setFillColor(bgColor[0], bgColor[1], bgColor[2])
-    pdf.rect(m, curY, cw, rowH, 'F')
+    // No background fill — matches preview (white bg, no zebra)
 
     if (hasData) {
       pdf.setTextColor(0, 0, 0)
@@ -349,9 +432,7 @@ function drawItemsTableNoPrice(
     curY += rowH
   })
 
-  pdf.setDrawColor(180, 180, 180)
-  pdf.setLineWidth(0.15)
-  pdf.rect(m, tableTop, cw, curY - tableTop)
+  // No outer border — matches preview
 
   return curY + 3
 }
@@ -431,6 +512,42 @@ function drawCatatan(pdf: jsPDF, m: number, cw: number, y: number, catatan: stri
   return y + boxH + 3
 }
 
+/** Draw cara bayar row — matches preview with icon-like styling. Returns new Y. */
+function drawCaraBayar(
+  pdf: jsPDF,
+  opts: {
+    m: number; cw: number; y: number
+    caraPembayaran: string
+    tanggalGiro?: string
+  }
+): number {
+  const { m, cw, y, caraPembayaran, tanggalGiro } = opts
+  if (!caraPembayaran) return y
+
+  const methodLabel = caraPembayaran === 'cash' ? 'Cash' : caraPembayaran === 'transfer' ? 'Transfer' : 'Giro'
+
+  // Small icon indicator (filled circle, like the preview's SVG icon)
+  pdf.setFillColor(5, 150, 105) // emerald-600
+  pdf.circle(m + 1.5, y + 2, 1.2, 'F')
+
+  pdf.setFontSize(7.5)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setTextColor(97, 97, 97)
+  pdf.text('Cara Bayar:', m + 4, y + 3)
+
+  pdf.setFont('helvetica', 'bold')
+  pdf.setTextColor(0, 0, 0)
+  pdf.text(methodLabel.toUpperCase(), m + 24, y + 3)
+
+  if (caraPembayaran === 'giro' && tanggalGiro) {
+    pdf.setFont('helvetica', 'normal')
+    pdf.setTextColor(120, 120, 120)
+    pdf.text(`(Tgl: ${fmtDateShort(tanggalGiro)})`, m + 36, y + 3)
+  }
+
+  return y + 6
+}
+
 /** Draw 2-column signatures. Returns new Y. */
 function drawSignatures2Col(
   pdf: jsPDF,
@@ -494,13 +611,13 @@ function drawSignatures3Col(
   return lineY + 3
 }
 
-/** Draw footer text. */
+/** Draw footer text — matches preview font size. */
 function drawFooter(pdf: jsPDF, pageW: number, pageH: number) {
-  pdf.setFontSize(5.5)
+  pdf.setFontSize(7)
   pdf.setFont('helvetica', 'italic')
   pdf.setTextColor(120, 120, 120)
   pdf.text('Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.', pageW / 2, pageH - 4, { align: 'center' })
-  pdf.setFontSize(5)
+  pdf.setFontSize(6)
   pdf.text('www.darrellsoft.com', pageW / 2, pageH - 1.5, { align: 'center' })
 }
 
@@ -658,6 +775,7 @@ export async function generatePotongKertasPdf(data: {
 
 // ============================================================
 // Invoice PDF — matches InvoicePreview exactly
+// ============================================================
 
 export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
@@ -673,13 +791,16 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const ppnAmount = subtotal * (data.ppn / 100)
   const total = subtotal + ppnAmount
 
-  // ---- HEADER ----
-  y = drawDocHeader(pdf, { pageW, m, y, company: data.company, title: 'INVOICE' })
+  // ---- HEADER (with Jatuh Tempo in header area, matching preview) ----
+  y = drawDocHeader(pdf, {
+    pageW, m, y, company: data.company, title: 'INVOICE',
+    jatuhTempo: data.tanggalJatuhTempo || undefined,
+  })
 
   // ---- DIVIDER ----
   y = drawDivider(pdf, m, pageW, y)
 
-  // ---- CLIENT INFO + DOC DETAILS ----
+  // ---- CLIENT INFO + DOC DETAILS (with Ref.) ----
   y = drawRecipientBlock(pdf, {
     m, pageW, y,
     label: 'Kepada Yth :',
@@ -688,6 +809,14 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
     docNumber: data.nomor,
     dateLabel: 'Tanggal',
     dateValue: fmtDate(data.tanggal),
+    referensi: data.referensi || undefined,
+  })
+
+  // ---- CARA BAYAR ROW (matches preview: separate row below client info) ----
+  y = drawCaraBayar(pdf, {
+    m, cw, y,
+    caraPembayaran: data.caraPembayaran,
+    tanggalGiro: data.tanggalGiro,
   })
 
   // ---- ITEMS TABLE ----
@@ -702,7 +831,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   // ---- CATATAN ----
   y = drawCatatan(pdf, m, cw, y, data.catatan)
 
-  // ---- SIGNATURES (2 col) ----
+  // ---- SIGNATURES (2 col — Diterima Oleh / Hormat Kami, matching preview) ----
   y += 3
   y = drawSignatures2Col(pdf, {
     m, cw, y,
@@ -736,21 +865,30 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
   const ppnAmount = subtotal * (data.ppn / 100)
   const total = subtotal + ppnAmount
 
-  // ---- HEADER ----
-  y = drawDocHeader(pdf, { pageW, m, y, company: data.company, title: 'PURCHASE ORDER', subtitle: 'Pesanan Pembelian' })
+  // ---- HEADER (with Jatuh Tempo) ----
+  y = drawDocHeader(pdf, {
+    pageW, m, y, company: data.company, title: 'PURCHASE ORDER', subtitle: 'Pesanan Pembelian',
+    jatuhTempo: data.tanggalJatuhTempo || undefined,
+  })
 
   // ---- DIVIDER ----
   y = drawDivider(pdf, m, pageW, y)
 
-  // ---- PEMASOK INFO + DOC DETAILS ----
+  // ---- PEMASOK INFO + DOC DETAILS (with jenisBarang + Ref.) ----
   y = drawRecipientBlock(pdf, {
     m, pageW, y,
     label: 'KEPADA YTH :',
-    recipient: data.pemasok,
+    recipient: {
+      nama: data.pemasok.nama,
+      jenisBarang: data.pemasok.jenisBarang,
+      kontak: data.pemasok.kontak,
+      alamat: data.pemasok.alamat,
+    },
     docLabel: 'No. PO',
     docNumber: data.nomor,
     dateLabel: 'Tanggal',
     dateValue: fmtDate(data.tanggal),
+    referensi: data.referensi || undefined,
   })
 
   // ---- ITEMS TABLE ----
@@ -765,11 +903,11 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
   // ---- CATATAN ----
   y = drawCatatan(pdf, m, cw, y, data.catatan)
 
-  // ---- SIGNATURES (3 col) ----
+  // ---- SIGNATURES (3 col — Toko / Diketahui / Disetujui Oleh, matching preview order) ----
   y += 3
   y = drawSignatures3Col(pdf, {
     m, cw, y,
-    labels: ['Disetujui Oleh', 'Diketahui', 'Toko'],
+    labels: ['Toko', 'Diketahui', 'Disetujui Oleh'],
     gap: 22,
   })
 
@@ -800,19 +938,21 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
   // ---- DIVIDER ----
   y = drawDivider(pdf, m, pageW, y)
 
-  // ---- PENERIMA INFO + DOC DETAILS ----
+  // ---- PENERIMA INFO + DOC DETAILS (with Ref.) ----
+  // Label "Kepada Yth :" — matches preview
   y = drawRecipientBlock(pdf, {
     m, pageW, y,
-    label: 'Diterima Oleh',
+    label: 'Kepada Yth :',
     recipient: data.penerima,
     docLabel: 'No. Surat Jalan',
     docNumber: data.nomor,
     dateLabel: 'Tanggal',
     dateValue: fmtDate(data.tanggal),
+    referensi: data.referensi || undefined,
   })
 
   // ---- VEHICLE INFO ----
-  // Matches preview: flex gap-6, text-[12px] label, font-medium value
+  // Matches preview: flex gap-6, label + value
   pdf.setFontSize(9)
   pdf.setFont('helvetica', 'normal')
   pdf.setTextColor(97, 97, 97)
@@ -831,12 +971,12 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
   // ---- CATATAN ----
   y = drawCatatan(pdf, m, cw, y, data.catatan)
 
-  // ---- SIGNATURES (2 col, bigger gap) ----
+  // ---- SIGNATURES (2 col — Penerima / Pengirim, matching preview order) ----
   y += 3
   y = drawSignatures2Col(pdf, {
     m, cw, y,
-    leftLabel: 'Pengirim',
-    rightLabel: 'Penerima',
+    leftLabel: 'Penerima',
+    rightLabel: 'Pengirim',
     gap: 35,  // matches marginBottom: '3.5rem' in preview
   })
 

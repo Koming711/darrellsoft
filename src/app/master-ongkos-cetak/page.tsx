@@ -1,7 +1,7 @@
 'use client'
 
-import { Printer, Plus, Search, Loader2, DollarSign, Pencil, Trash2, Cog } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { Printer, Plus, Search, Loader2, DollarSign, Pencil, Trash2, Cog, DatabaseBackup, Upload } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { DialogForm } from '@/components/dialog-form'
@@ -62,6 +62,7 @@ export default function MasterOngkosCetakPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCost, setEditingCost] = useState<PrintingCost | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPrintingCosts()
@@ -82,6 +83,67 @@ export default function MasterOngkosCetakPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleBackup = async () => {
+    setBackupLoading('backup')
+    try {
+      const res = await authFetch(`/api/database/backup-master?table=printing_cost`)
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data ongkos cetak'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? match[1] : `backup-printing-cost-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup berhasil diunduh')
+    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data ongkos cetak') }
+    setBackupLoading(null)
+  }
+
+  const handleRestore = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      if (!confirm('Data ongkos cetak yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+      setBackupLoading('restore')
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('table', 'printing_cost')
+        const res = await authFetch('/api/database/restore-master', {
+          method: 'POST',
+          body: fd,
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          toast.success(`Restore berhasil (${data.count} data)`)
+          fetchPrintingCosts()
+          notifyDataChange('printing-costs')
+        } else {
+          toast.error(data.error || 'Gagal restore data ongkos cetak')
+        }
+      } catch { toast.error('File backup tidak valid') }
+      setBackupLoading(null)
+    }
+    input.click()
   }
 
   const filteredCosts = printingCosts.filter(cost =>
@@ -232,13 +294,33 @@ export default function MasterOngkosCetakPage() {
               placeholder="Cari mesin..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
             />
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto flex-wrap">
             <Button onClick={handlePrint} variant="outline" size="sm" className="flex-1 sm:flex-none border-slate-200">
               <Printer className="w-3.5 h-3.5 mr-1.5" />
               Cetak
+            </Button>
+            <Button
+              onClick={handleBackup}
+              variant="outline"
+              size="sm"
+              disabled={backupLoading === 'backup'}
+              className="flex-1 sm:flex-none border-slate-200"
+            >
+              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5 mr-1.5" />}
+              Backup
+            </Button>
+            <Button
+              onClick={handleRestore}
+              variant="outline"
+              size="sm"
+              disabled={backupLoading === 'restore'}
+              className="flex-1 sm:flex-none border-slate-200"
+            >
+              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+              Restore
             </Button>
             {canAdd && (
               <Button onClick={handleAdd} size="sm" className="flex-1 sm:flex-none">
@@ -264,7 +346,7 @@ export default function MasterOngkosCetakPage() {
             )}
           </div>
         ) : (
-          <div className="rounded-lg border bg-white overflow-hidden">
+          <div className="rounded-lg border bg-card overflow-hidden">
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
               <Table>

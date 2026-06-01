@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth';
+import { generateDocumentHistoryNumber, previewDocumentHistoryNumber } from '@/lib/doc-number';
+
+// Prefix mapping for doc types
+const DOC_PREFIX: Record<string, 'INV' | 'PO' | 'SJ' | 'SPK'> = {
+  'invoice': 'INV',
+  'purchase-order': 'PO',
+  'surat-jalan': 'SJ',
+  'spk': 'SPK',
+};
 
 // POST /api/history — Save a document to history (per-user isolation)
 export async function POST(req: NextRequest) {
@@ -10,10 +19,10 @@ export async function POST(req: NextRequest) {
     if (authErr) return authErr;
 
     const body = await req.json();
-    const { docType, nomor, tanggal, pihakKedua, total, dataJson } = body;
+    const { docType, tanggal, pihakKedua, total, dataJson } = body;
 
-    if (!docType || !nomor || !dataJson) {
-      return NextResponse.json({ error: 'docType, nomor, dataJson wajib diisi' }, { status: 400 });
+    if (!docType || !dataJson) {
+      return NextResponse.json({ error: 'docType, dataJson wajib diisi' }, { status: 400 });
     }
 
     // Check for duplicate: same docType + same content (within user's own records)
@@ -53,6 +62,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Generate sequential number server-side (format: INV/MM/YYYY/0001)
+    const prefix = DOC_PREFIX[docType];
+    const nomor = prefix
+      ? await generateDocumentHistoryNumber(prefix, docType, dataFilter)
+      : (body.nomor || '-');
+
+    // Also update the nomor inside dataJson so loaded documents show the correct number
+    if (prefix && parsed.nomor !== nomor) {
+      parsed.nomor = nomor;
+    }
+
     const history = await db.documentHistory.create({
       data: {
         docType,
@@ -60,12 +80,12 @@ export async function POST(req: NextRequest) {
         tanggal: tanggal || '',
         pihakKedua: pihakKedua || '-',
         total: total || '-',
-        dataJson,
+        dataJson: JSON.stringify(parsed),
         userId: user!.id,
       },
     });
 
-    return NextResponse.json({ success: true, id: history.id });
+    return NextResponse.json({ success: true, id: history.id, nomor });
   } catch (error) {
     console.error('Error saving document history:', error);
     return NextResponse.json({ error: 'Gagal menyimpan' }, { status: 500 });
@@ -73,6 +93,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET /api/history?docType=invoice&startDate=2024-01-01&endDate=2024-12-31 — List history by document type (per-user isolation)
+// GET /api/history?preview=next-number&docType=invoice — Preview next sequential number
 export async function GET(req: NextRequest) {
   try {
     const user = getServerUser(req);
@@ -81,12 +102,28 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const docType = searchParams.get('docType');
-    const startDateStr = searchParams.get('startDate');
-    const endDateStr = searchParams.get('endDate');
+
+    // Preview next number
+    const preview = searchParams.get('preview');
+    if (preview === 'next-number') {
+      if (!docType) {
+        return NextResponse.json({ error: 'docType wajib diisi' }, { status: 400 });
+      }
+      const prefix = DOC_PREFIX[docType];
+      if (!prefix) {
+        return NextResponse.json({ error: 'Unknown docType' }, { status: 400 });
+      }
+      const dataFilter = await getDataFilter(user);
+      const nextNumber = await previewDocumentHistoryNumber(prefix, docType, dataFilter);
+      return NextResponse.json({ nextNumber });
+    }
 
     if (!docType) {
       return NextResponse.json({ error: 'docType wajib diisi' }, { status: 400 });
     }
+
+    const startDateStr = searchParams.get('startDate');
+    const endDateStr = searchParams.get('endDate');
 
     // Apply per-user filter
     const dataFilter = await getDataFilter(user);

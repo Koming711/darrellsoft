@@ -167,6 +167,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Calculate LAST month invoice total for "Total Pendapatan (Bulan Lalu)"
+    const lastMonthStart = new Date()
+    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1)
+    lastMonthStart.setDate(1)
+    lastMonthStart.setHours(0, 0, 0, 0)
+    const lastMonthEnd = new Date()
+    lastMonthEnd.setDate(1)
+    lastMonthEnd.setHours(0, 0, 0, 0)
+    // lastMonthEnd is the first of current month, so we use < for the upper bound
+    const lastMonthInvoiceFilter = { docType: 'invoice', ...dataFilter, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } }
+    let lastMonthRevenue = 0
+    const lastMonthInvoices = await db.documentHistory.findMany({
+      where: lastMonthInvoiceFilter,
+      select: { dataJson: true },
+    })
+    for (const inv of lastMonthInvoices) {
+      try {
+        const data = JSON.parse(inv.dataJson)
+        const subtotal = (data.items || []).reduce((sum: number, item: { qty: number; harga: number }) => sum + item.qty * item.harga, 0)
+        const ppn = subtotal * ((data.ppn || 0) / 100)
+        lastMonthRevenue += subtotal + ppn
+      } catch {
+        // skip unparseable
+      }
+    }
+
     // Daily counts for chart (last 7 days)
     const dailyData: Record<string, { calculations: number; documents: number }> = {}
     for (let i = 6; i >= 0; i--) {
@@ -269,6 +295,7 @@ export async function GET(request: NextRequest) {
           invoice: invoiceTotal,
           purchaseOrder: purchaseOrderTotal,
           revenue: totalRevenue,
+          lastMonthRevenue,
           modal: invoiceAgg._count > 0 ? (cetakanAgg._sum.grandTotal || 0) - (cetakanAgg._sum.profitAmount || 0) : 0,
           todaySales,
           todayOrderCount,

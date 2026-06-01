@@ -137,14 +137,14 @@ function FeatureCard({
 }) {
   return (
     <FadeIn delay={delay}>
-      <Card className="card-tap group relative overflow-hidden border-0 bg-white shadow-lg hover:shadow-2xl transition-all duration-500 h-full">
+      <Card className="card-tap group relative overflow-hidden border-0 bg-white dark:bg-[#111] shadow-lg hover:shadow-2xl transition-all duration-500 h-full">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-sky-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <CardContent className="relative p-6 pt-8 flex flex-col items-center text-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-500">
             <Icon className="w-8 h-8 text-white" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-          <p className="text-gray-600 leading-relaxed text-sm">{desc}</p>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+          <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm">{desc}</p>
         </CardContent>
       </Card>
     </FadeIn>
@@ -260,21 +260,21 @@ function TestimonialCard({
 }) {
   return (
     <FadeIn delay={delay}>
-      <Card className="card-tap bg-white shadow-lg hover:shadow-xl transition-all duration-300 border-0 h-full">
+      <Card className="card-tap bg-white dark:bg-[#111] shadow-lg hover:shadow-xl transition-all duration-300 border-0 h-full">
         <CardContent className="p-6 flex flex-col gap-4">
           <div className="flex gap-1">
             {[...Array(5)].map((_, i) => (
               <Star key={i} className="w-4 h-4 fill-sky-300 text-sky-300" />
             ))}
           </div>
-          <p className="text-gray-700 text-sm leading-relaxed italic">&ldquo;{quote}&rdquo;</p>
+          <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed italic">&ldquo;{quote}&rdquo;</p>
           <div className="flex items-center gap-3 mt-auto pt-2">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-white font-bold text-sm">
               {avatar}
             </div>
             <div>
-              <p className="font-semibold text-gray-900 text-sm">{name}</p>
-              <p className="text-gray-500 text-xs">{role}</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{name}</p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs">{role}</p>
             </div>
           </div>
         </CardContent>
@@ -305,25 +305,24 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
       {/* =================== NAVBAR =================== */}
-      <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-gray-100">
+      <nav className="sticky top-0 z-50 w-full bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-100 dark:border-white/10">
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <img src="/logo-ds.png" alt="Logo" className="w-9 h-9 rounded-xl object-contain shadow-none" />
-            <span className="text-xl font-extrabold tracking-tight">
-              <span className="bg-gradient-to-r from-blue-700 to-sky-500 bg-clip-text text-transparent">Darrell</span>
-              <span className="text-gray-900"> Soft</span>
+            <span className="text-[22px] tracking-tight text-blue-900 dark:text-blue-300" style={{ fontWeight: 900 }}>
+              darrellsoft.com
             </span>
           </div>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 transition-colors">Fitur</a>
-            <a href="#keunggulan" className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 transition-colors">Keunggulan</a>
-            <a href="#harga" className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 transition-colors">Harga</a>
-            <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 hover:text-blue-700 transition-colors">Testimoni</a>
+            <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Fitur</a>
+            <a href="#keunggulan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Keunggulan</a>
+            <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Harga</a>
+            <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Testimoni</a>
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300">
               Masuk <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
@@ -332,13 +331,13 @@ export default function Home() {
           {/* Mobile toggle */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             aria-label="Toggle menu"
           >
             <div className="w-5 h-5 flex flex-col justify-center gap-1">
-              <span className={`block h-0.5 w-5 bg-gray-700 transition-all duration-300 ${mobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
-              <span className={`block h-0.5 w-5 bg-gray-700 transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : ''}`} />
-              <span className={`block h-0.5 w-5 bg-gray-700 transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+              <span className={`block h-0.5 w-5 bg-gray-700 dark:bg-gray-300 transition-all duration-300 ${mobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
+              <span className={`block h-0.5 w-5 bg-gray-700 dark:bg-gray-300 transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+              <span className={`block h-0.5 w-5 bg-gray-700 dark:bg-gray-300 transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
             </div>
           </button>
         </div>
@@ -349,13 +348,13 @@ export default function Home() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-gray-100 bg-white"
+            className="md:hidden border-t border-gray-100 dark:border-white/10 bg-white dark:bg-black"
           >
             <div className="px-4 py-2 flex flex-col gap-1">
-              <a href="#fitur" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Fitur</a>
-              <a href="#keunggulan" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Keunggulan</a>
-              <a href="#harga" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Harga</a>
-              <a href="#testimoni" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 hover:text-blue-700 py-1">Testimoni</a>
+              <a href="#fitur" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Fitur</a>
+              <a href="#keunggulan" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Keunggulan</a>
+              <a href="#harga" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Harga</a>
+              <a href="#testimoni" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Testimoni</a>
               <Button onClick={() => goToLogin()} className="w-full ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white mt-0.5 text-xs py-1.5">
                 Masuk <ChevronRight className="ml-1 w-3 h-3" />
               </Button>
@@ -368,8 +367,8 @@ export default function Home() {
       <section className="relative w-full overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-20 left-1/4 w-72 h-72 bg-blue-100/30 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-100/20 rounded-full blur-3xl" />
+          <div className="absolute top-20 left-1/4 w-72 h-72 bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-100/20 dark:bg-blue-900/10 rounded-full blur-3xl" />
         </div>
 
         <div className="max-w-6xl mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-16 md:pb-24">
@@ -377,11 +376,11 @@ export default function Home() {
             {/* Left - Text */}
             <FadeIn direction="right">
               <div className="flex flex-col gap-6">
-                <Badge variant="secondary" className="w-fit bg-blue-50 text-blue-800 border-blue-100 px-3 py-1 text-xs font-semibold">
+                <Badge variant="secondary" className="w-fit bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-3 py-1 text-xs font-semibold">
                   <Zap className="w-3 h-3 mr-1" /> Sistem Hitung Cepat Percetakan
                 </Badge>
 
-                <h1 className="text-4xl md:text-5xl lg:text-6xl text-gray-900 leading-tight" style={{ fontWeight: 900 }}>
+                <h1 className="text-4xl md:text-5xl lg:text-6xl text-gray-900 dark:text-gray-100 leading-tight" style={{ fontWeight: 900 }}>
                   Mau bisnis{' '}
                   <span className="font-extrabold" style={{ color: '#4374C1' }}>cetakan</span>{' '}
                   tapi tidak bisa hitung?{' '}
@@ -389,14 +388,14 @@ export default function Home() {
                   hingga rugi?
                 </h1>
 
-                <p className="text-lg md:text-xl text-gray-600 leading-relaxed">
-                  <span className="font-bold text-blue-600">Sekarang sudah gak jaman lagi salah hitung...!</span><br />
-                  <span className="font-bold text-gray-900">Pakai Darrell Soft aja!</span>.<br />
+                <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <span className="font-bold text-blue-600 dark:text-blue-400">Sekarang sudah gak jaman lagi salah hitung...!</span><br />
+                  <span className="font-bold text-gray-900 dark:text-gray-100">Pakai Darrell Soft aja!</span>.<br />
                   Dulu cuma yang ahli yang bisa hitung modal cetak.
-                  Sekarang, <span className="font-semibold text-blue-700">siapapun bisa</span> jadi pengusaha percetakan yang sukses!
+                  Sekarang, <span className="font-semibold text-blue-700 dark:text-blue-400">siapapun bisa</span> jadi pengusaha percetakan yang sukses!
                 </p>
 
-                <p className="text-base text-gray-500 leading-relaxed">
+                <p className="text-base text-gray-500 dark:text-gray-500 leading-relaxed">
                   Lupakan kalkulator manual yang bikin pusing. Dengan Darrell Soft, hitung modal jadi semudah mengetik.
                 </p>
 
@@ -404,19 +403,19 @@ export default function Home() {
 
                 {/* Trust signals */}
                 <div className="flex items-center gap-4 mt-4 flex-wrap">
-                  <div className="flex items-center gap-1.5 font-bold" style={{ fontSize: '1.375rem', color: '#000' }}>
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
                     <Shield className="w-5 h-5 text-green-500" />
                     <span className="font-extrabold">Tanpa ikatan kontrak</span>
                   </div>
-                  <div className="flex items-center gap-1.5 font-bold" style={{ fontSize: '1.375rem', color: '#000' }}>
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
                     <span className="font-extrabold">Bisa batal kapan saja tanpa syarat</span>
                   </div>
-                  <div className="flex items-center gap-1.5 font-bold" style={{ fontSize: '1.375rem', color: '#000' }}>
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
                     <span className="font-extrabold">Bisa langganan 1 bulan saja</span>
                   </div>
-                  <div className="flex items-center gap-1.5 font-bold" style={{ fontSize: '1.375rem', color: '#000' }}>
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
                     <X className="w-5 h-5 text-red-400" />
                     <span className="font-extrabold">Tanpa denda</span>
                   </div>
@@ -427,7 +426,7 @@ export default function Home() {
             {/* Right - Hero image */}
             <FadeIn direction="left" delay={0.2} className="md:pt-[171px]">
               <div className="relative">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 md:scale-110 md:origin-top">
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 md:scale-110 md:origin-top">
                   <img
                     src="/hero-printing.png"
                     alt="Darrell Soft - Sistem Kasir Percetakan"
@@ -439,15 +438,15 @@ export default function Home() {
                 <motion.div
                   animate={{ y: [0, -8, 0] }}
                   transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                  className="absolute -bottom-4 -left-4 md:-left-6 bg-white rounded-xl shadow-xl p-3 md:p-4 border border-gray-100"
+                  className="absolute -bottom-4 -left-4 md:-left-6 bg-white dark:bg-[#111] rounded-xl shadow-xl p-3 md:p-4 border border-gray-100 dark:border-white/10"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-green-600" />
+                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Profit Naik</p>
-                      <p className="text-lg font-bold text-green-600">+40%</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Profit Naik</p>
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">+40%</p>
                     </div>
                   </div>
                 </motion.div>
@@ -455,15 +454,15 @@ export default function Home() {
                 <motion.div
                   animate={{ y: [0, 8, 0] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                  className="absolute -top-4 -right-4 md:-right-6 bg-white rounded-xl shadow-xl p-3 md:p-4 border border-gray-100"
+                  className="absolute -top-4 -right-4 md:-right-6 bg-white dark:bg-[#111] rounded-xl shadow-xl p-3 md:p-4 border border-gray-100 dark:border-white/10"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                      <Calculator className="w-5 h-5 text-blue-700" />
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                      <Calculator className="w-5 h-5 text-blue-700 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Hitung Cepat</p>
-                      <p className="text-lg font-bold text-blue-700">&lt; 5 detik</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Hitung Cepat</p>
+                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400">&lt; 5 detik</p>
                     </div>
                   </div>
                 </motion.div>
@@ -500,17 +499,17 @@ export default function Home() {
       </section>
 
       {/* =================== FITUR =================== */}
-      <Section id="fitur" className="bg-white">
+      <Section id="fitur" className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 text-blue-800 border-blue-100 mb-4">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4">
               Fitur Unggulan
             </Badge>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
               Hitung Modal Jadi{' '}
               <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">Semudah Mengetik</span>
             </h2>
-            <p className="text-gray-600 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+            <p className="text-gray-600 dark:text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
               Semua yang kamu butuhkan untuk mengelola bisnis percetakan, dalam satu aplikasi yang powerful.
             </p>
           </div>
@@ -539,16 +538,16 @@ export default function Home() {
       </Section>
 
       {/* =================== KEUNGGULAN =================== */}
-      <Section id="keunggulan" className="bg-gradient-to-b from-blue-50/30 to-white">
+      <Section id="keunggulan" className="bg-gradient-to-b from-blue-50/30 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 text-blue-800 border-blue-100 mb-4">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4">
               Kenapa Darrell Soft?
             </Badge>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
               <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">Cepat, Akurat,</span> dan Fleksibel!
             </h2>
-            <p className="text-gray-600 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+            <p className="text-gray-600 dark:text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
               Bisa diakses via Desktop maupun HP, kapan saja dan di mana saja.
             </p>
           </div>
@@ -594,13 +593,13 @@ export default function Home() {
             },
           ].map((item, i) => (
             <FadeIn key={i} delay={i * 0.1}>
-              <div className="advantage-tap group flex items-start gap-4 p-5 rounded-xl bg-white shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-blue-100 cursor-pointer">
+              <div className="advantage-tap group flex items-start gap-4 p-5 rounded-xl bg-white dark:bg-[#111] shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-white/10 hover:border-blue-100 dark:hover:border-white/20 cursor-pointer">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg shrink-0 group-hover:scale-110 transition-transform duration-300`}>
                   <item.icon className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
-                  <p className="text-gray-600 text-sm mt-1 leading-relaxed">{item.desc}</p>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{item.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1 leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             </FadeIn>
@@ -609,13 +608,13 @@ export default function Home() {
       </Section>
 
       {/* =================== CARA KERJA =================== */}
-      <Section className="bg-white">
+      <Section className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 text-blue-800 border-blue-100 mb-4">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4">
               Cara Kerja
             </Badge>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
               Semudah{' '}
               <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">1-2-3</span>
             </h2>
@@ -631,15 +630,15 @@ export default function Home() {
             <FadeIn key={i} delay={i * 0.15}>
               <div className="relative text-center">
                 {/* Step number */}
-                <div className="text-7xl font-black text-blue-50 absolute -top-4 left-1/2 -translate-x-1/2 select-none">
+                <div className="text-7xl font-black text-blue-50 dark:text-white/5 absolute -top-4 left-1/2 -translate-x-1/2 select-none">
                   {item.step}
                 </div>
                 <div className="relative z-10 flex flex-col items-center gap-3 pt-6">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25">
                     <item.icon className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
-                  <p className="text-gray-600 text-sm max-w-xs">{item.desc}</p>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{item.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm max-w-xs">{item.desc}</p>
                 </div>
               </div>
             </FadeIn>
@@ -751,13 +750,13 @@ export default function Home() {
       </Section>
 
       {/* =================== TESTIMONI =================== */}
-      <Section id="testimoni" className="bg-white">
+      <Section id="testimoni" className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 text-blue-800 border-blue-100 mb-4">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4">
               Testimoni
             </Badge>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
               Dipercaya{' '}
               <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">Ribuan Pengusaha</span> Percetakan
             </h2>
@@ -837,13 +836,13 @@ export default function Home() {
       </section>
 
       {/* =================== FAQ =================== */}
-      <Section className="bg-white">
+      <Section className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 text-blue-800 border-blue-100 mb-4">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4">
               FAQ
             </Badge>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
               Pertanyaan yang{' '}
               <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">Sering Ditanyakan</span>
             </h2>
@@ -870,9 +869,9 @@ export default function Home() {
             },
           ].map((faq, i) => (
             <FadeIn key={i} delay={i * 0.1}>
-              <div className="p-6 rounded-xl bg-gray-50 border border-gray-100 hover:border-blue-100 hover:shadow-md transition-all duration-300">
-                <h3 className="text-base font-bold text-gray-900 mb-2">{faq.q}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{faq.a}</p>
+              <div className="p-6 rounded-xl bg-gray-50 dark:bg-[#111] border border-gray-100 dark:border-white/10 hover:border-blue-100 dark:hover:border-white/20 hover:shadow-md transition-all duration-300">
+                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">{faq.q}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{faq.a}</p>
               </div>
             </FadeIn>
           ))}

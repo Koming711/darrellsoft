@@ -83,7 +83,7 @@ function readStorage<T>(key: string, fallback: T): T {
 // Clean up old/incompatible data from localStorage
 function cleanOldStorage() {
   if (typeof window === 'undefined') return;
-  const DOKUPRO_VERSION = 'v14';
+  const DOKUPRO_VERSION = 'v16';
   const versionKey = 'dokupro-version';
 
   try {
@@ -203,7 +203,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
     const nextNumber = (currentNomor: string, prefix: string) => {
       const now = new Date();
       const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = String(now.getFullYear()).slice(-2); // last 2 digits
+      const year = String(now.getFullYear()); // 4-digit year
       const newPrefix = `${prefix}/${month}/${year}/`;
       // If current nomor starts with same prefix (same month/year), increment the number
       let num = 1;

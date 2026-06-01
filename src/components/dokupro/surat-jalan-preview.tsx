@@ -38,13 +38,17 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
           </div>
           <div className="company-info">
             <p className="company-name text-[17px] font-bold print:text-[17px] text-black">
-              {data.company.nama || 'Nama Perusahaan'}
+              {data.company.nama || ''}
             </p>
-            <p className="text-[12px] print:text-[12px] text-neutral-600">{data.company.alamat}</p>
-            <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
-              <span>{data.company.telepon}</span>
-              <span>{data.company.email}</span>
-            </div>
+            {data.company.alamat && (
+              <p className="text-[12px] print:text-[12px] text-neutral-600">{data.company.alamat}</p>
+            )}
+            {(data.company.telepon || data.company.email) && (
+              <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
+                {data.company.telepon && <span>{data.company.telepon}</span>}
+                {data.company.email && <span>{data.company.email}</span>}
+              </div>
+            )}
             {(data.company.bankName || data.company.bankName2) && (
               <div className="text-[10px] print:text-[9px] text-neutral-600 mt-0.5">
                 {data.company.bankName && (
@@ -88,6 +92,12 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
             <p className="text-xs font-medium print:text-[10px] text-black">{data.nomor}</p>
             <p className="text-[10px] mt-0.5 print:text-[8px] text-neutral-600">Tanggal</p>
             <p className="text-xs print:text-[10px] text-black">{formatTanggal(data.tanggal)}</p>
+            {data.referensi && (
+              <>
+                <p className="text-[10px] mt-0.5 print:text-[8px] text-neutral-600">Ref.</p>
+                <p className="text-xs font-medium print:text-[10px] text-black">{data.referensi}</p>
+              </>
+            )}
           </div>
         </div>
       </div>

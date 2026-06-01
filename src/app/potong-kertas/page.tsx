@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText } from 'lucide-react'
+import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -14,6 +14,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
+import { Button } from '@/components/ui/button'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 
@@ -79,76 +80,26 @@ function getInitialFormState(): FormData {
 }
 
 // Compact styles (mobile larger, desktop compact)
-const inp = "w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-blue-500 focus:border-transparent bg-white"
+const inp = "w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-blue-500 focus:border-transparent bg-card"
 const inpDisabled = "w-full border border-slate-200 rounded-md px-2.5 py-1.5 text-sm text-slate-500 bg-slate-100 cursor-not-allowed"
 const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
 
-// Draggable Preview Dialog Component
-function DraggablePreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
-  const dragOffset = useRef({ x: 0, y: 0 })
-
-  // Center on mount (mobile: bottom of screen, desktop: center)
-  useEffect(() => {
-    if (dialogRef.current) {
-      const w = dialogRef.current.offsetWidth
-      const h = dialogRef.current.offsetHeight
-      const isMobile = window.innerWidth < 640
-      if (isMobile) {
-        setPos({
-          x: Math.max(0, (window.innerWidth - w) / 2),
-          y: Math.max(0, window.innerHeight - h),
-        })
-      } else {
-        setPos({
-          x: Math.max(0, (window.innerWidth - w) / 2),
-          y: Math.max(20, (window.innerHeight - h) / 2),
-        })
-      }
-    }
-  }, [])
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, select, textarea, a')) return
-    setDragging(true)
-    dragOffset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y }
-  }
-
-  useEffect(() => {
-    if (!dragging) return
-    const handleMove = (e: MouseEvent) => {
-      setPos({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y })
-    }
-    const handleUp = () => setDragging(false)
-    document.addEventListener('mousemove', handleMove)
-    document.addEventListener('mouseup', handleUp)
-    return () => {
-      document.removeEventListener('mousemove', handleMove)
-      document.removeEventListener('mouseup', handleUp)
-    }
-  }, [dragging])
-
+// Preview Dialog Component (centered, scrollable)
+function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
   return (
-    <div className="fixed inset-0 z-50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" />
-      {/* Dialog - on mobile: full screen bottom sheet style, on desktop: centered draggable */}
+      {/* Dialog - centered with CSS flex, scrollable content */}
       <div
-        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
-        className="absolute bg-white rounded-xl border border-slate-200 shadow-2xl max-w-lg w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-h-[95vh] sm:max-h-[92vh] flex flex-col sm:rounded-xl rounded-t-xl"
-        style={{ left: pos.x, top: pos.y, cursor: dragging ? 'grabbing' : 'default' }}
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col"
       >
-        {/* Draggable Header */}
-        <div
-          onMouseDown={handleMouseDown}
-          className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl cursor-grab active:cursor-grabbing select-none"
-        >
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-400" onClick={onClose} />
+              <div className="w-2.5 h-2.5 rounded-full bg-red-400 cursor-pointer" onClick={onClose} />
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
             </div>
@@ -159,7 +110,7 @@ function DraggablePreviewDialog({ children, onClose, title }: { children: React.
           </button>
         </div>
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch">
           {children}
         </div>
       </div>
@@ -227,6 +178,9 @@ function CalculatorPage() {
   const [needsRecalc, setNeedsRecalc] = useState(false)
   const justCalculatedRef = useRef(false)
   const [riwayatList, setRiwayatList] = useState<any[]>([])
+  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+  const [nextPotongKertasNumber, setNextPotongKertasNumber] = useState('')
+  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -264,10 +218,18 @@ function CalculatorPage() {
       .catch(() => setCustomers([]))
   }
 
+  const fetchNextNumber = () => {
+    authFetch('/api/riwayat-potong-kertas?preview=next-number')
+      .then(res => { if (!res.ok) return null; return res.json() })
+      .then(data => { if (data?.nextNumber) setNextPotongKertasNumber(data.nextNumber) })
+      .catch(() => {})
+  }
+
   useEffect(() => {
     fetchCustomersData()
     fetchPapersData()
     fetchRiwayat()
+    fetchNextNumber()
   }, [])
 
   useDataChange(['papers', 'customers', 'finishings', 'settings'], (entity) => {
@@ -567,6 +529,67 @@ function CalculatorPage() {
     } catch {}
   }
 
+  const handleBackupRiwayat = async () => {
+    setBackupLoading('backup')
+    try {
+      const res = await authFetch(`/api/database/backup-master?table=riwayat_potong_kertas`)
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data riwayat potong kertas'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? match[1] : `backup-riwayat-potong-kertas-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup berhasil diunduh')
+    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data riwayat potong kertas') }
+    setBackupLoading(null)
+  }
+
+  const handleRestoreRiwayat = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      if (!confirm('Data riwayat potong kertas yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+      setBackupLoading('restore')
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('table', 'riwayat_potong_kertas')
+        const res = await authFetch('/api/database/restore-master', {
+          method: 'POST',
+          body: fd,
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          toast.success(`Restore berhasil (${data.count} data)`)
+          fetchRiwayat()
+          notifyDataChange('riwayat-potong-kertas')
+        } else {
+          toast.error(data.error || 'Gagal restore data riwayat potong kertas')
+        }
+      } catch { toast.error('File backup tidak valid') }
+      setBackupLoading(null)
+    }
+    input.click()
+  }
+
   const buildPayload = () => ({
     namaCustomer: selectedCustomer?.name || '-',
     resultData: results ? JSON.stringify(results) : '',
@@ -653,6 +676,7 @@ function CalculatorPage() {
         toast.success('Riwayat berhasil disimpan!')
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
+        fetchNextNumber()
         resetFormForRiwayat()
       } else {
         const errData = await res.json().catch(() => null)
@@ -907,6 +931,7 @@ function CalculatorPage() {
       })
     })
 
+    setActiveTab('editor')
     toast.success('Data berhasil di-restore dari riwayat!')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -932,9 +957,9 @@ function CalculatorPage() {
   }
 
   // Build SVG diagram HTML for print/PDF/WhatsApp
-  const buildDiagramHtml = useCallback(() => {
-    if (!results) return ''
-    const r = results
+  const buildDiagramHtml = useCallback((overrideResult?: CuttingResult) => {
+    const r = overrideResult || results
+    if (!r) return ''
     const scale = 5.94
     const pw = r.paperWidth
     const ph = r.paperHeight
@@ -998,10 +1023,10 @@ function CalculatorPage() {
   }, [results])
 
   // Build the full print/PDF body HTML
-  const buildFullPrintHtml = useCallback(() => {
-    if (!results) return ''
-    const r = results
-    const svgDiagram = buildDiagramHtml()
+  const buildFullPrintHtml = useCallback((overrideResult?: CuttingResult, overrideCustomer?: string, overridePaper?: string, overrideJumlahPesanan?: string, overrideBerapaMata?: string, overrideSetelanKertas?: string) => {
+    const r = overrideResult || results
+    if (!r) return ''
+    const svgDiagram = buildDiagramHtml(r)
 
     const stepsHtml = r.steps.map((step: string, idx: number) =>
       `<div style="display:flex;align-items:flex-start;gap:5px;padding:3px 0;">
@@ -1033,8 +1058,11 @@ function CalculatorPage() {
     }).join('')
 
     const infoDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-    const customerLabel = selectedCustomer?.name || printName || '-'
-    const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
+    const customerLabel = overrideCustomer || selectedCustomer?.name || printName || '-'
+    const paperLabel = overridePaper || selectedPaper?.name || restoredPaperName || 'Custom'
+    const jpLabel = overrideJumlahPesanan || jumlahPesanan || '-'
+    const bmLabel = overrideBerapaMata || berapaMata || '-'
+    const skLabel = overrideSetelanKertas || setelanKertas || '0'
 
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Potong Kertas</title>
@@ -1058,11 +1086,11 @@ function CalculatorPage() {
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm;margin-bottom:3mm;">
     <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:4px;padding:2.5mm 3mm;">
       <div style="font-size:7.5pt;color:#0284c7;font-weight:500;">Jumlah Pesanan</div>
-      <div style="font-size:13pt;font-weight:700;color:#0369a1;">${jumlahPesanan || '-'}</div>
+      <div style="font-size:13pt;font-weight:700;color:#0369a1;">${jpLabel}</div>
     </div>
     <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:4px;padding:2.5mm 3mm;">
       <div style="font-size:7.5pt;color:#7c3aed;font-weight:500;">Cetak Berapa Mata</div>
-      <div style="font-size:13pt;font-weight:700;color:#6d28d9;">${berapaMata || '-'}</div>
+      <div style="font-size:13pt;font-weight:700;color:#6d28d9;">${bmLabel}</div>
     </div>
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:2.5mm 3mm;">
       <div style="font-size:7.5pt;color:#2563eb;font-weight:500;">Jumlah Cetakan</div>
@@ -1070,7 +1098,7 @@ function CalculatorPage() {
     </div>
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:2.5mm 3mm;">
       <div style="font-size:7.5pt;color:#d97706;font-weight:500;">Insit Kertas</div>
-      <div style="font-size:13pt;font-weight:700;color:#b45309;">${setelanKertas || '0'}</div>
+      <div style="font-size:13pt;font-weight:700;color:#b45309;">${skLabel}</div>
     </div>
     <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:4px;padding:2.5mm 3mm;">
       <div style="font-size:7.5pt;color:#7e22ce;font-weight:500;">Potongan / Lembar</div>
@@ -1122,8 +1150,17 @@ function CalculatorPage() {
   }, [results, selectedCustomer, selectedPaper, restoredPaperName, printName, jumlahPesanan, berapaMata, setelanKertas, buildDiagramHtml])
 
   const handlePrint = () => {
-    if (!results) return
-    const html = buildFullPrintHtml()
+    const activeResults = previewRiwayatData || results
+    if (!activeResults) return
+    const isPreview = !!previewRiwayatData
+    const html = buildFullPrintHtml(
+      activeResults,
+      isPreview ? previewRiwayatInfo.customer : undefined,
+      isPreview ? previewRiwayatInfo.paper : undefined,
+      isPreview ? previewRiwayatInfo.jumlahPesanan : undefined,
+      isPreview ? previewRiwayatInfo.berapaMata : undefined,
+      isPreview ? previewRiwayatInfo.setelanKertas : undefined,
+    )
     if (!html) return
     const printWindow = window.open('', '_blank')
     if (!printWindow) {
@@ -1138,34 +1175,108 @@ function CalculatorPage() {
   }
 
   const handlePdf = async () => {
-    if (!results) return
+    const activeResults = previewRiwayatData || results
+    if (!activeResults) return
 
     setIsGeneratingPdf(true)
     try {
-      const html = buildFullPrintHtml()
-      if (!html) { toast.error('Tidak ada data'); return }
+      const { jsPDF } = await import('jspdf')
+      // A4 portrait: 210mm x 297mm
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pdfW = pdf.internal.pageSize.getWidth() // 210
+      const pdfH = pdf.internal.pageSize.getHeight() // 297
+      const margin = 8
+      const contentW = pdfW - margin * 2
+      const contentH = pdfH - margin * 2
 
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        toast.error('Popup diblokir. Izinkan popup untuk membuat PDF.')
-        return
+      // Render HTML to canvas via hidden iframe at A4 pixel dimensions
+      const a4PxW = 794 // ~210mm at 96dpi
+      const a4PxH = 1123 // ~297mm at 96dpi
+      const iframe = document.createElement('iframe')
+      iframe.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${a4PxW}px;height:${a4PxH}px;border:none;`
+      document.body.appendChild(iframe)
+      const iframeDoc = iframe.contentDocument!
+      iframeDoc.open()
+      const isPreview = !!previewRiwayatData
+      iframeDoc.write(buildFullPrintHtml(
+        activeResults,
+        isPreview ? previewRiwayatInfo.customer : undefined,
+        isPreview ? previewRiwayatInfo.paper : undefined,
+        isPreview ? previewRiwayatInfo.jumlahPesanan : undefined,
+        isPreview ? previewRiwayatInfo.berapaMata : undefined,
+        isPreview ? previewRiwayatInfo.setelanKertas : undefined,
+      ))
+      iframeDoc.close()
+
+      await new Promise(resolve => setTimeout(resolve, 600))
+
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(iframeDoc.body, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: a4PxW,
+        height: iframeDoc.body.scrollHeight,
+      })
+
+      document.body.removeChild(iframe)
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const imgW = contentW
+      const imgH = (canvas.height * imgW) / canvas.width
+
+      // Scale to fit A4 portrait in 1 page
+      if (imgH <= contentH) {
+        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH)
+      } else {
+        const scaledW = (contentH * imgW) / imgH
+        const offsetX = margin + (contentW - scaledW) / 2
+        pdf.addImage(imgData, 'JPEG', offsetX, margin, scaledW, contentH)
       }
 
-      // Inject auto-PDF script into the HTML
-      const pdfHtml = html.replace('</body>', `
-  <script>
-    window.onload = function() {
-      // Small delay for SVG rendering
-      setTimeout(function() {
-        window.print();
-      }, 500);
-    }
-  </script>
-</body>`)
+      // Generate PDF blob
+      const pdfBlob = pdf.output('blob')
+      const fileName = `potong-kertas-${(selectedCustomer?.name || printName || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`
 
-      printWindow.document.write(pdfHtml)
-      printWindow.document.close()
-      toast.success('PDF dibuka! Pilih "Save as PDF" di dialog print.')
+      // Build WhatsApp text message
+      const r = activeResults
+      const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
+      const gramLabel = grammage ? `${grammage} gsm` : '-'
+      let msg = `*Potong Kertas - www.darrellsoft.com*\n\n`
+      msg += `Nama Bahan: ${paperLabel}\n`
+      msg += `Gramatur: ${gramLabel}\n`
+      msg += `Ukuran Kertas: ${r.paperWidth} × ${r.paperHeight} cm\n`
+      msg += `Ukuran Potong: ${r.cutWidth} × ${r.cutHeight} cm\n`
+      msg += `Kertas yg dibeli: ${r.sheetsNeeded} lembar\n`
+      msg += `Potongan Jadi: ${r.totalPieces}\n`
+      msg += `Harga Kertas: Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}\n`
+      msg += `Terima Kasih.`
+
+      // Try Web Share API (mobile) to share PDF file directly to WhatsApp
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
+      if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+        try {
+          await navigator.share({
+            text: msg,
+            files: [pdfFile],
+          })
+          toast.success('PDF berhasil dibagikan!')
+          return
+        } catch (err: any) {
+          // User cancelled share - don't show error
+          if (err?.name === 'AbortError') return
+          // Fallback if share fails
+          console.warn('Web Share API failed, falling back:', err)
+        }
+      }
+
+      // Desktop fallback: download PDF + open WhatsApp with text
+      pdf.save(fileName)
+      toast.success('PDF diunduh! Membuka WhatsApp...')
+
+      // Open WhatsApp with text message
+      const encoded = encodeURIComponent(msg)
+      openWhatsApp(encoded, { waWindowRef })
     } catch (err) {
       console.error('PDF generation error:', err)
       toast.error('Gagal menghasilkan PDF')
@@ -1175,9 +1286,10 @@ function CalculatorPage() {
   }
 
   const handleShareWhatsApp = () => {
-    if (!results) return
+    const activeResults = previewRiwayatData || results
+    if (!activeResults) return
 
-    const r = results
+    const r = activeResults
     const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
     const gramLabel = grammage ? `${grammage} gsm` : '-'
 
@@ -1200,49 +1312,49 @@ function CalculatorPage() {
   // Riwayat table component
   const RiwayatTable = ({ items }: { items: any[] }) => (
     <div className="overflow-x-auto">
-      <table className="w-full text-[14px] min-w-[600px] table-fixed">
+      <table className="w-full text-[13px] min-w-[700px]">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/80">
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-7">#</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[12%]">Tgl</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[22%]">Customer</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap w-[18%]">Nama Barang</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Kertas</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Kertas</th>
-            <th className="text-left py-1 px-1 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell w-[10%]">Uk. Potong</th>
-            <th className="text-right py-1 px-2 text-slate-500 font-semibold whitespace-nowrap w-14">Jml</th>
-            <th className="text-right py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[20%]">Total</th>
-            <th className="text-center py-1 px-3 text-slate-500 font-semibold whitespace-nowrap w-[16%]">Aksi</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. PK</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Nama Barang</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Kertas</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Kertas</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Potong</th>
+            <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
+            <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+            <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
           </tr>
         </thead>
         <tbody>
           {items.map((r, idx) => {
             return (
               <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                <td className="py-1 px-1 text-slate-400">{idx + 1}</td>
-                <td className="py-1 px-1 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                <td className="py-1 px-1 text-slate-700 font-medium truncate">
+                <td className="py-3 px-3 text-teal-700 font-semibold whitespace-nowrap">{r.nomorUrut || '-'}</td>
+                <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
+                <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">
                   {r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-600 truncate">
+                <td className="py-3 px-3 text-slate-600 max-w-[100px] truncate">
                   {r.namaCetakan || '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-600 truncate hidden md:table-cell">
+                <td className="py-3 px-3 text-slate-600 max-w-[90px] truncate hidden md:table-cell">
                   {r.paperName || '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden md:table-cell">
+                <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
                   {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
                 </td>
-                <td className="py-1 px-1 text-slate-500 whitespace-nowrap hidden md:table-cell">
+                <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
                   {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
                 </td>
-                <td className="py-1 px-2 text-slate-600 text-right whitespace-nowrap">
+                <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
                   {parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}
                 </td>
-                <td className="py-1 pl-3 pr-1 text-rose-700 font-bold text-right whitespace-nowrap text-[14px]">
+                <td className="py-3 px-3 text-rose-700 font-bold text-right whitespace-nowrap">
                   Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}
                 </td>
-                <td className="py-1 px-3 text-center">
+                <td className="py-3 px-3 text-center">
                   <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => handlePreviewRiwayat(r)}
@@ -1280,13 +1392,50 @@ function CalculatorPage() {
       title={t('potong_kertas')}
       subtitle={t('subtitle_potong_kertas')}
     >
+      {/* Tab Navigation */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setActiveTab('editor')}
+          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+            activeTab === 'editor'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          Editor
+        </button>
+        <button
+          onClick={() => setActiveTab('riwayat')}
+          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+            activeTab === 'riwayat'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          Riwayat
+          {riwayatList.length > 0 && (
+            <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'riwayat' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{riwayatList.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Editor Tab Content */}
+      {activeTab === 'editor' && (
+      <>
       {/* === SINGLE PAGE LAYOUT: Form left, Results right === */}
-      <div className="flex flex-col lg:flex-row lg:min-h-[calc(100vh-8rem)] gap-3 lg:min-h-0 lg:-mt-5">
+      <div className="flex flex-col lg:flex-row lg:min-h-[calc(100vh-8rem)] gap-3 lg:min-h-0">
 
         {/* ===== LEFT: FORM ===== */}
         <div className="lg:w-[386px] xl:w-[416px] flex-shrink-0 flex flex-col gap-1.5">
+          {/* No Potong Kertas */}
+          {nextPotongKertasNumber && (
+            <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-teal-600 uppercase tracking-wider whitespace-nowrap">No. Potong Kertas :</span>
+              <span className="text-sm font-bold text-teal-800">{nextPotongKertasNumber}</span>
+            </div>
+          )}
           {/* Info Cetak */}
-          <div className="bg-white rounded-xl border border-slate-200 p-2.5">
+          <div className="bg-card rounded-xl border border-slate-200 p-2.5">
             <div className="space-y-1.5">
               <div className="space-y-1.5">
                 <div className="relative">
@@ -1320,7 +1469,7 @@ function CalculatorPage() {
                     )}
                     {/* Dropdown list */}
                     {customerDropdownOpen && (
-                      <div ref={customerDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div ref={customerDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {/* Existing customers */}
                         {filteredCustomersList.length > 0 && (
                           <div>
@@ -1435,7 +1584,7 @@ function CalculatorPage() {
           </div>
 
           {/* Ukuran */}
-          <div className="bg-white rounded-xl border border-slate-200 p-2.5">
+          <div className="bg-card rounded-xl border border-slate-200 p-2.5">
             <p className="text-xs font-semibold text-slate-700 mb-2">Ukuran</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
               <div>
@@ -1555,7 +1704,7 @@ function CalculatorPage() {
         </div>
 
         {/* ===== RIGHT: RESULTS ===== */}
-        <div className="flex-1 bg-white rounded-xl border border-slate-200 p-4 flex flex-col lg:min-h-0 lg:min-h-[calc(100vh-8rem+2cm)]">
+        <div className="flex-1 bg-card rounded-xl border border-slate-200 p-4 flex flex-col lg:min-h-0 lg:min-h-[calc(100vh-8rem+2cm)]">
           {results ? (
             <div className="flex-1 flex flex-col gap-1.5 lg:min-h-0 lg:overflow-hidden">
               {/* Stats Grid - mobile 2col, desktop 3col/5col */}
@@ -1680,29 +1829,52 @@ function CalculatorPage() {
         </div>
       </div>
 
-      {/* Riwayat Table Section - Full Width */}
-      <div className="mt-6">
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
-            <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center">
+      </>
+      )}
+
+      {/* Riwayat Tab Content */}
+      {activeTab === 'riwayat' && (
+        <div className="bg-card rounded-xl border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
               <History className="w-3.5 h-3.5 text-amber-600" />
+              <h2 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
             </div>
-            <h2 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
-            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={handleBackupRiwayat}
+                variant="outline"
+                size="sm"
+                disabled={backupLoading === 'backup'}
+                className="h-7 gap-1.5 text-xs"
+              >
+                {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
+                Backup
+              </Button>
+              <Button
+                onClick={handleRestoreRiwayat}
+                variant="outline"
+                size="sm"
+                disabled={backupLoading === 'restore'}
+                className="h-7 gap-1.5 text-xs"
+              >
+                {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                Restore
+              </Button>
+            </div>
           </div>
           {riwayatList.length > 0 ? (
             <RiwayatTable items={riwayatList} />
           ) : (
-            <div className="px-4 py-6 text-center">
-              <p className="text-xs text-slate-400">Belum ada riwayat potong kertas</p>
-            </div>
+            <p className="text-xs text-slate-400 py-8 text-center">Belum ada riwayat potong kertas</p>
           )}
         </div>
-      </div>
+      )}
 
-      {/* ===== PREVIEW DIALOG (Draggable) ===== */}
+      {/* ===== PREVIEW DIALOG ===== */}
       {previewOpen && (
-        <DraggablePreviewDialog
+        <PreviewDialog
           onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
           title="Preview Potong Kertas"
         >
@@ -1809,21 +1981,17 @@ function CalculatorPage() {
           </div>
 
           {/* Action buttons at bottom of dialog */}
-          <div className="sticky bottom-0 bg-white border-t border-slate-200 p-2 sm:p-4 flex flex-wrap gap-1.5 sm:gap-2">
+          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex flex-wrap gap-1.5 sm:gap-2">
             <button onClick={handlePrint}
               className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
               <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
             </button>
             <button onClick={handlePdf} disabled={isGeneratingPdf}
-              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
-              {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> PDF</>}
-            </button>
-            <button onClick={handleShareWhatsApp}
-              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl transition-colors text-xs sm:text-sm">
-              <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WhatsApp
+              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+              {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> PDF → WA</>}
             </button>
           </div>
-        </DraggablePreviewDialog>
+        </PreviewDialog>
       )}
     </DashboardLayout>
   )

@@ -29,6 +29,8 @@ export interface CompanySettings {
   signature: SignatureInfo;
 }
 
+export type CaraPembayaran = 'cash' | 'transfer' | 'giro';
+
 export interface InvoiceData {
   type: 'invoice';
   company: CompanyInfo;
@@ -43,6 +45,9 @@ export interface InvoiceData {
   items: DocumentItem[];
   ppn: number; // percentage
   catatan: string;
+  tanggalJatuhTempo: string; // due date (empty = no due date)
+  caraPembayaran: CaraPembayaran | ''; // payment method
+  tanggalGiro: string; // giro date (only used when caraPembayaran === 'giro')
 }
 
 export interface SuratJalanData {
@@ -140,6 +145,9 @@ export function createDefaultInvoice(): InvoiceData {
     items: [createDefaultItem()],
     ppn: 11,
     catatan: '',
+    tanggalJatuhTempo: '',
+    caraPembayaran: '',
+    tanggalGiro: '',
   };
 }
 

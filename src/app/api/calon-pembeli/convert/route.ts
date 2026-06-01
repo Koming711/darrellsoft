@@ -105,7 +105,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Disconnect CalonPembeli from Pengguna (clear userId) before deleting
+    // 5. Migrate all user data from CalonPembeli ID to new Pengguna ID
+    //    When a CalonPembeli logs in, their userId = calon.id.
+    //    After conversion, they login as Pengguna with pengguna.id.
+    //    Without migration, all their old data becomes orphaned.
+    if (penggunaId && penggunaId !== calonId) {
+      const oldUserId = calonId
+      const newUserId = penggunaId
+      try {
+        // Migrate master data
+        await db.customer.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.paper.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.printingCost.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.finishing.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        // Migrate riwayat data
+        await db.riwayatCetakan.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.riwayatFinishing.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.riwayatOngkosCetak.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.riwayatHargaKertas.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.riwayatPotongKertas.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        // Migrate documents & other data
+        await db.invoice.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.suratJalan.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.purchaseOrder.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.tokoPemasok.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        await db.documentHistory.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        console.log(`✅ Migrated data from CalonPembeli ${oldUserId} to Pengguna ${newUserId}`)
+      } catch (migrateErr) {
+        console.error('⚠️ Data migration error (non-fatal):', migrateErr)
+      }
+    }
+
+    // 6. Disconnect CalonPembeli from Pengguna (clear userId) before deleting
     try {
       await db.calonPembeli.update({
         where: { id: calonId },
@@ -113,7 +144,7 @@ export async function POST(request: NextRequest) {
       })
     } catch {}
 
-    // 6. Delete the CalonPembeli
+    // 7. Delete the CalonPembeli
     await db.calonPembeli.delete({
       where: { id: calonId }
     })

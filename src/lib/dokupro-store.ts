@@ -79,7 +79,7 @@ function readStorage<T>(key: string, fallback: T): T {
 // Clean up old/incompatible data from localStorage
 function cleanOldStorage() {
   if (typeof window === 'undefined') return;
-  const DOKUPRO_VERSION = 'v6';
+  const DOKUPRO_VERSION = 'v7';
   const versionKey = 'dokupro-version';
 
   try {

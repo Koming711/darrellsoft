@@ -139,6 +139,19 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
               setForceLogoutAvailable(!!data.forceLogoutAvailable)
             }
           }
+
+          // === AUTO-BACKUP CHECK ===
+          // Check if auto-backup is due and trigger it silently
+          if (data.valid && authUser.role !== 'superadmin') {
+            authFetch('/api/database/auto-backup', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(backupData => {
+                if (backupData?.success && !backupData?.skipped) {
+                  console.log(`✅ Auto backup: ${backupData.fileName} (${backupData.totalRows} records)`)
+                }
+              })
+              .catch(() => {}) // silent fail
+          }
         } catch {
           // Session verification failed - continue anyway
         }
@@ -258,7 +271,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === LOADING STATE ===
   if (!ready) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -266,13 +279,13 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center p-8">
-          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 mx-auto">
-            <AlertTriangle className="w-8 h-8 text-blue-600" />
+          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 mx-auto">
+            <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Belum Login</h2>
-          <p className="text-sm text-slate-500 mb-4">Silakan login terlebih dahulu untuk mengakses halaman ini.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">Belum Login</h2>
+          <p className="text-sm text-muted-foreground mb-4">Silakan login terlebih dahulu untuk mengakses halaman ini.</p>
           <button
             onClick={() => {
               clearAuthUser()
@@ -302,11 +315,11 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           <MobileHeader onMenuToggle={() => setSidebarOpen(!sidebarOpen)} username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
           <main className="p-4 lg:p-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
+              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
-              <h2 className="text-xl font-bold text-slate-800 mb-2">Akses Ditolak</h2>
-              <p className="text-sm text-slate-500 max-w-md">
+              <h2 className="text-xl font-bold text-foreground mb-2">Akses Ditolak</h2>
+              <p className="text-sm text-muted-foreground max-w-md">
                 Anda tidak memiliki izin untuk mengakses halaman ini.
                 Hubungi administrator jika Anda membutuhkan akses.
               </p>
@@ -315,7 +328,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                   const firstAccessible = user ? getFirstAccessiblePath(user.role) : '/login'
                   window.location.href = firstAccessible || '/login'
                 }}
-                className="mt-4 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
+                className="mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Kembali ke Beranda
               </button>
@@ -356,18 +369,18 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       {/* ===== MODAL: ACCOUNT EXPIRED ===== */}
       {accountExpired && sessionWarning && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="rounded-2xl shadow-2xl border border-red-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--app-popup-bg)' }}>
+          <div className="rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-                <TimerOff className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <TimerOff className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">Akun Kadaluarsa</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Masa berlaku akun telah habis</p>
+                <h3 className="text-lg font-bold text-foreground">Akun Kadaluarsa</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Masa berlaku akun telah habis</p>
               </div>
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
-              <p className="text-sm text-red-700 leading-relaxed">{sessionWarning}</p>
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
+              <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{sessionWarning}</p>
             </div>
             <button
               onClick={handleLogout}
@@ -385,18 +398,18 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       {/* ===== MODAL: SESSION WARNING (Multi-Device) ===== */}
       {sessionWarning && !accountExpired && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="rounded-2xl shadow-2xl border border-red-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--app-popup-bg)' }}>
+          <div className="rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-                {forceLogoutAvailable ? <ShieldAlert className="w-5 h-5 text-red-600" /> : <Smartphone className="w-5 h-5 text-red-600" />}
+              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                {forceLogoutAvailable ? <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> : <Smartphone className="w-5 h-5 text-red-600 dark:text-red-400" />}
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">Peringatan Keamanan</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Akun digunakan di perangkat lain</p>
+                <h3 className="text-lg font-bold text-foreground">Peringatan Keamanan</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Akun digunakan di perangkat lain</p>
               </div>
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
-              <p className="text-sm text-red-700 leading-relaxed">{sessionWarning}</p>
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
+              <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{sessionWarning}</p>
             </div>
             {forceLogoutAvailable ? (
               <div className="space-y-2.5">
@@ -441,7 +454,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold py-2.5 rounded-xl transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold py-2.5 rounded-xl transition-colors"
                 >
                   <LogOut className="w-4 h-4" /> Logout dari Sini
                 </button>
@@ -462,19 +475,19 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       {/* ===== MODAL: AUTO-LOGOUT COUNTDOWN ===== */}
       {showCountdown && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="rounded-2xl shadow-2xl border border-amber-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--app-popup-bg)' }}>
+          <div className="rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">Sesi Akan Berakhir</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Anda tidak aktif, akan otomatis logout</p>
+                <h3 className="text-lg font-bold text-foreground">Sesi Akan Berakhir</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Anda tidak aktif, akan otomatis logout</p>
               </div>
             </div>
             <div className="text-center py-5">
-              <div className="text-6xl font-bold text-amber-600 tabular-nums">{countdown}</div>
-              <p className="text-sm text-slate-500 mt-2">detik tersisa</p>
+              <div className="text-6xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{countdown}</div>
+              <p className="text-sm text-muted-foreground mt-2">detik tersisa</p>
             </div>
             <button
               onClick={handleStayLoggedIn}

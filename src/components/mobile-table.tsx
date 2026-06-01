@@ -46,7 +46,7 @@ export function MobileTable<T extends Record<string, any>>({
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
+      setIsMobile(window.innerWidth < 640)
     }
     checkMobile()
     window.addEventListener('resize', checkMobile)
@@ -134,7 +134,7 @@ export function MobileTable<T extends Record<string, any>>({
       )}
 
       {/* Desktop Table */}
-      <div className="hidden lg:block overflow-x-auto">
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full min-w-[600px]">
           <thead className="bg-slate-50">
             <tr>
@@ -181,7 +181,7 @@ export function MobileTable<T extends Record<string, any>>({
       </div>
 
       {/* Mobile Card List */}
-      <div className="lg:hidden space-y-2">
+      <div className="sm:hidden space-y-2">
         {data.map((item, idx) => {
           const isSelected = selectedItems.has(item[keyField])
           return (

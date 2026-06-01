@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Edit, Save, X, Trash2 } from 'lucide-react'
+import { Plus, Edit, Save, X, Trash2, MessageCircle, Loader2 } from 'lucide-react'
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -111,6 +111,11 @@ export default function HakAksesPage() {
   const [autoLogoutMin, setAutoLogoutMin] = useState('')
   const [logoutWarningSec, setLogoutWarningSec] = useState('')
 
+  // === WHATSAPP API STATE ===
+  const [waApiKey, setWaApiKey] = useState('')
+  const [waApiUrl, setWaApiUrl] = useState('https://api.fonnte.com/send')
+  const [waSaving, setWaSaving] = useState(false)
+
   // === LOAD SETTINGS & CUSTOM PERMISSIONS ===
   useEffect(() => {
     let cancelled = false
@@ -127,6 +132,8 @@ export default function HakAksesPage() {
             if (s.key === 'single_device_message') setSingleDeviceMessage(s.value)
             if (s.key === 'auto_logout_min') setAutoLogoutMin(s.value)
             if (s.key === 'logout_warning_sec') setLogoutWarningSec(s.value)
+            if (s.key === 'wa_api_key') setWaApiKey(s.value)
+            if (s.key === 'wa_api_url') setWaApiUrl(s.value)
 
             // Load custom role permissions from database
             if (s.key === 'role_permissions' && s.value) {
@@ -356,6 +363,22 @@ export default function HakAksesPage() {
     toast.success('Pengaturan akun demo berhasil disimpan!')
   }
 
+  // === WHATSAPP API HANDLER ===
+  const handleSaveWhatsApp = async () => {
+    setWaSaving(true)
+    try {
+      await Promise.all([
+        saveSetting('wa_api_key', waApiKey),
+        saveSetting('wa_api_url', waApiUrl),
+      ])
+      toast.success('Pengaturan WhatsApp API berhasil disimpan!')
+    } catch {
+      toast.error('Gagal menyimpan pengaturan WhatsApp API')
+    } finally {
+      setWaSaving(false)
+    }
+  }
+
   // === KEAMANAN HANDLER ===
   const handleSaveKeamanan = async () => {
     if (!autoLogoutMin && autoLogoutMin !== '0') { toast.error('Auto logout wajib diisi'); return }
@@ -396,7 +419,7 @@ export default function HakAksesPage() {
       )}
 
       {/* ==================== SECTION 1: DAFTAR ROLE ==================== */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="p-4 lg:p-6 border-b border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -437,7 +460,7 @@ export default function HakAksesPage() {
       </div>
 
       {/* ==================== SECTION 2: MATRIKS HAK AKSES FITUR ==================== */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="p-4 lg:p-6 border-b border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -485,7 +508,7 @@ export default function HakAksesPage() {
             <tbody>
               {SIMPLE_FEATURES.map((feature) => (
                 <tr key={feature.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 sticky left-0 bg-white z-10"><span className="text-sm font-medium text-slate-800">{feature.name}</span></td>
+                  <td className="px-4 py-3 sticky left-0 bg-card z-10"><span className="text-sm font-medium text-slate-800">{feature.name}</span></td>
                   {displayRoles.map((role) => {
                     const fp = role.features.find(f => f.featureId === feature.id)
                     return (
@@ -533,7 +556,7 @@ export default function HakAksesPage() {
                   {/* Sub-permission rows (always visible) */}
                   {group.subPermissions.map((sp) => (
                     <tr key={sp.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="px-4 py-2.5 pl-8 sticky left-0 bg-white z-10">
+                      <td className="px-4 py-2.5 pl-8 sticky left-0 bg-card z-10">
                         <span className="text-sm text-slate-600">{sp.name}</span>
                       </td>
                       {displayRoles.map((role) => {
@@ -562,7 +585,7 @@ export default function HakAksesPage() {
       {/* ==================== SECTION 3 & 4: AKUN DEMO + KEAMANAN ==================== */}
       {!dataLoaded ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-4 lg:p-6 border-b border-slate-200">
               <h2 className="text-lg font-bold text-slate-800">Akun Demo</h2>
             </div>
@@ -571,7 +594,7 @@ export default function HakAksesPage() {
               <p className="text-sm text-slate-500">Memuat...</p>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-4 lg:p-6 border-b border-slate-200">
               <h2 className="text-lg font-bold text-slate-800">Keamanan</h2>
             </div>
@@ -584,7 +607,7 @@ export default function HakAksesPage() {
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* AKUN DEMO */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 lg:p-6 border-b border-slate-200">
             <h2 className="text-lg font-bold text-slate-800">Akun Demo</h2>
             <p className="text-sm text-slate-500 mt-0.5">Pengaturan untuk akun pengguna demo</p>
@@ -623,7 +646,7 @@ export default function HakAksesPage() {
         </div>
 
         {/* KEAMANAN */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 lg:p-6 border-b border-slate-200">
             <h2 className="text-lg font-bold text-slate-800">Keamanan</h2>
             <p className="text-sm text-slate-500 mt-0.5">Pengaturan keamanan akun pengguna</p>
@@ -695,6 +718,47 @@ export default function HakAksesPage() {
         </div>
       </div>
       )}
+
+      {/* ==================== SECTION 5: WHATSAPP API ==================== */}
+      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div className="p-4 lg:p-6 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-emerald-600" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">WhatsApp API</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Untuk mengirim password otomatis ke WhatsApp user saat lupa password</p>
+            </div>
+            <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full ml-2">Fonnte</span>
+          </div>
+        </div>
+        <div className="p-4 lg:p-6 space-y-5">
+          <p className="text-xs text-slate-500">Daftar di <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">fonnte.com</a> untuk mendapatkan API key.</p>
+          <div>
+            <Label className="text-sm font-medium text-slate-700">API Key Fonnte</Label>
+            <Input
+              type="password"
+              value={waApiKey}
+              onChange={(e) => setWaApiKey(e.target.value)}
+              placeholder="Masukkan API key dari Fonnte"
+              className="mt-1.5"
+            />
+          </div>
+          <div>
+            <Label className="text-sm font-medium text-slate-700">API URL</Label>
+            <Input
+              type="url"
+              value={waApiUrl}
+              onChange={(e) => setWaApiUrl(e.target.value)}
+              placeholder="https://api.fonnte.com/send"
+              className="mt-1.5"
+            />
+            <p className="text-xs text-slate-400 mt-1">Default: https://api.fonnte.com/send</p>
+          </div>
+          <Button onClick={handleSaveWhatsApp} disabled={waSaving} className="w-full gap-2">
+            {waSaving ? <><Loader2 className="w-4 h-4 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4" />Simpan</>}
+          </Button>
+        </div>
+      </div>
 
       {/* Delete Role Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

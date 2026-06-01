@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   BookOpen,
   Store,
+  ShoppingBag,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -72,6 +73,13 @@ const menuItems = [
     titleKey: 'purchase_order' as TranslationKey,
     href: '/purchase-order',
     icon: ShoppingCart,
+    featureId: 'purchase-order',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'riwayat_pembelian' as TranslationKey,
+    href: '/riwayat-pembelian',
+    icon: ShoppingBag,
     featureId: 'purchase-order',
     section: 'dokumen',
   },
@@ -260,7 +268,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                       'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors',
                       isActive(item.href)
                         ? 'sidebar-active'
-                        : 'hover:bg-white/10'
+                        : 'hover:bg-black/5 dark:hover:bg-white/10'
                     )}
                     style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                   >
@@ -279,7 +287,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                             'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                             pathname === subItem.href
                               ? 'sidebar-active'
-                              : 'hover:bg-white/10'
+                              : 'hover:bg-black/5 dark:hover:bg-white/10'
                           )}
                           style={pathname === subItem.href ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text-muted)' }}
                         >
@@ -298,7 +306,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                     'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors',
                     isActive(item.href)
                       ? 'sidebar-active'
-                      : 'hover:bg-white/10'
+                      : 'hover:bg-black/5 dark:hover:bg-white/10'
                   )}
                   style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                 >
@@ -314,17 +322,17 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         {/* User Info & Logout */}
         <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--app-sidebar-border)' }}>
           {username && (
-            <div className={cn("mb-1.5 px-2 py-1.5 rounded-md transition-opacity", !isOpen && "lg:opacity-100 opacity-0")} style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+            <div className={cn("mb-1.5 px-2 py-1.5 rounded-md transition-opacity", !isOpen && "lg:opacity-100 opacity-0")} style={{ backgroundColor: 'var(--app-sidebar-active-bg)' }}>
               <div className="flex items-center justify-between gap-1.5">
                 <p className="text-[14px] font-medium truncate" style={{ color: 'var(--app-sidebar-text)' }}>{username}</p>
                 {role && (
                   <span className={cn(
                     "text-[11px] font-bold px-1.5 py-px rounded-full whitespace-nowrap flex-shrink-0",
-                    role === 'superadmin' ? 'bg-red-100 text-red-700' :
-                    role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                    role === 'manager' ? 'bg-emerald-100 text-emerald-700' :
-                    role === 'demo' ? 'bg-amber-100 text-amber-700' :
-                    'bg-blue-100 text-blue-700'
+                    role === 'superadmin' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+                    role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
+                    role === 'manager' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                    role === 'demo' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+                    'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
                   )}>
                     {role}
                   </span>
@@ -339,7 +347,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               }
               router.push('/')
             }}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[15px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[15px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
             <span className={cn("transition-opacity", !isOpen && "lg:opacity-100 opacity-0")}>{t('keluar')}</span>
@@ -359,7 +367,7 @@ export function MobileHeader({ onMenuToggle, username, title, subtitle, userProf
   const { t } = useLanguage()
 
   return (
-    <header className="px-3 py-3 lg:py-3 sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--app-banner-bg)', borderColor: 'var(--app-popup-border)' }}>
+    <header className="px-3 py-3 lg:py-3 sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--app-banner-bg)', borderColor: 'var(--border)' }}>
       <div className="flex items-center gap-2 lg:gap-3">
         <button
           onClick={onMenuToggle}
@@ -398,7 +406,7 @@ export function MobileHeader({ onMenuToggle, username, title, subtitle, userProf
               <span className="text-[11px]" style={{ color: 'var(--app-banner-text-muted)' }}>Daftar: {formatDateIndo(userProfile.createdAt)}</span>
             )}
             {userProfile?.validUntil && (
-              <span className="text-[11px] font-medium text-amber-600">Expired: {formatDateIndo(userProfile.validUntil)}</span>
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Expired: {formatDateIndo(userProfile.validUntil)}</span>
             )}
           </div>
         </div>

@@ -10,6 +10,8 @@ interface PurchaseOrderPreviewProps {
 
 const MAX_ROWS = 10;
 
+
+
 export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
@@ -42,13 +44,17 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
           </div>
           <div className="company-info">
             <p className="company-name text-[17px] font-bold print:text-[17px] text-black">
-              {data.company.nama || 'Nama Perusahaan'}
+              {data.company.nama || ''}
             </p>
-            <p className="text-[12px] print:text-[12px] text-neutral-600">{data.company.alamat}</p>
-            <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
-              <span>{data.company.telepon}</span>
-              <span>{data.company.email}</span>
-            </div>
+            {data.company.alamat && (
+              <p className="text-[12px] print:text-[12px] text-neutral-600">{data.company.alamat}</p>
+            )}
+            {(data.company.telepon || data.company.email) && (
+              <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
+                {data.company.telepon && <span>{data.company.telepon}</span>}
+                {data.company.email && <span>{data.company.email}</span>}
+              </div>
+            )}
             {(data.company.bankName || data.company.bankName2) && (
               <div className="text-[10px] print:text-[9px] text-neutral-600 mt-0.5">
                 {data.company.bankName && (
@@ -66,6 +72,12 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
           <p className="text-[10px] font-medium uppercase tracking-wider print:text-[8px] text-neutral-600">
             Pesanan Pembelian
           </p>
+          {data.tanggalJatuhTempo && (
+            <div className="flex items-center justify-end gap-1 mt-1">
+              <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="text-[9px] font-semibold text-amber-700">Jatuh Tempo: {new Date(data.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -95,6 +107,12 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
             <p className="text-xs font-medium print:text-[10px] text-black">{data.nomor}</p>
             <p className="text-[10px] mt-0.5 print:text-[8px] text-neutral-600">Tanggal</p>
             <p className="text-xs print:text-[10px] text-black">{formatTanggal(data.tanggal)}</p>
+            {data.referensi && (
+              <>
+                <p className="text-[10px] mt-0.5 print:text-[8px] text-neutral-600">Ref.</p>
+                <p className="text-xs font-medium print:text-[10px] text-black">{data.referensi}</p>
+              </>
+            )}
           </div>
         </div>
       </div>
