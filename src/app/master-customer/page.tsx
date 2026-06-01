@@ -324,7 +324,7 @@ export default function MasterCustomerPage() {
       {canView && (
       <div className="bg-card rounded-xl shadow-sm border border-slate-200">
         {/* Search & Add Button */}
-        <div className="p-4 lg:p-6 border-b border-slate-200 space-y-4 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
+        <div className="p-3 sm:p-4 lg:p-6 border-b border-slate-200 space-y-3 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
           <div className="relative w-full lg:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 lg:w-5 lg:h-5 text-slate-400" />
             <input
@@ -336,23 +336,23 @@ export default function MasterCustomerPage() {
             />
           </div>
           {canView && (
-            <div className="flex gap-2 w-full lg:w-auto">
-              <Button onClick={handlePrint} variant="outline" className="flex-1 lg:flex-none">
-                <Printer className="w-4 h-4 mr-2" />
-                Cetak Tabel
+            <div className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:flex">
+              <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
+                <Printer className="w-3.5 h-3.5" />
+                Cetak
               </Button>
-              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} className="flex-1 lg:flex-none">
-                {backupLoading === 'backup' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DatabaseBackup className="w-4 h-4 mr-2" />}
+              <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
+                {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
                 Backup
               </Button>
-              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} className="flex-1 lg:flex-none">
-                {backupLoading === 'restore' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
+                {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                 Restore
               </Button>
               {canAdd && (
-                <Button onClick={handleAdd} className="flex-1 lg:flex-none">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Tambah Customer
+                <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
+                  <Plus className="w-3.5 h-3.5" />
+                  Tambah
                 </Button>
               )}
             </div>
@@ -360,7 +360,7 @@ export default function MasterCustomerPage() {
         </div>
 
         {/* Table */}
-        <div className="p-4 lg:p-6 min-h-[600px]">
+        <div className="p-3 sm:p-4 lg:p-6 min-h-[300px] sm:min-h-[600px]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />

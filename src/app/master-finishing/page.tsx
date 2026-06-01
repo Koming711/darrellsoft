@@ -544,7 +544,7 @@ export default function MasterFinishingPage() {
 
       {/* Mobile: Original layout */}
       <div className="lg:hidden bg-card rounded-xl shadow-sm border border-slate-200">
-        <div className="p-4 border-b border-slate-200 space-y-3">
+        <div className="p-3 sm:p-4 border-b border-slate-200 space-y-3">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -555,33 +555,35 @@ export default function MasterFinishingPage() {
               className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handlePrint} variant="outline" className="flex-1">
-              <Printer className="w-4 h-4 mr-2" />
-              Cetak Tabel
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+              <Printer className="w-3.5 h-3.5" />
+              Cetak
             </Button>
             <Button
               onClick={handleBackup}
               variant="outline"
+              size="sm"
               disabled={backupLoading === 'backup'}
-              className="flex-1"
+              className="h-9 gap-1.5 text-xs"
             >
-              {backupLoading === 'backup' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DatabaseBackup className="w-4 h-4 mr-2" />}
+              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
               Backup
             </Button>
             <Button
               onClick={handleRestore}
               variant="outline"
+              size="sm"
               disabled={backupLoading === 'restore'}
-              className="flex-1"
+              className="h-9 gap-1.5 text-xs"
             >
-              {backupLoading === 'restore' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
               Restore
             </Button>
             {canAdd && (
-              <Button onClick={handleAdd} className="flex-1">
-                <Plus className="w-4 h-4 mr-2" />
-                Tambah Baru
+              <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs">
+                <Plus className="w-3.5 h-3.5" />
+                Tambah
               </Button>
             )}
           </div>

@@ -109,7 +109,7 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         ref={contentRef}
-        className="sm:max-w-[425px] cursor-move"
+        className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto"
         style={{
           transform: `translate(${position.x}px, ${position.y}px)`,
           transition: isDragging ? 'none' : 'transform 0.2s ease-out'
@@ -123,8 +123,8 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             {fields.map((field) => (
-              <div key={field.name} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={field.name} className="text-right">
+              <div key={field.name} className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+                <Label htmlFor={field.name} className="sm:text-right">
                   {field.label}
                 </Label>
                 <Input
@@ -134,7 +134,7 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
                   required={field.required}
                   value={formData[field.name] || ''}
                   onChange={(e) => setFormData({ ...formData, [field.name]: field.type === 'number' ? parseFloat(e.target.value) || '' : e.target.value })}
-                  className="col-span-3 cursor-text"
+                  className="sm:col-span-3 cursor-text"
                   onMouseDown={(e) => e.stopPropagation()}
                   disabled={isSaving}
                 />
