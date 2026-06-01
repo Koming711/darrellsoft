@@ -228,38 +228,37 @@ export function MobileTable<T extends Record<string, any>>({
                   <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0 mt-1" />
                 )}
               </div>
-              {/* Mobile card action buttons */}
-              {mobileCardActions && mobileCardActions(item)}
-
-              {/* Action buttons for mobile cards */}
-              {(onEdit || onDelete || onView) && (
-                <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
-                  {onView && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onView(item) }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-95 active:bg-emerald-200 transition-all duration-150"
-                    >
-                      Lihat
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onEdit(item) }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 active:bg-blue-200 transition-all duration-150"
-                    >
-                      Edit
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDelete(item) }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 active:scale-95 active:bg-red-200 transition-all duration-150"
-                    >
-                      Hapus
-                    </button>
-                  )}
-                  {extraActions && extraActions(item)}
-                </div>
+              {/* Mobile card action buttons — use custom actions if provided, otherwise built-in */}
+              {mobileCardActions ? mobileCardActions(item) : (
+                (onEdit || onDelete || onView) && (
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-slate-100">
+                    {onView && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onView(item) }}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-95 active:bg-emerald-200 transition-all duration-150"
+                      >
+                        Lihat
+                      </button>
+                    )}
+                    {onEdit && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(item) }}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-md border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 active:bg-blue-200 transition-all duration-150"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(item) }}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 active:scale-95 active:bg-red-200 transition-all duration-150"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                    {extraActions && extraActions(item)}
+                  </div>
+                )
               )}
             </div>
           )
