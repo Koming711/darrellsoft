@@ -9,6 +9,7 @@ import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { SplashScreen } from "@/components/splash-screen";
 import { InstallPrompt } from "@/components/install-prompt";
+import { WhatsNewDialog } from "@/components/whats-new-dialog";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -86,6 +87,7 @@ export default function RootLayout({
         <SonnerToaster />
         <ServiceWorkerRegistration />
         <InstallPrompt />
+        <WhatsNewDialog />
       </body>
     </html>
   );
