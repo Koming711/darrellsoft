@@ -1,12 +1,19 @@
 'use client'
 
-import { Users, Plus, Search, Mail, Phone, MapPin, Building2, Loader2, EyeOff, DatabaseBackup, Upload, Printer } from 'lucide-react'
+import { Users, Plus, Search, Mail, Phone, MapPin, Building2, Loader2, EyeOff, DatabaseBackup, Upload, Printer, Pencil, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { MobileTable } from '@/components/mobile-table'
 import { Button } from '@/components/ui/button'
 import { DialogForm } from '@/components/dialog-form'
 import { useLanguage } from '@/contexts/language-context'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { toast } from 'sonner'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -213,7 +220,6 @@ export default function MasterCustomerPage() {
         })
         if (response.ok) {
           toast.success('Customer berhasil dihapus')
-          // Optimistic update: remove from state immediately
           setCustomers(prev => prev.filter(c => c.id !== customer.id))
           notifyDataChange('customers')
         } else {
@@ -247,7 +253,6 @@ export default function MasterCustomerPage() {
         const savedCustomer = await response.json()
         toast.success(editingCustomer ? 'Customer berhasil diperbarui' : 'Customer berhasil ditambahkan')
         setDialogOpen(false)
-        // Optimistic update: use API response data to update state immediately
         if (editingCustomer) {
           setCustomers(prev => prev.map(c => c.id === savedCustomer.id ? savedCustomer : c))
         } else {
@@ -263,59 +268,6 @@ export default function MasterCustomerPage() {
     }
   }
 
-  const columns = [
-    {
-      key: 'name',
-      title: 'Nama',
-      render: (customer: Customer) => (
-        <div>
-          <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-blue-600 flex-shrink-0" />
-            <div className="min-w-0">
-              <span className="font-medium text-slate-800 truncate block">{customer.name}</span>
-              {customer.companyName && (
-                <span className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                  <Building2 className="w-3 h-3" />
-                  {customer.companyName}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'address',
-      title: 'Alamat',
-      render: (customer: Customer) => (
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <span className="text-sm text-slate-600 truncate">{customer.address || '-'}</span>
-        </div>
-      )
-    },
-    {
-      key: 'phone',
-      title: 'Nomor Telp',
-      render: (customer: Customer) => (
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <span className="text-sm text-slate-600">{customer.phone || '-'}</span>
-        </div>
-      )
-    },
-    {
-      key: 'email',
-      title: 'Email',
-      render: (customer: Customer) => (
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <span className="text-sm text-slate-600 truncate">{customer.email || '-'}</span>
-        </div>
-      )
-    }
-  ]
-
   return (
     <DashboardLayout
       title={t('master_customer')}
@@ -323,61 +275,183 @@ export default function MasterCustomerPage() {
     >
       {canView && (
       <div className="bg-card rounded-xl shadow-sm border border-slate-200">
-        {/* Search & Add Button */}
-        <div className="p-3 sm:p-4 lg:p-6 border-b border-slate-200 space-y-3 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
-          <div className="relative w-full lg:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 lg:w-5 lg:h-5 text-slate-400" />
+        {/* Toolbar */}
+        <div className="p-3 sm:p-4 border-b border-slate-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               placeholder="Cari customer..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 lg:pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {canView && (
-            <div className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:flex">
-              <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
-                <Printer className="w-3.5 h-3.5" />
-                Cetak
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
+              <Printer className="w-3.5 h-3.5" />
+              Cetak
+            </Button>
+            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
+              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
+              Backup
+            </Button>
+            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
+              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              Restore
+            </Button>
+            {canAdd && (
+              <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
+                <Plus className="w-3.5 h-3.5" />
+                Tambah
               </Button>
-              <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
-                {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
-                Backup
-              </Button>
-              <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
-                {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                Restore
-              </Button>
-              {canAdd && (
-                <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs lg:h-auto lg:text-sm">
-                  <Plus className="w-3.5 h-3.5" />
-                  Tambah
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Table */}
-        <div className="p-3 sm:p-4 lg:p-6 min-h-[300px] sm:min-h-[600px]">
+        {/* Content */}
+        <div className="p-3 sm:p-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
-          ) : (
-            <div className="w-full">
-              <MobileTable
-                data={filteredCustomers}
-                columns={columns}
-                keyField="id"
-                onEdit={canEdit ? handleEdit : undefined}
-                onDelete={canDelete ? handleDelete : undefined}
-                showAsButtons={true}
-                emptyMessage="Tidak ada data customer ditemukan"
-                emptyIcon={<Users className="w-16 h-16 mx-auto text-slate-400" />}
-              />
+          ) : filteredCustomers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Users className="w-12 h-12 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-500">Tidak ada data customer ditemukan</p>
             </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-[50px] text-center">#</TableHead>
+                      <TableHead className="min-w-[200px]">Nama</TableHead>
+                      <TableHead className="min-w-[160px]">Perusahaan</TableHead>
+                      <TableHead className="min-w-[200px]">Alamat</TableHead>
+                      <TableHead className="min-w-[140px]">Nomor Telp</TableHead>
+                      <TableHead className="min-w-[180px]">Email</TableHead>
+                      <TableHead className="text-center w-[100px]">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.map((customer, idx) => (
+                      <TableRow key={customer.id} className="group">
+                        <TableCell className="text-center text-slate-400 text-xs">{idx + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                              <Users className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <span className="font-medium text-slate-800">{customer.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-slate-600">
+                          {customer.companyName || <span className="text-slate-300">-</span>}
+                        </TableCell>
+                        <TableCell className="text-slate-600">
+                          {customer.address || <span className="text-slate-300">-</span>}
+                        </TableCell>
+                        <TableCell className="text-slate-600">
+                          {customer.phone || <span className="text-slate-300">-</span>}
+                        </TableCell>
+                        <TableCell className="text-slate-600">
+                          {customer.email || <span className="text-slate-300">-</span>}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-0.5">
+                            {canEdit && (
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)} className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(customer)} className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="lg:hidden space-y-2">
+                {filteredCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <Users className="w-4.5 h-4.5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm text-slate-800 truncate">{customer.name}</h3>
+                        {customer.companyName && (
+                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                            <Building2 className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{customer.companyName}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Details */}
+                    <div className="space-y-1.5 ml-12">
+                      {customer.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <span className="text-xs text-slate-600">{customer.phone}</span>
+                        </div>
+                      )}
+                      {customer.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <span className="text-xs text-slate-600 truncate">{customer.email}</span>
+                        </div>
+                      )}
+                      {customer.address && (
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs text-slate-600 line-clamp-2">{customer.address}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    {(canEdit || canDelete) && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100 ml-12">
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEdit(customer)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors active:scale-95"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(customer)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors active:scale-95"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Hapus
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
