@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Layers, Plus, Search, Printer, Pencil, Trash2, Loader2, DatabaseBackup, Upload } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { MobileTable } from '@/components/mobile-table'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
@@ -204,7 +203,6 @@ export default function MasterFinishingPage() {
         })
         if (response.ok) {
           toast.success('Finishing berhasil dihapus')
-          // Optimistic update: remove from state immediately
           setFinishings(prev => prev.filter(f => f.id !== finishing.id))
           notifyDataChange('finishings')
         } else {
@@ -251,7 +249,6 @@ export default function MasterFinishingPage() {
       const savedFinishing = await res.json()
       toast.success(editingFinishing ? 'Finishing berhasil diperbarui' : 'Finishing berhasil ditambahkan')
       setDialogOpen(false)
-      // Optimistic update: use API response data to update state immediately
       if (editingFinishing) {
         setFinishings(prev => prev.map(f => f.id === savedFinishing.id ? savedFinishing : f))
       } else {
@@ -331,74 +328,15 @@ export default function MasterFinishingPage() {
     toast.success('Mencetak tabel...')
   }
 
-  // Mobile table columns
-  const columns = [
-    {
-      key: 'name',
-      title: 'Nama Finishing',
-      render: (finishing: Finishing) => (
-        <div className="flex items-center gap-3">
-          <Layers className="w-5 h-5 text-purple-600 flex-shrink-0" />
-          <span className="font-medium text-slate-800 truncate">{finishing.name}</span>
-        </div>
-      )
-    },
-    {
-      key: 'minimumSheets',
-      title: 'Minim Lembar',
-      render: (finishing: Finishing) => finishing.minimumSheets
-    },
-    {
-      key: 'minimumPrice',
-      title: 'Harga Minimum',
-      render: (finishing: Finishing) => `Rp ${finishing.minimumPrice.toLocaleString('id-ID')}`
-    },
-    {
-      key: 'additionalPrice',
-      title: 'Harga Lebih',
-      render: (finishing: Finishing) => `Rp ${finishing.additionalPrice.toLocaleString('id-ID')}/lbr`
-    },
-    {
-      key: 'pricePerCm',
-      title: 'Harga/cm',
-      render: (finishing: Finishing) => `Rp ${finishing.pricePerCm.toLocaleString('id-ID')}`
-    }
-  ]
-
-  const mobileCardActions = (item: Finishing) => (
-    <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100">
-      {canEdit && (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleEdit(item) }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-        >
-          <Pencil className="w-3.5 h-3.5" />
-          Edit
-        </button>
-      )}
-      {canDelete && (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDelete(item) }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Hapus
-        </button>
-      )}
-    </div>
-  )
-
   return (
     <DashboardLayout
       title={t('master_finishing')}
       subtitle={t('subtitle_master_finishing')}
     >
-      {/* Desktop: Single-page fit-to-viewport layout */}
-      <div className="hidden lg:flex flex-col bg-card rounded-xl shadow-sm border border-slate-200 overflow-hidden"
-           style={{ height: 'calc(100vh - 10rem)' }}>
-        {/* Compact Toolbar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50/50 flex-shrink-0">
-          <div className="relative w-72">
+      <div className="bg-card rounded-xl shadow-sm border border-slate-200">
+        {/* Toolbar - responsive */}
+        <div className="p-3 sm:p-4 border-b border-slate-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
@@ -408,21 +346,21 @@ export default function MasterFinishingPage() {
               className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs font-normal tabular-nums">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="text-xs font-normal tabular-nums hidden sm:inline-flex">
               {filteredFinishings.length} data
             </Badge>
-            <Separator orientation="vertical" className="h-5 mx-1" />
-            <Button onClick={handlePrint} variant="outline" size="sm" className="gap-1.5">
+            <Separator orientation="vertical" className="h-5 mx-1 hidden sm:block" />
+            <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
               <Printer className="w-3.5 h-3.5" />
-              Cetak
+              <span className="sm:inline">Cetak</span>
             </Button>
             <Button
               onClick={handleBackup}
               variant="outline"
               size="sm"
               disabled={backupLoading === 'backup'}
-              className="gap-1.5"
+              className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm"
             >
               {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
               Backup
@@ -432,13 +370,13 @@ export default function MasterFinishingPage() {
               variant="outline"
               size="sm"
               disabled={backupLoading === 'restore'}
-              className="gap-1.5"
+              className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm"
             >
               {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
               Restore
             </Button>
             {canAdd && (
-              <Button onClick={handleAdd} size="sm" className="gap-1.5">
+              <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
                 <Plus className="w-3.5 h-3.5" />
                 Tambah
               </Button>
@@ -446,170 +384,180 @@ export default function MasterFinishingPage() {
           </div>
         </div>
 
-        {/* Desktop Table */}
-        <div className="flex-1 overflow-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-            </div>
-          ) : filteredFinishings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <Layers className="w-12 h-12 text-slate-300 mb-3" />
-              <p className="text-sm text-slate-500">Tidak ada data finishing ditemukan</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[50px] text-center">#</TableHead>
-                  <TableHead className="min-w-[200px]">Nama Finishing</TableHead>
-                  <TableHead className="text-center min-w-[120px]">Min. Lembar</TableHead>
-                  <TableHead className="text-right min-w-[160px]">Harga Minimum</TableHead>
-                  <TableHead className="text-right min-w-[160px]">Harga Lebih/lbr</TableHead>
-                  <TableHead className="text-right min-w-[140px]">Harga/cm</TableHead>
-                  <TableHead className="text-center w-[100px]">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredFinishings.map((finishing, idx) => (
-                  <TableRow key={finishing.id} className="group">
-                    <TableCell className="text-center text-slate-400 text-xs">{idx + 1}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                          <Layers className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <span className="font-medium text-slate-800">{finishing.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {finishing.minimumSheets > 0 ? (
-                        <span className="tabular-nums">{finishing.minimumSheets.toLocaleString('id-ID')}</span>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {finishing.minimumPrice > 0 ? (
-                        <span className="tabular-nums">Rp {finishing.minimumPrice.toLocaleString('id-ID')}</span>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {finishing.additionalPrice > 0 ? (
-                        <span className="tabular-nums">Rp {finishing.additionalPrice.toLocaleString('id-ID')}</span>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {finishing.pricePerCm > 0 ? (
-                        <span className="tabular-nums">Rp {finishing.pricePerCm.toLocaleString('id-ID')}</span>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-0.5">
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(finishing)}
-                            className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(finishing)}
-                            className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile: Original layout */}
-      <div className="lg:hidden bg-card rounded-xl shadow-sm border border-slate-200">
-        <div className="p-3 sm:p-4 border-b border-slate-200 space-y-3">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Cari finishing..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
-              <Printer className="w-3.5 h-3.5" />
-              Cetak
-            </Button>
-            <Button
-              onClick={handleBackup}
-              variant="outline"
-              size="sm"
-              disabled={backupLoading === 'backup'}
-              className="h-9 gap-1.5 text-xs"
-            >
-              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
-              Backup
-            </Button>
-            <Button
-              onClick={handleRestore}
-              variant="outline"
-              size="sm"
-              disabled={backupLoading === 'restore'}
-              className="h-9 gap-1.5 text-xs"
-            >
-              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-              Restore
-            </Button>
-            {canAdd && (
-              <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs">
-                <Plus className="w-3.5 h-3.5" />
-                Tambah
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="p-4">
+        {/* Content */}
+        <div className="p-3 sm:p-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
+          ) : filteredFinishings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Layers className="w-12 h-12 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-500">Tidak ada data finishing ditemukan</p>
+            </div>
           ) : (
-            <MobileTable
-              data={filteredFinishings}
-              columns={columns}
-              keyField="id"
-              onEdit={canEdit ? handleEdit : undefined}
-              onDelete={canDelete ? handleDelete : undefined}
-              showAsButtons={true}
-              emptyMessage="Tidak ada data finishing ditemukan"
-              emptyIcon={<Layers className="w-16 h-16 mx-auto text-slate-400" />}
-              mobileCardActions={mobileCardActions}
-            />
+            <>
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-[50px] text-center">#</TableHead>
+                      <TableHead className="min-w-[200px]">Nama Finishing</TableHead>
+                      <TableHead className="text-center min-w-[120px]">Min. Lembar</TableHead>
+                      <TableHead className="text-right min-w-[160px]">Harga Minimum</TableHead>
+                      <TableHead className="text-right min-w-[160px]">Harga Lebih/lbr</TableHead>
+                      <TableHead className="text-right min-w-[140px]">Harga/cm</TableHead>
+                      <TableHead className="text-center w-[100px]">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredFinishings.map((finishing, idx) => (
+                      <TableRow key={finishing.id} className="group">
+                        <TableCell className="text-center text-slate-400 text-xs">{idx + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                              <Layers className="w-4 h-4 text-purple-600" />
+                            </div>
+                            <span className="font-medium text-slate-800">{finishing.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {finishing.minimumSheets > 0 ? (
+                            <span className="tabular-nums">{finishing.minimumSheets.toLocaleString('id-ID')}</span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {finishing.minimumPrice > 0 ? (
+                            <span className="tabular-nums">Rp {finishing.minimumPrice.toLocaleString('id-ID')}</span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {finishing.additionalPrice > 0 ? (
+                            <span className="tabular-nums">Rp {finishing.additionalPrice.toLocaleString('id-ID')}</span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {finishing.pricePerCm > 0 ? (
+                            <span className="tabular-nums">Rp {finishing.pricePerCm.toLocaleString('id-ID')}</span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-0.5">
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(finishing)}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(finishing)}
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="lg:hidden space-y-2">
+                {filteredFinishings.map((finishing) => (
+                  <div
+                    key={finishing.id}
+                    className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5"
+                  >
+                    {/* Header row */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                        <Layers className="w-4.5 h-4.5 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm text-slate-800 truncate">{finishing.name}</h3>
+                      </div>
+                    </div>
+
+                    {/* Detail grid */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 ml-12">
+                      {finishing.minimumSheets > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Min. Lembar</span>
+                          <p className="text-xs font-medium text-slate-700 tabular-nums">{finishing.minimumSheets.toLocaleString('id-ID')}</p>
+                        </div>
+                      )}
+                      {finishing.minimumPrice > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Harga Min.</span>
+                          <p className="text-xs font-medium text-slate-700 tabular-nums">Rp {finishing.minimumPrice.toLocaleString('id-ID')}</p>
+                        </div>
+                      )}
+                      {finishing.additionalPrice > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Harga Lebih/lbr</span>
+                          <p className="text-xs font-medium text-slate-700 tabular-nums">Rp {finishing.additionalPrice.toLocaleString('id-ID')}</p>
+                        </div>
+                      )}
+                      {finishing.pricePerCm > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Harga/cm</span>
+                          <p className="text-xs font-medium text-slate-700 tabular-nums">Rp {finishing.pricePerCm.toLocaleString('id-ID')}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    {(canEdit || canDelete) && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100 ml-12">
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEdit(finishing)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors active:scale-95"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(finishing)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors active:scale-95"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Hapus
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* Add/Edit Dialog — popup */}
+      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
