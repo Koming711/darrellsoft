@@ -1,6 +1,6 @@
 'use client'
 
-import { Users, Plus, Search, Mail, Phone, MapPin, Building2, Loader2, EyeOff } from 'lucide-react'
+import { Users, Plus, Search, Mail, Phone, MapPin, Building2, Loader2, EyeOff, DatabaseBackup, Upload, Printer } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
@@ -38,6 +38,7 @@ export default function MasterCustomerPage() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCustomers()
@@ -58,6 +59,132 @@ export default function MasterCustomerPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '', 'height=800,width=1000')
+    if (!printWindow) {
+      toast.error('Gagal membuka jendela print')
+      return
+    }
+
+    printWindow.document.write('<html><head><title>Master Customer</title>')
+    printWindow.document.write(`
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; white-space: nowrap; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .right { text-align: right; }
+        .center { text-align: center; }
+        .footer { margin-top: 20px; font-size: 11px; color: #666; text-align: center; }
+        @media print { body { padding: 0; } }
+      </style>
+    `)
+    printWindow.document.write('</head><body>')
+
+    printWindow.document.write('<h1>Master Customer</h1>')
+    printWindow.document.write(`<p style="text-align: right; font-size: 11px; margin-bottom: 10px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`)
+
+    printWindow.document.write('<table>')
+    printWindow.document.write('<thead>')
+    printWindow.document.write('<tr>')
+    printWindow.document.write('<th>No</th>')
+    printWindow.document.write('<th>Nama</th>')
+    printWindow.document.write('<th>Perusahaan</th>')
+    printWindow.document.write('<th>Alamat</th>')
+    printWindow.document.write('<th>Nomor Telp</th>')
+    printWindow.document.write('<th>Email</th>')
+    printWindow.document.write('</tr>')
+    printWindow.document.write('</thead>')
+    printWindow.document.write('<tbody>')
+
+    filteredCustomers.forEach((c, index) => {
+      printWindow.document.write(`
+        <tr>
+          <td>${index + 1}</td>
+          <td>${c.name}</td>
+          <td>${c.companyName || '-'}</td>
+          <td>${c.address || '-'}</td>
+          <td>${c.phone || '-'}</td>
+          <td>${c.email || '-'}</td>
+        </tr>
+      `)
+    })
+
+    printWindow.document.write('</tbody></table>')
+    printWindow.document.write('<div class="footer">Total Data: ' + filteredCustomers.length + '</div>')
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
+
+    toast.success('Mencetak tabel...')
+  }
+
+  const handleBackup = async () => {
+    setBackupLoading('backup')
+    try {
+      const res = await authFetch(`/api/database/backup-master?table=customer`)
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data customer'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? match[1] : `backup-customer-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup berhasil diunduh')
+    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data customer') }
+    setBackupLoading(null)
+  }
+
+  const handleRestore = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      if (!confirm('Data customer yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+      setBackupLoading('restore')
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('table', 'customer')
+        const res = await authFetch('/api/database/restore-master', {
+          method: 'POST',
+          body: fd,
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          toast.success(`Restore berhasil (${data.count} data)`)
+          fetchCustomers()
+          notifyDataChange('customers')
+        } else {
+          toast.error(data.error || 'Gagal restore data customer')
+        }
+      } catch { toast.error('File backup tidak valid') }
+      setBackupLoading(null)
+    }
+    input.click()
   }
 
   const filteredCustomers = customers.filter(customer =>
@@ -195,7 +322,7 @@ export default function MasterCustomerPage() {
       subtitle={t('subtitle_master_customer')}
     >
       {canView && (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+      <div className="bg-card rounded-xl shadow-sm border border-slate-200">
         {/* Search & Add Button */}
         <div className="p-4 lg:p-6 border-b border-slate-200 space-y-4 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
           <div className="relative w-full lg:w-96">
@@ -208,11 +335,27 @@ export default function MasterCustomerPage() {
               className="w-full pl-9 lg:pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {canAdd && (
-            <Button onClick={handleAdd} className="w-full lg:w-auto">
-              <Plus className="w-4 h-4 mr-2" />
-              Tambah Customer
-            </Button>
+          {canView && (
+            <div className="flex gap-2 w-full lg:w-auto">
+              <Button onClick={handlePrint} variant="outline" className="flex-1 lg:flex-none">
+                <Printer className="w-4 h-4 mr-2" />
+                Cetak Tabel
+              </Button>
+              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} className="flex-1 lg:flex-none">
+                {backupLoading === 'backup' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DatabaseBackup className="w-4 h-4 mr-2" />}
+                Backup
+              </Button>
+              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} className="flex-1 lg:flex-none">
+                {backupLoading === 'restore' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                Restore
+              </Button>
+              {canAdd && (
+                <Button onClick={handleAdd} className="flex-1 lg:flex-none">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Tambah Customer
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
@@ -241,7 +384,7 @@ export default function MasterCustomerPage() {
       )}
 
       {!canView && (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+      <div className="bg-card rounded-xl shadow-sm border border-slate-200">
         <div className="p-4 lg:p-6 min-h-[600px] flex flex-col items-center justify-center text-slate-400">
           <EyeOff className="w-16 h-16 mb-4" />
           <p className="text-lg font-semibold text-slate-500">Akses Ditolak</p>

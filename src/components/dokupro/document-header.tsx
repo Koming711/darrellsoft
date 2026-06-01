@@ -37,13 +37,17 @@ export function DocumentHeader({ company, docTitle }: DocumentHeaderProps) {
         </div>
         <div className="company-info">
           <p className="company-name text-[17px] font-bold print:text-[17px] text-black">
-            {company.nama || 'Nama Perusahaan'}
+            {company.nama || ''}
           </p>
-          <p className="text-[12px] print:text-[12px] text-neutral-600">{company.alamat}</p>
-          <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
-            <span>{company.telepon}</span>
-            <span>{company.email}</span>
-          </div>
+          {company.alamat && (
+            <p className="text-[12px] print:text-[12px] text-neutral-600">{company.alamat}</p>
+          )}
+          {(company.telepon || company.email) && (
+            <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
+              {company.telepon && <span>{company.telepon}</span>}
+              {company.email && <span>{company.email}</span>}
+            </div>
+          )}
           {(company.bankName || company.bankName2) && (
             <div className="text-[10px] print:text-[9px] text-neutral-600 mt-0.5">
               {company.bankName && (

@@ -8,11 +8,12 @@ import { useLanguage } from '@/contexts/language-context'
 import { toast } from 'sonner'
 import { applyThemeAfterLogin } from '@/contexts/theme-context'
 import { notifyDataChange } from '@/lib/data-sync'
+import { useTheme } from 'next-themes'
 
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
       <LoginContent />
     </Suspense>
   )
@@ -61,10 +62,10 @@ function LoginContent() {
   const [demoPopupMsg, setDemoPopupMsg] = useState('')
   const [demoRemaining, setDemoRemaining] = useState<number | null>(null)
 
-  const [loginBgColor, setLoginBgColor] = useState<string | null>(null)
-
   const router = useRouter()
   const { t } = useLanguage()
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
 
   // Check if already logged in + fetch company branding
   useEffect(() => {
@@ -78,17 +79,7 @@ function LoginContent() {
       return
     }
 
-    // Fetch login bg color & company phone (public endpoint, no auth needed)
-    fetch('/api/public-settings')
-      .then(r => r.json())
-      .then(data => {
-        if (data.theme_login_color?.trim()) {
-          setLoginBgColor(data.theme_login_color.trim())
-          document.documentElement.style.setProperty('--app-login-bg', data.theme_login_color.trim())
-        }
 
-      })
-      .catch(() => {})
   }, [isRedirecting])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -360,18 +351,18 @@ function LoginContent() {
   // Don't render login page if redirecting
   if (isRedirecting) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col px-4 py-8" style={{ background: loginBgColor || 'linear-gradient(to bottom right, #EFF6FF, #ffffff, #f1f5f9)' }}>
+    <div className={`min-h-screen flex flex-col px-4 py-8 bg-gradient-to-br from-blue-50 via-white to-slate-100 dark:from-black dark:via-[#111] dark:to-black`}>
       {/* Back button */}
       <button
         onClick={() => router.push('/')}
-        className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors w-fit mt-2"
+        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-fit mt-2"
       >
         <ArrowLeft className="w-4 h-4" />
         Kembali
@@ -388,20 +379,20 @@ function LoginContent() {
               className="w-[134px] h-[134px] rounded-2xl object-contain mx-auto shadow-none"
             />
           </div>
-          <h1 className="text-3xl font-bold text-slate-800">{t('app_name')}</h1>
-          <p className="text-slate-500 mt-2 text-base">{t('app_tagline')}</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('app_name')}</h1>
+          <p className="text-muted-foreground mt-2 text-base">{t('app_tagline')}</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
           {/* Tabs */}
-          <div className="flex border-b border-slate-200">
+          <div className="flex border-b border-border">
             <button
               onClick={() => setActiveTab('login')}
               className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'login'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {t('masuk')}
@@ -410,8 +401,8 @@ function LoginContent() {
               onClick={() => setActiveTab('register')}
               className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'register'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {t('daftar_akun')}
@@ -424,14 +415,14 @@ function LoginContent() {
               <form onSubmit={handleLogin} className="space-y-4">
                 {/* Error Message */}
                 {loginError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     {loginError}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {t('username')}
                   </label>
                   <input
@@ -444,11 +435,11 @@ function LoginContent() {
                     spellCheck={false}
                     value={username}
                     onChange={(e) => { setUsername(e.target.value); setLoginError('') }}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-input rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {t('password')}
                   </label>
                   <div className="relative">
@@ -462,13 +453,13 @@ function LoginContent() {
                       spellCheck={false}
                       value={password}
                       onChange={(e) => { setPassword(e.target.value); setLoginError('') }}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full border border-input rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <button
                       type="button"
                       tabIndex={-1}
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -489,12 +480,12 @@ function LoginContent() {
                   )}
                 </button>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted-foreground">
                     {t('belum_punya_akun')}{' '}
                     <button
                       type="button"
                       onClick={() => setActiveTab('register')}
-                      className="text-blue-600 hover:text-blue-700 font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                     >
                       {t('daftar_sekarang')}
                     </button>
@@ -502,7 +493,7 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => { resetFpFields(); setShowForgotPassword(true) }}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                   >
                     {t('lupa_password')}
                   </button>
@@ -510,14 +501,14 @@ function LoginContent() {
               </form>
             ) : regSuccess ? (
               <div className="text-center py-4 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
                   <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800">Pendaftaran Berhasil!</h3>
-                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  <h3 className="text-lg font-bold text-foreground">Pendaftaran Berhasil!</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
                     Akun Anda telah berhasil didaftarkan. Silakan tunggu konfirmasi dari administrator sebelum dapat login.
                   </p>
                 </div>
@@ -542,7 +533,7 @@ function LoginContent() {
               <form onSubmit={handleRegister} className="space-y-3">
                 {/* Error Message */}
                 {regError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     {regError}
                   </div>
@@ -550,65 +541,65 @@ function LoginContent() {
 
                 {/* Nama Lengkap */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {t('nama_lengkap')}
                   </label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       placeholder="Masukkan nama lengkap"
                       required
                       value={regNamaLengkap}
                       onChange={(e) => setRegNamaLengkap(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 {/* Nomor Handphone */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {t('nomor_handphone')}
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="tel"
                       placeholder="Contoh: 081234567890"
                       required
                       value={regNomorHP}
                       onChange={(e) => setRegNomorHP(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {t('email')}
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="email"
                       placeholder="email@contoh.com"
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 {/* Username */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {t('username')} <span className="text-xs text-slate-400">(minimal 3 karakter)</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {t('username')} <span className="text-xs text-muted-foreground">(minimal 3 karakter)</span>
                   </label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       placeholder="Buat username"
@@ -620,8 +611,8 @@ function LoginContent() {
                       minLength={3}
                       value={regUsername}
                       onChange={(e) => setRegUsername(e.target.value)}
-                      className={`w-full border rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        regUsername.length > 0 && regUsername.length < 3 ? 'border-red-300' : 'border-slate-300'
+                      className={`w-full border rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        regUsername.length > 0 && regUsername.length < 3 ? 'border-red-300' : 'border-input'
                       }`}
                     />
                   </div>
@@ -632,8 +623,8 @@ function LoginContent() {
 
                 {/* Password */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {t('password')} <span className="text-xs text-slate-400">(minimal 6 karakter)</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {t('password')} <span className="text-xs text-muted-foreground">(minimal 6 karakter)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -647,15 +638,15 @@ function LoginContent() {
                       minLength={6}
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        regPassword.length > 0 && regPassword.length < 6 ? 'border-red-300' : 'border-slate-300'
+                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        regPassword.length > 0 && regPassword.length < 6 ? 'border-red-300' : 'border-input'
                       }`}
                     />
                     <button
                       type="button"
                       tabIndex={-1}
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -667,7 +658,7 @@ function LoginContent() {
 
                 {/* Konfirmasi Password */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     {t('konfirmasi_password')}
                   </label>
                   <div className="relative">
@@ -682,15 +673,15 @@ function LoginContent() {
                       minLength={6}
                       value={regConfirmPassword}
                       onChange={(e) => setRegConfirmPassword(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        regConfirmPassword.length > 0 && regConfirmPassword !== regPassword ? 'border-red-300' : 'border-slate-300'
+                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        regConfirmPassword.length > 0 && regConfirmPassword !== regPassword ? 'border-red-300' : 'border-input'
                       }`}
                     />
                     <button
                       type="button"
                       tabIndex={-1}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
                     >
                       {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -715,12 +706,12 @@ function LoginContent() {
                   )}
                 </button>
 
-                <p className="text-center text-sm text-slate-500">
+                <p className="text-center text-sm text-muted-foreground">
                   {t('sudah_punya_akun')}{' '}
                   <button
                     type="button"
                     onClick={() => setActiveTab('login')}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                   >
                     {t('login_sekarang')}
                   </button>
@@ -730,7 +721,7 @@ function LoginContent() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-6">
           &copy; Copyright by Darrell Soft 2026 All rights reserved
         </p>
       </div>
@@ -739,19 +730,19 @@ function LoginContent() {
       {/* ===== FORGOT PASSWORD DIALOG ===== */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-card rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start gap-3 mb-5">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100">
-                <KeyRound className="w-5 h-5 text-blue-600" />
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+                <KeyRound className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-slate-800">Lupa Password?</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Atur ulang password Anda melalui email.</p>
+                <h3 className="text-lg font-bold text-foreground">Lupa Password?</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Atur ulang password Anda melalui email.</p>
               </div>
               <button
                 type="button"
                 onClick={closeFpDialog}
-                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -760,13 +751,13 @@ function LoginContent() {
             {/* === SUCCESS STATE === */}
             {fpSuccess ? (
               <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
-                    <p className="text-sm font-semibold text-green-800">Password Berhasil Diubah!</p>
+                    <p className="text-sm font-semibold text-green-800 dark:text-green-400">Password Berhasil Diubah!</p>
                   </div>
                   <div className="ml-7">
-                    <p className="text-sm text-green-700 leading-relaxed">
+                    <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">
                       Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
                     </p>
                   </div>
@@ -783,16 +774,16 @@ function LoginContent() {
               /* === STEP 1: Search account by email === */
               <form onSubmit={handleFpSearch} className="space-y-4">
                 {fpError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     {fpError}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Email</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="email"
                       placeholder="Masukkan email akun Anda"
@@ -800,10 +791,10 @@ function LoginContent() {
                       autoComplete="email"
                       value={fpEmail}
                       onChange={(e) => { setFpEmail(e.target.value); setFpError('') }}
-                      className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Atur password baru langsung — tanpa perlu cek email.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Atur password baru langsung — tanpa perlu cek email.</p>
                 </div>
 
                 <button
@@ -816,7 +807,7 @@ function LoginContent() {
                 <button
                   type="button"
                   onClick={closeFpDialog}
-                  className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
+                  className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
                 >
                   {t('kembali_ke_login')}
                 </button>
@@ -825,24 +816,24 @@ function LoginContent() {
               /* === STEP 2: Enter new password directly === */
               <form onSubmit={handleFpReset} className="space-y-4">
                 {fpError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2">
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     {fpError}
                   </div>
                 )}
 
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-400">
                       Akun <strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} ditemukan
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Password Baru <span className="text-xs text-slate-400">(minimal 6 karakter)</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Password Baru <span className="text-xs text-muted-foreground">(minimal 6 karakter)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -853,9 +844,9 @@ function LoginContent() {
                       autoComplete="new-password"
                       value={fpNewPassword}
                       onChange={(e) => { setFpNewPassword(e.target.value); setFpError('') }}
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full border border-input rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                    <button type="button" tabIndex={-1} onClick={() => setFpShowPassword(!fpShowPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                    <button type="button" tabIndex={-1} onClick={() => setFpShowPassword(!fpShowPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5">
                       {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -865,7 +856,7 @@ function LoginContent() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Konfirmasi Password Baru</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Konfirmasi Password Baru</label>
                   <div className="relative">
                     <input
                       type={fpShowConfirm ? 'text' : 'password'}
@@ -875,11 +866,11 @@ function LoginContent() {
                       autoComplete="new-password"
                       value={fpConfirmPassword}
                       onChange={(e) => { setFpConfirmPassword(e.target.value); setFpError('') }}
-                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-slate-300'
+                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-input'
                       }`}
                     />
-                    <button type="button" tabIndex={-1} onClick={() => setFpShowConfirm(!fpShowConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                    <button type="button" tabIndex={-1} onClick={() => setFpShowConfirm(!fpShowConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5">
                       {fpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -899,7 +890,7 @@ function LoginContent() {
                 <button
                   type="button"
                   onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
-                  className="w-full text-sm text-slate-500 hover:text-slate-700 py-1 transition-colors"
+                  className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
                 >
                   ← Ganti Email
                 </button>
@@ -912,22 +903,22 @@ function LoginContent() {
       {/* ===== DEMO POPUP DIALOG ===== */}
       {demoPopupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+          <div className="bg-card rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
             <div className="flex items-start gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                 <Info className="w-5 h-5 text-amber-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-slate-800">Akun Demo</h3>
+                <h3 className="text-lg font-bold text-foreground">Akun Demo</h3>
                 {demoRemaining !== null && (
-                  <p className="text-sm text-amber-700 font-semibold mt-0.5">
+                  <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
                     {demoRemaining} {t('hari_tersisa')}
                   </p>
                 )}
               </div>
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
-              <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
+            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5">
+              <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
             </div>
             <button
               onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
@@ -938,7 +929,7 @@ function LoginContent() {
             </button>
             <button
               onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
-              className="w-full text-sm text-slate-500 hover:text-slate-700 mt-3 py-1 transition-colors"
+              className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
             >
               Masuk ke Halaman Utama
             </button>

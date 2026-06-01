@@ -41,17 +41,26 @@ import {
   TrendingUp,
   CalendarClock,
   ChevronRight,
+  Sparkles,
   History,
   Receipt,
   Package,
   CalendarIcon,
   Filter,
+  Eye,
+  Loader2,
 } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
+import { InvoicePreview } from '@/components/dokupro/invoice-preview'
+import type { PurchaseOrderData, InvoiceData, CompanyInfo } from '@/lib/types'
+import { DEFAULT_COMPANY } from '@/lib/types'
+import { generatePurchaseOrderPdf, generateInvoicePdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+import { toast } from 'sonner'
 
 // --- Types ---
 interface CetakanRecord {
@@ -120,6 +129,7 @@ interface DashboardData {
       invoice: number
       purchaseOrder: number
       revenue: number
+      lastMonthRevenue: number
       modal: number
       todaySales: number
       todayOrderCount: number
@@ -240,22 +250,144 @@ function parseDocInfo(entry: HistoryEntry) {
   }
 }
 
+// --- Parse dataJson for InvoiceData ---
+function parseInvoiceData(entry: HistoryEntry): InvoiceData {
+  try {
+    const parsed = JSON.parse(entry.dataJson)
+    const company: CompanyInfo = {
+      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+      email: parsed.company?.email || DEFAULT_COMPANY.email,
+      npwp: parsed.company?.npwp || '',
+      website: parsed.company?.website || '',
+      ppn: parsed.company?.ppn ?? parsed.ppn ?? 11,
+      logo: parsed.company?.logo || '',
+      bankName: parsed.company?.bankName || '',
+      bankAccount: parsed.company?.bankAccount || '',
+      bankHolder: parsed.company?.bankHolder || '',
+      bankName2: parsed.company?.bankName2 || '',
+      bankAccount2: parsed.company?.bankAccount2 || '',
+      bankHolder2: parsed.company?.bankHolder2 || '',
+    }
+    const client = parsed.client || { nama: '', kontak: '', alamat: '' }
+    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+      id: it.id || `item-${i}`,
+      deskripsi: it.deskripsi || '',
+      qty: it.qty || 0,
+      satuan: it.satuan || '',
+      harga: it.harga || 0,
+    }))
+    return {
+      type: 'invoice',
+      company,
+      nomor: parsed.nomor || entry.nomor || '',
+      tanggal: parsed.tanggal || entry.tanggal || '',
+      referensi: parsed.referensi || '',
+      client,
+      items,
+      ppn: parsed.ppn ?? 11,
+      catatan: parsed.catatan || '',
+      tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
+      caraPembayaran: parsed.caraPembayaran || '',
+      tanggalGiro: parsed.tanggalGiro || '',
+    }
+  } catch {
+    return {
+      type: 'invoice',
+      company: { ...DEFAULT_COMPANY },
+      nomor: entry.nomor || '',
+      tanggal: entry.tanggal || '',
+      referensi: '',
+      client: { nama: '', kontak: '', alamat: '' },
+      items: [],
+      ppn: 11,
+      catatan: '',
+      tanggalJatuhTempo: '',
+      caraPembayaran: '',
+      tanggalGiro: '',
+    }
+  }
+}
+
+// --- Parse dataJson for PurchaseOrderData ---
+function parsePurchaseOrderData(entry: HistoryEntry): PurchaseOrderData {
+  try {
+    const parsed = JSON.parse(entry.dataJson)
+    const company: CompanyInfo = {
+      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+      email: parsed.company?.email || DEFAULT_COMPANY.email,
+      npwp: parsed.company?.npwp || '',
+      website: parsed.company?.website || '',
+      ppn: parsed.company?.ppn ?? parsed.ppn ?? 11,
+      logo: parsed.company?.logo || '',
+      bankName: parsed.company?.bankName || '',
+      bankAccount: parsed.company?.bankAccount || '',
+      bankHolder: parsed.company?.bankHolder || '',
+      bankName2: parsed.company?.bankName2 || '',
+      bankAccount2: parsed.company?.bankAccount2 || '',
+      bankHolder2: parsed.company?.bankHolder2 || '',
+    }
+    const pemasok = parsed.pemasok || parsed.client || { nama: '', jenisBarang: '', kontak: '', alamat: '' }
+    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+      id: it.id || `item-${i}`,
+      deskripsi: it.deskripsi || '',
+      qty: it.qty || 0,
+      satuan: it.satuan || '',
+      harga: it.harga || 0,
+    }))
+    return {
+      type: 'purchase-order',
+      company,
+      nomor: parsed.nomor || entry.nomor || '',
+      tanggal: parsed.tanggal || entry.tanggal || '',
+      referensi: parsed.referensi || '',
+      pemasok,
+      items,
+      ppn: parsed.ppn ?? 11,
+      catatan: parsed.catatan || '',
+      tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
+    }
+  } catch {
+    return {
+      type: 'purchase-order',
+      company: { ...DEFAULT_COMPANY },
+      nomor: entry.nomor || '',
+      tanggal: entry.tanggal || '',
+      referensi: '',
+      pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
+      items: [],
+      ppn: 11,
+      catatan: '',
+      tanggalJatuhTempo: '',
+    }
+  }
+}
+
 // Calculate uang capek (profit) for each invoice by matching referensi with riwayat cetakan profitAmount
-function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { printName: string; profitAmount: number }[]): Map<string, number> {
+// Referensi can be either a nomorUrut (e.g. "HC/05/2026/0007") or a printName (e.g. "Brosur")
+function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { nomorUrut: string; printName: string; profitAmount: number }[]): Map<string, number> {
   const result = new Map<string, number>()
   
-  // Build cetakan lookup by printName
-  const cetakanByPrintName = new Map<string, number>()
+  // Build cetakan lookup by both nomorUrut and printName
+  const cetakanByRef = new Map<string, number>()
   for (const c of cetakanRecords) {
-    if (c.printName) {
-      cetakanByPrintName.set(c.printName, (cetakanByPrintName.get(c.printName) || 0) + c.profitAmount)
+    // Index by nomorUrut (preferred match)
+    if (c.nomorUrut) {
+      cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
+    }
+    // Also index by printName (fallback for older data)
+    if (c.printName && !cetakanByRef.has(c.printName)) {
+      cetakanByRef.set(c.printName, (cetakanByRef.get(c.printName) || 0) + c.profitAmount)
     }
   }
 
   // Calculate uang capek per invoice
   for (const inv of invoices) {
     const info = parseDocInfo(inv)
-    const uangCapek = info.referensi ? (cetakanByPrintName.get(info.referensi) || 0) : 0
+    const uangCapek = info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0
     result.set(inv.id, uangCapek)
   }
 
@@ -270,6 +402,42 @@ export default function PembukaanPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Motivasi hari ini — berubah setiap refresh
+  const daftarMotivasi = [
+    'Kerja keras hari ini, hasilnya nikmat besok hari.',
+    'Setiap langkah kecil mendekatkanmu pada tujuan besar.',
+    'Jangan takut gagal, takutlah untuk tidak mencoba.',
+    'Kesuksesan dimulai dari keberanian untuk memulai.',
+    'Disiplin adalah jembatan antara tujuan dan pencapaian.',
+    'Hari ini adalah kesempatan baru untuk menjadi lebih baik.',
+    'Usaha kecil yang konsisten mengalahkan usaha besar yang sporadis.',
+    'Jangan bandingkan dirimu dengan orang lain, bandingkan dengan dirimu kemarin.',
+    'Ketekunan adalah kunci yang membuka semua pintu kesuksesan.',
+    'Setiap detik adalah kesempatan untuk mengubah hidupmu.',
+    'Sulit di awal, indah di akhir. Teruslah berjalan.',
+    'Berdoa, berusaha, bersabar — resep sukses yang tak pernah gagal.',
+    'Orang sukses bukan orang yang tidak pernah gagal, tapi yang tidak pernah menyerah.',
+    'Kualitas bukan kebetulan, tapi hasil dari niat dan usaha yang sungguh-sungguh.',
+    'Hari ini sulit? Besok akan terasa lebih mudah karena kamu sudah melewatinya.',
+    'Jangan menunggu sempurna, mulai saja dulu. Sempurnakan di jalan.',
+    'Cetak kertas bisa dihitung, tapi semangatmu tak terbatas.',
+    'UMKM kuat, Indonesia maju. Dan kamu adalah bagian dari itu.',
+    'Satu pesanan hari ini bisa jadi seribu pesanan besok.',
+    'Kerja cerdas, bukan kerja keras saja.',
+    'Produk bagus + pelayanan baik = pelanggan setia.',
+    'Konsistensi mengalahkan talenta yang malas.',
+    'Mulailah dari yang paling kecil, impianmu tidak perlu izin.',
+    'Setiap hari adalah halaman baru. Tulis ceritamu dengan bangga.',
+    'Semangat pagi! Hari ini penuh peluang, tangkap sebelum lewat.',
+    'Keberanian bukan tidak takut, tapi tetap maju meski takut.',
+    'Rajinlah saat orang lain malas, bersyukurlah saat hasilnya tiba.',
+    'Bisnis kecil bukan berarti impian kecil.',
+    'Langkah pertama selalu yang paling berat, tapi juga yang paling penting.',
+    'Terus belajar, terus berinovasi, dunia tidak menunggu siapa pun.',
+    'Hari ini kamu satu langkah lebih dekat dari kemarin.',
+  ]
+  const [motivasiHariIni] = useState(() => daftarMotivasi[Math.floor(Math.random() * daftarMotivasi.length)])
+
   // Date filter state
   const [filterType, setFilterType] = useState<FilterType>('today')
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
@@ -282,14 +450,23 @@ export default function PembukaanPage() {
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
   const [suratJalanHistory, setSuratJalanHistory] = useState<HistoryEntry[]>([])
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
-  const [cetakanList, setCetakanList] = useState<{ printName: string; profitAmount: number }[]>([])
+  const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
   const [docLoading, setDocLoading] = useState(false)
 
   // Calculate uang capek per invoice from riwayat cetakan profitAmount
   const invoiceUangCapek = useMemo(() => calculateUangCapek(invoiceHistory, cetakanList), [invoiceHistory, cetakanList])
 
   // Popup state
-  const [showPembelianPopup, setShowPembelianPopup] = useState(false)
+
+  const [showPenjualanPopup, setShowPenjualanPopup] = useState(false)
+  const [poPreviewOpen, setPoPreviewOpen] = useState(false)
+  const [poPreviewItem, setPoPreviewItem] = useState<HistoryEntry | null>(null)
+  const [poPreviewScale, setPoPreviewScale] = useState(1)
+  const [sendingPoPdf, setSendingPoPdf] = useState(false)
+  const [invPreviewOpen, setInvPreviewOpen] = useState(false)
+  const [invPreviewItem, setInvPreviewItem] = useState<HistoryEntry | null>(null)
+  const [invPreviewScale, setInvPreviewScale] = useState(1)
+  const [sendingInvPdf, setSendingInvPdf] = useState(false)
 
   const displayName = user?.name || user?.username || 'Pengguna'
 
@@ -334,7 +511,8 @@ export default function PembukaanPage() {
         const cetRes = await fetch('/api/riwayat-cetakan', { headers })
         if (cetRes.ok) {
           const cetData = await cetRes.json()
-          const mapped = (Array.isArray(cetData) ? cetData : []).map((r: { printName: string; profitAmount: number }) => ({
+          const mapped = (Array.isArray(cetData) ? cetData : []).map((r: { nomorUrut?: string; printName?: string; profitAmount?: number }) => ({
+            nomorUrut: r.nomorUrut || '',
             printName: r.printName || '',
             profitAmount: r.profitAmount || 0,
           }))
@@ -359,6 +537,102 @@ export default function PembukaanPage() {
     window.addEventListener('dokupro:history-updated', handler)
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchDocHistory])
+
+  const handlePoPreview = (item: HistoryEntry) => {
+    setPoPreviewItem(item)
+    setPoPreviewOpen(true)
+  }
+
+  const handleInvPreview = (item: HistoryEntry) => {
+    setInvPreviewItem(item)
+    setInvPreviewOpen(true)
+  }
+
+  const poData = useMemo(() => {
+    if (!poPreviewItem) return null
+    return parsePurchaseOrderData(poPreviewItem)
+  }, [poPreviewItem])
+
+  const invData = useMemo(() => {
+    if (!invPreviewItem) return null
+    return parseInvoiceData(invPreviewItem)
+  }, [invPreviewItem])
+
+  const handleSendPoPdf = useCallback(async () => {
+    if (!poData) return
+    setSendingPoPdf(true)
+    try {
+      const blob = await generatePurchaseOrderPdf(poData)
+      const fileName = `PO_${poData.nomor || 'draft'}.pdf`
+      await sharePdfViaWhatsApp(blob, fileName, `Purchase Order ${poData.nomor}`)
+      toast.success('PDF dikirim ke WhatsApp')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal mengirim PDF')
+    } finally {
+      setSendingPoPdf(false)
+    }
+  }, [poData])
+
+  const handleSendInvPdf = useCallback(async () => {
+    if (!invData) return
+    setSendingInvPdf(true)
+    try {
+      const blob = await generateInvoicePdf(invData)
+      const fileName = `Invoice_${invData.nomor || 'draft'}.pdf`
+      await sharePdfViaWhatsApp(blob, fileName, `Invoice ${invData.nomor}`)
+      toast.success('PDF dikirim ke WhatsApp')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal mengirim PDF')
+    } finally {
+      setSendingInvPdf(false)
+    }
+  }, [invData])
+
+  // Scale A5 PO preview to fit inside a popup on both mobile & desktop
+  useEffect(() => {
+    const DESIGN_W = 576
+    const DESIGN_H = DESIGN_W * (210 / 148)
+    const updatePoScale = () => {
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const marginX = 24
+      const marginY = 32
+      const topPad = 48
+      const btnArea = 56
+      const availW = vw - marginX * 2
+      const availH = vh - marginY * 2 - topPad - btnArea
+      setPoPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
+    }
+    if (poPreviewOpen) {
+      const t = setTimeout(updatePoScale, 60)
+      window.addEventListener('resize', updatePoScale)
+      return () => { clearTimeout(t); window.removeEventListener('resize', updatePoScale) }
+    }
+  }, [poPreviewOpen])
+
+  // Scale A5 Invoice preview to fit inside a popup on both mobile & desktop
+  useEffect(() => {
+    const DESIGN_W = 576
+    const DESIGN_H = DESIGN_W * (210 / 148)
+    const updateInvScale = () => {
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const marginX = 24
+      const marginY = 32
+      const topPad = 48
+      const btnArea = 56
+      const availW = vw - marginX * 2
+      const availH = vh - marginY * 2 - topPad - btnArea
+      setInvPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
+    }
+    if (invPreviewOpen) {
+      const t = setTimeout(updateInvScale, 60)
+      window.addEventListener('resize', updateInvScale)
+      return () => { clearTimeout(t); window.removeEventListener('resize', updateInvScale) }
+    }
+  }, [invPreviewOpen])
 
   const handleFilterChange = (type: FilterType) => {
     if (type === 'custom') {
@@ -400,6 +674,18 @@ export default function PembukaanPage() {
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-normal uppercase text-slate-800">{greeting}</h2>
             <p className="text-lg sm:text-[27px] font-extrabold text-slate-800 truncate">Halo, {displayName}</p>
+            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">Selamat Datang di <span className="font-extrabold text-blue-900">www.darrellsoft.com</span>, Aplikasi Hitung Cepat Cetakan untuk <span className="font-bold">UMKM</span>.</p>
+          </div>
+        </div>
+
+        {/* Motivasi Hari Ini */}
+        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">Motivasi Hari Ini</p>
+            <p className="text-[13px] sm:text-[15px] text-slate-700 font-bold italic leading-relaxed">"{motivasiHariIni}"</p>
           </div>
         </div>
 
@@ -431,7 +717,7 @@ export default function PembukaanPage() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
             label="Pendapatan Hari Ini"
@@ -470,6 +756,15 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
+            label={`Total Pendapatan ${new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'long' })}`}
+            count={summary?.totals.lastMonthRevenue ?? 0}
+            total={0}
+            color="teal"
+            loading={loading}
+            isCurrency
+          />
+          <StatCard
+            icon={<DollarSign className="w-5 h-5" />}
             label="Total Uang Capek"
             count={summary?.totals.uangCapek ?? 0}
             total={0}
@@ -483,16 +778,16 @@ export default function PembukaanPage() {
         {/* Quick Access Icons */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <QuickIcon
+            icon={<History className="w-5 h-5" />}
+            label="Penjualan"
+            color="bg-amber-50 text-amber-600 border-amber-200"
+            onClick={() => router.push('/riwayat')}
+          />
+          <QuickIcon
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
-            onClick={() => setShowPembelianPopup(true)}
-          />
-          <QuickIcon
-            icon={<History className="w-5 h-5" />}
-            label="Riwayat Penjualan"
-            color="bg-amber-50 text-amber-600 border-amber-200"
-            onClick={() => router.push('/riwayat')}
+            onClick={() => router.push('/riwayat-pembelian')}
           />
           <QuickIcon
             icon={<Receipt className="w-5 h-5" />}
@@ -518,7 +813,7 @@ export default function PembukaanPage() {
                 'h-8 px-3 text-xs font-medium rounded-lg transition-all',
                 filterType === btn.type
                   ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                  : 'bg-white dark:bg-[#1a1a1a] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#222] hover:text-slate-800 dark:hover:text-slate-200'
               )}
             >
               {btn.type === 'custom' && <CalendarIcon className="w-3.5 h-3.5 mr-1" />}
@@ -548,7 +843,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 invoiceHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[750px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -589,6 +884,58 @@ export default function PembukaanPage() {
             </CardContent>
           </Card>
 
+          {/* Purchase Order */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-slate-400" />
+                Riwayat Purchase Order
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                  {poHistory.length}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {docLoading ? <TableSkeleton /> : (
+                poHistory.length > 0 ? (
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
+                    <Table className="min-w-[650px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {poHistory.map((entry, i) => {
+                          const info = parseDocInfo(entry)
+                          return (
+                            <TableRow key={entry.id} className="group">
+                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : <EmptyState />
+              )}
+            </CardContent>
+          </Card>
+
           {/* Hitung Cetakan */}
           <Card>
             <CardHeader className="pb-2">
@@ -603,7 +950,7 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.cetakan && recent.cetakan.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[700px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -611,9 +958,9 @@ export default function PembukaanPage() {
                           <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
                           <TableHead className="text-[11px] font-semibold text-gray-500">Finishing</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml Pesanan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga/Pcs</TableHead>
                           <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
                         </TableRow>
@@ -628,13 +975,13 @@ export default function PembukaanPage() {
                               <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.customerName || '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[200px] truncate" title={r.printName || ''}>{r.printName || '-'}</TableCell>
-                              <TableCell className={`py-2.5 text-xs whitespace-nowrap font-semibold ${r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
-                                {r.profitAmount > 0 ? formatRupiah(r.profitAmount) : '-'}
-                              </TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[150px] truncate" title={r.finishingNames || ''}>
                                 {r.finishingNames || '-'}
                               </TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{qty.toLocaleString('id-ID')}</TableCell>
+                              <TableCell className={`py-2.5 text-xs text-right whitespace-nowrap font-semibold ${r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
+                                {r.profitAmount > 0 ? formatRupiah(r.profitAmount) : '-'}
+                              </TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{hargaPcs > 0 ? formatRupiah(hargaPcs) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{formatRupiah(r.grandTotal || 0)}</TableCell>
                             </TableRow>
@@ -662,7 +1009,7 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.potongKertas && recent.potongKertas.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -717,7 +1064,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 suratJalanHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[450px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -743,104 +1090,107 @@ export default function PembukaanPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Purchase Order */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-slate-400" />
-                Riwayat Purchase Order
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-                  {poHistory.length}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {docLoading ? <TableSkeleton /> : (
-                poHistory.length > 0 ? (
-                  <div className="rounded-lg border bg-white max-h-[400px] overflow-auto">
-                    <Table className="min-w-[650px]">
-                      <TableHeader>
-                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {poHistory.map((entry, i) => {
-                          const info = parseDocInfo(entry)
-                          return (
-                            <TableRow key={entry.id} className="group">
-                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
-                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : <EmptyState />
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Popup Pembelian - Riwayat Purchase Order */}
-        <Dialog open={showPembelianPopup} onOpenChange={setShowPembelianPopup}>
-          <DialogContent className="sm:max-w-2xl p-0 gap-0" showCloseButton={false}>
+        {/* PO Preview Dialog — A5 format */}
+        <Dialog open={poPreviewOpen} onOpenChange={setPoPreviewOpen}>
+          <DialogContent
+            className="max-w-none w-auto overflow-hidden p-2 pt-10 gap-0 [&_button]:cursor-default"
+            style={{
+              width: `${576 * poPreviewScale + 16}px`,
+              maxHeight: `calc(100dvh - 32px)`,
+            }}
+            aria-label="Pratinjau Purchase Order"
+          >
+            <DialogTitle className="sr-only">Pratinjau Purchase Order</DialogTitle>
+            {poData && (
+              <div className="flex flex-col items-center gap-3">
+                <div style={{
+                  width: `${576 * poPreviewScale}px`,
+                  height: `${576 * (210 / 148) * poPreviewScale}px`,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 576,
+                    height: 576 * (210 / 148),
+                    transform: `scale(${poPreviewScale})`,
+                    transformOrigin: 'top left',
+                  }}>
+                    <div className="bg-white" style={{ width: 576, height: 576 * (210 / 148) }}>
+                      <div className="a5-preview-scaler">
+                        <PurchaseOrderPreview data={poData} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSendPoPdf}
+                  disabled={sendingPoPdf}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
+                >
+                  {sendingPoPdf ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}
+                  {sendingPoPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
+                </button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Popup Penjualan - Riwayat Invoice */}
+        <Dialog open={showPenjualanPopup} onOpenChange={setShowPenjualanPopup}>
+          <DialogContent className="sm:max-w-2xl p-0 gap-0">
             <DialogHeader className="px-5 pt-5 pb-3">
               <DialogTitle className="flex items-center gap-2 text-base">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <ShoppingCart className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <History className="w-4 h-4" />
                 </div>
-                Riwayat Purchase Order
+                Riwayat Penjualan
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">Daftar purchase order yang pernah dibuat</DialogDescription>
+              <DialogDescription className="text-xs text-slate-400">Daftar invoice penjualan yang pernah dibuat</DialogDescription>
             </DialogHeader>
             <div className="px-5 pb-5">
               {docLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
                 </div>
-              ) : poHistory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-8 text-center">
-                  <Package className="mx-auto h-8 w-8 text-blue-300" />
-                  <p className="mt-2 text-sm text-blue-400">Belum ada data purchase order</p>
+              ) : invoiceHistory.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-8 text-center">
+                  <Receipt className="mx-auto h-8 w-8 text-amber-300" />
+                  <p className="mt-2 text-sm text-amber-400">Belum ada data invoice</p>
                 </div>
               ) : (
-                <div className="rounded-lg border bg-white max-h-[60vh] overflow-auto">
+                <div className="rounded-lg border bg-card max-h-[60vh] overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                         <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                        <TableHead className="text-[11px] font-semibold text-gray-500">Nomor PO</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">No. Invoice</TableHead>
                         <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
-                        <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
                         <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                        <TableHead className="w-12 text-[11px] font-semibold text-gray-500 text-center">Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {poHistory.map((po, i) => {
-                        const info = parseDocInfo(po)
+                      {invoiceHistory.map((inv, i) => {
+                        const info = parseDocInfo(inv)
                         return (
-                          <TableRow key={po.id} className="hover:bg-blue-50/50">
+                          <TableRow key={inv.id} className="hover:bg-amber-50/50">
                             <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
-                            <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{po.nomor}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{po.tanggal ? formatTanggal(po.tanggal) : '-'}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-gray-600 max-w-[160px] truncate">{po.pihakKedua || '-'}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-right font-medium text-blue-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{inv.nomor}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{inv.tanggal ? formatTanggal(inv.tanggal) : '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-600 max-w-[160px] truncate">{inv.pihakKedua || '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-right font-medium text-amber-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                            <TableCell className="py-2.5 text-center">
+                              <button onClick={() => handleInvPreview(inv)} title="Preview" className="p-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors cursor-default">
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            </TableCell>
                           </TableRow>
                         )
                       })}
@@ -849,6 +1199,55 @@ export default function PembukaanPage() {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice Preview Dialog — A5 format */}
+        <Dialog open={invPreviewOpen} onOpenChange={setInvPreviewOpen}>
+          <DialogContent
+            className="max-w-none w-auto overflow-hidden p-2 pt-10 gap-0 [&_button]:cursor-default"
+            style={{
+              width: `${576 * invPreviewScale + 16}px`,
+              maxHeight: `calc(100dvh - 32px)`,
+            }}
+            aria-label="Pratinjau Invoice"
+          >
+            <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
+            {invData && (
+              <div className="flex flex-col items-center gap-3">
+                <div style={{
+                  width: `${576 * invPreviewScale}px`,
+                  height: `${576 * (210 / 148) * invPreviewScale}px`,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: 576,
+                    height: 576 * (210 / 148),
+                    transform: `scale(${invPreviewScale})`,
+                    transformOrigin: 'top left',
+                  }}>
+                    <div className="bg-white" style={{ width: 576, height: 576 * (210 / 148) }}>
+                      <div className="a5-preview-scaler">
+                        <InvoicePreview data={invData} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSendInvPdf}
+                  disabled={sendingInvPdf}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
+                >
+                  {sendingInvPdf ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}
+                  {sendingInvPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
+                </button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

@@ -45,7 +45,7 @@ export default function AdministrasiPage() {
             <Link
               key={menu.title}
               href={menu.href}
-              className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-300 transition-all group"
+              className="bg-card rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-300 transition-all group"
             >
               <div className={`w-14 h-14 ${colorClasses[menu.color as keyof typeof colorClasses]} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <menu.icon className="w-7 h-7" />

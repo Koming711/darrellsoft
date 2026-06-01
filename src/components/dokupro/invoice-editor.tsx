@@ -11,7 +11,6 @@ import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { HistoryTable } from './history-table';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
@@ -31,6 +30,7 @@ interface CustomerItem {
 
 interface RiwayatCetakanItem {
   id: string;
+  nomorUrut: string;
   printName: string;
   customerName: string;
   paperName: string;
@@ -118,6 +118,23 @@ export function InvoiceEditor() {
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
 
+  // Fetch next Invoice number from server
+  const fetchNextNumber = useCallback(() => {
+    fetch('/api/history?preview=next-number&docType=invoice', { headers: getAuthHeaders() })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.nextNumber) setInvoice((prev) => ({ ...prev, nomor: data.nextNumber })) })
+      .catch(() => {});
+  }, [setInvoice]);
+
+  useEffect(() => { fetchNextNumber() }, [fetchNextNumber]);
+
+  // Re-fetch next number after a document is saved
+  useEffect(() => {
+    const handler = () => { fetchNextNumber() };
+    window.addEventListener('dokupro:history-updated', handler);
+    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+  }, [fetchNextNumber]);
+
   // Sync referensiInput when invoice.referensi changes externally
   useEffect(() => { setReferensiInput(invoice.referensi) }, [invoice.referensi]);
   // Sync clientInput when invoice.client.nama changes externally
@@ -127,9 +144,10 @@ export function InvoiceEditor() {
   const filteredRiwayatList = riwayatList.filter((r) => {
     const search = referensiInput.toLowerCase().trim();
     if (!search) return true;
+    const noHc = (r.nomorUrut || '').toLowerCase();
     const printName = (r.printName || '').toLowerCase();
     const name = (r.customerName || '').toLowerCase();
-    return printName.includes(search) || name.includes(search);
+    return noHc.includes(search) || printName.includes(search) || name.includes(search);
   });
 
   const handleReferensiInputChange = (value: string) => {
@@ -140,7 +158,7 @@ export function InvoiceEditor() {
 
   // Apply referensi data using functional setInvoice to avoid stale closure
   const applyReferensi = (item: RiwayatCetakanItem) => {
-    const ref = item.printName || '';
+    const ref = item.nomorUrut || item.printName || '';
     setReferensiInput(ref);
 
     // Build single item with multi-line description
@@ -292,10 +310,6 @@ export function InvoiceEditor() {
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
 
-  const handleLoad = (data: unknown) => {
-    setInvoice(data as InvoiceData);
-  };
-
   const handleSuratJalan = async () => {
     // Check if data has content
     const pihakKedua = invoice.client?.nama;
@@ -372,7 +386,7 @@ export function InvoiceEditor() {
       >
         <CompanyFields company={invoice.company} onChange={updateCompany} />
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
           </h3>
@@ -395,13 +409,13 @@ export function InvoiceEditor() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">Referensi (opsional)</Label>
+            <Label className="text-xs">Referensi (No. HC)</Label>
             <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Pilih riwayat cetakan / ketik referensi..."
+                    placeholder="Pilih No. HC / ketik referensi..."
                     value={referensiInput}
                     onChange={(e) => handleReferensiInputChange(e.target.value)}
                     onFocus={() => setDropdownOpen(true)}
@@ -426,9 +440,10 @@ export function InvoiceEditor() {
                         key={r.id}
                         type="button"
                         onMouseDown={(e) => { e.preventDefault(); handleReferensiSelect(r) }}
-                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${invoice.referensi === r.printName ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${invoice.referensi === r.nomorUrut ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
                       >
-                        <span className="truncate">{r.printName || '-'}</span>
+                        <span className="font-semibold text-xs text-emerald-700">{r.nomorUrut || '-'}</span>
+                        <span className="ml-1.5 truncate">{r.printName || ''}</span>
                         {r.customerName && <span className="text-slate-400 ml-1.5 text-[11px]">({r.customerName})</span>}
                       </button>
                     ))}
@@ -442,7 +457,69 @@ export function InvoiceEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        {/* Informasi Pembayaran - moved below Detail Dokumen */}
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Informasi Pembayaran
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tgl. Jatuh Tempo</Label>
+              <Input
+                type="date"
+                value={invoice.tanggalJatuhTempo}
+                onChange={(e) => setInvoice((prev) => ({ ...prev, tanggalJatuhTempo: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cara Pembayaran</Label>
+              <div className="flex gap-1.5">
+                {(['cash', 'transfer', 'giro'] as const).map((method) => {
+                  const labels: Record<string, string> = { cash: 'Cash', transfer: 'Transfer', giro: 'Giro' };
+                  const isSelected = invoice.caraPembayaran === method;
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setInvoice((prev) => ({
+                        ...prev,
+                        caraPembayaran: prev.caraPembayaran === method ? '' : method,
+                        tanggalGiro: method === 'giro' && prev.caraPembayaran !== method ? prev.tanggalGiro : (method !== 'giro' ? '' : prev.tanggalGiro),
+                      }))}
+                      className={`flex-1 py-2 rounded-lg border text-[11px] font-semibold transition-colors ${
+                        isSelected
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300 ring-2 ring-offset-1 ring-emerald-400 shadow-sm'
+                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {labels[method]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          {invoice.caraPembayaran === 'giro' && (
+            <div className="mt-3 space-y-1.5">
+              <Label className="text-xs">Tgl. Giro</Label>
+              <Input
+                type="date"
+                value={invoice.tanggalGiro}
+                onChange={(e) => setInvoice((prev) => ({ ...prev, tanggalGiro: e.target.value }))}
+              />
+            </div>
+          )}
+          {invoice.tanggalJatuhTempo && (
+            <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-xs text-amber-700">
+                Jatuh tempo: <span className="font-semibold">{new Date(invoice.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Kepada Yth :
           </h3>
@@ -527,7 +604,7 @@ export function InvoiceEditor() {
           showPrice
         />
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Informasi Tambahan
           </h3>
@@ -558,14 +635,6 @@ export function InvoiceEditor() {
           </div>
         </div>
       </DocumentEditorLayout>
-
-      <div className="mx-auto max-w-7xl px-4 pb-8 md:px-6">
-        <HistoryTable
-          docType="invoice"
-          documentLabel="Invoice"
-          onLoad={handleLoad}
-        />
-      </div>
     </>
   );
 }

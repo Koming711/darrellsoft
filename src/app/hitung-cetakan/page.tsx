@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload } from 'lucide-react'
 import { useState, useEffect, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/language-context'
 import { notifyDataChange } from '@/lib/data-sync'
+import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 
@@ -108,8 +109,36 @@ interface PrintCalculation {
 }
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors lg:py-1.5'
-const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-white appearance-none cursor-pointer lg:py-1.5'
+const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
+
+// Preview Dialog Component (centered, scrollable)
+function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <div onClick={(e) => e.stopPropagation()}
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-400 cursor-pointer" onClick={onClose} />
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+              <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+            </div>
+            <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-2">{title}</span>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function HitungCetakanPageWrapper() {
   return (
@@ -193,6 +222,9 @@ function HitungCetakanPage() {
   const [savingRiwayat, setSavingRiwayat] = useState(false)
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
   const [riwayatCetakanList, setRiwayatCetakanList] = useState<any[]>([])
+  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+  const [nextHitungCetakanNumber, setNextHitungCetakanNumber] = useState('')
+  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
   const fetchRiwayatCetakan = async () => {
     try {
       const res = await fetcher('/api/riwayat-cetakan', { headers: getAuthHeaders() })
@@ -201,6 +233,74 @@ function HitungCetakanPage() {
         setRiwayatCetakanList((Array.isArray(data) ? data : []).filter((r: any) => r.type === 'hitung_cetakan'))
       }
     } catch {}
+  }
+
+  const fetchNextNumber = () => {
+    fetcher('/api/riwayat-cetakan?preview=next-number', { headers: getAuthHeaders() })
+      .then(res => { if (!res.ok) return null; return res.json() })
+      .then(data => { if (data?.nextNumber) setNextHitungCetakanNumber(data.nextNumber) })
+      .catch(() => {})
+  }
+
+  const handleBackup = async () => {
+    setBackupLoading('backup')
+    try {
+      const res = await authFetch(`/api/database/backup-master?table=riwayat_cetakan`)
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data riwayat hitung cetakan'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? match[1] : `backup-riwayat-cetakan-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup berhasil diunduh')
+    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data riwayat hitung cetakan') }
+    setBackupLoading(null)
+  }
+
+  const handleRestore = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      if (!confirm('Data riwayat hitung cetakan yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+      setBackupLoading('restore')
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('table', 'riwayat_cetakan')
+        const res = await authFetch('/api/database/restore-master', {
+          method: 'POST',
+          body: fd,
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          toast.success(`Restore berhasil (${data.count} data)`)
+          fetchRiwayatCetakan()
+          notifyDataChange('riwayat-cetakan')
+        } else {
+          toast.error(data.error || 'Gagal restore data riwayat hitung cetakan')
+        }
+      } catch { toast.error('File backup tidak valid') }
+      setBackupLoading(null)
+    }
+    input.click()
   }
 
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -545,6 +645,7 @@ function HitungCetakanPage() {
     fetchPrintingCosts()
     fetchFinishings()
     fetchRiwayatCetakan()
+    fetchNextNumber()
     // Jangan override profitPercent saat restore
     fetchProfitSetting()
   }, [])
@@ -1303,6 +1404,7 @@ function HitungCetakanPage() {
         toast.success('Riwayat hitung cetakan berhasil disimpan!')
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
+        fetchNextNumber()
         resetFormForRiwayat()
       } else { toast.error('Gagal menyimpan riwayat') }
     } catch { toast.error('Gagal menyimpan riwayat') }
@@ -1385,6 +1487,7 @@ function HitungCetakanPage() {
 
   const handleRestoreRiwayat = (r: any) => {
     setRestoredRiwayatId(r.id)
+    setActiveTab('editor')
     const rQty = parseInt(r.quantity) || 0
     // Restore ongkos lem input asli dari DB jika ada, jika tidak fallback dari total
     const rJumlahPesanan = parseInt(r.jumlahPesanan) || rQty
@@ -1630,12 +1733,48 @@ function HitungCetakanPage() {
 
   return (
     <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
-      <div className="lg:-mt-5">
+      {/* Tab Navigation */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setActiveTab('editor')}
+          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+            activeTab === 'editor'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          Editor
+        </button>
+        <button
+          onClick={() => setActiveTab('riwayat')}
+          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+            activeTab === 'riwayat'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          Riwayat
+          {riwayatCetakanList.length > 0 && (
+            <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'riwayat' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{riwayatCetakanList.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Editor Tab Content */}
+      {activeTab === 'editor' && (
+      <div>
         <div className="lg:grid lg:grid-cols-4 lg:gap-3">
 
           {/* ========== COLUMN 1: INFO & HARGA ========== */}
           <div className="flex-1 min-w-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* No. Hitung Cetakan */}
+            {nextHitungCetakanNumber && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl px-4 py-2.5 mb-3">
+                <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">No. Hitung Cetakan</p>
+                <p className="text-sm font-bold text-blue-800">{nextHitungCetakanNumber}</p>
+              </div>
+            )}
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
               {/* Section 1: Informasi Cetakan */}
               <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50/60">
@@ -2029,7 +2168,7 @@ function HitungCetakanPage() {
 
           {/* ========== COLUMN 2: ONGKOS CETAK (Desktop Only) ========== */}
           <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-3">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               {/* Ongkos Cetak */}
               <SectionHeader icon={<Calculator className="w-3.5 h-3.5 text-purple-600" />} label={t('ongkos_cetak_label')} />
               <div className="px-2.5 py-2">
@@ -2110,7 +2249,7 @@ function HitungCetakanPage() {
 
           {/* ========== COLUMN 3: FINISHING & ONGKOS LEM (Desktop Only) ========== */}
           <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-3">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               {/* Desktop Finishing */}
               <SectionHeader icon={<Layers className="w-3.5 h-3.5 text-rose-600" />} label={t('finishing_label')} badge={selectedFinishingItems.length} />
               <div className="px-2.5 py-2 space-y-2">
@@ -2195,7 +2334,7 @@ function HitungCetakanPage() {
           {/* ========== COLUMN 4: BIAYA TAMBAHAN, SUMMARY & DAFTAR (Desktop Only) ========== */}
           <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-1">
             {/* Biaya Tambahan Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               <SectionHeader icon={<Banknote className="w-3.5 h-3.5 text-amber-600" />} label="Biaya Tambahan" />
               <div className="px-2.5 py-2">
                 <div className="grid grid-cols-2 gap-1.5">
@@ -2233,7 +2372,7 @@ function HitungCetakanPage() {
             </div>
 
             {/* Summary Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
               <div className="px-2.5 py-2 space-y-1.5">
                 <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex justify-between items-center">
@@ -2317,58 +2456,84 @@ function HitungCetakanPage() {
 
         </div>
       </div>
+      )}
 
-      {/* ===== RIWAYAT HITUNG CETAKAN (Full Width) ===== */}
-      <div className="mt-6 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
-          <History className="w-4 h-4 text-emerald-600" />
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Hitung Cetakan</h2>
-          <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{riwayatCetakanList.length} data</span>
+      {/* Riwayat Tab Content */}
+      {activeTab === 'riwayat' && (
+      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-emerald-600" />
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Hitung Cetakan</h2>
+            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{riwayatCetakanList.length} data</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={handleBackup}
+              variant="outline"
+              size="sm"
+              disabled={backupLoading === 'backup'}
+              className="h-7 gap-1.5 text-xs"
+            >
+              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
+              Backup
+            </Button>
+            <Button
+              onClick={handleRestore}
+              variant="outline"
+              size="sm"
+              disabled={backupLoading === 'restore'}
+              className="h-7 gap-1.5 text-xs"
+            >
+              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              Restore
+            </Button>
+          </div>
         </div>
         {riwayatCetakanList.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-[14px] min-w-[600px]">
+            <table className="w-full text-[13px] min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">#</th>
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '200px'}}>Nama Barang</th>
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Uang Capek</th>
-                  <th className="text-left py-2 px-2 text-slate-500 font-semibold whitespace-nowrap hidden xl:table-cell">Finishing</th>
-                  <th className="text-right py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Jml Pesanan</th>
-                  <th className="text-right py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Harga/Pcs</th>
-                  <th className="text-right py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                  <th className="text-center py-2 px-2 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. HC</th>
+                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '180px'}}>Nama Barang</th>
+                  <th className="text-left py-3 px-3 text-violet-600 font-semibold whitespace-nowrap">Uang Capek</th>
+                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden xl:table-cell">Finishing</th>
+                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
+                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Harga/Pcs</th>
+                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                  <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {riwayatCetakanList.slice(0, 50).map((r, idx) => (
                   <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                    <td className="py-2 px-2 text-slate-400">{idx + 1}</td>
-                    <td className="py-2 px-2 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                    <td className="py-2 px-2 text-slate-700 font-medium max-w-[120px] truncate">
+                    <td className="py-3 px-3 text-blue-700 font-semibold whitespace-nowrap">{r.nomorUrut || '-'}</td>
+                    <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
+                    <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">
                       {r.customerName && r.customerName !== '' ? r.customerName : '-'}
                     </td>
-                    <td className="py-2 px-2 text-slate-600 hidden sm:table-cell max-w-[200px] truncate">
+                    <td className="py-3 px-3 text-slate-600 hidden sm:table-cell max-w-[180px] truncate">
                       {r.printName || '-'}
                     </td>
-                    <td className="py-2 px-2 text-slate-500 hidden md:table-cell whitespace-nowrap">
-                      {r.profitAmount && r.profitAmount > 0 ? `Rp ${Math.round(r.profitAmount).toLocaleString('id-ID')}` : '-'}
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      <span className={`font-semibold ${r.profitAmount && r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{r.profitAmount && r.profitAmount > 0 ? `Rp ${Math.round(r.profitAmount).toLocaleString('id-ID')}` : '-'}</span>
                     </td>
-                    <td className="py-2 px-2 text-slate-600 hidden xl:table-cell max-w-[150px] truncate" title={r.finishingNames || '-'}>
+                    <td className="py-3 px-3 text-slate-600 hidden xl:table-cell max-w-[150px] truncate" title={r.finishingNames || '-'}>
                       {r.finishingNames && r.finishingNames !== '' ? r.finishingNames : '-'}
                     </td>
-                    <td className="py-2 px-2 text-slate-600 text-right whitespace-nowrap">
+                    <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
                       {parseInt(r.jumlahPesanan || r.quantity || 0).toLocaleString('id-ID')}
                     </td>
-                    <td className="py-2 px-2 text-slate-600 text-right whitespace-nowrap">
+                    <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
                       Rp {(parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 0) > 0 ? Math.round((r.grandTotal || 0) / (parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 1)).toLocaleString('id-ID') : '0'}
                     </td>
-                    <td className="py-2 px-2 text-rose-700 font-bold text-right whitespace-nowrap">
+                    <td className="py-3 px-3 text-rose-700 font-bold text-right whitespace-nowrap">
                       Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}
                     </td>
-                    <td className="py-2 px-2 text-center">
+                    <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handlePreviewRiwayat(r)}
@@ -2405,22 +2570,17 @@ function HitungCetakanPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* ===== PREVIEW DIALOG ===== */}
-      <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) setPreviewCalc(null) }}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="w-5 h-5 text-violet-600" />
-              Detail Rincian Cetakan
-            </DialogTitle>
-          </DialogHeader>
-
-          {previewCalc && (
-            <>
-              <div ref={previewRef} className="p-4 bg-white space-y-3">
-                {/* Header */}
-                <div className="text-center pb-3 border-b-2 border-slate-200">
+      {previewOpen && previewCalc && (
+        <PreviewDialog
+          onClose={() => { setPreviewOpen(false); setPreviewCalc(null) }}
+          title="Detail Rincian Cetakan"
+        >
+          <div ref={previewRef} className="p-4 bg-white space-y-3">
+            {/* Header */}
+            <div className="text-center pb-3 border-b-2 border-slate-200">
                   <div className="flex items-center justify-center gap-2 mb-1">
                     <Calculator className="w-5 h-5 text-blue-600" />
                     <h1 className="text-lg font-bold text-slate-900">Rincian Harga Cetakan</h1>
@@ -2652,7 +2812,7 @@ function HitungCetakanPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4 flex gap-2">
+              <div className="sticky bottom-0 bg-card border-t border-slate-200 p-4 flex gap-2">
                 <button onClick={handlePrint}
                   className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
                   <Printer className="w-4 h-4" /> Cetak
@@ -2662,10 +2822,8 @@ function HitungCetakanPage() {
                   {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
                 </button>
               </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+        </PreviewDialog>
+      )}
 
       {/* Check Kelengkapan Dialog */}
       <Dialog open={checkOpen} onOpenChange={setCheckOpen}>

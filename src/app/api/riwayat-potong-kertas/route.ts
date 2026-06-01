@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { generatePotongKertasNumber, previewPotongKertasNumber } from '@/lib/doc-number'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +9,13 @@ export async function GET(request: NextRequest) {
     const dataFilter = await getDataFilter(user)
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const preview = searchParams.get('preview')
+
+    // Preview next number
+    if (preview === 'next-number') {
+      const nextNumber = await previewPotongKertasNumber(dataFilter)
+      return NextResponse.json({ nextNumber })
+    }
 
     // If an ID is provided, fetch a single specific record
     if (id) {
@@ -39,8 +47,13 @@ export async function POST(request: NextRequest) {
     const user = getServerUser(request)!
     const body = await request.json()
 
+    // Generate sequential number (never reuses deleted numbers)
+    const dataFilter = await getDataFilter(user)
+    const nomorUrut = await generatePotongKertasNumber(dataFilter)
+
     const riwayat = await db.riwayatPotongKertas.create({
       data: {
+        nomorUrut,
         namaCustomer: body.namaCustomer || '',
         namaCetakan: body.namaCetakan || '',
         paperName: body.paperName || '',

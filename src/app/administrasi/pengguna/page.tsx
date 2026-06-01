@@ -942,20 +942,20 @@ export default function PenggunaPage() {
       title={t('pengguna_pembeli')}
       subtitle={t('subtitle_pengguna')}
     >
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <Tabs defaultValue="admin" className="flex flex-col">
           {/* Tab Header */}
           <div className="border-b border-slate-200 overflow-x-auto">
-              <TabsList className="bg-slate-100 p-1.5 rounded-none h-auto w-full flex min-w-0">
-                <TabsTrigger value="admin" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
+              <TabsList className="bg-slate-100 dark:bg-[#1a1a1a] p-1.5 rounded-none h-auto w-full flex min-w-0">
+                <TabsTrigger value="admin" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
                   <span className="text-xs sm:text-sm font-medium">Admin</span>
                   <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{adminList.length}</span>
                 </TabsTrigger>
-                <TabsTrigger value="calon" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
+                <TabsTrigger value="calon" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
                   <span className="text-xs sm:text-sm font-medium leading-tight text-center"><span className="sm:hidden">Calon<br/>Pembeli</span><span className="hidden sm:inline">Calon Pembeli</span></span>
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{calonList.length}</span>
                 </TabsTrigger>
-                <TabsTrigger value="pembeli" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
+                <TabsTrigger value="pembeli" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
                   <span className="text-xs sm:text-sm font-medium">Pembeli</span>
                   <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{pembeliList.length}</span>
                 </TabsTrigger>

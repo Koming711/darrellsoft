@@ -35,6 +35,8 @@ export interface CompanySettings {
   signature: SignatureInfo;
 }
 
+export type CaraPembayaran = 'cash' | 'transfer' | 'giro';
+
 export interface InvoiceData {
   type: 'invoice';
   company: CompanyInfo;
@@ -49,6 +51,9 @@ export interface InvoiceData {
   items: DocumentItem[];
   ppn: number; // percentage
   catatan: string;
+  tanggalJatuhTempo: string; // due date (empty = no due date)
+  caraPembayaran: CaraPembayaran | ''; // payment method
+  tanggalGiro: string; // giro date (only used when caraPembayaran === 'giro')
 }
 
 export interface SuratJalanData {
@@ -83,6 +88,8 @@ export interface PurchaseOrderData {
   items: DocumentItem[];
   ppn: number;
   catatan: string;
+  tanggalJatuhTempo: string; // due date (empty = no due date / not yet set)
+  riwayatPotongKertasId?: string;
 }
 
 export interface SPKData {
@@ -140,13 +147,16 @@ export function createDefaultInvoice(): InvoiceData {
   return {
     type: 'invoice',
     company: { ...DEFAULT_COMPANY },
-    nomor: `INV/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: `INV/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}/0001`,
     tanggal: getToday(),
     referensi: '',
     client: { nama: '', kontak: '', alamat: '' },
     items: [createDefaultItem()],
     ppn: 11,
     catatan: '',
+    tanggalJatuhTempo: '',
+    caraPembayaran: '',
+    tanggalGiro: '',
   };
 }
 
@@ -154,7 +164,7 @@ export function createDefaultSuratJalan(): SuratJalanData {
   return {
     type: 'surat-jalan',
     company: { ...DEFAULT_COMPANY },
-    nomor: `SJ/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: `SJ/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}/0001`,
     tanggal: getToday(),
     referensi: '',
     penerima: { nama: '', kontak: '', alamat: '' },
@@ -169,13 +179,15 @@ export function createDefaultPurchaseOrder(): PurchaseOrderData {
   return {
     type: 'purchase-order',
     company: { ...DEFAULT_COMPANY },
-    nomor: `PO/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: `PO/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}/0001`,
     tanggal: getToday(),
     referensi: '',
     pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
     items: [createDefaultItem()],
     ppn: 11,
     catatan: '',
+    tanggalJatuhTempo: '',
+    riwayatPotongKertasId: '',
   };
 }
 
@@ -183,7 +195,7 @@ export function createDefaultSPK(): SPKData {
   return {
     type: 'spk',
     company: { ...DEFAULT_COMPANY },
-    nomor: `SPK/${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(new Date().getFullYear()).slice(-2)}/0001`,
+    nomor: `SPK/${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}/0001`,
     tanggal: getToday(),
     referensi: '',
     penerima: { nama: '', kontak: '', alamat: '' },

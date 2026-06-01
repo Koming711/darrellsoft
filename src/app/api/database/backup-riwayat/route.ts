@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { isAdmin } from '@/lib/server-auth'
 import { createProtectedExcel } from '@/lib/backup-excel'
 
 // Map of riwayat table keys to Prisma models and display names
@@ -37,10 +36,6 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Anda harus login terlebih dahulu' }, { status: 401 })
   }
-  if (!isAdmin(user.role)) {
-    return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-  }
-
   try {
     const table = req.nextUrl.searchParams.get('table')
     if (!table || !RIWAYAT_TABLES[table]) {
@@ -86,10 +81,6 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Anda harus login terlebih dahulu' }, { status: 401 })
   }
-  if (!isAdmin(user.role)) {
-    return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-  }
-
   try {
     const { table } = await req.json()
     if (!table || !RIWAYAT_TABLES[table]) {

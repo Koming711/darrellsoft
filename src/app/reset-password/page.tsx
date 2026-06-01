@@ -119,7 +119,7 @@ function ResetPasswordContent() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
+          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
             <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-7 h-7 text-red-600" />
             </div>
@@ -142,7 +142,7 @@ function ResetPasswordContent() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
+          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
             <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-7 h-7 text-green-600" />
             </div>
@@ -189,7 +189,7 @@ function ResetPasswordContent() {
           </div>
 
           {/* Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 p-6">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium flex items-center gap-2 mb-4">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />

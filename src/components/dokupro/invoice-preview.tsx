@@ -43,13 +43,17 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
           </div>
           <div className="company-info">
             <p className="company-name text-[17px] font-bold print:text-[17px] text-black">
-              {data.company.nama || 'Nama Perusahaan'}
+              {data.company.nama || ''}
             </p>
-            <p className="text-[12px] print:text-[12px] text-neutral-600">{data.company.alamat}</p>
-            <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
-              <span>{data.company.telepon}</span>
-              <span>{data.company.email}</span>
-            </div>
+            {data.company.alamat && (
+              <p className="text-[12px] print:text-[12px] text-neutral-600">{data.company.alamat}</p>
+            )}
+            {(data.company.telepon || data.company.email) && (
+              <div className="flex gap-4 text-[12px] print:text-[12px] text-neutral-600">
+                {data.company.telepon && <span>{data.company.telepon}</span>}
+                {data.company.email && <span>{data.company.email}</span>}
+              </div>
+            )}
             {(data.company.bankName || data.company.bankName2) && (
               <div className="text-[10px] print:text-[9px] text-neutral-600 mt-0.5">
                 {data.company.bankName && (
@@ -64,6 +68,12 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
         </div>
         <div className="text-right">
           <h2 className="text-lg font-bold print:text-[13px] text-black">INVOICE</h2>
+          {data.tanggalJatuhTempo && (
+            <div className="flex items-center justify-end gap-1 mt-1">
+              <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="text-[9px] font-semibold text-amber-700">Jatuh Tempo: {new Date(data.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -92,9 +102,29 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
             <p className="text-xs font-medium print:text-[10px] text-black">{data.nomor}</p>
             <p className="text-[10px] mt-0.5 print:text-[8px] text-neutral-600">Tanggal</p>
             <p className="text-xs print:text-[10px] text-black">{formatTanggal(data.tanggal)}</p>
+            {data.referensi && (
+              <>
+                <p className="text-[10px] mt-0.5 print:text-[8px] text-neutral-600">Ref.</p>
+                <p className="text-xs font-medium print:text-[10px] text-black">{data.referensi}</p>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Payment Info Row */}
+      {data.caraPembayaran && (
+        <div className="mb-3 print:mb-[1mm] flex items-center gap-3 print:gap-1.5 text-[10px] print:text-[9px]">
+          <div className="flex items-center gap-1">
+            <svg className="w-3.5 h-3.5 text-emerald-600 print:w-3 print:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            <span className="text-neutral-600">Cara Bayar:</span>
+            <span className="font-semibold text-black uppercase">{data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}</span>
+            {data.caraPembayaran === 'giro' && data.tanggalGiro && (
+              <span className="text-neutral-500 ml-0.5">(Tgl: {new Date(data.tanggalGiro).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })})</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Items Table */}
       <div className="overflow-x-auto mb-3 print:mb-[1mm]">

@@ -11,7 +11,6 @@ import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { PurchaseOrderPreview } from './purchase-order-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { HistoryTable } from './history-table';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
@@ -27,6 +26,7 @@ interface TokoPemasokItem {
 
 interface RiwayatPotongKertasItem {
   id: string;
+  nomorUrut: string;
   namaCustomer: string;
   namaCetakan: string;
   paperName: string;
@@ -64,7 +64,7 @@ export function PurchaseOrderEditor() {
   const [referensiInput, setReferensiInput] = useState(po.referensi);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Toko/Pemasok dropdown state
+  // Suplier dropdown state
   const [tokoList, setTokoList] = useState<TokoPemasokItem[]>([]);
   const [pemasokInput, setPemasokInput] = useState(po.pemasok.nama);
   const [pemasokDropdownOpen, setPemasokDropdownOpen] = useState(false);
@@ -102,6 +102,23 @@ export function PurchaseOrderEditor() {
 
   useEffect(() => { fetchTokoPemasok() }, [fetchTokoPemasok]);
 
+  // Fetch next PO number from server
+  const fetchNextNumber = useCallback(() => {
+    fetch('/api/history?preview=next-number&docType=purchase-order', { headers: getAuthHeaders() })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.nextNumber) setPurchaseOrder((prev) => ({ ...prev, nomor: data.nextNumber })) })
+      .catch(() => {});
+  }, [setPurchaseOrder]);
+
+  useEffect(() => { fetchNextNumber() }, [fetchNextNumber]);
+
+  // Re-fetch next number after a document is saved
+  useEffect(() => {
+    const handler = () => { fetchNextNumber() };
+    window.addEventListener('dokupro:history-updated', handler);
+    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+  }, [fetchNextNumber]);
+
   // Sync referensiInput when po.referensi changes externally
   useEffect(() => { setReferensiInput(po.referensi) }, [po.referensi]);
   // Sync pemasokInput when po.pemasok.nama changes externally
@@ -109,7 +126,7 @@ export function PurchaseOrderEditor() {
 
   // Apply referensi data using functional setPurchaseOrder to avoid stale `po` closure
   const applyReferensi = (item: RiwayatPotongKertasItem) => {
-    const ref = item.namaCetakan || item.paperName || '';
+    const ref = item.nomorUrut || item.namaCetakan || item.paperName || '';
     setReferensiInput(ref);
 
     // Build item description from potong kertas data
@@ -158,12 +175,9 @@ export function PurchaseOrderEditor() {
     setPurchaseOrder((prev) => ({
       ...prev,
       referensi: ref,
-      pemasok: {
-        ...prev.pemasok,
-        nama: item.namaCustomer || prev.pemasok.nama,
-      },
       items: newItems,
       catatan: '',
+      riwayatPotongKertasId: item.id,
     }));
     setDropdownOpen(false);
   };
@@ -227,10 +241,11 @@ export function PurchaseOrderEditor() {
   const filteredRiwayatList = riwayatList.filter((r) => {
     const search = referensiInput.toLowerCase().trim();
     if (!search) return true;
+    const noPk = (r.nomorUrut || '').toLowerCase();
     const namaCetakan = (r.namaCetakan || '').toLowerCase();
     const customer = (r.namaCustomer || '').toLowerCase();
     const paper = (r.paperName || '').toLowerCase();
-    return namaCetakan.includes(search) || customer.includes(search) || paper.includes(search);
+    return noPk.includes(search) || namaCetakan.includes(search) || customer.includes(search) || paper.includes(search);
   });
 
   const handleReferensiInputChange = (value: string) => {
@@ -293,10 +308,6 @@ export function PurchaseOrderEditor() {
   const ppnAmount = subtotal * (po.ppn / 100);
   const total = subtotal + ppnAmount;
 
-  const handleLoad = (data: unknown) => {
-    setPurchaseOrder(data as PurchaseOrderData);
-  };
-
   return (
     <>
       <DocumentEditorLayout
@@ -313,7 +324,7 @@ export function PurchaseOrderEditor() {
       >
         <CompanyFields company={po.company} onChange={updateCompany} />
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
           </h3>
@@ -335,14 +346,30 @@ export function PurchaseOrderEditor() {
               />
             </div>
           </div>
+          <div className="space-y-1.5 mt-2">
+            <Label className="text-xs">Tgl. Jatuh Tempo</Label>
+            <Input
+              type="date"
+              value={po.tanggalJatuhTempo}
+              onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, tanggalJatuhTempo: e.target.value }))}
+            />
+          </div>
+          {po.tanggalJatuhTempo && (
+            <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-xs text-amber-700">
+                Jatuh tempo: <span className="font-semibold">{new Date(po.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              </p>
+            </div>
+          )}
           <div className="space-y-2">
-            <Label className="text-xs">Referensi (opsional)</Label>
+            <Label className="text-xs">Referensi (No. PK)</Label>
             <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Pilih riwayat potong kertas / ketik referensi..."
+                    placeholder="Pilih No. PK / ketik referensi..."
                     value={referensiInput}
                     onChange={(e) => handleReferensiInputChange(e.target.value)}
                     onFocus={() => setDropdownOpen(true)}
@@ -367,9 +394,10 @@ export function PurchaseOrderEditor() {
                         key={r.id}
                         type="button"
                         onMouseDown={(e) => { e.preventDefault(); handleReferensiSelect(r) }}
-                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${po.referensi === (r.namaCetakan || r.paperName) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${po.referensi === r.nomorUrut ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
                       >
-                        <span className="truncate">{r.namaCetakan || r.paperName || '-'}</span>
+                        <span className="font-semibold text-xs text-emerald-700">{r.nomorUrut || '-'}</span>
+                        <span className="ml-1.5 truncate">{r.namaCetakan || r.paperName || ''}</span>
                         {r.namaCustomer && <span className="text-slate-400 ml-1.5 text-[11px]">({r.namaCustomer})</span>}
                         <div className="text-[11px] text-slate-400 mt-0.5">
                           {r.paperName}{r.grammage && r.grammage !== '0' ? ` ${r.grammage}g` : ''} 
@@ -388,12 +416,12 @@ export function PurchaseOrderEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Kepada Yth.
           </h3>
           <div className="space-y-1.5">
-            <Label className="text-xs">Nama</Label>
+            <Label className="text-xs">Nama Suplier</Label>
             <Popover open={pemasokDropdownOpen} onOpenChange={setPemasokDropdownOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
@@ -422,7 +450,7 @@ export function PurchaseOrderEditor() {
               >
                 {filteredTokoList.length > 0 && (
                   <div>
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Toko / Pemasok</div>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Master Suplier</div>
                     {filteredTokoList.map((t) => (
                       <button
                         key={t.id}
@@ -481,11 +509,11 @@ export function PurchaseOrderEditor() {
           showPrice
         />
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Informasi Tambahan
           </h3>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 mt-3">
             <Label className="text-xs">PPN (%)</Label>
             <Input
               type="number"
@@ -513,13 +541,6 @@ export function PurchaseOrderEditor() {
         </div>
       </DocumentEditorLayout>
 
-      <div className="mx-auto max-w-7xl px-4 pb-8 md:px-6">
-        <HistoryTable
-          docType="purchase-order"
-          documentLabel="Purchase Order"
-          onLoad={handleLoad}
-        />
-      </div>
     </>
   );
 }

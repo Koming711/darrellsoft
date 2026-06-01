@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
 import { LanguageProvider } from "@/contexts/language-context";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { NextThemesProvider } from "@/components/providers/next-themes-provider";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { SplashScreen } from "@/components/splash-screen";
@@ -76,15 +77,22 @@ export default function RootLayout({
       >
         <AuthProvider>
           <LanguageProvider>
-            <ThemeProvider>
-              <SplashScreen>
-                {children}
-              </SplashScreen>
-            </ThemeProvider>
+            <NextThemesProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem={false}
+              disableTransitionOnChange
+            >
+              <ThemeProvider>
+                <SplashScreen>
+                  {children}
+                </SplashScreen>
+              </ThemeProvider>
+              <Toaster />
+              <SonnerToaster />
+            </NextThemesProvider>
           </LanguageProvider>
         </AuthProvider>
-        <Toaster />
-        <SonnerToaster />
         <ServiceWorkerRegistration />
         <InstallPrompt />
         <WhatsNewDialog />

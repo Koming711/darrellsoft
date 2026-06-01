@@ -1,13 +1,15 @@
 'use client'
 
-import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, MessageCircle } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { useLanguage } from '@/contexts/language-context'
+import { useTheme } from 'next-themes'
+import { persistDarkMode } from '@/contexts/theme-context'
 import { Language, TranslationKey } from '@/lib/i18n'
 import { notifyDataChange } from '@/lib/data-sync'
 
@@ -44,21 +46,7 @@ const colorPresets = {
     { name: 'Stabilo Peach', value: '#ffd4c7' },
     { name: 'White', value: '#ffffff' },
   ],
-  popup: [
-    { name: 'Default', value: '#ffffff' },
-    { name: 'Biru Logo DS', value: '#EFF6FF' },
-    { name: 'Stabilo Kuning', value: '#fffad1' },
-    { name: 'Stabilo Hijau', value: '#cafbd7' },
-    { name: 'Stabilo Pink', value: '#f9cbdb' },
-    { name: 'Stabilo Biru', value: '#c5ebfd' },
-    { name: 'Stabilo Orange', value: '#ffe8c4' },
-    { name: 'Stabilo Ungu', value: '#daace1' },
-    { name: 'Stabilo Merah', value: '#f3b2b2' },
-    { name: 'Stabilo Tosca', value: '#9ee6f3' },
-    { name: 'Stabilo Lime', value: '#c2de9f' },
-    { name: 'Stabilo Peach', value: '#ffbfab' },
-    { name: 'Snow', value: '#fbfbfb' },
-  ],
+
   banner: [
     { name: 'Default', value: '#ffffff' },
     { name: 'Biru Logo DS', value: '#2563EB' },
@@ -74,25 +62,11 @@ const colorPresets = {
     { name: 'Stabilo Peach', value: '#FFCCBC' },
     { name: 'Snow', value: '#fafafa' },
   ],
-  login: [
-    { name: 'Default', value: '#EFF6FF' },
-    { name: 'Biru Logo DS', value: '#DBEAFE' },
-    { name: 'Stabilo Kuning', value: '#FFFDE7' },
-    { name: 'Stabilo Hijau', value: '#E8F5E9' },
-    { name: 'Stabilo Pink', value: '#FCE4EC' },
-    { name: 'Stabilo Biru', value: '#E3F2FD' },
-    { name: 'Stabilo Orange', value: '#FFF3E0' },
-    { name: 'Stabilo Ungu', value: '#F3E5F5' },
-    { name: 'Stabilo Merah', value: '#FFEBEE' },
-    { name: 'Stabilo Tosca', value: '#E0F7FA' },
-    { name: 'Stabilo Lime', value: '#F1F8E9' },
-    { name: 'Stabilo Peach', value: '#FBE9E7' },
-    { name: 'White', value: '#ffffff' },
-  ],
+
 }
 
 export default function PengaturanPage() {
-  const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors'
+  const inputClass = 'w-full border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors'
   const [activeTab, setActiveTab] = useState('umum')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -123,11 +97,6 @@ export default function PengaturanPage() {
   const [bankHolder2, setBankHolder2] = useState('')
   const [npwp, setNpwp] = useState('')
 
-  // WhatsApp API settings
-  const [waApiKey, setWaApiKey] = useState('')
-  const [waApiUrl, setWaApiUrl] = useState('https://api.fonnte.com/send')
-  const [waTestLoading, setWaTestLoading] = useState(false)
-
   // Database settings
   const [autoBackupDays, setAutoBackupDays] = useState(7)
   const [backupLoading, setBackupLoading] = useState(false)
@@ -135,11 +104,8 @@ export default function PengaturanPage() {
   const [backups, setBackups] = useState<Array<{ fileName: string; size: number; sizeFormatted: string; createdAt: string; timestamp: string; tableCount: number; rowCount: number }>>([])
   const [loadingBackups, setLoadingBackups] = useState(false)
   const [showRestoreConfirm, setShowRestoreConfirm] = useState<string | null>(null)
-  const [updateLoading, setUpdateLoading] = useState(false)
-  const [riwayatLoading, setRiwayatLoading] = useState<string | null>(null)
-  const [riwayatCounts, setRiwayatCounts] = useState<Record<string, number>>({})
-  const [masterLoading, setMasterLoading] = useState<string | null>(null)
-  const [masterCounts, setMasterCounts] = useState<Record<string, number>>({})
+  const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null)
+  const [nextAutoBackup, setNextAutoBackup] = useState<string | null>(null)
 
   // Display settings
   const [fontSize, setFontSize] = useState('medium')
@@ -147,11 +113,16 @@ export default function PengaturanPage() {
   // Color settings
   const [sidebarColor, setSidebarColor] = useState('#ffffff')
   const [bgColor, setBgColor] = useState('#f8fafc')
-  const [popupColor, setPopupColor] = useState('#ffffff')
   const [bannerColor, setBannerColor] = useState('#ffffff')
-  const [loginColor, setLoginColor] = useState('#EFF6FF')
   const [sidebarTextColor, setSidebarTextColor] = useState('dark')
   // savingColors removed - colors are now saved via handleSaveTampilan
+
+  // Dark mode
+  const [darkMode, setDarkMode] = useState(false)
+  const { setTheme } = useTheme()
+  const setThemeRef = useRef(setTheme)
+  setThemeRef.current = setTheme
+  const initialColorFetchDone = useRef(false)
 
   // Language
   const { language: appLanguage, setLanguage: setAppLanguage, t } = useLanguage()
@@ -205,7 +176,7 @@ export default function PengaturanPage() {
   // Fetch general settings
   const fetchGeneralSettings = useCallback(async () => {
     try {
-      const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone', 'bank_name', 'bank_account', 'bank_holder', 'bank_name2', 'bank_account2', 'bank_holder2', 'npwp', 'wa_api_key', 'wa_api_url']
+      const keys = ['company_name', 'company_logo', 'company_address', 'company_email', 'company_phone', 'bank_name', 'bank_account', 'bank_holder', 'bank_name2', 'bank_account2', 'bank_holder2', 'npwp']
       const results = await Promise.all(keys.map(k => authFetch(`/api/settings?key=${k}`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)))
       if (results[0]?.value) setCompanyName(results[0].value)
       if (results[1]?.value) setCompanyLogo(results[1].value)
@@ -219,22 +190,31 @@ export default function PengaturanPage() {
       if (results[9]?.value) setBankAccount2(results[9].value)
       if (results[10]?.value) setBankHolder2(results[10].value)
       if (results[11]?.value) setNpwp(results[11].value)
-      if (results[12]?.value) setWaApiKey(results[12].value)
-      if (results[13]?.value) setWaApiUrl(results[13].value)
     } catch { /* silent */ }
   }, [])
 
   // Fetch color settings
   const fetchColorSettings = useCallback(async () => {
+    if (initialColorFetchDone.current) return
+    initialColorFetchDone.current = true
     try {
-      const keys = ['theme_sidebar_color', 'theme_bg_color', 'theme_popup_color', 'theme_banner_color', 'theme_login_color', 'app_font_size']
+      const keys = ['theme_sidebar_color', 'theme_bg_color', 'theme_banner_color', 'app_font_size', 'theme_dark_mode']
       const results = await Promise.all(keys.map(k => authFetch(`/api/settings?key=${k}`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : null).catch(() => null)))
+      // Apply dark mode FIRST so isDarkActive() works in apply functions
+      if (results[4]?.value) {
+        const isDark = results[4].value === 'true'
+        setDarkMode(isDark)
+        setThemeRef.current(isDark ? 'dark' : 'light')
+        if (isDark) {
+          // Give next-themes a tick to apply the .dark class
+          await new Promise(r => setTimeout(r, 50))
+        }
+      }
+      // Then apply colors (they will check isDarkActive and skip if dark)
       if (results[0]?.value) { setSidebarColor(results[0].value); applySidebarColor(results[0].value) }
       if (results[1]?.value) { setBgColor(results[1].value); applyBgColor(results[1].value) }
-      if (results[2]?.value) { setPopupColor(results[2].value); applyPopupColor(results[2].value) }
-      if (results[3]?.value) { setBannerColor(results[3].value); applyBannerColor(results[3].value) }
-      if (results[4]?.value) { setLoginColor(results[4].value); applyLoginColor(results[4].value) }
-      if (results[5]?.value) { setFontSize(results[5].value); applyFontSizeLive(results[5].value) }
+      if (results[2]?.value) { setBannerColor(results[2].value); applyBannerColor(results[2].value) }
+      if (results[3]?.value) { setFontSize(results[3].value); applyFontSizeLive(results[3].value) }
     } catch { /* silent */ }
   }, [])
 
@@ -243,7 +223,28 @@ export default function PengaturanPage() {
   }, [fetchProfile, fetchProfitSetting, fetchPpnSetting, fetchGeneralSettings, fetchColorSettings])
 
   // Apply colors to CSS variables (immediate live preview)
+  // Helper to check if dark mode is currently active
+  const isDarkActive = () => document.documentElement.classList.contains('dark')
+
+  // Variables that should be cleared in dark mode so .dark CSS takes effect
+  const darkModeClearedVars = [
+    '--app-sidebar-bg', '--app-sidebar-border', '--app-sidebar-text', '--app-sidebar-text-muted',
+    '--app-sidebar-active-bg', '--app-sidebar-active-text',
+    '--app-content-bg',
+    '--app-banner-bg', '--app-banner-text', '--app-banner-text-muted',
+  ]
+
+  const clearInlineOverridesForDarkMode = () => {
+    for (const varName of darkModeClearedVars) {
+      document.documentElement.style.removeProperty(varName)
+    }
+    document.documentElement.style.removeProperty('--background')
+    document.documentElement.style.removeProperty('--popover')
+    document.documentElement.style.removeProperty('--card')
+  }
+
   const applySidebarColor = (color: string) => {
+    if (isDarkActive()) return // Let .dark CSS vars take over
     const isLight = isLightColor(color)
     document.documentElement.style.setProperty('--app-sidebar-bg', color)
     document.documentElement.style.setProperty('--app-sidebar-border', isLight ? '#e2e8f0' : 'rgba(255,255,255,0.12)')
@@ -255,25 +256,16 @@ export default function PengaturanPage() {
   }
 
   const applyBgColor = (color: string) => {
+    if (isDarkActive()) return
     document.documentElement.style.setProperty('--app-content-bg', color)
   }
 
-  const applyPopupColor = (color: string) => {
-    document.documentElement.style.setProperty('--app-popup-bg', color)
-    document.documentElement.style.setProperty('--popover', color)
-    document.documentElement.style.setProperty('--card', color)
-    document.documentElement.style.setProperty('--background', color)
-  }
-
   const applyBannerColor = (color: string) => {
+    if (isDarkActive()) return
     const isLight = isLightColor(color)
     document.documentElement.style.setProperty('--app-banner-bg', color)
     document.documentElement.style.setProperty('--app-banner-text', isLight ? '#1e293b' : '#f1f5f9')
     document.documentElement.style.setProperty('--app-banner-text-muted', isLight ? '#64748b' : '#94a3b8')
-  }
-
-  const applyLoginColor = (color: string) => {
-    document.documentElement.style.setProperty('--app-login-bg', color)
   }
 
   const applyFontSizeLive = (size: string) => {
@@ -299,17 +291,10 @@ export default function PengaturanPage() {
     setBgColor(color)
     applyBgColor(color)
   }
-  const handlePopupColorChange = (color: string) => {
-    setPopupColor(color)
-    applyPopupColor(color)
-  }
+
   const handleBannerColorChange = (color: string) => {
     setBannerColor(color)
     applyBannerColor(color)
-  }
-  const handleLoginColorChange = (color: string) => {
-    setLoginColor(color)
-    applyLoginColor(color)
   }
 
   const isLightColor = (hex: string) => {
@@ -319,23 +304,21 @@ export default function PengaturanPage() {
     return (r * 299 + g * 587 + b * 114) / 1000 > 128
   }
 
-  const handleResetColors = () => {
-    const defaults = { sidebar: '#ffffff', bg: '#f8fafc', popup: '#ffffff', banner: '#ffffff', login: '#EFF6FF' }
+  const handleResetColors = async () => {
+    const defaults = { sidebar: '#ffffff', bg: '#f8fafc', banner: '#ffffff' }
     setSidebarColor(defaults.sidebar)
     setBgColor(defaults.bg)
-    setPopupColor(defaults.popup)
     setBannerColor(defaults.banner)
-    setLoginColor(defaults.login)
+    setDarkMode(false)
+    setThemeRef.current('light')
+    persistDarkMode(false)
+    // Also save dark mode OFF to database
+    try {
+      await authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_dark_mode', value: 'false' }) })
+    } catch { /* silent */ }
     applySidebarColor(defaults.sidebar)
     applyBgColor(defaults.bg)
-    applyPopupColor(defaults.popup)
     applyBannerColor(defaults.banner)
-    applyLoginColor(defaults.login)
-    // Reset additional CSS variables to defaults
-    document.documentElement.style.setProperty('--app-sidebar-active-bg', 'rgba(59,130,246,0.08)')
-    document.documentElement.style.setProperty('--app-sidebar-active-text', '#2563eb')
-    document.documentElement.style.setProperty('--app-banner-text', '#1e293b')
-    document.documentElement.style.setProperty('--app-banner-text-muted', '#64748b')
     toast.success(t('color_reset_success'))
   }
 
@@ -434,8 +417,6 @@ export default function PengaturanPage() {
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_account2', value: bankAccount2 }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_holder2', value: bankHolder2 }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'npwp', value: npwp }) }),
-        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'wa_api_key', value: waApiKey }) }),
-        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'wa_api_url', value: waApiUrl }) }),
       ])
       toast.success(t('setting_saved'))
       notifyDataChange('settings')
@@ -450,17 +431,20 @@ export default function PengaturanPage() {
       await Promise.all([
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_sidebar_color', value: sidebarColor }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_bg_color', value: bgColor }) }),
-        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_popup_color', value: popupColor }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_banner_color', value: bannerColor }) }),
-        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_login_color', value: loginColor }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'app_language', value: appLanguage }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'app_font_size', value: fontSize }) }),
+        authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_dark_mode', value: darkMode ? 'true' : 'false' }) }),
       ])
-      applySidebarColor(sidebarColor)
-      applyBgColor(bgColor)
-      applyPopupColor(popupColor)
-      applyBannerColor(bannerColor)
-      applyLoginColor(loginColor)
+      setThemeRef.current(darkMode ? 'dark' : 'light')
+      persistDarkMode(darkMode)
+      if (darkMode) {
+        clearInlineOverridesForDarkMode()
+      } else {
+        applySidebarColor(sidebarColor)
+        applyBgColor(bgColor)
+        applyBannerColor(bannerColor)
+      }
       applyFontSizeLive(fontSize)
       toast.success(t('setting_saved'))
       notifyDataChange('settings')
@@ -583,23 +567,55 @@ export default function PengaturanPage() {
     } catch { /* silent */ }
   }, [])
 
-  useEffect(() => { fetchAutoBackupDays() }, [fetchAutoBackupDays])
+  // Fetch auto-backup status
+  const fetchAutoBackupStatus = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/database/auto-backup', { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setLastAutoBackup(data.lastBackup || null)
+          setNextAutoBackup(data.nextBackup || null)
+        }
+      }
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { fetchAutoBackupDays(); fetchAutoBackupStatus() }, [fetchAutoBackupDays, fetchAutoBackupStatus])
 
   const handleBackupDatabase = async () => {
     setBackupLoading(true)
     try {
       const res = await authFetch('/api/database/backup', { method: 'POST', headers: getAuthHeaders() })
       if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          toast.success(`${t('backup_success')} ${data.fileCount} ${t('records')} — ${data.fileName}`)
-          const blob = new Blob([JSON.stringify(data.backup, null, 2)], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a'); a.href = url; a.download = data.fileName; a.click()
-          URL.revokeObjectURL(url)
-          fetchBackups()
+        const blob = await res.blob()
+        if (blob.size === 0) {
+          toast.error('Backup kosong — tidak ada data')
+          return
         }
-      } else toast.error(t('backup_error'))
+        // Extract filename from Content-Disposition header
+        const disposition = res.headers.get('Content-Disposition')
+        const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+        const fileName = match ? match[1] : `backup-${Date.now()}.xlsx`
+        const fileCount = res.headers.get('X-Backup-FileCount') || '?'
+
+        // Download the Excel file
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+
+        toast.success(`${t('backup_success')} ${fileCount} ${t('records')} — ${fileName}`)
+        fetchBackups()
+      } else {
+        let errMsg = t('backup_error')
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+      }
     } catch { toast.error(t('backup_error')) }
     setBackupLoading(false)
   }
@@ -609,10 +625,23 @@ export default function PengaturanPage() {
     if (!file) return
     setShowRestoreConfirm(null); setRestoreLoading(true)
     try {
-      const text = await file.text(); const backupData = JSON.parse(text)
-      const res = await authFetch('/api/database/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ backupData }) })
-      if (res.ok) { const data = await res.json(); if (data.success) toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); else toast.error(data.error || t('restore_error')) }
-      else { const data = await res.json(); toast.error(data.error || t('restore_error')) }
+      if (file.name.endsWith('.xlsx')) {
+        // Excel file — upload via FormData
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await authFetch('/api/database/restore', {
+          method: 'POST',
+          body: formData
+        })
+        if (res.ok) { const data = await res.json(); if (data.success) toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); else toast.error(data.error || t('restore_error')) }
+        else { const data = await res.json(); toast.error(data.error || t('restore_error')) }
+      } else {
+        // JSON file (backward compatibility)
+        const text = await file.text(); const backupData = JSON.parse(text)
+        const res = await authFetch('/api/database/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ backupData }) })
+        if (res.ok) { const data = await res.json(); if (data.success) toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); else toast.error(data.error || t('restore_error')) }
+        else { const data = await res.json(); toast.error(data.error || t('restore_error')) }
+      }
     } catch { toast.error(t('backup_file_invalid')) }
     setRestoreLoading(false); e.target.value = ''
   }
@@ -644,181 +673,12 @@ export default function PengaturanPage() {
     setSaving(false)
   }
 
-  const handleUpdateDatabase = async () => {
-    setUpdateLoading(true)
-    try {
-      const res = await authFetch('/api/database/update', { method: 'POST', headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          toast.success(t('update_database_success'))
-          if (data.details?.length > 0) {
-            console.log('Update details:', data.details)
-          }
-        } else {
-          toast.error(data.error || t('update_database_error'))
-        }
-      } else {
-        toast.error(t('update_database_error'))
-      }
-    } catch { toast.error(t('update_database_error')) }
-    setUpdateLoading(false)
-  }
-
-  // Riwayat tables config
-  const RIWAYAT_TABLES = [
-    { key: 'riwayat_cetakan', label: 'riwayat_cetakan', icon: '🖨️', color: 'emerald' },
-    { key: 'riwayat_finishing', label: 'riwayat_finishing', icon: '✨', color: 'purple' },
-    { key: 'riwayat_ongkos_cetak', label: 'riwayat_ongkos_cetak', icon: '⚙️', color: 'blue' },
-    { key: 'riwayat_harga_kertas', label: 'riwayat_harga_kertas', icon: '📄', color: 'amber' },
-    { key: 'riwayat_potong_kertas', label: 'riwayat_potong_kertas', icon: '✂️', color: 'rose' },
-  ]
-
-  const MASTER_TABLES = [
-    { key: 'finishing', label: 'master_finishing', icon: '✨', color: 'purple' },
-    { key: 'printing_cost', label: 'master_ongkos_cetak', icon: '⚙️', color: 'blue' },
-    { key: 'paper', label: 'master_harga_kertas', icon: '📄', color: 'amber' },
-    { key: 'customer', label: 'master_customer', icon: '👤', color: 'teal' },
-  ]
-
-  // Fetch riwayat counts
-  const fetchRiwayatCounts = useCallback(async () => {
-    try {
-      const [cetakan, finishing, ongkos, harga, potong] = await Promise.all([
-        authFetch('/api/riwayat-cetakan', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/riwayat-finishing', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/riwayat-ongkos-cetak', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/riwayat-harga-kertas', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/riwayat-potong-kertas', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-      ])
-      setRiwayatCounts({
-        riwayat_cetakan: Array.isArray(cetakan) ? cetakan.length : 0,
-        riwayat_finishing: Array.isArray(finishing) ? finishing.length : 0,
-        riwayat_ongkos_cetak: Array.isArray(ongkos) ? ongkos.length : 0,
-        riwayat_harga_kertas: Array.isArray(harga) ? harga.length : 0,
-        riwayat_potong_kertas: Array.isArray(potong) ? potong.length : 0,
-      })
-    } catch { /* silent */ }
-  }, [])
-
-  useEffect(() => { if (activeTab === 'database') fetchRiwayatCounts() }, [activeTab, fetchRiwayatCounts])
-
-  // Fetch master counts
-  const fetchMasterCounts = useCallback(async () => {
-    try {
-      const [finishing, printingCost, paper, customer] = await Promise.all([
-        authFetch('/api/finishings', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/printing-costs', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/papers', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-        authFetch('/api/customers', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []),
-      ])
-      setMasterCounts({
-        finishing: Array.isArray(finishing) ? finishing.length : 0,
-        printing_cost: Array.isArray(printingCost) ? printingCost.length : 0,
-        paper: Array.isArray(paper) ? paper.length : 0,
-        customer: Array.isArray(customer) ? customer.length : 0,
-      })
-    } catch { /* silent */ }
-  }, [])
-
-  useEffect(() => { if (activeTab === 'database') fetchMasterCounts() }, [activeTab, fetchMasterCounts])
-
-  const handleBackupRiwayat = async (tableKey: string) => {
-    setRiwayatLoading(tableKey + '-backup')
-    try {
-      const authHeaders = getAuthHeaders()
-      const params = new URLSearchParams({ table: tableKey, uid: authHeaders['x-user-id'] || '', role: authHeaders['x-user-role'] || '' })
-      window.open(`/api/database/backup-riwayat?${params.toString()}`, '_blank')
-      toast.success(t('backup_riwayat_success'))
-    } catch (e) { console.error('Backup riwayat error:', e); toast.error(t('backup_riwayat_error')) }
-    setRiwayatLoading(null)
-  }
-
-  const handleRestoreRiwayat = async (tableKey: string) => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.xlsx'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-      setRiwayatLoading(tableKey + '-restore')
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('table', tableKey)
-        const res = await authFetch('/api/database/restore-riwayat', {
-          method: 'POST',
-          headers: { ...getAuthHeaders() },
-          body: formData
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.success) {
-            toast.success(`${t('restore_riwayat_success')} (${data.count} ${t('records_count')})`)
-            fetchRiwayatCounts()
-          } else {
-            toast.error(data.error || t('restore_riwayat_error'))
-          }
-        } else {
-          toast.error(t('restore_riwayat_error'))
-        }
-      } catch { toast.error(t('backup_file_invalid')) }
-      setRiwayatLoading(null)
-    }
-    input.click()
-  }
-
-  const handleBackupMaster = async (tableKey: string) => {
-    setMasterLoading(tableKey + '-backup')
-    try {
-      const authHeaders = getAuthHeaders()
-      const params = new URLSearchParams({ table: tableKey, uid: authHeaders['x-user-id'] || '', role: authHeaders['x-user-role'] || '' })
-      window.open(`/api/database/backup-master?${params.toString()}`, '_blank')
-      toast.success(t('backup_master_success'))
-    } catch (e) { console.error('Backup master error:', e); toast.error(t('backup_master_error')) }
-    setMasterLoading(null)
-  }
-
-  const handleRestoreMaster = async (tableKey: string) => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.xlsx'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-      setMasterLoading(tableKey + '-restore')
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('table', tableKey)
-        const res = await authFetch('/api/database/restore-master', {
-          method: 'POST',
-          headers: { ...getAuthHeaders() },
-          body: formData
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.success) {
-            toast.success(`${t('restore_master_success')} (${data.count} ${t('records_count')})`)
-            fetchMasterCounts()
-          } else {
-            toast.error(data.error || t('restore_master_error'))
-          }
-        } else {
-          toast.error(t('restore_master_error'))
-        }
-      } catch { toast.error(t('backup_file_invalid')) }
-      setMasterLoading(null)
-    }
-    input.click()
-  }
-
   // Color picker component
   const ColorPicker = ({ label, icon, value, onChange, presets }: { label: string; icon: React.ReactNode; value: string; onChange: (v: string) => void; presets: { name: string; value: string }[] }) => (
     <div className="space-y-2.5">
       <div className="flex items-center gap-2">
         {icon}
-        <label className="text-xs sm:text-sm font-medium text-slate-700">{label}</label>
+        <label className="text-xs sm:text-sm font-medium text-foreground">{label}</label>
       </div>
       <div className="flex items-center gap-3">
         <div className="relative">
@@ -826,7 +686,7 @@ export default function PengaturanPage() {
             type="color"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="w-10 h-10 rounded-lg border-2 border-slate-200 cursor-pointer p-0.5"
+            className="w-10 h-10 rounded-lg border-2 border-border cursor-pointer p-0.5"
           />
         </div>
         <input
@@ -842,7 +702,7 @@ export default function PengaturanPage() {
           <button
             key={p.value}
             onClick={() => onChange(p.value)}
-            className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${value === p.value ? 'border-blue-500 ring-2 ring-blue-200 scale-110' : 'border-slate-200 hover:border-slate-300'}`}
+            className={`w-7 h-7 rounded-lg border-2 transition-all hover:scale-110 ${value === p.value ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800 scale-110' : 'border-border hover:border-input'}`}
             style={{ backgroundColor: p.value }}
             title={p.name}
           />
@@ -859,54 +719,54 @@ export default function PengaturanPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* ===== ACCOUNT INFO ===== */}
         {userProfile && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-100">
+          <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-border bg-gradient-to-r from-muted/50 to-muted">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center">
-                  <UserCircle className="w-5 h-5 text-slate-600" />
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                  <UserCircle className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-slate-800">{t('informasi_akun')}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('detail_akun')}</p>
+                  <h2 className="text-base font-semibold text-foreground">{t('informasi_akun')}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('detail_akun')}</p>
                 </div>
               </div>
             </div>
             <div className="p-4 sm:p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <UserCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <UserCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{t('username')}</p>
-                      <p className="text-sm font-semibold text-slate-800 truncate">{userProfile.username}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{t('username')}</p>
+                      <p className="text-sm font-semibold text-foreground truncate">{userProfile.username}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <UserCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <UserCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{t('nama_lengkap')}</p>
-                      <p className="text-sm font-semibold text-slate-800 truncate">{userProfile.namaLengkap}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{t('nama_lengkap')}</p>
+                      <p className="text-sm font-semibold text-foreground truncate">{userProfile.namaLengkap}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <UserCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <UserCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{t('role')}</p>
-                      <p className="text-sm font-semibold text-slate-800 capitalize">{userProfile.role}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{t('role')}</p>
+                      <p className="text-sm font-semibold text-foreground capitalize">{userProfile.role}</p>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg">
                     <CalendarDays className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-wider text-emerald-500 font-medium">{t('tanggal_daftar')}</p>
-                      <p className="text-sm font-semibold text-slate-800">
+                      <p className="text-sm font-semibold text-foreground">
                         {userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
                     <Clock className="w-4 h-4 text-amber-500 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-wider text-amber-500 font-medium">{t('masa_berlaku')}</p>
@@ -916,16 +776,16 @@ export default function PengaturanPage() {
                         const isExpired = diffDays <= 0
                         return (
                           <>
-                            <p className={`text-sm font-semibold ${isExpired ? 'text-red-600' : 'text-slate-800'}`}>
+                            <p className={`text-sm font-semibold ${isExpired ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
                               {expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
-                            <p className={`text-[11px] font-medium ${isExpired ? 'text-red-500' : 'text-emerald-600'}`}>
+                            <p className={`text-[11px] font-medium ${isExpired ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                               {isExpired ? t('sudah_berakhir') : `${diffDays} ${t('hari_tersisa')}`}
                             </p>
                           </>
                         )
                       })() : (
-                        <p className="text-sm italic text-slate-400">{t('tidak_ada_masa_berlaku')}</p>
+                        <p className="text-sm italic text-muted-foreground">{t('tidak_ada_masa_berlaku')}</p>
                       )}
                     </div>
                   </div>
@@ -945,28 +805,28 @@ export default function PengaturanPage() {
             { id: 'database', label: t('tab_database'), icon: Database, color: 'emerald' }
           ].map((tab) => {
             const colorMap: Record<string, { active: string; iconBg: string; iconText: string }> = {
-              blue:    { active: 'bg-blue-50 border-blue-400', iconBg: 'bg-blue-100', iconText: 'text-blue-600' },
-              amber:   { active: 'bg-amber-50 border-amber-400', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
-              rose:    { active: 'bg-rose-50 border-rose-400', iconBg: 'bg-rose-100', iconText: 'text-rose-600' },
-              violet:  { active: 'bg-violet-50 border-violet-400', iconBg: 'bg-violet-100', iconText: 'text-violet-600' },
-              emerald: { active: 'bg-emerald-50 border-emerald-400', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
+              blue:    { active: 'bg-blue-50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600', iconBg: 'bg-blue-100 dark:bg-blue-900/40', iconText: 'text-blue-600 dark:text-blue-400' },
+              amber:   { active: 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600', iconBg: 'bg-amber-100 dark:bg-amber-900/40', iconText: 'text-amber-600 dark:text-amber-400' },
+              rose:    { active: 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 dark:border-rose-600', iconBg: 'bg-rose-100 dark:bg-rose-900/40', iconText: 'text-rose-600 dark:text-rose-400' },
+              violet:  { active: 'bg-violet-50 dark:bg-violet-950/30 border-violet-400 dark:border-violet-600', iconBg: 'bg-violet-100 dark:bg-violet-900/40', iconText: 'text-violet-600 dark:text-violet-400' },
+              emerald: { active: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400' },
             }
             const c = colorMap[tab.color]
             const isActive = activeTab === tab.id
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 title={tab.label}
-                className={`flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg border-2 transition-all duration-200 whitespace-nowrap ${isActive ? c.active : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
-                <div className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${isActive ? c.iconBg : 'bg-slate-100'}`}>
-                  <tab.icon className={`w-3.5 h-3.5 transition-colors ${isActive ? c.iconText : 'text-slate-400'}`} />
+                className={`flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-lg border-2 transition-all duration-200 whitespace-nowrap ${isActive ? c.active : 'bg-card border-border hover:border-input hover:bg-muted/50'}`}>
+                <div className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${isActive ? c.iconBg : 'bg-muted'}`}>
+                  <tab.icon className={`w-3.5 h-3.5 transition-colors ${isActive ? c.iconText : 'text-muted-foreground'}`} />
                 </div>
-                <span className={`hidden sm:inline text-[11px] sm:text-xs font-semibold transition-colors ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>{tab.label}</span>
+                <span className={`hidden sm:inline text-[11px] sm:text-xs font-semibold transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>{tab.label}</span>
               </button>
             )
           })}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
 
           <div className="p-4 sm:p-6">
             {/* ===== TAB: UMUM ===== */}
@@ -974,12 +834,12 @@ export default function PengaturanPage() {
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('pengaturan_umum')}</h3>
-                    <p className="text-xs sm:text-sm text-slate-500">{t('pengaturan_umum_desc')}</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">{t('pengaturan_umum')}</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{t('pengaturan_umum_desc')}</p>
                   </div>
                   <button
                     onClick={() => setShowPreview(!showPreview)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${showPreview ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 ${showPreview ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : 'bg-card border-border text-muted-foreground hover:border-input hover:text-foreground'}`}
                   >
                     <Eye className="w-3.5 h-3.5" />
                     {t('pratinjau')}
@@ -989,19 +849,19 @@ export default function PengaturanPage() {
 
                 {/* ===== PRATINJAU (PREVIEW) ===== */}
                 {showPreview && (
-                  <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm overflow-hidden">
-                    <div className="px-3 py-2 bg-slate-100/80 border-b border-slate-200 flex items-center gap-1.5">
-                      <Eye className="w-3 h-3 text-slate-400" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t('pratinjau_dokumen')}</span>
+                  <div className="rounded-xl border border-border bg-gradient-to-br from-muted/50 to-card shadow-sm overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/80 border-b border-border flex items-center gap-1.5">
+                      <Eye className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('pratinjau_dokumen')}</span>
                     </div>
                     <div className="p-4 sm:p-5">
                       {/* Document-style preview */}
-                      <div className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                      <div className="rounded-lg border border-border bg-card p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                         {/* Header - Logo + Company Info */}
                         <div className="flex items-start gap-3 mb-3">
                           <div
                             className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-white font-bold text-base"
-                            style={{ backgroundColor: companyLogo ? 'transparent' : '#1e293b' }}
+                            style={{ backgroundColor: companyLogo ? 'transparent' : (darkMode ? '#64748b' : '#1e293b') }}
                           >
                             {companyLogo ? (
                               <img src={companyLogo} alt="Logo" className="h-full w-full object-contain rounded" />
@@ -1010,26 +870,26 @@ export default function PengaturanPage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[15px] font-bold text-slate-900 truncate">
-                              {companyName || t('placeholder_nama_perusahaan')}
+                            <p className="text-[15px] font-bold text-foreground truncate">
+                              {companyName || ''}
                             </p>
                             {address && (
                               <div className="flex items-start gap-1 mt-0.5">
-                                <MapPin className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
-                                <p className="text-[11px] text-slate-500 leading-tight">{address}</p>
+                                <MapPin className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                <p className="text-[11px] text-muted-foreground leading-tight">{address}</p>
                               </div>
                             )}
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                               {phone && (
                                 <div className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3 text-slate-400" />
-                                  <span className="text-[11px] text-slate-500">{phone}</span>
+                                  <Phone className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-[11px] text-muted-foreground">{phone}</span>
                                 </div>
                               )}
                               {email && (
                                 <div className="flex items-center gap-1">
-                                  <Mail className="w-3 h-3 text-slate-400" />
-                                  <span className="text-[11px] text-slate-500">{email}</span>
+                                  <Mail className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-[11px] text-muted-foreground">{email}</span>
                                 </div>
                               )}
                             </div>
@@ -1037,49 +897,49 @@ export default function PengaturanPage() {
                         </div>
 
                         {/* Divider */}
-                        <div className="border-b-2 border-slate-800 mb-3" />
+                        <div className="border-b-2 border-foreground mb-3" />
 
                         {/* Bank & NPWP Info */}
                         {(bankName || bankName2 || npwp) && (
                           <div className="space-y-2">
                             {bankName && (
-                              <div className="flex items-start gap-2 p-2 bg-teal-50/70 rounded-lg border border-teal-100">
-                                <CreditCard className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex items-start gap-2 p-2 bg-teal-50/70 dark:bg-teal-950/30 rounded-lg border border-teal-100 dark:border-teal-800">
+                                <CreditCard className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 mt-0.5 flex-shrink-0" />
                                 <div className="min-w-0">
-                                  <p className="text-[10px] font-semibold text-teal-700">{bankName}</p>
+                                  <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-400">{bankName}</p>
                                   <div className="flex flex-wrap gap-x-3 gap-y-0">
                                     {bankAccount && (
-                                      <p className="text-[11px] text-slate-700 font-mono">{bankAccount}</p>
+                                      <p className="text-[11px] text-foreground font-mono">{bankAccount}</p>
                                     )}
                                     {bankHolder && (
-                                      <p className="text-[11px] text-slate-500">a.n. {bankHolder}</p>
+                                      <p className="text-[11px] text-muted-foreground">a.n. {bankHolder}</p>
                                     )}
                                   </div>
                                 </div>
                               </div>
                             )}
                             {bankName2 && (
-                              <div className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                <CreditCard className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg border border-border">
+                                <CreditCard className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                                 <div className="min-w-0">
-                                  <p className="text-[10px] font-semibold text-slate-600">{bankName2}</p>
+                                  <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{bankName2}</p>
                                   <div className="flex flex-wrap gap-x-3 gap-y-0">
                                     {bankAccount2 && (
-                                      <p className="text-[11px] text-slate-700 font-mono">{bankAccount2}</p>
+                                      <p className="text-[11px] text-foreground font-mono">{bankAccount2}</p>
                                     )}
                                     {bankHolder2 && (
-                                      <p className="text-[11px] text-slate-500">a.n. {bankHolder2}</p>
+                                      <p className="text-[11px] text-muted-foreground">a.n. {bankHolder2}</p>
                                     )}
                                   </div>
                                 </div>
                               </div>
                             )}
                             {npwp && (
-                              <div className="flex items-center gap-2 p-2 bg-amber-50/70 rounded-lg border border-amber-100">
-                                <Hash className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                              <div className="flex items-center gap-2 p-2 bg-amber-50/70 dark:bg-amber-950/30 rounded-lg border border-amber-100 dark:border-amber-800">
+                                <Hash className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                                 <div>
-                                  <span className="text-[10px] font-semibold text-amber-700">NPWP</span>
-                                  <span className="text-[11px] text-slate-700 ml-1.5 font-mono">{npwp}</span>
+                                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">NPWP</span>
+                                  <span className="text-[11px] text-foreground ml-1.5 font-mono">{npwp}</span>
                                 </div>
                               </div>
                             )}
@@ -1089,8 +949,8 @@ export default function PengaturanPage() {
                         {/* Empty state */}
                         {!companyName && !address && !phone && !email && !bankName && !bankName2 && !npwp && (
                           <div className="text-center py-6">
-                            <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                            <p className="text-xs text-slate-400">{t('pratinjau_kosong')}</p>
+                            <Building2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground">{t('pratinjau_kosong')}</p>
                           </div>
                         )}
                       </div>
@@ -1100,21 +960,21 @@ export default function PengaturanPage() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('logo_perusahaan')}</label>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('logo_perusahaan')}</label>
                     <div className="flex items-center gap-4">
                       <div className="relative">
                         {companyLogo ? (
                           <div className="relative group">
-                            <img src={companyLogo} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-slate-200" />
+                            <img src={companyLogo} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-border" />
                             <button onClick={handleRemoveLogo} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity" type="button"><X className="w-3 h-3" /></button>
                           </div>
                         ) : (
-                          <div className="w-16 h-16 rounded-xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center"><ImageIcon className="w-6 h-6 text-slate-400" /></div>
+                          <div className="w-16 h-16 rounded-xl bg-muted border-2 border-dashed border-input flex items-center justify-center"><ImageIcon className="w-6 h-6 text-muted-foreground" /></div>
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                          <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-card border border-input rounded-lg text-sm font-medium text-foreground hover:bg-muted/50 transition-colors">
                             {uploadingLogo ? <><Loader2 className="w-4 h-4 animate-spin" />{t('mengupload')}</> : <><Upload className="w-4 h-4" />{t('upload_logo')}</>}
                             <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} disabled={uploadingLogo} className="hidden" />
                           </label>
@@ -1122,111 +982,90 @@ export default function PengaturanPage() {
                             {uploadingLogo ? <><Loader2 className="w-4 h-4 animate-spin" />{t('mengupload')}</> : <><Camera className="w-4 h-4" />{t('ambil_foto')}</>}
                           </button>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-1.5">{t('logo_format_hint_auto')}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">{t('logo_format_hint_auto')}</p>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('nama_perusahaan')}</label>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('nama_perusahaan')}</label>
                     <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder={t('perusahaan_placeholder')} className={inputClass} />
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('alamat')}</label>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('alamat')}</label>
                     <textarea rows={3} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('alamat_placeholder')} className={inputClass} />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('email')}</label>
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('email')}</label>
                       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('email_placeholder')} className={inputClass} />
                     </div>
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('telepon')}</label>
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('telepon')}</label>
                       <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('telepon_placeholder')} className={inputClass} />
                     </div>
                   </div>
 
                   {/* Bank Info */}
-                  <div className="border-t border-slate-200 pt-4">
+                  <div className="border-t border-border pt-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Landmark className="w-4 h-4 text-teal-600" />
-                      <h4 className="text-sm font-semibold text-slate-700">{t('bank_utama')}</h4>
+                      <Landmark className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      <h4 className="text-sm font-semibold text-foreground">{t('bank_utama')}</h4>
                     </div>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nama_bank')}</label>
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('nama_bank')}</label>
                         <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder={t('placeholder_nama_bank')} className={inputClass} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nomor_rekening')}</label>
+                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('nomor_rekening')}</label>
                           <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder={t('placeholder_nomor_rekening')} className={inputClass} />
                         </div>
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('atas_nama')}</label>
+                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('atas_nama')}</label>
                           <input type="text" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder={t('placeholder_atas_nama')} className={inputClass} />
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-200 pt-4">
+                  <div className="border-t border-border pt-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Landmark className="w-4 h-4 text-slate-400" />
-                      <h4 className="text-sm font-semibold text-slate-700">{t('bank_kedua')}</h4>
-                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{t('opsional')}</span>
+                      <Landmark className="w-4 h-4 text-muted-foreground" />
+                      <h4 className="text-sm font-semibold text-foreground">{t('bank_kedua')}</h4>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{t('opsional')}</span>
                     </div>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nama_bank')}</label>
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('nama_bank')}</label>
                         <input type="text" value={bankName2} onChange={(e) => setBankName2(e.target.value)} placeholder={t('placeholder_nama_bank')} className={inputClass} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('nomor_rekening')}</label>
+                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('nomor_rekening')}</label>
                           <input type="text" value={bankAccount2} onChange={(e) => setBankAccount2(e.target.value)} placeholder={t('placeholder_nomor_rekening')} className={inputClass} />
                         </div>
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('atas_nama')}</label>
+                          <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('atas_nama')}</label>
                           <input type="text" value={bankHolder2} onChange={(e) => setBankHolder2(e.target.value)} placeholder={t('placeholder_atas_nama')} className={inputClass} />
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-200 pt-4">
+                  <div className="border-t border-border pt-4">
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">{t('npwp')}</label>
+                      <label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">{t('npwp')}</label>
                       <input type="text" value={npwp} onChange={(e) => setNpwp(e.target.value)} placeholder={t('placeholder_npwp')} className={inputClass} />
                     </div>
                   </div>
 
-                  {/* WhatsApp API Settings */}
-                  <div className="border-t border-slate-200 pt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <MessageCircle className="w-4 h-4 text-emerald-600" />
-                      <h4 className="text-sm font-semibold text-slate-700">WhatsApp API</h4>
-                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">Fonnte</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-3">Untuk mengirim password otomatis ke WhatsApp user saat lupa password. Daftar di <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">fonnte.com</a> untuk mendapatkan API key.</p>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">API Key Fonnte</label>
-                        <input type="password" value={waApiKey} onChange={(e) => setWaApiKey(e.target.value)} placeholder="Masukkan API key dari Fonnte" className={inputClass} />
-                      </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">API URL</label>
-                        <input type="url" value={waApiUrl} onChange={(e) => setWaApiUrl(e.target.value)} placeholder="https://api.fonnte.com/send" className={inputClass} />
-                        <p className="text-[11px] text-slate-400 mt-1">Default: https://api.fonnte.com/send</p>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Save & Reset Company Info */}
-                  <div className="pt-4 border-t border-slate-200 flex items-center gap-3">
+                  <div className="pt-4 border-t border-border flex items-center gap-3">
                     <Button onClick={handleSaveCompany} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
                       {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan')}</>}
                     </Button>
-                    <Button onClick={handleResetCompany} disabled={saving} variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700">
+                    <Button onClick={handleResetCompany} disabled={saving} variant="outline" size="sm" className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-700 dark:hover:text-red-300">
                       <RotateCcw className="w-3.5 h-3.5 mr-1.5" />{t('reset')}
                     </Button>
                   </div>
@@ -1237,133 +1076,86 @@ export default function PengaturanPage() {
             {/* ===== TAB: DATABASE ===== */}
             {activeTab === 'database' && (
               <div className="space-y-4 sm:space-y-6">
-                <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-4">{t('pengaturan_database')}</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">{t('pengaturan_database')}</h3>
                 <div className="space-y-5">
-                  {/* Backup Master Cetak */}
-                  <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+                  {/* Full Database Backup & Restore */}
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Database className="w-4 h-4 text-violet-600" />
-                      <h4 className="text-sm font-semibold text-slate-700">{t('backup_master_title')}</h4>
+                      <h4 className="text-sm font-semibold text-foreground">{t('backup_full_title')}</h4>
                     </div>
-                    <p className="text-xs text-slate-500 mb-3">{t('backup_master_desc')}</p>
-                    <div className="space-y-2">
-                      {MASTER_TABLES.map((tbl) => (
-                        <div key={tbl.key} className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-lg">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-base">{tbl.icon}</span>
-                            <span className="text-xs font-medium text-slate-700 truncate">{t(tbl.label as any)}</span>
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{masterCounts[tbl.key] ?? '...'} {t('records_count')}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <Button
-                              onClick={() => handleBackupMaster(tbl.key)}
-                              disabled={masterLoading === tbl.key + '-backup'}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2.5 text-[11px] border-violet-300 text-violet-700 hover:bg-violet-50"
-                            >
-                              {masterLoading === tbl.key + '-backup' ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                              {t('backup')}
-                            </Button>
-                            <Button
-                              onClick={() => handleRestoreMaster(tbl.key)}
-                              disabled={masterLoading === tbl.key + '-restore'}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2.5 text-[11px] border-blue-300 text-blue-700 hover:bg-blue-50"
-                            >
-                              {masterLoading === tbl.key + '-restore' ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
-                              {t('restore')}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                    <p className="text-xs text-muted-foreground mb-3">{t('backup_full_desc')}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        onClick={handleBackupDatabase}
+                        disabled={backupLoading}
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3 text-xs"
+                      >
+                        {backupLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                        {t('backup_semua')}
+                      </Button>
+                      <label className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-md cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors">
+                        {restoreLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                        {t('restore_dari_file')}
+                        <input type="file" accept=".json,.xlsx" onChange={handleRestoreFromFile} className="hidden" disabled={restoreLoading} />
+                      </label>
+
                     </div>
                   </div>
-                  {/* Backup Riwayat */}
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Database className="w-4 h-4 text-emerald-600" />
-                      <h4 className="text-sm font-semibold text-slate-700">{t('backup_riwayat_title')}</h4>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-3">{t('backup_riwayat_desc')}</p>
-                    <div className="space-y-2">
-                      {RIWAYAT_TABLES.map((tbl) => (
-                        <div key={tbl.key} className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-lg">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-base">{tbl.icon}</span>
-                            <span className="text-xs font-medium text-slate-700 truncate">{t(tbl.label as any)}</span>
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatCounts[tbl.key] ?? '...'} {t('records_count')}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <Button
-                              onClick={() => handleBackupRiwayat(tbl.key)}
-                              disabled={riwayatLoading === tbl.key + '-backup'}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2.5 text-[11px] border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                            >
-                              {riwayatLoading === tbl.key + '-backup' ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                              {t('backup')}
-                            </Button>
-                            <Button
-                              onClick={() => handleRestoreRiwayat(tbl.key)}
-                              disabled={riwayatLoading === tbl.key + '-restore'}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2.5 text-[11px] border-blue-300 text-blue-700 hover:bg-blue-50"
-                            >
-                              {riwayatLoading === tbl.key + '-restore' ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
-                              {t('restore')}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3"><Timer className="w-4 h-4 text-blue-600" /><h4 className="text-sm font-semibold text-slate-700">{t('auto_backup_title')}</h4></div>
+
+                  <div className="bg-muted/50 border border-border rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3"><h4 className="text-sm font-semibold text-foreground">{t('auto_backup_title')}</h4></div>
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
-                        <label className="block text-xs text-slate-500 mb-1">{t('auto_backup_interval')}</label>
+                        <label className="block text-xs text-muted-foreground mb-1">{t('auto_backup_interval')}</label>
                         <input type="number" value={autoBackupDays} onChange={(e) => setAutoBackupDays(parseInt(e.target.value) || 1)} min="1" max="365" className={`${inputClass} max-w-[120px]`} />
                       </div>
-                      <Button onClick={handleSaveAutoBackup} disabled={saving} size="sm" className="mt-4"><Save className="w-3.5 h-3.5 mr-1.5" />{saving ? t('menyimpan') : t('simpan')}</Button>
+                      <Button onClick={handleSaveAutoBackup} disabled={saving} size="sm" className="mt-4">{saving ? t('menyimpan') : t('simpan')}</Button>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-2">{t('auto_backup_desc')} {autoBackupDays} {t('auto_backup_unit')}</p>
+                    <p className="text-[11px] text-muted-foreground mt-2">{t('auto_backup_desc')} {autoBackupDays} {t('auto_backup_unit')}</p>
+                    {lastAutoBackup && (
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                        ✅ {t('last_backup')}: {new Date(lastAutoBackup).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                    {nextAutoBackup && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        ⏰ {t('next_backup')}: {new Date(nextAutoBackup).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2"><HardDrive className="w-4 h-4 text-slate-600" /><h4 className="text-sm font-semibold text-slate-700">{t('backup_history')}</h4></div>
-                      <button onClick={fetchBackups} disabled={loadingBackups} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"><RefreshCw className={`w-3 h-3 ${loadingBackups ? 'animate-spin' : ''}`} />{t('refresh')}</button>
+                      <div className="flex items-center gap-2"><h4 className="text-sm font-semibold text-foreground">{t('backup_history')}</h4></div>
+                      <button onClick={fetchBackups} disabled={loadingBackups} className="text-xs text-blue-600 hover:text-blue-700 dark:hover:text-blue-400">{t('refresh')}</button>
                     </div>
                     {loadingBackups ? (
-                      <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+                      <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
                     ) : backups.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400"><FileJson className="w-8 h-8 mx-auto mb-2 opacity-40" /><p className="text-xs">{t('no_backup_yet')}</p></div>
+                      <div className="text-center py-8 text-muted-foreground"><p className="text-xs">{t('no_backup_yet')}</p></div>
                     ) : (
                       <div className="space-y-2 max-h-72 overflow-y-auto">
                         {backups.map((b) => (
-                          <div key={b.fileName} className="flex items-center justify-between gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:border-slate-300 transition-colors">
+                          <div key={b.fileName} className="flex items-center justify-between gap-3 p-3 bg-card border border-border rounded-lg hover:border-input transition-colors">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${b.fileName.startsWith('auto-backup') ? 'bg-blue-50' : 'bg-emerald-50'}`}>
-                                {b.fileName.startsWith('auto-backup') ? <Timer className="w-4 h-4 text-blue-500" /> : <Database className="w-4 h-4 text-emerald-500" />}
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${b.fileName.startsWith('auto-backup') ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600'}`}>
+                                {b.fileName.startsWith('auto-backup') ? 'A' : 'M'}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-medium text-slate-700 truncate">{b.fileName}</p>
-                                <p className="text-[10px] text-slate-400">{b.rowCount} {t('records')} • {b.sizeFormatted} • {new Date(b.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="text-xs font-medium text-foreground truncate">{b.fileName}</p>
+                                <p className="text-[10px] text-muted-foreground">{b.rowCount} {t('records')} • {b.sizeFormatted} • {new Date(b.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               {showRestoreConfirm === b.fileName ? (
                                 <div className="flex items-center gap-1">
                                   <button onClick={() => handleRestoreFromServer(b.fileName)} disabled={restoreLoading} className="px-2 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors">{restoreLoading ? '...' : t('confirm_restore')}</button>
-                                  <button onClick={() => setShowRestoreConfirm(null)} className="px-2 py-1 text-[10px] font-medium bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors">{t('batal')}</button>
+                                  <button onClick={() => setShowRestoreConfirm(null)} className="px-2 py-1 text-[10px] font-medium bg-muted text-slate-600 dark:text-slate-300 rounded hover:bg-muted/80 transition-colors">{t('batal')}</button>
                                 </div>
                               ) : (
                                 <>
-                                  <button onClick={() => setShowRestoreConfirm(b.fileName)} disabled={restoreLoading || backupLoading} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title={t('restore')}><RotateCcw className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => handleDeleteBackup(b.fileName)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title={t('hapus')}><Trash2 className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setShowRestoreConfirm(b.fileName)} disabled={restoreLoading || backupLoading} className="p-1.5 text-xs font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors" title={t('restore')}>{t('restore')}</button>
+                                  <button onClick={() => handleDeleteBackup(b.fileName)} className="p-1.5 text-xs font-medium text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors" title={t('hapus')}>{t('hapus')}</button>
                                 </>
                               )}
                             </div>
@@ -1380,43 +1172,43 @@ export default function PengaturanPage() {
             {activeTab === 'profit' && (
               <div className="space-y-4 sm:space-y-6">
                 <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('persentase_profit')}</h3>
-                  <p className="text-xs sm:text-sm text-slate-500 mb-4">{t('profit_desc')}</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">{t('persentase_profit')}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">{t('profit_desc')}</p>
                 </div>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">{t('profit_per_cetak')}</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">{t('profit_per_cetak')}</label>
                       <div className="relative">
-                        <input type="number" min="0" max="999" step="0.1" value={profitPercent} onChange={(e) => setProfitPercent(e.target.value)} placeholder={t('contoh_angka')} className={`${inputClass} pr-10 text-lg font-bold text-amber-700`} disabled={loading} />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500">%</span>
+                        <input type="number" min="0" max="999" step="0.1" value={profitPercent} onChange={(e) => setProfitPercent(e.target.value)} placeholder={t('contoh_angka')} className={`${inputClass} pr-10 text-lg font-bold text-amber-700 dark:text-amber-400`} disabled={loading} />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-amber-500 dark:text-amber-400">%</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1.5">{t('profit_desc_detail')}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1.5">{t('profit_desc_detail')}</p>
                     </div>
                     <div className="flex flex-col justify-center">
-                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+                      <div className="bg-gradient-to-br from-amber-50 dark:from-amber-950/30 to-orange-50 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                          <span className="text-xs font-medium text-amber-600">{t('simulasi')}</span>
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">{t('simulasi')}</span>
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-500">{t('sub_total')}</span>
-                            <span className="text-sm font-semibold text-slate-700">Rp 1.000.000</span>
+                            <span className="text-xs text-muted-foreground">{t('sub_total')}</span>
+                            <span className="text-sm font-semibold text-foreground">Rp 1.000.000</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-amber-600">{t('persentase_profit')} ({profitPercent || 0}%)</span>
-                            <span className="text-sm font-bold text-amber-700">Rp {(1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                            <span className="text-xs text-amber-600 dark:text-amber-400">{t('persentase_profit')} ({profitPercent || 0}%)</span>
+                            <span className="text-sm font-bold text-amber-700 dark:text-amber-400">Rp {(1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
                           </div>
-                          <div className="border-t border-amber-200 pt-2 flex justify-between items-center">
-                            <span className="text-xs font-semibold text-emerald-700">{t('grand_total')}</span>
-                            <span className="text-base font-bold text-emerald-700">Rp {(1000000 + 1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                          <div className="border-t border-amber-200 dark:border-amber-800 pt-2 flex justify-between items-center">
+                            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{t('grand_total')}</span>
+                            <span className="text-base font-bold text-emerald-700 dark:text-emerald-400">Rp {(1000000 + 1000000 * (parseFloat(profitPercent) || 0) / 100).toLocaleString('id-ID')}</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="pt-4 border-t border-slate-200 flex items-center gap-3">
+                  <div className="pt-4 border-t border-border flex items-center gap-3">
                     <Button onClick={handleSaveProfit} disabled={saving || loading} className="bg-amber-600 hover:bg-amber-700 text-white">
                       {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan_profit')}</>}
                     </Button>
@@ -1432,43 +1224,43 @@ export default function PengaturanPage() {
             {activeTab === 'dokumen' && (
               <div className="space-y-4 sm:space-y-6">
                 <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">Data Perusahaan</h3>
-                  <p className="text-xs sm:text-sm text-slate-500 mb-4">Pengaturan data perusahaan untuk dokumen invoice, surat jalan, dan purchase order.</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">Data Perusahaan</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">Pengaturan data perusahaan untuk dokumen invoice, surat jalan, dan purchase order.</p>
                 </div>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">PPN (%)</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">PPN (%)</label>
                       <div className="relative">
-                        <input type="number" min="0" max="100" step="0.1" value={ppnPercent} onChange={(e) => setPpnPercent(e.target.value)} placeholder="11" className={`${inputClass} pr-10 text-lg font-bold text-rose-700`} disabled={loading} />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-rose-500">%</span>
+                        <input type="number" min="0" max="100" step="0.1" value={ppnPercent} onChange={(e) => setPpnPercent(e.target.value)} placeholder="11" className={`${inputClass} pr-10 text-lg font-bold text-rose-700 dark:text-rose-400`} disabled={loading} />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-rose-500 dark:text-rose-400">%</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1.5">Persentase PPN default yang akan diterapkan ke Invoice dan Purchase Order.</p>
+                      <p className="text-[11px] text-muted-foreground mt-1.5">Persentase PPN default yang akan diterapkan ke Invoice dan Purchase Order.</p>
                     </div>
                     <div className="flex flex-col justify-center">
-                      <div className="bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-xl p-4">
+                      <div className="bg-gradient-to-br from-rose-50 dark:from-rose-950/30 to-pink-50 dark:to-pink-950/30 border border-rose-200 dark:border-rose-800 rounded-xl p-4">
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-                          <span className="text-xs font-medium text-rose-600">Simulasi</span>
+                          <span className="text-xs font-medium text-rose-600 dark:text-rose-400">Simulasi</span>
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-500">Sub Total</span>
-                            <span className="text-sm font-semibold text-slate-700">Rp 1.000.000</span>
+                            <span className="text-xs text-muted-foreground">Sub Total</span>
+                            <span className="text-sm font-semibold text-foreground">Rp 1.000.000</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-rose-600">PPN ({ppnPercent || 0}%)</span>
-                            <span className="text-sm font-bold text-rose-700">Rp {(1000000 * (parseFloat(ppnPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                            <span className="text-xs text-rose-600 dark:text-rose-400">PPN ({ppnPercent || 0}%)</span>
+                            <span className="text-sm font-bold text-rose-700 dark:text-rose-400">Rp {(1000000 * (parseFloat(ppnPercent) || 0) / 100).toLocaleString('id-ID')}</span>
                           </div>
-                          <div className="border-t border-rose-200 pt-2 flex justify-between items-center">
-                            <span className="text-xs font-semibold text-emerald-700">Grand Total</span>
-                            <span className="text-base font-bold text-emerald-700">Rp {(1000000 + 1000000 * (parseFloat(ppnPercent) || 0) / 100).toLocaleString('id-ID')}</span>
+                          <div className="border-t border-rose-200 dark:border-rose-800 pt-2 flex justify-between items-center">
+                            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Grand Total</span>
+                            <span className="text-base font-bold text-emerald-700 dark:text-emerald-400">Rp {(1000000 + 1000000 * (parseFloat(ppnPercent) || 0) / 100).toLocaleString('id-ID')}</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="pt-4 border-t border-slate-200 flex items-center gap-3">
+                  <div className="pt-4 border-t border-border flex items-center gap-3">
                     <Button onClick={handleSavePpn} disabled={saving || loading} className="bg-rose-600 hover:bg-rose-700 text-white">
                       {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4 mr-2" />Simpan PPN</>}
                     </Button>
@@ -1484,13 +1276,13 @@ export default function PengaturanPage() {
             {activeTab === 'tampilan' && (
               <div className="space-y-4 sm:space-y-6">
                 <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">{t('pengaturan_tampilan')}</h3>
-                  <p className="text-xs sm:text-sm text-slate-500 mb-4">{t('tema_warna_aplikasi')}</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">{t('pengaturan_tampilan')}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">{t('tema_warna_aplikasi')}</p>
                 </div>
                 <div className="space-y-5">
                   {/* Language */}
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('bahasa')}</label>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('bahasa')}</label>
                     <select value={appLanguage} onChange={(e) => setAppLanguage(e.target.value as Language)} className={inputClass}>
                       <option value="id">{t('bahasa_indonesia')}</option>
                       <option value="en">{t('english')}</option>
@@ -1498,7 +1290,7 @@ export default function PengaturanPage() {
                   </div>
                   {/* Font Size */}
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">{t('ukuran_font')}</label>
+                    <label className="block text-xs sm:text-sm font-medium text-foreground mb-2">{t('ukuran_font')}</label>
                     <select value={fontSize} onChange={(e) => { setFontSize(e.target.value); applyFontSizeLive(e.target.value) }} className={inputClass}>
                       <option value="small">{t('kecil')}</option>
                       <option value="medium">{t('sedang')}</option>
@@ -1506,50 +1298,75 @@ export default function PengaturanPage() {
                     </select>
                   </div>
 
+                  {/* Dark Mode */}
+                  <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl border border-border bg-muted/50 dark:bg-slate-800/50 dark:border-slate-700">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${darkMode ? 'bg-violet-100 dark:bg-violet-900/40' : 'bg-amber-100 dark:bg-amber-900/40'}`}>
+                        {darkMode ? <Moon className="w-4 h-4 text-violet-600 dark:text-violet-400" /> : <Sun className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
+                      </div>
+                      <div>
+                        <label className="text-xs sm:text-sm font-medium text-foreground">{t('mode_gelap')}</label>
+                        <p className="text-xs text-muted-foreground">{t('mode_gelap_desc')}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const newDarkMode = !darkMode
+                        setDarkMode(newDarkMode)
+                        setThemeRef.current(newDarkMode ? 'dark' : 'light')
+                        persistDarkMode(newDarkMode)
+                        // Immediately persist dark mode to database so it doesn't revert
+                        try {
+                          await authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'theme_dark_mode', value: newDarkMode ? 'true' : 'false' }) })
+                        } catch { /* silent */ }
+                        if (newDarkMode) {
+                          // Clear all inline overrides so .dark CSS vars take effect
+                          clearInlineOverridesForDarkMode()
+                        } else {
+                          // Re-apply all color overrides for light mode
+                          applySidebarColor(sidebarColor)
+                          applyBgColor(bgColor)
+                          applyBannerColor(bannerColor)
+                        }
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkMode ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-slate-100 transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+
                   {/* ===== COLOR PICKERS ===== */}
-                  <div className="border-t border-slate-200 pt-5">
+                  <div className="border-t border-border pt-5">
                     <div className="flex items-center gap-2 mb-5">
-                      <Pipette className="w-4 h-4 text-violet-600" />
-                      <h4 className="text-sm font-semibold text-slate-700">{t('tema_warna_aplikasi')}</h4>
+                      <Pipette className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                      <h4 className="text-sm font-semibold text-foreground">{t('tema_warna_aplikasi')}</h4>
                     </div>
                     <div className="space-y-6">
                       <ColorPicker
                         label={t('color_sidebar')}
-                        icon={<div className="w-4 h-4 rounded bg-slate-400 border border-slate-300" />}
+                        icon={<div className="w-4 h-4 rounded bg-muted-foreground border border-input" />}
                         value={sidebarColor}
                         onChange={handleSidebarColorChange}
                         presets={colorPresets.sidebar}
                       />
                       <ColorPicker
                         label={t('color_background')}
-                        icon={<div className="w-4 h-4 rounded bg-slate-100 border border-slate-300" />}
+                        icon={<div className="w-4 h-4 rounded bg-muted border border-input" />}
                         value={bgColor}
                         onChange={handleBgColorChange}
                         presets={colorPresets.background}
                       />
-                      <ColorPicker
-                        label={t('color_popup')}
-                        icon={<div className="w-4 h-4 rounded bg-white border border-slate-300" />}
-                        value={popupColor}
-                        onChange={handlePopupColorChange}
-                        presets={colorPresets.popup}
-                      />
+
                       <ColorPicker
                         label={t('color_banner')}
-                        icon={<div className="w-4 h-4 rounded bg-blue-50 border border-slate-300" />}
+                        icon={<div className="w-4 h-4 rounded bg-blue-50 dark:bg-blue-950/50 border border-input" />}
                         value={bannerColor}
                         onChange={handleBannerColorChange}
                         presets={colorPresets.banner}
                       />
-                      <ColorPicker
-                        label={t('color_login')}
-                        icon={<div className="w-4 h-4 rounded bg-sky-100 border border-slate-300" />}
-                        value={loginColor}
-                        onChange={handleLoginColorChange}
-                        presets={colorPresets.login}
-                      />
+
                     </div>
-                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border">
                       <Button onClick={handleResetColors} variant="outline" size="sm">
                         <Undo2 className="w-3.5 h-3.5 mr-1.5" />{t('color_default')}
                       </Button>
@@ -1557,7 +1374,7 @@ export default function PengaturanPage() {
                   </div>
                 </div>
                 {/* Save Perubahan Button */}
-                <div className="pt-4 border-t border-slate-200">
+                <div className="pt-4 border-t border-border">
                   <Button onClick={handleSaveTampilan} disabled={saving} className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white">
                     {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menyimpan')}</> : <><Save className="w-4 h-4 mr-2" />{t('simpan_perubahan')}</>}
                   </Button>

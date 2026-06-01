@@ -27,7 +27,7 @@ interface PrintingCost {
 
 // === CSS Classes ===
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors'
-const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-white appearance-none cursor-pointer'
+const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5'
 
 export default function HitungOngkosCetakPage() {
@@ -550,7 +550,7 @@ Harga/Lembar: ${fmt(qty > 0 ? Math.round(calculations.grandTotal / qty) : 0)}`
 
           {/* ========== LEFT COLUMN: Form ========== */}
           <div className="flex-1 lg:overflow-y-auto min-w-0 hide-scrollbar">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden space-y-0">
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden space-y-0">
 
               {/* Section 1: Informasi */}
               <SectionHeader icon={<Info className="w-3.5 h-3.5 text-blue-600" />} label="Informasi" color="blue" />
@@ -685,7 +685,7 @@ Harga/Lembar: ${fmt(qty > 0 ? Math.round(calculations.grandTotal / qty) : 0)}`
 
           {/* ========== RIGHT COLUMN: Results Panel ========== */}
           <div className="w-full lg:w-[380px] flex-shrink-0 mt-4 lg:mt-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:sticky lg:top-4">
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden lg:sticky lg:top-4">
               <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
                 <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center">
                   <Calculator className="w-3.5 h-3.5 text-emerald-600" />
@@ -793,7 +793,7 @@ Harga/Lembar: ${fmt(qty > 0 ? Math.round(calculations.grandTotal / qty) : 0)}`
 
         {/* ========== RIWAYAT ONGKOS CETAK (Full Width) ========== */}
         <div className="mt-4">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
               <div className="w-6 h-6 rounded-md bg-amber-100 flex items-center justify-center">
                 <History className="w-3.5 h-3.5 text-amber-600" />

@@ -11,7 +11,6 @@ import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { SuratJalanPreview } from './surat-jalan-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { HistoryTable } from './history-table';
 import { DocumentActionButtons } from './document-action-buttons';
 import { getAuthHeaders } from '@/lib/auth';
 import type { SuratJalanData, InvoiceData } from '@/lib/types';
@@ -87,6 +86,23 @@ export function SuratJalanEditor() {
   useEffect(() => { loadCompanyFromAPI() }, [loadCompanyFromAPI]);
   useEffect(() => { fetchInvoiceHistory() }, [fetchInvoiceHistory]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
+
+  // Fetch next Surat Jalan number from server
+  const fetchNextNumber = useCallback(() => {
+    fetch('/api/history?preview=next-number&docType=surat-jalan', { headers: getAuthHeaders() })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.nextNumber) setSuratJalan((prev) => ({ ...prev, nomor: data.nextNumber })) })
+      .catch(() => {});
+  }, [setSuratJalan]);
+
+  useEffect(() => { fetchNextNumber() }, [fetchNextNumber]);
+
+  // Re-fetch next number after a document is saved
+  useEffect(() => {
+    const handler = () => { fetchNextNumber() };
+    window.addEventListener('dokupro:history-updated', handler);
+    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+  }, [fetchNextNumber]);
 
   // Sync referensiInput when sj.referensi changes externally
   useEffect(() => { setReferensiInput(sj.referensi) }, [sj.referensi]);
@@ -239,10 +255,6 @@ export function SuratJalanEditor() {
     }));
   };
 
-  const handleLoad = (data: unknown) => {
-    setSuratJalan(data as SuratJalanData);
-  };
-
   return (
     <>
       <DocumentEditorLayout
@@ -259,7 +271,7 @@ export function SuratJalanEditor() {
       >
         <CompanyFields company={sj.company} onChange={updateCompany} />
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
           </h3>
@@ -329,7 +341,7 @@ export function SuratJalanEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Kepada Yth :
           </h3>
@@ -408,7 +420,7 @@ export function SuratJalanEditor() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Informasi Tambahan
           </h3>
@@ -436,7 +448,7 @@ export function SuratJalanEditor() {
           showPrice={false}
         />
 
-        <div className="rounded-lg border bg-white p-3 sm:p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Catatan
           </h3>
@@ -451,13 +463,6 @@ export function SuratJalanEditor() {
         </div>
       </DocumentEditorLayout>
 
-      <div className="mx-auto max-w-7xl px-4 pb-8 md:px-6">
-        <HistoryTable
-          docType="surat-jalan"
-          documentLabel="Surat Jalan"
-          onLoad={handleLoad}
-        />
-      </div>
     </>
   );
 }

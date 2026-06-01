@@ -172,9 +172,10 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
       const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
       const ppn = parsed.ppn || 0;
       const totalHarga = subtotal + (subtotal * ppn / 100);
-      return { namaBarang, hargaSatuan, totalQty, totalHarga };
+      const tanggalJatuhTempo = parsed.tanggalJatuhTempo || '';
+      return { namaBarang, hargaSatuan, totalQty, totalHarga, tanggalJatuhTempo };
     } catch {
-      return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0 };
+      return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, tanggalJatuhTempo: '' };
     }
   };
 
@@ -205,7 +206,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border bg-white max-h-[400px] overflow-y-auto">
+        <div className="rounded-lg border bg-card max-h-[400px] overflow-y-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -213,6 +214,9 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                 <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
                 <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
                 <TableHead className="text-[11px] font-semibold text-gray-500">Nama Customer</TableHead>
+                {(docType === 'invoice' || docType === 'purchase-order') && (
+                  <TableHead className="text-[11px] font-semibold text-gray-500">Jatuh Tempo</TableHead>
+                )}
                 {showPriceColumns && (
                   <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
                 )}
@@ -237,13 +241,37 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                 return (
                   <TableRow key={entry.id} className="group">
                     <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
-                    <TableCell className="py-2.5 text-xs font-medium text-gray-900">{entry.nomor}</TableCell>
+                    <TableCell className="py-2.5 text-xs">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wide ${
+                        entry.docType === 'invoice' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                        entry.docType === 'surat-jalan' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                        entry.docType === 'purchase-order' ? 'bg-violet-50 text-violet-700 border border-violet-200' :
+                        'bg-slate-50 text-slate-700 border border-slate-200'
+                      }`}>
+                        {entry.nomor}
+                      </span>
+                    </TableCell>
                     <TableCell className="py-2.5 text-xs text-gray-500">
                       {entry.tanggal ? formatTanggal(entry.tanggal) : '-'}
                     </TableCell>
                     <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">
                       {entry.pihakKedua}
                     </TableCell>
+                    {(docType === 'invoice' || docType === 'purchase-order') && (
+                      <TableCell className="py-2.5 text-xs text-center">
+                        {info?.tanggalJatuhTempo ? (
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                            new Date(info.tanggalJatuhTempo) < new Date(new Date().toISOString().slice(0, 10))
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     {showPriceColumns && (
                       <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info?.namaBarang || ''}>
                         {info?.namaBarang ? info.namaBarang.split('\n')[0] : '-'}

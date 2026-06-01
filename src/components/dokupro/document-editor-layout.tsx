@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Eye, X, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface DocumentEditorLayoutProps {
@@ -16,32 +16,6 @@ export function DocumentEditorLayout({
   actions,
 }: DocumentEditorLayoutProps) {
   const [showMobilePreview, setShowMobilePreview] = useState(false);
-  const mobilePreviewRef = useRef<HTMLDivElement>(null);
-  const [mobileScale, setMobileScale] = useState(1);
-
-  // Scale mobile preview to fit container
-  useEffect(() => {
-    if (!showMobilePreview) return;
-    const updateScale = () => {
-      if (!mobilePreviewRef.current) return;
-      const style = getComputedStyle(mobilePreviewRef.current);
-      const paddingLeft = parseFloat(style.paddingLeft) || 0;
-      const paddingRight = parseFloat(style.paddingRight) || 0;
-      const availableWidth = mobilePreviewRef.current.clientWidth - paddingLeft - paddingRight;
-      const designWidth = 576;
-      if (availableWidth < designWidth) {
-        setMobileScale(availableWidth / designWidth);
-      } else {
-        setMobileScale(1);
-      }
-    };
-    const timer = setTimeout(updateScale, 50);
-    window.addEventListener('resize', updateScale);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateScale);
-    };
-  }, [showMobilePreview]);
 
   return (
     <div className="min-h-screen">
@@ -77,7 +51,7 @@ export function DocumentEditorLayout({
           {/* Toggle Button */}
           <button
             onClick={() => setShowMobilePreview(!showMobilePreview)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 active:bg-slate-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 bg-card border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 active:bg-slate-100 transition-colors"
           >
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4 text-slate-600" />
@@ -94,24 +68,11 @@ export function DocumentEditorLayout({
 
           {/* Collapsible Preview */}
           {showMobilePreview && (
-            <div className="mt-3" ref={mobilePreviewRef}>
-              {/* Outer container: matches the scaled dimensions so no layout overflow */}
-              <div style={{
-                width: mobileScale < 1 ? `${576 * mobileScale}px` : 576,
-                height: mobileScale < 1 ? `${576 * (210 / 148) * mobileScale}px` : undefined,
-                overflow: 'hidden',
-                margin: '0 auto',
-              }}>
-                {/* Inner container: renders at full 576px design width, then scaled down */}
-                <div style={{
-                  width: 576,
-                  transform: `scale(${mobileScale})`,
-                  transformOrigin: 'top left',
-                }}>
-                  <div className="a5-preview-container bg-white" style={{ aspectRatio: '148 / 210', maxWidth: 576 }}>
-                    <div className="a5-preview-scaler">
-                      {previewContent}
-                    </div>
+            <div className="mt-3 flex justify-center">
+              <div className="w-full max-w-[420px]">
+                <div className="a5-preview-container bg-white" style={{ aspectRatio: '148 / 210' }}>
+                  <div className="a5-preview-scaler">
+                    {previewContent}
                   </div>
                 </div>
               </div>

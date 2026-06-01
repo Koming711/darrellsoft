@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { getServerUser } from '@/lib/server-auth'
 
 function buildDatePrefix(prefix: string, year: number, month: string): string {
-  return `${prefix}-${year}${month}`
+  return `${prefix}-${String(year).slice(-2)}${month}`
 }
 
 function parseLastSeq(number: string, prefix: string): number {
