@@ -681,7 +681,7 @@ export default function Home() {
           />
           <PricingCard
             title="Langganan Bulanan"
-            price="Rp 128.000"
+            price="Rp 118.000"
             period="per bulan"
             description="Langganan bulanan, sangat fleksibel"
             periodBelow
