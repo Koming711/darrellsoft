@@ -1,0 +1,645 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@source not "../../upload/**";
+@source not "../../examples/**";
+@source not "../../skills/**";
+@source not "../../mini-services/**";
+@source not "../../download/**";
+@source not "../../_temp/**";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-space: srgb;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: #ffffff;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #292524;
+  --primary-foreground: #fafaf9;
+  --secondary: #f5f5f4;
+  --secondary-foreground: #292524;
+  --muted: #f5f5f4;
+  --muted-foreground: #78716c;
+  --accent: #f5f5f4;
+  --accent-foreground: #292524;
+  --destructive: #ef4444;
+  --border: #e7e5e4;
+  --input: #e7e5e4;
+  --ring: #a8a29e;
+  --chart-1: #f59e0b;
+  --chart-2: #14b8a6;
+  --chart-3: #3b82f6;
+  --chart-4: #eab308;
+  --chart-5: #f97316;
+  --sidebar: #fafaf9;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #292524;
+  --sidebar-primary-foreground: #fafaf9;
+  --sidebar-accent: #f5f5f4;
+  --sidebar-accent-foreground: #292524;
+  --sidebar-border: #e7e5e4;
+  --sidebar-ring: #a8a29e;
+  --app-sidebar-bg: #ffffff;
+  --app-sidebar-border: #e2e8f0;
+  --app-sidebar-active-bg: rgba(59,130,246,0.08);
+  --app-sidebar-active-text: #2563eb;
+  --app-content-bg: #f8fafc;
+  --app-banner-bg: #ffffff;
+  --app-banner-text: #1e293b;
+  --app-banner-text-muted: #64748b;
+  --app-font-size: 16px;
+  --app-font-size-sm: 14px;
+  --app-font-size-lg: 18px;
+  --app-font-size-xs: 12px;
+  font-size: var(--app-font-size);
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --card: #111111;
+  --card-foreground: #f5f5f5;
+  --popover: #111111;
+  --popover-foreground: #f5f5f5;
+  --primary: #e7e5e4;
+  --primary-foreground: #111111;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #f5f5f5;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+  --accent: #1a1a1a;
+  --accent-foreground: #f5f5f5;
+  --destructive: #dc2626;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #78716c;
+  --chart-1: #7c3aed;
+  --chart-2: #10b981;
+  --chart-3: #f97316;
+  --chart-4: #a855f7;
+  --chart-5: #ef4444;
+  --sidebar: #111111;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #7c3aed;
+  --sidebar-primary-foreground: #f5f5f5;
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #78716c;
+  --app-sidebar-bg: #111111;
+  --app-sidebar-border: rgba(255, 255, 255, 0.08);
+  --app-sidebar-text: #f1f5f9;
+  --app-sidebar-text-muted: #94a3b8;
+  --app-sidebar-active-bg: rgba(255,255,255,0.1);
+  --app-sidebar-active-text: #93c5fd;
+  --app-content-bg: #000000;
+  --app-banner-bg: #111111;
+  --app-banner-text: #f1f5f9;
+  --app-banner-text-muted: #94a3b8;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ===== Dark Mode Global Overrides ===== */
+/* These rules ensure hardcoded Tailwind light-mode classes render properly in dark mode.
+   They only apply when the .dark class is present on the <html> element. */
+
+/* Dark card utility - use this class on card containers for automatic dark mode support */
+.dark-card {
+  background-color: #111111;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Light gray backgrounds → dark gray in dark mode */
+.dark .bg-slate-50,
+.dark .bg-gray-50 {
+  background-color: #1a1a1a !important;
+}
+
+.dark .bg-slate-50\/60,
+.dark .bg-slate-50\/80,
+.dark .bg-gray-50\/50,
+.dark .bg-gray-50\/80 {
+  background-color: rgba(26, 26, 26, 0.6) !important;
+}
+
+.dark .bg-slate-100,
+.dark .bg-gray-100 {
+  background-color: #1a1a1a !important;
+}
+
+/* Border overrides */
+.dark .border-slate-200,
+.dark .border-gray-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .border-slate-300,
+.dark .border-gray-300 {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark .border-slate-100 {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Divider overrides */
+.dark .divide-slate-100 > :not(:last-child) {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .divide-slate-200 > :not(:last-child) {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Text color overrides: dark text → light text */
+.dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-gray-900 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+/* Placeholder overrides */
+.dark .placeholder\:text-slate-400::placeholder {
+  color: #64748b !important;
+}
+
+/* Input/Select bg overrides */
+.dark select.bg-white,
+.dark input.bg-white {
+  background-color: #1a1a1a !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Hover overrides */
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-gray-50:hover {
+  background-color: rgba(26, 26, 26, 0.8) !important;
+}
+
+/* Tab active state override - handled by dark mode CSS variables */
+
+/* ===== Animated Logo Keyframes ===== */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes float-xl {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-xl {
+  animation: float-xl 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+/* ===== Hide Scrollbar ===== */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== Landing Page Animation Effects ===== */
+
+/* Ripple effect on button click */
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.35) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0);
+  transition: none;
+  pointer-events: none;
+  z-index: 10;
+}
+.ripple-btn:active::after {
+  opacity: 1;
+  transform: scale(2.5);
+  transition: transform 0.5s ease-out, opacity 0.6s ease-out;
+}
+
+/* Dark button ripple */
+.ripple-btn-dark::after {
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(0,0,0,0.15) 0%, transparent 70%);
+}
+
+/* Card tap effect */
+.card-tap {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+.card-tap:active {
+  transform: scale(0.98) translateY(2px);
+}
+
+/* Nav link hover slide effect */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(to right, #f97316, #f59e0b);
+  transition: width 0.3s ease, left 0.3s ease;
+  border-radius: 1px;
+}
+.nav-link:hover::after,
+.nav-link:active::after {
+  width: 100%;
+  left: 0;
+}
+
+/* FAQ card pulse on tap */
+.faq-tap {
+  transition: transform 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.faq-tap:active {
+  transform: scale(0.985);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  border-color: #fb923c;
+}
+
+/* Advantage card slide effect */
+.advantage-tap {
+  transition: transform 0.25s ease, box-shadow 0.3s ease;
+}
+.advantage-tap:active {
+  transform: translateX(4px) scale(0.99);
+}
+
+/* CTA button glow pulse on hover */
+.cta-glow {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+.cta-glow:hover {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.4), 0 0 60px rgba(249, 115, 22, 0.15);
+}
+.cta-glow:active {
+  transform: scale(0.94);
+}
+
+/* ===== DokuPro Document Preview & Print Styles ===== */
+
+/* A5 Preview on screen — scale down to fit column */
+.a5-preview-container {
+  width: 100%;
+  max-width: 576px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  position: relative;
+  background: white;
+}
+
+.a5-preview-scaler {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transform-origin: top left;
+  font-size: 10pt;
+}
+
+.a5-preview-container h2 {
+  font-size: 12pt !important;
+}
+.a5-preview-container table {
+  font-size: 10pt !important;
+}
+.a5-preview-container table thead th {
+  font-size: 10pt !important;
+}
+.a5-preview-container p,
+.a5-preview-container span {
+  font-size: inherit !important;
+}
+.doc-detail p,
+.doc-detail span {
+  font-size: 10pt !important;
+}
+.doc-detail {
+  padding-right: 1cm;
+}
+.doc-recipient p,
+.doc-recipient span {
+  font-size: 10pt !important;
+}
+.a5-preview-container .print-logo-box {
+  height: 28px !important;
+  width: 28px !important;
+  font-size: 14pt !important;
+}
+.a5-preview-container table td,
+.a5-preview-container table th {
+  border-bottom: none;
+}
+.a5-preview-container .print-totals {
+  font-size: 13px !important;
+}
+.a5-preview-container .print-sig-grid > div > p {
+  margin-bottom: 3.5rem !important;
+}
+.a5-preview-container .company-info .company-name {
+  font-size: 12pt !important;
+}
+.a5-preview-container .company-info p,
+.a5-preview-container .company-info span {
+  font-size: 8pt !important;
+}
+
+/* Print styles — A5 portrait, 1 page */
+@media print {
+  @page {
+    size: 148mm 210mm;
+    margin: 10mm 10mm 0 10mm;
+  }
+
+  html, body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10pt !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  header,
+  footer,
+  nav,
+  .print-hidden {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .min-h-screen {
+    min-height: auto !important;
+  }
+
+  #document-preview {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #document-preview > div {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  #document-preview .sticky {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .a5-preview-container {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+  }
+
+  .a5-preview-scaler {
+    overflow: hidden !important;
+    transform: none !important;
+  }
+
+  #document-preview .a5-preview-scaler > div {
+    padding: 0 0 3mm 0 !important;
+  }
+
+  #document-preview > div > div:last-child,
+  .a5-preview-container {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-height: 200mm !important;
+    overflow: hidden !important;
+  }
+
+  #document-preview .a5-preview-container,
+  #document-preview .a5-preview-scaler,
+  #document-preview table {
+    page-break-inside: avoid !important;
+  }
+  #document-preview *::before,
+  #document-preview *::after {
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+  }
+
+  .print-table-8mm tr {
+    height: 7.5mm;
+  }
+  .print-table-8mm td,
+  .print-table-8mm th {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    vertical-align: middle;
+    border-bottom: none !important;
+  }
+
+  .print-sig-gap {
+    margin-bottom: 0 !important;
+  }
+
+  #document-preview .print-sig-grid > div > p {
+    margin-bottom: 2rem !important;
+  }
+
+  #document-preview p,
+  #document-preview span,
+  #document-preview td,
+  #document-preview th,
+  #document-preview div {
+    color: #000 !important;
+    border-color: #000 !important;
+  }
+
+  #document-preview table thead tr {
+    background-color: #fff !important;
+    border-top: 2px solid #000 !important;
+    border-bottom: 1px solid #000 !important;
+  }
+  #document-preview table thead tr th {
+    color: #000 !important;
+  }
+  #document-preview .print-logo-box:not(:has(img)) {
+    background-color: #000 !important;
+    color: #fff !important;
+  }
+  #document-preview .print-divider {
+    border-bottom-color: #000 !important;
+  }
+  #document-preview .print-total-border {
+    border-top-color: #000 !important;
+  }
+
+  #document-preview table tbody tr {
+    background-color: #fff !important;
+  }
+  #document-preview table tbody tr:last-child {
+    border-bottom: 1px solid #000 !important;
+  }
+
+  #document-preview .company-info .company-name {
+    font-size: 12pt !important;
+  }
+  #document-preview .company-info p,
+  #document-preview .company-info span {
+    font-size: 8pt !important;
+  }
+
+  #document-preview h2 {
+    font-size: 12pt !important;
+  }
+  #document-preview table {
+    font-size: 10pt !important;
+  }
+  #document-preview table thead th {
+    font-size: 10pt !important;
+  }
+  #document-preview p,
+  #document-preview span {
+    font-size: inherit !important;
+  }
+  #document-preview .doc-detail p,
+  #document-preview .doc-detail span {
+    font-size: 10pt !important;
+  }
+  #document-preview .doc-detail {
+    padding-right: 1cm !important;
+  }
+  #document-preview .doc-recipient p,
+  #document-preview .doc-recipient span {
+    font-size: 10pt !important;
+  }
+  #document-preview .print-logo-box {
+    height: 28px !important;
+    width: 28px !important;
+    font-size: 14pt !important;
+  }
+}
+
