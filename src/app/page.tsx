@@ -420,6 +420,27 @@ export default function Home() {
                     <span className="font-extrabold">Tanpa denda</span>
                   </div>
                 </div>
+
+                {/* Hero CTA */}
+                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  <Button
+                    size="lg"
+                    onClick={() => goToLogin('register')}
+                    className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-base font-bold py-6 px-8"
+                  >
+                    Coba Gratis 3 Hari <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    asChild
+                    className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-base py-6 px-8"
+                  >
+                    <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+                      <MessageCircle className="mr-2 w-5 h-5" /> WhatsApp Admin
+                    </a>
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-400 mt-2">🚀 Mulai gratis, tanpa kartu kredit. Berlangganan mulai Rp 118.000/bulan.</p>
               </div>
             </FadeIn>
 
@@ -794,6 +815,105 @@ export default function Home() {
           />
         </div>
       </Section>
+
+      {/* =================== AJAKAN BERLANGGANAN =================== */}
+      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 w-40 h-40 border-2 border-white rounded-full" />
+          <div className="absolute bottom-10 right-10 w-60 h-60 border-2 border-white rounded-full" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-white rounded-full" />
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 md:px-8 relative z-10">
+          <FadeIn>
+            <div className="text-center mb-10">
+              <Badge className="bg-white/20 text-white border-0 mb-4 px-4 py-1 text-sm font-semibold">
+                <Zap className="w-4 h-4 mr-1" /> Penawaran Terbaik
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight">
+                Jangan Biarkan Bisnis Cetakmu<br className="hidden md:block" />{' '}
+                <span className="underline decoration-white/50 decoration-4 underline-offset-4">Kalah Saing</span>!
+              </h2>
+              <p className="text-white/90 mt-6 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                Kompetitormu sudah pakai Darrell Soft. Mereka hitung modal dalam hitungan detik, sementara kamu masih pakai kalkulator?
+              </p>
+            </div>
+          </FadeIn>
+
+          {/* Urgency Cards */}
+          <div className="grid md:grid-cols-3 gap-4 md:gap-6 mb-10">
+            <FadeIn delay={0}>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center">
+                <div className="text-4xl mb-3">⏱️</div>
+                <h3 className="text-lg font-bold text-white mb-2">Hemat Waktu 90%</h3>
+                <p className="text-white/80 text-sm leading-relaxed">Hitung modal cetak yang biasa 30 menit, sekarang cuma 3 detik. Waktumu lebih produktif!</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.15}>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center">
+                <div className="text-4xl mb-3">💰</div>
+                <h3 className="text-lg font-bold text-white mb-2">Stop Salah Hitung!</h3>
+                <p className="text-white/80 text-sm leading-relaxed">Satu kali salah hitung bisa rugi jutaan. Darrell Soft menjamin perhitungan 100% akurat.</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.3}>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center">
+                <div className="text-4xl mb-3">📈</div>
+                <h3 className="text-lg font-bold text-white mb-2">Profit Maksimal</h3>
+                <p className="text-white/80 text-sm leading-relaxed">Tentukan margin keuntunganmu sendiri. Setiap order bisa kamu pastikan menguntungkan!</p>
+              </div>
+            </FadeIn>
+          </div>
+
+          {/* Persuasive Copy */}
+          <FadeIn delay={0.3}>
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-2xl text-center max-w-3xl mx-auto">
+              <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-4">
+                Cuma Rp 118.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!
+              </h3>
+              <p className="text-gray-600 text-base md:text-lg leading-relaxed mb-4">
+                Bayangkan: <span className="font-bold text-gray-900">1 kali salah hitung saja bisa rugi ratusan ribu hingga jutaan rupiah</span>. 
+                Dengan Darrell Soft, kamu bayar cuma Rp 118.000/bulan tapi hemat jutaan dari kesalahan hitung. 
+                <span className="font-bold text-blue-600"> Investasi kecil, untung besar!</span>
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  <span><strong>Tanpa kontrak</strong> — bebas berhenti kapan saja</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  <span><strong>Tanpa denda</strong> — tidak ada biaya tersembunyi</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  <span><strong>Coba gratis 3 hari</strong> — buktikan dulu!</span>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+                <Button
+                  size="lg"
+                  onClick={() => goToLogin('register')}
+                  className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-lg font-bold py-7 px-10"
+                >
+                  Langganan Sekarang <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+                <Button
+                  size="lg"
+                  asChild
+                  className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-lg py-7 px-10"
+                >
+                  <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+                    <MessageCircle className="mr-2 w-5 h-5" /> Tanya Admin Dulu
+                  </a>
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-4">💎 Sudah dipercaya 7.000+ pengusaha percetakan di Indonesia</p>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
 
       {/* =================== CTA =================== */}
       <section className="w-full py-16 md:py-24 relative overflow-hidden" style={{ backgroundColor: '#003D79' }}>
