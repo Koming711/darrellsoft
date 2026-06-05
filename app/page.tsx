@@ -420,6 +420,39 @@ export default function Home() {
                     <span className="font-extrabold">Tanpa denda</span>
                   </div>
                 </div>
+
+                {/* Hero CTA — Primary */}
+                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  <Button
+                    size="lg"
+                    onClick={() => goToLogin('register')}
+                    className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-base font-bold py-6 px-8"
+                  >
+                    Langganan Sekarang — Gratis 3 Hari! <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => document.getElementById('harga')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="ripple-btn border-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold transition-all duration-300 text-base py-6 px-8"
+                  >
+                    Lihat Paket Harga
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-400 mt-2">🚀 Mulai gratis, tanpa kartu kredit. Berhenti kapan saja, tanpa denda.</p>
+
+                {/* Hero CTA — Secondary (WhatsApp) */}
+                <div className="mt-4">
+                  <Button
+                    size="lg"
+                    asChild
+                    className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-base py-5 px-8"
+                  >
+                    <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+                      <MessageCircle className="mr-2 w-5 h-5" /> WhatsApp Admin
+                    </a>
+                  </Button>
+                </div>
               </div>
             </FadeIn>
 
@@ -495,6 +528,87 @@ export default function Home() {
               </FadeIn>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* =================== AJAKAN BERLANGGANAN (URGENCY) =================== */}
+      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 w-40 h-40 border-2 border-white rounded-full" />
+          <div className="absolute bottom-10 right-10 w-60 h-60 border-2 border-white rounded-full" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-white rounded-full" />
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 md:px-8 relative z-10">
+          <FadeIn>
+            <div className="text-center mb-10">
+              <Badge className="bg-yellow-400 text-yellow-900 border-0 mb-4 px-4 py-1.5 text-sm font-bold shadow-lg shadow-yellow-400/30 animate-pulse">
+                <Zap className="w-4 h-4 mr-1" /> Penawaran Terbatas
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight">
+                Jangan Biarkan Bisnis Cetakmu<br className="hidden md:block" />{' '}
+                <span className="underline decoration-white/50 decoration-4 underline-offset-4">Terus Rugi</span> Karena Salah Hitung!
+              </h2>
+              <p className="text-white/90 mt-6 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                Berlangganan Darrell Soft lebih murah daripada rugi satu kali salah hitung!
+              </p>
+            </div>
+          </FadeIn>
+
+          {/* Value Proposition Cards */}
+          <div className="grid md:grid-cols-3 gap-4 md:gap-6 mb-10">
+            <FadeIn delay={0}>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center hover:bg-white/20 transition-all duration-300">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg mb-3">
+                  <CheckCircle2 className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Hitung Akurat</h3>
+                <p className="text-white/80 text-sm leading-relaxed">Perhitungan 100% akurat, tidak ada lagi kesalahan hitung yang bikin rugi jutaan rupiah.</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.15}>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center hover:bg-white/20 transition-all duration-300">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-blue-400 to-sky-500 flex items-center justify-center shadow-lg mb-3">
+                  <TrendingUp className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Profit Maksimal</h3>
+                <p className="text-white/80 text-sm leading-relaxed">Tentukan margin sendiri, setiap order pasti menguntungkan. Profit naik sampai 40%!</p>
+              </div>
+            </FadeIn>
+            <FadeIn delay={0.3}>
+              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center hover:bg-white/20 transition-all duration-300">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-500 flex items-center justify-center shadow-lg mb-3">
+                  <Zap className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Hemat Waktu 90%</h3>
+                <p className="text-white/80 text-sm leading-relaxed">Yang biasa 30 menit, sekarang cuma 3 detik. Waktumu lebih produktif untuk yang lain!</p>
+              </div>
+            </FadeIn>
+          </div>
+
+          {/* Dual CTA */}
+          <FadeIn delay={0.3}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+              <Button
+                size="lg"
+                onClick={() => goToLogin('register')}
+                className="ripple-btn cta-glow bg-white text-blue-700 hover:bg-blue-50 shadow-2xl shadow-blue-700/20 hover:shadow-3xl transition-all duration-300 text-lg font-bold py-7 px-10"
+              >
+                Ya, Saya Mau Coba Gratis! <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              <Button
+                size="lg"
+                asChild
+                className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-lg py-7 px-10"
+              >
+                <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+                  <MessageCircle className="mr-2 w-5 h-5" /> Tanya Admin Dulu
+                </a>
+              </Button>
+            </div>
+            <p className="text-center text-white/70 text-sm">Cuma 3 detik daftar, langsung bisa pakai.</p>
+          </FadeIn>
         </div>
       </section>
 
@@ -681,7 +795,7 @@ export default function Home() {
           />
           <PricingCard
             title="Langganan Bulanan"
-            price="Rp 128.000"
+            price="Rp 118.000"
             period="per bulan"
             description="Langganan bulanan, sangat fleksibel"
             periodBelow
@@ -795,8 +909,8 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* =================== CTA =================== */}
-      <section className="w-full py-16 md:py-24 relative overflow-hidden" style={{ backgroundColor: '#003D79' }}>
+      {/* =================== CTA FINAL (STRONG) =================== */}
+      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600">
         {/* Background decoration */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-40 h-40 border-2 border-white rounded-full" />
@@ -804,33 +918,89 @@ export default function Home() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-white rounded-full" />
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 md:px-8 text-center relative z-10">
+        <div className="max-w-4xl mx-auto px-4 md:px-8 relative z-10">
           <FadeIn>
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight">
-              Siap Bikin Bisnis Cetakmu<br className="hidden md:block" /> Lebih{' '}
-              <span className="underline decoration-white/50 decoration-4 underline-offset-4">Cuan</span> Hari Ini?
-            </h2>
-            <p className="text-white/90 mt-6 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-              Bergabung dengan ratusan pengusaha percetakan yang sudah merasakan kemudahan Darrell Soft.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-              <Button
-                size="lg"
-                onClick={() => goToLogin('register')}
-                className="ripple-btn ripple-btn-dark cta-glow bg-white text-blue-700 hover:bg-blue-50 shadow-2xl shadow-blue-700/20 hover:shadow-3xl transition-all duration-300 text-lg font-bold py-7 px-10"
-              >
-                Coba Gratis Sekarang <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button
-                size="lg"
-                asChild
-                className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-lg py-7 px-10"
-              >
-                <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
-                  <MessageCircle className="mr-2 w-5 h-5" /> WhatsApp Admin
-                </a>
-              </Button>
+            <div className="text-center mb-8">
+              <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight">
+                Jangan Tunggu Lagi!<br className="hidden md:block" />{' '}
+                Mulai <span className="underline decoration-white/50 decoration-4 underline-offset-4">Langganan</span> Sekarang
+              </h2>
+              <p className="text-white/90 mt-6 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                Kompetitormu sudah pakai Darrell Soft. Mereka hitung modal dalam hitungan detik, sementara kamu masih pakai kalkulator?
+              </p>
             </div>
+          </FadeIn>
+
+          {/* Trust Badges */}
+          <FadeIn delay={0.15}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20">
+                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+                <span className="text-white font-semibold text-sm">Gratis 3 hari trial</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20">
+                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+                <span className="text-white font-semibold text-sm">Tanpa kartu kredit</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20">
+                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+                <span className="text-white font-semibold text-sm">Bisa batal kapan saja</span>
+              </div>
+            </div>
+          </FadeIn>
+
+          {/* Main CTA Card */}
+          <FadeIn delay={0.3}>
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-2xl text-center max-w-3xl mx-auto">
+              <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-4">
+                Cuma Rp 118.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!
+              </h3>
+              <p className="text-gray-600 text-base md:text-lg leading-relaxed mb-4">
+                Bayangkan: <span className="font-bold text-gray-900">1 kali salah hitung saja bisa rugi ratusan ribu hingga jutaan rupiah</span>. 
+                Dengan Darrell Soft, kamu bayar cuma Rp 118.000/bulan tapi hemat jutaan dari kesalahan hitung. 
+                <span className="font-bold text-blue-600"> Investasi kecil, untung besar!</span>
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  <span><strong>Tanpa kontrak</strong> — bebas berhenti kapan saja</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  <span><strong>Tanpa denda</strong> — tidak ada biaya tersembunyi</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                  <span><strong>Coba gratis 3 hari</strong> — buktikan dulu!</span>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+                <Button
+                  size="lg"
+                  onClick={() => goToLogin('register')}
+                  className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-lg font-bold py-7 px-10"
+                >
+                  Langganan Sekarang — Gratis! <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+                <Button
+                  size="lg"
+                  asChild
+                  className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-lg py-7 px-10"
+                >
+                  <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+                    <MessageCircle className="mr-2 w-5 h-5" /> Tanya Admin Dulu
+                  </a>
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-4">💎 Sudah dipercaya 7.000+ pengusaha percetakan di Indonesia</p>
+            </div>
+          </FadeIn>
+
+          {/* Reassure */}
+          <FadeIn delay={0.45}>
+            <p className="text-center text-white/70 text-sm mt-6 max-w-xl mx-auto leading-relaxed">
+              Masih ragu? Chat admin kami, konsultasi gratis tanpa kewajiban berlangganan.
+            </p>
           </FadeIn>
         </div>
       </section>
