@@ -358,27 +358,11 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      {/* Blue background with DS logo watermark */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 dark:from-[#0a1628] dark:via-[#0f1f3d] dark:to-[#071020]">
-        {/* DS Logo watermark - centered and large */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.07] pointer-events-none">
-          <img
-            src="/logo-ds.png"
-            alt=""
-            className="w-[400px] h-[400px] sm:w-[500px] sm:h-[500px] object-contain"
-          />
-        </div>
-        {/* Subtle pattern overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.08)_0%,transparent_50%),radial-gradient(circle_at_70%_80%,rgba(255,255,255,0.05)_0%,transparent_50%)]" />
-      </div>
-
-      {/* Content layer */}
-      <div className="relative z-10 min-h-screen flex flex-col px-4 py-8">
+    <div className={`min-h-screen flex flex-col px-4 py-8 bg-gradient-to-br from-blue-50 via-white to-slate-100 dark:from-black dark:via-[#111] dark:to-black`}>
       {/* Back button */}
       <button
         onClick={() => router.push('/')}
-        className="flex items-center gap-1.5 text-sm font-medium text-blue-100 hover:text-white transition-colors w-fit mt-2"
+        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-fit mt-2"
       >
         <ArrowLeft className="w-4 h-4" />
         Kembali
@@ -395,12 +379,12 @@ function LoginContent() {
               className="w-[134px] h-[134px] rounded-2xl object-contain mx-auto shadow-none"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white">{t('app_name')}</h1>
-          <p className="text-blue-100 mt-2 text-base">{t('app_tagline')}</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('app_name')}</h1>
+          <p className="text-muted-foreground mt-2 text-base">{t('app_tagline')}</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/95 dark:bg-[#1a1a2e]/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+        <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-border">
             <button
@@ -737,10 +721,9 @@ function LoginContent() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-blue-200/70 mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-6">
           &copy; Copyright by Darrell Soft 2026 All rights reserved
         </p>
-      </div>
       </div>
       </div>
 
