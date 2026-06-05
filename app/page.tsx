@@ -320,7 +320,7 @@ export default function Home() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
             <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Fitur</a>
-            <a href="#keunggulan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Keunggulan</a>
+            <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Kenapa Langganan</a>
             <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Harga</a>
             <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Testimoni</a>
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300">
@@ -352,7 +352,7 @@ export default function Home() {
           >
             <div className="px-4 py-2 flex flex-col gap-1">
               <a href="#fitur" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Fitur</a>
-              <a href="#keunggulan" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Keunggulan</a>
+              <a href="#kenapa-langganan" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Kenapa Langganan</a>
               <a href="#harga" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Harga</a>
               <a href="#testimoni" onClick={() => setMobileMenuOpen(false)} className="nav-link text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 py-1">Testimoni</a>
               <Button onClick={() => goToLogin()} className="w-full ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white mt-0.5 text-xs py-1.5">
@@ -719,6 +719,125 @@ export default function Home() {
             </FadeIn>
           ))}
         </div>
+      </Section>
+
+      {/* =================== KENAPA HARUS LANGGANAN =================== */}
+      <Section id="kenapa-langganan" className="bg-gradient-to-b from-sky-50/50 to-white dark:from-black dark:to-black">
+        <FadeIn>
+          <div className="text-center mb-12 md:mb-16">
+            <Badge variant="secondary" className="bg-sky-50 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 border-sky-100 dark:border-sky-800 mb-4">
+              Kenapa Harus Langganan?
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+              Data Aman di <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">Cloud</span>,{' '}
+              Bisa Buka di <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">Mana Saja</span>
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+              Darrell Soft berbasis cloud — data bisnismu tersimpan aman dan bisa diakses kapan saja, di mana saja, selama ada internet.
+            </p>
+          </div>
+        </FadeIn>
+
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-10">
+          {/* Cloud Advantage */}
+          <FadeIn delay={0}>
+            <div className="bg-white dark:bg-[#111] rounded-2xl p-6 md:p-8 shadow-lg border border-gray-100 dark:border-white/10 hover:shadow-xl transition-all duration-300 h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shrink-0">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Berbasis Cloud — Aman & Fleksibel</h3>
+              </div>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                  <span>Data bisnismu <strong className="text-gray-900 dark:text-gray-100">tersimpan aman di cloud</strong> — tidak hilang walau HP hilang atau laptop rusak</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                  <span><strong className="text-gray-900 dark:text-gray-100">Bisa dibuka di mana saja</strong> — di Indonesia maupun luar negeri, yang penting ada koneksi internet</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                  <span>Akses dari <strong className="text-gray-900 dark:text-gray-100">HP maupun laptop</strong> — di toko pakai laptop, di perjalanan cek dari HP</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                  <span><strong className="text-gray-900 dark:text-gray-100">Backup otomatis</strong> — tidak perlu khawatir data hilang, semua tersinkronisasi</span>
+                </li>
+              </ul>
+            </div>
+          </FadeIn>
+
+          {/* Business Opportunity */}
+          <FadeIn delay={0.15}>
+            <div className="bg-white dark:bg-[#111] rounded-2xl p-6 md:p-8 shadow-lg border border-gray-100 dark:border-white/10 hover:shadow-xl transition-all duration-300 h-full">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shrink-0">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Peluang Besar Bisnis Cetakan</h3>
+              </div>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>UMKM makanan sudah <strong className="text-gray-900 dark:text-gray-100">banyak sekali</strong>, tapi bisnis percetakan masih sedikit — <strong className="text-amber-600 dark:text-amber-400">pasar masih luas!</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>Setiap UMKM makanan <strong className="text-gray-900 dark:text-gray-100">butuh box makanan, kemasan, label, dan kartu nama</strong> — semua itu cetakan!</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span><strong className="text-gray-900 dark:text-gray-100">Permintaan tinggi, pesaing sedikit</strong> — ini saatnya jadi Bos Cetakan!</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span><strong className="text-orange-600 dark:text-orange-400">UMKM harus naik kelas!</strong> Dari yang cuma jualan, jadi yang cetak dan kemas sendiri — margin lebih besar!</span>
+                </li>
+              </ul>
+            </div>
+          </FadeIn>
+        </div>
+
+        {/* Persuasive highlight card */}
+        <FadeIn delay={0.3}>
+          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-sky-600 rounded-2xl p-6 md:p-8 text-center shadow-2xl relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-5 right-10 w-32 h-32 border-2 border-white rounded-full" />
+              <div className="absolute bottom-5 left-10 w-48 h-48 border border-white rounded-full" />
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-3">
+                Jadi Bos Cetakan — Bukan Cuma Penjual Cetakan!
+              </h3>
+              <p className="text-white/90 text-base md:text-lg max-w-3xl mx-auto leading-relaxed mb-4">
+                Bisnis cetakan punya <strong className="text-yellow-300">peluang luar biasa</strong>. UMKM makanan menjamur di mana-mana, dan mereka semua butuh kemasan, box, label, brosur, kartu nama — <strong className="text-yellow-300">itu semua produk cetakanmu!</strong>
+              </p>
+              <p className="text-white/80 text-sm md:text-base max-w-2xl mx-auto leading-relaxed mb-6">
+                Darrell Soft membantumu menghitung modal dengan akurat, jadi kamu bisa fokus <strong className="text-white">meraih peluang</strong> tanpa takut salah hitung. Saatnya UMKM naik kelas — dari jualan ke produksi!
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  size="lg"
+                  onClick={() => goToLogin('register')}
+                  className="ripple-btn cta-glow bg-white text-blue-700 hover:bg-blue-50 shadow-2xl shadow-blue-700/20 hover:shadow-3xl transition-all duration-300 text-base font-bold py-6 px-8"
+                >
+                  Mulai Jadi Bos Cetakan! <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+                <Button
+                  size="lg"
+                  asChild
+                  className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-base py-6 px-8"
+                >
+                  <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+                    <MessageCircle className="mr-2 w-5 h-5" /> Tanya Admin
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
       </Section>
 
       {/* =================== CARA KERJA =================== */}
