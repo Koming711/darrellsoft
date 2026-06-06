@@ -293,7 +293,7 @@ function TestimonialCard({
 /* ------------------------------------------------------------------ */
 const WHATSAPP_NUMBER = '6285888082208'
 const WHATSAPP_TEXT = 'Halo Darrell Soft, saya tertarik untuk berlangganan!'
-const WHATSAPP_URL = `https://web.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(WHATSAPP_TEXT)}`
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_TEXT)}`
 
 
 export default function Home() {
