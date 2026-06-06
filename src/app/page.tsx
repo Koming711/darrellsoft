@@ -444,7 +444,7 @@ export default function Home() {
                     Lihat Paket Harga
                   </Button>
                 </div>
-                <p className="text-sm text-gray-400 mt-2">🚀 Mulai gratis, tanpa kartu kredit. Berhenti kapan saja, tanpa denda.</p>
+                <p className="text-base text-black dark:text-white mt-2">🚀 Mulai gratis, tanpa kartu kredit. Berhenti kapan saja, tanpa denda.</p>
               </div>
             </FadeIn>
 
