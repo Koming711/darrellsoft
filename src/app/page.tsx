@@ -445,19 +445,6 @@ export default function Home() {
                   </Button>
                 </div>
                 <p className="text-sm text-gray-400 mt-2">🚀 Mulai gratis, tanpa kartu kredit. Berhenti kapan saja, tanpa denda.</p>
-
-                {/* Hero CTA — Secondary (WhatsApp) */}
-                <div className="mt-4">
-                  <Button
-                    size="lg"
-                    asChild
-                    className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-base py-5 px-8"
-                  >
-                    <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
-                      <MessageCircle className="mr-2 w-5 h-5" /> WhatsApp Admin
-                    </a>
-                  </Button>
-                </div>
               </div>
             </FadeIn>
 
