@@ -347,3 +347,26 @@ Stage Summary:
 - Border, text, and background colors all properly invert in dark mode
 - Print preview areas remain white for proper printing
 - Toggle knobs and small UI elements preserved with appropriate colors
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix production login error ("Terjadi kesalahan server") on www.darrellsoft.com
+
+Work Log:
+- Investigated the login error by testing the production API directly with curl
+- Discovered the root cause: Prisma client was generated with `provider = "sqlite"` but production uses PostgreSQL
+- Error message: "Error validating datasource `db`: the URL must start with the protocol `file:`"
+- Found that `bun install` postinstall script was running `prisma generate`, but subsequent package installations by bun overwrote the generated Prisma client
+- Also discovered that `prisma generate` without `--schema` flag was using a cached/old schema with sqlite provider
+- Fix 1: Removed `prisma generate` from `postinstall` script in package.json (only keep `prepare-build.js`)
+- Fix 2: Added `--schema=prisma/schema.prisma` flag to all `prisma generate` calls in build commands
+- Deployed to production with `vercel --prod --force` (cache-less build)
+- Verified login works via curl API test and browser automation test
+- Reverted local schema back to `provider = "sqlite"` for local development
+
+Stage Summary:
+- Root cause: Two issues - (1) bun install overwriting prisma generate in postinstall, (2) prisma generate without --schema flag using cached schema
+- Changed postinstall from `node scripts/prepare-build.js && prisma generate` to just `node scripts/prepare-build.js`
+- Added `--schema=prisma/schema.prisma` flag to prisma generate in vercel.json buildCommand and package.json scripts
+- Production login at www.darrellsoft.com is now working
