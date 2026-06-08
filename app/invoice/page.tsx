@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { InvoiceEditor } from '@/components/dokupro/invoice-editor'
+import { InvoicePelunasanEditor } from '@/components/dokupro/invoice-pelunasan-editor'
 import { useLanguage } from '@/contexts/language-context'
 import { useAuth } from '@/contexts/auth-context'
 import { authFetch } from '@/lib/auth-fetch'
@@ -1083,7 +1084,7 @@ export default function InvoicePage() {
       {/* Editor Pelunasan Tab */}
       {activeTab === 'editor-pelunasan' && (
         <Suspense fallback={null}>
-          <InvoiceEditor />
+          <InvoicePelunasanEditor />
         </Suspense>
       )}
     </DashboardLayout>
