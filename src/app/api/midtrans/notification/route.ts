@@ -2,13 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySignature, updatePaymentStatus } from '@/lib/midtrans';
 
+// GET handler - for browser/testing access
+export async function GET() {
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Midtrans notification endpoint is active. Only POST requests are processed.',
+  });
+}
+
+// POST handler - receives Midtrans notifications
+// CRITICAL: Always return HTTP 200 to Midtrans, even for invalid payloads.
+// Returning non-200 causes Midtrans to retry endlessly and report errors.
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      // Body is not valid JSON - still return 200
+      console.warn('[Midtrans Notification] Invalid JSON body received');
+      return NextResponse.json({ status: 'ok', message: 'Notification received (invalid JSON)' });
+    }
+
     const {
       order_id, transaction_status, transaction_id, payment_type,
       fraud_status, status_code, gross_amount, signature_key, transaction_time,
-    } = body;
+    } = body as Record<string, string>;
 
     console.log('[Midtrans Notification]', {
       order_id,
@@ -19,8 +38,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (!order_id || !signature_key) {
-      console.warn('[Midtrans Notification] Missing order_id or signature_key');
-      return NextResponse.json({ status: 'error', message: 'Invalid payload' }, { status: 400 });
+      console.warn('[Midtrans Notification] Missing order_id or signature_key - likely a test/subscription notification');
+      // ALWAYS return 200 to Midtrans - never reject, even for invalid payloads
+      // This prevents Midtrans from endlessly retrying and reporting errors
+      return NextResponse.json({ status: 'ok', message: 'Notification received (non-standard payload)' });
     }
 
     // Verify signature - always return 200 to Midtrans to prevent retries,
@@ -100,7 +121,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Notification handler error';
-    console.error('[Midtrans Notification] Error:', error);
+    console.error('[Midtrans Notification] Error:', message);
     // Return 200 to prevent Midtrans retries even on internal errors
     return NextResponse.json({ status: 'ok', message: 'Processed with warnings' });
   }
