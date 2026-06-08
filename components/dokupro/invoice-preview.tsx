@@ -14,8 +14,9 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
-  const dp = data.dp || 0;
-  const sisa = total - dp;
+  const dpPercent = data.dp || 0;
+  const dpAmount = total * (dpPercent / 100);
+  const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   // Pad items to MAX_ROWS
@@ -176,11 +177,11 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
             <span>TOTAL</span>
             <span style={{ fontSize: '13px' }}>{formatRupiah(total)}</span>
           </div>
-          {dp > 0 && (
+          {dpPercent > 0 && (
             <>
               <div className="flex justify-between text-neutral-600 mt-1">
-                <span>DP (Uang Muka)</span>
-                <span>{formatRupiah(dp)}</span>
+                <span>DP ({dpPercent}%)</span>
+                <span>{formatRupiah(dpAmount)}</span>
               </div>
               <div
                 className="flex justify-between pt-0.5 font-bold text-black"
@@ -197,7 +198,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
       {/* Terbilang */}
       <div className="mb-2 print:mb-[0.5mm]">
         <p className="text-[9px] italic text-neutral-600 print:text-[9px]">
-          Terbilang: {terbilang(dp > 0 ? sisa : total)} rupiah
+          Terbilang: {terbilang(dpPercent > 0 ? sisa : total)} rupiah
         </p>
       </div>
 

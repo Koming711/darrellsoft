@@ -91,7 +91,7 @@ function parseDocInfo(entry: HistoryEntry) {
     const client = parsed.client || {}
     const namaCustomer = client.nama || entry.pihakKedua || ''
     const ppn = parsed.ppn || 0
-    const dp = parsed.dp || 0
+    const dpPercent = parsed.dp || 0
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
     const catatan = parsed.catatan || ''
     const referensi = parsed.referensi || ''
@@ -102,13 +102,14 @@ function parseDocInfo(entry: HistoryEntry) {
 
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    const sisa = totalHarga - dp
+    const dpAmount = totalHarga * (dpPercent / 100)
+    const sisa = totalHarga - dpAmount
 
     const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
 
-    return { namaCustomer, namaBarang, totalQty, totalHarga, ppn, dp, sisa, tanggalJatuhTempo, catatan, referensi, caraPembayaran }
+    return { namaCustomer, namaBarang, totalQty, totalHarga, ppn, dp: dpAmount, sisa, tanggalJatuhTempo, catatan, referensi, caraPembayaran }
   } catch {
-    return { namaCustomer: '', namaBarang: '', totalQty: 0, totalHarga: 0, ppn: 0, dp: 0, sisa: 0, tanggalJatuhTempo: '', catatan: '', referensi: '', caraPembayaran: '' }
+    return { namaCustomer: '', namaBarang: '', totalQty: 0, totalHarga: 0, ppn: 0, dp: 0, dpPercent: 0, sisa: 0, tanggalJatuhTempo: '', catatan: '', referensi: '', caraPembayaran: '' }
   }
 }
 
