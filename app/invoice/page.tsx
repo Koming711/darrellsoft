@@ -24,6 +24,7 @@ import {
   Upload,
   CheckCircle2,
   CircleDot,
+  Wallet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,6 +35,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import { generateJpgFromElement, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
@@ -53,6 +57,16 @@ interface HistoryEntry {
   createdAt: string
 }
 
+// --- Helper ---
+function getTodayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatRupiahShort(n: number): string {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
+}
+
 // --- Parse dataJson for document info ---
 function parseDocInfo(entry: HistoryEntry) {
   try {
@@ -69,10 +83,12 @@ function parseDocInfo(entry: HistoryEntry) {
     const dpAmount = totalHarga * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
+    const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
+    const tanggalPelunasan = parsed.tanggalPelunasan || ''
     const referensi = parsed.referensi || ''
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, referensi }
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensi }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, referensi: '' }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '' }
   }
 }
 
@@ -118,6 +134,8 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
+      lunas: parsed.lunas === true,
+      tanggalPelunasan: parsed.tanggalPelunasan || '',
     }
   } catch {
     return {
@@ -134,6 +152,8 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: '',
       caraPembayaran: '',
       tanggalGiro: '',
+      lunas: false,
+      tanggalPelunasan: '',
     }
   }
 }
@@ -150,6 +170,14 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [previewScale, setPreviewScale] = useState(1)
   const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
+
+  // Pelunasan dialog state
+  const [pelunasanDialogOpen, setPelunasanDialogOpen] = useState(false)
+  const [pelunasanDialogItem, setPelunasanDialogItem] = useState<HistoryEntry | null>(null)
+  const [pelunasanUpdating, setPelunasanUpdating] = useState(false)
+  const [pelunasanToggle, setPelunasanToggle] = useState(false)
+  const [pelunasanDate, setPelunasanDate] = useState('')
+  const [jatuhTempoDate, setJatuhTempoDate] = useState('')
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -217,6 +245,49 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       toast.error('Gagal menghapus invoice')
     }
     setDeleteConfirmId(null)
+  }
+
+  // --- Pelunasan handler ---
+  const handleStatusChange = async (updates: { tanggalJatuhTempo?: string; lunas?: boolean; tanggalPelunasan?: string }) => {
+    if (!pelunasanDialogItem) return
+    setPelunasanUpdating(true)
+    try {
+      const parsed = JSON.parse(pelunasanDialogItem.dataJson)
+      if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
+      if (updates.lunas !== undefined) parsed.lunas = updates.lunas
+      if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
+      // Remove legacy fields if present
+      delete parsed.statusPembayaran
+      const newDataJson = JSON.stringify(parsed)
+
+      const res = await fetcher(`/api/history/${pelunasanDialogItem.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ dataJson: newDataJson }),
+      })
+      if (res.ok) {
+        toast.success(updates.lunas ? 'Pelunasan berhasil dicatat' : 'Berhasil diperbarui')
+        setPelunasanDialogOpen(false)
+        fetchHistory()
+        notifyDataChange('invoice')
+      } else {
+        toast.error('Gagal menyimpan perubahan')
+      }
+    } catch {
+      toast.error('Gagal menyimpan perubahan')
+    } finally {
+      setPelunasanUpdating(false)
+    }
+  }
+
+  const openPelunasanDialog = (item: HistoryEntry, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    const info = parseDocInfo(item)
+    setPelunasanToggle(info.lunas)
+    setPelunasanDate(info.tanggalPelunasan || getTodayStr())
+    setJatuhTempoDate(info.tanggalJatuhTempo || '')
+    setPelunasanDialogItem(item)
+    setPelunasanDialogOpen(true)
   }
 
   const handleSendJpg = useCallback(async () => {
@@ -411,6 +482,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             <div className="sm:hidden divide-y divide-slate-100">
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
+                const isLunas = info.lunas || info.sisa <= 0
                 return (
                   <div
                     key={entry.id}
@@ -420,20 +492,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="min-w-0 flex items-center gap-2">
                         <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                        <span
+                        <button
+                          onClick={(e) => openPelunasanDialog(entry, e)}
                           className={cn(
-                            'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0',
-                            info.lunas || info.sisa <= 0
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'
+                            'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer',
+                            isLunas
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
                           )}
                         >
-                          {info.lunas || info.sisa <= 0 ? (
+                          {isLunas ? (
                             <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</>
                           ) : (
                             <><CircleDot className="w-2.5 h-2.5" /> Belum</>
                           )}
-                        </span>
+                        </button>
                       </div>
                       <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
                     </div>
@@ -444,6 +517,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* Pelunasan button for invoices with DP */}
+                        {!isLunas && info.dpPercent > 0 && (
+                          <button
+                            onClick={(e) => openPelunasanDialog(entry, e)}
+                            className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors"
+                            title="Pelunasan"
+                          >
+                            <Wallet className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             const parsed = parseInvoiceData(entry)
@@ -487,6 +570,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 <tbody>
                   {filteredHistory.slice(0, 100).map((entry, idx) => {
                     const info = parseDocInfo(entry)
+                    const isLunas = info.lunas || info.sisa <= 0
                     return (
                       <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                         <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
@@ -496,20 +580,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
                         <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
                         <td className="py-3 px-3 text-center">
-                          <span
+                          <button
+                            onClick={(e) => openPelunasanDialog(entry, e)}
                             className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                              info.lunas || info.sisa <= 0
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700'
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer',
+                              isLunas
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
                             )}
                           >
-                            {info.lunas || info.sisa <= 0 ? (
+                            {isLunas ? (
                               <><CheckCircle2 className="w-3 h-3" /> Lunas</>
                             ) : (
                               <><CircleDot className="w-3 h-3" /> Belum</>
                             )}
-                          </span>
+                          </button>
                         </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -520,6 +605,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
+                            {/* Pelunasan button for invoices with DP and not yet lunas */}
+                            {!isLunas && info.dpPercent > 0 && (
+                              <button
+                                onClick={(e) => openPelunasanDialog(entry, e)}
+                                className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors"
+                                title="Pelunasan"
+                              >
+                                <Wallet className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 const parsed = parseInvoiceData(entry)
@@ -567,6 +662,161 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)}>Batal</Button>
             <Button variant="destructive" size="sm" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>Hapus</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== Pelunasan Dialog ===== */}
+      <Dialog open={pelunasanDialogOpen} onOpenChange={setPelunasanDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-amber-600" />
+              Form Pelunasan
+            </DialogTitle>
+            <DialogDescription>Kelola tanggal jatuh tempo dan pelunasan invoice</DialogDescription>
+          </DialogHeader>
+          {pelunasanDialogItem && (() => {
+            const info = parseDocInfo(pelunasanDialogItem)
+            const hasDP = info.dpPercent > 0
+            const isLunas = info.lunas || info.sisa <= 0
+            return (
+              <div className="space-y-5 pt-1">
+                {/* Invoice Info Card */}
+                <div className="rounded-xl bg-slate-50 p-4 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">No. Invoice</span>
+                    <span className="font-semibold text-slate-800">{pelunasanDialogItem.nomor}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Customer</span>
+                    <span className="font-medium text-slate-700">{pelunasanDialogItem.pihakKedua || '-'}</span>
+                  </div>
+                  <div className="border-t border-slate-200 pt-2 mt-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Total</span>
+                      <span className="font-bold text-emerald-700">{formatRupiahShort(info.totalHarga)}</span>
+                    </div>
+                    {hasDP && (
+                      <>
+                        <div className="flex justify-between text-xs mt-1">
+                          <span className="text-slate-500">DP ({info.dpPercent}%)</span>
+                          <span className="font-medium text-violet-700">- {formatRupiahShort(info.dp)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1.5 pt-1.5 border-t border-dashed border-slate-200">
+                          <span className="font-semibold text-slate-700">Sisa Pembayaran</span>
+                          <span className={cn('font-bold', info.lunas ? 'text-green-600' : 'text-red-600')}>{formatRupiahShort(info.sisa)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {/* Current status */}
+                  {isLunas && info.tanggalPelunasan && (
+                    <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2 mt-1">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-green-800">Sudah Lunas</p>
+                        <p className="text-[10px] text-green-600">Dibayar pada {new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Jatuh Tempo */}
+                <div>
+                  <Label className="text-sm font-medium text-slate-700">Tanggal Jatuh Tempo</Label>
+                  <Input
+                    type="date"
+                    value={jatuhTempoDate}
+                    onChange={(e) => setJatuhTempoDate(e.target.value)}
+                    className="mt-1.5"
+                    placeholder="Pilih tanggal"
+                  />
+                </div>
+
+                {/* Pelunasan Section */}
+                {hasDP && (
+                  <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {pelunasanToggle ? (
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                            <Wallet className="w-5 h-5 text-slate-400" />
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-sm font-semibold text-slate-800">Pelunasan</Label>
+                          <p className="text-xs text-slate-500">
+                            {pelunasanToggle
+                              ? `Sisa ${formatRupiahShort(info.sisa)} sudah dibayar`
+                              : `Sisa ${formatRupiahShort(info.sisa)} belum dibayar`
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={pelunasanToggle}
+                        onCheckedChange={(checked) => {
+                          setPelunasanToggle(checked)
+                          if (checked && !pelunasanDate) {
+                            setPelunasanDate(getTodayStr())
+                          }
+                        }}
+                      />
+                    </div>
+                    {pelunasanToggle && (
+                      <>
+                        <div>
+                          <Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label>
+                          <Input
+                            type="date"
+                            value={pelunasanDate}
+                            onChange={(e) => setPelunasanDate(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="rounded-lg bg-green-50 p-3 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-semibold text-green-800">Sudah Lunas</p>
+                            <p className="text-xs text-green-600">
+                              Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* No DP info */}
+                {!hasDP && (
+                  <div className="rounded-lg bg-blue-50 p-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-blue-800">Invoice Tanpa DP</p>
+                      <p className="text-[10px] text-blue-600">Invoice ini tidak memiliki down payment. Atur tanggal jatuh tempo jika diperlukan.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" size="sm" onClick={() => setPelunasanDialogOpen(false)} disabled={pelunasanUpdating}>Batal</Button>
+            <Button size="sm" onClick={() => {
+              handleStatusChange({
+                tanggalJatuhTempo: jatuhTempoDate,
+                lunas: pelunasanToggle,
+                tanggalPelunasan: pelunasanToggle ? pelunasanDate : '',
+              })
+            }} disabled={pelunasanUpdating}>
+              {pelunasanUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
