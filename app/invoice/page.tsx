@@ -990,11 +990,11 @@ function PelunasanTab() {
 }
 
 // ============================================================
-// InvoicePage — main page with 3 tabs
+// InvoicePage — main page with 4 tabs
 // ============================================================
 export default function InvoicePage() {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'pelunasan'>('editor')
+  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'>('editor')
   const [invoiceCount, setInvoiceCount] = useState(0)
   const [pelunasanCount, setPelunasanCount] = useState(0)
 
@@ -1024,10 +1024,11 @@ export default function InvoicePage() {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [])
 
-  const tabs: { key: 'editor' | 'riwayat' | 'pelunasan'; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const tabs: { key: 'editor' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'editor', label: 'Editor', icon: <FileText className="w-3.5 h-3.5" /> },
     { key: 'riwayat', label: 'Riwayat', icon: <History className="w-3.5 h-3.5" />, badge: invoiceCount || undefined },
     { key: 'pelunasan', label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" />, badge: pelunasanCount || undefined },
+    { key: 'editor-pelunasan', label: 'Editor Pelunasan', icon: <><FileText className="w-3.5 h-3.5" /><Wallet className="w-3 h-3" /></> },
   ]
 
   return (
@@ -1077,6 +1078,13 @@ export default function InvoicePage() {
         <div className="print:hidden">
           <PelunasanTab />
         </div>
+      )}
+
+      {/* Editor Pelunasan Tab */}
+      {activeTab === 'editor-pelunasan' && (
+        <Suspense fallback={null}>
+          <InvoiceEditor />
+        </Suspense>
       )}
     </DashboardLayout>
   )
