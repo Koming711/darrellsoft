@@ -617,8 +617,8 @@ export function InvoiceEditor() {
               type="number"
               min={0}
               max={100}
-              value={invoice.ppn}
-              onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: Number(e.target.value) || 0 }))}
+              value={invoice.ppn || ''}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
             />
           </div>
           <div className="space-y-1.5 mt-3">
@@ -627,8 +627,8 @@ export function InvoiceEditor() {
               type="number"
               min={0}
               max={100}
-              value={invoice.dp || 0}
-              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: Math.min(100, Number(e.target.value) || 0) }))}
+              value={invoice.dp || ''}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
               placeholder="0"
             />
           </div>
