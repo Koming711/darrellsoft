@@ -465,7 +465,7 @@
 @media print {
   @page {
     size: 148mm 210mm;
-    margin: 10mm 10mm 0 10mm;
+    margin: 12mm;
   }
 
   html, body {
@@ -535,7 +535,7 @@
   .a5-preview-container {
     break-inside: avoid;
     page-break-inside: avoid;
-    max-height: 200mm !important;
+    max-height: 186mm !important;
     overflow: hidden !important;
   }
 
@@ -587,8 +587,9 @@
     color: #000 !important;
   }
   #document-preview .print-logo-box:not(:has(img)) {
-    background-color: #000 !important;
-    color: #fff !important;
+    background-color: transparent !important;
+    color: #000000 !important;
+    border: 3px solid #000000 !important;
   }
   #document-preview .print-divider {
     border-bottom-color: #000 !important;
@@ -641,5 +642,117 @@
     width: 28px !important;
     font-size: 14pt !important;
   }
+}
+
+/* ===== Print-mode CSS — mirrors @media print for DOM capture ===== */
+.print-mode {
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+  background-color: #fff !important;
+}
+
+.print-mode p,
+.print-mode span,
+.print-mode td,
+.print-mode th,
+.print-mode div {
+  color: #000 !important;
+  border-color: #000 !important;
+}
+
+.print-mode .print-logo-box:not(:has(img)) {
+  background-color: transparent !important;
+  color: #000000 !important;
+  border: 3px solid #000000 !important;
+}
+
+.print-mode .print-divider {
+  border-bottom-color: #000 !important;
+}
+
+.print-mode .print-total-border {
+  border-top-color: #000 !important;
+}
+
+.print-mode table thead tr {
+  background-color: #fff !important;
+  border-top: 2px solid #000 !important;
+  border-bottom: 1px solid #000 !important;
+}
+
+.print-mode table thead tr th {
+  color: #000 !important;
+}
+
+.print-mode table tbody tr {
+  background-color: #fff !important;
+}
+
+.print-mode table tbody tr:last-child {
+  border-bottom: 1px solid #000 !important;
+}
+
+.print-mode .company-info .company-name {
+  font-size: 12pt !important;
+}
+
+.print-mode .company-info p,
+.print-mode .company-info span {
+  font-size: 8pt !important;
+}
+
+.print-mode h2 {
+  font-size: 12pt !important;
+}
+
+.print-mode table {
+  font-size: 10pt !important;
+}
+
+.print-mode table thead th {
+  font-size: 10pt !important;
+}
+
+.print-mode .doc-detail p,
+.print-mode .doc-detail span {
+  font-size: 10pt !important;
+}
+
+.print-mode .doc-detail {
+  padding-right: 1cm !important;
+}
+
+.print-mode .doc-recipient p,
+.print-mode .doc-recipient span {
+  font-size: 10pt !important;
+}
+
+.print-mode .print-logo-box {
+  height: 28px !important;
+  width: 28px !important;
+  font-size: 14pt !important;
+}
+
+.print-mode .print-table-8mm tr {
+  height: 7.5mm;
+}
+
+.print-mode .print-table-8mm td,
+.print-mode .print-table-8mm th {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  vertical-align: middle;
+  border-bottom: none !important;
+}
+
+.print-mode .print-sig-grid > div > p {
+  margin-bottom: 2rem !important;
+}
+
+.print-mode .print-totals {
+  font-size: 13px !important;
 }
 

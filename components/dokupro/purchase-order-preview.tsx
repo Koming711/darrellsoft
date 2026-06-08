@@ -16,7 +16,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
-  const companyInitial = (data.company.nama || 'C').charAt(0).toUpperCase();
+  const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   const rows = [...data.items];
   while (rows.length < MAX_ROWS) {
@@ -24,13 +24,13 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 print:shadow-none print:border-0 print:p-0 print:text-[10px] print:mb-0">
+    <div data-document-preview className="rounded-lg border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 print:shadow-none print:border-0 print:p-0 print:text-[10px] print:mb-0">
       {/* Header */}
       <div className="flex items-start justify-between mb-4 print:mb-[1.5mm]">
         <div className="flex items-start gap-3">
           <div
-            className="print-logo-box flex h-12 w-12 shrink-0 items-center justify-center rounded font-bold text-lg print:h-9 print:w-9 print:text-[14px]"
-            style={{ backgroundColor: data.company.logo ? 'transparent' : '#000000' }}
+            className="print-logo-box flex h-12 w-12 shrink-0 items-center justify-center rounded border-[3px] font-bold text-lg print:h-9 print:w-9 print:text-[14px]"
+            style={{ borderColor: data.company.logo ? 'transparent' : '#000000', color: data.company.logo ? 'inherit' : '#000000' }}
           >
             {data.company.logo ? (
               <img
@@ -39,7 +39,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
                 className="h-full w-full object-contain"
               />
             ) : (
-              <span className="text-white">{companyInitial}</span>
+              <span>{companyInitials}</span>
             )}
           </div>
           <div className="company-info">

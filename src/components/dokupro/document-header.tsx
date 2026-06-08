@@ -20,19 +20,19 @@ interface DocumentHeaderProps {
 }
 
 export function DocumentHeader({ company, docTitle }: DocumentHeaderProps) {
-  const companyInitial = (company.nama || 'C').charAt(0).toUpperCase();
+  const companyInitials = (company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   return (
     <div className="flex items-start justify-between mb-4 print:mb-[1.5mm]">
       <div className="flex items-start gap-3">
         <div
-          className="print-logo-box flex h-12 w-12 shrink-0 items-center justify-center rounded font-bold text-lg print:h-9 print:w-9 print:text-[14px]"
-          style={{ backgroundColor: company.logo ? 'transparent' : '#000000' }}
+          className="print-logo-box flex h-12 w-12 shrink-0 items-center justify-center rounded border-[3px] font-bold text-lg print:h-9 print:w-9 print:text-[14px]"
+          style={{ borderColor: company.logo ? 'transparent' : '#000000', color: company.logo ? 'inherit' : '#000000' }}
         >
           {company.logo ? (
             <img src={company.logo} alt="Logo" className="h-full w-full object-contain" />
           ) : (
-            <span className="text-white">{companyInitial}</span>
+            <span>{companyInitials}</span>
           )}
         </div>
         <div className="company-info">

@@ -36,12 +36,21 @@ const PLANS: Record<string, {
   period: string;
   features: string[];
 }> = {
+  'bulanan-ekonomis': {
+    id: 'bulanan-ekonomis',
+    name: 'Ekonomis',
+    subtitle: 'Bulanan Ekonomis',
+    price: 78000,
+    priceFormatted: 'Rp 78.000',
+    period: '/bulan (1 akun)',
+    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Maksimal 1 akun pengguna'],
+  },
   bulanan: {
     id: 'bulanan',
     name: 'Basic',
     subtitle: 'Langganan Bulanan',
-    price: 118000,
-    priceFormatted: 'Rp 118.000',
+    price: 128000,
+    priceFormatted: 'Rp 128.000',
     period: '/bulan',
     features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Riwayat cetakan'],
   },

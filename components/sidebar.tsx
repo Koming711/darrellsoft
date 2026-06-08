@@ -84,6 +84,13 @@ const menuItems = [
     section: 'dokumen',
   },
   {
+    titleKey: 'riwayat_penjualan' as TranslationKey,
+    href: '/riwayat-penjualan',
+    icon: Receipt,
+    featureId: 'invoice',
+    section: 'dokumen',
+  },
+  {
     titleKey: 'hitung_finishing' as TranslationKey,
     href: '/hitung-finishing',
     icon: Paintbrush,
@@ -184,18 +191,17 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     return pathname.startsWith(href)
   }
 
-  // Filter menu items based on permissions
-  const filteredMenuItems = menuItems.filter(item => {
-    if (!role) return true
-    if (role === 'superadmin') return true
-
-    if (item.submenu) {
-      const hasAccessibleSub = item.submenu.some(sub => hasFeatureAccess(role, sub.featureId))
-      return hasAccessibleSub
-    }
-
-    return hasFeatureAccess(role, item.featureId)
-  })
+  // Determine which menu items are accessible:
+  // - hak-akses & pengguna: HIDDEN if not allowed (not shown at all)
+  // - other features: show with PRO badge if not allowed (visible but locked)
+  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']
+  const menuWithAccess = menuItems
+    .map(item => {
+      if (!role || role === 'superadmin') return { ...item, isPro: false }
+      const accessible = hasFeatureAccess(role, item.featureId)
+      return { ...item, isPro: !accessible }
+    })
+    .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
 
   return (
     <>
@@ -244,9 +250,9 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             </div>
           </div>
 
-          {filteredMenuItems.map((item, idx) => {
-            // Show section label if this item has a section and the previous item doesn't share the same section
-            const prevSection = idx > 0 ? (filteredMenuItems[idx - 1] as any).section : undefined
+          {menuWithAccess.map((item, idx) => {
+            // Show section label if this item has a section and the previous visible item doesn't share the same section
+            const prevSection = idx > 0 ? (menuWithAccess[idx - 1] as any).section : undefined
             const showSection = item.section && item.section !== prevSection
 
             return (
@@ -304,6 +310,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                   onClick={onToggle}
                   className={cn(
                     'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors',
+                    item.isPro ? 'opacity-60' : '',
                     isActive(item.href)
                       ? 'sidebar-active'
                       : 'hover:bg-black/5 dark:hover:bg-white/10'
@@ -311,7 +318,10 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                   style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
-                  <span className={cn("transition-opacity", !isOpen && "lg:opacity-100 opacity-0")}>{t(item.titleKey)}</span>
+                  <span className={cn("transition-opacity flex-1", !isOpen && "lg:opacity-100 opacity-0")}>{t(item.titleKey)}</span>
+                  {item.isPro && (
+                    <span className="text-[9px] font-bold px-1.5 py-px rounded bg-amber-500 text-white leading-tight">PRO</span>
+                  )}
                 </Link>
               )}
             </div>

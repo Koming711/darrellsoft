@@ -1,78 +1,40 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "node scripts/prepare-build.js && npx prisma generate --schema=prisma/schema.prisma && npx next build",
+  "buildCommand": "node scripts/prepare-build.js && npx prisma generate && npx next build",
   "installCommand": "bun install",
-  "regions": [
-    "sin1"
-  ],
+  "regions": ["sin1"],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type,Authorization,X-User-Id,X-User-Role"
-        },
-        {
-          "key": "Access-Control-Allow-Credentials",
-          "value": "true"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,PATCH,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,X-User-Id,X-User-Role" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
     },
     {
       "source": "/sw.js",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript; charset=utf-8"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
       "source": "/manifest.json",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/manifest+json; charset=utf-8"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
+        { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
       ]
     }
   ]

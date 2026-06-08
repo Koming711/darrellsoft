@@ -51,6 +51,15 @@ export async function createSnapTransaction(params: MidtransTransactionParams) {
   return transaction;
 }
 
+/**
+ * Verify Midtrans signature key.
+ *
+ * Midtrans signature = SHA512(order_id + status_code + gross_amount + server_key)
+ *
+ * IMPORTANT: gross_amount must be formatted exactly as Midtrans sends it.
+ * Midtrans sends gross_amount as a string like "105000.00" (with decimals).
+ * The hash must use the exact same string format.
+ */
 export async function verifySignature(
   orderId: string,
   statusCode: string,
@@ -59,11 +68,39 @@ export async function verifySignature(
   signatureKey: string
 ): Promise<boolean> {
   const crypto = await import('crypto');
+
+  // Midtrans sends gross_amount as string like "105000.00"
+  // We need to use it exactly as-is for hash verification
+  const hashInput = orderId + statusCode + grossAmount + serverKey;
   const hash = crypto
     .createHash('sha512')
-    .update(orderId + statusCode + grossAmount + serverKey)
+    .update(hashInput)
     .digest('hex');
-  return hash === signatureKey;
+
+  if (hash !== signatureKey) {
+    // Try alternative: gross_amount without decimal part (some Midtrans configs send integer)
+    const grossAmountInt = String(Math.round(parseFloat(grossAmount)));
+    const altHashInput = orderId + statusCode + grossAmountInt + serverKey;
+    const altHash = crypto
+      .createHash('sha512')
+      .update(altHashInput)
+      .digest('hex');
+
+    if (altHash === signatureKey) {
+      console.log('[Midtrans] Signature verified with integer gross_amount format');
+      return true;
+    }
+
+    console.warn('[Midtrans] Signature mismatch:', {
+      expected: signatureKey,
+      computed: hash,
+      altComputed: altHash,
+      hashInput: orderId + statusCode + grossAmount + '***',
+    });
+    return false;
+  }
+
+  return true;
 }
 
 export async function savePaymentRecord(

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Sparkles, ChevronRight } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { CURRENT_VERSION, CHANGELOG } from '@/lib/changelog'
 
@@ -32,6 +32,7 @@ export function WhatsNewDialog() {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden border-0 shadow-2xl">
+        <DialogDescription className="sr-only">Informasi fitur terbaru Darrell Soft</DialogDescription>
         {/* Header with gradient */}
         <div className="relative bg-gradient-to-br from-teal-600 via-emerald-600 to-green-700 px-5 pt-5 pb-4">
           <button

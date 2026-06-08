@@ -33,7 +33,8 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
-import { generateInvoicePdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+import { generateJpgFromElement, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
+import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 
@@ -105,6 +106,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       client,
       items,
       ppn: parsed.ppn ?? 11,
+      dp: parsed.dp || 0,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
@@ -120,6 +122,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       client: { nama: '', kontak: '', alamat: '' },
       items: [],
       ppn: 11,
+      dp: 0,
       catatan: '',
       tanggalJatuhTempo: '',
       caraPembayaran: '',
@@ -128,8 +131,9 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
   }
 }
 
-function InvoiceRiwayatTab() {
+function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const { user } = useAuth()
+  const setInvoice = useDokuproStore((s) => s.setInvoice)
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -167,26 +171,24 @@ function InvoiceRiwayatTab() {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory])
 
-  // Scale invoice preview
+  // Scale invoice preview to fit screen (1.3x bigger)
   useEffect(() => {
+    if (!previewOpen) return
     const DESIGN_W = 576
     const DESIGN_H = DESIGN_W * (210 / 148)
     const updateScale = () => {
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const marginX = 24
-      const marginY = 32
-      const topPad = 48
-      const btnArea = 56
-      const availW = vw - marginX * 2
-      const availH = vh - marginY * 2 - topPad - btnArea
-      setPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
+      const pad = 16
+      const btnH = 56
+      const availW = vw - pad * 2
+      const availH = vh - pad * 2 - btnH
+      const baseScale = Math.min(availW / DESIGN_W, availH / DESIGN_H)
+      setPreviewScale(baseScale * 1.3)
     }
-    if (previewOpen) {
-      const t = setTimeout(updateScale, 60)
-      window.addEventListener('resize', updateScale)
-      return () => { clearTimeout(t); window.removeEventListener('resize', updateScale) }
-    }
+    const t = setTimeout(updateScale, 50)
+    window.addEventListener('resize', updateScale)
+    return () => { clearTimeout(t); window.removeEventListener('resize', updateScale) }
   }, [previewOpen])
 
   const invData = useMemo(() => {
@@ -210,17 +212,50 @@ function InvoiceRiwayatTab() {
     setDeleteConfirmId(null)
   }
 
-  const handleSendPdf = useCallback(async () => {
+  const handleSendJpg = useCallback(async () => {
     if (!invData) return
     setSendingPdf(true)
     try {
-      const blob = await generateInvoicePdf(invData)
-      const fileName = `Invoice_${invData.nomor || 'draft'}.pdf`
-      await sharePdfViaWhatsApp(blob, fileName, `Invoice ${invData.nomor}`)
-      toast.success('PDF dikirim ke WhatsApp')
+      // Capture the preview DOM element directly as JPG (matches print output exactly)
+      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+      if (previewEl) {
+        // Find the scale wrapper parent (the div with transform: scale(...))
+        const scaleWrapper = previewEl.closest('[style*="transform"]') as HTMLElement
+
+        // Apply print-mode class for print-accurate rendering
+        previewEl.classList.add('print-mode')
+
+        // Save and reset transforms
+        const origTransform = previewEl.style.transform
+        const origTransformOrigin = previewEl.style.transformOrigin
+        previewEl.style.transform = 'none'
+        previewEl.style.transformOrigin = 'top left'
+
+        let scaleWrapperOrigTransform = ''
+        if (scaleWrapper) {
+          scaleWrapperOrigTransform = scaleWrapper.style.transform
+          scaleWrapper.style.transform = 'none'
+        }
+
+        try {
+          const jpgBlob = await generateJpgFromElement(previewEl)
+          const fileName = `Invoice_${invData.nomor || 'draft'}.jpg`
+          await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
+          toast.success('Gambar dikirim ke WhatsApp')
+        } finally {
+          previewEl.classList.remove('print-mode')
+          previewEl.style.transform = origTransform
+          previewEl.style.transformOrigin = origTransformOrigin
+          if (scaleWrapper) {
+            scaleWrapper.style.transform = scaleWrapperOrigTransform
+          }
+        }
+      } else {
+        toast.error('Preview tidak ditemukan')
+      }
     } catch (err) {
       console.error(err)
-      toast.error('Gagal mengirim PDF')
+      toast.error('Gagal mengirim gambar')
     } finally {
       setSendingPdf(false)
     }
@@ -357,61 +392,124 @@ function InvoiceRiwayatTab() {
           </div>
         )}
 
-        {/* Table */}
+        {/* Table / Cards */}
         {loading ? (
           <div className="px-4 py-6 text-center">
             <Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" />
             <p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p>
           </div>
         ) : filteredHistory.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px] min-w-[700px]">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '160px'}}>Nama Barang</th>
-                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
-                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                  <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHistory.slice(0, 100).map((entry, idx) => {
-                  const info = parseDocInfo(entry)
-                  return (
-                    <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                      <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
-                      <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                      <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                      <td className="py-3 px-3 text-slate-600 hidden sm:table-cell max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
-                      <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
-                      <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
-                            className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors"
-                            title="Preview"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(entry.id)}
-                            className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Mobile card layout */}
+            <div className="sm:hidden divide-y divide-slate-100">
+              {filteredHistory.slice(0, 100).map((entry) => {
+                const info = parseDocInfo(entry)
+                return (
+                  <div
+                    key={entry.id}
+                    className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer"
+                    onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="min-w-0">
+                        <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+                        <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</p>
+                      </div>
+                      <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+                        {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            const parsed = parseInvoiceData(entry)
+                            setInvoice(parsed)
+                            onRestore()
+                            toast.success('Invoice berhasil dimuat ke editor')
+                          }}
+                          className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
+                          title="Restore ke Editor"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(entry.id)}
+                          className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
+                          title="Hapus"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Desktop table layout */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-[13px] min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/80">
+                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
+                    <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
+                    <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                    <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.slice(0, 100).map((entry, idx) => {
+                    const info = parseDocInfo(entry)
+                    return (
+                      <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                        <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
+                        <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+                        <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
+                        <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
+                        <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                              className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors"
+                              title="Preview"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const parsed = parseInvoiceData(entry)
+                                setInvoice(parsed)
+                                onRestore()
+                                toast.success('Invoice berhasil dimuat ke editor')
+                              }}
+                              className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
+                              title="Restore ke Editor"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(entry.id)}
+                              className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
           <div className="px-4 py-6 text-center">
             <History className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -434,33 +532,37 @@ function InvoiceRiwayatTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Preview Invoice</DialogTitle>
-            <DialogDescription>Detail invoice</DialogDescription>
-          </DialogHeader>
-          {invData && (
-            <div className="flex flex-col items-center overflow-auto p-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
-              <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top center' }}>
+      {/* Preview Popup */}
+      {previewOpen && invData && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col overflow-auto">
+          {/* Close button */}
+          <button
+            onClick={() => setPreviewOpen(false)}
+            className="sticky top-3 self-end z-10 mr-3 mt-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
+          >
+            <X className="w-4 h-4 text-slate-700" />
+          </button>
+          {/* Invoice preview */}
+          <div className="flex-1 flex items-center justify-center p-4 pb-20">
+            <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}>
+              <div data-invoice-preview>
                 <InvoicePreview data={invData} />
               </div>
-              <div className="flex gap-2 mt-4 print:hidden">
-                <Button
-                  onClick={handleSendPdf}
-                  disabled={sendingPdf}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setPreviewOpen(false)}>Tutup</Button>
-              </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+          {/* Action buttons - fixed at bottom */}
+          <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
+            <Button
+              onClick={handleSendJpg}
+              disabled={sendingPdf}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -492,7 +594,7 @@ export default function InvoicePage() {
   return (
     <DashboardLayout title="Invoice" subtitle="Buat invoice dengan pratinjau langsung dan cetak A5">
       {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3 print:hidden">
         <button
           onClick={() => setActiveTab('editor')}
           className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
@@ -533,7 +635,9 @@ export default function InvoicePage() {
 
       {/* Riwayat Tab Content */}
       {activeTab === 'riwayat' && (
-        <InvoiceRiwayatTab />
+        <div className="print:hidden">
+          <InvoiceRiwayatTab onRestore={() => setActiveTab('editor')} />
+        </div>
       )}
     </DashboardLayout>
   )

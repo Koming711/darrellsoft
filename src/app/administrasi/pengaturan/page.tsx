@@ -860,13 +860,13 @@ export default function PengaturanPage() {
                         {/* Header - Logo + Company Info */}
                         <div className="flex items-start gap-3 mb-3">
                           <div
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-white font-bold text-base"
-                            style={{ backgroundColor: companyLogo ? 'transparent' : (darkMode ? '#64748b' : '#1e293b') }}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded border-[3px] font-bold text-base"
+                            style={{ color: '#000000', borderColor: '#000000' }}
                           >
                             {companyLogo ? (
                               <img src={companyLogo} alt="Logo" className="h-full w-full object-contain rounded" />
                             ) : (
-                              <span>{(companyName || 'C').charAt(0).toUpperCase()}</span>
+                              <span>{(companyName || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2)}</span>
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -969,7 +969,7 @@ export default function PengaturanPage() {
                             <button onClick={handleRemoveLogo} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity" type="button"><X className="w-3 h-3" /></button>
                           </div>
                         ) : (
-                          <div className="w-16 h-16 rounded-xl bg-muted border-2 border-dashed border-input flex items-center justify-center"><ImageIcon className="w-6 h-6 text-muted-foreground" /></div>
+                          <div className="w-16 h-16 rounded-xl border-[3px] border-black flex items-center justify-center text-xl font-bold text-black">{(companyName || 'C').split(/\s+/).map((w: string) => w.charAt(0)).join('').toUpperCase().slice(0, 2)}</div>
                         )}
                       </div>
                       <div className="flex-1">

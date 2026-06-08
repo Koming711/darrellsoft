@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, Eye, Loader2, Receipt, FileText, Package } from 'lucide-react'
+import { Search, Eye, Loader2, Receipt, FileText, Package, RotateCcw, Trash2 } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog'
@@ -15,6 +15,19 @@ import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import { generateInvoicePdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+import { useDokuproStore } from '@/lib/store'
+import { useRouter } from 'next/navigation'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface HistoryEntry {
   id: string
@@ -105,6 +118,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       client,
       items,
       ppn: parsed.ppn ?? 11,
+      dp: parsed.dp ?? 0,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
@@ -120,6 +134,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       client: { nama: '', kontak: '', alamat: '' },
       items: [],
       ppn: 11,
+      dp: 0,
       catatan: '',
       tanggalJatuhTempo: '',
       caraPembayaran: '',
@@ -174,6 +189,8 @@ function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date
 
 export default function RiwayatPage() {
   const { t } = useLanguage()
+  const router = useRouter()
+  const setInvoice = useDokuproStore((s) => s.setInvoice)
   const [searchTerm, setSearchTerm] = useState('')
   const [histories, setHistories] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -311,6 +328,28 @@ export default function RiwayatPage() {
     if (e) e.stopPropagation()
     setStatusDialogItem(item)
     setStatusDialogOpen(true)
+  }
+
+  const handleRestore = (item: HistoryEntry, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    const parsed = parseInvoiceData(item)
+    setInvoice(parsed)
+    toast.success('Invoice dimuat ke editor')
+    router.push('/invoice')
+  }
+
+  const handleDeleteHistory = async (id: string) => {
+    try {
+      const res = await fetch(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      if (res.ok) {
+        toast.success('Riwayat berhasil dihapus')
+        fetchHistory()
+      } else {
+        toast.error('Gagal menghapus')
+      }
+    } catch {
+      toast.error('Gagal menghapus')
+    }
   }
 
   const invoiceData = useMemo(() => {
@@ -501,6 +540,7 @@ export default function RiwayatPage() {
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Qty</th>
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                    <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -553,6 +593,44 @@ export default function RiwayatPage() {
                         <td className={`py-2.5 px-3 text-right whitespace-nowrap font-semibold ${invoiceUangCapek.get(h.id) ?? 0 > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{(invoiceUangCapek.get(h.id) ?? 0) > 0 ? formatRupiahShort(invoiceUangCapek.get(h.id) ?? 0) : '-'}</td>
                         <td className="py-2.5 px-3 text-right whitespace-nowrap">
                           <span className="font-bold text-emerald-700">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : h.total}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={(e) => handleRestore(h, e)}
+                              className="inline-flex items-center justify-center h-7 w-7 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              title="Restore ke editor"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  className="inline-flex items-center justify-center h-7 w-7 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Invoice <strong>{h.nomor}</strong> akan dihapus dari riwayat. Tindakan ini tidak dapat dibatalkan.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteHistory(h.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Hapus
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -628,6 +706,41 @@ export default function RiwayatPage() {
                             <span className="text-xs text-slate-500">Total</span>
                             <span className="text-xs font-bold text-emerald-700">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : h.total}</span>
                           </div>
+                        </div>
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => handleRestore(h, e)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-7 rounded-md text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Restore
+                          </button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 h-7 rounded-md text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Hapus
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Hapus Riwayat?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Invoice <strong>{h.nomor}</strong> akan dihapus dari riwayat. Tindakan ini tidak dapat dibatalkan.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteHistory(h.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Hapus
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     </div>

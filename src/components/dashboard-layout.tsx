@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sidebar, MobileHeader } from './sidebar'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
-import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff } from 'lucide-react'
+import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DashboardLayoutProps {
@@ -20,6 +20,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<any>(null)
   const pathname = usePathname()
+  const router = useRouter()
 
   // === SESSION CHECK STATE ===
   const [sessionWarning, setSessionWarning] = useState<string | null>(null)
@@ -300,7 +301,26 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     )
   }
 
-  // === NO ACCESS SCREEN ===
+  // === NO ACCESS SCREEN (PRO) ===
+  // Compute back navigation info
+  const berandaPath = user ? (getFirstAccessiblePath(user.role) || '/pembukaan') : '/pembukaan'
+  const backLabelMap: Record<string, string> = {
+    '/invoice': 'Kembali ke Beranda',
+    '/surat-jalan': 'Kembali ke Beranda',
+    '/purchase-order': 'Kembali ke Beranda',
+    '/riwayat-pembelian': 'Kembali ke Beranda',
+    '/riwayat-penjualan': 'Kembali ke Beranda',
+  }
+  const backPathMap: Record<string, string> = {
+    '/invoice': berandaPath,
+    '/surat-jalan': berandaPath,
+    '/purchase-order': berandaPath,
+    '/riwayat-pembelian': berandaPath,
+    '/riwayat-penjualan': berandaPath,
+  }
+  const backLabel = backLabelMap[pathname] || 'Kembali ke Beranda'
+  const backPath = backPathMap[pathname] || (user ? (getFirstAccessiblePath(user.role) || '/pembukaan') : '/pembukaan')
+
   if (noAccess) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: 'var(--app-content-bg)' }}>
@@ -315,23 +335,30 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           <MobileHeader onMenuToggle={() => setSidebarOpen(!sidebarOpen)} username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
           <main className="p-4 lg:p-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
-                <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+              <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
+                <Lock className="w-9 h-9 text-amber-500" />
+                <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center">
+                  <Crown className="w-4 h-4 text-white" />
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">Akses Ditolak</h2>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 mb-3">
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Fitur PRO</span>
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Fitur Belum Tersedia</h2>
               <p className="text-sm text-muted-foreground max-w-md">
-                Anda tidak memiliki izin untuk mengakses halaman ini.
-                Hubungi administrator jika Anda membutuhkan akses.
+                Fitur <span className="font-semibold text-foreground">{title}</span> belum diaktifkan untuk akun Anda.
+                Hubungi administrator untuk mendapatkan akses.
               </p>
-              <button
-                onClick={() => {
-                  const firstAccessible = user ? getFirstAccessiblePath(user.role) : '/login'
-                  window.location.href = firstAccessible || '/login'
+              <a
+                href="/pembukaan"
+                onClick={(e) => {
+                  e.preventDefault()
+                  window.location.replace('/pembukaan')
                 }}
-                className="mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                className="mt-5 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors no-underline inline-block cursor-pointer"
               >
-                Kembali ke Beranda
-              </button>
+                {backLabel}
+              </a>
             </div>
           </main>
         </div>

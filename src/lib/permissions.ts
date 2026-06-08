@@ -112,6 +112,8 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/invoice') return 'invoice'
   if (pathname === '/surat-jalan') return 'surat-jalan'
   if (pathname === '/purchase-order') return 'purchase-order'
+  if (pathname === '/riwayat-pembelian') return 'purchase-order'
+  if (pathname === '/riwayat-penjualan') return 'invoice'
   if (pathname === '/administrasi/hak-akses') return 'hak-akses'
   if (pathname === '/administrasi/pengguna') return 'pengguna'
   if (pathname === '/administrasi/pengaturan') return 'pengaturan'
