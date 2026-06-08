@@ -50,11 +50,13 @@ export interface InvoiceData {
   };
   items: DocumentItem[];
   ppn: number; // percentage
-  dp: number; // down payment amount
+  dp: number; // down payment percentage
   catatan: string;
   tanggalJatuhTempo: string; // due date (empty = no due date)
   caraPembayaran: CaraPembayaran | ''; // payment method
   tanggalGiro: string; // giro date (only used when caraPembayaran === 'giro')
+  lunas?: boolean; // whether final payment has been made
+  tanggalPelunasan?: string; // date of final payment
 }
 
 export interface SuratJalanData {
