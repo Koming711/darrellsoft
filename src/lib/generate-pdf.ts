@@ -444,10 +444,11 @@ function drawTotals(
   opts: {
     m: number; pageW: number; y: number
     subtotal: number; ppnPercent: number; ppnAmount: number; total: number
-    dp?: number  // down payment amount
+    dp?: number  // down payment amount (calculated from percentage)
+    dpPercent?: number  // down payment percentage
   }
 ): number {
-  const { m, pageW, y, subtotal, ppnPercent, ppnAmount, total, dp = 0 } = opts
+  const { m, pageW, y, subtotal, ppnPercent, ppnAmount, total, dp = 0, dpPercent = 0 } = opts
   const rightX = pageW - m
   const totalsW = 58
   const labelX = rightX - totalsW
@@ -482,13 +483,13 @@ function drawTotals(
   pdf.text(rp(total), rightX, curY, { align: 'right' })
   curY += 5
 
-  // DP (Uang Muka) + Sisa Pembayaran — matches print exactly
+  // DP (%) + Sisa Pembayaran — matches print exactly
   if (dp > 0) {
     // DP line
     pdf.setFontSize(7)
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(0, 0, 0)
-    pdf.text('DP (Uang Muka)', labelX, curY)
+    pdf.text(`DP (${dpPercent}%)`, labelX, curY)
     pdf.text(rp(dp), rightX, curY, { align: 'right' })
     curY += 4.5
 
@@ -829,8 +830,9 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0)
   const ppnAmount = subtotal * (data.ppn / 100)
   const total = subtotal + ppnAmount
-  const dp = data.dp || 0
-  const sisa = total - dp
+  const dpPercent = data.dp || 0
+  const dpAmount = total * (dpPercent / 100)
+  const sisa = total - dpAmount
 
   // ---- HEADER (with Jatuh Tempo in header area, matching print) ----
   y = drawDocHeader(pdf, {
@@ -864,10 +866,10 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   y = drawItemsTableWithPrice(pdf, { m, cw, y, items: data.items, maxRows: 8 })
 
   // ---- TOTALS (with DP and Sisa Pembayaran) ----
-  y = drawTotals(pdf, { m, pageW, y, subtotal, ppnPercent: data.ppn, ppnAmount, total, dp })
+  y = drawTotals(pdf, { m, pageW, y, subtotal, ppnPercent: data.ppn, ppnAmount, total, dp: dpAmount, dpPercent })
 
   // ---- TERBILANG (use sisa when DP > 0, matches print) ----
-  y = drawTerbilang(pdf, m, y, dp > 0 ? sisa : total)
+  y = drawTerbilang(pdf, m, y, dpPercent > 0 ? sisa : total)
 
   // ---- CATATAN ----
   y = drawCatatan(pdf, m, cw, y, data.catatan)
