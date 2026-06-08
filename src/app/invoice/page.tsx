@@ -588,19 +588,19 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
 }
 
 // ============================================================
-// PelunasanTab — dedicated tab for settlement payments
+// PelunasanTab — dedicated tab for settlement payments with inline form
 // ============================================================
 function PelunasanTab() {
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Pelunasan dialog state
-  const [pelunasanDialogOpen, setPelunasanDialogOpen] = useState(false)
-  const [pelunasanDialogItem, setPelunasanDialogItem] = useState<HistoryEntry | null>(null)
+  // Selected invoice for pelunasan form
+  const [selectedItem, setSelectedItem] = useState<HistoryEntry | null>(null)
   const [pelunasanUpdating, setPelunasanUpdating] = useState(false)
   const [pelunasanToggle, setPelunasanToggle] = useState(false)
   const [pelunasanDate, setPelunasanDate] = useState('')
   const [jatuhTempoDate, setJatuhTempoDate] = useState('')
+  const [caraPembayaran, setCaraPembayaran] = useState('')
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -652,26 +652,54 @@ function PelunasanTab() {
     return info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr())
   }).length
 
+  // Select invoice for form
+  const selectInvoice = (item: HistoryEntry, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    const info = parseDocInfo(item)
+    setPelunasanToggle(false)
+    setPelunasanDate(getTodayStr())
+    setJatuhTempoDate(info.tanggalJatuhTempo || '')
+    setCaraPembayaran('')
+    setSelectedItem(item)
+  }
+
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedItem(null)
+    setPelunasanToggle(false)
+    setPelunasanDate('')
+    setJatuhTempoDate('')
+    setCaraPembayaran('')
+  }
+
+  // Selected invoice info
+  const selectedInfo = selectedItem ? parseDocInfo(selectedItem) : null
+
   // Pelunasan handler
-  const handleStatusChange = async (updates: { tanggalJatuhTempo?: string; lunas?: boolean; tanggalPelunasan?: string }) => {
-    if (!pelunasanDialogItem) return
+  const handleSimpanPelunasan = async () => {
+    if (!selectedItem) return
     setPelunasanUpdating(true)
     try {
-      const parsed = JSON.parse(pelunasanDialogItem.dataJson)
-      if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
-      if (updates.lunas !== undefined) parsed.lunas = updates.lunas
-      if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
+      const parsed = JSON.parse(selectedItem.dataJson)
+      if (jatuhTempoDate) parsed.tanggalJatuhTempo = jatuhTempoDate
+      if (pelunasanToggle) {
+        parsed.lunas = true
+        parsed.tanggalPelunasan = pelunasanDate || getTodayStr()
+        if (caraPembayaran) parsed.caraPembayaran = caraPembayaran
+      } else {
+        parsed.tanggalJatuhTempo = jatuhTempoDate
+      }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
 
-      const res = await fetcher(`/api/history/${pelunasanDialogItem.id}`, {
+      const res = await fetcher(`/api/history/${selectedItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ dataJson: newDataJson }),
       })
       if (res.ok) {
-        toast.success(updates.lunas ? 'Pelunasan berhasil dicatat!' : 'Berhasil diperbarui')
-        setPelunasanDialogOpen(false)
+        toast.success(pelunasanToggle ? 'Pelunasan berhasil dicatat!' : 'Jatuh tempo berhasil diperbarui')
+        clearSelection()
         fetchHistory()
         notifyDataChange('invoice')
       } else {
@@ -684,57 +712,40 @@ function PelunasanTab() {
     }
   }
 
-  const openPelunasanDialog = (item: HistoryEntry, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation()
-    const info = parseDocInfo(item)
-    setPelunasanToggle(info.lunas)
-    setPelunasanDate(info.tanggalPelunasan || getTodayStr())
-    setJatuhTempoDate(info.tanggalJatuhTempo || '')
-    setPelunasanDialogItem(item)
-    setPelunasanDialogOpen(true)
-  }
-
   return (
-    <>
-      <div className="space-y-4">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
-            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <p className="text-xs text-slate-500 mb-0.5">Belum Lunas</p>
-            <p className="text-lg sm:text-xl font-bold text-amber-700 leading-tight">{pendingInvoices.length}</p>
-          </div>
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4">
-            <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center mb-2">
-              <Banknote className="w-5 h-5" />
-            </div>
-            <p className="text-xs text-slate-500 mb-0.5">Total Sisa</p>
-            <p className="text-lg sm:text-xl font-bold text-red-700 leading-tight">{formatRupiahShort(totalSisa)}</p>
-          </div>
-          <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 sm:p-4">
-            <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center mb-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-            </div>
-            <p className="text-xs text-slate-500 mb-0.5">Total DP Diterima</p>
-            <p className="text-lg sm:text-xl font-bold text-violet-700 leading-tight">{formatRupiahShort(totalDP)}</p>
-          </div>
-          <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 sm:p-4">
-            <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mb-2">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <p className="text-xs text-slate-500 mb-0.5">Jatuh Tempo</p>
-            <p className="text-lg sm:text-xl font-bold text-rose-700 leading-tight">{overdueCount}</p>
-          </div>
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2"><Wallet className="w-5 h-5" /></div>
+          <p className="text-xs text-slate-500 mb-0.5">Belum Lunas</p>
+          <p className="text-lg sm:text-xl font-bold text-amber-700 leading-tight">{pendingInvoices.length}</p>
         </div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center mb-2"><Banknote className="w-5 h-5" /></div>
+          <p className="text-xs text-slate-500 mb-0.5">Total Sisa</p>
+          <p className="text-lg sm:text-xl font-bold text-red-700 leading-tight">{formatRupiahShort(totalSisa)}</p>
+        </div>
+        <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center mb-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
+          <p className="text-xs text-slate-500 mb-0.5">Total DP Diterima</p>
+          <p className="text-lg sm:text-xl font-bold text-violet-700 leading-tight">{formatRupiahShort(totalDP)}</p>
+        </div>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mb-2"><AlertTriangle className="w-5 h-5" /></div>
+          <p className="text-xs text-slate-500 mb-0.5">Jatuh Tempo</p>
+          <p className="text-lg sm:text-xl font-bold text-rose-700 leading-tight">{overdueCount}</p>
+        </div>
+      </div>
 
-        {/* Pending List */}
-        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Main Content: List + Form */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Left: Pending Invoice List */}
+        <div className="lg:col-span-3 bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
             <CircleDot className="w-4 h-4 text-amber-600" />
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Menunggu Pelunasan</h2>
-            <span className="text-[10px] font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">{pendingInvoices.length} invoice</span>
+            <span className="text-[10px] font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">{pendingInvoices.length}</span>
           </div>
 
           {loading ? (
@@ -742,92 +753,72 @@ function PelunasanTab() {
           ) : pendingInvoices.length > 0 ? (
             <>
               {/* Mobile Cards */}
-              <div className="sm:hidden divide-y divide-slate-100">
+              <div className="sm:hidden divide-y divide-slate-100 max-h-[50vh] overflow-y-auto">
                 {pendingInvoices.map((entry) => {
                   const info = parseDocInfo(entry)
                   const isOverdue = info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr())
+                  const isSelected = selectedItem?.id === entry.id
                   return (
-                    <div key={entry.id} className="px-4 py-3 hover:bg-amber-50/30 transition-colors">
-                      <div className="flex items-start justify-between gap-2 mb-2">
+                    <div key={entry.id} onClick={(e) => selectInvoice(entry, e)} className={cn('px-4 py-3 transition-colors cursor-pointer', isSelected ? 'bg-amber-50 border-l-4 border-l-amber-500' : 'hover:bg-amber-50/30')}>
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div className="min-w-0">
-                          <p className="text-violet-700 font-semibold text-[13px]">{entry.nomor || '-'}</p>
-                          <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-violet-700 font-semibold text-[13px]">{entry.nomor || '-'}</p>
+                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />}
+                          </div>
                           <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                          {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-[10px] text-slate-400">Sisa</p>
                           <p className="text-red-600 font-bold text-sm">{formatRupiahShort(info.sisa)}</p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          {isOverdue && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700">
-                              <AlertTriangle className="w-2.5 h-2.5" /> Lewat
-                            </span>
-                          )}
-                          {info.tanggalJatuhTempo && (
-                            <span className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold', isOverdue ? 'text-red-600' : 'text-amber-600')}>
-                              <CalendarClock className="w-2.5 h-2.5" /> {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
-                            </span>
-                          )}
-                          <span className="text-[9px] text-violet-500 font-medium">DP {info.dpPercent}%</span>
-                        </div>
-                        <Button size="sm" onClick={(e) => openPelunasanDialog(entry, e as unknown as React.MouseEvent)} className="h-7 text-xs gap-1 bg-amber-600 hover:bg-amber-700 text-white">
-                          <Wallet className="w-3.5 h-3.5" /> Lunasi
-                        </Button>
+                      <div className="flex items-center gap-2">
+                        {isOverdue && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700"><AlertTriangle className="w-2.5 h-2.5" /> Lewat</span>}
+                        {info.tanggalJatuhTempo && <span className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold', isOverdue ? 'text-red-600' : 'text-amber-600')}><CalendarClock className="w-2.5 h-2.5" /> {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</span>}
+                        <span className="text-[9px] text-violet-500 font-medium">DP {info.dpPercent}%</span>
                       </div>
                     </div>
                   )
                 })}
               </div>
               {/* Desktop Table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-[13px] min-w-[700px]">
-                  <thead>
+              <div className="hidden sm:block overflow-y-auto max-h-[60vh]">
+                <table className="w-full text-[13px]">
+                  <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 bg-slate-50/80">
-                      <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
-                      <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                      <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                      <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Barang</th>
-                      <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
-                      <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jatuh Tempo</th>
-                      <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa</th>
-                      <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                      <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+                      <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+                      <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
+                      <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Jatuh Tempo</th>
+                      <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {pendingInvoices.map((entry, idx) => {
+                    {pendingInvoices.map((entry) => {
                       const info = parseDocInfo(entry)
                       const isOverdue = info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr())
+                      const isSelected = selectedItem?.id === entry.id
                       return (
-                        <tr key={entry.id} className={`border-b border-slate-50 hover:bg-amber-50/30 transition-colors ${isOverdue ? 'bg-red-50/30' : idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                          <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
-                          <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
-                          <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                          <td className="py-3 px-3 text-slate-600 max-w-[160px] truncate">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
-                          <td className="py-3 px-3 text-right whitespace-nowrap">
-                            <span className="text-violet-600 font-medium">{info.dpPercent}%</span>
-                            <span className="text-slate-400 text-[10px] ml-1">({formatRupiahShort(info.dp)})</span>
+                        <tr key={entry.id} onClick={() => selectInvoice(entry)} className={cn('border-b border-slate-50 cursor-pointer transition-colors', isSelected ? 'bg-amber-50' : isOverdue ? 'bg-red-50/20 hover:bg-amber-50/30' : 'hover:bg-amber-50/30')}>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />}
+                              <span className="text-violet-700 font-semibold">{entry.nomor || '-'}</span>
+                            </div>
                           </td>
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-2.5 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <span className="text-violet-600 font-medium">{info.dpPercent}%</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
                             {info.tanggalJatuhTempo ? (
                               <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold', isOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700')}>
                                 {isOverdue && <AlertTriangle className="w-3 h-3" />}
-                                <CalendarClock className="w-3 h-3" />
                                 {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
                               </span>
                             ) : <span className="text-slate-400 text-[10px]">-</span>}
                           </td>
-                          <td className="py-3 px-3 text-right whitespace-nowrap">
-                            <span className="font-bold text-red-600">{formatRupiahShort(info.sisa)}</span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <Button size="sm" onClick={(e) => openPelunasanDialog(entry, e as unknown as React.MouseEvent)} className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white">
-                              <Wallet className="w-3.5 h-3.5" /> Lunasi
-                            </Button>
-                          </td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap font-bold text-red-600">{formatRupiahShort(info.sisa)}</td>
                         </tr>
                       )
                     })}
@@ -844,109 +835,157 @@ function PelunasanTab() {
           )}
         </div>
 
-        {/* Lunas History — collapsed by default */}
-        {lunasInvoices.length > 0 && (
-          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <details>
-              <summary className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-green-50/60 cursor-pointer hover:bg-green-50 transition-colors">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Sudah Lunas</h2>
-                <span className="text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{lunasInvoices.length} invoice</span>
-              </summary>
-              <div className="divide-y divide-slate-100">
-                {lunasInvoices.map((entry) => {
-                  const info = parseDocInfo(entry)
-                  return (
-                    <div key={entry.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-violet-700 font-semibold text-xs">{entry.nomor || '-'}</p>
-                          <CheckCircle2 className="w-3 h-3 text-green-500" />
-                        </div>
-                        <p className="text-slate-500 text-[11px]">{entry.pihakKedua || '-'} · {info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-green-600 font-semibold text-xs">{formatRupiahShort(info.sisa > 0 ? info.sisa : 0)}</p>
-                        {info.tanggalPelunasan && <p className="text-[10px] text-slate-400">{new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</p>}
-                      </div>
-                    </div>
-                  )
-                })}
+        {/* Right: Form Pelunasan */}
+        <div className="lg:col-span-2">
+          {selectedItem && selectedInfo ? (
+            <div className="bg-card rounded-2xl shadow-sm border-2 border-amber-200 overflow-hidden">
+              {/* Form Header */}
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-amber-200 bg-amber-50/60">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-amber-600" />
+                  <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Form Pelunasan</h2>
+                </div>
+                <button onClick={clearSelection} className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                  <X className="w-3.5 h-3.5 text-slate-500" />
+                </button>
               </div>
-            </details>
-          </div>
-        )}
-      </div>
 
-      {/* Pelunasan Dialog */}
-      <Dialog open={pelunasanDialogOpen} onOpenChange={setPelunasanDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Wallet className="w-5 h-5 text-amber-600" /> Form Pelunasan</DialogTitle>
-            <DialogDescription>Catat pelunasan sisa pembayaran invoice</DialogDescription>
-          </DialogHeader>
-          {pelunasanDialogItem && (() => {
-            const info = parseDocInfo(pelunasanDialogItem)
-            const hasDP = info.dpPercent > 0
-            return (
-              <div className="space-y-5 pt-1">
-                {/* Invoice Info Card */}
-                <div className="rounded-xl bg-slate-50 p-4 space-y-2">
-                  <div className="flex justify-between text-xs"><span className="text-slate-500">No. Invoice</span><span className="font-semibold text-slate-800">{pelunasanDialogItem.nomor}</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-medium text-slate-700">{pelunasanDialogItem.pihakKedua || '-'}</span></div>
-                  <div className="border-t border-slate-200 pt-2 mt-1">
-                    <div className="flex justify-between text-xs"><span className="text-slate-500">Total</span><span className="font-bold text-emerald-700">{formatRupiahShort(info.totalHarga)}</span></div>
-                    {hasDP && (<>
-                      <div className="flex justify-between text-xs mt-1"><span className="text-slate-500">DP ({info.dpPercent}%)</span><span className="font-medium text-violet-700">- {formatRupiahShort(info.dp)}</span></div>
-                      <div className="flex justify-between text-sm mt-1.5 pt-1.5 border-t border-dashed border-slate-200"><span className="font-semibold text-slate-700">Sisa Pembayaran</span><span className="font-bold text-red-600">{formatRupiahShort(info.sisa)}</span></div>
-                    </>)}
+              <div className="p-4 space-y-4">
+                {/* Invoice Info */}
+                <div className="rounded-xl bg-slate-50 p-3 space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">No. Invoice</span>
+                    <span className="font-semibold text-slate-800">{selectedItem.nomor}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Customer</span>
+                    <span className="font-medium text-slate-700">{selectedItem.pihakKedua || '-'}</span>
+                  </div>
+                  {selectedInfo.namaBarang && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Barang</span>
+                      <span className="font-medium text-slate-700 truncate max-w-[150px]">{selectedInfo.namaBarang.split('\n')[0]}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-slate-200 pt-1.5 mt-1 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Total</span>
+                      <span className="font-bold text-emerald-700">{formatRupiahShort(selectedInfo.totalHarga)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">DP ({selectedInfo.dpPercent}%)</span>
+                      <span className="font-medium text-violet-700">- {formatRupiahShort(selectedInfo.dp)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-1 border-t border-dashed border-slate-200">
+                      <span className="font-semibold text-slate-700">Sisa Pembayaran</span>
+                      <span className="font-bold text-red-600">{formatRupiahShort(selectedInfo.sisa)}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Jatuh Tempo */}
+                {/* Tanggal Jatuh Tempo */}
                 <div>
-                  <Label className="text-sm font-medium text-slate-700">Tanggal Jatuh Tempo</Label>
-                  <Input type="date" value={jatuhTempoDate} onChange={(e) => setJatuhTempoDate(e.target.value)} className="mt-1.5" />
+                  <Label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                    <CalendarClock className="w-3.5 h-3.5" /> Tanggal Jatuh Tempo
+                  </Label>
+                  <Input type="date" value={jatuhTempoDate} onChange={(e) => setJatuhTempoDate(e.target.value)} className="mt-1.5 text-sm" />
                 </div>
 
-                {/* Pelunasan Section */}
-                <div className="rounded-xl border-2 border-amber-200 bg-amber-50/30 p-4 space-y-4">
+                {/* Pelunasan Toggle */}
+                <div className="rounded-xl border-2 border-amber-200 bg-amber-50/40 p-3 space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
                       {pelunasanToggle ? (
-                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
+                        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center"><Wallet className="w-5 h-5 text-amber-600" /></div>
+                        <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center"><Wallet className="w-4 h-4 text-amber-600" /></div>
                       )}
                       <div>
-                        <Label className="text-sm font-semibold text-slate-800">Tandai Lunas</Label>
-                        <p className="text-xs text-slate-500">
-                          {pelunasanToggle
-                            ? `Sisa ${formatRupiahShort(info.sisa)} sudah dibayar`
-                            : `Sisa ${formatRupiahShort(info.sisa)} belum dibayar`
-                          }
+                        <p className="text-sm font-semibold text-slate-800">Tandai Lunas</p>
+                        <p className="text-[11px] text-slate-500">
+                          {pelunasanToggle ? 'Sisa sudah dibayar' : 'Sisa belum dibayar'}
                         </p>
                       </div>
                     </div>
                     <Switch checked={pelunasanToggle} onCheckedChange={(checked) => { setPelunasanToggle(checked); if (checked && !pelunasanDate) setPelunasanDate(getTodayStr()) }} />
                   </div>
-                  {pelunasanToggle && (<>
-                    <div><Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label><Input type="date" value={pelunasanDate} onChange={(e) => setPelunasanDate(e.target.value)} className="mt-1" /></div>
-                    <div className="rounded-lg bg-green-50 p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /><div><p className="text-sm font-semibold text-green-800">Sudah Lunas</p><p className="text-xs text-green-600">Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</p></div></div>
-                  </>)}
+
+                  {pelunasanToggle && (
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label>
+                        <Input type="date" value={pelunasanDate} onChange={(e) => setPelunasanDate(e.target.value)} className="mt-1 text-sm" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-slate-600">Cara Pembayaran</Label>
+                        <Input type="text" value={caraPembayaran} onChange={(e) => setCaraPembayaran(e.target.value)} placeholder="Transfer, Tunai, Giro..." className="mt-1 text-sm" />
+                      </div>
+                      <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-semibold text-green-800">Sudah Lunas</p>
+                          <p className="text-[10px] text-green-600">
+                            Sisa {formatRupiahShort(selectedInfo.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={clearSelection} disabled={pelunasanUpdating} className="flex-1">Batal</Button>
+                  <Button size="sm" onClick={handleSimpanPelunasan} disabled={pelunasanUpdating} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                    {pelunasanUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    Simpan Pelunasan
+                  </Button>
                 </div>
               </div>
-            )
-          })()}
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" size="sm" onClick={() => setPelunasanDialogOpen(false)} disabled={pelunasanUpdating}>Batal</Button>
-            <Button size="sm" onClick={() => { handleStatusChange({ tanggalJatuhTempo: jatuhTempoDate, lunas: pelunasanToggle, tanggalPelunasan: pelunasanToggle ? pelunasanDate : '' }) }} disabled={pelunasanUpdating} className="bg-amber-600 hover:bg-amber-700 text-white">
-              {pelunasanUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Pelunasan'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+            </div>
+          ) : (
+            <div className="bg-card rounded-2xl shadow-sm border border-dashed border-slate-300 p-8 text-center">
+              <Wallet className="w-12 h-12 mx-auto text-slate-200 mb-3" />
+              <p className="text-sm font-medium text-slate-400">Pilih Invoice</p>
+              <p className="text-xs text-slate-300 mt-1">Klik invoice di daftar untuk mengisi form pelunasan</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Lunas History — collapsed by default */}
+      {lunasInvoices.length > 0 && (
+        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <details>
+            <summary className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-green-50/60 cursor-pointer hover:bg-green-50 transition-colors">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Sudah Lunas</h2>
+              <span className="text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{lunasInvoices.length} invoice</span>
+            </summary>
+            <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              {lunasInvoices.map((entry) => {
+                const info = parseDocInfo(entry)
+                return (
+                  <div key={entry.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-violet-700 font-semibold text-xs">{entry.nomor || '-'}</p>
+                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      </div>
+                      <p className="text-slate-500 text-[11px]">{entry.pihakKedua || '-'} · {info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-green-600 font-semibold text-xs">{formatRupiahShort(info.sisa > 0 ? info.sisa : 0)}</p>
+                      {info.tanggalPelunasan && <p className="text-[10px] text-slate-400">{new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</p>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </details>
+        </div>
+      )}
+    </div>
   )
 }
 
