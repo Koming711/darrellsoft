@@ -10,6 +10,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
+import { cn } from '@/lib/utils'
 import {
   History,
   Eye,
@@ -21,6 +22,8 @@ import {
   X,
   DatabaseBackup,
   Upload,
+  CheckCircle2,
+  CircleDot,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -61,11 +64,15 @@ function parseDocInfo(entry: HistoryEntry) {
     const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
     const ppn = parsed.ppn || 0
+    const dpPercent = parsed.dp || 0
     const totalHarga = subtotal + (subtotal * ppn / 100)
+    const dpAmount = totalHarga * (dpPercent / 100)
+    const sisa = totalHarga - dpAmount
+    const lunas = parsed.lunas === true
     const referensi = parsed.referensi || ''
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, referensi }
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, referensi }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '' }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, referensi: '' }
   }
 }
 
@@ -411,14 +418,28 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                     onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex items-center gap-2">
                         <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                        <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</p>
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0',
+                            info.lunas || info.sisa <= 0
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'
+                          )}
+                        >
+                          {info.lunas || info.sisa <= 0 ? (
+                            <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</>
+                          ) : (
+                            <><CircleDot className="w-2.5 h-2.5" /> Belum</>
+                          )}
+                        </span>
                       </div>
                       <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
+                        <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</p>
                         <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
                         {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
                       </div>
@@ -450,7 +471,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             </div>
             {/* Desktop table layout */}
             <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-[13px] min-w-[700px]">
+              <table className="w-full text-[13px] min-w-[800px]">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80">
                     <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
@@ -459,6 +480,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                     <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
                     <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
                     <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                    <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
                     <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
@@ -473,6 +495,22 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
                         <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
                         <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
+                        <td className="py-3 px-3 text-center">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
+                              info.lunas || info.sisa <= 0
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            )}
+                          >
+                            {info.lunas || info.sisa <= 0 ? (
+                              <><CheckCircle2 className="w-3 h-3" /> Lunas</>
+                            ) : (
+                              <><CircleDot className="w-3 h-3" /> Belum</>
+                            )}
+                          </span>
+                        </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
