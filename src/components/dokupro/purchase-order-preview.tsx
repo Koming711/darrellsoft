@@ -184,22 +184,22 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
       )}
 
       {/* Signatures - 3 columns */}
-      <div className="print-sig-grid grid grid-cols-3 gap-3 mt-3 text-[10px] text-center print:text-[8px] print:mt-[1mm]">
+      <div className="print-sig-grid grid grid-cols-3 gap-4 mt-4 text-[11px] text-center print:text-[9px] print:mt-[2mm]">
         <div>
-          <p className="font-semibold mb-4 print:mb-4 text-black">Toko</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <p className="font-semibold mb-8 print:mb-6 text-black">Toko</p>
+          <div className="mx-auto w-4/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
         <div>
-          <p className="font-semibold mb-4 print:mb-4 text-black">Diketahui</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <p className="font-semibold mb-8 print:mb-6 text-black">Diketahui</p>
+          <div className="mx-auto w-4/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
         <div>
-          <p className="font-semibold mb-4 print:mb-4 text-black">Disetujui Oleh</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <p className="font-semibold mb-8 print:mb-6 text-black">Disetujui Oleh</p>
+          <div className="mx-auto w-4/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
         </div>
       </div>
 
-      <p className="text-[8px] text-center mt-7 italic print:text-[7px] print:mt-[3mm] text-neutral-600">
+      <p className="text-[8px] text-center mt-8 italic print:text-[7px] print:mt-[4mm] text-neutral-600">
         Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.
       </p>
     </div>
