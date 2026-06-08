@@ -1,5 +1,5 @@
 /**
- * Generate PDF using jsPDF directly (no html2canvas dependency)
+ * Generate PDF using jsPDF directly
  * and share it via WhatsApp.
  *
  * PDF layout matches the browser preview / print output exactly.
@@ -86,81 +86,82 @@ function drawDocHeader(
   const logoX = m
   const logoY = y
 
-  // Logo — try base64 image first, fallback to initial letter in black box
+  // Logo — try base64 image first, fallback to bordered box with 2-char initials (matches print)
   const logoAdded = tryAddLogoImage(pdf, company.logo, logoX, logoY, logoSize)
 
   if (!logoAdded) {
-    const companyInitial = (company.nama || 'C').charAt(0).toUpperCase()
-    pdf.setFillColor(0, 0, 0)
-    pdf.roundedRect(logoX, logoY, logoSize, logoSize, 1.2, 1.2, 'F')
-    pdf.setFontSize(12)
+    // Matches print: black border, transparent bg, black text, 2-char initials
+    const companyInitials = (company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2)
+    pdf.setDrawColor(0, 0, 0)
+    pdf.setLineWidth(0.8)
+    pdf.roundedRect(logoX, logoY, logoSize, logoSize, 1.2, 1.2, 'S') // stroke only
+    pdf.setFontSize(8)
     pdf.setFont('helvetica', 'bold')
-    pdf.setTextColor(255, 255, 255)
-    pdf.text(companyInitial, logoX + 6, logoY + 7.5, { align: 'center' })
+    pdf.setTextColor(0, 0, 0)
+    pdf.text(companyInitials, logoX + logoSize / 2, logoY + logoSize / 2 + 1.5, { align: 'center' })
   }
 
   const infoX = m + 15
 
-  // Company name
+  // Company name — matches print: 12pt bold black
   pdf.setTextColor(0, 0, 0)
-  pdf.setFontSize(13)
+  pdf.setFontSize(11)
   pdf.setFont('helvetica', 'bold')
   pdf.text(company.nama || '', infoX, y + 4)
 
-  // Address
-  pdf.setFontSize(9)
+  // Address — matches print: all text black (CSS forces #000 in print)
+  pdf.setFontSize(8)
   pdf.setFont('helvetica', 'normal')
-  pdf.setTextColor(97, 97, 97)
+  pdf.setTextColor(0, 0, 0)
   let nextY = y + 8.5
   if (company.alamat) {
     pdf.text(company.alamat, infoX, nextY)
-    nextY += 4
+    nextY += 3.5
   }
 
   // Telepon & Email
   const contactLine = [company.telepon, company.email].filter(Boolean).join('    ')
   if (contactLine) {
     pdf.text(contactLine, infoX, nextY)
-    nextY += 4
+    nextY += 3.5
   }
 
-  // Bank info
+  // Bank info — matches print: inline on same line, 9pt
   let bankY = nextY
-  if (company.bankName) {
-    pdf.setFontSize(7.5)
-    pdf.setTextColor(97, 97, 97)
-    const bank1 = `${company.bankName} ${company.bankAccount} a.n. ${company.bankHolder}`
-    pdf.text(bank1, infoX, bankY)
-    bankY += 3.5
-  }
-  if (company.bankName2) {
-    pdf.setFontSize(7.5)
-    pdf.setTextColor(97, 97, 97)
-    const bank2 = `${company.bankName2} ${company.bankAccount2} a.n. ${company.bankHolder2}`
-    pdf.text(bank2, infoX, bankY)
+  if (company.bankName || company.bankName2) {
+    pdf.setFontSize(6.5)
+    pdf.setTextColor(0, 0, 0)
+    const bankParts: string[] = []
+    if (company.bankName) {
+      bankParts.push(`${company.bankName} ${company.bankAccount} a.n. ${company.bankHolder}`)
+    }
+    if (company.bankName2) {
+      bankParts.push(`${company.bankName2} ${company.bankAccount2} a.n. ${company.bankHolder2}`)
+    }
+    pdf.text(bankParts.join('   '), infoX, bankY)
     bankY += 3.5
   }
 
-  // Title (right side)
+  // Title (right side) — matches print: 12pt bold black
   const rightX = pageW - m
-  pdf.setFontSize(14)
+  pdf.setFontSize(11)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text(title, rightX, y + 5, { align: 'right' })
 
   if (subtitle) {
-    pdf.setFontSize(7.5)
+    pdf.setFontSize(6.5)
     pdf.setFont('helvetica', 'normal')
-    pdf.setTextColor(97, 97, 97)
+    pdf.setTextColor(0, 0, 0) // print forces black
     pdf.text(subtitle, rightX, y + 9.5, { align: 'right' })
   }
 
-  // Jatuh Tempo — matches preview: shown in header area (right side, below subtitle)
+  // Jatuh Tempo — matches print: shown in header area (right side, below title), black text
   if (jatuhTempo) {
     const jtY = subtitle ? y + 14 : y + 10
-    pdf.setFontSize(7.5)
+    pdf.setFontSize(6.5)
     pdf.setFont('helvetica', 'bold')
-    pdf.setTextColor(180, 83, 9) // amber-700
+    pdf.setTextColor(0, 0, 0) // print forces black
     pdf.text(`Jatuh Tempo: ${fmtDateShort(jatuhTempo)}`, rightX, jtY, { align: 'right' })
   }
 
@@ -191,13 +192,13 @@ function drawRecipientBlock(
 ): number {
   const { m, pageW, y, label, recipient, docLabel, docNumber, dateLabel, dateValue, referensi } = opts
 
-  // Left — recipient
-  pdf.setFontSize(7.5)
+  // Left — recipient (print forces all text black)
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'bold')
-  pdf.setTextColor(97, 97, 97)
+  pdf.setTextColor(0, 0, 0)
   pdf.text(label, m, y)
 
-  pdf.setFontSize(9)
+  pdf.setFontSize(8)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   let recipientY = y + 5
@@ -206,57 +207,57 @@ function drawRecipientBlock(
   // jenisBarang — for Purchase Order (matches preview)
   if (recipient.jenisBarang) {
     recipientY += 3.5
-    pdf.setFontSize(7.5)
+    pdf.setFontSize(6.5)
     pdf.setFont('helvetica', 'normal')
-    pdf.setTextColor(97, 97, 97)
+    pdf.setTextColor(0, 0, 0)
     pdf.text(recipient.jenisBarang, m, recipientY)
   }
 
   if (recipient.kontak) {
     recipientY += 3.5
-    pdf.setFontSize(7.5)
+    pdf.setFontSize(6.5)
     pdf.setFont('helvetica', 'normal')
-    pdf.setTextColor(97, 97, 97)
+    pdf.setTextColor(0, 0, 0)
     pdf.text(recipient.kontak, m, recipientY)
   }
   if (recipient.alamat) {
     recipientY += 3.5
-    pdf.setFontSize(7.5)
+    pdf.setFontSize(6.5)
     pdf.setFont('helvetica', 'normal')
-    pdf.setTextColor(97, 97, 97)
+    pdf.setTextColor(0, 0, 0)
     pdf.text(recipient.alamat, m, recipientY)
   }
 
-  // Right — doc details
+  // Right — doc details (print forces black)
   const rightX = pageW - m
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'normal')
-  pdf.setTextColor(97, 97, 97)
+  pdf.setTextColor(0, 0, 0)
   pdf.text(docLabel, rightX, y, { align: 'right' })
 
-  pdf.setFontSize(9)
+  pdf.setFontSize(8)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text(docNumber, rightX, y + 4, { align: 'right' })
 
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'normal')
-  pdf.setTextColor(97, 97, 97)
+  pdf.setTextColor(0, 0, 0)
   pdf.text(dateLabel, rightX, y + 8.5, { align: 'right' })
 
-  pdf.setFontSize(9)
+  pdf.setFontSize(8)
   pdf.setFont('helvetica', 'normal')
   pdf.setTextColor(0, 0, 0)
   pdf.text(dateValue, rightX, y + 12.5, { align: 'right' })
 
   // Referensi — matches preview: "Ref." label + value
   if (referensi) {
-    pdf.setFontSize(7.5)
+    pdf.setFontSize(6.5)
     pdf.setFont('helvetica', 'normal')
-    pdf.setTextColor(97, 97, 97)
+    pdf.setTextColor(0, 0, 0)
     pdf.text('Ref.', rightX, y + 16.5, { align: 'right' })
 
-    pdf.setFontSize(9)
+    pdf.setFontSize(8)
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(0, 0, 0)
     pdf.text(referensi, rightX, y + 20, { align: 'right' })
@@ -308,7 +309,7 @@ function drawItemsTableWithPrice(
   pdf.line(m, y, m + cw, y) // top border
   pdf.line(m, y + headerH, m + cw, y + headerH) // bottom border
 
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text('Qty', m + colQty - cellPad, y + headerH - 2, { align: 'right' })
@@ -327,7 +328,7 @@ function drawItemsTableWithPrice(
 
     if (hasData) {
       pdf.setTextColor(0, 0, 0)
-      pdf.setFontSize(7.5)
+      pdf.setFontSize(6.5)
       pdf.setFont('helvetica', 'normal')
 
       const textY = curY + 4
@@ -345,7 +346,7 @@ function drawItemsTableWithPrice(
       }
 
       // Harga satuan — right aligned
-      pdf.setFontSize(7.5)
+      pdf.setFontSize(6.5)
       pdf.setFont('helvetica', 'normal')
       pdf.text(rp(item.harga), m + colQty + colDesc + colPrice - cellPad, textY, { align: 'right' })
 
@@ -399,7 +400,7 @@ function drawItemsTableNoPrice(
   pdf.line(m, y, m + cw, y) // top border
   pdf.line(m, y + headerH, m + cw, y + headerH) // bottom border
 
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text('Qty', m + colQty - cellPad, y + headerH - 2, { align: 'right' })
@@ -415,7 +416,7 @@ function drawItemsTableNoPrice(
 
     if (hasData) {
       pdf.setTextColor(0, 0, 0)
-      pdf.setFontSize(7.5)
+      pdf.setFontSize(6.5)
       pdf.setFont('helvetica', 'normal')
 
       const textY = curY + 4
@@ -437,23 +438,25 @@ function drawItemsTableNoPrice(
   return curY + 3
 }
 
-/** Draw totals block (Subtotal, PPN, Total). Returns new Y. */
+/** Draw totals block (Subtotal, PPN, Total, DP, Sisa). Returns new Y. */
 function drawTotals(
   pdf: jsPDF,
   opts: {
     m: number; pageW: number; y: number
     subtotal: number; ppnPercent: number; ppnAmount: number; total: number
+    dp?: number  // down payment amount
   }
 ): number {
-  const { m, pageW, y, subtotal, ppnPercent, ppnAmount, total } = opts
+  const { m, pageW, y, subtotal, ppnPercent, ppnAmount, total, dp = 0 } = opts
   const rightX = pageW - m
   const totalsW = 58
   const labelX = rightX - totalsW
+  const sisa = total - dp
 
-  // Subtotal
-  pdf.setFontSize(8)
+  // Subtotal — print forces black
+  pdf.setFontSize(7)
   pdf.setFont('helvetica', 'normal')
-  pdf.setTextColor(97, 97, 97)
+  pdf.setTextColor(0, 0, 0)
   pdf.text('Subtotal', labelX, y)
   pdf.text(rp(subtotal), rightX, y, { align: 'right' })
   let curY = y + 4.5
@@ -465,28 +468,54 @@ function drawTotals(
     curY += 4.5
   }
 
-  // Total line
+  // Total line — matches print: 2px solid #000 border, then TOTAL + amount
   pdf.setDrawColor(0, 0, 0)
   pdf.setLineWidth(0.5)
   pdf.line(labelX - 2, curY, rightX, curY)
   curY += 3.5
 
-  pdf.setFontSize(9.5)
+  pdf.setFontSize(8.5)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text('TOTAL', labelX, curY)
-  pdf.setFontSize(10)
+  pdf.setFontSize(9)
   pdf.text(rp(total), rightX, curY, { align: 'right' })
+  curY += 5
 
-  return curY + 5
+  // DP (Uang Muka) + Sisa Pembayaran — matches print exactly
+  if (dp > 0) {
+    // DP line
+    pdf.setFontSize(7)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setTextColor(0, 0, 0)
+    pdf.text('DP (Uang Muka)', labelX, curY)
+    pdf.text(rp(dp), rightX, curY, { align: 'right' })
+    curY += 4.5
+
+    // Sisa Pembayaran line — matches print: 1px solid #000 border, bold
+    pdf.setDrawColor(0, 0, 0)
+    pdf.setLineWidth(0.3)
+    pdf.line(labelX - 2, curY, rightX, curY)
+    curY += 3.5
+
+    pdf.setFontSize(8.5)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setTextColor(0, 0, 0)
+    pdf.text('SISA PEMBAYARAN', labelX, curY)
+    pdf.setFontSize(9)
+    pdf.text(rp(sisa), rightX, curY, { align: 'right' })
+    curY += 5
+  }
+
+  return curY
 }
 
 /** Draw terbilang line. Returns new Y. */
-function drawTerbilang(pdf: jsPDF, m: number, y: number, total: number): number {
-  pdf.setFontSize(7)
+function drawTerbilang(pdf: jsPDF, m: number, y: number, amount: number): number {
+  pdf.setFontSize(6)
   pdf.setFont('helvetica', 'italic')
-  pdf.setTextColor(97, 97, 97)
-  pdf.text(`Terbilang: ${terbilang(total)} rupiah`, m, y)
+  pdf.setTextColor(0, 0, 0) // print forces black
+  pdf.text(`Terbilang: ${terbilang(amount)} rupiah`, m, y)
   return y + 5
 }
 
@@ -494,25 +523,36 @@ function drawTerbilang(pdf: jsPDF, m: number, y: number, total: number): number 
 function drawCatatan(pdf: jsPDF, m: number, cw: number, y: number, catatan: string): number {
   if (!catatan) return y
 
-  const noteLines = pdf.splitTextToSize(catatan, cw - 4)
-  const boxH = Math.max(10, 5 + noteLines.length * 3.5 + 2)
+  // Split by explicit newlines first (whitespace-pre-wrap behavior)
+  const paragraphs = catatan.split('\n')
+  const allLines: string[] = []
+  for (const para of paragraphs) {
+    if (para === '') {
+      allLines.push('')
+    } else {
+      const lines = pdf.splitTextToSize(para, cw - 4)
+      allLines.push(...lines)
+    }
+  }
+
+  const boxH = Math.max(10, 5 + allLines.length * 3.5 + 2)
 
   pdf.setFillColor(245, 245, 245)
   pdf.roundedRect(m, y, cw, boxH, 1, 1, 'F')
 
-  pdf.setFontSize(7.5)
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text('Catatan:', m + 2, y + 4)
 
   pdf.setFont('helvetica', 'normal')
-  pdf.setFontSize(7.5)
-  pdf.text(noteLines, m + 2, y + 7.5)
+  pdf.setFontSize(6.5)
+  pdf.text(allLines, m + 2, y + 7.5)
 
   return y + boxH + 3
 }
 
-/** Draw cara bayar row — matches preview with icon-like styling. Returns new Y. */
+/** Draw cara bayar row — matches print with icon-like styling. Returns new Y. */
 function drawCaraBayar(
   pdf: jsPDF,
   opts: {
@@ -530,9 +570,10 @@ function drawCaraBayar(
   pdf.setFillColor(5, 150, 105) // emerald-600
   pdf.circle(m + 1.5, y + 2, 1.2, 'F')
 
-  pdf.setFontSize(7.5)
+  // Print forces all text black
+  pdf.setFontSize(6.5)
   pdf.setFont('helvetica', 'normal')
-  pdf.setTextColor(97, 97, 97)
+  pdf.setTextColor(0, 0, 0)
   pdf.text('Cara Bayar:', m + 4, y + 3)
 
   pdf.setFont('helvetica', 'bold')
@@ -541,7 +582,7 @@ function drawCaraBayar(
 
   if (caraPembayaran === 'giro' && tanggalGiro) {
     pdf.setFont('helvetica', 'normal')
-    pdf.setTextColor(120, 120, 120)
+    pdf.setTextColor(0, 0, 0)
     pdf.text(`(Tgl: ${fmtDateShort(tanggalGiro)})`, m + 36, y + 3)
   }
 
@@ -563,7 +604,7 @@ function drawSignatures2Col(
   const sigL = m
   const sigR = m + sigW + sigGap
 
-  pdf.setFontSize(9)
+  pdf.setFontSize(8)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
   pdf.text(leftLabel, sigL + sigW / 2, y, { align: 'center' })
@@ -591,7 +632,7 @@ function drawSignatures3Col(
   const colGap = 6
   const colW = (cw - colGap * 2) / 3
 
-  pdf.setFontSize(8)
+  pdf.setFontSize(7)
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(0, 0, 0)
 
@@ -611,14 +652,12 @@ function drawSignatures3Col(
   return lineY + 3
 }
 
-/** Draw footer text — matches preview font size. */
-function drawFooter(pdf: jsPDF, pageW: number, pageH: number) {
-  pdf.setFontSize(7)
-  pdf.setFont('helvetica', 'italic')
-  pdf.setTextColor(120, 120, 120)
-  pdf.text('Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.', pageW / 2, pageH - 4, { align: 'center' })
+/** Draw footer text — matches print (no www.darrellsoft.com, only disclaimer). */
+function drawFooter(pdf: jsPDF, pageW: number, pageH: number, m: number = 12) {
   pdf.setFontSize(6)
-  pdf.text('www.darrellsoft.com', pageW / 2, pageH - 1.5, { align: 'center' })
+  pdf.setFont('helvetica', 'italic')
+  pdf.setTextColor(0, 0, 0) // print forces black
+  pdf.text('Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.', pageW / 2, pageH - m + 4, { align: 'center' })
 }
 
 // ============================================================
@@ -783,15 +822,17 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()  // 148
   const pageH = pdf.internal.pageSize.getHeight() // 210
-  const m = 10
+  const m = 12
   const cw = pageW - m * 2
   let y = m
 
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0)
   const ppnAmount = subtotal * (data.ppn / 100)
   const total = subtotal + ppnAmount
+  const dp = data.dp || 0
+  const sisa = total - dp
 
-  // ---- HEADER (with Jatuh Tempo in header area, matching preview) ----
+  // ---- HEADER (with Jatuh Tempo in header area, matching print) ----
   y = drawDocHeader(pdf, {
     pageW, m, y, company: data.company, title: 'INVOICE',
     jatuhTempo: data.tanggalJatuhTempo || undefined,
@@ -812,7 +853,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
     referensi: data.referensi || undefined,
   })
 
-  // ---- CARA BAYAR ROW (matches preview: separate row below client info) ----
+  // ---- CARA BAYAR ROW (matches print: separate row below client info) ----
   y = drawCaraBayar(pdf, {
     m, cw, y,
     caraPembayaran: data.caraPembayaran,
@@ -822,16 +863,16 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   // ---- ITEMS TABLE ----
   y = drawItemsTableWithPrice(pdf, { m, cw, y, items: data.items, maxRows: 8 })
 
-  // ---- TOTALS ----
-  y = drawTotals(pdf, { m, pageW, y, subtotal, ppnPercent: data.ppn, ppnAmount, total })
+  // ---- TOTALS (with DP and Sisa Pembayaran) ----
+  y = drawTotals(pdf, { m, pageW, y, subtotal, ppnPercent: data.ppn, ppnAmount, total, dp })
 
-  // ---- TERBILANG ----
-  y = drawTerbilang(pdf, m, y, total)
+  // ---- TERBILANG (use sisa when DP > 0, matches print) ----
+  y = drawTerbilang(pdf, m, y, dp > 0 ? sisa : total)
 
   // ---- CATATAN ----
   y = drawCatatan(pdf, m, cw, y, data.catatan)
 
-  // ---- SIGNATURES (2 col — Diterima Oleh / Hormat Kami, matching preview) ----
+  // ---- SIGNATURES (2 col — Diterima Oleh / Hormat Kami, matching print) ----
   y += 3
   y = drawSignatures2Col(pdf, {
     m, cw, y,
@@ -841,7 +882,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   })
 
   // ---- FOOTER ----
-  drawFooter(pdf, pageW, pageH)
+  drawFooter(pdf, pageW, pageH, m)
 
   pdf.setTextColor(0, 0, 0)
   return pdf.output('blob')
@@ -857,7 +898,7 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
-  const m = 10
+  const m = 12
   const cw = pageW - m * 2
   let y = m
 
@@ -912,7 +953,7 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
   })
 
   // ---- FOOTER ----
-  drawFooter(pdf, pageW, pageH)
+  drawFooter(pdf, pageW, pageH, m)
 
   pdf.setTextColor(0, 0, 0)
   return pdf.output('blob')
@@ -928,7 +969,7 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
-  const m = 10
+  const m = 12
   const cw = pageW - m * 2
   let y = m
 
@@ -953,7 +994,7 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
 
   // ---- VEHICLE INFO ----
   // Matches preview: flex gap-6, label + value
-  pdf.setFontSize(9)
+  pdf.setFontSize(8)
   pdf.setFont('helvetica', 'normal')
   pdf.setTextColor(97, 97, 97)
   pdf.text('No. Kendaraan', m, y)
@@ -981,7 +1022,7 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
   })
 
   // ---- FOOTER ----
-  drawFooter(pdf, pageW, pageH)
+  drawFooter(pdf, pageW, pageH, m)
 
   pdf.setTextColor(0, 0, 0)
   return pdf.output('blob')
@@ -1047,4 +1088,523 @@ export function downloadPdf(blob: Blob, fileName: string): void {
   a.href = url; a.download = fileName; a.style.display = 'none'
   document.body.appendChild(a); a.click()
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 5000)
+}
+
+// ============================================================
+// Generate JPG from PDF (hasil cetak) — A5 size
+// ============================================================
+
+/**
+ * Generate a JPG image from a PDF blob at A5 resolution.
+ * Renders the first page of the PDF to a canvas using pdfjs-dist,
+ * then converts to JPG. This produces an image that matches
+ * the print/cetak output exactly.
+ *
+ * A5 = 148mm × 210mm. At 2×150 DPI → ~1750 × 2480 px.
+ */
+export async function generateJpgFromPdf(pdfBlob: Blob): Promise<Blob> {
+  const pdfjsLib = await import('pdfjs-dist')
+
+  // Use the worker file copied to /public/pdf.worker.min.mjs
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+
+  const arrayBuffer = await pdfBlob.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
+  const page = await pdf.getPage(1)
+
+  // A5 at 2×150 DPI for high quality
+  const A5_W_MM = 148
+  const A5_H_MM = 210
+  const DPI = 150
+  const SCALE = 2
+  const targetW = Math.round(A5_W_MM * DPI * SCALE / 25.4) // ~1750px
+  const targetH = Math.round(A5_H_MM * DPI * SCALE / 25.4) // ~2480px
+
+  // Calculate scale to fit A5 target size
+  const viewport = page.getViewport({ scale: 1 })
+  const scaleToTarget = Math.min(targetW / viewport.width, targetH / viewport.height)
+  const scaledViewport = page.getViewport({ scale: scaleToTarget })
+
+  // Create canvas and render
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(scaledViewport.width)
+  canvas.height = Math.round(scaledViewport.height)
+  const ctx = canvas.getContext('2d')!
+
+  // Fill white background first
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  await page.render({
+    canvasContext: ctx,
+    viewport: scaledViewport,
+  }).promise
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('Failed to generate JPG from PDF'))
+      },
+      'image/jpeg',
+      0.92
+    )
+  })
+}
+
+// ============================================================
+// Generate JPG from preview DOM element (A5 size) — fallback
+// ============================================================
+
+/**
+ * Capture a preview DOM element as a JPG image at A5 resolution.
+ * Uses html-to-image (SVG foreignObject).
+ *
+ * A5 = 148mm × 210mm. At 150 DPI → 874 × 1240 px. We use 2x for quality.
+ */
+export async function generateJpgFromElement(element: HTMLElement): Promise<Blob> {
+  const { toCanvas } = await import('html-to-image')
+
+  // A5 dimensions in pixels at print DPI
+  const A5_W_MM = 148
+  const A5_H_MM = 210
+  const PRINT_DPI = 96
+  const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
+  const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
+  const marginPx = Math.round(12 * PRINT_DPI / 25.4)          // ~45px
+
+  // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
+  const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
+  const previewScaler = element.closest('.a5-preview-scaler') as HTMLElement | null
+
+  if (previewContainer) {
+    // ===== CASE 1: Element is inside .a5-preview-container (editor mode) =====
+    // Work on the actual element in the DOM for perfect style computation
+    const origStyle = element.getAttribute('style') || ''
+    const origClass = element.className
+    const origContainerStyle = previewContainer.getAttribute('style') || ''
+    const origScalerStyle = previewScaler?.getAttribute('style') || ''
+    const origContainerClass = previewContainer.className
+    const origScalerClass = previewScaler?.className || ''
+
+    try {
+      element.classList.add('print-mode')
+      element.style.cssText = `
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        background-color: #fff !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        padding: ${marginPx}px !important;
+        box-sizing: border-box !important;
+      `
+
+      previewContainer.classList.add('print-mode')
+      previewContainer.style.cssText = `
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: ${a5WidthPx}px !important;
+        height: ${a5HeightPx}px !important;
+        max-width: ${a5WidthPx}px !important;
+        max-height: ${a5HeightPx}px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+        background: white !important;
+        z-index: 99999 !important;
+      `
+
+      if (previewScaler) {
+        previewScaler.classList.add('print-mode')
+        previewScaler.style.cssText = `
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden !important;
+          transform: none !important;
+          font-size: 10pt !important;
+        `
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const CAPTURE_SCALE = 2
+      const canvas = await toCanvas(previewContainer, {
+        width: a5WidthPx,
+        height: a5HeightPx,
+        canvasWidth: a5WidthPx * CAPTURE_SCALE,
+        canvasHeight: a5HeightPx * CAPTURE_SCALE,
+        backgroundColor: '#ffffff',
+        pixelRatio: 1,
+      })
+
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => { if (blob) resolve(blob); else reject(new Error('Failed to generate JPG')) },
+          'image/jpeg', 0.92
+        )
+      })
+    } finally {
+      element.setAttribute('style', origStyle)
+      element.className = origClass
+      previewContainer.setAttribute('style', origContainerStyle)
+      previewContainer.className = origContainerClass
+      if (previewScaler) {
+        previewScaler.setAttribute('style', origScalerStyle)
+        previewScaler.className = origScalerClass
+      }
+    }
+  } else {
+    // ===== CASE 2: No .a5-preview-container (riwayat overlay) =====
+    // Work on the actual element in the DOM for perfect style computation.
+    // The element is inside a scaled container in the riwayat overlay.
+    // We temporarily restructure it to A5 size, capture, then restore.
+
+    // Find the scale transform parent (the div with transform: scale(...))
+    const scaleParent = element.parentElement
+    const centeringParent = scaleParent?.parentElement
+
+    // Save original styles
+    const origElementStyle = element.getAttribute('style') || ''
+    const origElementClass = element.className
+    const origScaleParentStyle = scaleParent?.getAttribute('style') || ''
+    const origScaleParentClass = scaleParent?.className || ''
+    const origCenteringParentStyle = centeringParent?.getAttribute('style') || ''
+    const origCenteringParentClass = centeringParent?.className || ''
+
+    try {
+      // Apply print-mode to the element
+      element.classList.add('print-mode')
+      element.style.cssText = `
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        background-color: #fff !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        padding: ${marginPx}px !important;
+        box-sizing: border-box !important;
+      `
+
+      // Set scale parent to A5 size, remove transform
+      if (scaleParent) {
+        scaleParent.classList.add('print-mode')
+        scaleParent.style.cssText = `
+          position: fixed !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: ${a5WidthPx}px !important;
+          height: ${a5HeightPx}px !important;
+          max-width: ${a5WidthPx}px !important;
+          max-height: ${a5HeightPx}px !important;
+          border: none !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          overflow: hidden !important;
+          background: white !important;
+          z-index: 99999 !important;
+          transform: none !important;
+          font-size: 10pt !important;
+        `
+      }
+
+      // Make centering parent not interfere
+      if (centeringParent) {
+        centeringParent.style.cssText = `
+          position: static !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        `
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const CAPTURE_SCALE = 2
+      const captureTarget = scaleParent || element
+      const canvas = await toCanvas(captureTarget, {
+        width: a5WidthPx,
+        height: a5HeightPx,
+        canvasWidth: a5WidthPx * CAPTURE_SCALE,
+        canvasHeight: a5HeightPx * CAPTURE_SCALE,
+        backgroundColor: '#ffffff',
+        pixelRatio: 1,
+      })
+
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => { if (blob) resolve(blob); else reject(new Error('Failed to generate JPG')) },
+          'image/jpeg', 0.92
+        )
+      })
+    } finally {
+      element.setAttribute('style', origElementStyle)
+      element.className = origElementClass
+      if (scaleParent) {
+        scaleParent.setAttribute('style', origScaleParentStyle)
+        scaleParent.className = origScaleParentClass
+      }
+      if (centeringParent) {
+        centeringParent.setAttribute('style', origCenteringParentStyle)
+        centeringParent.className = origCenteringParentClass
+      }
+    }
+  }
+}
+
+// ============================================================
+// Generate PDF from DOM element (matches print output exactly)
+// ============================================================
+
+/**
+ * Generate a PDF by capturing the actual DOM element as an image.
+ * Temporarily applies `.print-mode` CSS and A5 dimensions to the element
+ * so it renders identically to the browser's print output, then captures
+ * it and embeds in a jsPDF A5 document.
+ *
+ * This approach works on the actual element in the DOM (not a clone)
+ * when inside .a5-preview-container, ensuring perfect style computation.
+ * Falls back to off-screen clone approach for standalone elements.
+ */
+export async function generatePdfFromElement(element: HTMLElement): Promise<Blob> {
+  const { jsPDF } = await import('jspdf')
+  const { toCanvas } = await import('html-to-image')
+
+  // A5 dimensions in pixels at print DPI
+  const A5_W_MM = 148
+  const A5_H_MM = 210
+  const PRINT_DPI = 96
+  const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
+  const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
+  const marginPx = Math.round(12 * PRINT_DPI / 25.4)          // ~45px
+
+  // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
+  const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
+  const previewScaler = element.closest('.a5-preview-scaler') as HTMLElement | null
+
+  let canvas: HTMLCanvasElement
+
+  if (previewContainer) {
+    // ===== CASE 1: Element is inside .a5-preview-container (editor mode) =====
+    const origStyle = element.getAttribute('style') || ''
+    const origClass = element.className
+    const origContainerStyle = previewContainer.getAttribute('style') || ''
+    const origScalerStyle = previewScaler?.getAttribute('style') || ''
+    const origContainerClass = previewContainer.className
+    const origScalerClass = previewScaler?.className || ''
+
+    try {
+      element.classList.add('print-mode')
+      element.style.cssText = `
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        background-color: #fff !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        padding: ${marginPx}px !important;
+        box-sizing: border-box !important;
+      `
+
+      previewContainer.classList.add('print-mode')
+      previewContainer.style.cssText = `
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: ${a5WidthPx}px !important;
+        height: ${a5HeightPx}px !important;
+        max-width: ${a5WidthPx}px !important;
+        max-height: ${a5HeightPx}px !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+        background: white !important;
+        z-index: 99999 !important;
+      `
+
+      if (previewScaler) {
+        previewScaler.classList.add('print-mode')
+        previewScaler.style.cssText = `
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden !important;
+          transform: none !important;
+          font-size: 10pt !important;
+        `
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const CAPTURE_SCALE = 2
+      canvas = await toCanvas(previewContainer, {
+        width: a5WidthPx,
+        height: a5HeightPx,
+        canvasWidth: a5WidthPx * CAPTURE_SCALE,
+        canvasHeight: a5HeightPx * CAPTURE_SCALE,
+        backgroundColor: '#ffffff',
+        pixelRatio: 1,
+      })
+    } finally {
+      element.setAttribute('style', origStyle)
+      element.className = origClass
+      previewContainer.setAttribute('style', origContainerStyle)
+      previewContainer.className = origContainerClass
+      if (previewScaler) {
+        previewScaler.setAttribute('style', origScalerStyle)
+        previewScaler.className = origScalerClass
+      }
+    }
+  } else {
+    // ===== CASE 2: No .a5-preview-container (riwayat overlay) =====
+    // Work on the actual element in the DOM for perfect style computation.
+    const scaleParent = element.parentElement
+    const centeringParent = scaleParent?.parentElement
+
+    // Save original styles
+    const origElementStyle = element.getAttribute('style') || ''
+    const origElementClass = element.className
+    const origScaleParentStyle = scaleParent?.getAttribute('style') || ''
+    const origScaleParentClass = scaleParent?.className || ''
+    const origCenteringParentStyle = centeringParent?.getAttribute('style') || ''
+    const origCenteringParentClass = centeringParent?.className || ''
+
+    try {
+      // Apply print-mode to the element
+      element.classList.add('print-mode')
+      element.style.cssText = `
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        background-color: #fff !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        padding: ${marginPx}px !important;
+        box-sizing: border-box !important;
+      `
+
+      // Set scale parent to A5 size, remove transform
+      if (scaleParent) {
+        scaleParent.classList.add('print-mode')
+        scaleParent.style.cssText = `
+          position: fixed !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: ${a5WidthPx}px !important;
+          height: ${a5HeightPx}px !important;
+          max-width: ${a5WidthPx}px !important;
+          max-height: ${a5HeightPx}px !important;
+          border: none !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          overflow: hidden !important;
+          background: white !important;
+          z-index: 99999 !important;
+          transform: none !important;
+          font-size: 10pt !important;
+        `
+      }
+
+      // Make centering parent not interfere
+      if (centeringParent) {
+        centeringParent.style.cssText = `
+          position: static !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        `
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      const CAPTURE_SCALE = 2
+      const captureTarget = scaleParent || element
+      canvas = await toCanvas(captureTarget, {
+        width: a5WidthPx,
+        height: a5HeightPx,
+        canvasWidth: a5WidthPx * CAPTURE_SCALE,
+        canvasHeight: a5HeightPx * CAPTURE_SCALE,
+        backgroundColor: '#ffffff',
+        pixelRatio: 1,
+      })
+    } finally {
+      element.setAttribute('style', origElementStyle)
+      element.className = origElementClass
+      if (scaleParent) {
+        scaleParent.setAttribute('style', origScaleParentStyle)
+        scaleParent.className = origScaleParentClass
+      }
+      if (centeringParent) {
+        centeringParent.setAttribute('style', origCenteringParentStyle)
+        centeringParent.className = origCenteringParentClass
+      }
+    }
+  }
+
+  // Create A5 PDF and embed image
+  const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
+  const pageW = pdf.internal.pageSize.getWidth()  // 148
+  const pageH = pdf.internal.pageSize.getHeight() // 210
+
+  const imgData = canvas.toDataURL('image/jpeg', 0.92)
+  pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH)
+
+  return pdf.output('blob')
+}
+
+/**
+ * Share a JPG image via WhatsApp.
+ * On mobile: uses Web Share API to share directly to WhatsApp.
+ * On desktop: downloads the JPG and opens WhatsApp with a message.
+ */
+export async function shareJpgViaWhatsApp(
+  blob: Blob,
+  fileName: string,
+  documentLabel: string,
+  waWindowRef?: React.MutableRefObject<Window | null>
+): Promise<void> {
+  if (!blob || !(blob instanceof Blob)) {
+    throw new Error('Invalid blob: JPG generation may have failed')
+  }
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+  // ===== MOBILE: Share JPG file directly to WhatsApp via Web Share API =====
+  if (isMobile && navigator.share && navigator.canShare) {
+    const file = new File([blob], fileName, { type: 'image/jpeg' })
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          text: `${documentLabel} - www.darrellsoft.com`,
+        })
+        return
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        // Fall through to download + open WhatsApp
+      }
+    }
+  }
+
+  // ===== DESKTOP / FALLBACK: Download JPG + open WhatsApp app =====
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 5000)
+
+  await new Promise(resolve => setTimeout(resolve, 500))
+
+  const msg = `Dokumen ${documentLabel} dalam format gambar sudah diunduh. Silakan lampirkan file gambar tersebut.`
+  const encoded = encodeURIComponent(msg)
+
+  const { openWhatsApp } = await import('@/lib/whatsapp-business')
+  openWhatsApp(encoded, waWindowRef ? { waWindowRef } : undefined)
 }

@@ -195,8 +195,8 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
     if (!el) return
     setIsGeneratingPdf(true)
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const { toCanvas } = await import('html-to-image')
+      const canvas = await toCanvas(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
       const { jsPDF } = await import('jspdf')
       const pdf = new jsPDF('p', 'mm', 'a4')

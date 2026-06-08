@@ -1,3 +1,14 @@
-node_modules/.prisma
-node_modules/@prisma/client
+node_modules
 .next
+db
+upload
+skills
+.git
+examples
+download
+mini-services
+.zscripts
+.daemon.pid
+.daemon.log
+dev.log
+worklog.md

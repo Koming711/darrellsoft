@@ -1204,13 +1204,14 @@ function HitungCetakanPage() {
 
       await new Promise(resolve => setTimeout(resolve, 600))
 
-      const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(iframeDoc.body, {
-        scale: 3,
-        useCORS: true,
+      const { toCanvas } = await import('html-to-image')
+      const canvas = await toCanvas(iframeDoc.body, {
         backgroundColor: '#ffffff',
+        pixelRatio: 3,
         width: a4PxW,
         height: iframeDoc.body.scrollHeight,
+        canvasWidth: a4PxW * 3,
+        canvasHeight: iframeDoc.body.scrollHeight * 3,
       })
 
       document.body.removeChild(iframe)

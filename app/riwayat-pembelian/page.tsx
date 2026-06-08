@@ -12,6 +12,7 @@ import {
   Search,
   FileText,
   Scissors,
+  ImageIcon,
 } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { formatRupiah } from '@/lib/format'
@@ -30,7 +31,7 @@ import {
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
-import { generatePurchaseOrderPdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+import { generatePurchaseOrderPdf, sharePdfViaWhatsApp, generateJpgFromElement, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
 import dynamic from 'next/dynamic'
 import type { CuttingResult } from '@/lib/cutting-engine'
 
@@ -317,6 +318,7 @@ export default function RiwayatPembelianPage() {
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewScale, setPreviewScale] = useState(1)
   const [sendingPdf, setSendingPdf] = useState(false)
+  const [sendingJpg, setSendingJpg] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -539,6 +541,27 @@ export default function RiwayatPembelianPage() {
       toast.error('Gagal mengirim PDF')
     } finally {
       setSendingPdf(false)
+    }
+  }, [poData])
+
+  const handleSendJpg = useCallback(async () => {
+    if (!poData) return
+    setSendingJpg(true)
+    try {
+      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+      if (previewEl) {
+        const jpgBlob = await generateJpgFromElement(previewEl)
+        const fileName = `PO_${poData.nomor || 'draft'}.jpg`
+        await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
+        toast.success('JPG dikirim ke WhatsApp Business')
+      } else {
+        toast.error('Preview tidak ditemukan')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal mengirim JPG')
+    } finally {
+      setSendingJpg(false)
     }
   }, [poData])
 
@@ -910,19 +933,33 @@ export default function RiwayatPembelianPage() {
                       </button>
                     ) : null
                   })()}
-                  {/* PDF to WhatsApp button */}
-                  <button
-                    onClick={handleSendPdf}
-                    disabled={sendingPdf}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
-                  >
-                    {sendingPdf ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <FileText className="w-4 h-4" />
-                    )}
-                    {sendingPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
-                  </button>
+                  {/* JPG + PDF buttons side by side */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSendJpg}
+                      disabled={sendingJpg || sendingPdf}
+                      className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors"
+                    >
+                      {sendingJpg ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-4 h-4" />
+                      )}
+                      {sendingJpg ? 'Mengirim JPG...' : 'JPG'}
+                    </button>
+                    <button
+                      onClick={handleSendPdf}
+                      disabled={sendingPdf || sendingJpg}
+                      className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors"
+                    >
+                      {sendingPdf ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                      {sendingPdf ? 'Mengirim PDF...' : 'PDF'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

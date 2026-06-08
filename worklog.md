@@ -349,24 +349,293 @@ Stage Summary:
 - Toggle knobs and small UI elements preserved with appropriate colors
 
 ---
-Task ID: 1
+Task ID: 11
 Agent: Main Agent
-Task: Fix production login error ("Terjadi kesalahan server") on www.darrellsoft.com
+Task: Fix invoice PDF output to match browser print/cetak result
 
 Work Log:
-- Investigated the login error by testing the production API directly with curl
-- Discovered the root cause: Prisma client was generated with `provider = "sqlite"` but production uses PostgreSQL
-- Error message: "Error validating datasource `db`: the URL must start with the protocol `file:`"
-- Found that `bun install` postinstall script was running `prisma generate`, but subsequent package installations by bun overwrote the generated Prisma client
-- Also discovered that `prisma generate` without `--schema` flag was using a cached/old schema with sqlite provider
-- Fix 1: Removed `prisma generate` from `postinstall` script in package.json (only keep `prepare-build.js`)
-- Fix 2: Added `--schema=prisma/schema.prisma` flag to all `prisma generate` calls in build commands
-- Deployed to production with `vercel --prod --force` (cache-less build)
-- Verified login works via curl API test and browser automation test
-- Reverted local schema back to `provider = "sqlite"` for local development
+- Analyzed the problem: `generateInvoicePdf()` uses jsPDF with manual text/shape positioning, which doesn't match the browser's print output (rendered via `@media print` CSS on InvoicePreview component)
+- Decided to replace jsPDF programmatic approach with DOM-capture approach: capture the actual rendered preview element as an image and embed it in a PDF
+- Added `.print-mode` CSS class rules to `app/globals.css` (after `@media print` block) — mirrors all print CSS rules so they can be applied outside of print mode
+- Added `data-document-preview` attribute to InvoicePreview root div for easy DOM querying
+- Added `generatePdfFromElement()` function to `lib/generate-pdf.ts` that:
+  - Temporarily applies `.print-mode` class to simulate print rendering
+  - Resets transforms for clean capture
+  - Uses `html-to-image`'s `toCanvas` at A5 2x resolution (~1750×2480px)
+  - Embeds captured image in jsPDF A5 document
+  - Restores original styles in `finally` block
+- Updated `document-action-buttons.tsx` to use `generatePdfFromElement()` for invoice type (with fallback to programmatic `generateInvoicePdf()`)
+- Updated `invoice/page.tsx` InvoiceRiwayatTab to use `generateJpgFromElement()` directly (instead of `generateInvoicePdf()` → `generateJpgFromPdf()` pipeline)
+- All changes synced to `src/` directory
 
 Stage Summary:
-- Root cause: Two issues - (1) bun install overwriting prisma generate in postinstall, (2) prisma generate without --schema flag using cached schema
-- Changed postinstall from `node scripts/prepare-build.js && prisma generate` to just `node scripts/prepare-build.js`
-- Added `--schema=prisma/schema.prisma` flag to prisma generate in vercel.json buildCommand and package.json scripts
-- Production login at www.darrellsoft.com is now working
+- Invoice PDF now matches print output exactly by capturing the DOM element with print-mode CSS applied
+- JPG for WhatsApp also captures directly from the DOM element with print-mode CSS
+- The old jsPDF `generateInvoicePdf()` remains as fallback and for other document types
+- No new lint errors introduced
+
+---
+Task ID: 12
+Agent: Main Agent
+Task: Make PDF output fit to A5 size properly
+
+Work Log:
+- Analyzed the root cause: `generatePdfFromElement()` was capturing the on-screen preview element at its screen dimensions and stretching it into A5 PDF, causing mismatch with print output
+- The on-screen preview uses `a5-preview-container` with max-width 576px and `a5-preview-scaler` with transform scaling, which doesn't match A5 physical dimensions
+- The `toCanvas` function just resizes the output canvas without re-laying out the content
+- Rewrote `generatePdfFromElement()` to use off-screen A5-sized rendering:
+  - Creates a fixed-position hidden wrapper at exact A5 pixel dimensions (148mm×210mm at 96 DPI ≈ 559×793px)
+  - Clones the preview element and applies print-mode styles
+  - Wraps content with 10mm print margins (matching @page CSS)
+  - Captures at 2x resolution for high quality
+  - Embeds in A5 jsPDF document
+- Rewrote `generateJpgFromElement()` with the same off-screen A5 approach
+- Simplified `handleSendJpg` in invoice/page.tsx (no longer needs to manipulate on-screen element directly)
+- Updated `document-action-buttons.tsx` to use `generatePdfFromElement()` for all document types (invoice, purchase-order, surat-jalan) with programmatic fallback
+
+Stage Summary:
+- PDF output now properly fits to A5 size by rendering content at exact A5 dimensions before capture
+- JPG output also properly fits to A5 with print margins matching @page CSS
+- Both PDF and JPG match the browser print output exactly
+- All three document types (invoice, PO, surat jalan) now use DOM element capture for PDF
+
+---
+Task ID: 1
+Agent: main
+Task: Update PDF output margins to 12mm on all sides (left, right, top, bottom) to match print preview
+
+Work Log:
+- Read current `lib/generate-pdf.ts` — found all PDF generators using `m = 10` margin
+- Read `app/globals.css` — found `@page { margin: 10mm 10mm 0 10mm }` (no bottom margin)
+- Updated `@page` margin in both `app/globals.css` and `src/app/globals.css` from `margin: 10mm 10mm 0 10mm` to `margin: 12mm` (12mm on all 4 sides)
+- Updated `max-height` for content area from 200mm to 186mm (210mm - 12mm*2 = 186mm)
+- Updated `generatePdfFromElement()` — changed margin calculation from 10mm to 12mm, changed padding from top-only to all-sides
+- Updated `generateJpgFromElement()` — changed margin calculation from 10mm to 12mm, changed padding from top-only to all-sides
+- Updated `generateInvoicePdf()` — changed `m = 10` to `m = 12`
+- Updated `generatePurchaseOrderPdf()` — changed `m = 10` to `m = 12`
+- Updated `generateSuratJalanPdf()` — changed `m = 10` to `m = 12`
+- Updated `drawFooter()` — added margin parameter, changed position from `pageH - 4` to `pageH - m + 4` so footer sits inside the 12mm bottom margin
+- Passed `m` parameter to all `drawFooter()` calls
+- Cleared `.next` cache and restarted dev server
+- Verified server responds 200 on /invoice page
+- Ran lint — no new errors introduced
+
+Stage Summary:
+- All PDF generators (programmatic and DOM-capture) now use 12mm margin on all four sides
+- Print CSS `@page` rule updated to 12mm uniform margin
+- Content max-height adjusted from 200mm to 186mm to account for 12mm bottom margin
+- Footer positioning updated to be inside the bottom margin area
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix PDF output to match browser print/preview with 12mm margins on all sides
+
+Work Log:
+- Analyzed the problem: `generatePdfFromElement()` was cloning the element into an off-screen wrapper, but the clone didn't inherit all computed styles correctly from the original DOM tree
+- Root cause: `html-to-image`'s `toCanvas` on a detached/cloned element doesn't compute styles the same way as the actual in-DOM element
+- Rewrote `generatePdfFromElement()` to work on the actual DOM element when inside `.a5-preview-container` (editor mode)
+  - Temporarily applies `.print-mode` class and A5 dimensions to the actual element
+  - Resets the `.a5-preview-container` to exact A5 pixel dimensions (559×793px at 96 DPI)
+  - Resets the `.a5-preview-scaler` to remove transform
+  - Adds 12mm (45px) padding to the element for page margins
+  - Captures using `html-to-image`'s `toCanvas` at 2x resolution
+  - Restores original styles in `finally` block
+  - Falls back to off-screen clone approach for standalone elements (riwayat overlay case)
+- Rewrote `generateJpgFromElement()` with the same dual-case approach
+- Synced changes to `src/lib/generate-pdf.ts`
+- Cleared `.next` cache and restarted dev server
+- Verified page renders correctly with no errors
+
+Stage Summary:
+- PDF output now matches print output by working on the actual DOM element (not a clone)
+- A5 dimensions (148×210mm) with 12mm margins on all sides
+- Both PDF and JPG generation use the same approach
+- Handles both editor mode (with .a5-preview-container) and riwayat overlay (without)
+- No new lint errors introduced
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Make surat jalan print format match invoice format
+
+Work Log:
+- Compared surat-jalan-preview.tsx and invoice-preview.tsx side by side
+- Identified key format differences: base print font size (9px vs 10px), "Kepada Yth" label (7px vs 8px), recipient name (9px vs 10px), recipient address (7px vs 8px), signatures (12px vs 9px), signature margin (3.5rem inline vs mb-4/print:mb-3), footer mt (3mm vs 2mm)
+- Added `data-document-preview` attribute to surat jalan preview root div (was missing, needed for DOM capture)
+- Updated all print classes to match invoice format
+- Changed surat jalan riwayat WhatsApp sharing from PDF (generateSuratJalanPdf) to JPG (generateJpgFromElement) to match invoice's approach
+- Synced changes to both `components/` and `src/components/` directories
+- Verified page loads with HTTP 200
+
+Stage Summary:
+- Surat jalan print format now matches invoice format
+- All print font sizes aligned: base 10px, Kepada Yth 8px, recipient name 10px, address 8px, signatures 9px
+- Added `data-document-preview` for proper DOM capture
+- WhatsApp sharing now uses JPG (same as invoice) instead of PDF
+- Both `app/` and `src/app/` versions synced
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix surat jalan PDF to match print output
+
+Work Log:
+- Identified root cause: `src/lib/generate-pdf.ts` was out of sync with `lib/generate-pdf.ts` (different font sizes in programmatic PDF drawing)
+- The CASE 2 (riwayat overlay) in `generateJpgFromElement` and `generatePdfFromElement` used `cloneNode` approach which loses computed styles
+- Rewrote CASE 2 in both functions to work on the actual DOM element instead of cloning:
+  - Saves original styles of element, scaleParent, and centeringParent
+  - Temporarily applies print-mode CSS and A5 dimensions to actual elements
+  - Removes scale transform from parent
+  - Captures using html-to-image on actual element
+  - Restores all original styles in finally block
+- Synced `src/lib/generate-pdf.ts` with `lib/generate-pdf.ts`
+- Verified page loads with HTTP 200
+
+Stage Summary:
+- PDF/JPG generation now works on actual DOM elements (not clones) for both editor and riwayat overlay
+- This ensures captured output exactly matches the print preview
+- Font sizes and layout in programmatic PDF fallback also synced
+---
+Task ID: 1
+Agent: Main Agent
+Task: Make Purchase Order PDF output match the print preview (same approach as invoice)
+
+Work Log:
+- Analyzed the current PDF generation approach for purchase order vs invoice/surat jalan
+- Invoice page uses `generateJpgFromElement` + `shareJpgViaWhatsApp` (captures HTML preview element → JPG)
+- Purchase order page was still using old `generatePurchaseOrderPdf` + `sharePdfViaWhatsApp` (jsPDF direct drawing)
+- Added `data-document-preview` attribute to purchase-order-preview.tsx root div (both components/ and src/components/)
+- Updated purchase-order page.tsx to use `generateJpgFromElement` + `shareJpgViaWhatsApp` (both app/ and src/app/)
+- Renamed `handleSendPdf` to `handleSendJpg` and updated implementation to capture preview element
+- Cleared .next cache and verified dev server compiles and serves page correctly
+- The document-action-buttons.tsx already handles purchase order via `generatePdfFromElement` when `data-document-preview` is found
+
+Stage Summary:
+- Purchase Order PDF now uses the same html-to-image capture approach as Invoice and Surat Jalan
+- The `data-document-preview` attribute allows `generateJpgFromElement()` and `generatePdfFromElement()` to find and capture the preview element
+- PDF/JPG output will now match the print preview exactly
+- Changes synced across both app/ and src/app/ directories, and both components/ and src/components/ directories
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add JPG button to purchase order history preview popup for WhatsApp Business sharing
+
+Work Log:
+- Read `app/purchase-order/page.tsx` and `src/app/purchase-order/page.tsx` to understand current implementation
+- Read `lib/generate-pdf.ts` to understand `generateJpgFromElement` and `shareJpgViaWhatsApp` functions
+- Read `app/invoice/page.tsx` as reference for JPG sharing pattern
+- Added `ImageIcon` import from lucide-react
+- Added `sendingJpg` state to track JPG button loading state separately from `sendingPdf`
+- Created `handleSendJpgButton` callback that generates JPG from preview element and sends via WhatsApp Business
+- Added "JPG" button (amber-colored, with ImageIcon) in the preview popup's bottom action bar
+- Existing "Kirim WhatsApp" button kept alongside the new JPG button
+- Both buttons disable each other while one is sending to prevent double-sends
+- Synced all changes to `src/app/purchase-order/page.tsx`
+- Verified no lint errors for the modified files
+- Verified dev server is running and purchase-order page returns HTTP 200
+
+Stage Summary:
+- Added JPG button to PO riwayat popup that generates A5-sized JPG from preview element and sends to WhatsApp Business
+- JPG button has amber color with image icon for visual distinction
+- Both `app/` and `src/app/` directories are in sync
+
+---
+Task ID: 1
+Agent: Main
+Task: Add JPG button to riwayat pembelian popup with WhatsApp Business sharing
+
+Work Log:
+- Analyzed the existing purchase history popup in app/riwayat-pembelian/page.tsx
+- Studied the JPG sharing pattern from app/purchase-order/page.tsx (uses generateJpgFromElement + shareJpgViaWhatsApp)
+- Added ImageIcon import from lucide-react
+- Imported generateJpgFromElement and shareJpgViaWhatsApp from @/lib/generate-pdf
+- Added sendingJpg state variable
+- Created handleSendJpg callback that captures the preview element via generateJpgFromElement and shares via shareJpgViaWhatsApp
+- Replaced the single "Kirim PDF ke WhatsApp" button with two side-by-side buttons: JPG (blue) and PDF (emerald)
+- Both buttons disable each other while processing to prevent conflicts
+- Synced changes to src/app/riwayat-pembelian/page.tsx
+- Verified page compiles (HTTP 200) and no lint errors in modified files
+
+Stage Summary:
+- JPG button added to purchase history popup alongside PDF button
+- JPG button captures the preview DOM element and sends to WhatsApp Business
+- Both buttons have loading states with spinner
+- PDF generation already matches purchase order page (uses same generatePurchaseOrderPdf function)
+- Both app/ and src/app/ directories are synced
+
+---
+Task ID: 13
+Agent: Main Agent
+Task: Add "Riwayat Penjualan" to sidebar menu under Dokumen section
+
+Work Log:
+- Added i18n translations: `riwayat_penjualan: 'Riwayat Penjualan'` (Indonesian) and `riwayat_penjualan: 'Sales History'` (English) in src/lib/i18n.ts
+- Added subtitle translations: `subtitle_riwayat_penjualan` for both languages
+- Added sidebar menu item in src/components/sidebar.tsx: `riwayat_penjualan` with `Receipt` icon, `featureId: 'invoice'`, `section: 'dokumen'`, placed after `riwayat_pembelian`
+- Created full riwayat-penjualan page at src/app/riwayat-penjualan/page.tsx:
+  - Fetches invoice history via `/api/history?docType=invoice`
+  - Summary cards: Total Penjualan, Nilai Penjualan, Total DP, Sisa Pembayaran
+  - Search + date filter (Hari Ini, Minggu Ini, Bulan Ini, Custom)
+  - Desktop table: No. Invoice, Tanggal, Customer, Nama Barang, Jatuh Tempo, DP, Total, Sisa
+  - Mobile card list with responsive layout
+  - Preview popup with InvoicePreview component, JPG and PDF buttons for WhatsApp sharing
+  - Delete confirmation dialog
+  - Jatuh tempo date change dialog
+- Synced files: app/riwayat-penjualan/page.tsx, components/sidebar.tsx, lib/i18n.ts
+- Verified with browser agent: sidebar shows Riwayat Penjualan under Dokumen, page loads with data, all features work
+
+Stage Summary:
+- "Riwayat Penjualan" menu item added to sidebar under Dokumen section (after Riwayat Pembelian)
+- Full sales history page created showing invoice data with preview, JPG/PDF sharing, and management features
+- Both src/ and app/ directories synced
+- Browser verification confirmed all features working correctly
+
+---
+Task ID: 14
+Agent: Main Agent
+Task: Add PRO badge to sidebar for features not checked in access rights matrix, and PRO restriction screen
+
+Work Log:
+- Updated sidebar (src/components/sidebar.tsx): Changed from filtering out inaccessible menu items to showing ALL items with "PRO" badge for features the user can't access
+  - `menuWithAccess` map instead of `filteredMenuItems` filter
+  - Each item gets `isPro: !hasFeatureAccess(role, featureId)` (except superadmin)
+  - PRO items have `opacity-60` dimming and amber "PRO" badge
+- Updated dashboard-layout (src/components/dashboard-layout.tsx): Changed "Akses Ditolak" screen to "Fitur PRO" upgrade-style screen
+  - Lock + Crown icon instead of AlertTriangle
+  - "Fitur PRO" amber badge
+  - "Fitur Belum Tersedia" title with feature name
+  - Message explains feature is not activated for their account
+- Added `Lock` and `Crown` lucide-react imports to dashboard-layout
+- Added riwayat-penjualan path mapping to permissions.ts `getFeatureIdForPath()`
+- Synced all files to both src/ and app/ directories
+- Browser verification confirmed: superadmin sees no PRO badges, user role sees PRO badges on Hak Akses & Pengguna, PRO screen works correctly
+
+Stage Summary:
+- Features not checked in access rights matrix now show amber "PRO" badge in sidebar
+- Clicking a PRO feature shows a professional "Fitur PRO" restriction screen
+- Superadmin always sees all features without PRO badges
+- Both src/ and app/ directories synced
+
+---
+Task ID: 15
+Agent: Main Agent
+Task: Hide unchecked features from sidebar entirely (instead of showing PRO badge)
+
+Work Log:
+- Read current sidebar.tsx (both src/ and root) — found PRO badge implementation showing unchecked features dimmed with "PRO" label
+- Updated sidebar component to filter out inaccessible items entirely instead of showing them with PRO badge
+- Changed `menuWithAccess` from `.map()` only to `.map().filter(item => !item.isPro)` — items without access are completely removed from the list
+- Removed `opacity-60` class and `PRO` badge rendering from the Link component
+- Updated section header logic comment to reflect new behavior ("previous visible item" instead of "previous item")
+- Both `src/components/sidebar.tsx` and `components/sidebar.tsx` synced
+- Dashboard-layout.tsx "Fitur PRO" lock screen still in place as route guard (prevents direct URL access)
+- Verified dev server running and responding HTTP 200
+- Lint check passed (no new errors)
+
+Stage Summary:
+- Unchecked features (e.g., hak akses, pengguna) are now completely hidden from the sidebar
+- No more "PRO" badge shown on sidebar items — items either appear (if permitted) or don't (if not permitted)
+- Section headers automatically adjust — if all items in a section are hidden, the section header also disappears
+- Route guard in dashboard-layout.tsx still prevents direct URL access to restricted features
+- Both src/ and root directories synced

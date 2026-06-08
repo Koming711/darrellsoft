@@ -21,6 +21,7 @@ import {
   generateInvoicePdf,
   generatePurchaseOrderPdf,
   generateSuratJalanPdf,
+  generatePdfFromElement,
   sharePdfViaWhatsApp,
 } from '@/lib/generate-pdf';
 
@@ -109,13 +110,31 @@ export function DocumentActionButtons({
       const fileName = `${docType}-${Date.now()}.pdf`;
       let blob: Blob;
 
-      // Generate PDF programmatically based on document type
       if (docType === 'invoice') {
-        blob = await generateInvoicePdf(currentData as unknown as InvoiceData);
+        // For invoice: capture the preview DOM element to match print output exactly
+        const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+        if (previewEl) {
+          blob = await generatePdfFromElement(previewEl);
+        } else {
+          // Fallback to programmatic PDF if element not found
+          blob = await generateInvoicePdf(currentData as unknown as InvoiceData);
+        }
       } else if (docType === 'purchase-order') {
-        blob = await generatePurchaseOrderPdf(currentData as unknown as PurchaseOrderData);
+        // Try DOM element capture first for A5-fitted output matching print
+        const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+        if (previewEl) {
+          blob = await generatePdfFromElement(previewEl);
+        } else {
+          blob = await generatePurchaseOrderPdf(currentData as unknown as PurchaseOrderData);
+        }
       } else if (docType === 'surat-jalan') {
-        blob = await generateSuratJalanPdf(currentData as unknown as SuratJalanData);
+        // Try DOM element capture first for A5-fitted output matching print
+        const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+        if (previewEl) {
+          blob = await generatePdfFromElement(previewEl);
+        } else {
+          blob = await generateSuratJalanPdf(currentData as unknown as SuratJalanData);
+        }
       } else {
         toast.error('Tipe dokumen tidak didukung untuk PDF');
         return;
@@ -151,6 +170,7 @@ export function DocumentActionButtons({
         <Button
           size="sm"
           onClick={() => {
+            toast.dismiss();
             const origTitle = document.title;
             document.title = ' ';
             setTimeout(() => {
@@ -234,6 +254,7 @@ export function DocumentActionButtons({
         <Button
           size="sm"
           onClick={() => {
+            toast.dismiss();
             const origTitle = document.title;
             document.title = ' ';
             setTimeout(() => {

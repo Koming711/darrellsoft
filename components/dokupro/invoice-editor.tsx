@@ -309,6 +309,7 @@ export function InvoiceEditor() {
   const subtotal = invoice.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
+  const sisa = total - (invoice.dp || 0);
 
   const handleSuratJalan = async () => {
     // Check if data has content
@@ -618,10 +619,30 @@ export function InvoiceEditor() {
               onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: Number(e.target.value) || 0 }))}
             />
           </div>
-          <div className="mt-3 rounded-lg bg-emerald-50 p-3">
+          <div className="space-y-1.5 mt-3">
+            <Label className="text-xs">DP (Uang Muka)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={invoice.dp || 0}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: Number(e.target.value) || 0 }))}
+              placeholder="0"
+            />
+          </div>
+          <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
             <p className="text-sm text-emerald-800">
               Total: <span className="font-bold">{formatRupiah(total)}</span>
             </p>
+            {(invoice.dp > 0) && (
+              <>
+                <p className="text-sm text-emerald-800">
+                  DP: <span className="font-bold">{formatRupiah(invoice.dp)}</span>
+                </p>
+                <p className="text-sm text-emerald-800">
+                  Sisa Pembayaran: <span className="font-bold">{formatRupiah(sisa)}</span>
+                </p>
+              </>
+            )}
           </div>
 
           <div className="mt-3 space-y-2">

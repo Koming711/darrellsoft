@@ -180,7 +180,11 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         const win = window as unknown as Record<string, unknown>;
         if (win.snap) { resolve(); return; }
         const script = document.createElement('script');
-        script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+        // Use production or sandbox URL based on environment
+        const isProduction = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true';
+        script.src = isProduction
+          ? 'https://app.midtrans.com/snap/snap.js'
+          : 'https://app.sandbox.midtrans.com/snap/snap.js';
         script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '');
         script.onload = () => resolve();
         script.onerror = () => reject(new Error('Gagal memuat payment gateway'));

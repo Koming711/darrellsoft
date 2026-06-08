@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, Edit, Save, X, Trash2, MessageCircle, Loader2 } from 'lucide-react'
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,7 +43,6 @@ const SIMPLE_FEATURES = SHARED_SIMPLE_FEATURES
 const GROUP_FEATURES = SHARED_GROUP_FEATURES
 
 function buildDefaultFeatures(roleId: string): FeaturePermission[] {
-  // Get default permissions from the shared module
   const defaultPerms = buildDefaultPermissions(roleId)
   const defaultSubs = buildDefaultSubPermissions(roleId)
 
@@ -77,6 +76,20 @@ function getRoleColor(roleId: string): string {
   }
 }
 
+// ===== OPTIMIZED: Memoized CheckboxCell outside component =====
+const CheckboxCell = memo(function CheckboxCell({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled: boolean }) {
+  return (
+    <div className="flex items-center justify-center">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        className="h-5 w-5 rounded border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 data-[state=checked]:text-white"
+      />
+    </div>
+  )
+})
+
 export default function HakAksesPage() {
   const { t } = useLanguage()
   const currentUser = getAuthUser()
@@ -96,7 +109,7 @@ export default function HakAksesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
   const [newRoleName, setNewRoleName] = useState('')
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(GROUP_FEATURES.map(g => g.id))) // kept for toggleGroupAll
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(GROUP_FEATURES.map(g => g.id)))
   const [dataLoaded, setDataLoaded] = useState(false)
 
   // === AKUN DEMO STATE ===
@@ -194,14 +207,30 @@ export default function HakAksesPage() {
   // === DERIVED STATE: display roles based on editing mode ===
   const displayRoles = isEditing ? editRoles : roles
 
+  // ===== OPTIMIZED: Pre-compute feature maps for O(1) lookups =====
+  const roleFeatureMaps = useMemo(() => {
+    return displayRoles.map(role => {
+      const map = new Map<string, FeaturePermission>()
+      for (const f of role.features) {
+        map.set(f.featureId, f)
+      }
+      return { roleId: role.id, map }
+    })
+  }, [displayRoles])
+
+  const getFeature = useCallback((roleId: string, featureId: string): FeaturePermission | undefined => {
+    const entry = roleFeatureMaps.find(r => r.roleId === roleId)
+    return entry?.map.get(featureId)
+  }, [roleFeatureMaps])
+
   // === ROLE HANDLERS ===
-  const handleEditToggle = () => {
+  const handleEditToggle = useCallback(() => {
     if (!dataLoaded) return
     if (!isEditing) setEditRoles(JSON.parse(JSON.stringify(roles)))
-    setIsEditing(!isEditing)
-  }
+    setIsEditing(prev => !prev)
+  }, [dataLoaded, isEditing, roles])
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const cleanedRoles = editRoles.map(role =>
       role.id === 'superadmin' ? (roles.find(r => r.id === 'superadmin') || role) : role
     )
@@ -248,30 +277,30 @@ export default function HakAksesPage() {
     saveAllPermissions(permData)
 
     toast.success('Hak akses berhasil disimpan!')
-  }
+  }, [editRoles, roles])
 
-  const handleAddRole = () => {
+  const handleAddRole = useCallback(() => {
     if (!newRoleName.trim()) { toast.error('Nama role wajib diisi'); return }
     const newRole: Role = {
       id: Date.now().toString(), name: newRoleName.trim(),
       color: 'bg-slate-100 text-slate-700', features: buildDefaultFeatures('new'),
     }
-    setEditRoles([...editRoles, newRole])
-    setRoles([...roles, newRole])
+    setEditRoles(prev => [...prev, newRole])
+    setRoles(prev => [...prev, newRole])
     setNewRoleName('')
     toast.success('Role baru ditambahkan')
-  }
+  }, [newRoleName])
 
-  const handleDeleteRole = (roleId: string) => {
+  const handleDeleteRole = useCallback((roleId: string) => {
     if (roleId === 'superadmin' || roleId === 'admin') { toast.error('Role sistem tidak dapat dihapus'); return }
     const role = roles.find(r => r.id === roleId)
     if (role) {
       setRoleToDelete(role)
       setDeleteDialogOpen(true)
     }
-  }
+  }, [roles])
 
-  const confirmDeleteRole = async () => {
+  const confirmDeleteRole = useCallback(async () => {
     if (!roleToDelete) return
     const roleId = roleToDelete.id
     setRoles(prev => prev.filter(r => r.id !== roleId))
@@ -298,16 +327,17 @@ export default function HakAksesPage() {
     setDeleteDialogOpen(false)
     setRoleToDelete(null)
     toast.success(`Role "${roleToDelete.name}" berhasil dihapus`)
-  }
+  }, [roleToDelete])
 
-  const toggleSimplePermission = (roleId: string, featureId: string) => {
+  // ===== OPTIMIZED: Stable callbacks with useCallback =====
+  const toggleSimplePermission = useCallback((roleId: string, featureId: string) => {
     if (roleId === 'superadmin') return
     setEditRoles(prev => prev.map(role =>
       role.id === roleId ? { ...role, features: role.features.map(f => f.featureId === featureId ? { ...f, allowed: !f.allowed } : f) } : role
     ))
-  }
+  }, [])
 
-  const toggleSubPermission = (roleId: string, featureId: string, subId: string) => {
+  const toggleSubPermission = useCallback((roleId: string, featureId: string, subId: string) => {
     if (roleId === 'superadmin') return
     setEditRoles(prev => prev.map(role =>
       role.id === roleId ? {
@@ -319,10 +349,9 @@ export default function HakAksesPage() {
         })
       } : role
     ))
-  }
+  }, [])
 
-  // Toggle ALL roles for a group at once (Semua Role button)
-  const toggleGroupAllAll = (featureId: string) => {
+  const toggleGroupAllAll = useCallback((featureId: string) => {
     setEditRoles(prev => prev.map(role => {
       if (role.id === 'superadmin') return role
       return {
@@ -334,9 +363,9 @@ export default function HakAksesPage() {
         })
       }
     }))
-  }
+  }, [])
 
-  const toggleGroupAll = (roleId: string, featureId: string) => {
+  const toggleGroupAll = useCallback((roleId: string, featureId: string) => {
     if (roleId === 'superadmin') return
     setEditRoles(prev => prev.map(role => {
       if (role.id !== roleId) return role
@@ -349,10 +378,10 @@ export default function HakAksesPage() {
         })
       }
     }))
-  }
+  }, [])
 
   // === DEMO HANDLER ===
-  const handleSaveDemo = async () => {
+  const handleSaveDemo = useCallback(async () => {
     if (!demoDays) { toast.error('Masa aktif wajib diisi'); return }
     const msgValue = demoMsgRef.current?.value || ''
     await Promise.all([
@@ -361,10 +390,10 @@ export default function HakAksesPage() {
     ])
     setDemoMessage(msgValue)
     toast.success('Pengaturan akun demo berhasil disimpan!')
-  }
+  }, [demoDays])
 
   // === WHATSAPP API HANDLER ===
-  const handleSaveWhatsApp = async () => {
+  const handleSaveWhatsApp = useCallback(async () => {
     setWaSaving(true)
     try {
       await Promise.all([
@@ -377,10 +406,10 @@ export default function HakAksesPage() {
     } finally {
       setWaSaving(false)
     }
-  }
+  }, [waApiKey, waApiUrl])
 
   // === KEAMANAN HANDLER ===
-  const handleSaveKeamanan = async () => {
+  const handleSaveKeamanan = useCallback(async () => {
     if (!autoLogoutMin && autoLogoutMin !== '0') { toast.error('Auto logout wajib diisi'); return }
     if (!logoutWarningSec && logoutWarningSec !== '0') { toast.error('Peringatan logout wajib diisi'); return }
     const sdmValue = singleDeviceMsgRef.current?.value || ''
@@ -392,19 +421,7 @@ export default function HakAksesPage() {
     ])
     setSingleDeviceMessage(sdmValue)
     toast.success('Pengaturan keamanan berhasil disimpan!')
-  }
-
-  // === CHECKBOX CELL COMPONENT ===
-  const CheckboxCell = ({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled: boolean }) => (
-    <div className="flex items-center justify-center">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={onChange}
-        disabled={disabled}
-        className="h-5 w-5 rounded border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 data-[state=checked]:text-white"
-      />
-    </div>
-  )
+  }, [autoLogoutMin, logoutWarningSec, singleDevice])
 
   return (
     <DashboardLayout title={t('hak_akses')} subtitle={t('subtitle_hak_akses')}>
@@ -510,7 +527,7 @@ export default function HakAksesPage() {
                 <tr key={feature.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                   <td className="px-4 py-3 sticky left-0 bg-card z-10"><span className="text-sm font-medium text-slate-800">{feature.name}</span></td>
                   {displayRoles.map((role) => {
-                    const fp = role.features.find(f => f.featureId === feature.id)
+                    const fp = getFeature(role.id, feature.id)
                     return (
                       <td key={role.id} className="px-4 py-3">
                         <CheckboxCell
@@ -536,7 +553,7 @@ export default function HakAksesPage() {
                       </div>
                     </td>
                     {displayRoles.map((role) => {
-                      const fp = role.features.find(f => f.featureId === group.id)
+                      const fp = getFeature(role.id, group.id)
                       const allCount = fp?.subPermissions?.length || 0
                       const allowedCount = fp?.subPermissions?.filter(s => s.allowed).length || 0
                       return (
@@ -560,7 +577,7 @@ export default function HakAksesPage() {
                         <span className="text-sm text-slate-600">{sp.name}</span>
                       </td>
                       {displayRoles.map((role) => {
-                        const fp = role.features.find(f => f.featureId === group.id)
+                        const fp = getFeature(role.id, group.id)
                         const sub = fp?.subPermissions?.find(s => s.id === sp.id)
                         return (
                           <td key={role.id} className="px-4 py-2.5">

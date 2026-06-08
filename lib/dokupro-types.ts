@@ -44,6 +44,7 @@ export interface InvoiceData {
   };
   items: DocumentItem[];
   ppn: number; // percentage
+  dp: number; // down payment amount
   catatan: string;
   tanggalJatuhTempo: string; // due date (empty = no due date)
   caraPembayaran: CaraPembayaran | ''; // payment method
@@ -144,6 +145,7 @@ export function createDefaultInvoice(): InvoiceData {
     client: { nama: '', kontak: '', alamat: '' },
     items: [createDefaultItem()],
     ppn: 11,
+    dp: 0,
     catatan: '',
     tanggalJatuhTempo: '',
     caraPembayaran: '',
