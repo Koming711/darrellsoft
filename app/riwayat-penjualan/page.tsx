@@ -12,6 +12,8 @@ import {
   Search,
   FileText,
   ImageIcon,
+  CheckCircle2,
+  CircleDot,
 } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { formatRupiah } from '@/lib/format'
@@ -27,6 +29,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
@@ -84,7 +89,29 @@ function formatRupiahShort(n: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
 }
 
-function parseDocInfo(entry: HistoryEntry) {
+function getTodayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+interface DocInfo {
+  namaCustomer: string;
+  namaBarang: string;
+  totalQty: number;
+  totalHarga: number;
+  ppn: number;
+  dpPercent: number;
+  dp: number;
+  sisa: number;
+  tanggalJatuhTempo: string;
+  catatan: string;
+  referensi: string;
+  caraPembayaran: string;
+  lunas: boolean;
+  tanggalPelunasan: string;
+}
+
+function parseDocInfo(entry: HistoryEntry): DocInfo {
   try {
     const parsed = JSON.parse(entry.dataJson)
     const items = parsed.items || []
@@ -96,6 +123,8 @@ function parseDocInfo(entry: HistoryEntry) {
     const catatan = parsed.catatan || ''
     const referensi = parsed.referensi || ''
     const caraPembayaran = parsed.caraPembayaran || ''
+    const lunas = parsed.lunas === true
+    const tanggalPelunasan = parsed.tanggalPelunasan || ''
 
     const firstItem = items[0]
     const namaBarang = firstItem?.deskripsi || ''
@@ -107,9 +136,9 @@ function parseDocInfo(entry: HistoryEntry) {
 
     const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
 
-    return { namaCustomer, namaBarang, totalQty, totalHarga, ppn, dp: dpAmount, sisa, tanggalJatuhTempo, catatan, referensi, caraPembayaran }
+    return { namaCustomer, namaBarang, totalQty, totalHarga, ppn, dpPercent, dp: dpAmount, sisa, tanggalJatuhTempo, catatan, referensi, caraPembayaran, lunas, tanggalPelunasan }
   } catch {
-    return { namaCustomer: '', namaBarang: '', totalQty: 0, totalHarga: 0, ppn: 0, dp: 0, dpPercent: 0, sisa: 0, tanggalJatuhTempo: '', catatan: '', referensi: '', caraPembayaran: '' }
+    return { namaCustomer: '', namaBarang: '', totalQty: 0, totalHarga: 0, ppn: 0, dpPercent: 0, dp: 0, sisa: 0, tanggalJatuhTempo: '', catatan: '', referensi: '', caraPembayaran: '', lunas: false, tanggalPelunasan: '' }
   }
 }
 
@@ -155,6 +184,8 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
+      lunas: parsed.lunas === true,
+      tanggalPelunasan: parsed.tanggalPelunasan || '',
     }
   } catch {
     return {
@@ -171,6 +202,8 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: '',
       caraPembayaran: '',
       tanggalGiro: '',
+      lunas: false,
+      tanggalPelunasan: '',
     }
   }
 }
@@ -197,10 +230,13 @@ export default function RiwayatPenjualanPage() {
   const [customStartStr, setCustomStartStr] = useState('')
   const [customEndStr, setCustomEndStr] = useState('')
 
-  // Status pembayaran dialog
+  // Status pembayaran dialog (jatuh tempo + pelunasan)
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [statusDialogItem, setStatusDialogItem] = useState<HistoryEntry | null>(null)
   const [statusUpdating, setStatusUpdating] = useState(false)
+  const [pelunasanToggle, setPelunasanToggle] = useState(false)
+  const [pelunasanDate, setPelunasanDate] = useState('')
+  const [jatuhTempoDate, setJatuhTempoDate] = useState('')
 
   const fetchInvHistory = useCallback(async () => {
     setLoading(true)
@@ -266,14 +302,16 @@ export default function RiwayatPenjualanPage() {
     setPreviewOpen(true)
   }
 
-  const handleStatusChange = async (updates: { tanggalJatuhTempo?: string }) => {
+  const handleStatusChange = async (updates: { tanggalJatuhTempo?: string; lunas?: boolean; tanggalPelunasan?: string }) => {
     if (!statusDialogItem) return
     setStatusUpdating(true)
     try {
       const parsed = JSON.parse(statusDialogItem.dataJson)
       if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
+      if (updates.lunas !== undefined) parsed.lunas = updates.lunas
+      if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
+      // Remove legacy fields if present
       delete parsed.statusPembayaran
-      delete parsed.lunas
       const newDataJson = JSON.stringify(parsed)
 
       const res = await fetcher(`/api/history/${statusDialogItem.id}`, {
@@ -282,14 +320,14 @@ export default function RiwayatPenjualanPage() {
         body: JSON.stringify({ dataJson: newDataJson }),
       })
       if (res.ok) {
-        toast.success('Tanggal jatuh tempo berhasil diubah')
+        toast.success(updates.lunas ? 'Pelunasan berhasil dicatat' : 'Berhasil diperbarui')
         setStatusDialogOpen(false)
         fetchInvHistory()
       } else {
-        toast.error('Gagal mengubah tanggal jatuh tempo')
+        toast.error('Gagal menyimpan perubahan')
       }
     } catch {
-      toast.error('Gagal mengubah tanggal jatuh tempo')
+      toast.error('Gagal menyimpan perubahan')
     } finally {
       setStatusUpdating(false)
     }
@@ -297,6 +335,10 @@ export default function RiwayatPenjualanPage() {
 
   const openStatusDialog = (item: HistoryEntry, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
+    const info = parseDocInfo(item)
+    setPelunasanToggle(info.lunas)
+    setPelunasanDate(info.tanggalPelunasan || getTodayStr())
+    setJatuhTempoDate(info.tanggalJatuhTempo || '')
     setStatusDialogItem(item)
     setStatusDialogOpen(true)
   }
@@ -378,7 +420,12 @@ export default function RiwayatPenjualanPage() {
 
   const totalSisa = invHistory.reduce((sum, inv) => {
     const info = parseDocInfo(inv)
-    return sum + (info.sisa || 0)
+    return sum + (info.sisa > 0 && !info.lunas ? info.sisa : 0)
+  }, 0)
+
+  const totalLunas = invHistory.reduce((sum, inv) => {
+    const info = parseDocInfo(inv)
+    return sum + (info.lunas || info.sisa <= 0 ? 1 : 0)
   }, 0)
 
   // Jatuh tempo count
@@ -416,7 +463,7 @@ export default function RiwayatPenjualanPage() {
     <DashboardLayout title={t('riwayat_penjualan')} subtitle={t('subtitle_riwayat_penjualan')}>
       <div className="space-y-4 sm:space-y-6 pb-6">
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
               <Receipt className="w-5 h-5" />
@@ -438,12 +485,19 @@ export default function RiwayatPenjualanPage() {
             <p className="text-xs text-slate-500 mb-0.5">Total DP</p>
             <p className="text-base sm:text-lg font-bold text-violet-700 leading-tight">{formatRupiahShort(totalDP)}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4 col-span-2 sm:col-span-1">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <p className="text-xs text-slate-500 mb-0.5">Sisa Pembayaran</p>
+            <p className="text-xs text-slate-500 mb-0.5">Belum Lunas</p>
             <p className="text-base sm:text-lg font-bold text-amber-700 leading-tight">{formatRupiahShort(totalSisa)}</p>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 col-span-2 sm:col-span-1">
+            <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center mb-2">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <p className="text-xs text-slate-500 mb-0.5">Lunas</p>
+            <p className="text-base sm:text-lg font-bold text-green-700 leading-tight">{totalLunas}</p>
           </div>
         </div>
 
@@ -504,11 +558,13 @@ export default function RiwayatPenjualanPage() {
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa</th>
+                    <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredHistories.map((inv, idx) => {
                     const info = parseDocInfo(inv)
+                    const isLunas = info.lunas || info.sisa <= 0
                     return (
                       <tr key={inv.id} className={`border-b border-slate-100 hover:bg-blue-50/40 transition-colors cursor-pointer ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}
                         onClick={() => handlePreview(inv)}>
@@ -545,7 +601,23 @@ export default function RiwayatPenjualanPage() {
                           <span className="font-bold text-emerald-700">{info.totalHarga > 0 ? formatRupiahShort(info.totalHarga) : inv.total}</span>
                         </td>
                         <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                          <span className={cn('font-semibold', info.sisa > 0 ? 'text-red-600' : 'text-emerald-600')}>{info.sisa > 0 ? formatRupiahShort(info.sisa) : 'Lunas'}</span>
+                          <span className={cn('font-semibold', info.sisa > 0 && !info.lunas ? 'text-red-600' : 'text-emerald-600')}>{info.sisa > 0 && !info.lunas ? formatRupiahShort(info.sisa) : 'Lunas'}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            onClick={(e) => openStatusDialog(inv, e)}
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer',
+                              isLunas
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            )}>
+                            {isLunas ? (
+                              <><CheckCircle2 className="w-3 h-3" /> Lunas</>
+                            ) : (
+                              <><CircleDot className="w-3 h-3" /> Belum</>
+                            )}
+                          </button>
                         </td>
                       </tr>
                     )
@@ -558,6 +630,7 @@ export default function RiwayatPenjualanPage() {
             <div className="sm:hidden space-y-2">
               {filteredHistories.map(inv => {
                 const info = parseDocInfo(inv)
+                const isLunas = info.lunas || info.sisa <= 0
                 return (
                   <div key={inv.id} className="bg-card border border-slate-200 rounded-lg p-3 cursor-pointer" onClick={() => handlePreview(inv)}>
                     <div className="flex items-start justify-between gap-3">
@@ -568,18 +641,29 @@ export default function RiwayatPenjualanPage() {
                           <button
                             onClick={(e) => openStatusDialog(inv, e)}
                             className={cn(
-                              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 transition-all hover:shadow-sm cursor-pointer',
-                              info.tanggalJatuhTempo
-                                ? new Date(info.tanggalJatuhTempo) < new Date(new Date().toISOString().slice(0, 10))
+                              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer',
+                              isLunas
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            )}>
+                            {isLunas ? (
+                              <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</>
+                            ) : (
+                              <><CircleDot className="w-2.5 h-2.5" /> Belum</>
+                            )}
+                          </button>
+                          {info.tanggalJatuhTempo && (
+                            <button
+                              onClick={(e) => openStatusDialog(inv, e)}
+                              className={cn(
+                                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 transition-all hover:shadow-sm cursor-pointer',
+                                new Date(info.tanggalJatuhTempo) < new Date(new Date().toISOString().slice(0, 10))
                                   ? 'bg-red-100 text-red-700 hover:bg-red-200'
                                   : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            )}>
-                            {info.tanggalJatuhTempo
-                              ? `JT: ${new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}`
-                              : '-'}
-                            <svg className="w-2.5 h-2.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                          </button>
+                              )}>
+                              JT: {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
+                            </button>
+                          )}
                         </div>
                         <div className="space-y-0.5">
                           <div className="flex justify-between items-center">
@@ -604,7 +688,7 @@ export default function RiwayatPenjualanPage() {
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-slate-500">Sisa</span>
-                            <span className={cn('text-xs font-semibold', info.sisa > 0 ? 'text-red-600' : 'text-emerald-600')}>{info.sisa > 0 ? formatRupiahShort(info.sisa) : 'Lunas'}</span>
+                            <span className={cn('text-xs font-semibold', info.sisa > 0 && !info.lunas ? 'text-red-600' : 'text-emerald-600')}>{info.sisa > 0 && !info.lunas ? formatRupiahShort(info.sisa) : 'Lunas'}</span>
                           </div>
                         </div>
                       </div>
@@ -750,38 +834,118 @@ export default function RiwayatPenjualanPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Status Pembayaran Dialog */}
+        {/* Status Pembayaran Dialog — Jatuh Tempo + Pelunasan */}
         <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-          <DialogContent className="sm:max-w-sm">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Tanggal Jatuh Tempo</DialogTitle>
-              <DialogDescription>Ubah tanggal jatuh tempo pembayaran</DialogDescription>
+              <DialogTitle>Status Pembayaran</DialogTitle>
+              <DialogDescription>Kelola tanggal jatuh tempo dan pelunasan</DialogDescription>
             </DialogHeader>
             {statusDialogItem && (() => {
               const info = parseDocInfo(statusDialogItem)
+              const hasDP = info.dpPercent > 0
               return (
-                <div className="space-y-3 pt-1">
+                <div className="space-y-5 pt-1">
+                  {/* Invoice Info */}
+                  <div className="rounded-lg bg-slate-50 p-3 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">No. Invoice</span>
+                      <span className="font-semibold text-slate-800">{statusDialogItem.nomor}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Customer</span>
+                      <span className="font-medium text-slate-700">{info.namaCustomer || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Total</span>
+                      <span className="font-bold text-emerald-700">{formatRupiahShort(info.totalHarga)}</span>
+                    </div>
+                    {hasDP && (
+                      <>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">DP ({info.dpPercent}%)</span>
+                          <span className="font-medium text-violet-700">{formatRupiahShort(info.dp)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">Sisa Pembayaran</span>
+                          <span className={cn('font-bold', info.lunas ? 'text-green-600' : 'text-red-600')}>{formatRupiahShort(info.sisa)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Jatuh Tempo */}
                   <div>
-                    <label className="text-xs font-medium text-slate-600 mb-1 block">Tanggal Jatuh Tempo</label>
-                    <input
+                    <Label className="text-sm font-medium text-slate-700">Tanggal Jatuh Tempo</Label>
+                    <Input
                       type="date"
-                      defaultValue={info.tanggalJatuhTempo || ''}
-                      onChange={(e) => {
-                        // Store the new value to be used when saving
-                        ;(e.target as HTMLInputElement & { _newDate?: string })._newDate = e.target.value
-                      }}
-                      id="status-jatuh-tempo-input"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={jatuhTempoDate}
+                      onChange={(e) => setJatuhTempoDate(e.target.value)}
+                      className="mt-1.5"
+                      placeholder="Pilih tanggal"
                     />
                   </div>
+
+                  {/* Pelunasan — only shown when there's DP */}
+                  {hasDP && (
+                    <div className="rounded-lg border border-slate-200 p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {pelunasanToggle ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <CircleDot className="w-5 h-5 text-slate-400" />
+                          )}
+                          <div>
+                            <Label className="text-sm font-semibold text-slate-800">Pelunasan</Label>
+                            <p className="text-xs text-slate-500">Tandai jika sisa pembayaran sudah dibayar</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={pelunasanToggle}
+                          onCheckedChange={(checked) => {
+                            setPelunasanToggle(checked)
+                            if (checked && !pelunasanDate) {
+                              setPelunasanDate(getTodayStr())
+                            }
+                          }}
+                        />
+                      </div>
+                      {pelunasanToggle && (
+                        <div>
+                          <Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label>
+                          <Input
+                            type="date"
+                            value={pelunasanDate}
+                            onChange={(e) => setPelunasanDate(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
+                      {pelunasanToggle && (
+                        <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-semibold text-green-800">Sudah Lunas</p>
+                            <p className="text-[10px] text-green-600">
+                              Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${formatDateShort(pelunasanDate)}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })()}
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="outline" size="sm" onClick={() => setStatusDialogOpen(false)} disabled={statusUpdating}>Batal</Button>
               <Button size="sm" onClick={() => {
-                const input = document.getElementById('status-jatuh-tempo-input') as HTMLInputElement & { _newDate?: string }
-                handleStatusChange({ tanggalJatuhTempo: input?._newDate ?? input?.value ?? '' })
+                handleStatusChange({
+                  tanggalJatuhTempo: jatuhTempoDate,
+                  lunas: pelunasanToggle,
+                  tanggalPelunasan: pelunasanToggle ? pelunasanDate : '',
+                })
               }} disabled={statusUpdating}>
                 {statusUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}
               </Button>

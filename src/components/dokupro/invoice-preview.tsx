@@ -71,7 +71,14 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
         </div>
         <div className="text-right">
           <h2 className="text-lg font-bold print:text-[13px] text-black">INVOICE</h2>
-          {data.tanggalJatuhTempo && (
+          {/* LUNAS stamp */}
+          {data.lunas && (
+            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 border-2 border-green-500 print:bg-green-50 print:border-green-600">
+              <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              <span className="text-[10px] font-black text-green-700 print:text-green-800 tracking-wider">LUNAS</span>
+            </div>
+          )}
+          {data.tanggalJatuhTempo && !data.lunas && (
             <div className="flex items-center justify-end gap-1 mt-1">
               <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span className="text-[9px] font-semibold text-amber-700">Jatuh Tempo: {new Date(data.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
