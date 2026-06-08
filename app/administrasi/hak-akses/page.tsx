@@ -42,6 +42,15 @@ interface Role {
 const SIMPLE_FEATURES = SHARED_SIMPLE_FEATURES
 const GROUP_FEATURES = SHARED_GROUP_FEATURES
 
+// Pre-build default roles once (not per render)
+const DEFAULT_ROLES: Role[] = [
+  { id: 'superadmin', name: 'Super Admin', color: 'bg-red-100 text-red-700', isSystem: true, features: buildDefaultFeatures('superadmin') },
+  { id: 'admin', name: 'Admin', color: 'bg-purple-100 text-purple-700', isSystem: true, features: buildDefaultFeatures('admin') },
+  { id: 'manager', name: 'Manager', color: 'bg-emerald-100 text-emerald-700', isSystem: false, features: buildDefaultFeatures('manager') },
+  { id: 'demo', name: 'Demo', color: 'bg-amber-100 text-amber-700', isSystem: false, features: buildDefaultFeatures('demo') },
+  { id: 'user', name: 'User', color: 'bg-blue-100 text-blue-700', isSystem: false, features: buildDefaultFeatures('user') },
+]
+
 function buildDefaultFeatures(roleId: string): FeaturePermission[] {
   const defaultPerms = buildDefaultPermissions(roleId)
   const defaultSubs = buildDefaultSubPermissions(roleId)
@@ -95,16 +104,10 @@ export default function HakAksesPage() {
   const currentUser = getAuthUser()
   const isSuperAdmin = currentUser?.role === 'superadmin'
 
-  // === ROLES STATE ===
-  const [roles, setRoles] = useState<Role[]>([
-    { id: 'superadmin', name: 'Super Admin', color: 'bg-red-100 text-red-700', isSystem: true, features: buildDefaultFeatures('superadmin') },
-    { id: 'admin', name: 'Admin', color: 'bg-purple-100 text-purple-700', isSystem: true, features: buildDefaultFeatures('admin') },
-    { id: 'manager', name: 'Manager', color: 'bg-emerald-100 text-emerald-700', isSystem: false, features: buildDefaultFeatures('manager') },
-    { id: 'demo', name: 'Demo', color: 'bg-amber-100 text-amber-700', isSystem: false, features: buildDefaultFeatures('demo') },
-    { id: 'user', name: 'User', color: 'bg-blue-100 text-blue-700', isSystem: false, features: buildDefaultFeatures('user') },
-  ])
+  // === ROLES STATE — initialized with defaults so page renders instantly ===
+  const [roles, setRoles] = useState<Role[]>(DEFAULT_ROLES)
   const [isEditing, setIsEditing] = useState(false)
-  const [editRoles, setEditRoles] = useState<Role[]>(JSON.parse(JSON.stringify(roles)))
+  const [editRoles, setEditRoles] = useState<Role[]>(DEFAULT_ROLES)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
@@ -129,7 +132,7 @@ export default function HakAksesPage() {
   const [waApiUrl, setWaApiUrl] = useState('https://api.fonnte.com/send')
   const [waSaving, setWaSaving] = useState(false)
 
-  // === LOAD SETTINGS & CUSTOM PERMISSIONS ===
+  // === LOAD SETTINGS & CUSTOM PERMISSIONS (non-blocking) ===
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -152,38 +155,43 @@ export default function HakAksesPage() {
             if (s.key === 'role_permissions' && s.value) {
               try {
                 const customPerms = JSON.parse(s.value)
-                const loadedRoles = roles.map(role => {
-                  const custom = customPerms[role.id]
-                  if (!custom) return role
-                  return {
-                    ...role,
-                    features: role.features.map(f => {
-                      const customFeature = custom.features?.[f.featureId]
-                      const customSubs = custom.subPermissions?.[f.featureId]
-                      if (customFeature === undefined && !customSubs) return f
-                      return {
-                        ...f,
-                        allowed: customFeature !== undefined ? customFeature : f.allowed,
-                        subPermissions: f.subPermissions?.map(sp => {
-                          const customSub = customSubs?.[sp.id]
-                          if (customSub === undefined) return sp
-                          return { ...sp, allowed: customSub }
-                        }) || f.subPermissions,
-                      }
-                    }),
-                  }
+                // Use functional update to get latest state
+                setRoles(prevRoles => {
+                  const loadedRoles = prevRoles.map(role => {
+                    const custom = customPerms[role.id]
+                    if (!custom) return role
+                    return {
+                      ...role,
+                      features: role.features.map(f => {
+                        const customFeature = custom.features?.[f.featureId]
+                        const customSubs = custom.subPermissions?.[f.featureId]
+                        if (customFeature === undefined && !customSubs) return f
+                        return {
+                          ...f,
+                          allowed: customFeature !== undefined ? customFeature : f.allowed,
+                          subPermissions: f.subPermissions?.map(sp => {
+                            const customSub = customSubs?.[sp.id]
+                            if (customSub === undefined) return sp
+                            return { ...sp, allowed: customSub }
+                          }) || f.subPermissions,
+                        }
+                      }),
+                    }
+                  })
+                  // Also update editRoles with the loaded data
+                  setEditRoles(JSON.parse(JSON.stringify(loadedRoles)))
+                  return loadedRoles
                 })
-                setRoles(loadedRoles)
-                setEditRoles(JSON.parse(JSON.stringify(loadedRoles)))
               } catch (e) {
                 console.error('Failed to parse role_permissions:', e)
               }
             }
           }
-          setDataLoaded(true)
         }
       } catch (err) {
         console.error('Failed to load settings:', err)
+      } finally {
+        if (!cancelled) setDataLoaded(true)
       }
     })()
     return () => { cancelled = true }
@@ -497,13 +505,7 @@ export default function HakAksesPage() {
           </div>
         </div>
 
-        {/* Permissions Matrix */}
-        {!dataLoaded ? (
-          <div className="p-12 flex flex-col items-center justify-center gap-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-            <p className="text-sm text-slate-500">Memuat hak akses...</p>
-          </div>
-        ) : (
+        {/* Permissions Matrix — renders immediately with defaults, updates when API data loads */}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
             <thead>
@@ -596,32 +598,9 @@ export default function HakAksesPage() {
             </tbody>
           </table>
         </div>
-        )}
       </div>
 
       {/* ==================== SECTION 3 & 4: AKUN DEMO + KEAMANAN ==================== */}
-      {!dataLoaded ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 lg:p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">Akun Demo</h2>
-            </div>
-            <div className="p-12 flex flex-col items-center justify-center gap-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-              <p className="text-sm text-slate-500">Memuat...</p>
-            </div>
-          </div>
-          <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 lg:p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800">Keamanan</h2>
-            </div>
-            <div className="p-12 flex flex-col items-center justify-center gap-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-              <p className="text-sm text-slate-500">Memuat...</p>
-            </div>
-          </div>
-        </div>
-      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* AKUN DEMO */}
         <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -734,7 +713,6 @@ export default function HakAksesPage() {
           </div>
         </div>
       </div>
-      )}
 
       {/* ==================== SECTION 5: WHATSAPP API ==================== */}
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">

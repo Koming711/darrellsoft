@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
     const authErr = requireAuth(request)
     if (authErr) return authErr
 
-    // Auto-seed global data if tables are empty (settings, pengguna — no per-user seed)
-    await ensureSeedData(null)
+    // NOTE: ensureSeedData() is intentionally NOT called on GET requests.
+    // It runs table migrations, seed checks, and is very slow on PostgreSQL.
+    // It should only run on POST (write) or via /api/health.
+    // This makes the settings API respond instantly for page loads.
 
     const { searchParams } = new URL(request.url)
     const key = searchParams.get('key')
@@ -38,6 +40,9 @@ export async function POST(request: NextRequest) {
     // Any authenticated user can modify settings
     const authErr = requireAuth(request)
     if (authErr) return authErr
+
+    // Run seed/migration checks on write operations (less frequent, acceptable delay)
+    await ensureSeedData(null)
 
     const body = await request.json()
     const { key, value } = body
