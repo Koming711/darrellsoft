@@ -6,11 +6,12 @@ import { terbilang } from '@/lib/terbilang';
 
 interface InvoicePreviewProps {
   data: InvoiceData;
+  showPelunasanLabel?: boolean;
 }
 
 const MAX_ROWS = 8;
 
-export function InvoicePreview({ data }: InvoicePreviewProps) {
+export function InvoicePreview({ data, showPelunasanLabel }: InvoicePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
@@ -71,6 +72,9 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
         </div>
         <div className="text-right">
           <h2 className="text-lg font-bold print:text-[13px] text-black">INVOICE</h2>
+          {showPelunasanLabel && (
+            <p className="text-[11px] font-bold print:text-[10px] text-amber-700 tracking-wider">PELUNASAN</p>
+          )}
           {/* LUNAS stamp */}
           {data.lunas && (
             <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 border-2 border-green-500 print:bg-green-50 print:border-green-600">
