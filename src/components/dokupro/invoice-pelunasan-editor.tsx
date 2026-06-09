@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { DocumentActionButtons } from './document-action-buttons';
 import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { formatRupiah } from '@/lib/format';
@@ -239,7 +238,26 @@ export function InvoicePelunasanEditor() {
 
   // Build preview data with pelunasan overrides
   const previewData: InvoiceData | null = useMemo(() => {
-    if (!invoiceData) return null;
+    if (!invoiceData) {
+      // Default preview when no invoice is selected
+      return {
+        type: 'invoice',
+        company: { ...DEFAULT_COMPANY },
+        nomor: '-',
+        tanggal: getTodayStr(),
+        referensi: '',
+        client: { nama: '', kontak: '', alamat: '' },
+        items: [],
+        ppn: 11,
+        dp: 0,
+        catatan: '',
+        tanggalJatuhTempo: '',
+        caraPembayaran: '',
+        tanggalGiro: '',
+        lunas: false,
+        tanggalPelunasan: '',
+      };
+    }
     return {
       ...invoiceData,
       tanggalJatuhTempo,
@@ -311,14 +329,7 @@ export function InvoicePelunasanEditor() {
   return (
     <DocumentEditorLayout
       title="Invoice Pelunasan"
-      previewContent={previewData ? <InvoicePreview data={previewData} /> : (
-        <div className="flex items-center justify-center h-full text-slate-400">
-          <div className="text-center">
-            <Wallet className="w-12 h-12 mx-auto mb-3 text-slate-200" />
-            <p className="text-sm">Pilih invoice untuk melihat pratinjau</p>
-          </div>
-        </div>
-      )}
+      previewContent={<InvoicePreview data={previewData!} showPelunasanLabel />}
       actions={
         invoiceData ? (
           <div className="flex items-center gap-2 flex-wrap">
@@ -481,7 +492,7 @@ export function InvoicePelunasanEditor() {
       </div>
 
       {/* When an invoice is selected, show the editor form */}
-      {invoiceData && (
+      {invoiceData ? (
         <>
           <CompanyFields company={invoiceData.company} onChange={updateCompany} />
 
@@ -736,6 +747,12 @@ export function InvoicePelunasanEditor() {
             </div>
           </div>
         </>
+      ) : (
+        <div className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/30 p-6 text-center">
+          <Wallet className="w-12 h-12 mx-auto text-amber-300 mb-3" />
+          <p className="text-sm font-medium text-slate-500">Pilih Invoice yang Belum Lunas</p>
+          <p className="text-xs text-slate-400 mt-1">Gunakan kolom pencarian di atas untuk memilih invoice yang akan dilunasi</p>
+        </div>
       )}
     </DocumentEditorLayout>
   );

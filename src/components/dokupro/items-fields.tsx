@@ -7,6 +7,17 @@ import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 import type { DocumentItem } from '@/lib/types';
 
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 interface ItemsFieldsProps {
   items: DocumentItem[];
   onChange: (items: DocumentItem[]) => void;
@@ -18,7 +29,7 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
     onChange([
       ...items,
       {
-        id: crypto.randomUUID(),
+        id: generateId(),
         deskripsi: '',
         qty: 1,
         satuan: 'pcs',

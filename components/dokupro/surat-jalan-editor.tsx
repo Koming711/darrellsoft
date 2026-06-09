@@ -123,7 +123,7 @@ export function SuratJalanEditor() {
         },
         items: invoiceData.items?.length > 0
           ? invoiceData.items.map((item) => ({
-              id: item.id || crypto.randomUUID(),
+              id: item.id || (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15)),
               deskripsi: item.deskripsi || '',
               qty: item.qty || 0,
               satuan: item.satuan || '',
