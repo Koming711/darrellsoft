@@ -41,6 +41,7 @@ interface Pengguna {
   username: string
   password: string
   role: string
+  grupId: string | null
   createdAt: string
   validUntil: string | null
 }
@@ -79,12 +80,13 @@ interface Pembeli {
 
 // ==================== CONSTANTS ====================
 
-const ROLE_OPTIONS = ['superadmin', 'admin', 'manager', 'demo', 'user']
+const ROLE_OPTIONS = ['superadmin', 'admin', 'manager', 'owner', 'demo', 'user']
 
 const roleColors: Record<string, string> = {
   superadmin: 'bg-red-100 text-red-700',
   admin: 'bg-purple-100 text-purple-700',
   manager: 'bg-emerald-100 text-emerald-700',
+  owner: 'bg-orange-100 text-orange-700',
   demo: 'bg-amber-100 text-amber-700',
   user: 'bg-blue-100 text-blue-700',
 }
@@ -239,9 +241,20 @@ export default function PenggunaPage() {
     user.role === 'admin' || user.role === 'superadmin'
   )
 
+  // Non-admin pengguna (owner, user, demo, manager from checkout)
+  const nonAdminList = penggunaList.filter(user =>
+    user.role !== 'admin' && user.role !== 'superadmin'
+  )
+
   const filteredUsers = adminList.filter(user =>
     user.namaLengkap.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const [allSearchTerm, setAllSearchTerm] = useState('')
+  const filteredAllUsers = nonAdminList.filter(user =>
+    user.namaLengkap.toLowerCase().includes(allSearchTerm.toLowerCase()) ||
+    user.username.toLowerCase().includes(allSearchTerm.toLowerCase())
   )
 
   const resetUserForm = () => {
@@ -779,6 +792,63 @@ export default function PenggunaPage() {
     },
   ]
 
+  // Columns for non-admin pengguna (includes grup info)
+  const allUserColumns = [
+    {
+      key: 'namaLengkap',
+      title: 'Nama',
+      render: (user: Pengguna) => (
+        <div>
+          <span className="font-medium text-slate-800">{user.namaLengkap}</span>
+        </div>
+      )
+    },
+    {
+      key: 'username',
+      title: 'Username',
+      render: (user: Pengguna) => (
+        <span className="text-slate-600">@{user.username}</span>
+      )
+    },
+    {
+      key: 'role',
+      title: 'Role',
+      render: (user: Pengguna) => (
+        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${roleColors[user.role] || 'bg-slate-100 text-slate-700'}`}>
+          {user.role}
+        </span>
+      )
+    },
+    {
+      key: 'grupId',
+      title: 'Grup',
+      render: (user: Pengguna) => (
+        user.grupId
+          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700">
+              <Users className="w-3 h-3" />
+              {penggunaList.filter(p => p.grupId === user.grupId).length} akun
+            </span>
+          : <span className="text-xs text-slate-400">-</span>
+      )
+    },
+    {
+      key: 'validUntil',
+      title: 'Berlaku s/d',
+      render: (user: Pengguna) => (
+        <span className="text-sm text-slate-600">{user.validUntil ? formatDate(user.validUntil) : <span className="italic text-slate-400">-</span>}</span>
+      )
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      render: (user: Pengguna) => (
+        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getUserStatusColor(user.validUntil)}`}>
+          {getUserStatus(user.validUntil)}
+        </span>
+      )
+    },
+  ]
+
   // ==================== CALON PEMBELI COLUMNS ====================
 
   const calonColumns = [
@@ -951,6 +1021,10 @@ export default function PenggunaPage() {
                   <span className="text-xs sm:text-sm font-medium">Admin</span>
                   <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{adminList.length}</span>
                 </TabsTrigger>
+                <TabsTrigger value="pengguna" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
+                  <span className="text-xs sm:text-sm font-medium">Pengguna</span>
+                  <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{nonAdminList.length}</span>
+                </TabsTrigger>
                 <TabsTrigger value="calon" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
                   <span className="text-xs sm:text-sm font-medium leading-tight text-center"><span className="sm:hidden">Calon<br/>Pembeli</span><span className="hidden sm:inline">Calon Pembeli</span></span>
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{calonList.length}</span>
@@ -1002,6 +1076,46 @@ export default function PenggunaPage() {
                   onDelete={canDeleteUser ? handleDeleteUser : undefined}
                   showAsButtons
                   emptyMessage="Tidak ada pengguna ditemukan"
+                  emptyIcon={<Users className="w-12 h-12 mx-auto text-slate-400" />}
+                />
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Tab: Pengguna (non-admin accounts from checkout) */}
+          <TabsContent value="pengguna" className="mt-0">
+            <div className="p-4 lg:p-6 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-slate-500">Akun pengguna dari pendaftaran checkout (owner, user, demo)</p>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari pengguna..."
+                      value={allSearchTerm}
+                      onChange={(e) => setAllSearchTerm(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 lg:p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                  <span className="ml-3 text-sm text-slate-500">Memuat data...</span>
+                </div>
+              ) : (
+                <MobileTable
+                  data={filteredAllUsers}
+                  columns={allUserColumns}
+                  keyField="id"
+                  onEdit={canEditUser ? handleEditUser : undefined}
+                  onDelete={canDeleteUser ? handleDeleteUser : undefined}
+                  showAsButtons
+                  emptyMessage="Belum ada akun pengguna"
                   emptyIcon={<Users className="w-12 h-12 mx-auto text-slate-400" />}
                 />
               )}

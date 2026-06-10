@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
-import { randomUUID } from 'crypto'
 
 // GET /api/pengguna/linked-accounts?userId=xxx — Get all linked accounts for a user
 export async function GET(request: NextRequest) {
@@ -21,18 +20,18 @@ export async function GET(request: NextRequest) {
 
     const pengguna = await db.pengguna.findUnique({
       where: { id: userId },
-      select: { id: true, groupId: true, namaLengkap: true, username: true },
+      select: { id: true, grupId: true, namaLengkap: true, username: true },
     })
     if (!pengguna) {
       return NextResponse.json({ error: 'Pengguna tidak ditemukan' }, { status: 404 })
     }
 
-    if (!pengguna.groupId) {
-      return NextResponse.json({ groupId: null, members: [pengguna] })
+    if (!pengguna.grupId) {
+      return NextResponse.json({ grupId: null, members: [pengguna] })
     }
 
     const members = await db.pengguna.findMany({
-      where: { groupId: pengguna.groupId },
+      where: { grupId: pengguna.grupId },
       select: {
         id: true,
         namaLengkap: true,
@@ -40,13 +39,20 @@ export async function GET(request: NextRequest) {
         email: true,
         username: true,
         role: true,
+        grupId: true,
         validUntil: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'asc' },
     })
 
-    return NextResponse.json({ groupId: pengguna.groupId, members })
+    // Also get the Grup info
+    const grup = await db.grup.findUnique({
+      where: { id: pengguna.grupId },
+      select: { id: true, nama: true },
+    })
+
+    return NextResponse.json({ grupId: pengguna.grupId, grup, members })
   } catch (error) {
     console.error('Get linked accounts error:', error)
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 })
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Check parent exists
     const parent = await db.pengguna.findUnique({
       where: { id: parentUserId },
-      select: { id: true, groupId: true },
+      select: { id: true, grupId: true },
     })
     if (!parent) {
       return NextResponse.json({ error: 'Pengguna induk tidak ditemukan' }, { status: 404 })
@@ -85,14 +91,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Username sudah digunakan' }, { status: 409 })
     }
 
-    // Get or create groupId
-    let groupId = parent.groupId || randomUUID()
-
-    // If parent doesn't have groupId yet, assign it
-    if (!parent.groupId) {
+    // Get or create Grup
+    let grupId = parent.grupId
+    if (!grupId) {
+      // Create a new grup for this parent
+      const grup = await db.grup.create({
+        data: { nama: `Grup ${username}` },
+      })
+      grupId = grup.id
+      // Assign grupId to parent
       await db.pengguna.update({
         where: { id: parentUserId },
-        data: { groupId },
+        data: { grupId },
       })
     }
 
@@ -105,16 +115,15 @@ export async function POST(request: NextRequest) {
         username,
         password,
         role: role || 'user',
-        groupId,
+        grupId,
         validUntil: validUntil ? new Date(validUntil) : null,
       },
     })
 
     // Seed master data for the new user (copy from parent's group)
     try {
-      // Get papers from any group member
       const groupMembers = await db.pengguna.findMany({
-        where: { groupId },
+        where: { grupId },
         select: { id: true },
       })
       const memberIds = groupMembers.map(m => m.id)
@@ -182,20 +191,20 @@ export async function DELETE(request: NextRequest) {
 
     const pengguna = await db.pengguna.findUnique({
       where: { id: userId },
-      select: { id: true, groupId: true, username: true },
+      select: { id: true, grupId: true, username: true },
     })
     if (!pengguna) {
       return NextResponse.json({ error: 'Pengguna tidak ditemukan' }, { status: 404 })
     }
 
-    if (!pengguna.groupId) {
+    if (!pengguna.grupId) {
       return NextResponse.json({ error: 'Akun ini tidak terhubung dengan grup manapun' }, { status: 400 })
     }
 
-    // Remove groupId from the user (unlink from group)
+    // Remove grupId from the user (unlink from group)
     await db.pengguna.update({
       where: { id: userId },
-      data: { groupId: null },
+      data: { grupId: null },
     })
 
     return NextResponse.json({ message: `Akun "${pengguna.username}" berhasil diputus dari grup` })
