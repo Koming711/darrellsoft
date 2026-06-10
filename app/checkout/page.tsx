@@ -35,6 +35,7 @@ const PLANS: Record<string, {
   priceFormatted: string;
   period: string;
   features: string[];
+  maxAccounts: number;
 }> = {
   'bulanan-ekonomis': {
     id: 'bulanan-ekonomis',
@@ -43,7 +44,8 @@ const PLANS: Record<string, {
     price: 78000,
     priceFormatted: 'Rp 78.000',
     period: '/bulan (1 akun)',
-    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Maksimal 1 akun pengguna'],
+    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', '1 akun pengguna'],
+    maxAccounts: 1,
   },
   bulanan: {
     id: 'bulanan',
@@ -51,8 +53,9 @@ const PLANS: Record<string, {
     subtitle: 'Langganan Bulanan',
     price: 128000,
     priceFormatted: 'Rp 128.000',
-    period: '/bulan',
-    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Riwayat cetakan'],
+    period: '/bulan (2 akun)',
+    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Riwayat cetakan', '2 akun (1 Owner + 1 User) dalam 1 grup'],
+    maxAccounts: 2,
   },
   tahunan: {
     id: 'tahunan',
@@ -61,7 +64,8 @@ const PLANS: Record<string, {
     price: 888000,
     priceFormatted: 'Rp 888.000',
     period: '/tahun (hemat 42%)',
-    features: ['Semua fitur Basic', 'Multi perangkat', 'Master customer', 'Export laporan', 'Priority support'],
+    features: ['Semua fitur Basic', 'Multi perangkat', 'Master customer', 'Export laporan', 'Priority support', '2 akun (1 Owner + 1 User) dalam 1 grup'],
+    maxAccounts: 2,
   },
   lifetime: {
     id: 'lifetime',
@@ -70,7 +74,8 @@ const PLANS: Record<string, {
     price: 3888000,
     priceFormatted: 'Rp 3.888.000',
     period: 'sekali bayar',
-    features: ['Semua fitur Premium', 'Update gratis selamanya', 'Unlimited pengguna', 'Custom branding', 'Dedicated support'],
+    features: ['Semua fitur Premium', 'Update gratis selamanya', 'Unlimited pengguna', 'Custom branding', 'Dedicated support', '2 akun (1 Owner + 1 User) dalam 1 grup'],
+    maxAccounts: 2,
   },
 };
 
@@ -89,6 +94,7 @@ function CheckoutContent() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [secondUsername, setSecondUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -113,6 +119,7 @@ function CheckoutContent() {
           setCustomerPhone(data.phone || '');
           setUsername(data.username || '');
           setPassword(data.password || '');
+          setSecondUsername(data.secondUsername || '');
           setStep(2);
           setIsResume(true);
           setReady(true);
@@ -146,6 +153,13 @@ function CheckoutContent() {
       if (!password) { setError('Password harus diisi'); return; }
       if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
       if (password !== confirmPassword) { setError('Konfirmasi password tidak cocok'); return; }
+      // Validate second username for multi-account plans
+      const currentPlan = PLANS[selectedPlan];
+      if (currentPlan && currentPlan.maxAccounts >= 2) {
+        if (!secondUsername.trim()) { setError('Username akun kedua harus diisi untuk paket ini'); return; }
+        if (secondUsername.trim().length < 3) { setError('Username akun kedua minimal 3 karakter'); return; }
+        if (secondUsername.trim() === username.trim()) { setError('Username akun kedua tidak boleh sama dengan username akun owner'); return; }
+      }
 
       // Simpan data ke localStorage untuk resume nanti
       const checkoutData = {
@@ -155,6 +169,7 @@ function CheckoutContent() {
         phone: customerPhone.trim(),
         username: username.trim(),
         password: password,
+        secondUsername: secondUsername.trim(),
       };
       localStorage.setItem('checkout_pending', JSON.stringify(checkoutData));
     }
@@ -297,6 +312,9 @@ function CheckoutContent() {
                             {key === 'tahunan' && (
                               <span className="text-[10px] bg-[#e50914] text-white px-1.5 py-0.5 rounded font-bold">HEMAT 42%</span>
                             )}
+                            {p.maxAccounts >= 2 && (
+                              <span className="text-[10px] bg-[#46d369]/20 text-[#46d369] px-1.5 py-0.5 rounded font-bold">{p.maxAccounts} AKUN</span>
+                            )}
                           </div>
                           <p className="text-gray-500 text-xs mt-0.5">{p.subtitle} — {p.period}</p>
                         </div>
@@ -433,6 +451,38 @@ function CheckoutContent() {
                           </p>
                         )}
                       </div>
+                      {/* Second Username - only for multi-account plans */}
+                      {plan && plan.maxAccounts >= 2 && (
+                        <div className="mt-4 pt-4 border-t border-white/10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-5 h-5 rounded-full bg-[#e50914]/20 flex items-center justify-center">
+                              <User className="w-3 h-3 text-[#e50914]" />
+                            </div>
+                            <span className="text-xs font-semibold text-[#e50914] uppercase tracking-wider">Akun Kedua (Role: User)</span>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-semibold text-gray-300 mb-1.5 block">
+                              <AtSign className="w-3.5 h-3.5 inline mr-1.5" />Username Akun Kedua
+                            </Label>
+                            <Input
+                              type="text"
+                              placeholder="Masukkan username untuk akun kedua"
+                              value={secondUsername}
+                              onChange={(e) => setSecondUsername(e.target.value)}
+                              className="h-11 bg-[#141414] border-white/10 text-white placeholder:text-gray-600 focus:border-[#e50914] focus:ring-[#e50914]/20"
+                            />
+                            <p className="text-gray-600 text-xs mt-1">Akun ini akan menggunakan password yang sama dengan akun owner. Minimal 3 karakter.</p>
+                            {secondUsername && secondUsername === username && (
+                              <p className="text-red-400 text-xs mt-1">Username tidak boleh sama dengan akun owner</p>
+                            )}
+                            {secondUsername && secondUsername !== username && secondUsername.length >= 3 && (
+                              <p className="text-[#46d369] text-xs mt-1 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Username tersedia
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -558,7 +608,7 @@ function CheckoutContent() {
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Detail Akun</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-gray-500">Username</span>
+                    <span className="text-gray-500">Username (Owner)</span>
                     <span className="text-right font-medium">{username}</span>
                     <span className="text-gray-500">Nama</span>
                     <span className="text-right font-medium">{customerName}</span>
@@ -567,6 +617,18 @@ function CheckoutContent() {
                     <span className="text-gray-500">No. HP</span>
                     <span className="text-right font-medium">{customerPhone}</span>
                   </div>
+                  {plan && plan.maxAccounts >= 2 && secondUsername && (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-3.5 h-3.5 text-[#46d369]" />
+                        <span className="text-xs font-semibold text-[#46d369] uppercase tracking-wider">Akun Kedua (User)</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="text-gray-500">Username (User)</span>
+                        <span className="text-right font-medium">{secondUsername}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {error && (
@@ -627,6 +689,9 @@ function CheckoutContent() {
             name: customerName.trim(),
             email: customerEmail.trim(),
             phone: customerPhone.trim(),
+            username: username.trim(),
+            password: password,
+            secondUsername: secondUsername.trim(),
           }}
         />
       )}

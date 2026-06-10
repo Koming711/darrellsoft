@@ -111,10 +111,13 @@ export const GROUP_SUB_DEFINITIONS = GROUP_FEATURES.map(g => ({
 export function buildDefaultPermissions(roleId: string): Record<string, boolean> {
   const perms: Record<string, boolean> = {}
 
+  // PRO features require explicit activation via Hak Akses page
+  const PRO_FEATURE_IDS = ['invoice', 'surat-jalan', 'purchase-order']
+
   for (const f of SIMPLE_FEATURES) {
     let allowed = false
     if (roleId === 'superadmin') allowed = true
-    else if (roleId === 'admin') allowed = true
+    else if (roleId === 'admin') allowed = !PRO_FEATURE_IDS.includes(f.id)
     else if (roleId === 'manager') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order'].includes(f.id)
     else if (roleId === 'demo') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
     else if (roleId === 'user') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)

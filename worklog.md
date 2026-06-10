@@ -639,3 +639,49 @@ Stage Summary:
 - Section headers automatically adjust — if all items in a section are hidden, the section header also disappears
 - Route guard in dashboard-layout.tsx still prevents direct URL access to restricted features
 - Both src/ and root directories synced
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Make checkout page automatically create 2 accounts (1 owner + 1 user) in 1 grup multi-tenant when paying
+
+Work Log:
+- Updated Prisma schema: added `Grup` model (id, nama, createdAt, pengguna[]) and `grupId` field on `Pengguna` with relation to `Grup`
+- Ran `bun run db:push` to sync schema to database
+- Updated checkout page (`src/app/checkout/page.tsx`):
+  - Added `maxAccounts` field to PLANS config: Ekonomis=1, Basic=2, Premium=2, Lifetime=2
+  - Added `secondUsername` state variable
+  - Added "2 AKUN" badge on plan cards with maxAccounts >= 2
+  - Added "Akun Kedua (Role: User)" section with username input field (only shows when plan has maxAccounts >= 2)
+  - Added validation: secondUsername required, min 3 chars, must differ from owner username
+  - Updated localStorage checkout_pending to include secondUsername
+  - Updated resume flow to restore secondUsername
+  - Updated Step 2 confirmation to show "Username (Owner)" and "Username (User)" separately
+  - Updated PaymentDialog customerData to pass username, password, secondUsername
+- Updated PaymentDialog (`src/components/payment-dialog.tsx`):
+  - Extended customerData interface with username?, password?, secondUsername?
+  - Updated handlePay to pass username, password, secondUsername to create-transaction API
+- Updated create-transaction API (`src/app/api/midtrans/create-transaction/route.ts`):
+  - Added username, password, secondUsername extraction from request body
+  - Stored metadata (username, password, secondUsername) as JSON in payment.metadata
+  - Passed username, password, secondUsername to createSnapTransaction
+- Updated midtrans lib (`src/lib/midtrans.ts`):
+  - Added username, password, secondUsername to MidtransTransactionParams
+  - Stored account info in Midtrans custom_field1 (username), custom_field2 (password), custom_field3 (secondUsername)
+  - Added metadata parameter to savePaymentRecord
+- Updated notification webhook (`src/app/api/midtrans/notification/route.ts`):
+  - Added PLAN_CONFIG mapping: bulanan-ekonomis (1 month, 1 account), bulanan (1 month, 2 accounts), tahunan (12 months, 2 accounts), lifetime (100 years, 2 accounts)
+  - On payment success: reads username/password/secondUsername from custom_field or payment.metadata
+  - For single-account plans: creates 1 Pengguna with role 'owner'
+  - For multi-account plans (maxAccounts >= 2 with secondUsername): creates Grup + 2 Pengguna (owner + user) in same group
+  - Owner account gets name, email, phone from payment data
+  - User account gets secondUsername, same password, generated email, same group
+  - Both accounts share same validUntil date based on plan duration
+  - Also updates CalonPembeli status if exists
+- Verified with agent-browser: plan selection shows "2 AKUN" badges, second username field appears for multi-account plans, confirmation page shows both accounts correctly
+
+Stage Summary:
+- Full multi-tenant checkout flow implemented: paying for Basic/Premium/Lifetime creates 1 Grup with 2 accounts (owner + user)
+- Ekonomis plan still creates only 1 account (single user)
+- Account metadata stored in both payment.metadata and Midtrans custom_field1/2/3 for redundancy
+- All changes verified working via agent-browser end-to-end test

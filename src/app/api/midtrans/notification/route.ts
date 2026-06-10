@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySignature, updatePaymentStatus } from '@/lib/midtrans';
 
+// Plan config: maps packageType to duration and account count
+const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
+  'bulanan-ekonomis': { durationMonths: 1, maxAccounts: 1 },
+  'bulanan': { durationMonths: 1, maxAccounts: 2 },
+  'tahunan': { durationMonths: 12, maxAccounts: 2 },
+  'lifetime': { durationMonths: 1200, maxAccounts: 2 }, // 100 years
+};
+
 // GET handler - for browser/testing access
 export async function GET() {
   return NextResponse.json({
@@ -27,6 +35,7 @@ export async function POST(request: NextRequest) {
     const {
       order_id, transaction_status, transaction_id, payment_type,
       fraud_status, status_code, gross_amount, signature_key, transaction_time,
+      custom_field1, custom_field2, custom_field3,
     } = body as Record<string, string>;
 
     console.log('[Midtrans Notification]', {
@@ -84,32 +93,114 @@ export async function POST(request: NextRequest) {
         transactionTime: transaction_time ? new Date(transaction_time) : undefined,
       });
 
-      // Handle successful payment - extend subscription
+      // Handle successful payment - create accounts
       if (finalStatus === 'success') {
         const payment = await db.payment.findUnique({ where: { orderId: order_id } });
         if (payment) {
-          const pengguna = await db.pengguna.findFirst({
+          // Parse metadata to get username, password, secondUsername
+          let metaUsername = custom_field1 || '';
+          let metaPassword = custom_field2 || '';
+          let metaSecondUsername = custom_field3 || '';
+
+          // Also try to read from payment.metadata (stored during create-transaction)
+          if ((!metaUsername || !metaPassword) && payment.metadata) {
+            try {
+              const parsed = JSON.parse(payment.metadata);
+              if (!metaUsername && parsed.username) metaUsername = parsed.username;
+              if (!metaPassword && parsed.password) metaPassword = parsed.password;
+              if (!metaSecondUsername && parsed.secondUsername) metaSecondUsername = parsed.secondUsername;
+            } catch {}
+          }
+
+          const planConfig = PLAN_CONFIG[payment.packageType] || { durationMonths: 1, maxAccounts: 1 };
+          const now = new Date();
+          const validUntil = new Date(now);
+          validUntil.setMonth(validUntil.getMonth() + planConfig.durationMonths);
+
+          // Check if pengguna already exists for this payment
+          const existingPengguna = await db.pengguna.findFirst({
             where: { OR: [{ email: payment.customerEmail }, { nomorHP: payment.customerPhone }] },
           });
-          if (pengguna) {
-            const now = new Date();
-            const baseDate = pengguna.validUntil && pengguna.validUntil > now ? pengguna.validUntil : now;
-            let extendedExpiry: Date;
-            if (payment.packageType === 'bulanan') {
-              extendedExpiry = new Date(baseDate);
-              extendedExpiry.setMonth(extendedExpiry.getMonth() + 1);
-            } else if (payment.packageType === 'tahunan') {
-              extendedExpiry = new Date(baseDate);
-              extendedExpiry.setFullYear(extendedExpiry.getFullYear() + 1);
+
+          if (existingPengguna) {
+            // Update existing pengguna's validUntil
+            const baseDate = existingPengguna.validUntil && existingPengguna.validUntil > now ? existingPengguna.validUntil : now;
+            const extendedExpiry = new Date(baseDate);
+            extendedExpiry.setMonth(extendedExpiry.getMonth() + planConfig.durationMonths);
+            await db.pengguna.update({ where: { id: existingPengguna.id }, data: { validUntil: extendedExpiry } });
+            await db.payment.update({ where: { orderId: order_id }, data: { userId: existingPengguna.id } });
+            console.log(`[Midtrans] Extended subscription for ${existingPengguna.email} until ${extendedExpiry.toISOString()}`);
+          } else if (metaUsername && metaPassword) {
+            // Create new accounts for new payment
+            if (planConfig.maxAccounts >= 2 && metaSecondUsername) {
+              // Multi-account plan: create Grup + 2 Pengguna (owner + user)
+              const grup = await db.grup.create({
+                data: { nama: `Grup ${metaUsername}` },
+              });
+
+              // Create Owner account
+              const owner = await db.pengguna.create({
+                data: {
+                  namaLengkap: payment.customerName,
+                  nomorHP: payment.customerPhone,
+                  email: payment.customerEmail,
+                  username: metaUsername,
+                  password: metaPassword,
+                  role: 'owner',
+                  grupId: grup.id,
+                  validUntil,
+                },
+              });
+
+              // Create User account (same password, second username)
+              const userAccount = await db.pengguna.create({
+                data: {
+                  namaLengkap: `Anggota ${metaSecondUsername}`,
+                  nomorHP: payment.customerPhone,
+                  email: `${metaSecondUsername}@grup.${metaUsername}`,
+                  username: metaSecondUsername,
+                  password: metaPassword,
+                  role: 'user',
+                  grupId: grup.id,
+                  validUntil,
+                },
+              });
+
+              await db.payment.update({ where: { orderId: order_id }, data: { userId: owner.id } });
+              console.log(`[Midtrans] Created grup ${grup.id} with owner ${owner.username} and user ${userAccount.username}`);
             } else {
-              extendedExpiry = new Date(baseDate);
-              extendedExpiry.setFullYear(extendedExpiry.getFullYear() + 100);
+              // Single account plan: create just 1 Pengguna
+              const pengguna = await db.pengguna.create({
+                data: {
+                  namaLengkap: payment.customerName,
+                  nomorHP: payment.customerPhone,
+                  email: payment.customerEmail,
+                  username: metaUsername,
+                  password: metaPassword,
+                  role: 'owner',
+                  validUntil,
+                },
+              });
+              await db.payment.update({ where: { orderId: order_id }, data: { userId: pengguna.id } });
+              console.log(`[Midtrans] Created pengguna ${pengguna.username} until ${validUntil.toISOString()}`);
             }
-            await db.pengguna.update({ where: { id: pengguna.id }, data: { validUntil: extendedExpiry } });
-            await db.payment.update({ where: { orderId: order_id }, data: { userId: pengguna.id } });
-            console.log(`[Midtrans] Extended subscription for ${pengguna.email} until ${extendedExpiry.toISOString()}`);
+
+            // Also update CalonPembeli if exists
+            const calonPembeli = await db.calonPembeli.findFirst({
+              where: { OR: [{ email: payment.customerEmail }, { nomorHP: payment.customerPhone }] },
+            });
+            if (calonPembeli) {
+              await db.calonPembeli.update({
+                where: { id: calonPembeli.id },
+                data: {
+                  status: 'aktif',
+                  role: 'owner',
+                  expiredDate: validUntil,
+                },
+              });
+            }
           } else {
-            console.warn(`[Midtrans] No matching pengguna found for payment ${order_id}`);
+            console.warn(`[Midtrans] No username/password found in metadata for payment ${order_id}. Cannot auto-create accounts.`);
           }
         }
       }

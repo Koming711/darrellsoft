@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-06-01-v1'
+export const CURRENT_VERSION = '2026-06-07-v2'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-06-07-v2',
+    date: '7 Juni 2026',
+    title: 'Peningkatan Matrik Hak Akses & Navigasi',
+    items: [
+      'Matrik Hak Akses: fitur yang tidak diaktifkan menampilkan badge PRO',
+      'Hak Akses & Pengguna disembunyikan dari sidebar jika tidak diaktifkan',
+      'Halaman Fitur PRO menampilkan tombol Kembali ke Beranda',
+      'Optimasi performa halaman Hak Akses (tanpa delay saat edit)',
+      'Perbaikan navigasi tombol Kembali ke Beranda di semua halaman dokumen',
+    ],
+  },
   {
     version: '2026-06-01-v1',
     date: '1 Juni 2026',
