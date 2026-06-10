@@ -169,15 +169,21 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         setIsMockMode(true);
         setStep('paying');
         setCountdown(3);
-        // Simulasi delay 3 detik lalu auto success
+        // Simulasi delay 3 detik lalu auto success & redirect ke beranda
         setTimeout(async () => {
           // Auto-login (accounts already created in create-transaction for mock mode)
           await performAutoLogin();
 
+          // Show brief success message then auto-redirect to beranda
           setStep('result');
           setResult('success');
-          setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif. (Mode Testing/Sandbox)');
+          setResultMessage('Pembayaran berhasil! Mengalihkan ke beranda...');
           setLoading(false);
+
+          // Auto-redirect to beranda after 1.5 seconds
+          setTimeout(() => {
+            if (onSuccess) onSuccess();
+          }, 1500);
         }, 3000);
         return;
       }
@@ -209,9 +215,15 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
             // Auto-login with retry (webhook may need a moment to create accounts)
             await performAutoLogin(true);
 
+            // Show brief success then auto-redirect to beranda
             setStep('result'); setResult('success');
-            setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif.');
+            setResultMessage('Pembayaran berhasil! Mengalihkan ke beranda...');
             setLoading(false);
+
+            // Auto-redirect to beranda after 1.5 seconds
+            setTimeout(() => {
+              if (onSuccess) onSuccess();
+            }, 1500);
           },
           onPending: () => {
             setStep('result'); setResult('pending');
