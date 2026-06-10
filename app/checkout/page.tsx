@@ -102,6 +102,7 @@ function CheckoutContent() {
   const [ready, setReady] = useState(false);
   const [isResume, setIsResume] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [autoLoggedIn, setAutoLoggedIn] = useState(false);
 
   const plan = PLANS[selectedPlan];
 
@@ -677,7 +678,17 @@ function CheckoutContent() {
         <PaymentDialog
           open={showPaymentPopup}
           onClose={() => setShowPaymentPopup(false)}
-          onSuccess={() => { setShowPaymentPopup(false); router.push('/login'); }}
+          onSuccess={() => {
+            setShowPaymentPopup(false);
+            if (autoLoggedIn) {
+              // Auto-login was successful, go directly to beranda
+              window.location.href = '/pembukaan';
+            } else {
+              // Fallback to login page
+              router.push('/login');
+            }
+          }}
+          onAutoLogin={() => setAutoLoggedIn(true)}
           pkg={{
             type: plan.id,
             name: plan.name,

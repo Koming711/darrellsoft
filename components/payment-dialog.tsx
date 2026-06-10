@@ -31,8 +31,9 @@ interface PaymentDialogProps {
   open: boolean;
   onClose: () => void;
   pkg: PackageInfo;
-  customerData?: { name: string; email: string; phone: string };
+  customerData?: { name: string; email: string; phone: string; username?: string; password?: string; secondUsername?: string };
   onSuccess?: () => void;
+  onAutoLogin?: (data: { id: string; username: string; name: string; role: string; sessionId: string; permissions?: Record<string, unknown> }) => void;
 }
 
 function formatRupiah(n: number) {
@@ -73,7 +74,7 @@ const CATEGORIES = [
 ];
 
 /* ─── komponen utama ─── */
-export default function PaymentDialog({ open, onClose, pkg, customerData, onSuccess }: PaymentDialogProps) {
+export default function PaymentDialog({ open, onClose, pkg, customerData, onSuccess, onAutoLogin }: PaymentDialogProps) {
   const [step, setStep] = useState<DialogStep>('method');
   const [selectedMethod, setSelectedMethod] = useState('');
   const [loading, setLoading] = useState(false);
@@ -133,6 +134,9 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
     const name = customerData?.name || '';
     const email = customerData?.email || '';
     const phone = customerData?.phone || '';
+    const uname = customerData?.username || '';
+    const pwd = customerData?.password || '';
+    const secondUname = customerData?.secondUsername || '';
 
     setLoading(true);
     setResultMessage('');
@@ -148,6 +152,9 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
           customerName: name,
           customerEmail: email,
           customerPhone: phone,
+          username: uname,
+          password: pwd,
+          secondUsername: secondUname,
         }),
       });
       const data = await res.json();
@@ -163,7 +170,10 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         setStep('paying');
         setCountdown(3);
         // Simulasi delay 3 detik lalu auto success
-        setTimeout(() => {
+        setTimeout(async () => {
+          // Auto-login (accounts already created in create-transaction for mock mode)
+          await performAutoLogin();
+
           setStep('result');
           setResult('success');
           setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif. (Mode Testing/Sandbox)');
@@ -195,7 +205,10 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
       const snap = (window as unknown as Record<string, Record<string, (token: string, callbacks?: Record<string, () => void>) => void>>).snap;
       if (snap && snap.pay) {
         snap.pay(data.token, {
-          onSuccess: () => {
+          onSuccess: async () => {
+            // Auto-login with retry (webhook may need a moment to create accounts)
+            await performAutoLogin(true);
+
             setStep('result'); setResult('success');
             setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif.');
             setLoading(false);
@@ -224,6 +237,74 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
       setLoading(false);
     }
   }, [selectedMethod, pkg, customerData]);
+
+  const performAutoLogin = async (withRetry = false) => {
+    const uname = customerData?.username || '';
+    const pwd = customerData?.password || '';
+    if (!uname || !pwd) return;
+
+    const maxAttempts = withRetry ? 5 : 1;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: uname, password: pwd }),
+        });
+        const loginData = await loginRes.json();
+
+        if (loginRes.ok && loginData.id) {
+          // Save auth to localStorage
+          localStorage.setItem('auth', JSON.stringify({
+            id: loginData.id,
+            username: loginData.username,
+            name: loginData.name,
+            role: loginData.role,
+            sessionId: loginData.sessionId,
+          }));
+
+          // Store permissions
+          if (loginData.permissions) {
+            const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {};
+            allPerms[loginData.role] = loginData.permissions;
+            try {
+              const existing = localStorage.getItem('permissions');
+              if (existing) {
+                const parsed = JSON.parse(existing);
+                Object.assign(allPerms, parsed);
+              }
+            } catch {}
+            localStorage.setItem('permissions', JSON.stringify(allPerms));
+          }
+
+          // Notify parent component about auto-login
+          if (onAutoLogin) {
+            onAutoLogin({
+              id: loginData.id,
+              username: loginData.username,
+              name: loginData.name,
+              role: loginData.role,
+              sessionId: loginData.sessionId,
+              permissions: loginData.permissions,
+            });
+          }
+
+          console.log('[PaymentDialog] Auto-login successful for', uname);
+          return; // Success, exit
+        } else {
+          console.warn(`[PaymentDialog] Auto-login attempt ${attempt} failed:`, loginData.error);
+          if (withRetry && attempt < maxAttempts) {
+            await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+          }
+        }
+      } catch (err) {
+        console.warn(`[PaymentDialog] Auto-login attempt ${attempt} error:`, err);
+        if (withRetry && attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+    }
+  };
 
   const checkPaymentResult = async (oid: string) => {
     try {
