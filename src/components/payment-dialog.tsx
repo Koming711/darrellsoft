@@ -31,7 +31,7 @@ interface PaymentDialogProps {
   open: boolean;
   onClose: () => void;
   pkg: PackageInfo;
-  customerData?: { name: string; email: string; phone: string };
+  customerData?: { name: string; email: string; phone: string; username?: string; password?: string; secondUsername?: string };
   onSuccess?: () => void;
 }
 
@@ -133,6 +133,9 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
     const name = customerData?.name || '';
     const email = customerData?.email || '';
     const phone = customerData?.phone || '';
+    const uname = customerData?.username || '';
+    const pwd = customerData?.password || '';
+    const secondUname = customerData?.secondUsername || '';
 
     setLoading(true);
     setResultMessage('');
@@ -148,6 +151,9 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
           customerName: name,
           customerEmail: email,
           customerPhone: phone,
+          username: uname,
+          password: pwd,
+          secondUsername: secondUname,
         }),
       });
       const data = await res.json();

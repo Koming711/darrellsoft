@@ -8,7 +8,7 @@ const isFakeKey = process.env.MIDTRANS_SERVER_KEY === FAKE_KEY;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { packageName, packageType, price, customerName, customerEmail, customerPhone } = body;
+    const { packageName, packageType, price, customerName, customerEmail, customerPhone, username, password, secondUsername } = body;
 
     if (!packageName || !packageType || !price || !customerName || !customerEmail || !customerPhone) {
       return NextResponse.json({ success: false, message: 'Semua field wajib diisi' }, { status: 400 });
@@ -17,6 +17,13 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     const orderId = `PKG-${packageType.toUpperCase()}-${timestamp}-${random}`;
+
+    // Store metadata (username, password, secondUsername) as JSON
+    const metadata = JSON.stringify({
+      username: username || '',
+      password: password || '',
+      secondUsername: secondUsername || '',
+    });
 
     // Simpan ke database
     await savePaymentRecord(db, {
@@ -27,6 +34,7 @@ export async function POST(request: NextRequest) {
       customerName,
       customerEmail,
       customerPhone,
+      metadata,
     });
 
     // ─── MOCK MODE: tidak memanggil Midtrans API asli ───
@@ -50,6 +58,9 @@ export async function POST(request: NextRequest) {
       customerName,
       customerEmail,
       customerPhone,
+      username: username || '',
+      password: password || '',
+      secondUsername: secondUsername || '',
     });
 
     return NextResponse.json({

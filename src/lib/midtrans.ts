@@ -11,6 +11,9 @@ export interface MidtransTransactionParams {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  username?: string;
+  password?: string;
+  secondUsername?: string;
 }
 
 export async function createSnapTransaction(params: MidtransTransactionParams) {
@@ -40,6 +43,10 @@ export async function createSnapTransaction(params: MidtransTransactionParams) {
       email: params.customerEmail,
       phone: params.customerPhone,
     },
+    // Store account info in custom_field so webhook can access them
+    custom_field1: params.username || '',
+    custom_field2: params.password || '',
+    custom_field3: params.secondUsername || '',
     callbacks: {
       finish: `${baseUrl}/?payment=finish`,
       error: `${baseUrl}/?payment=error`,
@@ -114,6 +121,7 @@ export async function savePaymentRecord(
     customerEmail: string;
     customerPhone: string;
     userId?: string;
+    metadata?: string;
   }
 ) {
   return prisma.payment.upsert({
@@ -124,6 +132,7 @@ export async function savePaymentRecord(
       customerEmail: data.customerEmail,
       customerPhone: data.customerPhone,
       grossAmount: data.grossAmount,
+      ...(data.metadata && { metadata: data.metadata }),
     },
   });
 }

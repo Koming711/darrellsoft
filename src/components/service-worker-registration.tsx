@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-06-01-v1'
+const APP_VERSION = '2026-06-07-v2'
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -34,7 +34,8 @@ export function ServiceWorkerRegistration() {
             key.includes('form-data-version') ||
             key.includes('potong-kertas-form-version') ||
             key.includes('dokupro') ||
-            key.includes('install_prompt_dismissed')
+            key.includes('install_prompt_dismissed') ||
+            key === 'permissions'
           )) {
             keysToRemove.push(key)
           }
