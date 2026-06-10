@@ -39,6 +39,54 @@ export async function POST(request: NextRequest) {
 
     // ─── MOCK MODE: tidak memanggil Midtrans API asli ───
     if (isFakeKey) {
+      // In mock mode, also create accounts immediately so auto-login works
+      try {
+        const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
+          'bulanan-ekonomis': { durationMonths: 1, maxAccounts: 1 },
+          'bulanan': { durationMonths: 1, maxAccounts: 2 },
+          'tahunan': { durationMonths: 12, maxAccounts: 2 },
+          'lifetime': { durationMonths: 1200, maxAccounts: 2 },
+        };
+        const planConfig = PLAN_CONFIG[packageType] || { durationMonths: 1, maxAccounts: 1 };
+        const now = new Date();
+        const validUntil = new Date(now);
+        validUntil.setMonth(validUntil.getMonth() + planConfig.durationMonths);
+        const metaUname = username || '';
+        const metaPwd = password || '';
+        const metaSecondUname = secondUsername || '';
+
+        // Update payment status to success
+        await db.payment.update({ where: { orderId }, data: { transactionStatus: 'success' } });
+
+        // Check if pengguna already exists
+        const existingPengguna = await db.pengguna.findFirst({
+          where: { OR: [{ email: customerEmail }, { username: metaUname }] },
+        });
+
+        if (!existingPengguna && metaUname && metaPwd) {
+          if (planConfig.maxAccounts >= 2 && metaSecondUname) {
+            const grup = await db.grup.create({ data: { nama: `Grup ${metaUname}` } });
+            const owner = await db.pengguna.create({
+              data: { namaLengkap: customerName, nomorHP: customerPhone, email: customerEmail, username: metaUname, password: metaPwd, role: 'owner', grupId: grup.id, validUntil },
+            });
+            const userAcc = await db.pengguna.create({
+              data: { namaLengkap: `Anggota ${metaSecondUname}`, nomorHP: customerPhone, email: `${metaSecondUname}@grup.${metaUname}`, username: metaSecondUname, password: metaPwd, role: 'user', grupId: grup.id, validUntil },
+            });
+            await db.pembeli.create({ data: { nama: customerName, nomorHP: customerPhone, email: customerEmail, alamat: '', catatan: `Pembayaran ${packageName} (Owner)`, role: 'owner', expiredDate: validUntil, penggunaId: owner.id } });
+            await db.pembeli.create({ data: { nama: `Anggota ${metaSecondUname}`, nomorHP: customerPhone, email: `${metaSecondUname}@grup.${metaUname}`, alamat: '', catatan: `Pembayaran ${packageName} (User)`, role: 'user', expiredDate: validUntil, penggunaId: userAcc.id } });
+            await db.payment.update({ where: { orderId }, data: { userId: owner.id } });
+          } else {
+            const pengguna = await db.pengguna.create({
+              data: { namaLengkap: customerName, nomorHP: customerPhone, email: customerEmail, username: metaUname, password: metaPwd, role: 'owner', validUntil },
+            });
+            await db.pembeli.create({ data: { nama: customerName, nomorHP: customerPhone, email: customerEmail, alamat: '', catatan: `Pembayaran ${packageName}`, role: 'owner', expiredDate: validUntil, penggunaId: pengguna.id } });
+            await db.payment.update({ where: { orderId }, data: { userId: pengguna.id } });
+          }
+        }
+      } catch (activateErr) {
+        console.warn('[Mock Activate] Error creating accounts:', activateErr);
+      }
+
       const fakeToken = `fake_snap_token_${timestamp}_${random}`;
       return NextResponse.json({
         success: true,
