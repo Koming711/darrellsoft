@@ -685,3 +685,32 @@ Stage Summary:
 - Ekonomis plan still creates only 1 account (single user)
 - Account metadata stored in both payment.metadata and Midtrans custom_field1/2/3 for redundancy
 - All changes verified working via agent-browser end-to-end test
+
+---
+Task ID: 17
+Agent: Main Agent
+Task: Make checkout create 2 accounts (owner + user) in 1 grup + data appears in pengguna page & pembeli tab
+
+Work Log:
+- Updated notification webhook to also create Pembeli records when payment succeeds:
+  - For multi-account plans: creates 2 Pembeli records (owner + user) linked to Pengguna via penggunaId
+  - For single-account plans: creates 1 Pembeli record linked to the owner Pengguna
+  - For existing pengguna: updates or creates Pembeli record with extended expiry
+- Added new "Pengguna" tab to pengguna page between Admin and Calon Pembeli tabs:
+  - Shows all non-admin pengguna (owner, user, demo, manager roles)
+  - Includes "Grup" column showing group membership (e.g. "2 akun" badge)
+  - Has search functionality
+  - Shows role badge, validUntil date, and status
+- Updated Pengguna interface to include grupId field
+- Added 'owner' to ROLE_OPTIONS and roleColors (orange badge)
+- Added allUserColumns with nama, username, role, grup, validUntil, status columns
+- Fixed linked-accounts API to use grupId (referencing Grup model) instead of groupId (which didn't exist)
+- Synced all changes to app/ directory
+
+Stage Summary:
+- Checkout flow creates: Grup + 2 Pengguna (owner + user) + 2 Pembeli records on payment success
+- Data appears in both "Pengguna" tab and "Pembeli" tab on /administrasi/pengguna page
+- "Pengguna" tab shows non-admin accounts with grup membership info
+- "Pembeli" tab shows pembeli records linked to Pengguna accounts
+- linked-accounts API fixed to use correct grupId field
+- All changes verified with agent-browser: checkout flow works, 4 tabs visible on pengguna page

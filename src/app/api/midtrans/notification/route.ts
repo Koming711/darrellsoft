@@ -48,24 +48,19 @@ export async function POST(request: NextRequest) {
 
     if (!order_id || !signature_key) {
       console.warn('[Midtrans Notification] Missing order_id or signature_key - likely a test/subscription notification');
-      // ALWAYS return 200 to Midtrans - never reject, even for invalid payloads
-      // This prevents Midtrans from endlessly retrying and reporting errors
       return NextResponse.json({ status: 'ok', message: 'Notification received (non-standard payload)' });
     }
 
-    // Verify signature - always return 200 to Midtrans to prevent retries,
-    // but log the issue for debugging
+    // Verify signature
     const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
     if (!serverKey) {
       console.error('[Midtrans Notification] MIDTRANS_SERVER_KEY is not set! Cannot verify signature.');
-      // Return 200 anyway so Midtrans stops retrying, but don't process the payment
       return NextResponse.json({ status: 'ok', message: 'Server key not configured' });
     }
 
     const isValid = await verifySignature(order_id, status_code, gross_amount, serverKey, signature_key);
     if (!isValid) {
       console.error('[Midtrans Notification] Invalid signature for order:', order_id);
-      // Return 200 to stop Midtrans retries, but don't process
       return NextResponse.json({ status: 'ok', message: 'Signature verification skipped' });
     }
 
@@ -93,7 +88,7 @@ export async function POST(request: NextRequest) {
         transactionTime: transaction_time ? new Date(transaction_time) : undefined,
       });
 
-      // Handle successful payment - create accounts
+      // Handle successful payment - create accounts + pembeli records
       if (finalStatus === 'success') {
         const payment = await db.payment.findUnique({ where: { orderId: order_id } });
         if (payment) {
@@ -129,11 +124,36 @@ export async function POST(request: NextRequest) {
             extendedExpiry.setMonth(extendedExpiry.getMonth() + planConfig.durationMonths);
             await db.pengguna.update({ where: { id: existingPengguna.id }, data: { validUntil: extendedExpiry } });
             await db.payment.update({ where: { orderId: order_id }, data: { userId: existingPengguna.id } });
+
+            // Update or create Pembeli for existing pengguna
+            const existingPembeli = await db.pembeli.findFirst({
+              where: { penggunaId: existingPengguna.id },
+            });
+            if (existingPembeli) {
+              await db.pembeli.update({
+                where: { id: existingPembeli.id },
+                data: { role: 'owner', expiredDate: extendedExpiry },
+              });
+            } else {
+              await db.pembeli.create({
+                data: {
+                  nama: existingPengguna.namaLengkap,
+                  nomorHP: existingPengguna.nomorHP,
+                  email: existingPengguna.email,
+                  alamat: '',
+                  catatan: `Pembayaran ${payment.packageName}`,
+                  role: 'owner',
+                  expiredDate: extendedExpiry,
+                  penggunaId: existingPengguna.id,
+                },
+              });
+            }
+
             console.log(`[Midtrans] Extended subscription for ${existingPengguna.email} until ${extendedExpiry.toISOString()}`);
           } else if (metaUsername && metaPassword) {
             // Create new accounts for new payment
             if (planConfig.maxAccounts >= 2 && metaSecondUsername) {
-              // Multi-account plan: create Grup + 2 Pengguna (owner + user)
+              // Multi-account plan: create Grup + 2 Pengguna (owner + user) + 2 Pembeli
               const grup = await db.grup.create({
                 data: { nama: `Grup ${metaUsername}` },
               });
@@ -166,10 +186,38 @@ export async function POST(request: NextRequest) {
                 },
               });
 
+              // Create Pembeli record for Owner
+              await db.pembeli.create({
+                data: {
+                  nama: payment.customerName,
+                  nomorHP: payment.customerPhone,
+                  email: payment.customerEmail,
+                  alamat: '',
+                  catatan: `Pembayaran ${payment.packageName} (Owner)`,
+                  role: 'owner',
+                  expiredDate: validUntil,
+                  penggunaId: owner.id,
+                },
+              });
+
+              // Create Pembeli record for User
+              await db.pembeli.create({
+                data: {
+                  nama: `Anggota ${metaSecondUsername}`,
+                  nomorHP: payment.customerPhone,
+                  email: `${metaSecondUsername}@grup.${metaUsername}`,
+                  alamat: '',
+                  catatan: `Pembayaran ${payment.packageName} (User)`,
+                  role: 'user',
+                  expiredDate: validUntil,
+                  penggunaId: userAccount.id,
+                },
+              });
+
               await db.payment.update({ where: { orderId: order_id }, data: { userId: owner.id } });
-              console.log(`[Midtrans] Created grup ${grup.id} with owner ${owner.username} and user ${userAccount.username}`);
+              console.log(`[Midtrans] Created grup ${grup.id} with owner ${owner.username} and user ${userAccount.username}, + 2 pembeli records`);
             } else {
-              // Single account plan: create just 1 Pengguna
+              // Single account plan: create just 1 Pengguna + 1 Pembeli
               const pengguna = await db.pengguna.create({
                 data: {
                   namaLengkap: payment.customerName,
@@ -181,8 +229,23 @@ export async function POST(request: NextRequest) {
                   validUntil,
                 },
               });
+
+              // Create Pembeli record
+              await db.pembeli.create({
+                data: {
+                  nama: payment.customerName,
+                  nomorHP: payment.customerPhone,
+                  email: payment.customerEmail,
+                  alamat: '',
+                  catatan: `Pembayaran ${payment.packageName}`,
+                  role: 'owner',
+                  expiredDate: validUntil,
+                  penggunaId: pengguna.id,
+                },
+              });
+
               await db.payment.update({ where: { orderId: order_id }, data: { userId: pengguna.id } });
-              console.log(`[Midtrans] Created pengguna ${pengguna.username} until ${validUntil.toISOString()}`);
+              console.log(`[Midtrans] Created pengguna ${pengguna.username} + pembeli until ${validUntil.toISOString()}`);
             }
 
             // Also update CalonPembeli if exists
@@ -206,14 +269,12 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.warn(`[Midtrans Notification] Payment record not found for order: ${order_id}. This may be a test notification.`);
-      // Still return 200 so Midtrans doesn't keep retrying
     }
 
     return NextResponse.json({ status: 'ok' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Notification handler error';
     console.error('[Midtrans Notification] Error:', message);
-    // Return 200 to prevent Midtrans retries even on internal errors
     return NextResponse.json({ status: 'ok', message: 'Processed with warnings' });
   }
 }
