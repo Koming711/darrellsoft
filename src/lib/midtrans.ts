@@ -48,9 +48,9 @@ export async function createSnapTransaction(params: MidtransTransactionParams) {
     custom_field2: params.password || '',
     custom_field3: params.secondUsername || '',
     callbacks: {
-      finish: `${baseUrl}/?payment=finish`,
-      error: `${baseUrl}/?payment=error`,
-      pending: `${baseUrl}/?payment=pending`,
+      finish: `${baseUrl}/payment/finish`,
+      error: `${baseUrl}/payment/finish`,
+      pending: `${baseUrl}/payment/finish`,
     },
   };
 
