@@ -19,10 +19,11 @@ model User {
 }
 
 model Grup {
-  id        String     @id @default(cuid())
-  nama      String
-  createdAt DateTime   @default(now())
-  pengguna  Pengguna[]
+  id          String     @id @default(cuid())
+  nama        String
+  maxAccounts Int        @default(1)
+  createdAt   DateTime   @default(now())
+  pengguna    Pengguna[]
 }
 
 model Pengguna {
@@ -131,6 +132,7 @@ model Pembeli {
   expiredDate DateTime?
   userId      String?
   penggunaId  String?
+  grupId      String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

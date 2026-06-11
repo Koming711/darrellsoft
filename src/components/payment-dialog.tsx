@@ -31,7 +31,7 @@ interface PaymentDialogProps {
   open: boolean;
   onClose: () => void;
   pkg: PackageInfo;
-  customerData?: { name: string; email: string; phone: string; username?: string; password?: string; secondUsername?: string };
+  customerData?: { name: string; email: string; phone: string; username?: string; password?: string };
   onSuccess?: () => void;
   onAutoLogin?: (data: { id: string; username: string; name: string; role: string; sessionId: string; permissions?: Record<string, unknown> }) => void;
 }
@@ -85,6 +85,9 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
   const [isMockMode, setIsMockMode] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
+  // Detect test mode from env (for showing test badge on method selection step)
+  const isTestModeEnv = process.env.NEXT_PUBLIC_MIDTRANS_TEST_MODE === 'true';
+
   // Reset saat popup dibuka
   useEffect(() => {
     if (open) {
@@ -136,7 +139,6 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
     const phone = customerData?.phone || '';
     const uname = customerData?.username || '';
     const pwd = customerData?.password || '';
-    const secondUname = customerData?.secondUsername || '';
 
     setLoading(true);
     setResultMessage('');
@@ -154,7 +156,6 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
           customerPhone: phone,
           username: uname,
           password: pwd,
-          secondUsername: secondUname,
         }),
       });
       const data = await res.json();
@@ -164,14 +165,14 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
       setSnapToken(data.token);
       sessionStorage.setItem('lastPaymentOrderId', data.orderId);
 
-      // ─── MOCK MODE: simulasi pembayaran ───
-      if (data.mock) {
+      // ─── TEST/MOCK MODE: simulasi pembayaran ───
+      if (data.mock || data.testMode) {
         setIsMockMode(true);
         setStep('paying');
-        setCountdown(3);
-        // Simulasi delay 3 detik lalu auto success & redirect ke beranda
+        setCountdown(5);
+        // Simulasi delay 5 detik lalu auto success & redirect ke beranda
         setTimeout(async () => {
-          // Auto-login (accounts already created in create-transaction for mock mode)
+          // Auto-login (accounts already created in create-transaction for test mode)
           await performAutoLogin();
 
           // Show brief success message then auto-redirect to beranda
@@ -184,7 +185,7 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
           setTimeout(() => {
             if (onSuccess) onSuccess();
           }, 1500);
-        }, 3000);
+        }, 5000);
         return;
       }
 
@@ -371,6 +372,11 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <h2 className="text-white text-lg font-bold">Metode Pembayaran</h2>
+                  {isTestModeEnv && (
+                    <span className="ml-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                      Test Mode
+                    </span>
+                  )}
                 </div>
                 {step !== 'paying' && (
                   <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
@@ -386,6 +392,15 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
                   {/* STEP: Pilih Metode Pembayaran */}
                   {step === 'method' && (
                     <motion.div key="method" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }}>
+                      {isTestModeEnv && (
+                        <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+                          <Shield className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-amber-400 text-xs font-semibold">MODE TESTING Aktif</p>
+                            <p className="text-amber-400/70 text-[11px] mt-0.5">Pembayaran akan disimulasikan. Tidak ada transaksi nyata yang diproses.</p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-gray-400 text-sm mb-5">Pilih metode pembayaran yang Anda inginkan</p>
 
                       {/* Total */}
@@ -431,15 +446,59 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
                     >
                       {isMockMode ? (
                         <>
-                          <div className="w-20 h-20 rounded-full bg-orange-500/10 border-2 border-orange-500/30 flex items-center justify-center mb-4">
-                            <span className="text-3xl font-black text-orange-500">{countdown > 0 ? countdown : ''}</span>
+                          {/* Test Mode Banner */}
+                          <div className="w-full mb-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">MODE TESTING — Pembayaran Simulasi</span>
                           </div>
+
+                          {/* Countdown Ring */}
+                          <div className="relative w-24 h-24 mb-4">
+                            <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                              <circle cx="48" cy="48" r="42" stroke="rgba(249,115,22,0.15)" strokeWidth="6" fill="none" />
+                              <circle
+                                cx="48" cy="48" r="42"
+                                stroke="rgb(249,115,22)"
+                                strokeWidth="6"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeDasharray={`${2 * Math.PI * 42}`}
+                                strokeDashoffset={`${2 * Math.PI * 42 * (1 - countdown / 5)}`}
+                                className="transition-all duration-1000 ease-linear"
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-3xl font-black text-orange-500">{countdown > 0 ? countdown : <Check className="w-8 h-8" />}</span>
+                            </div>
+                          </div>
+
                           <h3 className="text-white text-xl font-bold mb-2">Memproses Pembayaran</h3>
                           <p className="text-gray-400 text-sm text-center max-w-xs mb-3">
-                            Simulasi pembayaran sedang berjalan...
+                            Menyimulasikan pembayaran... Akun akan otomatis aktif setelah selesai.
                           </p>
-                          <div className="px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
-                            <span className="text-[11px] text-amber-400 font-semibold">MODE TESTING</span>
+
+                          {/* Progress Steps */}
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className={`flex items-center gap-1.5 ${countdown <= 4 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${countdown <= 4 ? 'bg-emerald-500/20 border border-emerald-500/40' : 'bg-white/5 border border-white/10'}`}>
+                                {countdown <= 4 ? <Check className="w-3 h-3" /> : '1'}
+                              </div>
+                              <span className="text-[10px] font-medium">Transaksi</span>
+                            </div>
+                            <div className={`w-4 h-px ${countdown <= 3 ? 'bg-emerald-500/40' : 'bg-white/10'}`} />
+                            <div className={`flex items-center gap-1.5 ${countdown <= 2 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${countdown <= 2 ? 'bg-emerald-500/20 border border-emerald-500/40' : 'bg-white/5 border border-white/10'}`}>
+                                {countdown <= 2 ? <Check className="w-3 h-3" /> : '2'}
+                              </div>
+                              <span className="text-[10px] font-medium">Akun</span>
+                            </div>
+                            <div className={`w-4 h-px ${countdown <= 1 ? 'bg-emerald-500/40' : 'bg-white/10'}`} />
+                            <div className={`flex items-center gap-1.5 ${countdown <= 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${countdown <= 0 ? 'bg-emerald-500/20 border border-emerald-500/40' : 'bg-white/5 border border-white/10'}`}>
+                                {countdown <= 0 ? <Check className="w-3 h-3" /> : '3'}
+                              </div>
+                              <span className="text-[10px] font-medium">Login</span>
+                            </div>
                           </div>
                         </>
                       ) : (

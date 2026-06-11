@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -86,58 +86,47 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [step, setStep] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<string>(searchParams.get('plan') || '');
-  const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [secondUsername, setSecondUsername] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [isResume, setIsResume] = useState(false);
-  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
-  const [autoLoggedIn, setAutoLoggedIn] = useState(false);
-
-  const plan = PLANS[selectedPlan];
-
-  // Resume dari WhatsApp link + auto-fill dari auth
-  useEffect(() => {
+  // Lazy initialization from localStorage (avoids setState in effect)
+  const [initialData] = useState(() => {
+    if (typeof window === 'undefined') return { plan: searchParams.get('plan') || '', isResume: false, name: '', email: '', phone: '', username: '', password: '' };
     const resume = searchParams.get('resume');
     if (resume === '1') {
       try {
         const saved = localStorage.getItem('checkout_pending');
         if (saved) {
           const data = JSON.parse(saved);
-          setSelectedPlan(data.plan || '');
-          setCustomerName(data.name || '');
-          setCustomerEmail(data.email || '');
-          setCustomerPhone(data.phone || '');
-          setUsername(data.username || '');
-          setPassword(data.password || '');
-          setSecondUsername(data.secondUsername || '');
-          setStep(2);
-          setIsResume(true);
-          setReady(true);
-          return;
+          return { plan: data.plan || '', isResume: true, name: data.name || '', email: data.email || '', phone: data.phone || '', username: data.username || '', password: data.password || '' };
         }
       } catch {}
     }
-    // Auto-fill dari auth (bukan resume)
+    // Auto-fill dari auth
+    let name = '';
     try {
       const auth = localStorage.getItem('auth');
-      if (auth) {
-        const parsed = JSON.parse(auth);
-        if (parsed.name) setCustomerName(parsed.name || '');
-      }
+      if (auth) { const parsed = JSON.parse(auth); if (parsed.name) name = parsed.name; }
     } catch {}
-    setReady(true);
-  }, [searchParams]);
+    return { plan: searchParams.get('plan') || '', isResume: false, name, email: '', phone: '', username: '', password: '' };
+  });
+
+  const [step, setStep] = useState(initialData.isResume ? 2 : 0);
+  const [selectedPlan, setSelectedPlan] = useState<string>(initialData.plan);
+  const [customerName, setCustomerName] = useState(initialData.name);
+  const [customerEmail, setCustomerEmail] = useState(initialData.email);
+  const [customerPhone, setCustomerPhone] = useState(initialData.phone);
+  const [username, setUsername] = useState(initialData.username);
+  const [password, setPassword] = useState(initialData.password);
+  const [confirmPassword, setConfirmPassword] = useState(initialData.password);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(true);
+  const [isResume, setIsResume] = useState(initialData.isResume);
+  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [autoLoggedIn, setAutoLoggedIn] = useState(false);
+
+  const plan = PLANS[selectedPlan];
 
   const handleNext = async () => {
     setError('');
@@ -154,14 +143,6 @@ function CheckoutContent() {
       if (!password) { setError('Password harus diisi'); return; }
       if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
       if (password !== confirmPassword) { setError('Konfirmasi password tidak cocok'); return; }
-      // Validate second username for multi-account plans
-      const currentPlan = PLANS[selectedPlan];
-      if (currentPlan && currentPlan.maxAccounts >= 2) {
-        if (!secondUsername.trim()) { setError('Username akun kedua harus diisi untuk paket ini'); return; }
-        if (secondUsername.trim().length < 3) { setError('Username akun kedua minimal 3 karakter'); return; }
-        if (secondUsername.trim() === username.trim()) { setError('Username akun kedua tidak boleh sama dengan username akun owner'); return; }
-      }
-
       // Simpan data ke localStorage untuk resume nanti
       const checkoutData = {
         plan: selectedPlan,
@@ -170,7 +151,6 @@ function CheckoutContent() {
         phone: customerPhone.trim(),
         username: username.trim(),
         password: password,
-        secondUsername: secondUsername.trim(),
       };
       localStorage.setItem('checkout_pending', JSON.stringify(checkoutData));
     }
@@ -421,35 +401,15 @@ function CheckoutContent() {
                           </p>
                         )}
                       </div>
-                      {/* Second Username - only for multi-account plans */}
+                      {/* Info for multi-account plans */}
                       {plan && plan.maxAccounts >= 2 && (
                         <div className="mt-4 pt-4 border-t border-white/10">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-5 h-5 rounded-full bg-[#e50914]/20 flex items-center justify-center">
-                              <User className="w-3 h-3 text-[#e50914]" />
+                          <div className="p-3 rounded-lg bg-[#46d369]/10 border border-[#46d369]/20">
+                            <div className="flex items-center gap-2 mb-1">
+                              <User className="w-3.5 h-3.5 text-[#46d369]" />
+                              <span className="text-xs font-semibold text-[#46d369]">Paket {plan.maxAccounts} Akun</span>
                             </div>
-                            <span className="text-xs font-semibold text-[#e50914] uppercase tracking-wider">Akun Kedua (Role: User)</span>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-semibold text-gray-300 mb-1.5 block">
-                              <AtSign className="w-3.5 h-3.5 inline mr-1.5" />Username Akun Kedua
-                            </Label>
-                            <Input
-                              type="text"
-                              placeholder="Masukkan username untuk akun kedua"
-                              value={secondUsername}
-                              onChange={(e) => setSecondUsername(e.target.value)}
-                              className="h-11 bg-[#141414] border-white/10 text-white placeholder:text-gray-600 focus:border-[#e50914] focus:ring-[#e50914]/20"
-                            />
-                            <p className="text-gray-600 text-xs mt-1">Akun ini akan menggunakan password yang sama dengan akun owner. Minimal 3 karakter.</p>
-                            {secondUsername && secondUsername === username && (
-                              <p className="text-red-400 text-xs mt-1">Username tidak boleh sama dengan akun owner</p>
-                            )}
-                            {secondUsername && secondUsername !== username && secondUsername.length >= 3 && (
-                              <p className="text-[#46d369] text-xs mt-1 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Username tersedia
-                              </p>
-                            )}
+                            <p className="text-[#46d369]/80 text-[11px]">Akun owner akan dibuat setelah pembayaran. Anda bisa menambahkan akun kedua nanti dari dashboard.</p>
                           </div>
                         </div>
                       )}
@@ -587,15 +547,15 @@ function CheckoutContent() {
                     <span className="text-gray-500">No. HP</span>
                     <span className="text-right font-medium">{customerPhone}</span>
                   </div>
-                  {plan && plan.maxAccounts >= 2 && secondUsername && (
+                  {plan && plan.maxAccounts >= 2 && (
                     <div className="mt-3 pt-3 border-t border-white/10">
                       <div className="flex items-center gap-2 mb-2">
                         <User className="w-3.5 h-3.5 text-[#46d369]" />
-                        <span className="text-xs font-semibold text-[#46d369] uppercase tracking-wider">Akun Kedua (User)</span>
+                        <span className="text-xs font-semibold text-[#46d369] uppercase tracking-wider">Akun Kedua</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="text-gray-500">Username (User)</span>
-                        <span className="text-right font-medium">{secondUsername}</span>
+                        <span className="text-gray-500">Status</span>
+                        <span className="text-right font-medium text-[#46d369]">Dibuat nanti oleh owner</span>
                       </div>
                     </div>
                   )}
@@ -666,7 +626,6 @@ function CheckoutContent() {
             phone: customerPhone.trim(),
             username: username.trim(),
             password: password,
-            secondUsername: secondUsername.trim(),
           }}
         />
       )}

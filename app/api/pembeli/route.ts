@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         expiredDate: true,
         userId: true,
         penggunaId: true,
+        grupId: true,
         createdAt: true,
         updatedAt: true,
       }
