@@ -141,6 +141,10 @@ export default function HakAksesPage() {
         const data = await res.json()
         if (cancelled) return
         if (Array.isArray(data)) {
+          // First pass: collect all setting values
+          let customPermsData: Record<string, any> | null = null
+          let customRolesData: Array<{ id: string; name: string }> | null = null
+
           for (const s of data) {
             if (s.key === 'demo_days') setDemoDays(s.value)
             if (s.key === 'demo_message') setDemoMessage(s.value)
@@ -151,42 +155,62 @@ export default function HakAksesPage() {
             if (s.key === 'wa_api_key') setWaApiKey(s.value)
             if (s.key === 'wa_api_url') setWaApiUrl(s.value)
 
-            // Load custom role permissions from database
             if (s.key === 'role_permissions' && s.value) {
-              try {
-                const customPerms = JSON.parse(s.value)
-                // Use functional update to get latest state
-                setRoles(prevRoles => {
-                  const loadedRoles = prevRoles.map(role => {
-                    const custom = customPerms[role.id]
-                    if (!custom) return role
-                    return {
-                      ...role,
-                      features: role.features.map(f => {
-                        const customFeature = custom.features?.[f.featureId]
-                        const customSubs = custom.subPermissions?.[f.featureId]
-                        if (customFeature === undefined && !customSubs) return f
-                        return {
-                          ...f,
-                          allowed: customFeature !== undefined ? customFeature : f.allowed,
-                          subPermissions: f.subPermissions?.map(sp => {
-                            const customSub = customSubs?.[sp.id]
-                            if (customSub === undefined) return sp
-                            return { ...sp, allowed: customSub }
-                          }) || f.subPermissions,
-                        }
-                      }),
-                    }
-                  })
-                  // Also update editRoles with the loaded data
-                  setEditRoles(JSON.parse(JSON.stringify(loadedRoles)))
-                  return loadedRoles
-                })
-              } catch (e) {
-                console.error('Failed to parse role_permissions:', e)
-              }
+              try { customPermsData = JSON.parse(s.value) } catch (e) { console.error('Failed to parse role_permissions:', e) }
+            }
+            if (s.key === 'custom_roles' && s.value) {
+              try { customRolesData = JSON.parse(s.value) } catch (e) { console.error('Failed to parse custom_roles:', e) }
             }
           }
+
+          // Second pass: build the complete roles list (defaults + custom roles)
+          setRoles(prevRoles => {
+            let baseRoles = [...prevRoles]
+
+            // Add custom roles that aren't already in the list
+            if (Array.isArray(customRolesData)) {
+              for (const cr of customRolesData) {
+                if (!baseRoles.find(r => r.id === cr.id)) {
+                  baseRoles.push({
+                    id: cr.id,
+                    name: cr.name,
+                    color: getRoleColor(cr.id),
+                    isSystem: false,
+                    features: buildDefaultFeatures('new'),
+                  })
+                }
+              }
+            }
+
+            // Apply custom permissions from database
+            if (customPermsData) {
+              baseRoles = baseRoles.map(role => {
+                const custom = customPermsData[role.id]
+                if (!custom) return role
+                return {
+                  ...role,
+                  features: role.features.map(f => {
+                    const customFeature = custom.features?.[f.featureId]
+                    const customSubs = custom.subPermissions?.[f.featureId]
+                    if (customFeature === undefined && !customSubs) return f
+                    return {
+                      ...f,
+                      allowed: customFeature !== undefined ? customFeature : f.allowed,
+                      subPermissions: f.subPermissions?.map(sp => {
+                        const customSub = customSubs?.[sp.id]
+                        if (customSub === undefined) return sp
+                        return { ...sp, allowed: customSub }
+                      }) || f.subPermissions,
+                    }
+                  }),
+                }
+              })
+            }
+
+            // Also update editRoles with the loaded data
+            setEditRoles(JSON.parse(JSON.stringify(baseRoles)))
+            return baseRoles
+          })
         }
       } catch (err) {
         console.error('Failed to load settings:', err)
@@ -264,15 +288,30 @@ export default function HakAksesPage() {
       permData[role.id] = { features, subPermissions }
     }
 
-    // Save to database
+    // Build custom roles list (non-default roles) for persistence
+    const defaultRoleIds = DEFAULT_ROLES.map(r => r.id)
+    const customRolesList = cleanedRoles
+      .filter(r => !defaultRoleIds.includes(r.id))
+      .map(r => ({ id: r.id, name: r.name }))
+
+    // Save to database (permissions + custom roles list)
     try {
-      const saveRes = await authFetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
-      })
-      if (!saveRes.ok) {
-        const errData = await saveRes.json().catch(() => ({}))
+      const saves = [
+        authFetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
+        }),
+        authFetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(customRolesList) })
+        }),
+      ]
+      const results = await Promise.all(saves)
+      const failedRes = results.find(r => !r.ok)
+      if (failedRes) {
+        const errData = await failedRes.json().catch(() => ({}))
         toast.error(`Gagal menyimpan: ${errData.error || 'Server error'}`)
         return
       }
@@ -287,17 +326,79 @@ export default function HakAksesPage() {
     toast.success('Hak akses berhasil disimpan!')
   }, [editRoles, roles])
 
-  const handleAddRole = useCallback(() => {
+  const handleAddRole = useCallback(async () => {
     if (!newRoleName.trim()) { toast.error('Nama role wajib diisi'); return }
     const newRole: Role = {
       id: Date.now().toString(), name: newRoleName.trim(),
       color: 'bg-slate-100 text-slate-700', features: buildDefaultFeatures('new'),
     }
+
+    // Update in-memory state for immediate UI feedback
     setEditRoles(prev => [...prev, newRole])
     setRoles(prev => [...prev, newRole])
     setNewRoleName('')
-    toast.success('Role baru ditambahkan')
-  }, [newRoleName])
+    setDialogOpen(false)
+
+    // Persist to database immediately so role survives page refresh
+    try {
+      // Build updated custom_roles list
+      const defaultRoleIds = DEFAULT_ROLES.map(r => r.id)
+      const allRolesWithNew = [...roles, newRole]
+      const customRolesList = allRolesWithNew
+        .filter(r => !defaultRoleIds.includes(r.id))
+        .map(r => ({ id: r.id, name: r.name }))
+
+      // Build updated role_permissions including the new role
+      const permData: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
+      for (const role of allRolesWithNew) {
+        const features: Record<string, boolean> = {}
+        const subPermissions: Record<string, Record<string, boolean>> = {}
+        for (const f of role.features) {
+          features[f.featureId] = f.allowed
+          if (f.subPermissions) {
+            const subs: Record<string, boolean> = {}
+            for (const sp of f.subPermissions) {
+              subs[sp.id] = sp.allowed
+            }
+            subPermissions[f.featureId] = subs
+          }
+        }
+        permData[role.id] = { features, subPermissions }
+      }
+
+      const saves = [
+        authFetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
+        }),
+        authFetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(customRolesList) })
+        }),
+      ]
+      const results = await Promise.all(saves)
+      const failedRes = results.find(r => !r.ok)
+      if (failedRes) {
+        const errData = await failedRes.json().catch(() => ({}))
+        toast.error(`Gagal menyimpan role: ${errData.error || 'Server error'}`)
+        // Revert on failure
+        setRoles(prev => prev.filter(r => r.id !== newRole.id))
+        setEditRoles(prev => prev.filter(r => r.id !== newRole.id))
+        return
+      }
+
+      // Save to localStorage for immediate use
+      saveAllPermissions(permData)
+      toast.success('Role baru ditambahkan')
+    } catch (err) {
+      toast.error('Gagal menyimpan role ke database')
+      // Revert on failure
+      setRoles(prev => prev.filter(r => r.id !== newRole.id))
+      setEditRoles(prev => prev.filter(r => r.id !== newRole.id))
+    }
+  }, [newRoleName, roles])
 
   const handleDeleteRole = useCallback((roleId: string) => {
     if (roleId === 'superadmin' || roleId === 'admin') { toast.error('Role sistem tidak dapat dihapus'); return }
@@ -314,21 +415,37 @@ export default function HakAksesPage() {
     setRoles(prev => prev.filter(r => r.id !== roleId))
     setEditRoles(prev => prev.filter(r => r.id !== roleId))
 
-    // Clean up permissions in database
+    // Clean up permissions and custom roles list in database
     try {
       const res = await authFetch('/api/settings')
       const data = await res.json()
       if (Array.isArray(data)) {
         const permEntry = data.find((s: any) => s.key === 'role_permissions')
+        const customRolesEntry = data.find((s: any) => s.key === 'custom_roles')
+
+        const saves = []
+
         if (permEntry?.value) {
           const permData = JSON.parse(permEntry.value)
           delete permData[roleId]
-          await authFetch('/api/settings', {
+          saves.push(authFetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
-          })
+          }))
         }
+
+        if (customRolesEntry?.value) {
+          const customRolesList = JSON.parse(customRolesEntry.value)
+          const updatedList = customRolesList.filter((r: any) => r.id !== roleId)
+          saves.push(authFetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(updatedList) })
+          }))
+        }
+
+        if (saves.length > 0) await Promise.all(saves)
       }
     } catch {}
 
@@ -796,3 +913,4 @@ export default function HakAksesPage() {
     </DashboardLayout>
   )
 }
+ 

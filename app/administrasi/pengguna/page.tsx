@@ -74,6 +74,27 @@ interface Pembeli {
   userId: string | null
   penggunaId: string | null
   penggunaUsername: string | null
+  grupId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+// Grouped pembeli for display (merges same-grupId entries into 1 row)
+interface GroupedPembeli {
+  id: string // primary pembeli id (owner's)
+  nama: string // owner's name
+  nomorHP: string
+  email: string
+  alamat: string
+  catatan: string
+  role: string // owner's role
+  expiredDate: string | null
+  userId: string | null
+  penggunaId: string | null
+  penggunaUsername: string | null
+  grupId: string | null
+  usernames: string[] // all usernames in the group
+  pembeliIds: string[] // all pembeli ids in the group (for delete)
   createdAt: string
   updatedAt: string
 }
@@ -919,36 +940,101 @@ export default function PenggunaPage() {
     },
   ]
 
+  // ==================== GROUPED PEMBELI LIST ====================
+
+  // Group pembeli entries by grupId so that same-group entries appear as 1 row
+  const groupedPembeliList: GroupedPembeli[] = (() => {
+    const grupMap = new Map<string, Pembeli[]>()
+    const ungrouped: GroupedPembeli[] = []
+
+    for (const p of pembeliList) {
+      if (p.grupId) {
+        if (!grupMap.has(p.grupId)) {
+          grupMap.set(p.grupId, [])
+        }
+        grupMap.get(p.grupId)!.push(p)
+      } else {
+        // No grupId → standalone entry
+        ungrouped.push({
+          ...p,
+          usernames: p.penggunaUsername ? [p.penggunaUsername] : [],
+          pembeliIds: [p.id],
+        })
+      }
+    }
+
+    // Convert grupMap to grouped entries
+    const grouped: GroupedPembeli[] = []
+    for (const [, members] of grupMap) {
+      // Find the owner as the primary entry
+      const owner = members.find(m => m.role === 'owner') || members[0]
+      const allUsernames = members
+        .map(m => m.penggunaUsername)
+        .filter((u): u is string => !!u)
+      grouped.push({
+        ...owner,
+        usernames: allUsernames,
+        pembeliIds: members.map(m => m.id),
+      })
+    }
+
+    // Combine grouped and ungrouped, sorted by createdAt desc
+    return [...grouped, ...ungrouped].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  })()
+
   // ==================== PEMBELI COLUMNS ====================
 
   const pembeliColumns = [
     {
       key: 'nama',
       title: 'Nama',
-      render: (item: Pembeli) => (
-        <span className="font-medium text-slate-800">{item.nama}</span>
+      render: (item: GroupedPembeli) => (
+        <div>
+          <span className="font-medium text-slate-800">{item.nama}</span>
+          {item.grupId && item.usernames && item.usernames.length > 1 && (
+            <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-50 text-orange-700">
+              <Users className="w-3 h-3" />
+              {item.usernames.length} akun
+            </span>
+          )}
+        </div>
       )
     },
     {
       key: 'username',
       title: 'Username',
-      render: (item: Pembeli) => (
-        item.penggunaUsername
-          ? <span className="text-slate-600 font-medium">@{item.penggunaUsername}</span>
-          : <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Belum ada akun</span>
-      )
+      render: (item: GroupedPembeli) => {
+        if (item.usernames.length > 1) {
+          // Show all usernames for grouped entries
+          return (
+            <div className="flex flex-wrap gap-1">
+              {item.usernames.map((u, i) => (
+                <span key={i} className="inline-flex items-center text-slate-600 font-medium text-sm">
+                  @{u}{i < item.usernames.length - 1 ? <span className="text-slate-400 mx-0.5">,</span> : null}
+                </span>
+              ))}
+            </div>
+          )
+        }
+        if (item.usernames.length === 1) {
+          return <span className="text-slate-600 font-medium">@{item.usernames[0]}</span>
+        }
+        return <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Belum ada akun</span>
+      }
     },
     {
       key: 'nomorHP',
       title: 'No. HP',
-      render: (item: Pembeli) => (
+      render: (item: GroupedPembeli) => (
         <span className="text-slate-600">{item.nomorHP}</span>
       )
     },
     {
       key: 'role',
       title: 'Role',
-      render: (item: Pembeli) => (
+      render: (item: GroupedPembeli) => (
         <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${roleColors[item.role] || 'bg-slate-100 text-slate-700'}`}>
           {item.role}
         </span>
@@ -957,7 +1043,7 @@ export default function PenggunaPage() {
     {
       key: 'status',
       title: 'Status',
-      render: (item: Pembeli) => {
+      render: (item: GroupedPembeli) => {
         if (!item.expiredDate) {
           return (
             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700`}>
@@ -986,14 +1072,14 @@ export default function PenggunaPage() {
     {
       key: 'createdAt',
       title: 'Tanggal Dibuat',
-      render: (item: Pembeli) => (
+      render: (item: GroupedPembeli) => (
         <span className="text-sm text-slate-600">{formatDate(item.createdAt)}</span>
       )
     },
     {
       key: 'expiredDate',
       title: 'Expired Date',
-      render: (item: Pembeli) => {
+      render: (item: GroupedPembeli) => {
         if (!item.expiredDate) return <span className="italic text-slate-400">-</span>
         const isExpired = new Date(item.expiredDate) < new Date()
         return (
@@ -1031,7 +1117,7 @@ export default function PenggunaPage() {
                 </TabsTrigger>
                 <TabsTrigger value="pembeli" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
                   <span className="text-xs sm:text-sm font-medium">Pembeli</span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{pembeliList.length}</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{groupedPembeliList.length}</span>
                 </TabsTrigger>
               </TabsList>
           </div>
@@ -1191,7 +1277,7 @@ export default function PenggunaPage() {
                 </div>
               ) : (
                 <MobileTable
-                  data={pembeliList}
+                  data={groupedPembeliList}
                   columns={pembeliColumns}
                   keyField="id"
                   onEdit={canEditPembeli ? handleEditPembeli : undefined}
@@ -1199,8 +1285,8 @@ export default function PenggunaPage() {
                   showAsButtons
                   emptyMessage="Belum ada data pembeli"
                   emptyIcon={<ShoppingCart className="w-12 h-12 mx-auto text-slate-400" />}
-                  extraActions={(item: Pembeli) => {
-                    if (item.penggunaUsername) return undefined
+                  extraActions={(item: GroupedPembeli) => {
+                    if (item.usernames.length > 0) return undefined
                     return (
                       <Button
                         size="sm"

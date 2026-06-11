@@ -92,10 +92,9 @@ export async function POST(request: NextRequest) {
       if (finalStatus === 'success') {
         const payment = await db.payment.findUnique({ where: { orderId: order_id } });
         if (payment) {
-          // Parse metadata to get username, password, secondUsername
+          // Parse metadata to get username, password
           let metaUsername = custom_field1 || '';
           let metaPassword = custom_field2 || '';
-          let metaSecondUsername = custom_field3 || '';
 
           // Also try to read from payment.metadata (stored during create-transaction)
           if ((!metaUsername || !metaPassword) && payment.metadata) {
@@ -103,7 +102,6 @@ export async function POST(request: NextRequest) {
               const parsed = JSON.parse(payment.metadata);
               if (!metaUsername && parsed.username) metaUsername = parsed.username;
               if (!metaPassword && parsed.password) metaPassword = parsed.password;
-              if (!metaSecondUsername && parsed.secondUsername) metaSecondUsername = parsed.secondUsername;
             } catch {}
           }
 
@@ -151,102 +149,44 @@ export async function POST(request: NextRequest) {
 
             console.log(`[Midtrans] Extended subscription for ${existingPengguna.email} until ${extendedExpiry.toISOString()}`);
           } else if (metaUsername && metaPassword) {
-            // Create new accounts for new payment
-            if (planConfig.maxAccounts >= 2 && metaSecondUsername) {
-              // Multi-account plan: create Grup + 2 Pengguna (owner + user) + 2 Pembeli
-              const grup = await db.grup.create({
-                data: { nama: `Grup ${metaUsername}` },
-              });
+            // Create new owner account only. Second account will be added later by the owner.
+            const grup = planConfig.maxAccounts >= 2
+              ? await db.grup.create({
+                  data: { nama: `Grup ${metaUsername}`, maxAccounts: planConfig.maxAccounts },
+                })
+              : null;
 
-              // Create Owner account
-              const owner = await db.pengguna.create({
-                data: {
-                  namaLengkap: payment.customerName,
-                  nomorHP: payment.customerPhone,
-                  email: payment.customerEmail,
-                  username: metaUsername,
-                  password: metaPassword,
-                  role: 'owner',
-                  grupId: grup.id,
-                  validUntil,
-                },
-              });
+            // Create Owner account
+            const owner = await db.pengguna.create({
+              data: {
+                namaLengkap: payment.customerName,
+                nomorHP: payment.customerPhone,
+                email: payment.customerEmail,
+                username: metaUsername,
+                password: metaPassword,
+                role: 'owner',
+                grupId: grup?.id || null,
+                validUntil,
+              },
+            });
 
-              // Create User account (same password, second username)
-              const userAccount = await db.pengguna.create({
-                data: {
-                  namaLengkap: `Anggota ${metaSecondUsername}`,
-                  nomorHP: payment.customerPhone,
-                  email: `${metaSecondUsername}@grup.${metaUsername}`,
-                  username: metaSecondUsername,
-                  password: metaPassword,
-                  role: 'user',
-                  grupId: grup.id,
-                  validUntil,
-                },
-              });
+            // Create Pembeli record for Owner only
+            await db.pembeli.create({
+              data: {
+                nama: payment.customerName,
+                nomorHP: payment.customerPhone,
+                email: payment.customerEmail,
+                alamat: '',
+                catatan: `Pembayaran ${payment.packageName} (Owner)`,
+                role: 'owner',
+                expiredDate: validUntil,
+                penggunaId: owner.id,
+                grupId: grup?.id || null,
+              },
+            });
 
-              // Create Pembeli record for Owner
-              await db.pembeli.create({
-                data: {
-                  nama: payment.customerName,
-                  nomorHP: payment.customerPhone,
-                  email: payment.customerEmail,
-                  alamat: '',
-                  catatan: `Pembayaran ${payment.packageName} (Owner)`,
-                  role: 'owner',
-                  expiredDate: validUntil,
-                  penggunaId: owner.id,
-                },
-              });
-
-              // Create Pembeli record for User
-              await db.pembeli.create({
-                data: {
-                  nama: `Anggota ${metaSecondUsername}`,
-                  nomorHP: payment.customerPhone,
-                  email: `${metaSecondUsername}@grup.${metaUsername}`,
-                  alamat: '',
-                  catatan: `Pembayaran ${payment.packageName} (User)`,
-                  role: 'user',
-                  expiredDate: validUntil,
-                  penggunaId: userAccount.id,
-                },
-              });
-
-              await db.payment.update({ where: { orderId: order_id }, data: { userId: owner.id } });
-              console.log(`[Midtrans] Created grup ${grup.id} with owner ${owner.username} and user ${userAccount.username}, + 2 pembeli records`);
-            } else {
-              // Single account plan: create just 1 Pengguna + 1 Pembeli
-              const pengguna = await db.pengguna.create({
-                data: {
-                  namaLengkap: payment.customerName,
-                  nomorHP: payment.customerPhone,
-                  email: payment.customerEmail,
-                  username: metaUsername,
-                  password: metaPassword,
-                  role: 'owner',
-                  validUntil,
-                },
-              });
-
-              // Create Pembeli record
-              await db.pembeli.create({
-                data: {
-                  nama: payment.customerName,
-                  nomorHP: payment.customerPhone,
-                  email: payment.customerEmail,
-                  alamat: '',
-                  catatan: `Pembayaran ${payment.packageName}`,
-                  role: 'owner',
-                  expiredDate: validUntil,
-                  penggunaId: pengguna.id,
-                },
-              });
-
-              await db.payment.update({ where: { orderId: order_id }, data: { userId: pengguna.id } });
-              console.log(`[Midtrans] Created pengguna ${pengguna.username} + pembeli until ${validUntil.toISOString()}`);
-            }
+            await db.payment.update({ where: { orderId: order_id }, data: { userId: owner.id } });
+            console.log(`[Midtrans] Created owner ${owner.username} with grup ${grup?.id || 'none'} (maxAccounts: ${planConfig.maxAccounts})`);
 
             // Also update CalonPembeli if exists
             const calonPembeli = await db.calonPembeli.findFirst({
