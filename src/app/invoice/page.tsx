@@ -84,7 +84,8 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0
     const dpPercent = parsed.dp || 0
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    const dpAmount = totalHarga * (dpPercent / 100)
+    // Use saved dpAmount if available, otherwise calculate from percentage
+    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : totalHarga * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
@@ -134,6 +135,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       items,
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
+      dpAmount: parsed.dpAmount,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
@@ -260,6 +262,12 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
       if (updates.lunas !== undefined) parsed.lunas = updates.lunas
       if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
+      // Preserve/save dpAmount so DP doesn't change on restore
+      if (parsed.dpAmount === undefined && parsed.dp > 0) {
+        const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+        const tot = sub + (sub * (parsed.ppn || 0) / 100)
+        parsed.dpAmount = tot * (parsed.dp / 100)
+      }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
 
@@ -689,6 +697,12 @@ function PelunasanTab() {
         if (caraPembayaran) parsed.caraPembayaran = caraPembayaran
       } else {
         parsed.tanggalJatuhTempo = jatuhTempoDate
+      }
+      // Preserve/save dpAmount so DP doesn't change on restore
+      if (parsed.dpAmount === undefined && parsed.dp > 0) {
+        const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+        const tot = sub + (sub * (parsed.ppn || 0) / 100)
+        parsed.dpAmount = tot * (parsed.dp / 100)
       }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
