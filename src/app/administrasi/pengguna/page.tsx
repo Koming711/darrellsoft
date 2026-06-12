@@ -1,6 +1,6 @@
 'use client'
 
-import { Users, Plus, Search, Eye, EyeOff, UserPlus, ShoppingCart, UserCheck, CheckCircle, Clock, XCircle, Loader2, KeyRound, UserPlus2 } from 'lucide-react'
+import { Users, Plus, Search, Eye, EyeOff, UserPlus, ShoppingCart, UserCheck, CheckCircle, Clock, XCircle, Loader2, KeyRound } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
@@ -74,40 +74,8 @@ interface Pembeli {
   userId: string | null
   penggunaId: string | null
   penggunaUsername: string | null
-  grupId: string | null
   createdAt: string
   updatedAt: string
-}
-
-// Grouped pembeli for display (merges same-grupId entries into 1 row)
-interface GroupedPembeli {
-  id: string // primary pembeli id (owner's)
-  nama: string // owner's name
-  nomorHP: string
-  email: string
-  alamat: string
-  catatan: string
-  role: string // owner's role
-  expiredDate: string | null
-  userId: string | null
-  penggunaId: string | null
-  penggunaUsername: string | null
-  grupId: string | null
-  usernames: string[] // all usernames in the group
-  pembeliIds: string[] // all pembeli ids in the group (for delete)
-  createdAt: string
-  updatedAt: string
-}
-
-// Grup info from API
-interface GrupInfo {
-  id: string
-  nama: string
-  maxAccounts: number
-  currentMembers: number
-  availableSlots: number
-  members: { id: string; namaLengkap: string; username: string; role: string }[]
-  createdAt: string
 }
 
 // ==================== CONSTANTS ====================
@@ -190,7 +158,6 @@ export default function PenggunaPage() {
   const [penggunaList, setPenggunaList] = useState<Pengguna[]>([])
   const [calonList, setCalonList] = useState<CalonPembeli[]>([])
   const [pembeliList, setPembeliList] = useState<Pembeli[]>([])
-  const [grupList, setGrupList] = useState<GrupInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -241,30 +208,20 @@ export default function PenggunaPage() {
   const [caPassword, setCaPassword] = useState('')
   const [caSaving, setCaSaving] = useState(false)
 
-  // Add to grup dialog state
-  const [addToGrupOpen, setAddToGrupOpen] = useState(false)
-  const [addToGrupOwner, setAddToGrupOwner] = useState<Pengguna | null>(null)
-  const [atgUsername, setAtgUsername] = useState('')
-  const [atgPassword, setAtgPassword] = useState('')
-  const [atgNamaLengkap, setAtgNamaLengkap] = useState('')
-  const [atgSaving, setAtgSaving] = useState(false)
-
 
   // ==================== FETCH DATA ====================
 
   const fetchAll = useCallback(async () => {
     try {
-      const [resPengguna, resCalon, resPembeli, resGrup] = await Promise.all([
+      const [resPengguna, resCalon, resPembeli] = await Promise.all([
         authFetch('/api/pengguna'),
         authFetch('/api/calon-pembeli'),
         authFetch('/api/pembeli'),
-        authFetch('/api/grup'),
       ])
 
       if (resPengguna.ok) setPenggunaList(await resPengguna.json())
       if (resCalon.ok) setCalonList(await resCalon.json())
       if (resPembeli.ok) setPembeliList(await resPembeli.json())
-      if (resGrup.ok) setGrupList(await resGrup.json())
     } catch (err) {
       console.error('Fetch error:', err)
     }
@@ -791,69 +748,6 @@ export default function PenggunaPage() {
     }
   }
 
-  // ==================== ADD TO GRUP (Owner adds second account) ====================
-
-  const handleOpenAddToGrup = (owner: Pengguna) => {
-    setAddToGrupOwner(owner)
-    setAtgUsername('')
-    setAtgPassword('')
-    setAtgNamaLengkap('')
-    setAddToGrupOpen(true)
-  }
-
-  const handleAddToGrup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!atgUsername.trim() || !atgPassword) {
-      toast.error('Username dan password wajib diisi')
-      return
-    }
-    if (atgUsername.trim().length < 3) {
-      toast.error('Username minimal 3 karakter')
-      return
-    }
-    if (atgPassword.length < 6) {
-      toast.error('Password minimal 6 karakter')
-      return
-    }
-    setAtgSaving(true)
-    try {
-      // If admin is adding to someone else's group, pass ownerId
-      const isAdmin = currentUser?.role === 'superadmin' || currentUser?.role === 'admin'
-      const isOwnerSelf = addToGrupOwner?.username === currentUser?.username
-      const body: Record<string, string> = {
-        username: atgUsername.trim(),
-        password: atgPassword,
-        namaLengkap: atgNamaLengkap.trim() || undefined,
-      }
-      // Pass ownerId when admin is adding to another user's group
-      if (isAdmin && !isOwnerSelf && addToGrupOwner?.id) {
-        body.ownerId = addToGrupOwner.id
-      }
-
-      const res = await authFetch('/api/pengguna/add-to-grup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        toast.success(data.message || 'Akun berhasil ditambahkan ke grup')
-        setAddToGrupOpen(false)
-        setAddToGrupOwner(null)
-        notifyDataChange('pengguna')
-        notifyDataChange('pembeli')
-        // Refresh data
-        fetchAll()
-      } else {
-        toast.error(data.error || 'Gagal menambahkan akun')
-      }
-    } catch {
-      toast.error('Terjadi kesalahan jaringan')
-    } finally {
-      setAtgSaving(false)
-    }
-  }
-
   // ==================== USER TABLE COLUMNS ====================
 
   const userColumns = [
@@ -928,30 +822,14 @@ export default function PenggunaPage() {
     {
       key: 'grupId',
       title: 'Grup',
-      render: (user: Pengguna) => {
-        if (!user.grupId) return <span className="text-xs text-slate-400">-</span>
-        const grup = grupList.find(g => g.id === user.grupId)
-        if (!grup) {
-          return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700">
+      render: (user: Pengguna) => (
+        user.grupId
+          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700">
               <Users className="w-3 h-3" />
               {penggunaList.filter(p => p.grupId === user.grupId).length} akun
             </span>
-          )
-        }
-        const isFull = grup.currentMembers >= grup.maxAccounts
-        return (
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-            isFull ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
-          }`}>
-            <Users className="w-3 h-3" />
-            {grup.currentMembers}/{grup.maxAccounts} akun
-            {!isFull && (
-              <span className="ml-0.5 text-[10px] opacity-70">(+{grup.availableSlots} slot)</span>
-            )}
-          </span>
-        )
-      }
+          : <span className="text-xs text-slate-400">-</span>
+      )
     },
     {
       key: 'validUntil',
@@ -1041,111 +919,36 @@ export default function PenggunaPage() {
     },
   ]
 
-  // ==================== GROUPED PEMBELI LIST ====================
-
-  // Group pembeli entries by grupId so that "amin" and "adi" (same group) appear as 1 row
-  const groupedPembeliList: GroupedPembeli[] = (() => {
-    const grupMap = new Map<string, Pembeli[]>()
-    const ungrouped: GroupedPembeli[] = []
-
-    for (const p of pembeliList) {
-      if (p.grupId) {
-        if (!grupMap.has(p.grupId)) {
-          grupMap.set(p.grupId, [])
-        }
-        grupMap.get(p.grupId)!.push(p)
-      } else {
-        // No grupId → standalone entry
-        ungrouped.push({
-          ...p,
-          usernames: p.penggunaUsername ? [p.penggunaUsername] : [],
-          pembeliIds: [p.id],
-        })
-      }
-    }
-
-    // Convert grupMap to grouped entries
-    const grouped: GroupedPembeli[] = []
-    for (const [, members] of grupMap) {
-      // Find the owner as the primary entry
-      const owner = members.find(m => m.role === 'owner') || members[0]
-      const allUsernames = members
-        .map(m => m.penggunaUsername)
-        .filter((u): u is string => !!u)
-      grouped.push({
-        ...owner,
-        usernames: allUsernames,
-        pembeliIds: members.map(m => m.id),
-      })
-    }
-
-    // Combine grouped and ungrouped, sorted by createdAt desc
-    return [...grouped, ...ungrouped].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  })()
-
   // ==================== PEMBELI COLUMNS ====================
 
   const pembeliColumns = [
     {
       key: 'nama',
       title: 'Nama',
-      render: (item: GroupedPembeli) => {
-        // Check if group has available slots (second account not yet created)
-        const grup = item.grupId ? grupList.find(g => g.id === item.grupId) : null
-        const hasAvailableSlots = grup && grup.availableSlots > 0
-        return (
-          <div>
-            <span className="font-medium text-slate-800">{item.nama}</span>
-            {item.grupId && item.usernames.length > 1 && (
-              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-50 text-orange-700">
-                <Users className="w-3 h-3" />
-                {grup ? `${grup.currentMembers}/${grup.maxAccounts}` : item.usernames.length} akun
-              </span>
-            )}
-            {hasAvailableSlots && (
-              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">
-                +{grup!.availableSlots} slot tersisa
-              </span>
-            )}
-          </div>
-        )
-      }
+      render: (item: Pembeli) => (
+        <span className="font-medium text-slate-800">{item.nama}</span>
+      )
     },
     {
       key: 'username',
       title: 'Username',
-      render: (item: GroupedPembeli) => {
-        if (item.usernames.length > 1) {
-          // Show all usernames for grouped entries
-          return (
-            <div className="flex flex-wrap gap-1">
-              {item.usernames.map((u, i) => (
-                <span key={i} className="inline-flex items-center text-slate-600 font-medium text-sm">
-                  @{u}{i < item.usernames.length - 1 ? <span className="text-slate-400 mx-0.5">,</span> : null}
-                </span>
-              ))}
-            </div>
-          )
-        }
-        if (item.usernames.length === 1) {
-          return <span className="text-slate-600 font-medium">@{item.usernames[0]}</span>
-        }
-        return <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Belum ada akun</span>
-      }
+      render: (item: Pembeli) => (
+        item.penggunaUsername
+          ? <span className="text-slate-600 font-medium">@{item.penggunaUsername}</span>
+          : <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Belum ada akun</span>
+      )
     },
     {
       key: 'nomorHP',
       title: 'No. HP',
-      render: (item: GroupedPembeli) => (
+      render: (item: Pembeli) => (
         <span className="text-slate-600">{item.nomorHP}</span>
       )
     },
     {
       key: 'role',
       title: 'Role',
-      render: (item: GroupedPembeli) => (
+      render: (item: Pembeli) => (
         <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${roleColors[item.role] || 'bg-slate-100 text-slate-700'}`}>
           {item.role}
         </span>
@@ -1154,7 +957,7 @@ export default function PenggunaPage() {
     {
       key: 'status',
       title: 'Status',
-      render: (item: GroupedPembeli) => {
+      render: (item: Pembeli) => {
         if (!item.expiredDate) {
           return (
             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700`}>
@@ -1183,14 +986,14 @@ export default function PenggunaPage() {
     {
       key: 'createdAt',
       title: 'Tanggal Dibuat',
-      render: (item: GroupedPembeli) => (
+      render: (item: Pembeli) => (
         <span className="text-sm text-slate-600">{formatDate(item.createdAt)}</span>
       )
     },
     {
       key: 'expiredDate',
       title: 'Expired Date',
-      render: (item: GroupedPembeli) => {
+      render: (item: Pembeli) => {
         if (!item.expiredDate) return <span className="italic text-slate-400">-</span>
         const isExpired = new Date(item.expiredDate) < new Date()
         return (
@@ -1228,7 +1031,7 @@ export default function PenggunaPage() {
                 </TabsTrigger>
                 <TabsTrigger value="pembeli" className="rounded-lg px-2 sm:px-4 py-2.5 gap-1 sm:gap-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-[#111] data-[state=active]:shadow-sm flex-1 justify-center whitespace-normal min-w-0 h-auto">
                   <span className="text-xs sm:text-sm font-medium">Pembeli</span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{groupedPembeliList.length}</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold shrink-0">{pembeliList.length}</span>
                 </TabsTrigger>
               </TabsList>
           </div>
@@ -1299,50 +1102,6 @@ export default function PenggunaPage() {
               </div>
             </div>
             <div className="p-4 lg:p-6">
-              {/* Kelola Grup Card - Only for owners with available slots */}
-              {currentUser?.role === 'owner' && !loading && (() => {
-                const myPengguna = penggunaList.find(p => p.username === currentUser.username)
-                if (!myPengguna?.grupId) return null
-                const myGrup = grupList.find(g => g.id === myPengguna.grupId)
-                if (!myGrup) return null
-                const canAdd = myGrup.availableSlots > 0
-                if (!canAdd) return null
-                return (
-                  <div className="mb-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
-                          <Users className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-orange-800">Kelola Grup Anda</p>
-                          <p className="text-xs text-orange-600">
-                            {myGrup.currentMembers}/{myGrup.maxAccounts} akun terpakai — Anda bisa menambahkan {myGrup.availableSlots} akun lagi
-                          </p>
-                          {myGrup.members.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {myGrup.members.map(m => (
-                                <span key={m.id} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  m.role === 'owner' ? 'bg-orange-100 text-orange-700' : 'bg-sky-100 text-sky-700'
-                                }`}>
-                                  @{m.username} ({m.role})
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => handleOpenAddToGrup(myPengguna)}
-                        className="shrink-0 bg-orange-600 hover:bg-orange-700 text-white text-xs h-9"
-                      >
-                        <UserPlus2 className="w-3.5 h-3.5 mr-1.5" />
-                        Tambah Akun
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })()}
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
@@ -1358,29 +1117,6 @@ export default function PenggunaPage() {
                   showAsButtons
                   emptyMessage="Belum ada akun pengguna"
                   emptyIcon={<Users className="w-12 h-12 mx-auto text-slate-400" />}
-                  extraActions={(item: Pengguna) => {
-                    // Show "Tambah Akun" button for owners who have a grup with available slots
-                    if (item.role !== 'owner' || !item.grupId) return undefined
-                    const grup = grupList.find(g => g.id === item.grupId)
-                    // Only show if there's room for more accounts
-                    if (grup && grup.availableSlots > 0) {
-                      return (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-orange-600 border-orange-300 hover:bg-orange-50 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleOpenAddToGrup(item)
-                          }}
-                        >
-                          <UserPlus2 className="w-3 h-3 mr-1" />
-                          Tambah Akun
-                        </Button>
-                      )
-                    }
-                    return undefined
-                  }}
                 />
               )}
             </div>
@@ -1455,82 +1191,30 @@ export default function PenggunaPage() {
                 </div>
               ) : (
                 <MobileTable
-                  data={groupedPembeliList}
+                  data={pembeliList}
                   columns={pembeliColumns}
                   keyField="id"
-                  onEdit={canEditPembeli ? (item: GroupedPembeli) => {
-                    // For grouped entries, find the original Pembeli from pembeliList
-                    const original = pembeliList.find(p => p.id === item.id)
-                    if (original) handleEditPembeli(original)
-                  } : undefined}
-                  onDelete={canDeletePembeli ? (item: GroupedPembeli) => {
-                    // For grouped entries, delete all pembeli in the group
-                    if (item.pembeliIds.length > 1) {
-                      if (confirm(`Hapus grup "${item.nama}" beserta ${item.pembeliIds.length} akun di dalamnya?`)) {
-                        Promise.all(
-                          item.pembeliIds.map(id => authFetch(`/api/pembeli?id=${id}`, { method: 'DELETE' }))
-                        ).then(() => {
-                          toast.success('Grup pembeli berhasil dihapus')
-                          setPembeliList(prev => prev.filter(p => !item.pembeliIds.includes(p.id)))
-                          notifyDataChange('pembeli')
-                        }).catch(() => {
-                          toast.error('Gagal menghapus grup pembeli')
-                        })
-                      }
-                    } else {
-                      handleDeletePembeli(pembeliList.find(p => p.id === item.id) || item as unknown as Pembeli)
-                    }
-                  } : undefined}
+                  onEdit={canEditPembeli ? handleEditPembeli : undefined}
+                  onDelete={canDeletePembeli ? handleDeletePembeli : undefined}
                   showAsButtons
                   emptyMessage="Belum ada data pembeli"
                   emptyIcon={<ShoppingCart className="w-12 h-12 mx-auto text-slate-400" />}
-                  extraActions={(item: GroupedPembeli) => {
-                    const actions = []
-                    // "Buat Akun" for pembeli without account
-                    if (item.usernames.length === 0) {
-                      actions.push(
-                        <Button
-                          key="create-account"
-                          size="sm"
-                          variant="outline"
-                          className="text-violet-600 border-violet-300 hover:bg-violet-50 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const original = pembeliList.find(p => p.id === item.id)
-                            if (original) handleOpenCreateAccount(original)
-                          }}
-                        >
-                          <KeyRound className="w-3 h-3 mr-1" />
-                          Buat Akun
-                        </Button>
-                      )
-                    }
-                    // "Tambah Akun" for grouped entries with available slots
-                    if (item.grupId && item.role === 'owner') {
-                      const grup = grupList.find(g => g.id === item.grupId)
-                      if (grup && grup.availableSlots > 0) {
-                        const ownerPengguna = penggunaList.find(p => p.grupId === item.grupId && p.role === 'owner')
-                        if (ownerPengguna) {
-                          actions.push(
-                            <Button
-                              key="add-to-grup"
-                              size="sm"
-                              variant="outline"
-                              className="text-orange-600 border-orange-300 hover:bg-orange-50 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenAddToGrup(ownerPengguna)
-                              }}
-                            >
-                              <UserPlus2 className="w-3 h-3 mr-1" />
-                              Tambah Akun
-                            </Button>
-                          )
-                        }
-                      }
-                    }
-                    if (actions.length === 0) return undefined
-                    return <div className="flex gap-1">{actions}</div>
+                  extraActions={(item: Pembeli) => {
+                    if (item.penggunaUsername) return undefined
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-violet-600 border-violet-300 hover:bg-violet-50 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenCreateAccount(item)
+                        }}
+                      >
+                        <KeyRound className="w-3 h-3 mr-1" />
+                        Buat Akun
+                      </Button>
+                    )
                   }}
                 />
               )}
@@ -1834,100 +1518,6 @@ export default function PenggunaPage() {
               <Button type="button" variant="outline" onClick={() => { setCreateAccountOpen(false); setCreateAccountPembeli(null) }}>{t('batal')}</Button>
               <Button type="submit" disabled={caSaving} className="bg-violet-600 hover:bg-violet-700">
                 {caSaving ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Menyimpan...</>) : 'Buat Akun'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== DIALOG: TAMBAH AKUN KE GRUP ===== */}
-      <Dialog open={addToGrupOpen} onOpenChange={(open) => { if (!open) { setAddToGrupOpen(false); setAddToGrupOwner(null) } }}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus2 className="w-5 h-5 text-orange-600" />
-              Tambah Akun ke Grup
-            </DialogTitle>
-            <DialogDescription>
-              {addToGrupOwner
-                ? `Tambahkan akun baru ke grup owner @${addToGrupOwner.username}. Akun ini akan memiliki role User dan masa berlaku yang sama dengan owner.`
-                : 'Tambahkan akun baru ke grup Anda.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAddToGrup}>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-              {/* Owner & Slot Info */}
-              {addToGrupOwner && addToGrupOwner.grupId && (() => {
-                const grup = grupList.find(g => g.id === addToGrupOwner.grupId)
-                if (!grup) return null
-                return (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm font-semibold text-orange-800">Grup @{addToGrupOwner.username}</span>
-                    </div>
-                    <p className="text-xs text-orange-700 mb-2">
-                      Slot: {grup.currentMembers}/{grup.maxAccounts} akun terpakai — {grup.availableSlots} slot tersisa
-                    </p>
-                    {grup.members.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {grup.members.map(m => (
-                          <span key={m.id} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                            m.role === 'owner' ? 'bg-orange-100 text-orange-700' : 'bg-sky-100 text-sky-700'
-                          }`}>
-                            @{m.username} ({m.role})
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-              <div className="grid gap-2">
-                <Label htmlFor="atg-nama">Nama Lengkap</Label>
-                <Input
-                  id="atg-nama"
-                  type="text"
-                  placeholder="Nama lengkap (opsional)"
-                  value={atgNamaLengkap}
-                  onChange={(e) => setAtgNamaLengkap(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="atg-username">Username <span className="text-red-500">*</span></Label>
-                <Input
-                  id="atg-username"
-                  type="text"
-                  placeholder="Minimal 3 karakter"
-                  required
-                  minLength={3}
-                  value={atgUsername}
-                  onChange={(e) => setAtgUsername(e.target.value)}
-                  autoComplete="off"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="atg-password">Password <span className="text-red-500">*</span></Label>
-                <Input
-                  id="atg-password"
-                  type="text"
-                  placeholder="Minimal 6 karakter"
-                  required
-                  minLength={6}
-                  value={atgPassword}
-                  onChange={(e) => setAtgPassword(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setAddToGrupOpen(false); setAddToGrupOwner(null) }}>{t('batal')}</Button>
-              <Button type="submit" disabled={atgSaving} className="bg-orange-600 hover:bg-orange-700">
-                {atgSaving ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Menyimpan...</>) : 'Tambah Akun'}
               </Button>
             </DialogFooter>
           </form>
