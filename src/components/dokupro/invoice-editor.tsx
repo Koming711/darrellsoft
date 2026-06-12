@@ -334,7 +334,7 @@ export function InvoiceEditor() {
           tanggal: invoice.tanggal || '',
           pihakKedua: invoice.client?.nama || '-',
           total: '-',
-          dataJson: JSON.stringify(invoice),
+          dataJson: JSON.stringify({ ...invoice, dpAmount }),
         }),
       });
       if (res.ok) {

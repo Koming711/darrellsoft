@@ -60,7 +60,8 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0;
     const dpPercent = parsed.dp || 0;
     const totalHarga = subtotal + (subtotal * ppn / 100);
-    const dpAmount = totalHarga * (dpPercent / 100);
+    // Use saved dpAmount if available, otherwise calculate from percentage
+    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : totalHarga * (dpPercent / 100);
     const sisa = totalHarga - dpAmount;
     const lunas = parsed.lunas === true;
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || '';
@@ -109,6 +110,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       items,
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
+      dpAmount: parsed.dpAmount,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
@@ -306,6 +308,8 @@ export function InvoicePelunasanEditor() {
       parsed.items = invoiceData.items;
       parsed.ppn = invoiceData.ppn;
       parsed.dp = invoiceData.dp;
+      // Save fixed DP amount so it doesn't change on restore
+      parsed.dpAmount = originalDpAmount;
       parsed.catatan = invoiceData.catatan;
       parsed.nomor = invoiceData.nomor;
       parsed.tanggal = invoiceData.tanggal;
