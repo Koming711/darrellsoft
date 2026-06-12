@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import ZAI from 'z-ai-web-dev-sdk'
+import { sanitizeError } from '@/lib/api-error'
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error analyzing image:', error)
     return NextResponse.json(
-      { error: 'Failed to analyze image', details: error?.message },
+      { error: sanitizeError(error, 'Failed to analyze image') },
       { status: 500 }
     )
   }

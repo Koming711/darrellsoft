@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { sanitizeError } from '@/lib/api-error'
 
 export async function GET() {
   const results: Record<string, string> = {}
@@ -12,7 +13,7 @@ export async function GET() {
     results['db_connection'] = 'OK'
   } catch (err: any) {
     results['db_connection'] = 'FAILED'
-    results['db_error'] = err?.message || String(err)
+    results['db_error'] = sanitizeError(err, 'Database connection failed')
   }
 
   try {
@@ -20,7 +21,7 @@ export async function GET() {
     results['raw_query'] = 'OK'
   } catch (err: any) {
     results['raw_query'] = 'FAILED'
-    results['raw_error'] = err?.message || String(err)
+    results['raw_error'] = sanitizeError(err, 'Raw query failed')
   }
 
   return NextResponse.json(results)

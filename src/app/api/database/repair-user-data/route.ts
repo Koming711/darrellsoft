@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getServerUser } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 /**
  * POST /api/database/repair-user-data
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
             totalMigrated += result.count
           }
         } catch (err: any) {
-          results.push(`${dm.label}: Error - ${err.message}`)
+          results.push(`${dm.label}: Error - ${sanitizeError(err, 'Error')}`)
         }
       }
 
@@ -246,7 +247,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Repair user data error:', error)
     return NextResponse.json(
-      { error: error?.message || 'Gagal memperbaiki data user' },
+      { error: sanitizeError(error, 'Gagal memperbaiki data user') },
       { status: 500 }
     )
   }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { ensureSeedData, seedUserData } from '@/lib/auto-seed'
 import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults'
+import { sanitizeError } from '@/lib/api-error'
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Username atau password salah' }, { status: 401 })
   } catch (error) {
     console.error('Login error:', error)
-    const message = error instanceof Error ? error.message : 'Terjadi kesalahan server'
+    const message = sanitizeError(error, 'Terjadi kesalahan server')
     return NextResponse.json({ error: 'Terjadi kesalahan server', details: message }, { status: 500 })
   }
 }

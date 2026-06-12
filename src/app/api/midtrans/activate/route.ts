@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { sanitizeError } from '@/lib/api-error';
 
 // Plan config: maps packageType to duration and account count
 const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Account created', username: pengguna.username });
     }
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Activation error';
+    const message = sanitizeError(error, 'Activation error');
     console.error('[Activate] Error:', message);
     return NextResponse.json({ success: false, message }, { status: 500 });
   }

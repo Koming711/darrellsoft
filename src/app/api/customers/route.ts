@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching customers:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch customers', details: error?.message },
+      { error: sanitizeError(error, 'Failed to fetch customers') },
       { status: 500 }
     )
   }
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating customer:', error)
     return NextResponse.json(
-      { error: 'Failed to create customer', details: error?.message },
+      { error: sanitizeError(error, 'Failed to create customer') },
       { status: 500 }
     )
   }

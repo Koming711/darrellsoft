@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 /**
  * POST /api/database/clear-user-master
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Clear user master error:', error)
     return NextResponse.json(
-      { error: error?.message || 'Gagal menghapus data master' },
+      { error: sanitizeError(error, 'Gagal menghapus data master') },
       { status: 500 }
     )
   }

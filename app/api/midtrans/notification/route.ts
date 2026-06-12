@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifySignature, updatePaymentStatus } from '@/lib/midtrans';
+import { sanitizeError } from '@/lib/api-error';
 
 // Plan config: maps packageType to duration and account count
 const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
@@ -273,7 +274,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ status: 'ok' });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Notification handler error';
+    const message = sanitizeError(error, 'Notification handler error');
     console.error('[Midtrans Notification] Error:', message);
     return NextResponse.json({ status: 'ok', message: 'Processed with warnings' });
   }

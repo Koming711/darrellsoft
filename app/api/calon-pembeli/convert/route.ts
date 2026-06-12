@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 export async function POST(request: NextRequest) {
   try {
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
     }, { status: 200 })
   } catch (error: any) {
     console.error('Convert calon pembeli error:', error)
-    const message = error?.message || 'Gagal mengkonversi calon pembeli'
+    const message = sanitizeError(error, 'Gagal mengkonversi calon pembeli')
     return NextResponse.json(
       { error: message },
       { status: 500 }
