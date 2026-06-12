@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createSnapTransaction, savePaymentRecord } from '@/lib/midtrans';
 
-/**
- * Test mode: controlled by MIDTRANS_TEST_MODE env variable.
- * When true, simulates Midtrans transactions without calling the real API.
- * This allows full-flow testing (payment → account creation → auto-login)
- * without needing valid Midtrans sandbox credentials.
- */
-const isTestMode = process.env.MIDTRANS_TEST_MODE === 'true';
+const FAKE_KEY = 'SB-Mid-server-FAKE_TEST_KEY_12345';
+const isFakeKey = process.env.MIDTRANS_SERVER_KEY === FAKE_KEY;
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,11 +37,9 @@ export async function POST(request: NextRequest) {
       metadata,
     });
 
-    // ─── TEST MODE: simulate Midtrans transaction without calling API ───
-    if (isTestMode) {
-      console.log('[Midtrans Test Mode] Simulating transaction for order:', orderId);
-
-      // In test mode, create accounts immediately so auto-login works
+    // ─── MOCK MODE: tidak memanggil Midtrans API asli ───
+    if (isFakeKey) {
+      // In mock mode, also create accounts immediately so auto-login works
       try {
         const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
           'bulanan-ekonomis': { durationMonths: 1, maxAccounts: 1 },
@@ -91,17 +84,16 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (activateErr) {
-        console.warn('[Test Mode Activate] Error creating accounts:', activateErr);
+        console.warn('[Mock Activate] Error creating accounts:', activateErr);
       }
 
-      const fakeToken = `test_snap_token_${timestamp}_${random}`;
+      const fakeToken = `fake_snap_token_${timestamp}_${random}`;
       return NextResponse.json({
         success: true,
         token: fakeToken,
         redirectUrl: '',
         orderId,
         mock: true,
-        testMode: true,
       });
     }
 

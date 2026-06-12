@@ -34,15 +34,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Already activated', alreadyActive: true });
     }
 
-    // Parse metadata to get username, password
+    // Parse metadata to get username, password, secondUsername
     let metaUsername = '';
     let metaPassword = '';
+    let metaSecondUsername = '';
 
     if (payment.metadata) {
       try {
         const parsed = JSON.parse(payment.metadata);
         metaUsername = parsed.username || '';
         metaPassword = parsed.password || '';
+        metaSecondUsername = parsed.secondUsername || '';
       } catch {}
     }
 
@@ -103,9 +105,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new accounts
-    if (planConfig.maxAccounts >= 2) {
-      // Multi-account plan: create Grup + Owner Pengguna + Owner Pembeli
-      // Second account can be added later by owner from dashboard
+    if (planConfig.maxAccounts >= 2 && metaSecondUsername) {
+      // Multi-account plan: create Grup + 2 Pengguna (owner + user) + 2 Pembeli
       const grup = await db.grup.create({
         data: { nama: `Grup ${metaUsername}` },
       });
@@ -119,6 +120,20 @@ export async function POST(request: NextRequest) {
           username: metaUsername,
           password: metaPassword,
           role: 'owner',
+          grupId: grup.id,
+          validUntil,
+        },
+      });
+
+      // Create User account
+      const userAccount = await db.pengguna.create({
+        data: {
+          namaLengkap: `Anggota ${metaSecondUsername}`,
+          nomorHP: payment.customerPhone,
+          email: `${metaSecondUsername}@grup.${metaUsername}`,
+          username: metaSecondUsername,
+          password: metaPassword,
+          role: 'user',
           grupId: grup.id,
           validUntil,
         },
@@ -138,9 +153,23 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Create Pembeli record for User
+      await db.pembeli.create({
+        data: {
+          nama: `Anggota ${metaSecondUsername}`,
+          nomorHP: payment.customerPhone,
+          email: `${metaSecondUsername}@grup.${metaUsername}`,
+          alamat: '',
+          catatan: `Pembayaran ${payment.packageName} (User)`,
+          role: 'user',
+          expiredDate: validUntil,
+          penggunaId: userAccount.id,
+        },
+      });
+
       await db.payment.update({ where: { orderId }, data: { userId: owner.id } });
-      console.log(`[Activate] Created grup ${grup.id} with owner ${owner.username} (second account to be added later)`);
-      return NextResponse.json({ success: true, message: 'Account created', username: owner.username });
+      console.log(`[Activate] Created grup ${grup.id} with owner ${owner.username} and user ${userAccount.username}`);
+      return NextResponse.json({ success: true, message: 'Accounts created', username: owner.username });
     } else {
       // Single account plan: create just 1 Pengguna + 1 Pembeli
       const pengguna = await db.pengguna.create({
