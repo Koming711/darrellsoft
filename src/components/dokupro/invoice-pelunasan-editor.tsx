@@ -22,10 +22,13 @@ import {
   X,
   CalendarClock,
   AlertTriangle,
+  ImageIcon,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { toJpeg } from 'html-to-image';
 import { cn } from '@/lib/utils';
 import type { InvoiceData, CompanyInfo } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
@@ -148,6 +151,7 @@ export function InvoicePelunasanEditor() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [pelunasanSaving, setPelunasanSaving] = useState(false);
+  const [jpgGenerating, setJpgGenerating] = useState(false);
 
   // Pelunasan fields
   const [lunasToggle, setLunasToggle] = useState(false);
@@ -285,6 +289,89 @@ export function InvoicePelunasanEditor() {
   const dpAmount = originalDpAmount;
   const sisa = total - dpAmount;
 
+  // Generate JPG from preview
+  const handleGenerateJpg = async () => {
+    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+    if (!previewEl) {
+      toast.error('Preview tidak ditemukan');
+      return;
+    }
+    setJpgGenerating(true);
+    try {
+      const dataUrl = await toJpeg(previewEl, {
+        quality: 0.95,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+
+      // Download JPG
+      const link = document.createElement('a');
+      link.download = `Invoice-${invoiceData?.nomor || 'draft'}.jpg`;
+      link.href = dataUrl;
+      link.click();
+      toast.success('JPG berhasil didownload');
+    } catch (err) {
+      console.error('Failed to generate JPG:', err);
+      toast.error('Gagal membuat JPG');
+    } finally {
+      setJpgGenerating(false);
+    }
+  };
+
+  // Generate JPG from preview and share to WhatsApp
+  const handleShareWhatsApp = async () => {
+    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+    if (!previewEl) {
+      toast.error('Preview tidak ditemukan');
+      return;
+    }
+    setJpgGenerating(true);
+    try {
+      const dataUrl = await toJpeg(previewEl, {
+        quality: 0.95,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+
+      // Convert data URL to Blob
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], `Invoice-${invoiceData?.nomor || 'draft'}.jpg`, { type: 'image/jpeg' });
+
+      // Try Web Share API first (supports sharing files to WhatsApp on mobile)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${invoiceData?.nomor || ''}`,
+          text: `Berikut invoice ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}`,
+        });
+        toast.success('JPG berhasil dibagikan');
+      } else {
+        // Fallback: download JPG + open WhatsApp link
+        const link = document.createElement('a');
+        link.download = `Invoice-${invoiceData?.nomor || 'draft'}.jpg`;
+        link.href = dataUrl;
+        link.click();
+
+        // Open WhatsApp with message
+        const phone = invoiceData?.client?.kontak?.replace(/\D/g, '') || '';
+        const message = encodeURIComponent(
+          `Berikut invoice ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}\n\nJPG invoice sudah didownload, silakan lampirkan ke chat ini.`
+        );
+        const waUrl = phone
+          ? `https://wa.me/${phone}?text=${message}`
+          : `https://wa.me/?text=${message}`;
+        window.open(waUrl, '_blank');
+        toast.success('JPG didownload & WhatsApp terbuka');
+      }
+    } catch (err) {
+      console.error('Failed to generate JPG:', err);
+      toast.error('Gagal membuat JPG');
+    } finally {
+      setJpgGenerating(false);
+    }
+  };
+
   // Save pelunasan — update the existing history entry
   const handleSavePelunasan = async () => {
     if (!selectedEntry || !invoiceData) return;
@@ -367,6 +454,30 @@ export function InvoicePelunasanEditor() {
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               Cetak
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleGenerateJpg}
+              disabled={jpgGenerating}
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              {jpgGenerating ? (
+                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Membuat...</>
+              ) : (
+                <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleShareWhatsApp}
+              disabled={jpgGenerating}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {jpgGenerating ? (
+                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Membuat...</>
+              ) : (
+                <><MessageCircle className="mr-1.5 h-3.5 w-3.5" /> WhatsApp</>
+              )}
             </Button>
             <Button
               size="sm"
