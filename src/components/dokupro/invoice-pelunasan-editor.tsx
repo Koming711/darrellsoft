@@ -738,12 +738,8 @@ export function InvoicePelunasanEditor() {
                 min={0}
                 max={100}
                 value={invoiceData.dp || ''}
-                onChange={(e) => {
-                  const newDp = e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0);
-                  updateInvoice({ dp: newDp });
-                  // When DP % is manually changed, recalculate DP amount from current total
-                  setOriginalDpAmount(total * (newDp / 100));
-                }}
+                readOnly
+                className="bg-slate-50 text-slate-500 cursor-not-allowed"
                 placeholder="0"
               />
             </div>
