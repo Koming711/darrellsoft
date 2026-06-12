@@ -189,10 +189,11 @@ export function InvoicePelunasanEditor() {
   }, [fetchHistory]);
 
   // Filter pending invoices (with DP and not yet lunas)
+  // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
   const pendingInvoices = useMemo(() => {
     return invoiceHistory.filter(entry => {
       const info = parseDocInfo(entry);
-      return info.dpPercent > 0 && !info.lunas && info.sisa > 0;
+      return (info.dpPercent > 0 || info.dp > 0) && !info.lunas;
     });
   }, [invoiceHistory]);
 
