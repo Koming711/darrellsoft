@@ -23,7 +23,6 @@ import {
   CalendarClock,
   AlertTriangle,
   ImageIcon,
-  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -289,7 +288,7 @@ export function InvoicePelunasanEditor() {
   const dpAmount = originalDpAmount;
   const sisa = total - dpAmount;
 
-  // Generate JPG from preview
+  // Generate JPG from preview and send to WhatsApp
   const handleGenerateJpg = async () => {
     const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
     if (!previewEl) {
@@ -304,56 +303,27 @@ export function InvoicePelunasanEditor() {
         backgroundColor: '#ffffff',
       });
 
-      // Download JPG
-      const link = document.createElement('a');
-      link.download = `Invoice-${invoiceData?.nomor || 'draft'}.jpg`;
-      link.href = dataUrl;
-      link.click();
-      toast.success('JPG berhasil didownload');
-    } catch (err) {
-      console.error('Failed to generate JPG:', err);
-      toast.error('Gagal membuat JPG');
-    } finally {
-      setJpgGenerating(false);
-    }
-  };
-
-  // Generate JPG from preview and share to WhatsApp
-  const handleShareWhatsApp = async () => {
-    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
-    if (!previewEl) {
-      toast.error('Preview tidak ditemukan');
-      return;
-    }
-    setJpgGenerating(true);
-    try {
-      const dataUrl = await toJpeg(previewEl, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      });
-
-      // Convert data URL to Blob
+      // Convert data URL to Blob for sharing
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      const file = new File([blob], `Invoice-${invoiceData?.nomor || 'draft'}.jpg`, { type: 'image/jpeg' });
+      const fileName = `Invoice-${invoiceData?.nomor || 'draft'}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
 
-      // Try Web Share API first (supports sharing files to WhatsApp on mobile)
+      // Try Web Share API (mobile) — can share file directly to WhatsApp
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: `Invoice ${invoiceData?.nomor || ''}`,
           text: `Berikut invoice ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}`,
         });
-        toast.success('JPG berhasil dibagikan');
+        toast.success('JPG berhasil dikirim ke WhatsApp');
       } else {
-        // Fallback: download JPG + open WhatsApp link
+        // Fallback (desktop): download JPG + open WhatsApp link
         const link = document.createElement('a');
-        link.download = `Invoice-${invoiceData?.nomor || 'draft'}.jpg`;
+        link.download = fileName;
         link.href = dataUrl;
         link.click();
 
-        // Open WhatsApp with message
         const phone = invoiceData?.client?.kontak?.replace(/\D/g, '') || '';
         const message = encodeURIComponent(
           `Berikut invoice ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}\n\nJPG invoice sudah didownload, silakan lampirkan ke chat ini.`
