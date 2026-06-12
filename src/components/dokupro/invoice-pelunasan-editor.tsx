@@ -469,18 +469,6 @@ export function InvoicePelunasanEditor() {
             </Button>
             <Button
               size="sm"
-              onClick={handleShareWhatsApp}
-              disabled={jpgGenerating}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {jpgGenerating ? (
-                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Membuat...</>
-              ) : (
-                <><MessageCircle className="mr-1.5 h-3.5 w-3.5" /> WhatsApp</>
-              )}
-            </Button>
-            <Button
-              size="sm"
               onClick={handleSavePelunasan}
               disabled={pelunasanSaving}
               className={cn(
