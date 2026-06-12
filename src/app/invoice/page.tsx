@@ -435,7 +435,9 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             <div className="sm:hidden divide-y divide-slate-100">
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
-                const isLunas = info.lunas || info.sisa <= 0
+                const hasDP = info.dpPercent > 0 || info.dp > 0
+                // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
+                const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
                 return (
                   <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
                     <div className="flex items-start justify-between gap-2 mb-1">
@@ -454,7 +456,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        {!isLunas && info.dpPercent > 0 && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+                        {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
                         <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -481,7 +483,9 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 <tbody>
                   {filteredHistory.slice(0, 100).map((entry, idx) => {
                     const info = parseDocInfo(entry)
-                    const isLunas = info.lunas || info.sisa <= 0
+                    const hasDP = info.dpPercent > 0 || info.dp > 0
+                    // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
+                    const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
                     return (
                       <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                         <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
@@ -498,7 +502,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                            {!isLunas && info.dpPercent > 0 && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+                            {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
                             <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
@@ -535,8 +539,9 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           </DialogHeader>
           {pelunasanDialogItem && (() => {
             const info = parseDocInfo(pelunasanDialogItem)
-            const hasDP = info.dpPercent > 0
-            const isLunas = info.lunas || info.sisa <= 0
+            const hasDP = info.dpPercent > 0 || info.dp > 0
+            // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
+            const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
             return (
               <div className="space-y-5 pt-1">
                 <div className="rounded-xl bg-slate-50 p-4 space-y-2">
@@ -638,10 +643,11 @@ function PelunasanTab() {
   }, [fetchHistory])
 
   // Filter: only invoices with DP and not yet lunas
+  // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
   const pendingInvoices = useMemo(() => {
     return invoiceHistory.filter(entry => {
       const info = parseDocInfo(entry)
-      return info.dpPercent > 0 && !info.lunas && info.sisa > 0
+      return (info.dpPercent > 0 || info.dp > 0) && !info.lunas
     })
   }, [invoiceHistory])
 
@@ -649,7 +655,7 @@ function PelunasanTab() {
   const lunasInvoices = useMemo(() => {
     return invoiceHistory.filter(entry => {
       const info = parseDocInfo(entry)
-      return info.dpPercent > 0 && (info.lunas || info.sisa <= 0)
+      return (info.dpPercent > 0 || info.dp > 0) && info.lunas
     })
   }, [invoiceHistory])
 
@@ -1023,10 +1029,10 @@ export default function InvoicePage() {
           const json = await res.json()
           const data: HistoryEntry[] = json.data || []
           setInvoiceCount(data.length)
-          // Count invoices with DP that are not yet lunas
+          // Count invoices with DP that are not yet lunas (business rule: having DP = belum lunas)
           const pending = data.filter(entry => {
             const info = parseDocInfo(entry)
-            return info.dpPercent > 0 && !info.lunas && info.sisa > 0
+            return (info.dpPercent > 0 || info.dp > 0) && !info.lunas
           })
           setPelunasanCount(pending.length)
         }
