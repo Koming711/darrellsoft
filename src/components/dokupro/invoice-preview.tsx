@@ -7,16 +7,19 @@ import { terbilang } from '@/lib/terbilang';
 interface InvoicePreviewProps {
   data: InvoiceData;
   showPelunasanLabel?: boolean;
+  /** Override DP amount — when set, DP stays fixed regardless of total changes (used in pelunasan editor) */
+  dpAmountOverride?: number;
 }
 
 const MAX_ROWS = 8;
 
-export function InvoicePreview({ data, showPelunasanLabel }: InvoicePreviewProps) {
+export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: InvoicePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
-  const dpAmount = total * (dpPercent / 100);
+  // If dpAmountOverride is provided (pelunasan editor), use fixed DP; otherwise calculate from percentage
+  const dpAmount = dpAmountOverride !== undefined ? dpAmountOverride : total * (dpPercent / 100);
   const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 

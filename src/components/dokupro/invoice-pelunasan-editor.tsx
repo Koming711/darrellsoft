@@ -154,6 +154,9 @@ export function InvoicePelunasanEditor() {
   const [caraPembayaran, setCaraPembayaran] = useState('');
   const [tanggalGiro, setTanggalGiro] = useState('');
 
+  // Original DP amount — fixed when invoice is first selected, does NOT change when items are added
+  const [originalDpAmount, setOriginalDpAmount] = useState(0);
+
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true);
@@ -209,6 +212,8 @@ export function InvoicePelunasanEditor() {
     setTanggalJatuhTempo(info.tanggalJatuhTempo || '');
     setCaraPembayaran(parsed.caraPembayaran || '');
     setTanggalGiro(parsed.tanggalGiro || '');
+    // Fix: store original DP amount so it doesn't change when items are added
+    setOriginalDpAmount(info.dp);
     setDropdownOpen(false);
   };
 
@@ -221,6 +226,7 @@ export function InvoicePelunasanEditor() {
     setTanggalJatuhTempo('');
     setCaraPembayaran('');
     setTanggalGiro('');
+    setOriginalDpAmount(0);
   };
 
   // Update invoice data locally
@@ -268,12 +274,13 @@ export function InvoicePelunasanEditor() {
     };
   }, [invoiceData, tanggalJatuhTempo, caraPembayaran, tanggalGiro, lunasToggle, tanggalPelunasan]);
 
-  // Calculate amounts
+  // Calculate amounts — DP is FIXED at original amount, only subtotal and sisa change
   const subtotal = invoiceData?.items.reduce((sum, item) => sum + item.qty * item.harga, 0) || 0;
   const ppnAmount = subtotal * ((invoiceData?.ppn || 0) / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = invoiceData?.dp || 0;
-  const dpAmount = total * (dpPercent / 100);
+  // DP amount stays fixed at original value, doesn't recalculate when items change
+  const dpAmount = originalDpAmount;
   const sisa = total - dpAmount;
 
   // Save pelunasan — update the existing history entry
@@ -329,7 +336,7 @@ export function InvoicePelunasanEditor() {
   return (
     <DocumentEditorLayout
       title="Invoice Pelunasan"
-      previewContent={<InvoicePreview data={previewData!} showPelunasanLabel />}
+      previewContent={<InvoicePreview data={previewData!} showPelunasanLabel dpAmountOverride={originalDpAmount} />}
       actions={
         invoiceData ? (
           <div className="flex items-center gap-2 flex-wrap">
@@ -536,11 +543,21 @@ export function InvoicePelunasanEditor() {
             {/* Amount Summary */}
             <div className="rounded-lg bg-white p-3 space-y-1.5 mb-3 border border-amber-100">
               <div className="flex justify-between text-xs">
+                <span className="text-slate-500">Subtotal</span>
+                <span className="font-medium text-slate-700">{formatRupiah(subtotal)}</span>
+              </div>
+              {invoiceData?.ppn > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">PPN ({invoiceData.ppn}%)</span>
+                  <span className="font-medium text-slate-700">{formatRupiah(ppnAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Total</span>
                 <span className="font-bold text-emerald-700">{formatRupiah(total)}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">DP ({dpPercent}%)</span>
+                <span className="text-slate-500">DP Awal{dpPercent > 0 ? ` (${dpPercent}%)` : ''}</span>
                 <span className="font-medium text-violet-700">- {formatRupiah(dpAmount)}</span>
               </div>
               <div className="flex justify-between text-sm pt-1.5 border-t border-dashed border-amber-200">
@@ -717,18 +734,31 @@ export function InvoicePelunasanEditor() {
                 min={0}
                 max={100}
                 value={invoiceData.dp || ''}
-                onChange={(e) => updateInvoice({ dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) })}
+                onChange={(e) => {
+                  const newDp = e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0);
+                  updateInvoice({ dp: newDp });
+                  // When DP % is manually changed, recalculate DP amount from current total
+                  setOriginalDpAmount(total * (newDp / 100));
+                }}
                 placeholder="0"
               />
             </div>
             <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
               <p className="text-sm text-emerald-800">
+                Subtotal: <span className="font-bold">{formatRupiah(subtotal)}</span>
+              </p>
+              {invoiceData.ppn > 0 && (
+                <p className="text-sm text-emerald-800">
+                  PPN ({invoiceData.ppn}%): <span className="font-bold">{formatRupiah(ppnAmount)}</span>
+                </p>
+              )}
+              <p className="text-sm text-emerald-800">
                 Total: <span className="font-bold">{formatRupiah(total)}</span>
               </p>
-              {invoiceData.dp > 0 && (
+              {dpAmount > 0 && (
                 <>
                   <p className="text-sm text-emerald-800">
-                    DP ({invoiceData.dp}%): <span className="font-bold">{formatRupiah(dpAmount)}</span>
+                    DP Awal: <span className="font-bold">{formatRupiah(dpAmount)}</span>
                   </p>
                   <p className="text-sm text-emerald-800">
                     Sisa Pembayaran: <span className="font-bold">{formatRupiah(sisa)}</span>
