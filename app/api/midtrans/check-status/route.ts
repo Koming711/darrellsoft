@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { sanitizeError } from '@/lib/api-error';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Gagal cek status';
+    const message = sanitizeError(error, 'Gagal cek status pembayaran');
     console.error('Check status error:', error);
     return NextResponse.json({ success: false, message }, { status: 500 });
   }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/server-auth'
 import { parseBackupExcel } from '@/lib/backup-excel'
+import { sanitizeError } from '@/lib/api-error'
 
 // Map of riwayat table keys to Prisma models
 const RIWAYAT_TABLES: Record<string, { model: any; name: string }> = {
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Riwayat restore error:', error)
     return NextResponse.json(
-      { success: false, error: 'Gagal melakukan restore riwayat: ' + (error instanceof Error ? error.message : String(error)) },
+      { success: false, error: 'Gagal melakukan restore riwayat: ' + sanitizeError(error) },
       { status: 500 }
     )
   }

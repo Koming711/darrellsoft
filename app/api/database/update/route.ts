@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 // Detect if we're on PostgreSQL
 function isPostgreSQL(): boolean {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
           )
           added++
         } catch (err: any) {
-          results.push(`⚠️ ${m.table}.${m.column}: ${err?.message || 'skipped'}`)
+          results.push(`⚠️ ${m.table}.${m.column}: ${sanitizeError(err, 'skipped')}`)
         }
       }
       results.push(`✅ ${added} kolom diperiksa/ditambahkan di PostgreSQL`)

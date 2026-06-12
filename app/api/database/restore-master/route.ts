@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { parseBackupExcel } from '@/lib/backup-excel'
+import { sanitizeError } from '@/lib/api-error'
 
 // Map of master table keys to Prisma models and their field type definitions
 const MASTER_TABLES: Record<string, {
@@ -218,7 +219,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Master restore error:', error)
     return NextResponse.json(
-      { success: false, error: 'Gagal melakukan restore master: ' + (error instanceof Error ? error.message : String(error)) },
+      { success: false, error: 'Gagal melakukan restore master: ' + sanitizeError(error) },
       { status: 500 }
     )
   }

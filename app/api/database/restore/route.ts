@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
 import fs from 'fs'
 import path from 'path'
+import { sanitizeError } from '@/lib/api-error'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -278,7 +279,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Restore error:', error)
     return NextResponse.json(
-      { success: false, error: 'Gagal melakukan restore database: ' + (error instanceof Error ? error.message : String(error)) },
+      { success: false, error: 'Gagal melakukan restore database: ' + sanitizeError(error) },
       { status: 500 }
     )
   }

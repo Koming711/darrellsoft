@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 /**
  * POST /api/database/deduplicate
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
           const totalRemaining = await config.model.count({ where: { userId } })
           results.push(`${config.label}: total remaining = ${totalRemaining}`)
         } catch (err: any) {
-          results.push(`${config.label}: Error - ${err.message}`)
+          results.push(`${config.label}: Error - ${sanitizeError(err, 'Error')}`)
         }
       }
     }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err: any) {
-        results.push(`Riwayat Cetakan: Error - ${err.message}`)
+        results.push(`Riwayat Cetakan: Error - ${sanitizeError(err, 'Error')}`)
       }
     }
 
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err: any) {
-        results.push(`Riwayat Potong Kertas: Error - ${err.message}`)
+        results.push(`Riwayat Potong Kertas: Error - ${sanitizeError(err, 'Error')}`)
       }
     }
 
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Deduplicate error:', error)
     return NextResponse.json(
-      { error: error?.message || 'Gagal mendeduplikasi data' },
+      { error: sanitizeError(error, 'Gagal mendeduplikasi data') },
       { status: 500 }
     )
   }

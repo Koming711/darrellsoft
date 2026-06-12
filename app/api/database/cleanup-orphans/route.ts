@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server-auth'
+import { sanitizeError } from '@/lib/api-error'
 
 /**
  * POST /api/database/cleanup-orphans
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Cleanup orphans error:', error)
     return NextResponse.json(
-      { error: error?.message || 'Gagal membersihkan data orphaned' },
+      { error: sanitizeError(error, 'Gagal membersihkan data orphaned') },
       { status: 500 }
     )
   }

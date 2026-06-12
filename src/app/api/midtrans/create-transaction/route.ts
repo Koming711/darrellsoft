@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createSnapTransaction, savePaymentRecord } from '@/lib/midtrans';
+import { sanitizeError } from '@/lib/api-error';
 
 const FAKE_KEY = 'SB-Mid-server-FAKE_TEST_KEY_12345';
 const isFakeKey = process.env.MIDTRANS_SERVER_KEY === FAKE_KEY;
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       orderId,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Gagal membuat transaksi';
+    const message = sanitizeError(error, 'Gagal membuat transaksi');
     console.error('Create transaction error:', error);
     return NextResponse.json({ success: false, message }, { status: 500 });
   }

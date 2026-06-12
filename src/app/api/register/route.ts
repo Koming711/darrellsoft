@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { seedUserData } from '@/lib/auto-seed'
+import { sanitizeError } from '@/lib/api-error'
 import {
   buildDefaultPermissions,
   buildDefaultSubPermissions,
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     console.error('Register error:', error)
-    const msg = error instanceof Error ? error.message : 'Terjadi kesalahan server'
+    const msg = sanitizeError(error, 'Terjadi kesalahan server. Silakan coba lagi.')
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
