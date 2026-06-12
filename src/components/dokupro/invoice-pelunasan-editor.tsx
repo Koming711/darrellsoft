@@ -731,6 +731,22 @@ export function InvoicePelunasanEditor() {
                 onChange={(e) => updateInvoice({ ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 })}
               />
             </div>
+            <div className="space-y-1.5 mt-3">
+              <Label className="text-xs">DP (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={invoiceData.dp || ''}
+                onChange={(e) => {
+                  const newDp = e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0);
+                  updateInvoice({ dp: newDp });
+                  // When DP % is manually changed, recalculate DP amount from current total
+                  setOriginalDpAmount(total * (newDp / 100));
+                }}
+                placeholder="0"
+              />
+            </div>
             <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
               <p className="text-sm text-emerald-800">
                 Subtotal: <span className="font-bold">{formatRupiah(subtotal)}</span>
