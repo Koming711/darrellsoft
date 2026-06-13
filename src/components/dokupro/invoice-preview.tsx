@@ -18,13 +18,15 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
-  // Priority: dpAmountOverride > data.dpAmount (saved) > originalTotal * dpPercent > total * dpPercent
+  // ALWAYS derive dpAmount from originalTotal — single source of truth.
+  // Never use saved dpAmount which could have been recalculated from current total incorrectly.
+  // dpAmountOverride is only used by the pelunasan editor for real-time preview before saving.
   const originalTotalForDp = data.originalTotal !== undefined ? data.originalTotal : total;
   const dpAmount = dpAmountOverride !== undefined
     ? dpAmountOverride
-    : data.dpAmount !== undefined
-      ? data.dpAmount
-      : originalTotalForDp * (dpPercent / 100);
+    : dpPercent > 0
+      ? originalTotalForDp * (dpPercent / 100)
+      : 0;
   const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 

@@ -62,11 +62,10 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0;
     const dpPercent = parsed.dp || 0;
     const totalHarga = subtotal + (subtotal * ppn / 100);
-    // Use saved dpAmount if available
-    // If not, use originalTotal * dpPercent to get the correct original DP (not affected by pelunasan additions)
-    // Only fall back to totalHarga * dpPercent if originalTotal is also missing
+    // ALWAYS derive dpAmount from originalTotal — single source of truth.
+    // Never use saved dpAmount which could have been recalculated from current total incorrectly.
     const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga;
-    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : originalTotal * (dpPercent / 100);
+    const dpAmount = dpPercent > 0 ? originalTotal * (dpPercent / 100) : 0;
     const sisa = totalHarga - dpAmount;
     const lunas = parsed.lunas === true;
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || '';
@@ -231,17 +230,9 @@ export function InvoicePelunasanEditor() {
     const ppn = rawParsed.ppn || 0;
     const currentTotal = sub + (sub * ppn / 100);
     const originalTotal = rawParsed.originalTotal !== undefined ? rawParsed.originalTotal : currentTotal;
-    // Priority: saved dpAmount → originalTotal * dpPercent → currentTotal * dpPercent
-    // But if dpAmount equals currentTotal * dpPercent, it was likely recalculated incorrectly
-    const recalculatedDp = currentTotal * (dpPercent / 100);
-    let fixedDpAmount: number;
-    if (rawParsed.dpAmount !== undefined && rawParsed.dpAmount !== recalculatedDp) {
-      // dpAmount was explicitly saved and is NOT a simple recalculation from current total — trust it
-      fixedDpAmount = rawParsed.dpAmount;
-    } else {
-      // dpAmount is either missing or was recalculated from current total — use originalTotal instead
-      fixedDpAmount = originalTotal * (dpPercent / 100);
-    }
+    // ALWAYS derive dpAmount from originalTotal — this is the single source of truth.
+    // Never trust a saved dpAmount that could have been recalculated from current total incorrectly.
+    const fixedDpAmount = dpPercent > 0 ? originalTotal * (dpPercent / 100) : 0;
     setOriginalDpAmount(fixedDpAmount);
     setDropdownOpen(false);
   };
@@ -397,8 +388,14 @@ export function InvoicePelunasanEditor() {
       parsed.items = invoiceData.items;
       parsed.ppn = invoiceData.ppn;
       parsed.dp = invoiceData.dp;
-      // Save fixed DP amount so it doesn't change on restore
-      parsed.dpAmount = originalDpAmount;
+      // CRITICAL: dpAmount must ALWAYS be derived from originalTotal, never from current total.
+      // This ensures DP stays fixed even after pelunasan items are added.
+      // Always recalculate from originalTotal to fix any previously saved wrong values.
+      if (parsed.dp > 0 && parsed.originalTotal !== undefined) {
+        parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100);
+      } else {
+        parsed.dpAmount = originalDpAmount;
+      }
       parsed.catatan = invoiceData.catatan;
       parsed.nomor = invoiceData.nomor;
       parsed.tanggal = invoiceData.tanggal;

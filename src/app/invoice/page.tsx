@@ -84,11 +84,10 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0
     const dpPercent = parsed.dp || 0
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    // Use saved dpAmount if available
-    // If not, use originalTotal * dpPercent to get the correct original DP (not affected by pelunasan additions)
-    // Only fall back to totalHarga * dpPercent if originalTotal is also missing
+    // ALWAYS derive dpAmount from originalTotal — single source of truth.
+    // Never use saved dpAmount which could have been recalculated from current total incorrectly.
     const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga
-    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : originalTotal * (dpPercent / 100)
+    const dpAmount = dpPercent > 0 ? originalTotal * (dpPercent / 100) : 0
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
@@ -266,17 +265,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
       if (updates.lunas !== undefined) parsed.lunas = updates.lunas
       if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
-      // CRITICAL: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
-      // Only save originalTotal and dpAmount if they are missing.
-      // If dpAmount is already saved, it's the correct fixed amount — always preserve it.
+      // CRITICAL: dpAmount must ALWAYS be derived from originalTotal, never from current total.
+      // This ensures DP stays fixed even after pelunasan items are added.
       if (parsed.originalTotal === undefined) {
         const origItems = parsed.items || []
         const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
         const origTot = origSub + (origSub * (parsed.ppn || 0) / 100)
         parsed.originalTotal = origTot
       }
-      if (parsed.dpAmount === undefined && parsed.dp > 0) {
-        // Calculate dpAmount from originalTotal, NOT from current total
+      // ALWAYS recalculate dpAmount from originalTotal to fix any previously saved wrong values
+      if (parsed.dp > 0 && parsed.originalTotal !== undefined) {
         parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
       }
       delete parsed.statusPembayaran
@@ -715,17 +713,16 @@ function PelunasanTab() {
       } else {
         parsed.tanggalJatuhTempo = jatuhTempoDate
       }
-      // CRITICAL: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
-      // Only save originalTotal and dpAmount if they are missing.
-      // If dpAmount is already saved, it's the correct fixed amount — always preserve it.
+      // CRITICAL: dpAmount must ALWAYS be derived from originalTotal, never from current total.
+      // This ensures DP stays fixed even after pelunasan items are added.
       if (parsed.originalTotal === undefined) {
         const origItems = parsed.items || []
         const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
         const origTot = origSub + (origSub * (parsed.ppn || 0) / 100)
         parsed.originalTotal = origTot
       }
-      if (parsed.dpAmount === undefined && parsed.dp > 0) {
-        // Calculate dpAmount from originalTotal, NOT from current total
+      // ALWAYS recalculate dpAmount from originalTotal to fix any previously saved wrong values
+      if (parsed.dp > 0 && parsed.originalTotal !== undefined) {
         parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
       }
       delete parsed.statusPembayaran
