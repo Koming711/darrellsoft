@@ -84,7 +84,9 @@ export function DocumentActionButtons({
         }
         // Calculate dpAmount from originalTotal (not current total which may include pelunasan items)
         if (inv.dpAmount === undefined && inv.dp && Number(inv.dp) > 0) {
-          const baseTotal = (inv.originalTotal as number) ?? tot;
+          // Use the originalTotal that's about to be saved (updates.originalTotal) if it was just calculated,
+          // otherwise use the existing inv.originalTotal, or fall back to tot
+          const baseTotal = (updates.originalTotal as number) ?? (inv.originalTotal as number) ?? tot;
           updates.dpAmount = baseTotal * (Number(inv.dp) / 100);
         }
         if (Object.keys(updates).length > 0) {

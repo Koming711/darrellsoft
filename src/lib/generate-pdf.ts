@@ -831,7 +831,9 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const ppnAmount = subtotal * (data.ppn / 100)
   const total = subtotal + ppnAmount
   const dpPercent = data.dp || 0
-  const dpAmount = total * (dpPercent / 100)
+  // Priority: data.dpAmount (saved) > data.originalTotal * dpPercent > total * dpPercent
+  const originalTotalForDp = data.originalTotal !== undefined ? data.originalTotal : total
+  const dpAmount = data.dpAmount !== undefined ? data.dpAmount : originalTotalForDp * (dpPercent / 100)
   const sisa = total - dpAmount
 
   // ---- HEADER (with Jatuh Tempo in header area, matching print) ----
