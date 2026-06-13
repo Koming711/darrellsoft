@@ -1,0 +1,394 @@
+     1→import { db } from '@/lib/db'
+     2→
+     3→// In-memory flag to avoid repeated seeding within the same serverless instance
+     4→let globalSeedChecked = false
+     5→let dbPushDone = false
+     6→
+     7→// Detect if we're on PostgreSQL
+     8→function isPostgreSQL(): boolean {
+     9→  const url = process.env.DATABASE_URL || ''
+    10→  return url.startsWith('postgres') || url.startsWith('postgresql')
+    11→}
+    12→
+    13→// Create tables via raw SQL if they don't exist (works in Vercel serverless)
+    14→async function ensureTablesExist(): Promise<void> {
+    15→  if (dbPushDone) return
+    16→  dbPushDone = true
+    17→
+    18→  const pg = isPostgreSQL()
+    19→
+    20→  if (pg) {
+    21→    // PostgreSQL: use pg-specific syntax (DOUBLE PRECISION, TIMESTAMP(3), ADD COLUMN IF NOT EXISTS)
+    22→    try {
+    23→      await db.$queryRaw`SELECT 1 FROM "Pengguna" LIMIT 1`
+    24→      console.log('✅ Database tables already exist')
+    25→      // Even if tables exist, run migration for missing columns
+    26→      await migrateExistingTablesPg()
+    27→      return
+    28→    } catch {
+    29→      console.log('📦 Tables not found, creating via raw SQL...')
+    30→    }
+    31→
+    32→    try {
+    33→      await db.$executeRawUnsafe(`
+    34→        CREATE TABLE IF NOT EXISTS "User" ("id" TEXT NOT NULL PRIMARY KEY, "email" TEXT NOT NULL UNIQUE, "name" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    35→        CREATE TABLE IF NOT EXISTS "Pengguna" ("id" TEXT NOT NULL PRIMARY KEY, "namaLengkap" TEXT NOT NULL, "nomorHP" TEXT NOT NULL, "email" TEXT NOT NULL, "username" TEXT NOT NULL UNIQUE, "password" TEXT NOT NULL, "role" TEXT NOT NULL DEFAULT 'user', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "validUntil" TIMESTAMP(3));
+    36→        CREATE TABLE IF NOT EXISTS "Post" ("id" TEXT NOT NULL PRIMARY KEY, "title" TEXT NOT NULL, "content" TEXT, "published" BOOLEAN NOT NULL DEFAULT false, "authorId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    37→        CREATE TABLE IF NOT EXISTS "Customer" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "companyName" TEXT, "address" TEXT, "phone" TEXT, "email" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    38→        CREATE TABLE IF NOT EXISTS "Paper" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "grammage" INTEGER NOT NULL, "width" DOUBLE PRECISION NOT NULL, "height" DOUBLE PRECISION NOT NULL, "pricePerRim" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    39→        CREATE TABLE IF NOT EXISTS "PrintingCost" ("id" TEXT NOT NULL PRIMARY KEY, "machineName" TEXT NOT NULL, "grammage" INTEGER NOT NULL, "printAreaWidth" DOUBLE PRECISION NOT NULL, "printAreaHeight" DOUBLE PRECISION NOT NULL, "pricePerColor" DOUBLE PRECISION NOT NULL, "specialColorPrice" DOUBLE PRECISION NOT NULL, "minimumPrintQuantity" INTEGER NOT NULL, "priceAboveMinimumPerSheet" DOUBLE PRECISION NOT NULL, "platePricePerSheet" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    40→        CREATE TABLE IF NOT EXISTS "Finishing" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "minimumSheets" INTEGER NOT NULL, "minimumPrice" DOUBLE PRECISION NOT NULL, "additionalPrice" DOUBLE PRECISION NOT NULL, "pricePerCm" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    41→        CREATE TABLE IF NOT EXISTS "CalonPembeli" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "nomorHP" TEXT NOT NULL, "email" TEXT NOT NULL, "alamat" TEXT NOT NULL, "catatan" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'baru', "role" TEXT NOT NULL DEFAULT 'demo', "expiredDate" TIMESTAMP(3), "username" TEXT, "password" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    42→        CREATE TABLE IF NOT EXISTS "Pembeli" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "nomorHP" TEXT NOT NULL, "email" TEXT NOT NULL, "alamat" TEXT NOT NULL, "catatan" TEXT NOT NULL, "role" TEXT NOT NULL DEFAULT 'demo', "expiredDate" TIMESTAMP(3), "userId" TEXT, "penggunaId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    43→        CREATE TABLE IF NOT EXISTS "Setting" ("id" TEXT NOT NULL PRIMARY KEY, "key" TEXT NOT NULL UNIQUE, "value" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    44→        CREATE TABLE IF NOT EXISTS "RiwayatCetakan" ("id" TEXT NOT NULL PRIMARY KEY, "type" TEXT NOT NULL DEFAULT 'hitung_cetakan', "printName" TEXT NOT NULL, "customerName" TEXT NOT NULL DEFAULT '', "paperName" TEXT NOT NULL, "paperGrammage" TEXT NOT NULL, "paperLength" TEXT NOT NULL, "paperWidth" TEXT NOT NULL, "cutWidth" TEXT NOT NULL, "cutHeight" TEXT NOT NULL, "quantity" TEXT NOT NULL, "jumlahPesanan" TEXT NOT NULL DEFAULT '', "berapaMata" TEXT NOT NULL DEFAULT '', "warna" TEXT NOT NULL, "warnaKhusus" TEXT NOT NULL, "machineName" TEXT NOT NULL, "hargaPlat" DOUBLE PRECISION NOT NULL, "ongkosCetak" DOUBLE PRECISION NOT NULL, "ongkosCetakDetail" TEXT NOT NULL, "machineName2" TEXT NOT NULL DEFAULT '', "warna2" TEXT NOT NULL DEFAULT '', "warnaKhusus2" TEXT NOT NULL DEFAULT '', "hargaPlat2" DOUBLE PRECISION NOT NULL DEFAULT 0, "ongkosCetak2" DOUBLE PRECISION NOT NULL DEFAULT 0, "ongkosCetak2Detail" TEXT NOT NULL DEFAULT '', "totalPaperPrice" DOUBLE PRECISION NOT NULL, "pricePerSheet" DOUBLE PRECISION NOT NULL DEFAULT 0, "finishingNames" TEXT NOT NULL, "finishingBreakdown" TEXT NOT NULL, "finishingCost" DOUBLE PRECISION NOT NULL, "packingCost" DOUBLE PRECISION NOT NULL, "shippingCost" DOUBLE PRECISION NOT NULL, "otherCost" DOUBLE PRECISION NOT NULL DEFAULT 0, "otherCost2" DOUBLE PRECISION NOT NULL DEFAULT 0, "otherCostLabel" TEXT NOT NULL DEFAULT '', "otherCostLabel2" TEXT NOT NULL DEFAULT '', "glueLengthCm" TEXT NOT NULL DEFAULT '', "glueCostPerCm" TEXT NOT NULL DEFAULT '', "glueCost" DOUBLE PRECISION NOT NULL DEFAULT 0, "glueBorongan" DOUBLE PRECISION NOT NULL DEFAULT 0, "subTotal" DOUBLE PRECISION NOT NULL, "profitPercent" DOUBLE PRECISION NOT NULL, "profitAmount" DOUBLE PRECISION NOT NULL, "grandTotal" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    45→        CREATE TABLE IF NOT EXISTS "RiwayatFinishing" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT '', "namaCetakan" TEXT NOT NULL, "jumlahLembar" TEXT NOT NULL, "lebarCm" TEXT NOT NULL, "tinggiCm" TEXT NOT NULL, "finishingNames" TEXT NOT NULL, "finishingIds" TEXT NOT NULL, "totalCost" DOUBLE PRECISION NOT NULL, "hargaPerLembar" DOUBLE PRECISION NOT NULL DEFAULT 0, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    46→        CREATE TABLE IF NOT EXISTS "RiwayatOngkosCetak" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT '', "namaCetakan" TEXT NOT NULL, "machineName" TEXT NOT NULL, "machineId" TEXT NOT NULL DEFAULT '', "jumlahWarna" TEXT NOT NULL, "warnaKhusus" TEXT NOT NULL DEFAULT '0', "hargaPlat" TEXT NOT NULL DEFAULT '0', "jumlahLembar" TEXT NOT NULL, "totalOngkosCetak" DOUBLE PRECISION NOT NULL, "hargaPerLembar" DOUBLE PRECISION NOT NULL DEFAULT 0, "machineId2" TEXT NOT NULL DEFAULT '', "machineName2" TEXT NOT NULL DEFAULT '', "jumlahWarna2" TEXT NOT NULL DEFAULT '0', "warnaKhusus2" TEXT NOT NULL DEFAULT '0', "hargaPlat2" TEXT NOT NULL DEFAULT '0', "totalOngkosCetak2" DOUBLE PRECISION NOT NULL DEFAULT 0, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    47→        CREATE TABLE IF NOT EXISTS "RiwayatHargaKertas" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT '', "namaCetakan" TEXT NOT NULL, "paperName" TEXT NOT NULL, "paperId" TEXT NOT NULL DEFAULT '', "grammage" TEXT NOT NULL DEFAULT '0', "paperWidth" TEXT NOT NULL DEFAULT '0', "paperHeight" TEXT NOT NULL DEFAULT '0', "pricePerRim" TEXT NOT NULL DEFAULT '0', "quantity" TEXT NOT NULL DEFAULT '0', "lebarPotong" TEXT NOT NULL DEFAULT '0', "tinggiPotong" TEXT NOT NULL DEFAULT '0', "totalPrice" DOUBLE PRECISION NOT NULL, "costPerPiece" DOUBLE PRECISION NOT NULL DEFAULT 0, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    48→        CREATE TABLE IF NOT EXISTS "RiwayatPotongKertas" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT '', "namaCetakan" TEXT NOT NULL, "paperName" TEXT NOT NULL, "paperId" TEXT NOT NULL DEFAULT '', "grammage" TEXT NOT NULL DEFAULT '0', "paperWidth" TEXT NOT NULL DEFAULT '0', "paperHeight" TEXT NOT NULL DEFAULT '0', "cutWidth" TEXT NOT NULL DEFAULT '0', "cutHeight" TEXT NOT NULL DEFAULT '0', "quantity" TEXT NOT NULL DEFAULT '0', "jumlahPesanan" TEXT NOT NULL DEFAULT '', "berapaMata" TEXT NOT NULL DEFAULT '', "setelanKertas" TEXT NOT NULL DEFAULT '0', "sheetsNeeded" TEXT NOT NULL DEFAULT '0', "totalPrice" DOUBLE PRECISION NOT NULL DEFAULT 0, "pricePerSheet" DOUBLE PRECISION NOT NULL DEFAULT 0, "efficiency" DOUBLE PRECISION NOT NULL DEFAULT 0, "strategy" TEXT NOT NULL DEFAULT '', "resultData" TEXT NOT NULL DEFAULT '', "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    49→        CREATE TABLE IF NOT EXISTS "Invoice" ("id" TEXT NOT NULL PRIMARY KEY, "invoiceNumber" TEXT NOT NULL UNIQUE, "customerName" TEXT NOT NULL, "customerAddress" TEXT NOT NULL DEFAULT '', "customerPhone" TEXT NOT NULL DEFAULT '', "customerEmail" TEXT NOT NULL DEFAULT '', "invoiceDate" TEXT NOT NULL, "dueDate" TEXT NOT NULL DEFAULT '', "items" TEXT NOT NULL, "subTotal" DOUBLE PRECISION NOT NULL DEFAULT 0, "discount" DOUBLE PRECISION NOT NULL DEFAULT 0, "tax" DOUBLE PRECISION NOT NULL DEFAULT 0, "grandTotal" DOUBLE PRECISION NOT NULL DEFAULT 0, "notes" TEXT NOT NULL DEFAULT '', "status" TEXT NOT NULL DEFAULT 'draft', "riwayatCetakanId" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    50→        CREATE TABLE IF NOT EXISTS "Payment" ("id" TEXT NOT NULL PRIMARY KEY, "orderId" TEXT NOT NULL UNIQUE, "packageName" TEXT NOT NULL, "packageType" TEXT NOT NULL, "grossAmount" DOUBLE PRECISION NOT NULL, "customerName" TEXT NOT NULL DEFAULT '', "customerEmail" TEXT NOT NULL DEFAULT '', "customerPhone" TEXT NOT NULL DEFAULT '', "paymentType" TEXT, "transactionId" TEXT, "transactionTime" TIMESTAMP(3), "transactionStatus" TEXT NOT NULL DEFAULT 'pending', "fraudStatus" TEXT, "userId" TEXT, "metadata" TEXT NOT NULL DEFAULT '{}', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    51→        CREATE TABLE IF NOT EXISTS "SuratJalan" ("id" TEXT NOT NULL PRIMARY KEY, "suratJalanNumber" TEXT NOT NULL UNIQUE, "customerName" TEXT NOT NULL, "customerAddress" TEXT NOT NULL DEFAULT '', "customerPhone" TEXT NOT NULL DEFAULT '', "driverName" TEXT NOT NULL DEFAULT '', "vehicleNumber" TEXT NOT NULL DEFAULT '', "deliveryDate" TEXT NOT NULL, "items" TEXT NOT NULL, "notes" TEXT NOT NULL DEFAULT '', "status" TEXT NOT NULL DEFAULT 'draft', "invoiceId" TEXT, "riwayatCetakanId" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+    52→      `)
+    53→      console.log('✅ Database tables created via raw SQL')
+    54→    } catch (err: any) {
+    55→      console.error('⚠️ Failed to create tables:', err?.message || err)
+    56→    }
+    57→  } else {
+    58→    // SQLite: local dev - tables managed by prisma db push, just verify connection
+    59→    try {
+    60→      await db.$queryRaw`SELECT 1 FROM "Pengguna" LIMIT 1`
+    61→      console.log('✅ SQLite database connected')
+    62→    } catch (err: any) {
+    63→      console.error('⚠️ SQLite connection error:', err?.message || err)
+    64→    }
+    65→  }
+    66→}
+    67→
+    68→// Migrate existing PostgreSQL tables to add missing columns
+    69→async function migrateExistingTablesPg(): Promise<void> {
+    70→  const migrations = [
+    71→    { table: '"Pembeli"', column: '"penggunaId"', type: 'TEXT' },
+    72→    { table: '"RiwayatCetakan"', column: '"type"', type: "TEXT NOT NULL DEFAULT 'hitung_cetakan'" },
+    73→    { table: '"RiwayatCetakan"', column: '"warna2"', type: "TEXT NOT NULL DEFAULT ''" },
+    74→    { table: '"RiwayatCetakan"', column: '"warnaKhusus2"', type: "TEXT NOT NULL DEFAULT ''" },
+    75→    { table: '"RiwayatCetakan"', column: '"hargaPlat2"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
+    76→    { table: '"RiwayatCetakan"', column: '"pricePerSheet"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
+    77→    { table: '"Customer"', column: '"companyName"', type: 'TEXT' },
+    78→    // Missing columns for RiwayatCetakan
+    79→    { table: '"RiwayatCetakan"', column: '"jumlahPesanan"', type: "TEXT NOT NULL DEFAULT ''" },
+    80→    { table: '"RiwayatCetakan"', column: '"berapaMata"', type: "TEXT NOT NULL DEFAULT ''" },
+    81→    { table: '"RiwayatCetakan"', column: '"otherCost2"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
+    82→    { table: '"RiwayatCetakan"', column: '"otherCostLabel"', type: "TEXT NOT NULL DEFAULT ''" },
+    83→    { table: '"RiwayatCetakan"', column: '"otherCostLabel2"', type: "TEXT NOT NULL DEFAULT ''" },
+    84→    { table: '"RiwayatCetakan"', column: '"glueLengthCm"', type: "TEXT NOT NULL DEFAULT ''" },
+    85→    { table: '"RiwayatCetakan"', column: '"glueCostPerCm"', type: "TEXT NOT NULL DEFAULT ''" },
+    86→    // Missing columns for RiwayatOngkosCetak
+    87→    { table: '"RiwayatOngkosCetak"', column: '"machineId2"', type: "TEXT NOT NULL DEFAULT ''" },
+    88→    { table: '"RiwayatOngkosCetak"', column: '"machineName2"', type: "TEXT NOT NULL DEFAULT ''" },
+    89→    { table: '"RiwayatOngkosCetak"', column: '"jumlahWarna2"', type: "TEXT NOT NULL DEFAULT '0'" },
+    90→    { table: '"RiwayatOngkosCetak"', column: '"warnaKhusus2"', type: "TEXT NOT NULL DEFAULT '0'" },
+    91→    { table: '"RiwayatOngkosCetak"', column: '"hargaPlat2"', type: "TEXT NOT NULL DEFAULT '0'" },
+    92→    { table: '"RiwayatOngkosCetak"', column: '"totalOngkosCetak2"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
+    93→    // Missing columns for RiwayatPotongKertas
+    94→    { table: '"RiwayatPotongKertas"', column: '"jumlahPesanan"', type: "TEXT NOT NULL DEFAULT ''" },
+    95→    { table: '"RiwayatPotongKertas"', column: '"berapaMata"', type: "TEXT NOT NULL DEFAULT ''" },
+    96→  ]
+    97→  for (const m of migrations) {
+    98→    try {
+    99→      await db.$executeRawUnsafe(
+   100→        `ALTER TABLE ${m.table} ADD COLUMN IF NOT EXISTS ${m.column} ${m.type}`
+   101→      )
+   102→    } catch (err: any) {
+   103→      console.warn(`⚠️ Migration ${m.table}.${m.column} failed:`, err?.message)
+   104→    }
+   105→  }
+   106→
+   107→  // Also create any missing tables (for upgrades from older versions)
+   108→  const missingTableChecks = [
+   109→    { table: '"RiwayatFinishing"', sql: 'CREATE TABLE IF NOT EXISTS "RiwayatFinishing" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT \'\', "namaCetakan" TEXT NOT NULL, "jumlahLembar" TEXT NOT NULL, "lebarCm" TEXT NOT NULL, "tinggiCm" TEXT NOT NULL, "finishingNames" TEXT NOT NULL, "finishingIds" TEXT NOT NULL, "totalCost" DOUBLE PRECISION NOT NULL, "hargaPerLembar" DOUBLE PRECISION NOT NULL DEFAULT 0, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+   110→    { table: '"RiwayatOngkosCetak"', sql: 'CREATE TABLE IF NOT EXISTS "RiwayatOngkosCetak" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT \'\', "namaCetakan" TEXT NOT NULL, "machineName" TEXT NOT NULL, "machineId" TEXT NOT NULL DEFAULT \'\', "jumlahWarna" TEXT NOT NULL, "warnaKhusus" TEXT NOT NULL DEFAULT \'0\', "hargaPlat" TEXT NOT NULL DEFAULT \'0\', "jumlahLembar" TEXT NOT NULL, "totalOngkosCetak" DOUBLE PRECISION NOT NULL, "hargaPerLembar" DOUBLE PRECISION NOT NULL DEFAULT 0, "machineId2" TEXT NOT NULL DEFAULT \'\', "machineName2" TEXT NOT NULL DEFAULT \'\', "jumlahWarna2" TEXT NOT NULL DEFAULT \'0\', "warnaKhusus2" TEXT NOT NULL DEFAULT \'0\', "hargaPlat2" TEXT NOT NULL DEFAULT \'0\', "totalOngkosCetak2" DOUBLE PRECISION NOT NULL DEFAULT 0, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+   111→    { table: '"RiwayatHargaKertas"', sql: 'CREATE TABLE IF NOT EXISTS "RiwayatHargaKertas" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT \'\', "namaCetakan" TEXT NOT NULL, "paperName" TEXT NOT NULL, "paperId" TEXT NOT NULL DEFAULT \'\', "grammage" TEXT NOT NULL DEFAULT \'0\', "paperWidth" TEXT NOT NULL DEFAULT \'0\', "paperHeight" TEXT NOT NULL DEFAULT \'0\', "pricePerRim" TEXT NOT NULL DEFAULT \'0\', "quantity" TEXT NOT NULL DEFAULT \'0\', "lebarPotong" TEXT NOT NULL DEFAULT \'0\', "tinggiPotong" TEXT NOT NULL DEFAULT \'0\', "totalPrice" DOUBLE PRECISION NOT NULL, "costPerPiece" DOUBLE PRECISION NOT NULL DEFAULT 0, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+   112→    { table: '"RiwayatPotongKertas"', sql: 'CREATE TABLE IF NOT EXISTS "RiwayatPotongKertas" ("id" TEXT NOT NULL PRIMARY KEY, "namaCustomer" TEXT NOT NULL DEFAULT \'\', "namaCetakan" TEXT NOT NULL, "paperName" TEXT NOT NULL, "paperId" TEXT NOT NULL DEFAULT \'\', "grammage" TEXT NOT NULL DEFAULT \'0\', "paperWidth" TEXT NOT NULL DEFAULT \'0\', "paperHeight" TEXT NOT NULL DEFAULT \'0\', "cutWidth" TEXT NOT NULL DEFAULT \'0\', "cutHeight" TEXT NOT NULL DEFAULT \'0\', "quantity" TEXT NOT NULL DEFAULT \'0\', "jumlahPesanan" TEXT NOT NULL DEFAULT \'\', "berapaMata" TEXT NOT NULL DEFAULT \'\', "setelanKertas" TEXT NOT NULL DEFAULT \'0\', "sheetsNeeded" TEXT NOT NULL DEFAULT \'0\', "totalPrice" DOUBLE PRECISION NOT NULL DEFAULT 0, "pricePerSheet" DOUBLE PRECISION NOT NULL DEFAULT 0, "efficiency" DOUBLE PRECISION NOT NULL DEFAULT 0, "strategy" TEXT NOT NULL DEFAULT \'\', "resultData" TEXT NOT NULL DEFAULT \'\', "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+   113→    { table: '"Invoice"', sql: 'CREATE TABLE IF NOT EXISTS "Invoice" ("id" TEXT NOT NULL PRIMARY KEY, "invoiceNumber" TEXT NOT NULL UNIQUE, "customerName" TEXT NOT NULL, "customerAddress" TEXT NOT NULL DEFAULT \'\', "customerPhone" TEXT NOT NULL DEFAULT \'\', "customerEmail" TEXT NOT NULL DEFAULT \'\', "invoiceDate" TEXT NOT NULL, "dueDate" TEXT NOT NULL DEFAULT \'\', "items" TEXT NOT NULL, "subTotal" DOUBLE PRECISION NOT NULL DEFAULT 0, "discount" DOUBLE PRECISION NOT NULL DEFAULT 0, "tax" DOUBLE PRECISION NOT NULL DEFAULT 0, "grandTotal" DOUBLE PRECISION NOT NULL DEFAULT 0, "notes" TEXT NOT NULL DEFAULT \'\', "status" TEXT NOT NULL DEFAULT \'draft\', "riwayatCetakanId" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+   114→    { table: '"SuratJalan"', sql: 'CREATE TABLE IF NOT EXISTS "SuratJalan" ("id" TEXT NOT NULL PRIMARY KEY, "suratJalanNumber" TEXT NOT NULL UNIQUE, "customerName" TEXT NOT NULL, "customerAddress" TEXT NOT NULL DEFAULT \'\', "customerPhone" TEXT NOT NULL DEFAULT \'\', "driverName" TEXT NOT NULL DEFAULT \'\', "vehicleNumber" TEXT NOT NULL DEFAULT \'\', "deliveryDate" TEXT NOT NULL, "items" TEXT NOT NULL, "notes" TEXT NOT NULL DEFAULT \'\', "status" TEXT NOT NULL DEFAULT \'draft\', "invoiceId" TEXT, "riwayatCetakanId" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+   115→  ]
+   116→
+   117→  for (const check of missingTableChecks) {
+   118→    try {
+   119→      await db.$queryRawUnsafe(`SELECT 1 FROM ${check.table} LIMIT 1`)
+   120→    } catch {
+   121→      console.log(`📦 Creating missing table ${check.table}...`)
+   122→      try {
+   123→        await db.$executeRawUnsafe(check.sql)
+   124→        console.log(`✅ Created missing table ${check.table}`)
+   125→      } catch (err: any) {
+   126→        console.warn(`⚠️ Failed to create ${check.table}:`, err?.message)
+   127→      }
+   128→    }
+   129→  }
+   130→}
+   131→
+   132→// Allow external reset (e.g., from seed-admin API)
+   133→export function _resetSeedFlag() { globalSeedChecked = false }
+   134→
+   135→// Per-user seed tracking (in-memory cache)
+   136→const seededUsers = new Set<string>()
+   137→
+   138→// ============================================================
+   139→// Default settings — only seeds if settings don't exist in DB.
+   140→// role_permissions is NEVER auto-seeded — it's managed exclusively
+   141→// by the Hak Akses page to prevent overwriting user-saved permissions.
+   142→// ============================================================
+   143→
+   144→const DEFAULT_SETTINGS: Record<string, string> = {
+   145→  currency: 'IDR',
+   146→  defaultProfitPercent: '10',
+   147→  packingCostDefault: '5000',
+   148→  shippingCostDefault: '15000',
+   149→  demo_days: '7',
+   150→  demo_message: 'Selamat datang! Anda sedang menggunakan akun demo.\nUpgrade ke akun penuh untuk mengakses semua fitur.',
+   151→  single_device: 'true',
+   152→  single_device_message: 'Akun sudah digunakan, silahkan logout di perangkat yang lain',
+   153→  auto_logout_min: '10',
+   154→  logout_warning_sec: '20',
+   155→  profit: '10',
+   156→  // Theme colors
+   157→  theme_sidebar_color: '#FF8A80',
+   158→  theme_bg_color: '#f8fafc',
+   159→  theme_popup_color: '#ffffff',
+   160→  theme_banner_color: '#ffffff',
+   161→  theme_login_color: '#EFF6FF',
+   162→  app_language: 'id',
+   163→  app_font_size: 'medium',
+   164→  // NOTE: role_permissions is NOT seeded here.
+   165→  // It is created/managed exclusively by the Hak Akses page save handler.
+   166→  // This prevents auto-seed from overwriting user-customized permissions on cold starts.
+   167→}
+   168→
+   169→/**
+   170→ * Seed per-user master data (Papers, Printing Costs, Finishings, Customers).
+   171→ * Each user gets their own independent copy of template data.
+   172→ * Only runs once per user (tracked in-memory).
+   173→ */
+   174→export async function seedUserData(userId: string): Promise<void> {
+   175→  if (seededUsers.has(userId)) return
+   176→
+   177→  try {
+   178→    // Check if user already has papers (quick check — if yes, they've been seeded)
+   179→    const existingPapers = await db.paper.count({ where: { userId } })
+   180→    if (existingPapers > 0) {
+   181→      seededUsers.add(userId)
+   182→      return
+   183→    }
+   184→
+   185→    // Check if master data was explicitly cleared (per-user, prevents auto-reseed after clear)
+   186→    // This protects existing accounts from being re-seeded
+   187→    const clearedFlag = await db.setting.findUnique({ where: { key: `master_cleared_${userId}` } })
+   188→    if (clearedFlag?.value === 'true') {
+   189→      seededUsers.add(userId)
+   190→      return
+   191→    }
+   192→
+   193→    console.log(`🌱 Seeding master data for user: ${userId}`)
+   194→
+   195→    // === MASTER HARGA KERTAS ===
+   196→    const papers = [
+   197→      { name: 'ivory', grammage: 210, width: 79, height: 109, pricePerRim: 1356233 },
+   198→      { name: 'ivory', grammage: 300, width: 79, height: 109, pricePerRim: 1937475 },
+   199→      { name: 'duplex', grammage: 270, width: 79, height: 109, pricePerRim: 1765000 },
+   200→      { name: 'duplek', grammage: 270, width: 90, height: 120, pricePerRim: 2210000 },
+   201→      { name: 'ivory', grammage: 210, width: 65, height: 100, pricePerRim: 1078350 },
+   202→      { name: 'art karton', grammage: 260, width: 65, height: 100, pricePerRim: 1394250 },
+   203→      { name: 'art karton', grammage: 260, width: 79, height: 109, pricePerRim: 1903031 },
+   204→    ]
+   205→
+   206→    // === MASTER ONGKOS CETAK ===
+   207→    const printingCosts = [
+   208→      { machineName: 'sm52', grammage: 0, printAreaWidth: 52, printAreaHeight: 37, pricePerColor: 62500, specialColorPrice: 80000, minimumPrintQuantity: 1000, priceAboveMinimumPerSheet: 60, platePricePerSheet: 18000 },
+   209→      { machineName: 'sm74', grammage: 0, printAreaWidth: 74, printAreaHeight: 52, pricePerColor: 130000, specialColorPrice: 160000, minimumPrintQuantity: 1000, priceAboveMinimumPerSheet: 120, platePricePerSheet: 36000 },
+   210→      { machineName: 'oliver 58', grammage: 150, printAreaWidth: 58, printAreaHeight: 44, pricePerColor: 100000, specialColorPrice: 150000, minimumPrintQuantity: 1000, priceAboveMinimumPerSheet: 70, platePricePerSheet: 20000 },
+   211→    ]
+   212→
+   213→    // === MASTER FINISHING ===
+   214→    const finishings = [
+   215→      { name: 'laminating doff', minimumSheets: 0, minimumPrice: 180000, additionalPrice: 0, pricePerCm: 0.18 },
+   216→      { name: 'pond', minimumSheets: 1000, minimumPrice: 75000, additionalPrice: 40, pricePerCm: 0 },
+   217→      { name: 'laminating glossy', minimumSheets: 0, minimumPrice: 150000, additionalPrice: 0, pricePerCm: 0.16 },
+   218→      { name: 'spot uv', minimumSheets: 0, minimumPrice: 400000, additionalPrice: 0, pricePerCm: 0.25 },
+   219→      { name: 'jahit kawat 2 mata', minimumSheets: 0, minimumPrice: 100000, additionalPrice: 120, pricePerCm: 0 },
+   220→    ]
+   221→
+   222→    // === MASTER CUSTOMER ===
+   223→    const customers = [
+   224→      { name: 'Budi Susanto', companyName: 'PT. Maju berkah', address: 'Jl. Raya Industri No. 45, Surabaya', phone: '081234567890', email: '' },
+   225→      { name: 'Siti Rohana', companyName: 'CV. Berkah jaya', address: 'Jl. Gatot Subroto No. 12, Jakarta', phone: '082345678901', email: 'siti@berkahabadi.com' },
+   226→      { name: 'Jaya Wijaya', companyName: 'UD. Sumber Berkat', address: 'Jl. Diponegoro No. 78, Bandung', phone: '083456789012', email: 'ahmad@sumberrejeki.co.id' },
+   227→      { name: 'jaya', companyName: 'mobiletech', address: '', phone: '', email: '' },
+   228→      { name: 'Lunggan', companyName: 'skewer', address: '', phone: '', email: '' },
+   229→    ]
+   230→
+   231→    await Promise.all([
+   232→      // Papers — per user
+   233→      ...papers.map(p => db.paper.create({ data: { ...p, userId } })),
+   234→      // Printing Costs — per user
+   235→      ...printingCosts.map(c => db.printingCost.create({ data: { ...c, userId } })),
+   236→      // Finishings — per user
+   237→      ...finishings.map(f => db.finishing.create({ data: { ...f, userId } })),
+   238→      // Customers — per user
+   239→      ...customers.map(c => db.customer.create({ data: { ...c, userId } })),
+   240→    ])
+   241→
+   242→    seededUsers.add(userId)
+   243→    console.log(`✅ Master data seeded for user: ${userId}`)
+   244→  } catch (error) {
+   245→    console.error(`❌ Seed data error for user ${userId}:`, error)
+   246→  }
+   247→}
+   248→
+   249→/**
+   250→ * Seed global data (Settings, Pengguna) — runs once per serverless instance.
+   251→ * This data is NOT user-specific and is shared across all users.
+   252→ */
+   253→async function seedGlobalData(): Promise<void> {
+   254→  // ========================
+   255→  // Seed Pengguna (Default Users)
+   256→  // ONLY creates default users if they don't exist — NEVER updates existing users
+   257→  // This preserves all user data (passwords, roles, etc.) across deploys
+   258→  // ========================
+   259→  const penggunaCount = await db.pengguna.count()
+   260→  if (penggunaCount === 0) {
+   261→    console.log('🌱 Auto-seeding Pengguna (first time only)...')
+   262→    const validUntil = new Date()
+   263→    validUntil.setFullYear(validUntil.getFullYear() + 10)
+   264→
+   265→    await db.pengguna.create({
+   266→      data: {
+   267→        id: 'user-superadmin',
+   268→        namaLengkap: 'Super Administrator',
+   269→        nomorHP: '0000000000',
+   270→        email: 'superadmin@sistemcetak.com',
+   271→        username: 'superadmin',
+   272→        password: '268899',
+   273→        role: 'superadmin',
+   274→        validUntil,
+   275→      },
+   276→    })
+   277→    await db.pengguna.create({
+   278→      data: {
+   279→        id: 'user-admin',
+   280→        namaLengkap: 'Administrator',
+   281→        nomorHP: '0000000001',
+   282→        email: 'admin@sistemcetak.com',
+   283→        username: 'admin',
+   284→        password: '268899',
+   285→        role: 'admin',
+   286→        validUntil,
+   287→      },
+   288→    })
+   289→    console.log('✅ Pengguna seeded (superadmin, admin)')
+   290→  } else {
+   291→    // Ensure superadmin and admin exist (create only, never update)
+   292→    // This handles the case where a fresh DB has some users but not the defaults
+   293→    const existingSuperadmin = await db.pengguna.findUnique({ where: { id: 'user-superadmin' } })
+   294→    if (!existingSuperadmin) {
+   295→      const validUntil = new Date()
+   296→      validUntil.setFullYear(validUntil.getFullYear() + 10)
+   297→      await db.pengguna.create({
+   298→        data: {
+   299→          id: 'user-superadmin',
+   300→          namaLengkap: 'Super Administrator',
+   301→          nomorHP: '0000000000',
+   302→          email: 'superadmin@sistemcetak.com',
+   303→          username: 'superadmin',
+   304→          password: '268899',
+   305→          role: 'superadmin',
+   306→          validUntil,
+   307→        },
+   308→      })
+   309→    }
+   310→    const existingAdmin = await db.pengguna.findUnique({ where: { id: 'user-admin' } })
+   311→    if (!existingAdmin) {
+   312→      const validUntil = new Date()
+   313→      validUntil.setFullYear(validUntil.getFullYear() + 10)
+   314→      await db.pengguna.create({
+   315→        data: {
+   316→          id: 'user-admin',
+   317→          namaLengkap: 'Administrator',
+   318→          nomorHP: '0000000001',
+   319→          email: 'admin@sistemcetak.com',
+   320→          username: 'admin',
+   321→          password: '268899',
+   322→          role: 'admin',
+   323→          validUntil,
+   324→        },
+   325→      })
+   326→    }
+   327→    console.log('✅ Pengguna preserved (existing users not modified)')
+   328→  }
+   329→
+   330→  // ========================
+   331→  // Seed Settings (Pengaturan)
+   332→  // ONLY seed if missing — NEVER overwrite user-customized values
+   333→  // role_permissions is NOT seeded here — managed by Hak Akses page only
+   334→  // ========================
+   335→  console.log('🌱 Syncing settings...')
+   336→
+   337→  for (const key of Object.keys(DEFAULT_SETTINGS)) {
+   338→    const existing = await db.setting.findUnique({ where: { key } })
+   339→    if (!existing) {
+   340→      await db.setting.upsert({
+   341→        where: { key },
+   342→        update: { value: DEFAULT_SETTINGS[key] },
+   343→        create: { key, value: DEFAULT_SETTINGS[key] },
+   344→      })
+   345→    }
+   346→  }
+   347→  console.log('✅ Settings synced')
+   348→}
+   349→
+   350→/**
+   351→ * Main entry point — ensures global data is seeded + per-user data if userId is provided.
+   352→ * Backward compatible with existing API calls.
+   353→ */
+   354→export async function ensureSeedData(userId?: string | null): Promise<void> {
+   355→  // First, ensure database tables exist (only runs once per instance)
+   356→  await ensureTablesExist()
+   357→
+   358→  // One-time migration: set default branding ONLY if company_name doesn't exist yet
+   359→  // NEVER overwrite existing company_name — user may have customized it
+   360→  try {
+   361→    const migrated = await db.setting.findUnique({ where: { key: 'branding_default_v3' } })
+   362→    if (!migrated) {
+   363→      // Only set company_name if it doesn't exist yet (create-only, no overwrite)
+   364→      const existingCompanyName = await db.setting.findUnique({ where: { key: 'company_name' } })
+   365→      if (!existingCompanyName) {
+   366→        await db.setting.create({ data: { key: 'company_name', value: 'Darrell Soft' } })
+   367→      }
+   368→      const existingCompanyLogo = await db.setting.findUnique({ where: { key: 'company_logo' } })
+   369→      if (!existingCompanyLogo) {
+   370→        await db.setting.create({ data: { key: 'company_logo', value: '' } })
+   371→      }
+   372→      await db.setting.create({ data: { key: 'branding_default_v3', value: 'done' } })
+   373→      console.log('✅ Default branding v3 applied (create-only, no overwrite)')
+   374→    }
+   375→  } catch (err) {
+   376→    console.warn('⚠️ Branding migration error:', err)
+   377→  }
+   378→
+   379→  if (!globalSeedChecked) {
+   380→    globalSeedChecked = true
+   381→    try {
+   382→      await seedGlobalData()
+   383→    } catch (error) {
+   384→      console.error('❌ Global seed error:', error)
+   385→      globalSeedChecked = false
+   386→    }
+   387→  }
+   388→
+   389→  // Seed per-user master data if userId is provided
+   390→  if (userId) {
+   391→    await seedUserData(userId)
+   392→  }
+   393→}
+   394→

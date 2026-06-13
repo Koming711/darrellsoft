@@ -52,6 +52,7 @@ export interface InvoiceData {
   ppn: number; // percentage
   dp: number; // down payment percentage
   dpAmount?: number; // fixed DP nominal amount (saved so it doesn't change when items are added)
+  originalTotal?: number; // total at time of first save (used to correctly calculate DP when items are added later)
   catatan: string;
   tanggalJatuhTempo: string; // due date (empty = no due date)
   caraPembayaran: CaraPembayaran | ''; // payment method

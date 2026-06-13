@@ -62,8 +62,11 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0;
     const dpPercent = parsed.dp || 0;
     const totalHarga = subtotal + (subtotal * ppn / 100);
-    // Use saved dpAmount if available, otherwise calculate from percentage
-    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : totalHarga * (dpPercent / 100);
+    // Use saved dpAmount if available
+    // If not, use originalTotal * dpPercent to get the correct original DP (not affected by pelunasan additions)
+    // Only fall back to totalHarga * dpPercent if originalTotal is also missing
+    const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga;
+    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : originalTotal * (dpPercent / 100);
     const sisa = totalHarga - dpAmount;
     const lunas = parsed.lunas === true;
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || '';
@@ -113,6 +116,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
       dpAmount: parsed.dpAmount,
+      originalTotal: parsed.originalTotal,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
@@ -218,8 +222,27 @@ export function InvoicePelunasanEditor() {
     setTanggalJatuhTempo(info.tanggalJatuhTempo || '');
     setCaraPembayaran(parsed.caraPembayaran || '');
     setTanggalGiro(parsed.tanggalGiro || '');
-    // Fix: store original DP amount so it doesn't change when items are added
-    setOriginalDpAmount(info.dp);
+    // Calculate original DP amount from originalTotal (not from saved dpAmount which may be wrong)
+    // This ensures DP stays at the original amount even when pelunasan items are added
+    const rawParsed = JSON.parse(entry.dataJson);
+    const dpPercent = rawParsed.dp || 0;
+    const items = rawParsed.items || [];
+    const sub = items.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0);
+    const ppn = rawParsed.ppn || 0;
+    const currentTotal = sub + (sub * ppn / 100);
+    const originalTotal = rawParsed.originalTotal !== undefined ? rawParsed.originalTotal : currentTotal;
+    // Priority: saved dpAmount → originalTotal * dpPercent → currentTotal * dpPercent
+    // But if dpAmount equals currentTotal * dpPercent, it was likely recalculated incorrectly
+    const recalculatedDp = currentTotal * (dpPercent / 100);
+    let fixedDpAmount: number;
+    if (rawParsed.dpAmount !== undefined && rawParsed.dpAmount !== recalculatedDp) {
+      // dpAmount was explicitly saved and is NOT a simple recalculation from current total — trust it
+      fixedDpAmount = rawParsed.dpAmount;
+    } else {
+      // dpAmount is either missing or was recalculated from current total — use originalTotal instead
+      fixedDpAmount = originalTotal * (dpPercent / 100);
+    }
+    setOriginalDpAmount(fixedDpAmount);
     setDropdownOpen(false);
   };
 
@@ -349,6 +372,14 @@ export function InvoicePelunasanEditor() {
     setPelunasanSaving(true);
     try {
       const parsed = JSON.parse(selectedEntry.dataJson);
+      // Save originalTotal if not already saved — must be done BEFORE updating items
+      // so we capture the total from the original items only
+      if (parsed.originalTotal === undefined) {
+        const origItems = parsed.items || [];
+        const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0);
+        const origTot = origSub + (origSub * (parsed.ppn || 0) / 100);
+        parsed.originalTotal = origTot;
+      }
       // Update pelunasan fields
       parsed.tanggalJatuhTempo = tanggalJatuhTempo;
       parsed.caraPembayaran = caraPembayaran;
@@ -813,6 +844,21 @@ export function InvoicePelunasanEditor() {
                 placeholder="0"
               />
             </div>
+            {dpAmount > 0 && (
+              <div className="space-y-1.5 mt-3">
+                <Label className="text-xs flex items-center gap-1">DP Awal (Rp) <span className="text-[10px] text-slate-400">— edit jika perlu koreksi</span></Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={originalDpAmount || ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 0 : Number(e.target.value) || 0;
+                    setOriginalDpAmount(val);
+                  }}
+                  placeholder="0"
+                />
+              </div>
+            )}
             <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
               <p className="text-sm text-emerald-800">
                 Subtotal: <span className="font-bold">{formatRupiah(subtotal)}</span>

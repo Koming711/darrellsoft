@@ -134,6 +134,8 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       items,
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
+      dpAmount: parsed.dpAmount,
+      originalTotal: parsed.originalTotal,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',

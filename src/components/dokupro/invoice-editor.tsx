@@ -312,8 +312,9 @@ export function InvoiceEditor() {
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = invoice.dp || 0;
-  // Use saved dpAmount if available (preserves original DP when items change), otherwise calculate from percentage
-  const dpAmount = invoice.dpAmount !== undefined ? invoice.dpAmount : total * (dpPercent / 100);
+  // Use saved dpAmount if available, otherwise calculate from originalTotal or current total
+  const originalTotalForDp = invoice.originalTotal !== undefined ? invoice.originalTotal : total;
+  const dpAmount = invoice.dpAmount !== undefined ? invoice.dpAmount : originalTotalForDp * (dpPercent / 100);
   const sisa = total - dpAmount;
 
   const handleSuratJalan = async () => {
@@ -337,7 +338,7 @@ export function InvoiceEditor() {
           tanggal: invoice.tanggal || '',
           pihakKedua: invoice.client?.nama || '-',
           total: '-',
-          dataJson: JSON.stringify({ ...invoice, dpAmount: invoice.dpAmount !== undefined ? invoice.dpAmount : dpAmount }),
+          dataJson: JSON.stringify({ ...invoice, dpAmount: invoice.dpAmount !== undefined ? invoice.dpAmount : dpAmount, originalTotal: invoice.originalTotal ?? total }),
         }),
       });
       if (res.ok) {
@@ -671,7 +672,7 @@ export function InvoiceEditor() {
               min={0}
               max={100}
               value={invoice.dp || ''}
-              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0), dpAmount: undefined }))}
               placeholder="0"
             />
           </div>

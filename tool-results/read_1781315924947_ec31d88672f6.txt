@@ -1,0 +1,582 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  X,
+     7→  ChevronRight,
+     8→  Check,
+     9→  CreditCard,
+    10→  Building2,
+    11→  Wallet,
+    12→  Shield,
+    13→  Sparkles,
+    14→  Loader2,
+    15→  CheckCircle2,
+    16→  XCircle,
+    17→  Clock,
+    18→  Lock,
+    19→  Smartphone,
+    20→} from 'lucide-react';
+    21→
+    22→interface PackageInfo {
+    23→  type: string;
+    24→  name: string;
+    25→  price: number;
+    26→  priceFormatted: string;
+    27→  period: string;
+    28→}
+    29→
+    30→interface PaymentDialogProps {
+    31→  open: boolean;
+    32→  onClose: () => void;
+    33→  pkg: PackageInfo;
+    34→  customerData?: { name: string; email: string; phone: string; username?: string; password?: string; secondUsername?: string };
+    35→  onSuccess?: () => void;
+    36→  onAutoLogin?: (data: { id: string; username: string; name: string; role: string; sessionId: string; permissions?: Record<string, unknown> }) => void;
+    37→}
+    38→
+    39→function formatRupiah(n: number) {
+    40→  return 'Rp ' + n.toLocaleString('id-ID');
+    41→}
+    42→
+    43→type DialogStep = 'method' | 'paying' | 'result';
+    44→type PaymentResult = 'success' | 'pending' | 'error' | null;
+    45→
+    46→const PAYMENT_METHODS = [
+    47→  // Transfer Bank
+    48→  { id: 'bca_va', label: 'Transfer BCA', sublabel: 'Transfer via ATM / M-Banking BCA', icon: '🏦', category: 'transfer', popular: true },
+    49→  { id: 'bni_va', label: 'Transfer BNI', sublabel: 'Transfer via ATM / M-Banking BNI', icon: '🏦', category: 'transfer', popular: false },
+    50→  { id: 'mandiri_va', label: 'Transfer Mandiri', sublabel: 'Transfer via ATM / M-Banking Mandiri', icon: '🏦', category: 'transfer', popular: false },
+    51→  { id: 'bri_va', label: 'Transfer BRI', sublabel: 'Transfer via ATM / M-Banking BRI', icon: '🏦', category: 'transfer', popular: false },
+    52→  // Virtual Account
+    53→  { id: 'permata_va', label: 'Virtual Account Permata', sublabel: 'Bayar via VA Bank Permata', icon: '🏦', category: 'va', popular: false },
+    54→  { id: 'bsi_va', label: 'Virtual Account BSI', sublabel: 'Bayar via VA Bank BSI', icon: '🏦', category: 'va', popular: false },
+    55→  // E-Money
+    56→  { id: 'gopay', label: 'GoPay', sublabel: 'Bayar via aplikasi Gojek', icon: '💳', category: 'emoney', popular: true },
+    57→  { id: 'shopeepay', label: 'ShopeePay', sublabel: 'Bayar via aplikasi Shopee', icon: '🛒', category: 'emoney', popular: false },
+    58→  { id: 'dana', label: 'DANA', sublabel: 'Bayar via aplikasi Dana', icon: '💳', category: 'emoney', popular: false },
+    59→  // Debit
+    60→  { id: 'debit', label: 'Kartu Debit', sublabel: 'Visa, Mastercard debit online', icon: '💳', category: 'debit', popular: false },
+    61→  // Kredit
+    62→  { id: 'cc', label: 'Kartu Kredit', sublabel: 'Visa, Mastercard, JCB, AMEX', icon: '💳', category: 'kredit', popular: true },
+    63→  // QRIS
+    64→  { id: 'qris', label: 'QRIS', sublabel: 'Scan QR dari aplikasi bank manapun', icon: '📱', category: 'qris', popular: true },
+    65→];
+    66→
+    67→const CATEGORIES = [
+    68→  { id: 'transfer', label: 'Transfer Bank', icon: <Building2 className="w-3.5 h-3.5" /> },
+    69→  { id: 'va', label: 'Virtual Account', icon: <Building2 className="w-3.5 h-3.5" /> },
+    70→  { id: 'emoney', label: 'E-Money', icon: <Wallet className="w-3.5 h-3.5" /> },
+    71→  { id: 'debit', label: 'Debit', icon: <CreditCard className="w-3.5 h-3.5" /> },
+    72→  { id: 'kredit', label: 'Kredit', icon: <CreditCard className="w-3.5 h-3.5" /> },
+    73→  { id: 'qris', label: 'QRIS', icon: <Smartphone className="w-3.5 h-3.5" /> },
+    74→];
+    75→
+    76→/* ─── komponen utama ─── */
+    77→export default function PaymentDialog({ open, onClose, pkg, customerData, onSuccess, onAutoLogin }: PaymentDialogProps) {
+    78→  const [step, setStep] = useState<DialogStep>('method');
+    79→  const [selectedMethod, setSelectedMethod] = useState('');
+    80→  const [loading, setLoading] = useState(false);
+    81→  const [result, setResult] = useState<PaymentResult>(null);
+    82→  const [resultMessage, setResultMessage] = useState('');
+    83→  const [orderId, setOrderId] = useState('');
+    84→  const [snapToken, setSnapToken] = useState('');
+    85→  const [isMockMode, setIsMockMode] = useState(false);
+    86→  const [countdown, setCountdown] = useState(0);
+    87→
+    88→  // Reset saat popup dibuka
+    89→  useEffect(() => {
+    90→    if (open) {
+    91→      setStep('method');
+    92→      setSelectedMethod('');
+    93→      setLoading(false);
+    94→      setResult(null);
+    95→      setResultMessage('');
+    96→      setOrderId('');
+    97→      setSnapToken('');
+    98→      setIsMockMode(false);
+    99→      setCountdown(0);
+   100→    }
+   101→  }, [open]);
+   102→
+   103→  // Countdown timer untuk mock mode
+   104→  useEffect(() => {
+   105→    if (!isMockMode || countdown <= 0) return;
+   106→    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+   107→    return () => clearTimeout(timer);
+   108→  }, [isMockMode, countdown]);
+   109→
+   110→  // Handle callback dari Midtrans Snap setelah redirect kembali
+   111→  useEffect(() => {
+   112→    if (!open) return;
+   113→    const params = new URLSearchParams(window.location.search);
+   114→    const paymentStatus = params.get('payment');
+   115→    const savedOrderId = sessionStorage.getItem('lastPaymentOrderId');
+   116→    if (paymentStatus && savedOrderId) {
+   117→      if (paymentStatus === 'finish') {
+   118→        checkPaymentResult(savedOrderId);
+   119→      } else if (paymentStatus === 'pending') {
+   120→        setStep('result'); setResult('pending');
+   121→        setResultMessage('Menunggu pembayaran Anda. Silakan selesaikan pembayaran untuk mengaktifkan langganan.');
+   122→      } else if (paymentStatus === 'error') {
+   123→        setStep('result'); setResult('error');
+   124→        setResultMessage('Pembayaran dibatalkan atau gagal. Silakan coba lagi.');
+   125→      }
+   126→      window.history.replaceState({}, '', window.location.pathname);
+   127→      sessionStorage.removeItem('lastPaymentOrderId');
+   128→    }
+   129→  }, [open]);
+   130→
+   131→  const handlePay = useCallback(async () => {
+   132→    if (!selectedMethod) return;
+   133→
+   134→    const name = customerData?.name || '';
+   135→    const email = customerData?.email || '';
+   136→    const phone = customerData?.phone || '';
+   137→    const uname = customerData?.username || '';
+   138→    const pwd = customerData?.password || '';
+   139→    const secondUname = customerData?.secondUsername || '';
+   140→
+   141→    setLoading(true);
+   142→    setResultMessage('');
+   143→    try {
+   144→      // Buat transaksi ke Midtrans via API kita
+   145→      const res = await fetch('/api/midtrans/create-transaction', {
+   146→        method: 'POST',
+   147→        headers: { 'Content-Type': 'application/json' },
+   148→        body: JSON.stringify({
+   149→          packageName: pkg.name,
+   150→          packageType: pkg.type,
+   151→          price: pkg.price,
+   152→          customerName: name,
+   153→          customerEmail: email,
+   154→          customerPhone: phone,
+   155→          username: uname,
+   156→          password: pwd,
+   157→          secondUsername: secondUname,
+   158→        }),
+   159→      });
+   160→      const data = await res.json();
+   161→      if (!data.success) throw new Error(data.message || 'Gagal membuat transaksi');
+   162→
+   163→      setOrderId(data.orderId);
+   164→      setSnapToken(data.token);
+   165→      sessionStorage.setItem('lastPaymentOrderId', data.orderId);
+   166→
+   167→      // ─── MOCK MODE: simulasi pembayaran ───
+   168→      if (data.mock) {
+   169→        setIsMockMode(true);
+   170→        setStep('paying');
+   171→        setCountdown(3);
+   172→        // Simulasi delay 3 detik lalu auto success
+   173→        setTimeout(async () => {
+   174→          // Auto-login (accounts already created in create-transaction for mock mode)
+   175→          await performAutoLogin();
+   176→
+   177→          setStep('result');
+   178→          setResult('success');
+   179→          setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif. (Mode Testing/Sandbox)');
+   180→          setLoading(false);
+   181→        }, 3000);
+   182→        return;
+   183→      }
+   184→
+   185→      // ─── REAL MODE: panggil Midtrans Snap ───
+   186→      setStep('paying');
+   187→
+   188→      // Load Midtrans Snap script dinamis
+   189→      await new Promise<void>((resolve, reject) => {
+   190→        const win = window as unknown as Record<string, unknown>;
+   191→        if (win.snap) { resolve(); return; }
+   192→        const script = document.createElement('script');
+   193→        // Use production or sandbox URL based on environment
+   194→        const isProduction = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true';
+   195→        script.src = isProduction
+   196→          ? 'https://app.midtrans.com/snap/snap.js'
+   197→          : 'https://app.sandbox.midtrans.com/snap/snap.js';
+   198→        script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '');
+   199→        script.onload = () => resolve();
+   200→        script.onerror = () => reject(new Error('Gagal memuat payment gateway'));
+   201→        document.body.appendChild(script);
+   202→      });
+   203→
+   204→      // Buka Midtrans Snap popup
+   205→      const snap = (window as unknown as Record<string, Record<string, (token: string, callbacks?: Record<string, () => void>) => void>>).snap;
+   206→      if (snap && snap.pay) {
+   207→        snap.pay(data.token, {
+   208→          onSuccess: async () => {
+   209→            // Auto-login with retry (webhook may need a moment to create accounts)
+   210→            await performAutoLogin(true);
+   211→
+   212→            setStep('result'); setResult('success');
+   213→            setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif.');
+   214→            setLoading(false);
+   215→          },
+   216→          onPending: () => {
+   217→            setStep('result'); setResult('pending');
+   218→            setResultMessage('Menunggu pembayaran Anda. Silakan selesaikan pembayaran untuk mengaktifkan langganan.');
+   219→            setLoading(false);
+   220→          },
+   221→          onError: () => {
+   222→            setStep('result'); setResult('error');
+   223→            setResultMessage('Pembayaran gagal. Silakan coba lagi dengan metode pembayaran lain.');
+   224→            setLoading(false);
+   225→          },
+   226→          onClose: () => {
+   227→            setStep('method');
+   228→            setLoading(false);
+   229→          },
+   230→        });
+   231→      }
+   232→    } catch (err: unknown) {
+   233→      const message = err instanceof Error ? err.message : 'Terjadi kesalahan';
+   234→      setResultMessage(message);
+   235→      setStep('result');
+   236→      setResult('error');
+   237→      setLoading(false);
+   238→    }
+   239→  }, [selectedMethod, pkg, customerData]);
+   240→
+   241→  const performAutoLogin = async (withRetry = false) => {
+   242→    const uname = customerData?.username || '';
+   243→    const pwd = customerData?.password || '';
+   244→    if (!uname || !pwd) return;
+   245→
+   246→    const maxAttempts = withRetry ? 5 : 1;
+   247→    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+   248→      try {
+   249→        const loginRes = await fetch('/api/auth/login', {
+   250→          method: 'POST',
+   251→          headers: { 'Content-Type': 'application/json' },
+   252→          body: JSON.stringify({ username: uname, password: pwd }),
+   253→        });
+   254→        const loginData = await loginRes.json();
+   255→
+   256→        if (loginRes.ok && loginData.id) {
+   257→          // Save auth to localStorage
+   258→          localStorage.setItem('auth', JSON.stringify({
+   259→            id: loginData.id,
+   260→            username: loginData.username,
+   261→            name: loginData.name,
+   262→            role: loginData.role,
+   263→            sessionId: loginData.sessionId,
+   264→          }));
+   265→
+   266→          // Store permissions
+   267→          if (loginData.permissions) {
+   268→            const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {};
+   269→            allPerms[loginData.role] = loginData.permissions;
+   270→            try {
+   271→              const existing = localStorage.getItem('permissions');
+   272→              if (existing) {
+   273→                const parsed = JSON.parse(existing);
+   274→                Object.assign(allPerms, parsed);
+   275→              }
+   276→            } catch {}
+   277→            localStorage.setItem('permissions', JSON.stringify(allPerms));
+   278→          }
+   279→
+   280→          // Notify parent component about auto-login
+   281→          if (onAutoLogin) {
+   282→            onAutoLogin({
+   283→              id: loginData.id,
+   284→              username: loginData.username,
+   285→              name: loginData.name,
+   286→              role: loginData.role,
+   287→              sessionId: loginData.sessionId,
+   288→              permissions: loginData.permissions,
+   289→            });
+   290→          }
+   291→
+   292→          console.log('[PaymentDialog] Auto-login successful for', uname);
+   293→          return; // Success, exit
+   294→        } else {
+   295→          console.warn(`[PaymentDialog] Auto-login attempt ${attempt} failed:`, loginData.error);
+   296→          if (withRetry && attempt < maxAttempts) {
+   297→            await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+   298→          }
+   299→        }
+   300→      } catch (err) {
+   301→        console.warn(`[PaymentDialog] Auto-login attempt ${attempt} error:`, err);
+   302→        if (withRetry && attempt < maxAttempts) {
+   303→          await new Promise(r => setTimeout(r, 2000));
+   304→        }
+   305→      }
+   306→    }
+   307→  };
+   308→
+   309→  const checkPaymentResult = async (oid: string) => {
+   310→    try {
+   311→      const res = await fetch(`/api/midtrans/check-status?order_id=${oid}`);
+   312→      const data = await res.json();
+   313→      if (data.success) {
+   314→        const s = data.data.transactionStatus;
+   315→        if (s === 'success') {
+   316→          setStep('result'); setResult('success');
+   317→          setResultMessage('Pembayaran berhasil! Langganan Anda telah aktif.');
+   318→        } else if (s === 'pending') {
+   319→          setStep('result'); setResult('pending');
+   320→          setResultMessage('Menunggu pembayaran Anda.');
+   321→        } else {
+   322→          setStep('result'); setResult('error');
+   323→          setResultMessage('Pembayaran gagal atau expired.');
+   324→        }
+   325→      }
+   326→    } catch {
+   327→      setStep('result'); setResult('error');
+   328→      setResultMessage('Gagal mengecek status pembayaran.');
+   329→    }
+   330→  };
+   331→
+   332→  return (
+   333→    <AnimatePresence>
+   334→      {open && (
+   335→        <>
+   336→          {/* Backdrop */}
+   337→          <motion.div
+   338→            initial={{ opacity: 0 }}
+   339→            animate={{ opacity: 1 }}
+   340→            exit={{ opacity: 0 }}
+   341→            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
+   342→            onClick={step === 'result' ? onClose : undefined}
+   343→          />
+   344→
+   345→          {/* Dialog */}
+   346→          <motion.div
+   347→            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+   348→            animate={{ opacity: 1, scale: 1, y: 0 }}
+   349→            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+   350→            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+   351→            className="fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-lg z-[101]"
+   352→          >
+   353→            <div className="bg-[#141414] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col">
+   354→
+   355→              {/* Header */}
+   356→              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+   357→                <div className="flex items-center gap-3">
+   358→                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+   359→                    <Sparkles className="w-4 h-4 text-white" />
+   360→                  </div>
+   361→                  <h2 className="text-white text-lg font-bold">Metode Pembayaran</h2>
+   362→                </div>
+   363→                {step !== 'paying' && (
+   364→                  <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
+   365→                    <X className="w-5 h-5" />
+   366→                  </button>
+   367→                )}
+   368→              </div>
+   369→
+   370→              {/* Content */}
+   371→              <div className="flex-1 overflow-y-auto px-6 py-4">
+   372→                <AnimatePresence mode="wait">
+   373→
+   374→                  {/* STEP: Pilih Metode Pembayaran */}
+   375→                  {step === 'method' && (
+   376→                    <motion.div key="method" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.25 }}>
+   377→                      <p className="text-gray-400 text-sm mb-5">Pilih metode pembayaran yang Anda inginkan</p>
+   378→
+   379→                      {/* Total */}
+   380→                      <div className="p-4 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/5 border border-orange-500/20 mb-5">
+   381→                        <div className="flex justify-between items-center">
+   382→                          <div>
+   383→                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Total Pembayaran</p>
+   384→                            <p className="text-xs text-gray-400 mt-0.5">{pkg.name} — {pkg.period}</p>
+   385→                          </div>
+   386→                          <span className="text-xl font-black text-white">{pkg.priceFormatted}</span>
+   387→                        </div>
+   388→                      </div>
+   389→
+   390→                      {/* Transfer Bank */}
+   391→                      {CATEGORIES.map(cat => {
+   392→                        const methods = PAYMENT_METHODS.filter(m => m.category === cat.id);
+   393→                        if (methods.length === 0) return null;
+   394→                        return (
+   395→                          <div key={cat.id} className="mb-4">
+   396→                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+   397→                              {cat.icon} {cat.label}
+   398→                            </h4>
+   399→                            <div className="space-y-2">
+   400→                              {methods.map(m => (
+   401→                                <PaymentMethodCard
+   402→                                  key={m.id}
+   403→                                  method={m}
+   404→                                  selected={selectedMethod === m.id}
+   405→                                  onClick={() => setSelectedMethod(m.id)}
+   406→                                />
+   407→                              ))}
+   408→                            </div>
+   409→                          </div>
+   410→                        );
+   411→                      })}
+   412→                    </motion.div>
+   413→                  )}
+   414→
+   415→                  {/* STEP: Paying */}
+   416→                  {step === 'paying' && (
+   417→                    <motion.div key="paying" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.25 }}
+   418→                      className="flex flex-col items-center justify-center py-12"
+   419→                    >
+   420→                      {isMockMode ? (
+   421→                        <>
+   422→                          <div className="w-20 h-20 rounded-full bg-orange-500/10 border-2 border-orange-500/30 flex items-center justify-center mb-4">
+   423→                            <span className="text-3xl font-black text-orange-500">{countdown > 0 ? countdown : ''}</span>
+   424→                          </div>
+   425→                          <h3 className="text-white text-xl font-bold mb-2">Memproses Pembayaran</h3>
+   426→                          <p className="text-gray-400 text-sm text-center max-w-xs mb-3">
+   427→                            Simulasi pembayaran sedang berjalan...
+   428→                          </p>
+   429→                          <div className="px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
+   430→                            <span className="text-[11px] text-amber-400 font-semibold">MODE TESTING</span>
+   431→                          </div>
+   432→                        </>
+   433→                      ) : (
+   434→                        <>
+   435→                          <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mb-4 animate-pulse">
+   436→                            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+   437→                          </div>
+   438→                          <h3 className="text-white text-xl font-bold mb-2">Memproses Pembayaran</h3>
+   439→                          <p className="text-gray-400 text-sm text-center max-w-xs">
+   440→                            Jendela pembayaran Midtrans sedang terbuka. Silakan selesaikan pembayaran Anda di popup yang muncul.
+   441→                          </p>
+   442→                          <p className="text-gray-500 text-xs mt-4">Menutup popup akan kembali ke pilihan metode</p>
+   443→                        </>
+   444→                      )}
+   445→                    </motion.div>
+   446→                  )}
+   447→
+   448→                  {/* STEP: Result */}
+   449→                  {step === 'result' && (
+   450→                    <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.25 }}
+   451→                      className="flex flex-col items-center justify-center py-8"
+   452→                    >
+   453→                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}
+   454→                        className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 ${
+   455→                          result === 'success' ? 'bg-emerald-500/20' : result === 'pending' ? 'bg-amber-500/20' : 'bg-red-500/20'
+   456→                        }`}
+   457→                      >
+   458→                        {result === 'success' && <CheckCircle2 className="w-10 h-10 text-emerald-500" />}
+   459→                        {result === 'pending' && <Clock className="w-10 h-10 text-amber-500" />}
+   460→                        {result === 'error' && <XCircle className="w-10 h-10 text-red-500" />}
+   461→                      </motion.div>
+   462→                      <h3 className="text-white text-xl font-bold mb-2">
+   463→                        {result === 'success' && 'Pembayaran Berhasil!'}
+   464→                        {result === 'pending' && 'Menunggu Pembayaran'}
+   465→                        {result === 'error' && 'Pembayaran Gagal'}
+   466→                      </h3>
+   467→                      <p className="text-gray-400 text-sm text-center max-w-xs mb-2">{resultMessage}</p>
+   468→                      {result === 'pending' && (
+   469→                        <p className="text-gray-500 text-xs text-center max-w-xs mb-4">
+   470→                          Anda akan menerima konfirmasi setelah pembayaran berhasil diverifikasi. Ini mungkin memakan waktu beberapa menit.
+   471→                        </p>
+   472→                      )}
+   473→                      {orderId && (
+   474→                        <div className="w-full p-3 rounded-lg bg-white/5 border border-white/10 mb-4">
+   475→                          <span className="text-[10px] text-gray-500 uppercase tracking-wider">ID Pesanan</span>
+   476→                          <p className="text-sm text-gray-300 font-mono mt-0.5">{orderId}</p>
+   477→                        </div>
+   478→                      )}
+   479→                      <div className="w-full p-3 rounded-lg bg-white/5 border border-white/10 mb-6">
+   480→                        <div className="flex justify-between items-center">
+   481→                          <div>
+   482→                            <p className="text-xs text-gray-500">Paket</p>
+   483→                            <p className="text-sm text-white font-medium">{pkg.name}</p>
+   484→                          </div>
+   485→                          <div className="text-right">
+   486→                            <p className="text-xs text-gray-500">Jumlah</p>
+   487→                            <p className="text-sm text-white font-bold">{pkg.priceFormatted}</p>
+   488→                          </div>
+   489→                        </div>
+   490→                      </div>
+   491→                    </motion.div>
+   492→                  )}
+   493→
+   494→                </AnimatePresence>
+   495→              </div>
+   496→
+   497→              {/* Footer */}
+   498→              {step !== 'paying' && (
+   499→                <div className="px-6 py-4 border-t border-white/10">
+   500→                  {step === 'result' ? (
+   501→                    <div className="space-y-3">
+   502→                      <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
+   503→                        <Shield className="w-3.5 h-3.5" />
+   504→                        <span>Pembayaran aman & terenkripsi via Midtrans</span>
+   505→                      </div>
+   506→                      <button onClick={() => onSuccess ? onSuccess() : onClose()} className="w-full py-3 rounded-xl bg-white text-[#141414] font-bold text-sm hover:bg-gray-200 transition-colors">
+   507→                        {result === 'success' ? 'Mulai Gunakan' : 'Tutup'}
+   508→                      </button>
+   509→                    </div>
+   510→                  ) : (
+   511→                    <div className="space-y-3">
+   512→                      <button
+   513→                        onClick={handlePay}
+   514→                        disabled={!selectedMethod || loading}
+   515→                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all duration-200 ${
+   516→                          selectedMethod && !loading
+   517→                            ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-lg shadow-orange-500/20'
+   518→                            : 'bg-white/5 text-gray-500 cursor-not-allowed'
+   519→                        }`}
+   520→                      >
+   521→                        {loading ? (
+   522→                          <Loader2 className="w-4 h-4 animate-spin" />
+   523→                        ) : (
+   524→                          <>
+   525→                            <Lock className="w-4 h-4" />
+   526→                            Bayar dengan {selectedMethod ? PAYMENT_METHODS.find(m => m.id === selectedMethod)?.label : 'Pilih Metode'}
+   527→                            <ChevronRight className="w-4 h-4" />
+   528→                          </>
+   529→                        )}
+   530→                      </button>
+   531→                      <div className="flex items-center justify-center gap-2 text-gray-500 text-[11px]">
+   532→                        <Shield className="w-3 h-3" />
+   533→                        <span>Diproses secara aman melalui Midtrans</span>
+   534→                      </div>
+   535→                    </div>
+   536→                  )}
+   537→                </div>
+   538→              )}
+   539→            </div>
+   540→          </motion.div>
+   541→        </>
+   542→      )}
+   543→    </AnimatePresence>
+   544→  );
+   545→}
+   546→
+   547→/* ─── Sub-components ─── */
+   548→
+   549→interface PaymentMethodItem {
+   550→  id: string; label: string; sublabel: string; icon: string; category: string; popular: boolean;
+   551→}
+   552→
+   553→function PaymentMethodCard({ method, selected, onClick }: { method: PaymentMethodItem; selected: boolean; onClick: () => void }) {
+   554→  return (
+   555→    <motion.button
+   556→      whileTap={{ scale: 0.98 }}
+   557→      onClick={onClick}
+   558→      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 text-left ${
+   559→        selected
+   560→          ? 'border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/10'
+   561→          : 'border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/20'
+   562→      }`}
+   563→    >
+   564→      <span className="text-2xl">{method.icon}</span>
+   565→      <div className="flex-1 min-w-0">
+   566→        <div className="flex items-center gap-2">
+   567→          <span className={`text-sm font-semibold ${selected ? 'text-white' : 'text-gray-200'}`}>{method.label}</span>
+   568→          {method.popular && (
+   569→            <span className="bg-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">Populer</span>
+   570→          )}
+   571→        </div>
+   572→        <span className="text-xs text-gray-500">{method.sublabel}</span>
+   573→      </div>
+   574→      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+   575→        selected ? 'border-orange-500 bg-orange-500' : 'border-gray-600'
+   576→      }`}>
+   577→        {selected && <Check className="w-3 h-3 text-white" />}
+   578→      </div>
+   579→    </motion.button>
+   580→  );
+   581→}
+   582→

@@ -36,3 +36,29 @@ Stage Summary:
 - The `sisa <= 0` auto-lunas logic no longer applies to invoices with DP
 - For invoices without DP, the old `lunas || sisa <= 0` logic still applies
 - JPG + WhatsApp functionality was already implemented from previous session
+
+---
+Task ID: 1
+Agent: main
+Task: Fix DP recalculation bug - when pelunasan adds items and marks lunas, DP should stay at original amount
+
+Work Log:
+- Analyzed the root cause: dpAmount was being recalculated from current total (which includes pelunasan additions) instead of preserving the original amount
+- Fixed multiple code paths that incorrectly recalculated dpAmount:
+  1. invoice/page.tsx handleStatusChange - was calculating dpAmount from current total
+  2. invoice/page.tsx handleSimpanPelunasan - same issue
+- Added `originalTotal` field to InvoiceData type to track total at first save
+- Updated document-action-buttons.tsx to save dpAmount AND originalTotal at initial save
+- Updated invoice-editor.tsx to save originalTotal and clear dpAmount when DP% changes
+- Updated invoice-pelunasan-editor.tsx selectInvoice to detect incorrectly recalculated dpAmount
+- Updated invoice-pelunasan-editor.tsx save to preserve originalTotal before item updates
+- Updated all parseDocInfo functions to use originalTotal as fallback for dpAmount calculation
+- Updated InvoicePreview to use originalTotal in dpAmount calculation
+- Added manual DP amount override field in pelunasan editor for fixing wrong values
+
+Stage Summary:
+- Added `originalTotal` field to InvoiceData type for robust DP preservation
+- All save paths now correctly save dpAmount and originalTotal
+- DP is calculated from originalTotal (not current total) when dpAmount is not saved
+- Pelunasan editor has manual DP amount field for correcting wrong values
+- Existing data may still show wrong DP until re-saved through the pelunasan editor

@@ -69,16 +69,26 @@ export function DocumentActionButtons({
 
       const pihakKedua = data.client?.nama || data.penerima?.nama || data.pemasok?.nama || '-';
 
-      // For invoice: include calculated dpAmount so DP stays fixed after save
+      // For invoice: include calculated dpAmount and originalTotal so DP stays fixed after save
       let dataToSave = currentData;
       if (docType === 'invoice') {
         const inv = currentData as Record<string, unknown>;
+        const items = (inv.items as Array<{ qty: number; harga: number }>) || [];
+        const sub = items.reduce((s, it) => s + it.qty * it.harga, 0);
+        const ppn = (inv.ppn as number) || 0;
+        const tot = sub + (sub * ppn / 100);
+        const updates: Record<string, unknown> = {};
+        // Save originalTotal so DP can always be calculated from the original amount
+        if (inv.originalTotal === undefined) {
+          updates.originalTotal = tot;
+        }
+        // Calculate dpAmount from originalTotal (not current total which may include pelunasan items)
         if (inv.dpAmount === undefined && inv.dp && Number(inv.dp) > 0) {
-          const items = (inv.items as Array<{ qty: number; harga: number }>) || [];
-          const sub = items.reduce((s, it) => s + it.qty * it.harga, 0);
-          const ppn = (inv.ppn as number) || 0;
-          const tot = sub + (sub * ppn / 100);
-          dataToSave = { ...currentData, dpAmount: tot * (Number(inv.dp) / 100) };
+          const baseTotal = (inv.originalTotal as number) ?? tot;
+          updates.dpAmount = baseTotal * (Number(inv.dp) / 100);
+        }
+        if (Object.keys(updates).length > 0) {
+          dataToSave = { ...currentData, ...updates };
         }
       }
 

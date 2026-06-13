@@ -1,0 +1,942 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, Suspense } from 'react'
+     4→import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
+     5→import { useRouter, useSearchParams } from 'next/navigation'
+     6→import { getAuthUser } from '@/lib/auth'
+     7→import { useLanguage } from '@/contexts/language-context'
+     8→import { toast } from 'sonner'
+     9→import { applyThemeAfterLogin } from '@/contexts/theme-context'
+    10→import { notifyDataChange } from '@/lib/data-sync'
+    11→import { useTheme } from 'next-themes'
+    12→
+    13→
+    14→export default function LoginPage() {
+    15→  return (
+    16→    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+    17→      <LoginContent />
+    18→    </Suspense>
+    19→  )
+    20→}
+    21→
+    22→function LoginContent() {
+    23→  const searchParams = useSearchParams()
+    24→  const [activeTab, setActiveTab] = useState<'login' | 'register'>(searchParams.get('tab') === 'register' ? 'register' : 'login')
+    25→  const [showPassword, setShowPassword] = useState(false)
+    26→  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+    27→  const [isRedirecting, setIsRedirecting] = useState(false)
+    28→
+    29→  // Login state
+    30→  const [username, setUsername] = useState('')
+    31→  const [password, setPassword] = useState('')
+    32→  const [loginLoading, setLoginLoading] = useState(false)
+    33→  const [loginError, setLoginError] = useState('')
+    34→
+    35→  // Register success state
+    36→  const [regSuccess, setRegSuccess] = useState(false)
+    37→
+    38→  // Register state
+    39→  const [regNamaLengkap, setRegNamaLengkap] = useState('')
+    40→  const [regNomorHP, setRegNomorHP] = useState('')
+    41→  const [regEmail, setRegEmail] = useState('')
+    42→  const [regUsername, setRegUsername] = useState('')
+    43→  const [regPassword, setRegPassword] = useState('')
+    44→  const [regConfirmPassword, setRegConfirmPassword] = useState('')
+    45→  const [regError, setRegError] = useState('')
+    46→  const [regLoading, setRegLoading] = useState(false)
+    47→
+    48→  // Forgot password state
+    49→  const [showForgotPassword, setShowForgotPassword] = useState(false)
+    50→  const [fpEmail, setFpEmail] = useState('')
+    51→  const [fpLoading, setFpLoading] = useState(false)
+    52→  const [fpError, setFpError] = useState('')
+    53→  const [fpAccount, setFpAccount] = useState<{ name: string; username: string; userId: string; userType: string } | null>(null)
+    54→  const [fpNewPassword, setFpNewPassword] = useState('')
+    55→  const [fpConfirmPassword, setFpConfirmPassword] = useState('')
+    56→  const [fpShowPassword, setFpShowPassword] = useState(false)
+    57→  const [fpShowConfirm, setFpShowConfirm] = useState(false)
+    58→  const [fpSuccess, setFpSuccess] = useState(false)
+    59→
+    60→  // Demo popup state
+    61→  const [demoPopupOpen, setDemoPopupOpen] = useState(false)
+    62→  const [demoPopupMsg, setDemoPopupMsg] = useState('')
+    63→  const [demoRemaining, setDemoRemaining] = useState<number | null>(null)
+    64→
+    65→  const router = useRouter()
+    66→  const { t } = useLanguage()
+    67→  const { resolvedTheme } = useTheme()
+    68→  const isDark = resolvedTheme === 'dark'
+    69→
+    70→  // Check if already logged in + fetch company branding
+    71→  useEffect(() => {
+    72→    if (isRedirecting) return
+    73→
+    74→    const authUser = getAuthUser()
+    75→    if (authUser) {
+    76→      setIsRedirecting(true)
+    77→      // Use hard navigation to ensure DashboardLayout reads fresh auth state
+    78→      window.location.href = '/pembukaan'
+    79→      return
+    80→    }
+    81→
+    82→
+    83→  }, [isRedirecting])
+    84→
+    85→  const handleLogin = async (e: React.FormEvent) => {
+    86→    e.preventDefault()
+    87→    setLoginError('')
+    88→    setLoginLoading(true)
+    89→
+    90→    try {
+    91→      // Add timeout and retry for network resilience
+    92→      const controller = new AbortController()
+    93→      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout
+    94→
+    95→      const res = await fetch('/api/auth/login', {
+    96→        method: 'POST',
+    97→        headers: { 'Content-Type': 'application/json' },
+    98→        body: JSON.stringify({ username, password }),
+    99→        signal: controller.signal,
+   100→      })
+   101→      clearTimeout(timeoutId)
+   102→
+   103→      const data = await res.json()
+   104→
+   105→      if (!res.ok) {
+   106→        setLoginError(data.error || 'Login gagal')
+   107→        setLoginLoading(false)
+   108→        return
+   109→      }
+   110→
+   111→      // Save to localStorage (include sessionId for multi-device check)
+   112→      localStorage.setItem('auth', JSON.stringify({
+   113→        id: data.id,
+   114→        username: data.username,
+   115→        name: data.name,
+   116→        role: data.role,
+   117→        sessionId: data.sessionId,
+   118→      }))
+   119→
+   120→      // Store permissions in localStorage
+   121→      if (data.permissions) {
+   122→        const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
+   123→        allPerms[data.role] = data.permissions
+   124→        // Merge with existing permissions from other roles (if any)
+   125→        try {
+   126→          const existing = localStorage.getItem('permissions')
+   127→          if (existing) {
+   128→            const parsed = JSON.parse(existing)
+   129→            Object.assign(allPerms, parsed)
+   130→          }
+   131→        } catch {}
+   132→        localStorage.setItem('permissions', JSON.stringify(allPerms))
+   133→      }
+   134→
+   135→      // Show demo popup if applicable
+   136→      if (data.role === 'demo' && data.demoPopupMessage) {
+   137→        setDemoPopupMsg(data.demoPopupMessage)
+   138→        setDemoRemaining(data.demoRemainingDays ?? null)
+   139→        setDemoPopupOpen(true)
+   140→        setLoginLoading(false)
+   141→      } else {
+   142→        // Apply theme in background, don't block redirect
+   143→        applyThemeAfterLogin()
+   144→        // Use hard navigation to ensure DashboardLayout reads fresh auth state
+   145→        // (router.push can fail in iframe contexts)
+   146→        window.location.href = '/pembukaan'
+   147→      }
+   148→    } catch (err: any) {
+   149→      console.error('Login network error:', err)
+   150→      // Provide more specific error messages
+   151→      if (err?.name === 'AbortError') {
+   152→        setLoginError('Permintaan timeout. Server terlalu lama merespons. Coba lagi.')
+   153→      } else if (err?.name === 'TypeError' && err?.message?.includes('fetch')) {
+   154→        setLoginError('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.')
+   155→      } else {
+   156→        setLoginError('Terjadi kesalahan jaringan. Coba lagi dalam beberapa detik.')
+   157→      }
+   158→      setLoginLoading(false)
+   159→    }
+   160→  }
+   161→
+   162→  // Step 1: Search account by email
+   163→  const handleFpSearch = async (e: React.FormEvent) => {
+   164→    e.preventDefault()
+   165→    setFpError('')
+   166→    setFpAccount(null)
+   167→    setFpSuccess(false)
+   168→    setFpLoading(true)
+   169→
+   170→    try {
+   171→      const res = await fetch('/api/auth/forgot-password', {
+   172→        method: 'POST',
+   173→        headers: { 'Content-Type': 'application/json' },
+   174→        body: JSON.stringify({ action: 'search', email: fpEmail }),
+   175→      })
+   176→      const data = await res.json()
+   177→
+   178→      if (res.status === 404) {
+   179→        setFpError(data.message || 'Email tidak ditemukan')
+   180→        setFpLoading(false)
+   181→        return
+   182→      }
+   183→
+   184→      if (!res.ok) {
+   185→        setFpError(data.error || 'Terjadi kesalahan')
+   186→        setFpLoading(false)
+   187→        return
+   188→      }
+   189→
+   190→      setFpAccount({ name: data.name, username: data.username, userId: data.userId, userType: data.userType })
+   191→    } catch {
+   192→      setFpError('Terjadi kesalahan jaringan')
+   193→    } finally {
+   194→      setFpLoading(false)
+   195→    }
+   196→  }
+   197→
+   198→  // Step 2: Reset password directly
+   199→  const handleFpReset = async (e: React.FormEvent) => {
+   200→    e.preventDefault()
+   201→    setFpError('')
+   202→
+   203→    if (fpNewPassword.length < 6) {
+   204→      setFpError('Password baru minimal 6 karakter')
+   205→      return
+   206→    }
+   207→
+   208→    if (fpNewPassword !== fpConfirmPassword) {
+   209→      setFpError('Password dan konfirmasi password tidak sama')
+   210→      return
+   211→    }
+   212→
+   213→    setFpLoading(true)
+   214→
+   215→    try {
+   216→      const res = await fetch('/api/auth/forgot-password', {
+   217→        method: 'POST',
+   218→        headers: { 'Content-Type': 'application/json' },
+   219→        body: JSON.stringify({ action: 'reset', email: fpEmail, newPassword: fpNewPassword }),
+   220→      })
+   221→      const data = await res.json()
+   222→
+   223→      if (!res.ok) {
+   224→        setFpError(data.error || 'Terjadi kesalahan')
+   225→        setFpLoading(false)
+   226→        return
+   227→      }
+   228→
+   229→      setFpSuccess(true)
+   230→    } catch {
+   231→      setFpError('Terjadi kesalahan jaringan')
+   232→    } finally {
+   233→      setFpLoading(false)
+   234→    }
+   235→  }
+   236→
+   237→
+   238→
+   239→  const resetFpFields = () => {
+   240→    setFpEmail('')
+   241→    setFpError('')
+   242→    setFpAccount(null)
+   243→    setFpNewPassword('')
+   244→    setFpConfirmPassword('')
+   245→    setFpShowPassword(false)
+   246→    setFpShowConfirm(false)
+   247→    setFpSuccess(false)
+   248→  }
+   249→
+   250→  const closeFpDialog = () => {
+   251→    setShowForgotPassword(false)
+   252→    resetFpFields()
+   253→  }
+   254→
+   255→  const handleRegister = async (e: React.FormEvent) => {
+   256→    e.preventDefault()
+   257→    setRegError('')
+   258→    setRegLoading(true)
+   259→
+   260→    if (!regNamaLengkap.trim() || !regNomorHP.trim() || !regEmail.trim() || !regUsername.trim() || !regPassword || !regConfirmPassword) {
+   261→      setRegError('Semua field wajib diisi')
+   262→      setRegLoading(false)
+   263→      return
+   264→    }
+   265→
+   266→    if (regUsername.trim().length < 3) {
+   267→      setRegError('Username minimal 3 karakter')
+   268→      setRegLoading(false)
+   269→      return
+   270→    }
+   271→
+   272→    if (regPassword.length < 6) {
+   273→      setRegError('Password minimal 6 karakter')
+   274→      setRegLoading(false)
+   275→      return
+   276→    }
+   277→
+   278→    if (regPassword !== regConfirmPassword) {
+   279→      setRegError('Password dan konfirmasi password tidak sama')
+   280→      setRegLoading(false)
+   281→      return
+   282→    }
+   283→
+   284→    try {
+   285→      const res = await fetch('/api/register', {
+   286→        method: 'POST',
+   287→        headers: { 'Content-Type': 'application/json' },
+   288→        body: JSON.stringify({
+   289→          namaLengkap: regNamaLengkap.trim(),
+   290→          nomorHP: regNomorHP.trim(),
+   291→          email: regEmail.trim(),
+   292→          username: regUsername.trim(),
+   293→          password: regPassword,
+   294→        })
+   295→      })
+   296→
+   297→      const data = await res.json()
+   298→
+   299→      if (!res.ok) {
+   300→        setRegError(data.error || 'Pendaftaran gagal')
+   301→        return
+   302→      }
+   303→
+   304→      // Pendaftaran berhasil — langsung auto-login
+   305→      if (data.id && data.role) {
+   306→        // Notify other tabs (e.g., admin's pengguna page) about the new calon pembeli
+   307→        notifyDataChange('calon-pembeli')
+   308→        toast.success('Pendaftaran berhasil! Selamat datang, ' + (data.name || data.username) + '!', { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 4000 })
+   309→        localStorage.setItem('auth', JSON.stringify({
+   310→          id: data.id,
+   311→          username: data.username,
+   312→          name: data.name,
+   313→          role: data.role,
+   314→          sessionId: data.sessionId,
+   315→        }))
+   316→
+   317→        if (data.permissions) {
+   318→          const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
+   319→          allPerms[data.role] = data.permissions
+   320→          try {
+   321→            const existing = localStorage.getItem('permissions')
+   322→            if (existing) {
+   323→              const parsed = JSON.parse(existing)
+   324→              Object.assign(allPerms, parsed)
+   325→            }
+   326→          } catch {}
+   327→          localStorage.setItem('permissions', JSON.stringify(allPerms))
+   328→        }
+   329→
+   330→        if (data.demoPopupMessage) {
+   331→          setDemoPopupMsg(data.demoPopupMessage)
+   332→          setDemoRemaining(data.demoRemainingDays ?? null)
+   333→          setDemoPopupOpen(true)
+   334→        } else {
+   335→          applyThemeAfterLogin()
+   336→          setTimeout(() => { window.location.href = '/pembukaan' }, 1500)
+   337→        }
+   338→      } else {
+   339→        // Notify other tabs about the new calon pembeli
+   340→        notifyDataChange('calon-pembeli')
+   341→        toast.success('Pendaftaran berhasil! Silakan tunggu konfirmasi dari administrator.', { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 5000 })
+   342→        setRegSuccess(true)
+   343→      }
+   344→    } catch (err) {
+   345→      setRegError('Terjadi kesalahan jaringan')
+   346→    } finally {
+   347→      setRegLoading(false)
+   348→    }
+   349→  }
+   350→
+   351→  // Don't render login page if redirecting
+   352→  if (isRedirecting) {
+   353→    return (
+   354→      <div className="min-h-screen bg-background flex items-center justify-center">
+   355→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+   356→      </div>
+   357→    )
+   358→  }
+   359→
+   360→  return (
+   361→    <div className={`min-h-screen flex flex-col px-4 py-8 bg-gradient-to-br from-blue-50 via-white to-slate-100 dark:from-black dark:via-[#111] dark:to-black`}>
+   362→      {/* Back button */}
+   363→      <button
+   364→        onClick={() => router.push('/')}
+   365→        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-fit mt-2"
+   366→      >
+   367→        <ArrowLeft className="w-4 h-4" />
+   368→        Kembali
+   369→      </button>
+   370→
+   371→      <div className="flex-1 flex items-center justify-center">
+   372→      <div className="w-full max-w-md">
+   373→        {/* Logo and Title */}
+   374→        <div className="text-center mb-8 flex flex-col items-center">
+   375→          <div className="relative mb-6">
+   376→            <img
+   377→              src={'/logo-ds.png'}
+   378→              alt="Logo"
+   379→              className="w-[134px] h-[134px] rounded-2xl object-contain mx-auto shadow-none"
+   380→            />
+   381→          </div>
+   382→          <h1 className="text-3xl font-bold text-foreground">{t('app_name')}</h1>
+   383→          <p className="text-muted-foreground mt-2 text-base">{t('app_tagline')}</p>
+   384→        </div>
+   385→
+   386→        {/* Card */}
+   387→        <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+   388→          {/* Tabs */}
+   389→          <div className="flex border-b border-border">
+   390→            <button
+   391→              onClick={() => setActiveTab('login')}
+   392→              className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
+   393→                activeTab === 'login'
+   394→                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
+   395→                  : 'text-muted-foreground hover:text-foreground'
+   396→              }`}
+   397→            >
+   398→              {t('masuk')}
+   399→            </button>
+   400→            <button
+   401→              onClick={() => setActiveTab('register')}
+   402→              className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
+   403→                activeTab === 'register'
+   404→                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
+   405→                  : 'text-muted-foreground hover:text-foreground'
+   406→              }`}
+   407→            >
+   408→              {t('daftar_akun')}
+   409→            </button>
+   410→          </div>
+   411→
+   412→          {/* Form Content */}
+   413→          <div className="p-6">
+   414→            {activeTab === 'login' ? (
+   415→              <form onSubmit={handleLogin} className="space-y-4">
+   416→                {/* Error Message */}
+   417→                {loginError && (
+   418→                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
+   419→                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+   420→                    {loginError}
+   421→                  </div>
+   422→                )}
+   423→
+   424→                <div>
+   425→                  <label className="block text-sm font-medium text-foreground mb-1">
+   426→                    {t('username')}
+   427→                  </label>
+   428→                  <input
+   429→                    type="text"
+   430→                    placeholder={t('masukkan_username')}
+   431→                    required
+   432→                    autoComplete="username"
+   433→                    autoCapitalize="none"
+   434→                    autoCorrect="off"
+   435→                    spellCheck={false}
+   436→                    value={username}
+   437→                    onChange={(e) => { setUsername(e.target.value); setLoginError('') }}
+   438→                    className="w-full border border-input rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   439→                  />
+   440→                </div>
+   441→                <div>
+   442→                  <label className="block text-sm font-medium text-foreground mb-1">
+   443→                    {t('password')}
+   444→                  </label>
+   445→                  <div className="relative">
+   446→                    <input
+   447→                      type={showPassword ? 'text' : 'password'}
+   448→                      placeholder={t('masukkan_password')}
+   449→                      required
+   450→                      autoComplete="current-password"
+   451→                      autoCapitalize="none"
+   452→                      autoCorrect="off"
+   453→                      spellCheck={false}
+   454→                      value={password}
+   455→                      onChange={(e) => { setPassword(e.target.value); setLoginError('') }}
+   456→                      className="w-full border border-input rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   457→                    />
+   458→                    <button
+   459→                      type="button"
+   460→                      tabIndex={-1}
+   461→                      onClick={() => setShowPassword(!showPassword)}
+   462→                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
+   463→                    >
+   464→                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   465→                    </button>
+   466→                  </div>
+   467→                </div>
+   468→                <button
+   469→                  type="submit"
+   470→                  disabled={loginLoading}
+   471→                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+   472→                >
+   473→                  {loginLoading ? (
+   474→                    <>
+   475→                      <Loader2 className="w-4 h-4 animate-spin" />
+   476→                      {t('memproses')}
+   477→                    </>
+   478→                  ) : (
+   479→                    t('masuk')
+   480→                  )}
+   481→                </button>
+   482→                <div className="flex items-center justify-between">
+   483→                  <p className="text-sm text-muted-foreground">
+   484→                    {t('belum_punya_akun')}{' '}
+   485→                    <button
+   486→                      type="button"
+   487→                      onClick={() => setActiveTab('register')}
+   488→                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+   489→                    >
+   490→                      {t('daftar_sekarang')}
+   491→                    </button>
+   492→                  </p>
+   493→                  <button
+   494→                    type="button"
+   495→                    onClick={() => { resetFpFields(); setShowForgotPassword(true) }}
+   496→                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+   497→                  >
+   498→                    {t('lupa_password')}
+   499→                  </button>
+   500→                </div>
+   501→              </form>
+   502→            ) : regSuccess ? (
+   503→              <div className="text-center py-4 space-y-4">
+   504→                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
+   505→                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+   506→                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+   507→                  </svg>
+   508→                </div>
+   509→                <div>
+   510→                  <h3 className="text-lg font-bold text-foreground">Pendaftaran Berhasil!</h3>
+   511→                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+   512→                    Akun Anda telah berhasil didaftarkan. Silakan tunggu konfirmasi dari administrator sebelum dapat login.
+   513→                  </p>
+   514→                </div>
+   515→                <button
+   516→                  type="button"
+   517→                  onClick={() => {
+   518→                    setRegSuccess(false)
+   519→                    setActiveTab('login')
+   520→                    setRegNamaLengkap('')
+   521→                    setRegNomorHP('')
+   522→                    setRegEmail('')
+   523→                    setRegUsername('')
+   524→                    setRegPassword('')
+   525→                    setRegConfirmPassword('')
+   526→                  }}
+   527→                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   528→                >
+   529→                  Kembali ke Login
+   530→                </button>
+   531→              </div>
+   532→            ) : (
+   533→              <form onSubmit={handleRegister} className="space-y-3">
+   534→                {/* Error Message */}
+   535→                {regError && (
+   536→                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
+   537→                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+   538→                    {regError}
+   539→                  </div>
+   540→                )}
+   541→
+   542→                {/* Nama Lengkap */}
+   543→                <div>
+   544→                  <label className="block text-sm font-medium text-foreground mb-1">
+   545→                    {t('nama_lengkap')}
+   546→                  </label>
+   547→                  <div className="relative">
+   548→                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   549→                    <input
+   550→                      type="text"
+   551→                      placeholder="Masukkan nama lengkap"
+   552→                      required
+   553→                      value={regNamaLengkap}
+   554→                      onChange={(e) => setRegNamaLengkap(e.target.value)}
+   555→                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   556→                    />
+   557→                  </div>
+   558→                </div>
+   559→
+   560→                {/* Nomor Handphone */}
+   561→                <div>
+   562→                  <label className="block text-sm font-medium text-foreground mb-1">
+   563→                    {t('nomor_handphone')}
+   564→                  </label>
+   565→                  <div className="relative">
+   566→                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   567→                    <input
+   568→                      type="tel"
+   569→                      placeholder="Contoh: 081234567890"
+   570→                      required
+   571→                      value={regNomorHP}
+   572→                      onChange={(e) => setRegNomorHP(e.target.value)}
+   573→                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   574→                    />
+   575→                  </div>
+   576→                </div>
+   577→
+   578→                {/* Email */}
+   579→                <div>
+   580→                  <label className="block text-sm font-medium text-foreground mb-1">
+   581→                    {t('email')}
+   582→                  </label>
+   583→                  <div className="relative">
+   584→                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   585→                    <input
+   586→                      type="email"
+   587→                      placeholder="email@contoh.com"
+   588→                      required
+   589→                      value={regEmail}
+   590→                      onChange={(e) => setRegEmail(e.target.value)}
+   591→                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   592→                    />
+   593→                  </div>
+   594→                </div>
+   595→
+   596→                {/* Username */}
+   597→                <div>
+   598→                  <label className="block text-sm font-medium text-foreground mb-1">
+   599→                    {t('username')} <span className="text-xs text-muted-foreground">(minimal 3 karakter)</span>
+   600→                  </label>
+   601→                  <div className="relative">
+   602→                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   603→                    <input
+   604→                      type="text"
+   605→                      placeholder="Buat username"
+   606→                      required
+   607→                      autoComplete="username"
+   608→                      autoCapitalize="none"
+   609→                      autoCorrect="off"
+   610→                      spellCheck={false}
+   611→                      minLength={3}
+   612→                      value={regUsername}
+   613→                      onChange={(e) => setRegUsername(e.target.value)}
+   614→                      className={`w-full border rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+   615→                        regUsername.length > 0 && regUsername.length < 3 ? 'border-red-300' : 'border-input'
+   616→                      }`}
+   617→                    />
+   618→                  </div>
+   619→                  {regUsername.length > 0 && regUsername.length < 3 && (
+   620→                    <p className="text-xs text-red-500 mt-1">Username harus minimal 3 karakter ({regUsername.length}/3)</p>
+   621→                  )}
+   622→                </div>
+   623→
+   624→                {/* Password */}
+   625→                <div>
+   626→                  <label className="block text-sm font-medium text-foreground mb-1">
+   627→                    {t('password')} <span className="text-xs text-muted-foreground">(minimal 6 karakter)</span>
+   628→                  </label>
+   629→                  <div className="relative">
+   630→                    <input
+   631→                      type={showPassword ? 'text' : 'password'}
+   632→                      placeholder="Buat password"
+   633→                      required
+   634→                      autoComplete="new-password"
+   635→                      autoCapitalize="none"
+   636→                      autoCorrect="off"
+   637→                      spellCheck={false}
+   638→                      minLength={6}
+   639→                      value={regPassword}
+   640→                      onChange={(e) => setRegPassword(e.target.value)}
+   641→                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+   642→                        regPassword.length > 0 && regPassword.length < 6 ? 'border-red-300' : 'border-input'
+   643→                      }`}
+   644→                    />
+   645→                    <button
+   646→                      type="button"
+   647→                      tabIndex={-1}
+   648→                      onClick={() => setShowPassword(!showPassword)}
+   649→                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
+   650→                    >
+   651→                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   652→                    </button>
+   653→                  </div>
+   654→                  {regPassword.length > 0 && regPassword.length < 6 && (
+   655→                    <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({regPassword.length}/6)</p>
+   656→                  )}
+   657→                </div>
+   658→
+   659→                {/* Konfirmasi Password */}
+   660→                <div>
+   661→                  <label className="block text-sm font-medium text-foreground mb-1">
+   662→                    {t('konfirmasi_password')}
+   663→                  </label>
+   664→                  <div className="relative">
+   665→                    <input
+   666→                      type={showConfirmPassword ? 'text' : 'password'}
+   667→                      placeholder="Ulangi password"
+   668→                      required
+   669→                      autoComplete="new-password"
+   670→                      autoCapitalize="none"
+   671→                      autoCorrect="off"
+   672→                      spellCheck={false}
+   673→                      minLength={6}
+   674→                      value={regConfirmPassword}
+   675→                      onChange={(e) => setRegConfirmPassword(e.target.value)}
+   676→                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+   677→                        regConfirmPassword.length > 0 && regConfirmPassword !== regPassword ? 'border-red-300' : 'border-input'
+   678→                      }`}
+   679→                    />
+   680→                    <button
+   681→                      type="button"
+   682→                      tabIndex={-1}
+   683→                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+   684→                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
+   685→                    >
+   686→                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   687→                    </button>
+   688→                  </div>
+   689→                  {regConfirmPassword.length > 0 && regConfirmPassword !== regPassword && (
+   690→                    <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
+   691→                  )}
+   692→                </div>
+   693→
+   694→                <button
+   695→                  type="submit"
+   696→                  disabled={regLoading}
+   697→                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+   698→                >
+   699→                  {regLoading ? (
+   700→                    <>
+   701→                      <Loader2 className="w-4 h-4 animate-spin" />
+   702→                      {t('mendaftar')}
+   703→                    </>
+   704→                  ) : (
+   705→                    t('daftar_akun')
+   706→                  )}
+   707→                </button>
+   708→
+   709→                <p className="text-center text-sm text-muted-foreground">
+   710→                  {t('sudah_punya_akun')}{' '}
+   711→                  <button
+   712→                    type="button"
+   713→                    onClick={() => setActiveTab('login')}
+   714→                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+   715→                  >
+   716→                    {t('login_sekarang')}
+   717→                  </button>
+   718→                </p>
+   719→              </form>
+   720→            )}
+   721→          </div>
+   722→        </div>
+   723→
+   724→        <p className="text-center text-xs text-muted-foreground mt-6">
+   725→          &copy; Copyright by Darrell Soft 2026 All rights reserved
+   726→        </p>
+   727→      </div>
+   728→      </div>
+   729→
+   730→      {/* ===== FORGOT PASSWORD DIALOG ===== */}
+   731→      {showForgotPassword && (
+   732→        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+   733→          <div className="bg-card rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+   734→            <div className="flex items-start gap-3 mb-5">
+   735→              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+   736→                <KeyRound className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+   737→              </div>
+   738→              <div className="flex-1">
+   739→                <h3 className="text-lg font-bold text-foreground">Lupa Password?</h3>
+   740→                <p className="text-xs text-muted-foreground mt-0.5">Atur ulang password Anda melalui email.</p>
+   741→              </div>
+   742→              <button
+   743→                type="button"
+   744→                onClick={closeFpDialog}
+   745→                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+   746→              >
+   747→                <X className="w-4 h-4" />
+   748→              </button>
+   749→            </div>
+   750→
+   751→            {/* === SUCCESS STATE === */}
+   752→            {fpSuccess ? (
+   753→              <div className="space-y-4">
+   754→                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-4">
+   755→                  <div className="flex items-center gap-2 mb-2">
+   756→                    <CheckCircle className="w-5 h-5 text-green-600" />
+   757→                    <p className="text-sm font-semibold text-green-800 dark:text-green-400">Password Berhasil Diubah!</p>
+   758→                  </div>
+   759→                  <div className="ml-7">
+   760→                    <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">
+   761→                      Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
+   762→                    </p>
+   763→                  </div>
+   764→                </div>
+   765→                <button
+   766→                  type="button"
+   767→                  onClick={closeFpDialog}
+   768→                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   769→                >
+   770→                  Masuk Sekarang
+   771→                </button>
+   772→              </div>
+   773→            ) : !fpAccount ? (
+   774→              /* === STEP 1: Search account by email === */
+   775→              <form onSubmit={handleFpSearch} className="space-y-4">
+   776→                {fpError && (
+   777→                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
+   778→                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+   779→                    {fpError}
+   780→                  </div>
+   781→                )}
+   782→
+   783→                <div>
+   784→                  <label className="block text-sm font-medium text-foreground mb-1">Email</label>
+   785→                  <div className="relative">
+   786→                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   787→                    <input
+   788→                      type="email"
+   789→                      placeholder="Masukkan email akun Anda"
+   790→                      required
+   791→                      autoComplete="email"
+   792→                      value={fpEmail}
+   793→                      onChange={(e) => { setFpEmail(e.target.value); setFpError('') }}
+   794→                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   795→                    />
+   796→                  </div>
+   797→                  <p className="text-xs text-muted-foreground mt-1">Atur password baru langsung — tanpa perlu cek email.</p>
+   798→                </div>
+   799→
+   800→                <button
+   801→                  type="submit"
+   802→                  disabled={fpLoading}
+   803→                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+   804→                >
+   805→                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Mencari...</> : 'Cari Akun'}
+   806→                </button>
+   807→                <button
+   808→                  type="button"
+   809→                  onClick={closeFpDialog}
+   810→                  className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
+   811→                >
+   812→                  {t('kembali_ke_login')}
+   813→                </button>
+   814→              </form>
+   815→            ) : (
+   816→              /* === STEP 2: Enter new password directly === */
+   817→              <form onSubmit={handleFpReset} className="space-y-4">
+   818→                {fpError && (
+   819→                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
+   820→                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+   821→                    {fpError}
+   822→                  </div>
+   823→                )}
+   824→
+   825→                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-3">
+   826→                  <div className="flex items-center gap-2">
+   827→                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+   828→                    <p className="text-sm text-green-700 dark:text-green-400">
+   829→                      Akun <strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} ditemukan
+   830→                    </p>
+   831→                  </div>
+   832→                </div>
+   833→
+   834→                <div>
+   835→                  <label className="block text-sm font-medium text-foreground mb-1">
+   836→                    Password Baru <span className="text-xs text-muted-foreground">(minimal 6 karakter)</span>
+   837→                  </label>
+   838→                  <div className="relative">
+   839→                    <input
+   840→                      type={fpShowPassword ? 'text' : 'password'}
+   841→                      placeholder="Buat password baru"
+   842→                      required
+   843→                      minLength={6}
+   844→                      autoComplete="new-password"
+   845→                      value={fpNewPassword}
+   846→                      onChange={(e) => { setFpNewPassword(e.target.value); setFpError('') }}
+   847→                      className="w-full border border-input rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+   848→                    />
+   849→                    <button type="button" tabIndex={-1} onClick={() => setFpShowPassword(!fpShowPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5">
+   850→                      {fpShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   851→                    </button>
+   852→                  </div>
+   853→                  {fpNewPassword.length > 0 && fpNewPassword.length < 6 && (
+   854→                    <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({fpNewPassword.length}/6)</p>
+   855→                  )}
+   856→                </div>
+   857→
+   858→                <div>
+   859→                  <label className="block text-sm font-medium text-foreground mb-1">Konfirmasi Password Baru</label>
+   860→                  <div className="relative">
+   861→                    <input
+   862→                      type={fpShowConfirm ? 'text' : 'password'}
+   863→                      placeholder="Ulangi password baru"
+   864→                      required
+   865→                      minLength={6}
+   866→                      autoComplete="new-password"
+   867→                      value={fpConfirmPassword}
+   868→                      onChange={(e) => { setFpConfirmPassword(e.target.value); setFpError('') }}
+   869→                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+   870→                        fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword ? 'border-red-300' : 'border-input'
+   871→                      }`}
+   872→                    />
+   873→                    <button type="button" tabIndex={-1} onClick={() => setFpShowConfirm(!fpShowConfirm)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5">
+   874→                      {fpShowConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   875→                    </button>
+   876→                  </div>
+   877→                  {fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword && (
+   878→                    <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
+   879→                  )}
+   880→                </div>
+   881→
+   882→                <button
+   883→                  type="submit"
+   884→                  disabled={fpLoading || fpNewPassword.length < 6 || fpConfirmPassword.length < 6 || fpNewPassword !== fpConfirmPassword}
+   885→                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+   886→                >
+   887→                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Ubah Password'}
+   888→                </button>
+   889→
+   890→                <button
+   891→                  type="button"
+   892→                  onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
+   893→                  className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
+   894→                >
+   895→                  ← Ganti Email
+   896→                </button>
+   897→              </form>
+   898→            )}
+   899→          </div>
+   900→        </div>
+   901→      )}
+   902→
+   903→      {/* ===== DEMO POPUP DIALOG ===== */}
+   904→      {demoPopupOpen && (
+   905→        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+   906→          <div className="bg-card rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+   907→            <div className="flex items-start gap-3 mb-4">
+   908→              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+   909→                <Info className="w-5 h-5 text-amber-600" />
+   910→              </div>
+   911→              <div className="flex-1">
+   912→                <h3 className="text-lg font-bold text-foreground">Akun Demo</h3>
+   913→                {demoRemaining !== null && (
+   914→                  <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
+   915→                    {demoRemaining} {t('hari_tersisa')}
+   916→                  </p>
+   917→                )}
+   918→              </div>
+   919→            </div>
+   920→            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5">
+   921→              <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
+   922→            </div>
+   923→            <button
+   924→              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
+   925→              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   926→              autoFocus
+   927→            >
+   928→              Ok
+   929→            </button>
+   930→            <button
+   931→              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
+   932→              className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
+   933→            >
+   934→              Masuk ke Halaman Utama
+   935→            </button>
+   936→          </div>
+   937→        </div>
+   938→      )}
+   939→    </div>
+   940→  )
+   941→}
+   942→
