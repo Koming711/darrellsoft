@@ -18,12 +18,13 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
-  // Priority: dpAmountOverride > data.dpAmount (saved) > calculate from percentage
+  // Priority: dpAmountOverride > data.dpAmount (saved) > originalTotal * dpPercent > total * dpPercent
+  const originalTotalForDp = data.originalTotal !== undefined ? data.originalTotal : total;
   const dpAmount = dpAmountOverride !== undefined
     ? dpAmountOverride
     : data.dpAmount !== undefined
       ? data.dpAmount
-      : total * (dpPercent / 100);
+      : originalTotalForDp * (dpPercent / 100);
   const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 

@@ -84,8 +84,11 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0
     const dpPercent = parsed.dp || 0
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    // Use saved dpAmount if available, otherwise calculate from percentage
-    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : totalHarga * (dpPercent / 100)
+    // Use saved dpAmount if available
+    // If not, use originalTotal * dpPercent to get the correct original DP (not affected by pelunasan additions)
+    // Only fall back to totalHarga * dpPercent if originalTotal is also missing
+    const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga
+    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : originalTotal * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
@@ -136,6 +139,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
       dpAmount: parsed.dpAmount,
+      originalTotal: parsed.originalTotal,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
@@ -262,11 +266,18 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
       if (updates.lunas !== undefined) parsed.lunas = updates.lunas
       if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
-      // Preserve/save dpAmount so DP doesn't change on restore
+      // NOTE: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
+      // Instead, save originalTotal if missing (from original items before pelunasan additions)
+      // and recalculate dpAmount from originalTotal only if it's missing.
+      if (parsed.originalTotal === undefined) {
+        const origItems = parsed.items || []
+        const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+        const origTot = origSub + (origSub * (parsed.ppn || 0) / 100)
+        parsed.originalTotal = origTot
+      }
       if (parsed.dpAmount === undefined && parsed.dp > 0) {
-        const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
-        const tot = sub + (sub * (parsed.ppn || 0) / 100)
-        parsed.dpAmount = tot * (parsed.dp / 100)
+        // Calculate dpAmount from originalTotal, NOT from current total
+        parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
       }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
@@ -704,11 +715,17 @@ function PelunasanTab() {
       } else {
         parsed.tanggalJatuhTempo = jatuhTempoDate
       }
-      // Preserve/save dpAmount so DP doesn't change on restore
+      // NOTE: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
+      // Instead, save originalTotal if missing and recalculate dpAmount from originalTotal only if it's missing.
+      if (parsed.originalTotal === undefined) {
+        const origItems = parsed.items || []
+        const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+        const origTot = origSub + (origSub * (parsed.ppn || 0) / 100)
+        parsed.originalTotal = origTot
+      }
       if (parsed.dpAmount === undefined && parsed.dp > 0) {
-        const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
-        const tot = sub + (sub * (parsed.ppn || 0) / 100)
-        parsed.dpAmount = tot * (parsed.dp / 100)
+        // Calculate dpAmount from originalTotal, NOT from current total
+        parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
       }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
