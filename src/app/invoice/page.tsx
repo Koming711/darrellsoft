@@ -404,6 +404,25 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     })
   }, [invoiceHistory, searchQuery])
 
+  // Separate invoices: "Invoice" vs "Invoice Pelunasan"
+  // Invoice Pelunasan = has DP AND is lunas (settled through pelunasan process)
+  // Invoice = everything else (no DP, or has DP but belum lunas)
+  const { invoiceList, pelunasanList } = useMemo(() => {
+    const invoiceList: HistoryEntry[] = []
+    const pelunasanList: HistoryEntry[] = []
+    filteredHistory.forEach(entry => {
+      const info = parseDocInfo(entry)
+      const hasDP = info.dpPercent > 0 || info.dp > 0
+      const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
+      if (hasDP && isLunas) {
+        pelunasanList.push(entry)
+      } else {
+        invoiceList.push(entry)
+      }
+    })
+    return { invoiceList, pelunasanList }
+  }, [filteredHistory])
+
   return (
     <>
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -411,7 +430,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-violet-600" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice</h2>
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice V3</h2>
             <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{invoiceHistory.length} data</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -435,94 +454,192 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           </div>
         )}
 
-        {/* Table / Cards */}
+        {/* Table / Cards - v2 */}
         {loading ? (
           <div className="px-4 py-6 text-center"><Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p></div>
-        ) : filteredHistory.length > 0 ? (
-          <>
-            {/* Mobile */}
-            <div className="sm:hidden divide-y divide-slate-100">
-              {filteredHistory.slice(0, 100).map((entry) => {
-                const info = parseDocInfo(entry)
-                const hasDP = info.dpPercent > 0 || info.dp > 0
-                // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
-                const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
-                return (
-                  <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="min-w-0 flex items-center gap-2">
-                        <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                        <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
-                          {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
-                        </button>
-                      </div>
-                      <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
-                        <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                        {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                        <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            {/* Desktop */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-[13px] min-w-[800px]">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
-                    <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
-                    <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                    <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
-                    <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHistory.slice(0, 100).map((entry, idx) => {
+        ) : (invoiceList.length > 0 || pelunasanList.length > 0) ? (
+          <div className="divide-y divide-slate-200">
+            {/* === INVOICE SECTION === */}
+            {invoiceList.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-violet-50/60">
+                  <FileText className="w-3.5 h-3.5 text-violet-600" />
+                  <h3 className="text-xs font-bold text-violet-700 uppercase tracking-wide">Invoice</h3>
+                  <span className="text-[9px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{invoiceList.length}</span>
+                </div>
+                {/* Mobile */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {invoiceList.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
                     const hasDP = info.dpPercent > 0 || info.dp > 0
-                    // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
                     const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
                     return (
-                      <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                        <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
-                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
-                        <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                        <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
-                        <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
-                        <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
-                        <td className="py-3 px-3 text-center">
-                          <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
-                            {isLunas ? <><CheckCircle2 className="w-3 h-3" /> Lunas</> : <><CircleDot className="w-3 h-3" /> Belum</>}
-                          </button>
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+                      <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+                            <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+                              {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
+                            </button>
+                          </div>
+                          <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                             {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
                             <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     )
                   })}
-                </tbody>
-              </table>
-            </div>
-          </>
+                </div>
+                {/* Desktop */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-[13px] min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80">
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
+                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceList.slice(0, 100).map((entry, idx) => {
+                        const info = parseDocInfo(entry)
+                        const hasDP = info.dpPercent > 0 || info.dp > 0
+                        const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
+                        return (
+                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                            <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
+                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
+                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
+                            <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
+                            <td className="py-3 px-3 text-center">
+                              <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+                                {isLunas ? <><CheckCircle2 className="w-3 h-3" /> Lunas</> : <><CircleDot className="w-3 h-3" /> Belum</>}
+                              </button>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+                                {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* === INVOICE PELUNASAN SECTION === */}
+            {pelunasanList.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-50/60">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                  <h3 className="text-xs font-bold text-green-700 uppercase tracking-wide">Invoice Pelunasan</h3>
+                  <span className="text-[9px] font-medium text-green-500 bg-green-100 px-1.5 py-0.5 rounded-full">{pelunasanList.length}</span>
+                </div>
+                {/* Mobile */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {pelunasanList.slice(0, 100).map((entry) => {
+                    const info = parseDocInfo(entry)
+                    return (
+                      <div key={entry.id} className="px-4 py-3 hover:bg-green-50/30 active:bg-green-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-700">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Lunas
+                            </span>
+                          </div>
+                          <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Desktop */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-[13px] min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-green-50/40">
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa</th>
+                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl Pelunasan</th>
+                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pelunasanList.slice(0, 100).map((entry, idx) => {
+                        const info = parseDocInfo(entry)
+                        return (
+                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-green-50/30 transition-colors ${idx % 2 === 1 ? 'bg-green-50/20' : ''}`}>
+                            <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
+                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
+                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
+                            <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
+                            <td className="py-3 px-3 text-violet-600 text-right whitespace-nowrap">{formatRupiah(info.dp)} <span className="text-[10px] text-violet-400">({info.dpPercent}%)</span></td>
+                            <td className="py-3 px-3 text-red-600 font-semibold text-right whitespace-nowrap">{formatRupiah(info.sisa)}</td>
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center gap-0.5 text-green-700 text-[10px] font-semibold">
+                                <CheckCircle2 className="w-3 h-3" />
+                                {info.tanggalPelunasan ? new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="px-4 py-6 text-center"><History className="w-8 h-8 mx-auto text-slate-300 mb-2" /><p className="text-xs text-slate-400">Belum ada riwayat invoice</p></div>
         )}
