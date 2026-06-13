@@ -84,7 +84,7 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0
     const dpPercent = parsed.dp || 0
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    const dpAmount = totalHarga * (dpPercent / 100)
+    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : totalHarga * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''

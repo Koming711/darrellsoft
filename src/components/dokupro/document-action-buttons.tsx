@@ -69,6 +69,19 @@ export function DocumentActionButtons({
 
       const pihakKedua = data.client?.nama || data.penerima?.nama || data.pemasok?.nama || '-';
 
+      // For invoice: include calculated dpAmount so DP stays fixed after save
+      let dataToSave = currentData;
+      if (docType === 'invoice') {
+        const inv = currentData as Record<string, unknown>;
+        if (inv.dpAmount === undefined && inv.dp && Number(inv.dp) > 0) {
+          const items = (inv.items as Array<{ qty: number; harga: number }>) || [];
+          const sub = items.reduce((s, it) => s + it.qty * it.harga, 0);
+          const ppn = (inv.ppn as number) || 0;
+          const tot = sub + (sub * ppn / 100);
+          dataToSave = { ...currentData, dpAmount: tot * (Number(inv.dp) / 100) };
+        }
+      }
+
       const res = await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -78,7 +91,7 @@ export function DocumentActionButtons({
           tanggal: data.tanggal || '',
           pihakKedua,
           total: '-',
-          dataJson: JSON.stringify(currentData),
+          dataJson: JSON.stringify(dataToSave),
         }),
       });
 

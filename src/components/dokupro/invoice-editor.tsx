@@ -312,7 +312,8 @@ export function InvoiceEditor() {
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = invoice.dp || 0;
-  const dpAmount = total * (dpPercent / 100);
+  // Use saved dpAmount if available (preserves original DP when items change), otherwise calculate from percentage
+  const dpAmount = invoice.dpAmount !== undefined ? invoice.dpAmount : total * (dpPercent / 100);
   const sisa = total - dpAmount;
 
   const handleSuratJalan = async () => {
@@ -336,7 +337,7 @@ export function InvoiceEditor() {
           tanggal: invoice.tanggal || '',
           pihakKedua: invoice.client?.nama || '-',
           total: '-',
-          dataJson: JSON.stringify({ ...invoice, dpAmount }),
+          dataJson: JSON.stringify({ ...invoice, dpAmount: invoice.dpAmount !== undefined ? invoice.dpAmount : dpAmount }),
         }),
       });
       if (res.ok) {
