@@ -266,9 +266,9 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
       if (updates.lunas !== undefined) parsed.lunas = updates.lunas
       if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
-      // NOTE: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
-      // Instead, save originalTotal if missing (from original items before pelunasan additions)
-      // and recalculate dpAmount from originalTotal only if it's missing.
+      // CRITICAL: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
+      // Only save originalTotal and dpAmount if they are missing.
+      // If dpAmount is already saved, it's the correct fixed amount — always preserve it.
       if (parsed.originalTotal === undefined) {
         const origItems = parsed.items || []
         const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
@@ -715,8 +715,9 @@ function PelunasanTab() {
       } else {
         parsed.tanggalJatuhTempo = jatuhTempoDate
       }
-      // NOTE: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
-      // Instead, save originalTotal if missing and recalculate dpAmount from originalTotal only if it's missing.
+      // CRITICAL: Do NOT recalculate dpAmount from current total — it would be wrong if pelunasan items were added.
+      // Only save originalTotal and dpAmount if they are missing.
+      // If dpAmount is already saved, it's the correct fixed amount — always preserve it.
       if (parsed.originalTotal === undefined) {
         const origItems = parsed.items || []
         const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
