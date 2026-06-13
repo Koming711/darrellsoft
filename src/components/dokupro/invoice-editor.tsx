@@ -14,9 +14,10 @@ import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
-import { Truck } from 'lucide-react';
+import { Truck, ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { toJpeg } from 'html-to-image';
 import type { InvoiceData } from '@/lib/types';
 
 interface CustomerItem {
@@ -75,6 +76,7 @@ export function InvoiceEditor() {
   const riwayatIdFromUrl = searchParams.get('riwayatId');
   const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
   const [savingSj, setSavingSj] = useState(false);
+  const [jpgGenerating, setJpgGenerating] = useState(false);
 
   // Riwayat cetakan dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatCetakanItem[]>([]);
@@ -362,6 +364,34 @@ export function InvoiceEditor() {
     setSavingSj(false);
   };
 
+  // Generate JPG from preview (same as print output)
+  const handleGenerateJpg = async () => {
+    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+    if (!previewEl) {
+      toast.error('Preview tidak ditemukan');
+      return;
+    }
+    setJpgGenerating(true);
+    try {
+      const dataUrl = await toJpeg(previewEl, {
+        quality: 0.95,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+      const fileName = `Invoice-${invoice.nomor || 'draft'}.jpg`;
+      const link = document.createElement('a');
+      link.download = fileName;
+      link.href = dataUrl;
+      link.click();
+      toast.success('JPG berhasil didownload');
+    } catch (err) {
+      console.error('Failed to generate JPG:', err);
+      toast.error('Gagal membuat JPG');
+    } finally {
+      setJpgGenerating(false);
+    }
+  };
+
   return (
     <>
       <DocumentEditorLayout
@@ -375,6 +405,18 @@ export function InvoiceEditor() {
               currentData={invoice}
               onReset={() => resetDocument('invoice')}
             />
+            <Button
+              size="sm"
+              onClick={handleGenerateJpg}
+              disabled={jpgGenerating}
+              className="bg-violet-600 hover:bg-violet-700 text-white h-8 sm:h-9"
+            >
+              {jpgGenerating ? (
+                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Membuat...</>
+              ) : (
+                <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>
+              )}
+            </Button>
             <Button
               size="sm"
               onClick={handleSuratJalan}
