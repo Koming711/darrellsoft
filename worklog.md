@@ -62,3 +62,28 @@ Stage Summary:
 - DP is calculated from originalTotal (not current total) when dpAmount is not saved
 - Pelunasan editor has manual DP amount field for correcting wrong values
 - Existing data may still show wrong DP until re-saved through the pelunasan editor
+
+---
+Task ID: 2
+Agent: main
+Task: Fix DP recalculation bug permanently - always derive dpAmount from originalTotal
+
+Work Log:
+- Deleted image files: fitur-1.jpeg through fitur-5.jpeg, fitur-image.jpeg, fitur-small-1.jpeg, fitur-small-2.jpeg, invoice-editor-pelunasan-tab.png, invoice-editor-tab.png, invoice-page-riwayat-tab.png, invoice-pelunasan-tab.png, shot-sidebar-from-pembukaan.png (already deleted from previous session), and editor-pelunasan-verify.png
+- Investigated DP recalculation bug in depth: traced data flow through database, API, and all frontend components
+- Found root cause: previous fix relied on saved dpAmount values which could be stale/incorrect. The code checked `parsed.dpAmount !== undefined` and used the saved value even if it was wrong (recalculated from current total by older code)
+- Applied comprehensive fix: changed ALL dpAmount calculations to ALWAYS derive from originalTotal instead of using saved dpAmount values:
+  1. `parseDocInfo` in invoice/page.tsx - now always uses `originalTotal * dpPercent / 100`
+  2. `parseDocInfo` in invoice-pelunasan-editor.tsx - same change
+  3. `InvoicePreview` component - now derives dpAmount from originalTotal (only dpAmountOverride for real-time preview)
+  4. `invoice-editor.tsx` dpAmount calculation - same change
+  5. All save handlers now ALWAYS recalculate dpAmount from originalTotal (not just when undefined)
+- Verified database data: dpAmount=1300000, originalTotal=2600000 for test invoice (correct values)
+- Verified app compiles without errors
+
+Stage Summary:
+- dpAmount is now a DERIVED value (always = originalTotal * dpPercent / 100), never stored as a potentially-stale value
+- This eliminates the possibility of incorrect dpAmount values from older saves
+- For the example: invoice 2,600,000 with DP 50% → DP stays 1,300,000 even after adding ongkir 150,000
+- Sisa pembayaran = newTotal - dpAmount = 2,750,000 - 1,300,000 = 1,450,000 (correct)
+- dpAmountOverride is still used in pelunasan editor for real-time preview before saving
