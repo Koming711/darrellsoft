@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Sidebar, MobileHeader } from './sidebar'
+import { Sidebar, MobileHeader, MobileBottomNav } from './sidebar'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
@@ -333,7 +333,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         />
         <div className="transition-all duration-300">
           <MobileHeader onMenuToggle={() => setSidebarOpen(!sidebarOpen)} username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
-          <main className="p-4 lg:p-8">
+          <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
               <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
                 <Lock className="w-9 h-9 text-amber-500" />
@@ -387,11 +387,14 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           userProfile={userProfile}
         />
 
-        {/* Main Content */}
-        <main className="p-4 lg:p-8">
+        {/* Main Content — extra bottom padding on mobile for bottom nav */}
+        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
           {children}
         </main>
       </div>
+
+      {/* ===== Mobile Bottom Navigation ===== */}
+      <MobileBottomNav role={user?.role} onMoreClick={() => setSidebarOpen(true)} />
 
       {/* ===== MODAL: ACCOUNT EXPIRED ===== */}
       {accountExpired && sessionWarning && (

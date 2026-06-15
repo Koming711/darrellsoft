@@ -25,6 +25,8 @@ import {
   BookOpen,
   Store,
   ShoppingBag,
+  Home,
+  MoreHorizontal,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -170,6 +172,35 @@ const menuItems = [
   },
 ]
 
+// Bottom nav items — the 4 main items shown in the mobile bottom bar
+// + "More" button that opens the full sidebar
+const bottomNavItems = [
+  {
+    titleKey: 'pembukaan' as TranslationKey,
+    href: '/pembukaan',
+    icon: Home,
+    featureId: 'pembukaan',
+  },
+  {
+    titleKey: 'potong_kertas' as TranslationKey,
+    href: '/potong-kertas',
+    icon: Scissors,
+    featureId: 'potong-kertas',
+  },
+  {
+    titleKey: 'hitung_cetakan' as TranslationKey,
+    href: '/hitung-cetakan',
+    icon: Calculator,
+    featureId: 'hitung-cetakan',
+  },
+  {
+    titleKey: 'invoice' as TranslationKey,
+    href: '/invoice',
+    icon: Receipt,
+    featureId: 'invoice',
+  },
+]
+
 interface SidebarProps {
   username?: string
   role?: string
@@ -205,24 +236,27 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — only visible on lg+ (desktop sidebar) or when sidebar is explicitly opened on mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onToggle}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — slide-in overlay on mobile, always visible on lg+ */}
       <div
         className={cn(
           "fixed left-0 top-0 z-50 h-screen w-52 flex flex-col transition-transform duration-300 ease-in-out",
           "[background-color:var(--app-sidebar-bg)] [border-color:var(--app-sidebar-border)]",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          // On mobile: hidden by default, slides in when isOpen
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          // On desktop (lg+): always visible
+          "lg:translate-x-0"
         )}
       >
-        {/* Close button - top right */}
-        <div className="flex justify-end px-2 pt-2">
+        {/* Close button - only on mobile */}
+        <div className="flex justify-end px-2 pt-2 lg:hidden">
           <button
             onClick={onToggle}
             className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--app-sidebar-text-muted)' }}
@@ -279,7 +313,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                     style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                   >
                     <item.icon className="w-4 h-4 flex-shrink-0" />
-                    <span className={cn("transition-opacity", !isOpen && "lg:opacity-100 opacity-0")}>{t(item.titleKey)}</span>
+                    <span>{t(item.titleKey)}</span>
                   </Link>
                   <div className="ml-4 lg:ml-8 mt-1 space-y-1">
                     {item.submenu
@@ -298,7 +332,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                           style={pathname === subItem.href ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text-muted)' }}
                         >
                           <subItem.icon className="w-4 h-4 flex-shrink-0" />
-                          <span className={cn("transition-opacity", !isOpen && "lg:opacity-100 opacity-0")}>{t(subItem.titleKey)}</span>
+                          <span>{t(subItem.titleKey)}</span>
                         </Link>
                       ))
                     }
@@ -318,7 +352,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                   style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
-                  <span className={cn("transition-opacity flex-1", !isOpen && "lg:opacity-100 opacity-0")}>{t(item.titleKey)}</span>
+                  <span className="flex-1">{t(item.titleKey)}</span>
                   {item.isPro && (
                     <span className="text-[9px] font-bold px-1.5 py-px rounded bg-amber-500 text-white leading-tight">PRO</span>
                   )}
@@ -332,7 +366,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         {/* User Info & Logout */}
         <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--app-sidebar-border)' }}>
           {username && (
-            <div className={cn("mb-1.5 px-2 py-1.5 rounded-md transition-opacity", !isOpen && "lg:opacity-100 opacity-0")} style={{ backgroundColor: 'var(--app-sidebar-active-bg)' }}>
+            <div className="mb-1.5 px-2 py-1.5 rounded-md" style={{ backgroundColor: 'var(--app-sidebar-active-bg)' }}>
               <div className="flex items-center justify-between gap-1.5">
                 <p className="text-[14px] font-medium truncate" style={{ color: 'var(--app-sidebar-text)' }}>{username}</p>
                 {role && (
@@ -360,11 +394,83 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[15px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
-            <span className={cn("transition-opacity", !isOpen && "lg:opacity-100 opacity-0")}>{t('keluar')}</span>
+            <span>{t('keluar')}</span>
           </button>
         </div>
       </div>
     </>
+  )
+}
+
+// ===== Mobile Bottom Navigation Bar =====
+interface MobileBottomNavProps {
+  role?: string
+  onMoreClick: () => void
+}
+
+export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
+  const pathname = usePathname()
+  const { t } = useLanguage()
+
+  const isActive = (href: string) => {
+    if (href === '/potong-kertas') return pathname === '/potong-kertas'
+    if (href === '/pembukaan') return pathname === '/pembukaan'
+    return pathname.startsWith(href)
+  }
+
+  // Check which bottom nav items are accessible
+  const visibleItems = bottomNavItems.filter(item => {
+    if (!role || role === 'superadmin') return true
+    return hasFeatureAccess(role, item.featureId)
+  })
+
+  // Check if current page is one of the bottom nav items
+  const isOnBottomNavPage = visibleItems.some(item => isActive(item.href))
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t bg-white/95 backdrop-blur-md dark:bg-neutral-900/95 safe-area-bottom"
+      style={{ borderColor: 'var(--border)' }}
+    >
+      <div className="flex items-center justify-around h-14">
+        {visibleItems.map((item) => {
+          const active = isActive(item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+                active
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-neutral-400 dark:text-neutral-500'
+              )}
+            >
+              <item.icon className={cn('w-5 h-5', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
+              <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
+                {t(item.titleKey)}
+              </span>
+            </Link>
+          )
+        })}
+
+        {/* More button — opens the full sidebar */}
+        <button
+          onClick={onMoreClick}
+          className={cn(
+            'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+            !isOnBottomNavPage
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-neutral-400 dark:text-neutral-500'
+          )}
+        >
+          <MoreHorizontal className={cn('w-5 h-5', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
+          <span className={cn('text-[10px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
+            Lainnya
+          </span>
+        </button>
+      </div>
+    </nav>
   )
 }
 
@@ -379,13 +485,14 @@ export function MobileHeader({ onMenuToggle, username, title, subtitle, userProf
   return (
     <header className="px-3 py-3 lg:py-3 sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--app-banner-bg)', borderColor: 'var(--border)' }}>
       <div className="flex items-center gap-2 lg:gap-3">
+        {/* Hamburger menu — hidden on mobile (use bottom nav), visible on lg+ */}
         <button
           onClick={onMenuToggle}
-          className="p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--app-banner-text-muted)' }}
+          className="p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 hidden lg:flex" style={{ color: 'var(--app-banner-text-muted)' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.06)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
-          <Menu className="w-6 h-6 lg:w-5 lg:h-5" />
+          <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="flex-shrink-0">
