@@ -429,27 +429,25 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t bg-white/95 backdrop-blur-md dark:bg-neutral-900/95 safe-area-bottom"
-      style={{ borderColor: 'var(--border)' }}
+      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t bg-white/95 backdrop-blur-md dark:bg-neutral-900/95"
+      style={{ borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="flex items-center justify-around h-14">
+      <div className="flex items-center justify-around h-12">
         {visibleItems.map((item) => {
           const active = isActive(item.href)
           return (
             <Link
               key={item.href}
               href={item.href}
+              title={t(item.titleKey)}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+                'flex items-center justify-center flex-1 h-full transition-colors',
                 active
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-neutral-400 dark:text-neutral-500'
               )}
             >
               <item.icon className={cn('w-5 h-5', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
-              <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
-                {t(item.titleKey)}
-              </span>
             </Link>
           )
         })}
@@ -457,17 +455,15 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
         {/* More button — opens the full sidebar */}
         <button
           onClick={onMoreClick}
+          title="Lainnya"
           className={cn(
-            'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+            'flex items-center justify-center flex-1 h-full transition-colors',
             !isOnBottomNavPage
               ? 'text-emerald-600 dark:text-emerald-400'
               : 'text-neutral-400 dark:text-neutral-500'
           )}
         >
           <MoreHorizontal className={cn('w-5 h-5', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
-          <span className={cn('text-[10px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
-            Lainnya
-          </span>
         </button>
       </div>
     </nav>

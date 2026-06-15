@@ -768,3 +768,20 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Mobile content bottom padding — accounts for bottom nav + safe area */
+.mobile-content-bottom {
+  padding-bottom: 4.5rem; /* 72px — enough for 48px nav + some space */
+}
+
+@supports (padding-bottom: max(1px, env(safe-area-inset-bottom, 0px))) {
+  .mobile-content-bottom {
+    padding-bottom: max(4.5rem, calc(3rem + env(safe-area-inset-bottom, 0px) + 0.5rem));
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobile-content-bottom {
+    padding-bottom: 2rem !important; /* lg:pb-8 = 2rem */
+  }
+}
+
