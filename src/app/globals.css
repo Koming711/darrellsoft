@@ -763,3 +763,8 @@
   font-size: 13px !important;
 }
 
+/* ===== Mobile Bottom Nav Safe Area ===== */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
