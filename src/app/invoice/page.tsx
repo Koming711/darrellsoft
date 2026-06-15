@@ -84,18 +84,20 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0
     const dpPercent = parsed.dp || 0
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    // ALWAYS derive dpAmount from originalTotal — single source of truth.
-    // Never use saved dpAmount which could have been recalculated from current total incorrectly.
+    // Always derive dpAmount from originalTotal
     const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga
-    const dpAmount = dpPercent > 0 ? originalTotal * (dpPercent / 100) : 0
+    const dpAmount = originalTotal * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
     const tanggalPelunasan = parsed.tanggalPelunasan || ''
     const referensi = parsed.referensi || ''
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensi }
+    const referensiInvoiceNomor = parsed.referensiInvoiceNomor || ''
+    const isPelunasan = entry.docType === 'invoice-pelunasan'
+    const uangCapek = parsed.uangCapek || 0
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '' }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0 }
   }
 }
 
@@ -127,8 +129,9 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       satuan: it.satuan || '',
       harga: it.harga || 0,
     }))
+    const docType = (entry.docType === 'invoice-pelunasan' ? 'invoice-pelunasan' : 'invoice') as 'invoice' | 'invoice-pelunasan'
     return {
-      type: 'invoice',
+      type: docType,
       company,
       nomor: parsed.nomor || entry.nomor || '',
       tanggal: parsed.tanggal || entry.tanggal || '',
@@ -138,17 +141,21 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
       dpAmount: parsed.dpAmount,
-      originalTotal: parsed.originalTotal,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
       lunas: parsed.lunas === true,
       tanggalPelunasan: parsed.tanggalPelunasan || '',
+      referensiInvoiceId: parsed.referensiInvoiceId || '',
+      referensiInvoiceNomor: parsed.referensiInvoiceNomor || '',
+      originalTotal: parsed.originalTotal,
+      uangCapek: parsed.uangCapek || 0,
     }
   } catch {
+    const docType = (entry.docType === 'invoice-pelunasan' ? 'invoice-pelunasan' : 'invoice') as 'invoice' | 'invoice-pelunasan'
     return {
-      type: 'invoice',
+      type: docType,
       company: { ...DEFAULT_COMPANY },
       nomor: entry.nomor || '',
       tanggal: entry.tanggal || '',
@@ -163,6 +170,9 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalGiro: '',
       lunas: false,
       tanggalPelunasan: '',
+      referensiInvoiceId: '',
+      referensiInvoiceNomor: '',
+      uangCapek: 0,
     }
   }
 }
@@ -173,7 +183,9 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
 function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const { user } = useAuth()
   const setInvoice = useDokuproStore((s) => s.setInvoice)
+  const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId)
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
+  const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -190,16 +202,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [pelunasanToggle, setPelunasanToggle] = useState(false)
   const [pelunasanDate, setPelunasanDate] = useState('')
   const [jatuhTempoDate, setJatuhTempoDate] = useState('')
+  const [pelunasanHistory, setPelunasanHistory] = useState<HistoryEntry[]>([])
 
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true)
       const headers = getAuthHeaders()
-      const res = await fetch('/api/history?docType=invoice', { headers })
-      if (res.ok) {
-        const json = await res.json()
-        setInvoiceHistory(json.data || [])
-      }
+      // Fetch both invoice and invoice-pelunasan
+      const [invRes, pelRes] = await Promise.all([
+        fetch('/api/history?docType=invoice', { headers }),
+        fetch('/api/history?docType=invoice-pelunasan', { headers }),
+      ])
+      const invData = invRes.ok ? (await invRes.json()).data || [] : []
+      const pelData = pelRes.ok ? (await pelRes.json()).data || [] : []
+      setInvoiceHistory(invData)
+      setPelunasanHistory(pelData)
     } catch (err) {
       console.error('Failed to fetch invoice history:', err)
     } finally {
@@ -207,15 +224,37 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     }
   }, [])
 
-  useEffect(() => {
-    fetchHistory()
-  }, [fetchHistory])
+  // Fetch riwayat cetakan for uang capek calculation
+  const fetchCetakan = useCallback(async () => {
+    try {
+      const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        const mapped = (Array.isArray(data) ? data : []).map((r: { nomorUrut: string; printName: string; profitAmount: number }) => ({
+          nomorUrut: r.nomorUrut || '',
+          printName: r.printName || '',
+          profitAmount: r.profitAmount || 0,
+        }))
+        setCetakanList(mapped)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  // Combined history for search/filter
+  const allHistory = useMemo(() => [...invoiceHistory, ...pelunasanHistory], [invoiceHistory, pelunasanHistory])
 
   useEffect(() => {
-    const handler = () => fetchHistory()
+    fetchHistory()
+    fetchCetakan()
+  }, [fetchHistory, fetchCetakan])
+
+  useEffect(() => {
+    const handler = () => { fetchHistory(); fetchCetakan(); }
     window.addEventListener('dokupro:history-updated', handler)
     return () => window.removeEventListener('dokupro:history-updated', handler)
-  }, [fetchHistory])
+  }, [fetchHistory, fetchCetakan])
 
   useEffect(() => {
     if (!previewOpen) return
@@ -265,17 +304,14 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
       if (updates.lunas !== undefined) parsed.lunas = updates.lunas
       if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
-      // CRITICAL: dpAmount must ALWAYS be derived from originalTotal, never from current total.
-      // This ensures DP stays fixed even after pelunasan items are added.
-      if (parsed.originalTotal === undefined) {
-        const origItems = parsed.items || []
-        const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
-        const origTot = origSub + (origSub * (parsed.ppn || 0) / 100)
-        parsed.originalTotal = origTot
-      }
-      // ALWAYS recalculate dpAmount from originalTotal to fix any previously saved wrong values
-      if (parsed.dp > 0 && parsed.originalTotal !== undefined) {
-        parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
+      // Always derive dpAmount from originalTotal
+      if (parsed.dp > 0) {
+        const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : (() => {
+          const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+          return sub + (sub * (parsed.ppn || 0) / 100)
+        })()
+        parsed.dpAmount = originalTotal * (parsed.dp / 100)
+        parsed.originalTotal = originalTotal
       }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
@@ -396,32 +432,39 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   }
 
   const filteredHistory = useMemo(() => {
-    if (!searchQuery.trim()) return invoiceHistory
+    if (!searchQuery.trim()) return allHistory
     const q = searchQuery.toLowerCase().trim()
-    return invoiceHistory.filter(entry => {
+    return allHistory.filter(entry => {
       const info = parseDocInfo(entry)
       return entry.nomor?.toLowerCase().includes(q) || entry.pihakKedua?.toLowerCase().includes(q) || info.namaBarang?.toLowerCase().includes(q) || entry.tanggal?.toLowerCase().includes(q)
     })
-  }, [invoiceHistory, searchQuery])
+  }, [allHistory, searchQuery])
 
-  // Separate invoices: "Invoice" vs "Invoice Pelunasan"
-  // Invoice Pelunasan = has DP AND is lunas (settled through pelunasan process)
-  // Invoice = everything else (no DP, or has DP but belum lunas)
-  const { invoiceList, pelunasanList } = useMemo(() => {
-    const invoiceList: HistoryEntry[] = []
-    const pelunasanList: HistoryEntry[] = []
-    filteredHistory.forEach(entry => {
-      const info = parseDocInfo(entry)
-      const hasDP = info.dpPercent > 0 || info.dp > 0
-      const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
-      if (hasDP && isLunas) {
-        pelunasanList.push(entry)
-      } else {
-        invoiceList.push(entry)
+  // Separate into DP invoices and Pelunasan invoices
+  const dpInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice'), [filteredHistory])
+  const pelunasanInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice-pelunasan'), [filteredHistory])
+
+  // Calculate uang capek per invoice — use saved value from dataJson, fallback to cetakan lookup
+  const invoiceUangCapek = useMemo(() => {
+    const result = new Map<string, number>()
+    // Build cetakan lookup by both nomorUrut and printName (fallback for older data)
+    const cetakanByRef = new Map<string, number>()
+    for (const c of cetakanList) {
+      if (c.nomorUrut) {
+        cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
       }
-    })
-    return { invoiceList, pelunasanList }
-  }, [filteredHistory])
+      if (c.printName && !cetakanByRef.has(c.printName)) {
+        cetakanByRef.set(c.printName, (cetakanByRef.get(c.printName) || 0) + c.profitAmount)
+      }
+    }
+    for (const inv of dpInvoices) {
+      const info = parseDocInfo(inv)
+      // Prefer saved uangCapek from dataJson, fallback to cetakan lookup
+      const uangCapek = info.uangCapek > 0 ? info.uangCapek : (info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0)
+      result.set(inv.id, uangCapek)
+    }
+    return result
+  }, [dpInvoices, cetakanList])
 
   return (
     <>
@@ -430,8 +473,8 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-violet-600" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice V3</h2>
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{invoiceHistory.length} data</span>
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice</h2>
+            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{allHistory.length} data</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-7 gap-1.5 text-xs">
@@ -454,33 +497,30 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           </div>
         )}
 
-        {/* Table / Cards - v2 */}
+        {/* Table / Cards */}
         {loading ? (
           <div className="px-4 py-6 text-center"><Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p></div>
-        ) : (invoiceList.length > 0 || pelunasanList.length > 0) ? (
-          <div className="divide-y divide-slate-200">
-            {/* === INVOICE SECTION === */}
-            {invoiceList.length > 0 && (
+        ) : filteredHistory.length > 0 ? (
+          <>
+            {/* === INVOICE DP Section === */}
+            {dpInvoices.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-violet-50/60">
-                  <FileText className="w-3.5 h-3.5 text-violet-600" />
-                  <h3 className="text-xs font-bold text-violet-700 uppercase tracking-wide">Invoice</h3>
-                  <span className="text-[9px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{invoiceList.length}</span>
+                <div className="px-4 py-2 bg-violet-50/60 border-b border-violet-100">
+                  <p className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" />
+                    Invoice DP <span className="text-[10px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{dpInvoices.length}</span>
+                  </p>
                 </div>
                 {/* Mobile */}
                 <div className="sm:hidden divide-y divide-slate-100">
-                  {invoiceList.slice(0, 100).map((entry) => {
+                  {dpInvoices.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
-                    const hasDP = info.dpPercent > 0 || info.dp > 0
-                    const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
+                    const uc = invoiceUangCapek.get(entry.id) ?? 0
                     return (
                       <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="min-w-0 flex items-center gap-2">
                             <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                            <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
-                              {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
-                            </button>
                           </div>
                           <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
                         </div>
@@ -489,10 +529,11 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
                             <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
                             {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                            {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
+                            {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Uang Capek: {formatRupiah(uc)}</p>}
                           </div>
                           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
@@ -502,7 +543,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 </div>
                 {/* Desktop */}
                 <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-[13px] min-w-[800px]">
+                  <table className="w-full text-[13px] min-w-[1000px]">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/80">
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
@@ -511,15 +552,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
                         <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {invoiceList.slice(0, 100).map((entry, idx) => {
+                      {dpInvoices.slice(0, 100).map((entry, idx) => {
                         const info = parseDocInfo(entry)
-                        const hasDP = info.dpPercent > 0 || info.dp > 0
-                        const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
+                        const uc = invoiceUangCapek.get(entry.id) ?? 0
                         return (
                           <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                             <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
@@ -528,16 +570,13 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
                             <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
                             <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
-                            <td className="py-3 px-3 text-center">
-                              <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
-                                {isLunas ? <><CheckCircle2 className="w-3 h-3" /> Lunas</> : <><CircleDot className="w-3 h-3" /> Belum</>}
-                              </button>
-                            </td>
+                            <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
+                            <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
+                            <td className={`py-3 px-3 text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</td>
                             <td className="py-3 px-3 text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                {!isLunas && hasDP && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             </td>
@@ -550,37 +589,43 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
               </div>
             )}
 
-            {/* === INVOICE PELUNASAN SECTION === */}
-            {pelunasanList.length > 0 && (
+            {/* === INVOICE PELUNASAN Section === */}
+            {pelunasanInvoices.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-green-50/60">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                  <h3 className="text-xs font-bold text-green-700 uppercase tracking-wide">Invoice Pelunasan</h3>
-                  <span className="text-[9px] font-medium text-green-500 bg-green-100 px-1.5 py-0.5 rounded-full">{pelunasanList.length}</span>
+                <div className="px-4 py-2 bg-amber-50/60 border-b border-amber-100 border-t border-t-slate-200">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5" />
+                    Invoice Pelunasan <span className="text-[10px] font-medium text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">{pelunasanInvoices.length}</span>
+                  </p>
                 </div>
                 {/* Mobile */}
                 <div className="sm:hidden divide-y divide-slate-100">
-                  {pelunasanList.slice(0, 100).map((entry) => {
+                  {pelunasanInvoices.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
+                    const isLunas = info.lunas
                     return (
-                      <div key={entry.id} className="px-4 py-3 hover:bg-green-50/30 active:bg-green-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                      <div key={entry.id} className="px-4 py-3 hover:bg-amber-50/30 active:bg-amber-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="min-w-0 flex items-center gap-2">
-                            <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-700">
-                              <CheckCircle2 className="w-2.5 h-2.5" /> Lunas
-                            </span>
+                            <p className="text-amber-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+                            <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+                              {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
+                            </button>
                           </div>
-                          <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+                          <div className="text-right">
+                            <p className="text-emerald-700 font-semibold text-xs whitespace-nowrap">{formatRupiah(info.totalHarga)}</p>
+                            <p className="text-red-600 font-bold text-sm whitespace-nowrap">{formatRupiah(info.sisa)}</p>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
                             <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                            {info.referensiInvoiceNomor && <p className="text-slate-400 text-[11px]">Ref: {info.referensiInvoiceNomor}</p>}
                           </div>
                           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
@@ -590,44 +635,41 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 </div>
                 {/* Desktop */}
                 <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-[13px] min-w-[800px]">
+                  <table className="w-full text-[13px] min-w-[900px]">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-green-50/40">
+                      <tr className="border-b border-slate-200 bg-slate-50/80">
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. Invoice DP</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa</th>
-                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl Pelunasan</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Grand Total</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa Pembayaran</th>
+                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
                         <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {pelunasanList.slice(0, 100).map((entry, idx) => {
+                      {pelunasanInvoices.slice(0, 100).map((entry, idx) => {
                         const info = parseDocInfo(entry)
+                        const isLunas = info.lunas
                         return (
-                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-green-50/30 transition-colors ${idx % 2 === 1 ? 'bg-green-50/20' : ''}`}>
-                            <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-amber-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                            <td className="py-3 px-3 text-amber-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+                            <td className="py-3 px-3 text-violet-600 font-medium whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</td>
                             <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
                             <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
-                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
-                            <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
-                            <td className="py-3 px-3 text-violet-600 text-right whitespace-nowrap">{formatRupiah(info.dp)} <span className="text-[10px] text-violet-400">({info.dpPercent}%)</span></td>
-                            <td className="py-3 px-3 text-red-600 font-semibold text-right whitespace-nowrap">{formatRupiah(info.sisa)}</td>
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className="inline-flex items-center gap-0.5 text-green-700 text-[10px] font-semibold">
-                                <CheckCircle2 className="w-3 h-3" />
-                                {info.tanggalPelunasan ? new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}
-                              </span>
+                            <td className="py-3 px-3 text-emerald-700 font-semibold text-right whitespace-nowrap">{formatRupiah(info.totalHarga)}</td>
+                            <td className="py-3 px-3 text-red-600 font-bold text-right whitespace-nowrap">{formatRupiah(info.sisa)}</td>
+                            <td className="py-3 px-3 text-center">
+                              <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+                                {isLunas ? <><CheckCircle2 className="w-3 h-3" /> Lunas</> : <><CircleDot className="w-3 h-3" /> Belum</>}
+                              </button>
                             </td>
                             <td className="py-3 px-3 text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             </td>
@@ -639,7 +681,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 </div>
               </div>
             )}
-          </div>
+          </>
         ) : (
           <div className="px-4 py-6 text-center"><History className="w-8 h-8 mx-auto text-slate-300 mb-2" /><p className="text-xs text-slate-400">Belum ada riwayat invoice</p></div>
         )}
@@ -666,12 +708,12 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           {pelunasanDialogItem && (() => {
             const info = parseDocInfo(pelunasanDialogItem)
             const hasDP = info.dpPercent > 0 || info.dp > 0
-            // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
-            const isLunas = hasDP ? info.lunas : (info.lunas || info.sisa <= 0)
+            const isLunas = info.isPelunasan ? info.lunas : (hasDP ? info.lunas : (info.lunas || info.sisa <= 0))
             return (
               <div className="space-y-5 pt-1">
                 <div className="rounded-xl bg-slate-50 p-4 space-y-2">
-                  <div className="flex justify-between text-xs"><span className="text-slate-500">No. Invoice</span><span className="font-semibold text-slate-800">{pelunasanDialogItem.nomor}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500">No. Invoice</span><span className="font-semibold text-amber-800">{pelunasanDialogItem.nomor}</span></div>
+                  {info.referensiInvoiceNomor && <div className="flex justify-between text-xs"><span className="text-slate-500">Ref. Invoice DP</span><span className="font-medium text-violet-600">{info.referensiInvoiceNomor}</span></div>}
                   <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-medium text-slate-700">{pelunasanDialogItem.pihakKedua || '-'}</span></div>
                   <div className="border-t border-slate-200 pt-2 mt-1">
                     <div className="flex justify-between text-xs"><span className="text-slate-500">Total</span><span className="font-bold text-emerald-700">{formatRupiahShort(info.totalHarga)}</span></div>
@@ -716,7 +758,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
         <div className="fixed inset-0 z-50 bg-black/80 flex flex-col overflow-auto">
           <button onClick={() => setPreviewOpen(false)} className="sticky top-3 self-end z-10 mr-3 mt-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"><X className="w-4 h-4 text-slate-700" /></button>
           <div className="flex-1 flex items-center justify-center p-4 pb-20">
-            <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}><div data-invoice-preview><InvoicePreview data={invData} /></div></div>
+            <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}><div data-invoice-preview><InvoicePreview data={invData} showPelunasanLabel={invData.type === 'invoice-pelunasan'} /></div></div>
           </div>
           <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
             <Button onClick={handleSendJpg} disabled={sendingPdf} size="sm" className="bg-green-600 hover:bg-green-700 text-white">{sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}</Button>
@@ -746,13 +788,13 @@ function PelunasanTab() {
     try {
       setLoading(true)
       const headers = getAuthHeaders()
-      const res = await fetch('/api/history?docType=invoice', { headers })
+      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers })
       if (res.ok) {
         const json = await res.json()
         setInvoiceHistory(json.data || [])
       }
     } catch (err) {
-      console.error('Failed to fetch invoice history:', err)
+      console.error('Failed to fetch pelunasan invoice history:', err)
     } finally {
       setLoading(false)
     }
@@ -768,20 +810,19 @@ function PelunasanTab() {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory])
 
-  // Filter: only invoices with DP and not yet lunas
-  // Business rule: having DP means belum lunas, only explicit lunas flag marks it as paid
+  // Filter: only pelunasan invoices not yet lunas
   const pendingInvoices = useMemo(() => {
     return invoiceHistory.filter(entry => {
       const info = parseDocInfo(entry)
-      return (info.dpPercent > 0 || info.dp > 0) && !info.lunas
+      return !info.lunas
     })
   }, [invoiceHistory])
 
-  // Filter: invoices that are already lunas (with DP)
+  // Filter: pelunasan invoices that are already lunas
   const lunasInvoices = useMemo(() => {
     return invoiceHistory.filter(entry => {
       const info = parseDocInfo(entry)
-      return (info.dpPercent > 0 || info.dp > 0) && info.lunas
+      return info.lunas
     })
   }, [invoiceHistory])
 
@@ -830,17 +871,16 @@ function PelunasanTab() {
       } else {
         parsed.tanggalJatuhTempo = jatuhTempoDate
       }
-      // CRITICAL: dpAmount must ALWAYS be derived from originalTotal, never from current total.
-      // This ensures DP stays fixed even after pelunasan items are added.
-      if (parsed.originalTotal === undefined) {
-        const origItems = parsed.items || []
-        const origSub = origItems.reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
-        const origTot = origSub + (origSub * (parsed.ppn || 0) / 100)
-        parsed.originalTotal = origTot
-      }
-      // ALWAYS recalculate dpAmount from originalTotal to fix any previously saved wrong values
-      if (parsed.dp > 0 && parsed.originalTotal !== undefined) {
-        parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
+      // Ensure type is preserved
+      parsed.type = 'invoice-pelunasan'
+      // Always derive dpAmount from originalTotal
+      if (parsed.dp > 0) {
+        const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : (() => {
+          const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+          return sub + (sub * (parsed.ppn || 0) / 100)
+        })()
+        parsed.dpAmount = originalTotal * (parsed.dp / 100)
+        parsed.originalTotal = originalTotal
       }
       delete parsed.statusPembayaran
       const newDataJson = JSON.stringify(parsed)
@@ -916,10 +956,11 @@ function PelunasanTab() {
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-violet-700 font-semibold text-[13px]">{entry.nomor || '-'}</p>
+                            <p className="text-amber-700 font-semibold text-[13px]">{entry.nomor || '-'}</p>
                             {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />}
                           </div>
                           <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+                          {info.referensiInvoiceNomor && <p className="text-[10px] text-violet-500">Ref: {info.referensiInvoiceNomor}</p>}
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-red-600 font-bold text-sm">{formatRupiahShort(info.sisa)}</p>
@@ -940,6 +981,7 @@ function PelunasanTab() {
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-slate-200 bg-slate-50/80">
                       <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+                      <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. DP</th>
                       <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
                       <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
                       <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Jatuh Tempo</th>
@@ -956,9 +998,10 @@ function PelunasanTab() {
                           <td className="py-2.5 px-3 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />}
-                              <span className="text-violet-700 font-semibold">{entry.nomor || '-'}</span>
+                              <span className="text-amber-700 font-semibold">{entry.nomor || '-'}</span>
                             </div>
                           </td>
+                          <td className="py-2.5 px-3 text-violet-600 font-medium whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</td>
                           <td className="py-2.5 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
                           <td className="py-2.5 px-3 text-right whitespace-nowrap">
                             <span className="text-violet-600 font-medium">{info.dpPercent}%</span>
@@ -1008,8 +1051,14 @@ function PelunasanTab() {
                 <div className="rounded-xl bg-slate-50 p-3 space-y-1.5">
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">No. Invoice</span>
-                    <span className="font-semibold text-slate-800">{selectedItem.nomor}</span>
+                    <span className="font-semibold text-amber-800">{selectedItem.nomor}</span>
                   </div>
+                  {selectedInfo.referensiInvoiceNomor && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Ref. Invoice DP</span>
+                      <span className="font-medium text-violet-600">{selectedInfo.referensiInvoiceNomor}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Customer</span>
                     <span className="font-medium text-slate-700">{selectedItem.pihakKedua || '-'}</span>
@@ -1156,18 +1205,19 @@ export default function InvoicePage() {
     const fetchCounts = async () => {
       try {
         const headers = getAuthHeaders()
-        const res = await fetch('/api/history?docType=invoice', { headers })
-        if (res.ok) {
-          const json = await res.json()
-          const data: HistoryEntry[] = json.data || []
-          setInvoiceCount(data.length)
-          // Count invoices with DP that are not yet lunas (business rule: having DP = belum lunas)
-          const pending = data.filter(entry => {
-            const info = parseDocInfo(entry)
-            return (info.dpPercent > 0 || info.dp > 0) && !info.lunas
-          })
-          setPelunasanCount(pending.length)
-        }
+        const [invRes, pelRes] = await Promise.all([
+          fetch('/api/history?docType=invoice', { headers }),
+          fetch('/api/history?docType=invoice-pelunasan', { headers }),
+        ])
+        const invData: HistoryEntry[] = invRes.ok ? (await invRes.json()).data || [] : []
+        const pelData: HistoryEntry[] = pelRes.ok ? (await pelRes.json()).data || [] : []
+        setInvoiceCount(invData.length + pelData.length)
+        // Count pelunasan invoices that are not yet lunas
+        const pending = pelData.filter(entry => {
+          const info = parseDocInfo(entry)
+          return !info.lunas
+        })
+        setPelunasanCount(pending.length)
       } catch {}
     }
     fetchCounts()

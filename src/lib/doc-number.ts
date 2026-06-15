@@ -240,7 +240,7 @@ export async function previewHitungCetakanNumber(
  * Uses MAX(existing numbers) + 1 so that deleted numbers are never reused.
  */
 export async function generateDocumentHistoryNumber(
-  prefix: 'INV' | 'PO' | 'SJ' | 'SPK',
+  prefix: 'INV' | 'PEL' | 'PO' | 'SJ' | 'SPK',
   docType: string,
   dataFilter: Record<string, any>,
   maxRetries = 3
@@ -297,7 +297,7 @@ export async function generateDocumentHistoryNumber(
  * Format: {PREFIX}/MM/YY/NNNN e.g. INV/06/25/0001
  */
 export async function previewDocumentHistoryNumber(
-  prefix: 'INV' | 'PO' | 'SJ' | 'SPK',
+  prefix: 'INV' | 'PEL' | 'PO' | 'SJ' | 'SPK',
   docType: string,
   dataFilter: Record<string, any>
 ): Promise<string> {

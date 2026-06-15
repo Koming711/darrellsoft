@@ -92,10 +92,13 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
               <div className="space-y-1">
                 <Label className="text-xs">Qty</Label>
                 <Input
-                  type="number"
-                  min={0}
-                  value={item.qty}
-                  onChange={(e) => updateItem(item.id, 'qty', Number(e.target.value) || 0)}
+                  type="text"
+                  inputMode="numeric"
+                  value={item.qty ? item.qty.toLocaleString('id-ID') : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
+                    updateItem(item.id, 'qty', raw === '' ? 0 : Number(raw) || 0)
+                  }}
                   className="text-sm"
                 />
               </div>
@@ -103,10 +106,13 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
                 <div className="space-y-1">
                   <Label className="text-xs">Harga Satuan</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    value={item.harga}
-                    onChange={(e) => updateItem(item.id, 'harga', Number(e.target.value) || 0)}
+                    type="text"
+                    inputMode="numeric"
+                    value={item.harga ? item.harga.toLocaleString('id-ID') : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
+                      updateItem(item.id, 'harga', raw === '' ? 0 : Number(raw) || 0)
+                    }}
                     className="text-sm"
                   />
                 </div>

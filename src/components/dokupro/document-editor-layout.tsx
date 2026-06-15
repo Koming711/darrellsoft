@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Eye, X, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface DocumentEditorLayoutProps {
-  title?: string;
   children: React.ReactNode;
   previewContent: React.ReactNode;
   actions?: React.ReactNode;

@@ -36,54 +36,105 @@ Stage Summary:
 - The `sisa <= 0` auto-lunas logic no longer applies to invoices with DP
 - For invoices without DP, the old `lunas || sisa <= 0` logic still applies
 - JPG + WhatsApp functionality was already implemented from previous session
-
 ---
 Task ID: 1
 Agent: main
-Task: Fix DP recalculation bug - when pelunasan adds items and marks lunas, DP should stay at original amount
+Task: Separate pelunasan invoices from DP invoices — create distinct invoice-pelunasan entries with different nomor referencing the DP invoice
 
 Work Log:
-- Analyzed the root cause: dpAmount was being recalculated from current total (which includes pelunasan additions) instead of preserving the original amount
-- Fixed multiple code paths that incorrectly recalculated dpAmount:
-  1. invoice/page.tsx handleStatusChange - was calculating dpAmount from current total
-  2. invoice/page.tsx handleSimpanPelunasan - same issue
-- Added `originalTotal` field to InvoiceData type to track total at first save
-- Updated document-action-buttons.tsx to save dpAmount AND originalTotal at initial save
-- Updated invoice-editor.tsx to save originalTotal and clear dpAmount when DP% changes
-- Updated invoice-pelunasan-editor.tsx selectInvoice to detect incorrectly recalculated dpAmount
-- Updated invoice-pelunasan-editor.tsx save to preserve originalTotal before item updates
-- Updated all parseDocInfo functions to use originalTotal as fallback for dpAmount calculation
-- Updated InvoicePreview to use originalTotal in dpAmount calculation
-- Added manual DP amount override field in pelunasan editor for fixing wrong values
+- Analyzed current flow: single invoice entry with DP and pelunasan data mixed
+- Updated InvoiceData type to support 'invoice-pelunasan' type with referensiInvoiceId, referensiInvoiceNomor, originalTotal fields
+- Added 'PEL' prefix to DOC_PREFIX in /api/history route for invoice-pelunasan docType
+- Updated generateDocumentHistoryNumber and previewDocumentHistoryNumber to support 'PEL' prefix
+- Updated DocumentActionButtons handleSave: when saving invoice with DP, also creates a separate invoice-pelunasan entry with docType='invoice-pelunasan'
+- Updated InvoiceEditor handleSuratJalan: same dual-save behavior when creating surat jalan from invoice with DP
+- Rewrote InvoicePelunasanEditor: now fetches invoice-pelunasan docType entries, shows ref invoice nomor, works with separate pelunasan entries
+- Updated InvoiceRiwayatTab: fetches both invoice and invoice-pelunasan, shows them in separate sections (Invoice DP vs Invoice Pelunasan)
+- Updated PelunasanTab: fetches invoice-pelunasan entries, shows ref invoice DP column
+- Updated parseDocInfo: added referensiInvoiceNomor, isPelunasan, originalTotal fields; always derives dpAmount from originalTotal
+- Updated parseInvoiceData: handles both invoice and invoice-pelunasan docTypes
+- Updated InvoicePreview: shows "Ref: INV/..." reference when showPelunasanLabel is true
+- Updated pelunasan dialog in riwayat: shows ref invoice DP, handles isPelunasan correctly
+- Updated badge counts: invoice count = invoice + invoice-pelunasan; pelunasan count = unpaid invoice-pelunasan
 
 Stage Summary:
-- Added `originalTotal` field to InvoiceData type for robust DP preservation
-- All save paths now correctly save dpAmount and originalTotal
-- DP is calculated from originalTotal (not current total) when dpAmount is not saved
-- Pelunasan editor has manual DP amount field for correcting wrong values
-- Existing data may still show wrong DP until re-saved through the pelunasan editor
+- New flow: When saving invoice with DP → creates TWO entries: invoice (DP) and invoice-pelunasan (PEL prefix, referencing the DP invoice)
+- Riwayat tab now has separate sections: "Invoice DP" (violet) and "Invoice Pelunasan" (amber)
+- Pelunasan editor and tab now work exclusively with invoice-pelunasan entries
+- DP amount always derived from originalTotal, never recalculated from current total
+- All pages compile and load successfully
+
+---
+Task ID: 1
+Agent: Main
+Task: Fix invoice pelunasan separation — separate PEL invoices with different numbers referencing DP invoice
+
+Work Log:
+- Discovered root cause: stale `app/` directory at project root was being served by Next.js instead of `src/app/`
+- The old `app/invoice/page.tsx` lacked pelunasan separation logic (single flat table, no PEL prefix)
+- The new `src/app/invoice/page.tsx` already had full pelunasan separation (separate sections, PEL prefix, references)
+- Removed the entire stale `app/` directory
+- Restarted dev server
+- Verified full flow with browser testing:
+  - Saving invoice with DP creates TWO entries: INV (DP) and PEL (Pelunasan)
+  - Riwayat tab shows separate "Invoice DP" and "Invoice Pelunasan" sections
+  - Pelunasan tab shows pelunasan invoices with reference to DP invoice
+  - Editor Pelunasan tab works with PEL entries, showing reference to INV number
+  - DP amount correctly derived from originalTotal
+
+Stage Summary:
+- Root cause: duplicate `app/` directory at project root overriding `src/app/`
+- Fix: removed stale `app/` directory
+- Pelunasan separation is fully functional:
+  - INV prefix for DP invoices, PEL prefix for pelunasan invoices
+  - PEL entries reference the INV number via referensiInvoiceNomor
+  - Riwayat tab has separate violet (DP) and amber (Pelunasan) sections
+  - Editor Pelunasan loads PEL entries with full edit capability
 
 ---
 Task ID: 2
-Agent: main
-Task: Fix DP recalculation bug permanently - always derive dpAmount from originalTotal
+Agent: Main
+Task: Make PEL invoice number match INV number (same seq, different prefix) + add Total DP column
 
 Work Log:
-- Deleted image files: fitur-1.jpeg through fitur-5.jpeg, fitur-image.jpeg, fitur-small-1.jpeg, fitur-small-2.jpeg, invoice-editor-pelunasan-tab.png, invoice-editor-tab.png, invoice-page-riwayat-tab.png, invoice-pelunasan-tab.png, shot-sidebar-from-pembukaan.png (already deleted from previous session), and editor-pelunasan-verify.png
-- Investigated DP recalculation bug in depth: traced data flow through database, API, and all frontend components
-- Found root cause: previous fix relied on saved dpAmount values which could be stale/incorrect. The code checked `parsed.dpAmount !== undefined` and used the saved value even if it was wrong (recalculated from current total by older code)
-- Applied comprehensive fix: changed ALL dpAmount calculations to ALWAYS derive from originalTotal instead of using saved dpAmount values:
-  1. `parseDocInfo` in invoice/page.tsx - now always uses `originalTotal * dpPercent / 100`
-  2. `parseDocInfo` in invoice-pelunasan-editor.tsx - same change
-  3. `InvoicePreview` component - now derives dpAmount from originalTotal (only dpAmountOverride for real-time preview)
-  4. `invoice-editor.tsx` dpAmount calculation - same change
-  5. All save handlers now ALWAYS recalculate dpAmount from originalTotal (not just when undefined)
-- Verified database data: dpAmount=1300000, originalTotal=2600000 for test invoice (correct values)
-- Verified app compiles without errors
+- Modified /api/history/route.ts: added `customNomor` support — if provided in body, uses it instead of auto-generating
+- Modified document-action-buttons.tsx: after saving INV, derives PEL number by replacing 'INV' with 'PEL' prefix (invNomor.replace(/^INV/, 'PEL'))
+- Modified invoice-editor.tsx: same PEL number derivation for handleSuratJalan flow
+- Added "Total DP" column to Invoice DP desktop table in riwayat tab (formatRupiah(info.dp))
+- Added DP amount info to mobile card view in riwayat tab (DP (50%): Rp1.300.000)
+- Cleaned up old pelunasan entries with mismatched numbers from database
+- Browser tested: INV/06/26/0002 + PEL/06/26/0002 — same sequential number, different prefix ✅
+- Browser tested: Total DP column shows correctly ✅
 
 Stage Summary:
-- dpAmount is now a DERIVED value (always = originalTotal * dpPercent / 100), never stored as a potentially-stale value
-- This eliminates the possibility of incorrect dpAmount values from older saves
-- For the example: invoice 2,600,000 with DP 50% → DP stays 1,300,000 even after adding ongkir 150,000
-- Sisa pembayaran = newTotal - dpAmount = 2,750,000 - 1,300,000 = 1,450,000 (correct)
-- dpAmountOverride is still used in pelunasan editor for real-time preview before saving
+- PEL number now matches INV number: INV/06/26/0002 → PEL/06/26/0002
+- API supports `customNomor` field to override auto-generated number
+- Invoice DP table has new "Total DP" column showing the DP amount in Rupiah
+- Mobile view shows DP amount as "DP (30%): Rp300.000"
+
+---
+Task ID: 3
+Agent: Main
+Task: Make restored invoice data updatable — after restore, "Simpan" updates the existing record instead of creating new
+
+Work Log:
+- Added `invoiceEditingId` and `setInvoiceEditingId` to Zustand store (src/lib/store.ts)
+- Extended PUT API at /api/history/[id] to accept nomor, tanggal, pihakKedua, total fields (not just dataJson)
+- Modified DocumentActionButtons to accept `editingId` and `onUpdateSuccess` props
+- When editingId exists: uses PUT /api/history/[editingId] instead of POST /api/history
+- Changed button labels: "Simpan" → "Update", "Ya, Simpan" → "Ya, Update" when in edit mode
+- Changed confirmation dialog text for edit mode
+- Added "Mode Edit" badge (amber) in InvoiceEditor action area when editingId is set
+- Updated InvoiceEditor handleSuratJalan: also uses PUT when editingId exists
+- Fixed fetchNextNumber: skips when invoiceEditingId is set (reads from store.getState() to avoid stale closure)
+- Set invoiceEditingId when restoring invoices in InvoiceRiwayatTab (4 restore buttons: 2 desktop + 2 mobile for both DP and pelunasan)
+- Clear editingId in onUpdateSuccess callback and resetDocument
+- Browser tested: Restore → data loads correctly with original nomor → modify → click Update → confirmation → success toast → back to create mode
+
+Stage Summary:
+- After restoring an invoice from riwayat, the "Simpan" button changes to "Update" 
+- "Update" uses PUT to update the existing record instead of creating a new one
+- "Mode Edit" badge appears when editing an existing invoice
+- Invoice number is preserved from the restored invoice (fetchNextNumber skips when editing)
+- After successful update, editingId is cleared and the editor returns to "create new" mode
+- The harga satuan thousand separator format (xxxx.xxx.xxx.xxx) was already applied in items-fields.tsx

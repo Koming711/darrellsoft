@@ -30,6 +30,8 @@ interface DocumentActionButtonsProps {
   documentLabel: string;
   currentData: Record<string, unknown>;
   onReset: () => void;
+  editingId?: string | null;
+  onUpdateSuccess?: () => void;
 }
 
 function isDataEmpty(data: Record<string, unknown>): boolean {
@@ -49,6 +51,8 @@ export function DocumentActionButtons({
   documentLabel,
   currentData,
   onReset,
+  editingId,
+  onUpdateSuccess,
 }: DocumentActionButtonsProps) {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -65,57 +69,113 @@ export function DocumentActionButtons({
         client?: { nama: string };
         penerima?: { nama: string };
         pemasok?: { nama: string };
+        dp?: number;
       };
 
       const pihakKedua = data.client?.nama || data.penerima?.nama || data.pemasok?.nama || '-';
 
-      // For invoice: include calculated dpAmount and originalTotal so DP stays fixed after save
-      let dataToSave = currentData;
-      if (docType === 'invoice') {
-        const inv = currentData as Record<string, unknown>;
-        const items = (inv.items as Array<{ qty: number; harga: number }>) || [];
-        const sub = items.reduce((s, it) => s + it.qty * it.harga, 0);
-        const ppn = (inv.ppn as number) || 0;
-        const tot = sub + (sub * ppn / 100);
-        const updates: Record<string, unknown> = {};
-        // Save originalTotal so DP can always be calculated from the original amount
-        if (inv.originalTotal === undefined) {
-          updates.originalTotal = tot;
-        }
-        // Calculate dpAmount from originalTotal (not current total which may include pelunasan items)
-        if (inv.dpAmount === undefined && inv.dp && Number(inv.dp) > 0) {
-          // Use the originalTotal that's about to be saved (updates.originalTotal) if it was just calculated,
-          // otherwise use the existing inv.originalTotal, or fall back to tot
-          const baseTotal = (updates.originalTotal as number) ?? (inv.originalTotal as number) ?? tot;
-          updates.dpAmount = baseTotal * (Number(inv.dp) / 100);
-        }
-        if (Object.keys(updates).length > 0) {
-          dataToSave = { ...currentData, ...updates };
-        }
+      // For invoice with DP: save dpAmount into dataJson before saving
+      let dataToSave = { ...currentData };
+      if (docType === 'invoice' && (data.dp || 0) > 0) {
+        const invData = currentData as unknown as InvoiceData;
+        const subtotal = invData.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
+        const ppnAmount = subtotal * (invData.ppn / 100);
+        const total = subtotal + ppnAmount;
+        const dpAmount = total * (invData.dp / 100);
+        (dataToSave as Record<string, unknown>).dpAmount = dpAmount;
+        (dataToSave as Record<string, unknown>).originalTotal = total;
       }
 
-      const res = await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
-          docType,
-          nomor: data.nomor || '-',
-          tanggal: data.tanggal || '',
-          pihakKedua,
-          total: '-',
-          dataJson: JSON.stringify(dataToSave),
-        }),
-      });
+      // If editingId exists, update the existing record instead of creating new
+      if (editingId) {
+        const res = await fetch(`/api/history/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            nomor: data.nomor || '-',
+            tanggal: data.tanggal || '',
+            pihakKedua,
+            total: '-',
+            dataJson: JSON.stringify(dataToSave),
+          }),
+        });
 
-      if (res.ok) {
-        toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);
-        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
-        onReset();
-      } else if (res.status === 409) {
-        const errData = await res.json().catch(() => ({}));
-        toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' });
+        if (res.ok) {
+          toast.success(`${documentLabel} berhasil diperbarui`);
+          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+          if (onUpdateSuccess) onUpdateSuccess();
+        } else {
+          toast.error('Gagal memperbarui');
+        }
       } else {
-        toast.error('Gagal menyimpan');
+        const res = await fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            docType,
+            nomor: data.nomor || '-',
+            tanggal: data.tanggal || '',
+            pihakKedua,
+            total: '-',
+            dataJson: JSON.stringify(dataToSave),
+          }),
+        });
+
+        if (res.ok) {
+          const savedData = await res.json();
+
+          // If this is an invoice with DP, also create an invoice-pelunasan entry
+          if (docType === 'invoice' && (data.dp || 0) > 0) {
+            try {
+              const invData = currentData as unknown as InvoiceData;
+              const subtotal = invData.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
+              const ppnAmount = subtotal * (invData.ppn / 100);
+              const total = subtotal + ppnAmount;
+              const dpAmount = total * (invData.dp / 100);
+
+              // Derive PEL nomor from INV nomor (same number, different prefix)
+              const invNomor = savedData.nomor || data.nomor;
+              const pelNomor = invNomor.replace(/^INV/, 'PEL');
+
+              const pelunasanData: Record<string, unknown> = {
+                ...dataToSave,
+                type: 'invoice-pelunasan',
+                referensiInvoiceId: savedData.id,
+                referensiInvoiceNomor: invNomor,
+                dpAmount,
+                originalTotal: total,
+                lunas: false,
+                tanggalPelunasan: '',
+                // Pelunasan invoice keeps same items, same dp — but its preview will show PELUNASAN label
+              };
+
+              await fetch('/api/history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({
+                  docType: 'invoice-pelunasan',
+                  customNomor: pelNomor,
+                  tanggal: data.tanggal || '',
+                  pihakKedua,
+                  total: '-',
+                  dataJson: JSON.stringify(pelunasanData),
+                }),
+              });
+            } catch {
+              // Pelunasan creation failed — not critical, the DP invoice is already saved
+              console.error('Failed to create pelunasan invoice entry');
+            }
+          }
+
+          toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);
+          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+          onReset();
+        } else if (res.status === 409) {
+          const errData = await res.json().catch(() => ({}));
+          toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' });
+        } else {
+          toast.error('Gagal menyimpan');
+        }
       }
     } catch {
       toast.error('Gagal menyimpan');
@@ -234,7 +294,7 @@ export function DocumentActionButtons({
               className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="mr-1.5 h-3.5 w-3.5" />
-              {saving ? 'Menyimpan...' : 'Simpan'}
+              {saving ? (editingId ? 'Memperbarui...' : 'Menyimpan...') : (editingId ? 'Update' : 'Simpan')}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -246,7 +306,10 @@ export function DocumentActionButtons({
                 <AlertDialogTitle className="text-left">Data sudah benar?</AlertDialogTitle>
               </div>
               <AlertDialogDescription className="text-left pl-[52px]">
-                Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.
+                {editingId
+                  ? 'Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum memperbarui riwayat.'
+                  : 'Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.'
+                }
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -258,7 +321,7 @@ export function DocumentActionButtons({
                 }}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                Ya, Simpan
+                {editingId ? 'Ya, Update' : 'Ya, Simpan'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -318,7 +381,7 @@ export function DocumentActionButtons({
               className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 h-9"
             >
               <Save className="mr-1.5 h-3.5 w-3.5" />
-              {saving ? 'Menyimpan...' : 'Simpan'}
+              {saving ? (editingId ? 'Memperbarui...' : 'Menyimpan...') : (editingId ? 'Update' : 'Simpan')}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -330,7 +393,10 @@ export function DocumentActionButtons({
                 <AlertDialogTitle className="text-left">Data sudah benar?</AlertDialogTitle>
               </div>
               <AlertDialogDescription className="text-left pl-[52px]">
-                Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.
+                {editingId
+                  ? 'Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum memperbarui riwayat.'
+                  : 'Harap di cek!! Pastikan semua data yang Anda masukkan sudah benar sebelum menyimpan ke riwayat.'
+                }
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -342,7 +408,7 @@ export function DocumentActionButtons({
                 }}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                Ya, Simpan
+                {editingId ? 'Ya, Update' : 'Ya, Simpan'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

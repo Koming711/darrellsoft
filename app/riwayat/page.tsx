@@ -53,6 +53,7 @@ interface ParsedInfo {
   tanggalJatuhTempo: string
   caraPembayaran: string
   tanggalGiro: string
+  uangCapek: number
 }
 
 function parseDocInfo(entry: HistoryEntry): ParsedInfo {
@@ -76,9 +77,10 @@ function parseDocInfo(entry: HistoryEntry): ParsedInfo {
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
+      uangCapek: parsed.uangCapek || 0,
     }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '', items: [], ppn: 0, catatan: '', client: { nama: '', kontak: '', alamat: '' }, tanggalJatuhTempo: '', caraPembayaran: '', tanggalGiro: '' }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '', items: [], ppn: 0, catatan: '', client: { nama: '', kontak: '', alamat: '' }, tanggalJatuhTempo: '', caraPembayaran: '', tanggalGiro: '', uangCapek: 0 }
   }
 }
 
@@ -123,6 +125,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
+      uangCapek: parsed.uangCapek || 0,
     }
   } catch {
     return {
@@ -139,6 +142,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: '',
       caraPembayaran: '',
       tanggalGiro: '',
+      uangCapek: 0,
     }
   }
 }
@@ -214,11 +218,12 @@ export default function RiwayatPage() {
   const [statusDialogItem, setStatusDialogItem] = useState<HistoryEntry | null>(null)
   const [statusUpdating, setStatusUpdating] = useState(false)
 
-  // Uang capek: match invoice referensi with riwayat cetakan
+  // Uang capek: read from stored invoice data, fallback to cetakan matching
   const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
 
   const invoiceUangCapek = useMemo(() => {
     const result = new Map<string, number>()
+    // Build fallback map from riwayat cetakan for old invoices without stored uangCapek
     const cetakanByRef = new Map<string, number>()
     for (const c of cetakanList) {
       if (c.nomorUrut) cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
@@ -226,7 +231,8 @@ export default function RiwayatPage() {
     }
     for (const inv of histories) {
       const info = parseDocInfo(inv)
-      const uc = info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0
+      // Priority: use stored uangCapek from invoice data, fallback to cetakan matching
+      const uc = info.uangCapek > 0 ? info.uangCapek : (info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0)
       result.set(inv.id, uc)
     }
     return result

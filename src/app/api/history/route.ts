@@ -4,8 +4,9 @@ import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth';
 import { generateDocumentHistoryNumber, previewDocumentHistoryNumber } from '@/lib/doc-number';
 
 // Prefix mapping for doc types
-const DOC_PREFIX: Record<string, 'INV' | 'PO' | 'SJ' | 'SPK'> = {
+const DOC_PREFIX: Record<string, 'INV' | 'PEL' | 'PO' | 'SJ' | 'SPK'> = {
   'invoice': 'INV',
+  'invoice-pelunasan': 'PEL',
   'purchase-order': 'PO',
   'surat-jalan': 'SJ',
   'spk': 'SPK',
@@ -63,10 +64,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate sequential number server-side (format: INV/MM/YYYY/0001)
+    // If a customNomor is provided, use it instead of auto-generating
     const prefix = DOC_PREFIX[docType];
-    const nomor = prefix
-      ? await generateDocumentHistoryNumber(prefix, docType, dataFilter)
-      : (body.nomor || '-');
+    const nomor = body.customNomor
+      ? body.customNomor
+      : prefix
+        ? await generateDocumentHistoryNumber(prefix, docType, dataFilter)
+        : (body.nomor || '-');
 
     // Also update the nomor inside dataJson so loaded documents show the correct number
     if (prefix && parsed.nomor !== nomor) {

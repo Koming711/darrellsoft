@@ -1,0 +1,877 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useMemo } from 'react';
+     4→import { Input } from '@/components/ui/input';
+     5→import { Label } from '@/components/ui/label';
+     6→import { Textarea } from '@/components/ui/textarea';
+     7→import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
+     8→import { InvoicePreview } from './invoice-preview';
+     9→import { DocumentEditorLayout } from './document-editor-layout';
+    10→import { CompanyFields } from './company-fields';
+    11→import { ItemsFields } from './items-fields';
+    12→import { formatRupiah } from '@/lib/format';
+    13→import { getAuthHeaders } from '@/lib/auth';
+    14→import { fetcher } from '@/lib/fetcher';
+    15→import { notifyDataChange } from '@/lib/data-sync';
+    16→import {
+    17→  Wallet,
+    18→  CheckCircle2,
+    19→  CircleDot,
+    20→  Loader2,
+    21→  Search,
+    22→  X,
+    23→  CalendarClock,
+    24→  AlertTriangle,
+    25→  ImageIcon,
+    26→} from 'lucide-react';
+    27→import { Button } from '@/components/ui/button';
+    28→import { Switch } from '@/components/ui/switch';
+    29→import { toast } from 'sonner';
+    30→import { toJpeg } from 'html-to-image';
+    31→import { cn } from '@/lib/utils';
+    32→import type { InvoiceData, CompanyInfo } from '@/lib/types';
+    33→import { DEFAULT_COMPANY } from '@/lib/types';
+    34→
+    35→// --- Types ---
+    36→interface HistoryEntry {
+    37→  id: string;
+    38→  docType: string;
+    39→  nomor: string;
+    40→  tanggal: string;
+    41→  pihakKedua: string;
+    42→  total: string;
+    43→  dataJson: string;
+    44→  createdAt: string;
+    45→}
+    46→
+    47→// --- Helper ---
+    48→function getTodayStr(): string {
+    49→  const d = new Date();
+    50→  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    51→}
+    52→
+    53→// --- Parse dataJson for document info ---
+    54→function parseDocInfo(entry: HistoryEntry) {
+    55→  try {
+    56→    const parsed = JSON.parse(entry.dataJson);
+    57→    const items = parsed.items || [];
+    58→    const firstItem = items[0];
+    59→    const namaBarang = firstItem?.deskripsi || '';
+    60→    const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0);
+    61→    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
+    62→    const ppn = parsed.ppn || 0;
+    63→    const dpPercent = parsed.dp || 0;
+    64→    const totalHarga = subtotal + (subtotal * ppn / 100);
+    65→    // Always derive dpAmount from originalTotal
+    66→    const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga;
+    67→    const dpAmount = originalTotal * (dpPercent / 100);
+    68→    const sisa = totalHarga - dpAmount;
+    69→    const lunas = parsed.lunas === true;
+    70→    const tanggalJatuhTempo = parsed.tanggalJatuhTempo || '';
+    71→    const tanggalPelunasan = parsed.tanggalPelunasan || '';
+    72→    const referensiInvoiceNomor = parsed.referensiInvoiceNomor || '';
+    73→    return { namaBarang, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensiInvoiceNomor, originalTotal };
+    74→  } catch {
+    75→    return { namaBarang: '', totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensiInvoiceNomor: '', originalTotal: 0 };
+    76→  }
+    77→}
+    78→
+    79→// --- Parse dataJson for InvoiceData ---
+    80→function parseInvoiceData(entry: HistoryEntry): InvoiceData {
+    81→  try {
+    82→    const parsed = JSON.parse(entry.dataJson);
+    83→    const company: CompanyInfo = {
+    84→      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+    85→      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+    86→      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+    87→      email: parsed.company?.email || DEFAULT_COMPANY.email,
+    88→      npwp: parsed.company?.npwp || '',
+    89→      website: parsed.company?.website || '',
+    90→      ppn: parsed.company?.ppn ?? parsed.ppn ?? 11,
+    91→      logo: parsed.company?.logo || '',
+    92→      bankName: parsed.company?.bankName || '',
+    93→      bankAccount: parsed.company?.bankAccount || '',
+    94→      bankHolder: parsed.company?.bankHolder || '',
+    95→      bankName2: parsed.company?.bankName2 || '',
+    96→      bankAccount2: parsed.company?.bankAccount2 || '',
+    97→      bankHolder2: parsed.company?.bankHolder2 || '',
+    98→    };
+    99→    const client = parsed.client || { nama: '', kontak: '', alamat: '' };
+   100→    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+   101→      id: it.id || `item-${i}`,
+   102→      deskripsi: it.deskripsi || '',
+   103→      qty: it.qty || 0,
+   104→      satuan: it.satuan || '',
+   105→      harga: it.harga || 0,
+   106→    }));
+   107→    return {
+   108→      type: 'invoice-pelunasan',
+   109→      company,
+   110→      nomor: parsed.nomor || entry.nomor || '',
+   111→      tanggal: parsed.tanggal || entry.tanggal || '',
+   112→      referensi: parsed.referensi || '',
+   113→      client,
+   114→      items,
+   115→      ppn: parsed.ppn ?? 11,
+   116→      dp: parsed.dp || 0,
+   117→      dpAmount: parsed.dpAmount,
+   118→      catatan: parsed.catatan || '',
+   119→      tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
+   120→      caraPembayaran: parsed.caraPembayaran || '',
+   121→      tanggalGiro: parsed.tanggalGiro || '',
+   122→      lunas: parsed.lunas === true,
+   123→      tanggalPelunasan: parsed.tanggalPelunasan || '',
+   124→      referensiInvoiceId: parsed.referensiInvoiceId || '',
+   125→      referensiInvoiceNomor: parsed.referensiInvoiceNomor || '',
+   126→      originalTotal: parsed.originalTotal,
+   127→    };
+   128→  } catch {
+   129→    return {
+   130→      type: 'invoice-pelunasan',
+   131→      company: { ...DEFAULT_COMPANY },
+   132→      nomor: entry.nomor || '',
+   133→      tanggal: entry.tanggal || '',
+   134→      referensi: '',
+   135→      client: { nama: '', kontak: '', alamat: '' },
+   136→      items: [],
+   137→      ppn: 11,
+   138→      dp: 0,
+   139→      catatan: '',
+   140→      tanggalJatuhTempo: '',
+   141→      caraPembayaran: '',
+   142→      tanggalGiro: '',
+   143→      lunas: false,
+   144→      tanggalPelunasan: '',
+   145→      referensiInvoiceId: '',
+   146→      referensiInvoiceNomor: '',
+   147→    };
+   148→  }
+   149→}
+   150→
+   151→export function InvoicePelunasanEditor() {
+   152→  // Local invoice state (not using global store to avoid conflicts with regular editor)
+   153→  const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+   154→  const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
+   155→  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([]);
+   156→  const [loading, setLoading] = useState(true);
+   157→  const [searchQuery, setSearchQuery] = useState('');
+   158→  const [dropdownOpen, setDropdownOpen] = useState(false);
+   159→  const [pelunasanSaving, setPelunasanSaving] = useState(false);
+   160→  const [jpgGenerating, setJpgGenerating] = useState(false);
+   161→
+   162→  // Pelunasan fields
+   163→  const [lunasToggle, setLunasToggle] = useState(false);
+   164→  const [tanggalPelunasan, setTanggalPelunasan] = useState('');
+   165→  const [tanggalJatuhTempo, setTanggalJatuhTempo] = useState('');
+   166→  const [caraPembayaran, setCaraPembayaran] = useState('');
+   167→  const [tanggalGiro, setTanggalGiro] = useState('');
+   168→
+   169→  // Original DP amount — fixed when invoice is first selected, does NOT change when items are added
+   170→  const [originalDpAmount, setOriginalDpAmount] = useState(0);
+   171→  // Original total (before pelunasan items added)
+   172→  const [originalTotal, setOriginalTotal] = useState(0);
+   173→
+   174→  const fetchHistory = useCallback(async () => {
+   175→    try {
+   176→      setLoading(true);
+   177→      const headers = getAuthHeaders();
+   178→      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers });
+   179→      if (res.ok) {
+   180→        const json = await res.json();
+   181→        setInvoiceHistory(json.data || []);
+   182→      }
+   183→    } catch (err) {
+   184→      console.error('Failed to fetch pelunasan invoice history:', err);
+   185→    } finally {
+   186→      setLoading(false);
+   187→    }
+   188→  }, []);
+   189→
+   190→  useEffect(() => {
+   191→    fetchHistory();
+   192→  }, [fetchHistory]);
+   193→
+   194→  useEffect(() => {
+   195→    const handler = () => fetchHistory();
+   196→    window.addEventListener('dokupro:history-updated', handler);
+   197→    return () => window.removeEventListener('dokupro:history-updated', handler);
+   198→  }, [fetchHistory]);
+   199→
+   200→  // Filter pending pelunasan invoices (not yet lunas)
+   201→  const pendingInvoices = useMemo(() => {
+   202→    return invoiceHistory.filter(entry => {
+   203→      const info = parseDocInfo(entry);
+   204→      return !info.lunas;
+   205→    });
+   206→  }, [invoiceHistory]);
+   207→
+   208→  // Filter by search
+   209→  const filteredPending = useMemo(() => {
+   210→    if (!searchQuery.trim()) return pendingInvoices;
+   211→    const q = searchQuery.toLowerCase().trim();
+   212→    return pendingInvoices.filter(entry => {
+   213→      const info = parseDocInfo(entry);
+   214→      return entry.nomor?.toLowerCase().includes(q) || entry.pihakKedua?.toLowerCase().includes(q) || info.namaBarang?.toLowerCase().includes(q) || info.referensiInvoiceNomor?.toLowerCase().includes(q);
+   215→    });
+   216→  }, [pendingInvoices, searchQuery]);
+   217→
+   218→  // Select an invoice
+   219→  const selectInvoice = (entry: HistoryEntry) => {
+   220→    const parsed = parseInvoiceData(entry);
+   221→    const info = parseDocInfo(entry);
+   222→    setInvoiceData(parsed);
+   223→    setSelectedEntry(entry);
+   224→    setLunasToggle(info.lunas);
+   225→    setTanggalPelunasan(info.tanggalPelunasan || getTodayStr());
+   226→    setTanggalJatuhTempo(info.tanggalJatuhTempo || '');
+   227→    setCaraPembayaran(parsed.caraPembayaran || '');
+   228→    setTanggalGiro(parsed.tanggalGiro || '');
+   229→    // Fix: store original DP amount so it doesn't change when items are added
+   230→    setOriginalDpAmount(info.dp);
+   231→    setOriginalTotal(info.originalTotal);
+   232→    setDropdownOpen(false);
+   233→  };
+   234→
+   235→  // Clear selection
+   236→  const clearSelection = () => {
+   237→    setInvoiceData(null);
+   238→    setSelectedEntry(null);
+   239→    setLunasToggle(false);
+   240→    setTanggalPelunasan('');
+   241→    setTanggalJatuhTempo('');
+   242→    setCaraPembayaran('');
+   243→    setTanggalGiro('');
+   244→    setOriginalDpAmount(0);
+   245→    setOriginalTotal(0);
+   246→  };
+   247→
+   248→  // Update invoice data locally
+   249→  const updateInvoice = (updates: Partial<InvoiceData>) => {
+   250→    setInvoiceData(prev => prev ? { ...prev, ...updates } : null);
+   251→  };
+   252→
+   253→  const updateCompany = (company: CompanyInfo) => {
+   254→    setInvoiceData(prev => prev ? { ...prev, company } : null);
+   255→  };
+   256→
+   257→  const updateClient = (field: string, value: string) => {
+   258→    setInvoiceData(prev => prev ? { ...prev, client: { ...prev.client, [field]: value } } : null);
+   259→  };
+   260→
+   261→  // Build preview data with pelunasan overrides
+   262→  const previewData: InvoiceData | null = useMemo(() => {
+   263→    if (!invoiceData) {
+   264→      // Default preview when no invoice is selected
+   265→      return {
+   266→        type: 'invoice-pelunasan',
+   267→        company: { ...DEFAULT_COMPANY },
+   268→        nomor: '-',
+   269→        tanggal: getTodayStr(),
+   270→        referensi: '',
+   271→        client: { nama: '', kontak: '', alamat: '' },
+   272→        items: [],
+   273→        ppn: 11,
+   274→        dp: 0,
+   275→        catatan: '',
+   276→        tanggalJatuhTempo: '',
+   277→        caraPembayaran: '',
+   278→        tanggalGiro: '',
+   279→        lunas: false,
+   280→        tanggalPelunasan: '',
+   281→      };
+   282→    }
+   283→    return {
+   284→      ...invoiceData,
+   285→      tanggalJatuhTempo,
+   286→      caraPembayaran: caraPembayaran as InvoiceData['caraPembayaran'],
+   287→      tanggalGiro,
+   288→      lunas: lunasToggle,
+   289→      tanggalPelunasan: lunasToggle ? tanggalPelunasan : '',
+   290→    };
+   291→  }, [invoiceData, tanggalJatuhTempo, caraPembayaran, tanggalGiro, lunasToggle, tanggalPelunasan]);
+   292→
+   293→  // Calculate amounts — DP is FIXED at original amount, only subtotal and sisa change
+   294→  const subtotal = invoiceData?.items.reduce((sum, item) => sum + item.qty * item.harga, 0) || 0;
+   295→  const ppnAmount = subtotal * ((invoiceData?.ppn || 0) / 100);
+   296→  const total = subtotal + ppnAmount;
+   297→  const dpPercent = invoiceData?.dp || 0;
+   298→  // DP amount stays fixed at original value, doesn't recalculate when items change
+   299→  const dpAmount = originalDpAmount;
+   300→  const sisa = total - dpAmount;
+   301→
+   302→  // Generate JPG from preview and send to WhatsApp
+   303→  const handleGenerateJpg = async () => {
+   304→    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+   305→    if (!previewEl) {
+   306→      toast.error('Preview tidak ditemukan');
+   307→      return;
+   308→    }
+   309→    setJpgGenerating(true);
+   310→    try {
+   311→      const dataUrl = await toJpeg(previewEl, {
+   312→        quality: 0.95,
+   313→        pixelRatio: 2,
+   314→        backgroundColor: '#ffffff',
+   315→      });
+   316→
+   317→      // Convert data URL to Blob for sharing
+   318→      const res = await fetch(dataUrl);
+   319→      const blob = await res.blob();
+   320→      const fileName = `Invoice-PEL-${invoiceData?.nomor || 'draft'}.jpg`;
+   321→      const file = new File([blob], fileName, { type: 'image/jpeg' });
+   322→
+   323→      // Try Web Share API (mobile) — can share file directly to WhatsApp
+   324→      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+   325→        await navigator.share({
+   326→          files: [file],
+   327→          title: `Invoice ${invoiceData?.nomor || ''}`,
+   328→          text: `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}`,
+   329→        });
+   330→        toast.success('JPG berhasil dikirim ke WhatsApp');
+   331→      } else {
+   332→        // Fallback (desktop): download JPG + open WhatsApp link
+   333→        const link = document.createElement('a');
+   334→        link.download = fileName;
+   335→        link.href = dataUrl;
+   336→        link.click();
+   337→
+   338→        const phone = invoiceData?.client?.kontak?.replace(/\D/g, '') || '';
+   339→        const message = encodeURIComponent(
+   340→          `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}\n\nJPG invoice sudah didownload, silakan lampirkan ke chat ini.`
+   341→        );
+   342→        const waUrl = phone
+   343→          ? `https://wa.me/${phone}?text=${message}`
+   344→          : `https://wa.me/?text=${message}`;
+   345→        window.open(waUrl, '_blank');
+   346→        toast.success('JPG didownload & WhatsApp terbuka');
+   347→      }
+   348→    } catch (err) {
+   349→      console.error('Failed to generate JPG:', err);
+   350→      toast.error('Gagal membuat JPG');
+   351→    } finally {
+   352→      setJpgGenerating(false);
+   353→    }
+   354→  };
+   355→
+   356→  // Save pelunasan — update the existing history entry
+   357→  const handleSavePelunasan = async () => {
+   358→    if (!selectedEntry || !invoiceData) return;
+   359→    setPelunasanSaving(true);
+   360→    try {
+   361→      const parsed = JSON.parse(selectedEntry.dataJson);
+   362→      // Update pelunasan fields
+   363→      parsed.tanggalJatuhTempo = tanggalJatuhTempo;
+   364→      parsed.caraPembayaran = caraPembayaran;
+   365→      parsed.tanggalGiro = tanggalGiro;
+   366→      if (lunasToggle) {
+   367→        parsed.lunas = true;
+   368→        parsed.tanggalPelunasan = tanggalPelunasan || getTodayStr();
+   369→      } else {
+   370→        parsed.lunas = false;
+   371→        parsed.tanggalPelunasan = '';
+   372→      }
+   373→      // Also update any edited fields from the form
+   374→      parsed.company = invoiceData.company;
+   375→      parsed.client = invoiceData.client;
+   376→      parsed.items = invoiceData.items;
+   377→      parsed.ppn = invoiceData.ppn;
+   378→      parsed.dp = invoiceData.dp;
+   379→      // Save fixed DP amount so it doesn't change on restore
+   380→      parsed.dpAmount = originalDpAmount;
+   381→      parsed.originalTotal = originalTotal;
+   382→      parsed.catatan = invoiceData.catatan;
+   383→      parsed.nomor = invoiceData.nomor;
+   384→      parsed.tanggal = invoiceData.tanggal;
+   385→      parsed.referensi = invoiceData.referensi;
+   386→      parsed.type = 'invoice-pelunasan';
+   387→      delete parsed.statusPembayaran;
+   388→
+   389→      const newDataJson = JSON.stringify(parsed);
+   390→      const res = await fetcher(`/api/history/${selectedEntry.id}`, {
+   391→        method: 'PUT',
+   392→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+   393→        body: JSON.stringify({ dataJson: newDataJson }),
+   394→      });
+   395→      if (res.ok) {
+   396→        toast.success(lunasToggle ? 'Pelunasan berhasil dicatat!' : 'Invoice berhasil diperbarui');
+   397→        clearSelection();
+   398→        fetchHistory();
+   399→        notifyDataChange('invoice');
+   400→      } else {
+   401→        toast.error('Gagal menyimpan perubahan');
+   402→      }
+   403→    } catch {
+   404→      toast.error('Gagal menyimpan perubahan');
+   405→    } finally {
+   406→      setPelunasanSaving(false);
+   407→    }
+   408→  };
+   409→
+   410→  return (
+   411→    <DocumentEditorLayout
+   412→      title="Invoice Pelunasan"
+   413→      previewContent={<InvoicePreview data={previewData!} showPelunasanLabel dpAmountOverride={originalDpAmount} />}
+   414→      actions={
+   415→        invoiceData ? (
+   416→          <div className="flex items-center gap-2 flex-wrap">
+   417→            <Button
+   418→              variant="outline"
+   419→              size="sm"
+   420→              onClick={clearSelection}
+   421→              className="border-gray-200 text-gray-600 hover:bg-gray-50"
+   422→            >
+   423→              <X className="mr-1.5 h-3.5 w-3.5" />
+   424→              Batal
+   425→            </Button>
+   426→            <Button
+   427→              size="sm"
+   428→              onClick={() => {
+   429→                toast.dismiss();
+   430→                const origTitle = document.title;
+   431→                document.title = ' ';
+   432→                setTimeout(() => {
+   433→                  window.print();
+   434→                  document.title = origTitle;
+   435→                }, 100);
+   436→              }}
+   437→              className="bg-emerald-600 hover:bg-emerald-700"
+   438→            >
+   439→              Cetak
+   440→            </Button>
+   441→            <Button
+   442→              size="sm"
+   443→              onClick={handleGenerateJpg}
+   444→              disabled={jpgGenerating}
+   445→              className="bg-violet-600 hover:bg-violet-700 text-white"
+   446→            >
+   447→              {jpgGenerating ? (
+   448→                <><Loader2 className="mr-1.5 h-3.5 h-3.5 animate-spin" /> Membuat...</>
+   449→              ) : (
+   450→                <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>
+   451→              )}
+   452→            </Button>
+   453→            <Button
+   454→              size="sm"
+   455→              onClick={handleSavePelunasan}
+   456→              disabled={pelunasanSaving}
+   457→              className={cn(
+   458→                'text-white',
+   459→                lunasToggle
+   460→                  ? 'bg-green-600 hover:bg-green-700'
+   461→                  : 'bg-blue-600 hover:bg-blue-700'
+   462→              )}
+   463→            >
+   464→              {pelunasanSaving ? (
+   465→                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Menyimpan...</>
+   466→              ) : (
+   467→                <><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> {lunasToggle ? 'Simpan Pelunasan' : 'Simpan Perubahan'}</>
+   468→              )}
+   469→            </Button>
+   470→          </div>
+   471→        ) : undefined
+   472→      }
+   473→    >
+   474→      {/* Invoice Selector */}
+   475→      <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   476→        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+   477→          <Wallet className="w-3.5 h-3.5 text-amber-600" />
+   478→          Pilih Invoice Pelunasan
+   479→        </h3>
+   480→        <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+   481→          <PopoverAnchor asChild>
+   482→            <div className="relative">
+   483→              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+   484→              <input
+   485→                type="text"
+   486→                placeholder={selectedEntry ? `${selectedEntry.nomor} — ${selectedEntry.pihakKedua}` : "Cari no. invoice, customer..."}
+   487→                value={selectedEntry ? `${selectedEntry.nomor} — ${selectedEntry.pihakKedua}` : searchQuery}
+   488→                onChange={(e) => { setSearchQuery(e.target.value); if (selectedEntry) { clearSelection(); } }}
+   489→                onFocus={() => { if (selectedEntry) { clearSelection(); } setDropdownOpen(true); }}
+   490→                className="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-8 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+   491→              />
+   492→              {selectedEntry && (
+   493→                <button
+   494→                  type="button"
+   495→                  onClick={(e) => { e.preventDefault(); clearSelection(); }}
+   496→                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+   497→                >
+   498→                  <X className="w-4 h-4" />
+   499→                </button>
+   500→              )}
+   501→            </div>
+   502→          </PopoverAnchor>
+   503→          <PopoverContent
+   504→            align="start"
+   505→            className="p-0 w-[var(--radix-popover-trigger-width)] max-h-64 overflow-y-auto"
+   506→            onOpenAutoFocus={(e) => e.preventDefault()}
+   507→          >
+   508→            {loading ? (
+   509→              <div className="px-3 py-4 text-center"><Loader2 className="w-5 h-5 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-1">Memuat...</p></div>
+   510→            ) : filteredPending.length > 0 ? (
+   511→              <div>
+   512→                <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-amber-50 border-b border-amber-100 sticky top-0">
+   513→                  Menunggu Pelunasan ({filteredPending.length})
+   514→                </div>
+   515→                {filteredPending.map((entry) => {
+   516→                  const info = parseDocInfo(entry);
+   517→                  const isOverdue = info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr());
+   518→                  return (
+   519→                    <button
+   520→                      key={entry.id}
+   521→                      type="button"
+   522→                      onMouseDown={(e) => { e.preventDefault(); selectInvoice(entry); }}
+   523→                      className={cn(
+   524→                        'w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-slate-50 last:border-b-0',
+   525→                        selectedEntry?.id === entry.id ? 'bg-amber-50' : 'hover:bg-amber-50/50'
+   526→                      )}
+   527→                    >
+   528→                      <div className="flex items-center justify-between gap-2">
+   529→                        <div className="min-w-0">
+   530→                          <div className="flex items-center gap-1.5">
+   531→                            <span className="font-semibold text-violet-700 text-xs">{entry.nomor || '-'}</span>
+   532→                            {info.referensiInvoiceNomor && <span className="text-[9px] text-slate-400">ref: {info.referensiInvoiceNomor}</span>}
+   533→                            {isOverdue && <AlertTriangle className="w-3 h-3 text-red-500" />}
+   534→                          </div>
+   535→                          <p className="text-slate-600 text-[11px] truncate">{entry.pihakKedua || '-'}</p>
+   536→                        </div>
+   537→                        <div className="text-right shrink-0">
+   538→                          <p className="text-red-600 font-bold text-xs">{formatRupiah(info.sisa)}</p>
+   539→                          <p className="text-[9px] text-violet-500">DP {info.dpPercent}%</p>
+   540→                        </div>
+   541→                      </div>
+   542→                    </button>
+   543→                  );
+   544→                })}
+   545→              </div>
+   546→            ) : (
+   547→              <div className="px-3 py-4 text-center">
+   548→                <CheckCircle2 className="w-8 h-8 mx-auto text-green-300 mb-2" />
+   549→                <p className="text-xs text-slate-400">Semua invoice sudah lunas</p>
+   550→              </div>
+   551→            )}
+   552→          </PopoverContent>
+   553→        </Popover>
+   554→
+   555→        {/* Quick list when no invoice selected */}
+   556→        {!selectedEntry && !loading && pendingInvoices.length > 0 && (
+   557→          <div className="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto rounded-lg border border-slate-200">
+   558→            {pendingInvoices.slice(0, 10).map((entry) => {
+   559→              const info = parseDocInfo(entry);
+   560→              const isOverdue = info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr());
+   561→              return (
+   562→                <div
+   563→                  key={entry.id}
+   564→                  onClick={() => selectInvoice(entry)}
+   565→                  className="px-3 py-2.5 hover:bg-amber-50/50 cursor-pointer transition-colors"
+   566→                >
+   567→                  <div className="flex items-center justify-between gap-2">
+   568→                    <div className="min-w-0">
+   569→                      <div className="flex items-center gap-1.5">
+   570→                        <span className="font-semibold text-violet-700 text-xs">{entry.nomor || '-'}</span>
+   571→                        <CircleDot className="w-2.5 h-2.5 text-red-500" />
+   572→                        {isOverdue && <AlertTriangle className="w-3 h-3 text-red-500" />}
+   573→                      </div>
+   574→                      <p className="text-slate-600 text-[11px] truncate">{entry.pihakKedua || '-'}</p>
+   575→                      {info.referensiInvoiceNomor && <p className="text-[9px] text-slate-400">Ref: {info.referensiInvoiceNomor}</p>}
+   576→                    </div>
+   577→                    <div className="text-right shrink-0">
+   578→                      <p className="text-red-600 font-bold text-xs">{formatRupiah(info.sisa)}</p>
+   579→                      <p className="text-[9px] text-violet-500">DP {info.dpPercent}%</p>
+   580→                    </div>
+   581→                  </div>
+   582→                </div>
+   583→              );
+   584→            })}
+   585→          </div>
+   586→        )}
+   587→      </div>
+   588→
+   589→      {/* When an invoice is selected, show the editor form */}
+   590→      {invoiceData ? (
+   591→        <>
+   592→          <CompanyFields company={invoiceData.company} onChange={updateCompany} />
+   593→
+   594→          <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   595→            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   596→              Detail Dokumen
+   597→            </h3>
+   598→            <div className="grid grid-cols-2 gap-2">
+   599→              <div className="space-y-1.5">
+   600→                <Label className="text-xs">No. Invoice Pelunasan</Label>
+   601→                <Input
+   602→                  value={invoiceData.nomor}
+   603→                  readOnly
+   604→                  className="bg-slate-50 text-slate-500 cursor-not-allowed"
+   605→                />
+   606→              </div>
+   607→              <div className="space-y-1.5">
+   608→                <Label className="text-xs">Tanggal</Label>
+   609→                <Input
+   610→                  type="date"
+   611→                  value={invoiceData.tanggal}
+   612→                  onChange={(e) => updateInvoice({ tanggal: e.target.value })}
+   613→                />
+   614→              </div>
+   615→            </div>
+   616→            {invoiceData.referensiInvoiceNomor && (
+   617→              <div className="mt-2 rounded-lg bg-violet-50 p-2.5 flex items-center gap-2 border border-violet-200">
+   618→                <svg className="w-3.5 h-3.5 text-violet-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+   619→                <div>
+   620→                  <p className="text-xs font-semibold text-violet-800">Ref. Invoice DP</p>
+   621→                  <p className="text-[11px] text-violet-600">{invoiceData.referensiInvoiceNomor}</p>
+   622→                </div>
+   623→              </div>
+   624→            )}
+   625→          </div>
+   626→
+   627→          {/* Informasi Pembayaran - Pelunasan specific */}
+   628→          <div className="rounded-lg border-2 border-amber-200 bg-amber-50/30 p-3 sm:p-4 shadow-sm">
+   629→            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+   630→              <Wallet className="w-3.5 h-3.5" />
+   631→              Informasi Pelunasan
+   632→            </h3>
+   633→
+   634→            {/* Amount Summary */}
+   635→            <div className="rounded-lg bg-white p-3 space-y-1.5 mb-3 border border-amber-100">
+   636→              <div className="flex justify-between text-xs">
+   637→                <span className="text-slate-500">Subtotal</span>
+   638→                <span className="font-medium text-slate-700">{formatRupiah(subtotal)}</span>
+   639→              </div>
+   640→              {invoiceData?.ppn > 0 && (
+   641→                <div className="flex justify-between text-xs">
+   642→                  <span className="text-slate-500">PPN ({invoiceData.ppn}%)</span>
+   643→                  <span className="font-medium text-slate-700">{formatRupiah(ppnAmount)}</span>
+   644→                </div>
+   645→              )}
+   646→              <div className="flex justify-between text-xs">
+   647→                <span className="text-slate-500">Total</span>
+   648→                <span className="font-bold text-emerald-700">{formatRupiah(total)}</span>
+   649→              </div>
+   650→              <div className="flex justify-between text-xs">
+   651→                <span className="text-slate-500">DP Awal{dpPercent > 0 ? ` (${dpPercent}%)` : ''}</span>
+   652→                <span className="font-medium text-violet-700">- {formatRupiah(dpAmount)}</span>
+   653→              </div>
+   654→              <div className="flex justify-between text-sm pt-1.5 border-t border-dashed border-amber-200">
+   655→                <span className="font-semibold text-slate-700">Sisa Pembayaran</span>
+   656→                <span className={cn('font-bold', lunasToggle ? 'text-green-600' : 'text-red-600')}>
+   657→                  {formatRupiah(sisa)}
+   658→                </span>
+   659→              </div>
+   660→            </div>
+   661→
+   662→            {/* Tanggal Jatuh Tempo */}
+   663→            <div className="space-y-1.5 mb-3">
+   664→              <Label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+   665→                <CalendarClock className="w-3.5 h-3.5" /> Tanggal Jatuh Tempo
+   666→              </Label>
+   667→              <Input
+   668→                type="date"
+   669→                value={tanggalJatuhTempo}
+   670→                onChange={(e) => setTanggalJatuhTempo(e.target.value)}
+   671→              />
+   672→            </div>
+   673→
+   674→            {/* Cara Pembayaran */}
+   675→            <div className="space-y-1.5 mb-3">
+   676→              <Label className="text-xs">Cara Pembayaran</Label>
+   677→              <div className="flex gap-1.5">
+   678→                {(['cash', 'transfer', 'giro'] as const).map((method) => {
+   679→                  const labels: Record<string, string> = { cash: 'Cash', transfer: 'Transfer', giro: 'Giro' };
+   680→                  const isSelected = caraPembayaran === method;
+   681→                  return (
+   682→                    <button
+   683→                      key={method}
+   684→                      type="button"
+   685→                      onClick={() => {
+   686→                        setCaraPembayaran(prev => prev === method ? '' : method);
+   687→                        if (method !== 'giro') setTanggalGiro('');
+   688→                      }}
+   689→                      className={`flex-1 py-2 rounded-lg border text-[11px] font-semibold transition-colors ${
+   690→                        isSelected
+   691→                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300 ring-2 ring-offset-1 ring-emerald-400 shadow-sm'
+   692→                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+   693→                      }`}
+   694→                    >
+   695→                      {labels[method]}
+   696→                    </button>
+   697→                  );
+   698→                })}
+   699→              </div>
+   700→            </div>
+   701→
+   702→            {/* Tanggal Giro */}
+   703→            {caraPembayaran === 'giro' && (
+   704→              <div className="space-y-1.5 mb-3">
+   705→                <Label className="text-xs">Tgl. Giro</Label>
+   706→                <Input
+   707→                  type="date"
+   708→                  value={tanggalGiro}
+   709→                  onChange={(e) => setTanggalGiro(e.target.value)}
+   710→                />
+   711→              </div>
+   712→            )}
+   713→
+   714→            {/* Lunas Toggle */}
+   715→            <div className="rounded-xl border-2 border-amber-200 bg-white p-3 space-y-3">
+   716→              <div className="flex items-center justify-between">
+   717→                <div className="flex items-center gap-2.5">
+   718→                  {lunasToggle ? (
+   719→                    <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center">
+   720→                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+   721→                    </div>
+   722→                  ) : (
+   723→                    <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+   724→                      <Wallet className="w-4 h-4 text-amber-600" />
+   725→                    </div>
+   726→                  )}
+   727→                  <div>
+   728→                    <p className="text-sm font-semibold text-slate-800">Tandai Lunas</p>
+   729→                    <p className="text-[11px] text-slate-500">
+   730→                      {lunasToggle ? 'Sisa sudah dibayar' : 'Sisa belum dibayar'}
+   731→                    </p>
+   732→                  </div>
+   733→                </div>
+   734→                <Switch
+   735→                  checked={lunasToggle}
+   736→                  onCheckedChange={(checked) => {
+   737→                    setLunasToggle(checked);
+   738→                    if (checked && !tanggalPelunasan) setTanggalPelunasan(getTodayStr());
+   739→                  }}
+   740→                />
+   741→              </div>
+   742→
+   743→              {lunasToggle && (
+   744→                <div className="space-y-3 pt-1">
+   745→                  <div>
+   746→                    <Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label>
+   747→                    <Input
+   748→                      type="date"
+   749→                      value={tanggalPelunasan}
+   750→                      onChange={(e) => setTanggalPelunasan(e.target.value)}
+   751→                      className="mt-1 text-sm"
+   752→                    />
+   753→                  </div>
+   754→                  <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2">
+   755→                    <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+   756→                    <div>
+   757→                      <p className="text-xs font-semibold text-green-800">Sudah Lunas</p>
+   758→                      <p className="text-[10px] text-green-600">
+   759→                        Sisa {formatRupiah(sisa)} telah dibayar{tanggalPelunasan ? ` pada ${new Date(tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}
+   760→                      </p>
+   761→                    </div>
+   762→                  </div>
+   763→                </div>
+   764→              )}
+   765→            </div>
+   766→          </div>
+   767→
+   768→          {/* Client info */}
+   769→          <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   770→            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   771→              Kepada Yth :
+   772→            </h3>
+   773→            <div className="space-y-1.5">
+   774→              <Label className="text-xs">Nama Customer</Label>
+   775→              <Input
+   776→                value={invoiceData.client.nama}
+   777→                onChange={(e) => updateClient('nama', e.target.value)}
+   778→                placeholder="Nama customer"
+   779→              />
+   780→            </div>
+   781→            <div className="space-y-1.5 mt-2">
+   782→              <Label className="text-xs">Nomor Telp</Label>
+   783→              <Input
+   784→                value={invoiceData.client.kontak}
+   785→                onChange={(e) => updateClient('kontak', e.target.value)}
+   786→                placeholder="No. telepon / email"
+   787→              />
+   788→            </div>
+   789→            <div className="space-y-1.5 mt-2">
+   790→              <Label className="text-xs">Alamat</Label>
+   791→              <Input
+   792→                value={invoiceData.client.alamat}
+   793→                onChange={(e) => updateClient('alamat', e.target.value)}
+   794→                placeholder="Alamat lengkap"
+   795→              />
+   796→            </div>
+   797→          </div>
+   798→
+   799→          {/* Items */}
+   800→          <ItemsFields
+   801→            items={invoiceData.items}
+   802→            onChange={(items) => updateInvoice({ items })}
+   803→            showPrice
+   804→          />
+   805→
+   806→          {/* Additional info */}
+   807→          <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   808→            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   809→              Informasi Tambahan
+   810→            </h3>
+   811→            <div className="space-y-1.5">
+   812→              <Label className="text-xs">PPN (%)</Label>
+   813→              <Input
+   814→                type="number"
+   815→                min={0}
+   816→                max={100}
+   817→                value={invoiceData.ppn || ''}
+   818→                onChange={(e) => updateInvoice({ ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 })}
+   819→              />
+   820→            </div>
+   821→            <div className="space-y-1.5 mt-3">
+   822→              <Label className="text-xs">DP (%)</Label>
+   823→              <Input
+   824→                type="number"
+   825→                min={0}
+   826→                max={100}
+   827→                value={invoiceData.dp || ''}
+   828→                readOnly
+   829→                className="bg-slate-50 text-slate-500 cursor-not-allowed"
+   830→                placeholder="0"
+   831→              />
+   832→            </div>
+   833→            <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
+   834→              <p className="text-sm text-emerald-800">
+   835→                Subtotal: <span className="font-bold">{formatRupiah(subtotal)}</span>
+   836→              </p>
+   837→              {invoiceData.ppn > 0 && (
+   838→                <p className="text-sm text-emerald-800">
+   839→                  PPN ({invoiceData.ppn}%): <span className="font-bold">{formatRupiah(ppnAmount)}</span>
+   840→                </p>
+   841→              )}
+   842→              <p className="text-sm text-emerald-800">
+   843→                Total: <span className="font-bold">{formatRupiah(total)}</span>
+   844→              </p>
+   845→              {dpAmount > 0 && (
+   846→                <>
+   847→                  <p className="text-sm text-emerald-800">
+   848→                    DP Awal: <span className="font-bold">{formatRupiah(dpAmount)}</span>
+   849→                  </p>
+   850→                  <p className="text-sm text-emerald-800">
+   851→                    Sisa Pembayaran: <span className="font-bold">{formatRupiah(sisa)}</span>
+   852→                  </p>
+   853→                </>
+   854→              )}
+   855→            </div>
+   856→            <div className="mt-3 space-y-1.5">
+   857→              <Label className="text-xs">Catatan</Label>
+   858→              <Textarea
+   859→                value={invoiceData.catatan}
+   860→                onChange={(e) => updateInvoice({ catatan: e.target.value })}
+   861→                placeholder="Catatan tambahan..."
+   862→                rows={3}
+   863→              />
+   864→            </div>
+   865→          </div>
+   866→        </>
+   867→      ) : (
+   868→        <div className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/30 p-6 text-center">
+   869→          <Wallet className="w-12 h-12 mx-auto text-amber-300 mb-3" />
+   870→          <p className="text-sm font-medium text-slate-500">Pilih Invoice Pelunasan</p>
+   871→          <p className="text-xs text-slate-400 mt-1">Gunakan kolom pencarian di atas untuk memilih invoice pelunasan yang akan diproses</p>
+   872→        </div>
+   873→      )}
+   874→    </DocumentEditorLayout>
+   875→  );
+   876→}
+   877→

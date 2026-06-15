@@ -1,0 +1,452 @@
+   183→function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
+   184→  const { user } = useAuth()
+   185→  const setInvoice = useDokuproStore((s) => s.setInvoice)
+   186→  const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId)
+   187→  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
+   188→  const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
+   189→  const [loading, setLoading] = useState(true)
+   190→  const [searchQuery, setSearchQuery] = useState('')
+   191→  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+   192→  const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
+   193→  const [previewOpen, setPreviewOpen] = useState(false)
+   194→  const [previewScale, setPreviewScale] = useState(1)
+   195→  const [sendingPdf, setSendingPdf] = useState(false)
+   196→  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+   197→
+   198→  // Pelunasan dialog state
+   199→  const [pelunasanDialogOpen, setPelunasanDialogOpen] = useState(false)
+   200→  const [pelunasanDialogItem, setPelunasanDialogItem] = useState<HistoryEntry | null>(null)
+   201→  const [pelunasanUpdating, setPelunasanUpdating] = useState(false)
+   202→  const [pelunasanToggle, setPelunasanToggle] = useState(false)
+   203→  const [pelunasanDate, setPelunasanDate] = useState('')
+   204→  const [jatuhTempoDate, setJatuhTempoDate] = useState('')
+   205→  const [pelunasanHistory, setPelunasanHistory] = useState<HistoryEntry[]>([])
+   206→
+   207→  const fetchHistory = useCallback(async () => {
+   208→    try {
+   209→      setLoading(true)
+   210→      const headers = getAuthHeaders()
+   211→      // Fetch both invoice and invoice-pelunasan
+   212→      const [invRes, pelRes] = await Promise.all([
+   213→        fetch('/api/history?docType=invoice', { headers }),
+   214→        fetch('/api/history?docType=invoice-pelunasan', { headers }),
+   215→      ])
+   216→      const invData = invRes.ok ? (await invRes.json()).data || [] : []
+   217→      const pelData = pelRes.ok ? (await pelRes.json()).data || [] : []
+   218→      setInvoiceHistory(invData)
+   219→      setPelunasanHistory(pelData)
+   220→    } catch (err) {
+   221→      console.error('Failed to fetch invoice history:', err)
+   222→    } finally {
+   223→      setLoading(false)
+   224→    }
+   225→  }, [])
+   226→
+   227→  // Fetch riwayat cetakan for uang capek calculation
+   228→  const fetchCetakan = useCallback(async () => {
+   229→    try {
+   230→      const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() })
+   231→      if (res.ok) {
+   232→        const data = await res.json()
+   233→        const mapped = (Array.isArray(data) ? data : []).map((r: { nomorUrut: string; printName: string; profitAmount: number }) => ({
+   234→          nomorUrut: r.nomorUrut || '',
+   235→          printName: r.printName || '',
+   236→          profitAmount: r.profitAmount || 0,
+   237→        }))
+   238→        setCetakanList(mapped)
+   239→      }
+   240→    } catch {
+   241→      // ignore
+   242→    }
+   243→  }, [])
+   244→
+   245→  // Combined history for search/filter
+   246→  const allHistory = useMemo(() => [...invoiceHistory, ...pelunasanHistory], [invoiceHistory, pelunasanHistory])
+   247→
+   248→  useEffect(() => {
+   249→    fetchHistory()
+   250→    fetchCetakan()
+   251→  }, [fetchHistory, fetchCetakan])
+   252→
+   253→  useEffect(() => {
+   254→    const handler = () => { fetchHistory(); fetchCetakan(); }
+   255→    window.addEventListener('dokupro:history-updated', handler)
+   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+   257→  }, [fetchHistory, fetchCetakan])
+   258→
+   259→  useEffect(() => {
+   260→    if (!previewOpen) return
+   261→    const DESIGN_W = 576
+   262→    const DESIGN_H = DESIGN_W * (210 / 148)
+   263→    const updateScale = () => {
+   264→      const vw = window.innerWidth
+   265→      const vh = window.innerHeight
+   266→      const pad = 16
+   267→      const btnH = 56
+   268→      const availW = vw - pad * 2
+   269→      const availH = vh - pad * 2 - btnH
+   270→      const baseScale = Math.min(availW / DESIGN_W, availH / DESIGN_H)
+   271→      setPreviewScale(baseScale * 1.3)
+   272→    }
+   273→    const t = setTimeout(updateScale, 50)
+   274→    window.addEventListener('resize', updateScale)
+   275→    return () => { clearTimeout(t); window.removeEventListener('resize', updateScale) }
+   276→  }, [previewOpen])
+   277→
+   278→  const invData = useMemo(() => {
+   279→    if (!previewItem) return null
+   280→    return parseInvoiceData(previewItem)
+   281→  }, [previewItem])
+   282→
+   283→  const handleDelete = async (id: string) => {
+   284→    try {
+   285→      const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+   286→      if (res.ok) {
+   287→        toast.success('Invoice berhasil dihapus')
+   288→        notifyDataChange('invoice')
+   289→        fetchHistory()
+   290→      } else {
+   291→        toast.error('Gagal menghapus invoice')
+   292→      }
+   293→    } catch {
+   294→      toast.error('Gagal menghapus invoice')
+   295→    }
+   296→    setDeleteConfirmId(null)
+   297→  }
+   298→
+   299→  const handleStatusChange = async (updates: { tanggalJatuhTempo?: string; lunas?: boolean; tanggalPelunasan?: string }) => {
+   300→    if (!pelunasanDialogItem) return
+   301→    setPelunasanUpdating(true)
+   302→    try {
+   303→      const parsed = JSON.parse(pelunasanDialogItem.dataJson)
+   304→      if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
+   305→      if (updates.lunas !== undefined) parsed.lunas = updates.lunas
+   306→      if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
+   307→      // Always derive dpAmount from originalTotal
+   308→      if (parsed.dp > 0) {
+   309→        const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : (() => {
+   310→          const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+   311→          return sub + (sub * (parsed.ppn || 0) / 100)
+   312→        })()
+   313→        parsed.dpAmount = originalTotal * (parsed.dp / 100)
+   314→        parsed.originalTotal = originalTotal
+   315→      }
+   316→      delete parsed.statusPembayaran
+   317→      const newDataJson = JSON.stringify(parsed)
+   318→
+   319→      const res = await fetcher(`/api/history/${pelunasanDialogItem.id}`, {
+   320→        method: 'PUT',
+   321→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+   322→        body: JSON.stringify({ dataJson: newDataJson }),
+   323→      })
+   324→      if (res.ok) {
+   325→        toast.success(updates.lunas ? 'Pelunasan berhasil dicatat' : 'Berhasil diperbarui')
+   326→        setPelunasanDialogOpen(false)
+   327→        fetchHistory()
+   328→        notifyDataChange('invoice')
+   329→      } else {
+   330→        toast.error('Gagal menyimpan perubahan')
+   331→      }
+   332→    } catch {
+   333→      toast.error('Gagal menyimpan perubahan')
+   334→    } finally {
+   335→      setPelunasanUpdating(false)
+   336→    }
+   337→  }
+   338→
+   339→  const openPelunasanDialog = (item: HistoryEntry, e?: React.MouseEvent) => {
+   340→    if (e) e.stopPropagation()
+   341→    const info = parseDocInfo(item)
+   342→    setPelunasanToggle(info.lunas)
+   343→    setPelunasanDate(info.tanggalPelunasan || getTodayStr())
+   344→    setJatuhTempoDate(info.tanggalJatuhTempo || '')
+   345→    setPelunasanDialogItem(item)
+   346→    setPelunasanDialogOpen(true)
+   347→  }
+   348→
+   349→  const handleSendJpg = useCallback(async () => {
+   350→    if (!invData) return
+   351→    setSendingPdf(true)
+   352→    try {
+   353→      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+   354→      if (previewEl) {
+   355→        const scaleWrapper = previewEl.closest('[style*="transform"]') as HTMLElement
+   356→        previewEl.classList.add('print-mode')
+   357→        const origTransform = previewEl.style.transform
+   358→        const origTransformOrigin = previewEl.style.transformOrigin
+   359→        previewEl.style.transform = 'none'
+   360→        previewEl.style.transformOrigin = 'top left'
+   361→        let scaleWrapperOrigTransform = ''
+   362→        if (scaleWrapper) {
+   363→          scaleWrapperOrigTransform = scaleWrapper.style.transform
+   364→          scaleWrapper.style.transform = 'none'
+   365→        }
+   366→        try {
+   367→          const jpgBlob = await generateJpgFromElement(previewEl)
+   368→          const fileName = `Invoice_${invData.nomor || 'draft'}.jpg`
+   369→          await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
+   370→          toast.success('Gambar dikirim ke WhatsApp')
+   371→        } finally {
+   372→          previewEl.classList.remove('print-mode')
+   373→          previewEl.style.transform = origTransform
+   374→          previewEl.style.transformOrigin = origTransformOrigin
+   375→          if (scaleWrapper) scaleWrapper.style.transform = scaleWrapperOrigTransform
+   376→        }
+   377→      } else {
+   378→        toast.error('Preview tidak ditemukan')
+   379→      }
+   380→    } catch (err) {
+   381→      console.error(err)
+   382→      toast.error('Gagal mengirim gambar')
+   383→    } finally {
+   384→      setSendingPdf(false)
+   385→    }
+   386→  }, [invData])
+   387→
+   388→  const handleBackup = async () => {
+   389→    setBackupLoading('backup')
+   390→    try {
+   391→      const res = await authFetch(`/api/database/backup-master?table=invoice_history`)
+   392→      if (!res.ok) {
+   393→        let errMsg = 'Gagal backup data riwayat invoice'
+   394→        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+   395→        toast.error(errMsg)
+   396→        return
+   397→      }
+   398→      const blob = await res.blob()
+   399→      if (blob.size === 0) { toast.error('Backup kosong'); return }
+   400→      const url = URL.createObjectURL(blob)
+   401→      const a = document.createElement('a')
+   402→      a.href = url
+   403→      const disposition = res.headers.get('Content-Disposition')
+   404→      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+   405→      a.download = match ? match[1] : `backup-invoice-history-${Date.now()}.xlsx`
+   406→      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+   407→      URL.revokeObjectURL(url)
+   408→      toast.success('Backup berhasil diunduh')
+   409→    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data') }
+   410→    setBackupLoading(null)
+   411→  }
+   412→
+   413→  const handleRestore = async () => {
+   414→    const input = document.createElement('input')
+   415→    input.type = 'file'; input.accept = '.xlsx'
+   416→    input.onchange = async (e) => {
+   417→      const file = (e.target as HTMLInputElement).files?.[0]
+   418→      if (!file) return
+   419→      if (!confirm('Data riwayat invoice yang ada akan diganti. Lanjutkan?')) return
+   420→      setBackupLoading('restore')
+   421→      try {
+   422→        const fd = new FormData(); fd.append('file', file); fd.append('table', 'invoice_history')
+   423→        const res = await authFetch('/api/database/restore-master', { method: 'POST', body: fd })
+   424→        const data = await res.json()
+   425→        if (res.ok && data.success) {
+   426→          toast.success(`Restore berhasil (${data.count} data)`); fetchHistory(); notifyDataChange('invoice')
+   427→        } else { toast.error(data.error || 'Gagal restore') }
+   428→      } catch { toast.error('File backup tidak valid') }
+   429→      setBackupLoading(null)
+   430→    }
+   431→    input.click()
+   432→  }
+   433→
+   434→  const filteredHistory = useMemo(() => {
+   435→    if (!searchQuery.trim()) return allHistory
+   436→    const q = searchQuery.toLowerCase().trim()
+   437→    return allHistory.filter(entry => {
+   438→      const info = parseDocInfo(entry)
+   439→      return entry.nomor?.toLowerCase().includes(q) || entry.pihakKedua?.toLowerCase().includes(q) || info.namaBarang?.toLowerCase().includes(q) || entry.tanggal?.toLowerCase().includes(q)
+   440→    })
+   441→  }, [allHistory, searchQuery])
+   442→
+   443→  // Separate into DP invoices and Pelunasan invoices
+   444→  const dpInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice'), [filteredHistory])
+   445→  const pelunasanInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice-pelunasan'), [filteredHistory])
+   446→
+   447→  // Calculate uang capek per invoice — use saved value from dataJson, fallback to cetakan lookup
+   448→  const invoiceUangCapek = useMemo(() => {
+   449→    const result = new Map<string, number>()
+   450→    // Build cetakan lookup by both nomorUrut and printName (fallback for older data)
+   451→    const cetakanByRef = new Map<string, number>()
+   452→    for (const c of cetakanList) {
+   453→      if (c.nomorUrut) {
+   454→        cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
+   455→      }
+   456→      if (c.printName && !cetakanByRef.has(c.printName)) {
+   457→        cetakanByRef.set(c.printName, (cetakanByRef.get(c.printName) || 0) + c.profitAmount)
+   458→      }
+   459→    }
+   460→    for (const inv of dpInvoices) {
+   461→      const info = parseDocInfo(inv)
+   462→      // Prefer saved uangCapek from dataJson, fallback to cetakan lookup
+   463→      const uangCapek = info.uangCapek > 0 ? info.uangCapek : (info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0)
+   464→      result.set(inv.id, uangCapek)
+   465→    }
+   466→    return result
+   467→  }, [dpInvoices, cetakanList])
+   468→
+   469→  return (
+   470→    <>
+   471→      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+   472→        {/* Header */}
+   473→        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+   474→          <div className="flex items-center gap-2">
+   475→            <History className="w-4 h-4 text-violet-600" />
+   476→            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice</h2>
+   477→            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{allHistory.length} data</span>
+   478→          </div>
+   479→          <div className="flex items-center gap-1.5">
+   480→            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-7 gap-1.5 text-xs">
+   481→              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />} Backup
+   482→            </Button>
+   483→            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-7 gap-1.5 text-xs">
+   484→              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Restore
+   485→            </Button>
+   486→          </div>
+   487→        </div>
+   488→
+   489→        {/* Search */}
+   490→        {invoiceHistory.length > 0 && (
+   491→          <div className="px-4 py-2 border-b border-slate-100 bg-white/50">
+   492→            <div className="relative">
+   493→              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+   494→              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari no. invoice, customer, barang..." className="w-full h-8 pl-8 pr-8 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder:text-slate-400" />
+   495→              {searchQuery && (<button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" /></button>)}
+   496→            </div>
+   497→          </div>
+   498→        )}
+   499→
+   500→        {/* Table / Cards */}
+   501→        {loading ? (
+   502→          <div className="px-4 py-6 text-center"><Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p></div>
+   503→        ) : filteredHistory.length > 0 ? (
+   504→          <>
+   505→            {/* === INVOICE DP Section === */}
+   506→            {dpInvoices.length > 0 && (
+   507→              <div>
+   508→                <div className="px-4 py-2 bg-violet-50/60 border-b border-violet-100">
+   509→                  <p className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
+   510→                    <FileText className="w-3.5 h-3.5" />
+   511→                    Invoice DP <span className="text-[10px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{dpInvoices.length}</span>
+   512→                  </p>
+   513→                </div>
+   514→                {/* Mobile */}
+   515→                <div className="sm:hidden divide-y divide-slate-100">
+   516→                  {dpInvoices.slice(0, 100).map((entry) => {
+   517→                    const info = parseDocInfo(entry)
+   518→                    const uc = invoiceUangCapek.get(entry.id) ?? 0
+   519→                    return (
+   520→                      <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+   521→                        <div className="flex items-start justify-between gap-2 mb-1">
+   522→                          <div className="min-w-0 flex items-center gap-2">
+   523→                            <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+   524→                          </div>
+   525→                          <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+   526→                        </div>
+   527→                        <div className="flex items-center justify-between gap-2">
+   528→                          <div className="min-w-0">
+   529→                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+   530→                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+   531→                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+   532→                            {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
+   533→                            {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Uang Capek: {formatRupiah(uc)}</p>}
+   534→                          </div>
+   535→                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+   536→                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   537→                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   538→                          </div>
+   539→                        </div>
+   540→                      </div>
+   541→                    )
+   542→                  })}
+   543→                </div>
+   544→                {/* Desktop */}
+   545→                <div className="hidden sm:block overflow-x-auto">
+   546→                  <table className="w-full text-[13px] min-w-[1000px]">
+   547→                    <thead>
+   548→                      <tr className="border-b border-slate-200 bg-slate-50/80">
+   549→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+   550→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+   551→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+   552→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
+   553→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
+   554→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+   555→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
+   556→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
+   557→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
+   558→                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+   559→                      </tr>
+   560→                    </thead>
+   561→                    <tbody>
+   562→                      {dpInvoices.slice(0, 100).map((entry, idx) => {
+   563→                        const info = parseDocInfo(entry)
+   564→                        const uc = invoiceUangCapek.get(entry.id) ?? 0
+   565→                        return (
+   566→                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+   567→                            <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+   568→                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
+   569→                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+   570→                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
+   571→                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
+   572→                            <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
+   573→                            <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
+   574→                            <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
+   575→                            <td className={`py-3 px-3 text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</td>
+   576→                            <td className="py-3 px-3 text-center">
+   577→                              <div className="flex items-center justify-center gap-1">
+   578→                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+   579→                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   580→                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   581→                              </div>
+   582→                            </td>
+   583→                          </tr>
+   584→                        )
+   585→                      })}
+   586→                    </tbody>
+   587→                  </table>
+   588→                </div>
+   589→              </div>
+   590→            )}
+   591→
+   592→            {/* === INVOICE PELUNASAN Section === */}
+   593→            {pelunasanInvoices.length > 0 && (
+   594→              <div>
+   595→                <div className="px-4 py-2 bg-amber-50/60 border-b border-amber-100 border-t border-t-slate-200">
+   596→                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+   597→                    <Wallet className="w-3.5 h-3.5" />
+   598→                    Invoice Pelunasan <span className="text-[10px] font-medium text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">{pelunasanInvoices.length}</span>
+   599→                  </p>
+   600→                </div>
+   601→                {/* Mobile */}
+   602→                <div className="sm:hidden divide-y divide-slate-100">
+   603→                  {pelunasanInvoices.slice(0, 100).map((entry) => {
+   604→                    const info = parseDocInfo(entry)
+   605→                    const isLunas = info.lunas
+   606→                    return (
+   607→                      <div key={entry.id} className="px-4 py-3 hover:bg-amber-50/30 active:bg-amber-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+   608→                        <div className="flex items-start justify-between gap-2 mb-1">
+   609→                          <div className="min-w-0 flex items-center gap-2">
+   610→                            <p className="text-amber-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+   611→                            <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+   612→                              {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
+   613→                            </button>
+   614→                          </div>
+   615→                          <div className="text-right">
+   616→                            <p className="text-emerald-700 font-semibold text-xs whitespace-nowrap">{formatRupiah(info.totalHarga)}</p>
+   617→                            <p className="text-red-600 font-bold text-sm whitespace-nowrap">{formatRupiah(info.sisa)}</p>
+   618→                          </div>
+   619→                        </div>
+   620→                        <div className="flex items-center justify-between gap-2">
+   621→                          <div className="min-w-0">
+   622→                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+   623→                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+   624→                            {info.referensiInvoiceNomor && <p className="text-slate-400 text-[11px]">Ref: {info.referensiInvoiceNomor}</p>}
+   625→                          </div>
+   626→                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+   627→                            {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+   628→                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   629→                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   630→                          </div>
+   631→                        </div>
+   632→                      </div>
+
+[showing lines 183-632 of 1295; use offset=633 with limit to continue reading]

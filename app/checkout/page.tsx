@@ -182,41 +182,10 @@ function CheckoutContent() {
     setStep(s => Math.max(s - 1, 0));
   };
 
-  const handlePay = useCallback(async () => {
-    if (!plan) return;
-    setLoading(true);
-    setError('');
-
-    try {
-      const res = await fetch('/api/midtrans/create-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          packageType: plan.id,
-          packageName: plan.name,
-          price: plan.price,
-          customerName: customerName.trim(),
-          customerEmail: customerEmail.trim(),
-          customerPhone: customerPhone.trim(),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || data.message || 'Gagal membuat transaksi');
-        setLoading(false);
-        return;
-      }
-
-      // Tutup loading, buka popup pembayaran
-      setLoading(false);
-      setShowPaymentPopup(true);
-    } catch (err) {
-      setError('Terjadi kesalahan koneksi');
-      setLoading(false);
-    }
-  }, [plan, customerName, customerEmail, customerPhone]);
+  const handlePay = useCallback(() => {
+    // Just open the PaymentDialog - it handles transaction creation internally
+    setShowPaymentPopup(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#141414] text-white flex flex-col">
@@ -680,15 +649,10 @@ function CheckoutContent() {
           onClose={() => setShowPaymentPopup(false)}
           onSuccess={() => {
             setShowPaymentPopup(false);
-            if (autoLoggedIn) {
-              // Auto-login was successful, go directly to beranda
-              window.location.href = '/pembukaan';
-            } else {
-              // Fallback to login page
-              router.push('/login');
-            }
+            // Always redirect to beranda (pembukaan) after payment
+            window.location.href = '/pembukaan';
           }}
-          onAutoLogin={() => setAutoLoggedIn(true)}
+          onAutoLogin={() => {}}
           pkg={{
             type: plan.id,
             name: plan.name,
