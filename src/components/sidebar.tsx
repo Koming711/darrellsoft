@@ -246,20 +246,20 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
       {/* Sidebar — slide-in overlay on mobile, always visible on lg+ */}
       <div
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen w-16 flex flex-col items-center transition-transform duration-300 ease-in-out",
-          "[background-color:var(--app-sidebar-bg)] [border-color:var(--app-sidebar-border)]",
+          "fixed left-0 top-0 z-50 h-screen w-16 flex flex-col items-center transition-transform duration-300 ease-in-out border-r",
           // On mobile: hidden by default, slides in when isOpen
           isOpen ? "translate-x-0" : "-translate-x-full",
           // On desktop (lg+): always visible
           "lg:translate-x-0"
         )}
+        style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.08)' }}
       >
         {/* Close button - only on mobile */}
         <div className="flex justify-center pt-2 lg:hidden">
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--app-sidebar-text-muted)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.06)'}
+            className="p-1.5 rounded-lg transition-colors" style={{ color: '#94a3b8' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <X className="w-5 h-5" />
@@ -286,7 +286,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             <div key={item.href}>
               {showSection && (
                 <div className="my-2 mx-2">
-                  <div className="border-t" style={{ borderColor: 'var(--app-sidebar-border)' }}></div>
+                  <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}></div>
                 </div>
               )}
               <Link
@@ -298,9 +298,9 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                   item.isPro ? 'opacity-60' : '',
                   isActive(item.href)
                     ? 'sidebar-active'
-                    : 'hover:bg-black/5 dark:hover:bg-white/10'
+                    : 'hover:bg-white/10'
                 )}
-                style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
+                style={isActive(item.href) ? { backgroundColor: 'rgba(255,255,255,0.12)', color: '#38bdf8' } : { color: '#e2e8f0' }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 {item.isPro && (
@@ -313,7 +313,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </nav>
 
         {/* Logout */}
-        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: 'var(--app-sidebar-border)' }}>
+        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <button
             onClick={async () => {
               if (onLogout) {
