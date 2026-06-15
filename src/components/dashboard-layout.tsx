@@ -333,7 +333,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         />
         <div className="transition-all duration-300">
           <MobileHeader onMenuToggle={() => setSidebarOpen(!sidebarOpen)} username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
-          <main className="px-4 pt-4 pb-20 lg:px-8 lg:pt-8 lg:pb-8">
+          <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
               <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
                 <Lock className="w-9 h-9 text-amber-500" />
@@ -388,7 +388,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         />
 
         {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
-        <main className="px-4 pt-4 pb-20 lg:px-8 lg:pt-8 lg:pb-8">
+        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
           {children}
         </main>
       </div>
