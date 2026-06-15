@@ -331,7 +331,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
         />
-        <div className="transition-all duration-300">
+        <div className="lg:ml-16 transition-all duration-300">
           <MobileHeader onMenuToggle={() => setSidebarOpen(!sidebarOpen)} username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
           <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -378,7 +378,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         permVersion={permVersion}
       />
 
-      <div className="transition-all duration-300">
+      <div className="lg:ml-16 transition-all duration-300">
         <MobileHeader
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           username={user?.username}

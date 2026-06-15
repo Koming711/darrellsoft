@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calculator,
@@ -247,7 +246,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
       {/* Sidebar — slide-in overlay on mobile, always visible on lg+ */}
       <div
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen w-52 flex flex-col transition-transform duration-300 ease-in-out",
+          "fixed left-0 top-0 z-50 h-screen w-16 flex flex-col items-center transition-transform duration-300 ease-in-out",
           "[background-color:var(--app-sidebar-bg)] [border-color:var(--app-sidebar-border)]",
           // On mobile: hidden by default, slides in when isOpen
           isOpen ? "translate-x-0" : "-translate-x-full",
@@ -256,7 +255,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         )}
       >
         {/* Close button - only on mobile */}
-        <div className="flex justify-end px-2 pt-2 lg:hidden">
+        <div className="flex justify-center pt-2 lg:hidden">
           <button
             onClick={onToggle}
             className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--app-sidebar-text-muted)' }}
@@ -268,20 +267,14 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
-          {/* Logo + App Name - Centered */}
-          <div className="flex flex-col items-center gap-2 mb-3 mt-1">
-            <div className="relative">
-              <img
-                src={'/logo-ds.png'}
-                alt="Logo"
-                className="w-[54px] h-[54px] rounded-lg object-contain shadow-none"
-              />
-            </div>
-            <div className="text-center">
-              <h1 className="text-[17px] font-bold" style={{ color: 'var(--app-sidebar-text)' }}>{t('app_name')}</h1>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--app-sidebar-text-muted)' }}>{t('app_tagline')}</p>
-            </div>
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-4 space-y-0.5 w-full">
+          {/* Logo - Icon Only */}
+          <div className="flex flex-col items-center mb-3 mt-2">
+            <img
+              src={'/logo-ds.png'}
+              alt="Logo"
+              className="w-9 h-9 rounded-lg object-contain shadow-none"
+            />
           </div>
 
           {menuWithAccess.map((item, idx) => {
@@ -292,98 +285,35 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             return (
             <div key={item.href}>
               {showSection && (
-                <div className="mt-4 mb-1 px-3">
-                  <div className="border-t mb-2" style={{ borderColor: 'var(--app-sidebar-border)' }}></div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--app-sidebar-text-muted)' }}>
-                    {t(item.section as TranslationKey)}
-                  </span>
+                <div className="my-2 mx-2">
+                  <div className="border-t" style={{ borderColor: 'var(--app-sidebar-border)' }}></div>
                 </div>
               )}
-              {item.submenu ? (
-                <div>
-                  <Link
-                    href={item.href}
-                    onClick={onToggle}
-                    className={cn(
-                      'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors',
-                      isActive(item.href)
-                        ? 'sidebar-active'
-                        : 'hover:bg-black/5 dark:hover:bg-white/10'
-                    )}
-                    style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
-                  >
-                    <item.icon className="w-4 h-4 flex-shrink-0" />
-                    <span>{t(item.titleKey)}</span>
-                  </Link>
-                  <div className="ml-4 lg:ml-8 mt-1 space-y-1">
-                    {item.submenu
-                      .filter(sub => !role || role === 'superadmin' || hasFeatureAccess(role, sub.featureId))
-                      .map((subItem) => (
-                        <Link
-                          key={subItem.href}
-                          href={subItem.href}
-                          onClick={onToggle}
-                          className={cn(
-                            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                            pathname === subItem.href
-                              ? 'sidebar-active'
-                              : 'hover:bg-black/5 dark:hover:bg-white/10'
-                          )}
-                          style={pathname === subItem.href ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text-muted)' }}
-                        >
-                          <subItem.icon className="w-4 h-4 flex-shrink-0" />
-                          <span>{t(subItem.titleKey)}</span>
-                        </Link>
-                      ))
-                    }
-                  </div>
-                </div>
-              ) : (
-                <Link
-                  href={item.href}
-                  onClick={onToggle}
-                  className={cn(
-                    'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors',
-                    item.isPro ? 'opacity-60' : '',
-                    isActive(item.href)
-                      ? 'sidebar-active'
-                      : 'hover:bg-black/5 dark:hover:bg-white/10'
-                  )}
-                  style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
-                >
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1">{t(item.titleKey)}</span>
-                  {item.isPro && (
-                    <span className="text-[9px] font-bold px-1.5 py-px rounded bg-amber-500 text-white leading-tight">PRO</span>
-                  )}
-                </Link>
-              )}
+              <Link
+                href={item.href}
+                onClick={onToggle}
+                title={t(item.titleKey)}
+                className={cn(
+                  'flex items-center justify-center w-full py-2.5 rounded-lg transition-colors relative',
+                  item.isPro ? 'opacity-60' : '',
+                  isActive(item.href)
+                    ? 'sidebar-active'
+                    : 'hover:bg-black/5 dark:hover:bg-white/10'
+                )}
+                style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {item.isPro && (
+                  <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                )}
+              </Link>
             </div>
             )
           })}
         </nav>
 
-        {/* User Info & Logout */}
-        <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--app-sidebar-border)' }}>
-          {username && (
-            <div className="mb-1.5 px-2 py-1.5 rounded-md" style={{ backgroundColor: 'var(--app-sidebar-active-bg)' }}>
-              <div className="flex items-center justify-between gap-1.5">
-                <p className="text-[14px] font-medium truncate" style={{ color: 'var(--app-sidebar-text)' }}>{username}</p>
-                {role && (
-                  <span className={cn(
-                    "text-[11px] font-bold px-1.5 py-px rounded-full whitespace-nowrap flex-shrink-0",
-                    role === 'superadmin' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
-                    role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
-                    role === 'manager' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
-                    role === 'demo' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
-                    'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                  )}>
-                    {role}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+        {/* Logout */}
+        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: 'var(--app-sidebar-border)' }}>
           <button
             onClick={async () => {
               if (onLogout) {
@@ -391,10 +321,10 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               }
               router.push('/')
             }}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[15px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+            title={t('keluar')}
+            className="p-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
           >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
-            <span>{t('keluar')}</span>
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </div>
