@@ -131,9 +131,7 @@ function parseDocInfo(entry: HistoryEntry): DocInfo {
 
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
     const totalHarga = subtotal + (subtotal * ppn / 100)
-    // Use saved dpAmount if available, otherwise calculate from originalTotal (not current total)
-    const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga
-    const dpAmount = parsed.dpAmount !== undefined ? parsed.dpAmount : originalTotal * (dpPercent / 100)
+    const dpAmount = totalHarga * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
 
     const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)

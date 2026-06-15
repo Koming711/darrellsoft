@@ -14,10 +14,9 @@ import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
-import { Truck, ImageIcon, Loader2 } from 'lucide-react';
+import { Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { toJpeg } from 'html-to-image';
 import type { InvoiceData } from '@/lib/types';
 
 interface CustomerItem {
@@ -70,13 +69,14 @@ export function InvoiceEditor() {
   const setInvoice = useDokuproStore((s) => s.setInvoice);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
   const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
+  const invoiceEditingId = useDokuproStore((s) => s.invoiceEditingId);
+  const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId);
   const router = useRouter();
 
   const searchParams = useSearchParams();
   const riwayatIdFromUrl = searchParams.get('riwayatId');
   const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
   const [savingSj, setSavingSj] = useState(false);
-  const [jpgGenerating, setJpgGenerating] = useState(false);
 
   // Riwayat cetakan dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatCetakanItem[]>([]);
@@ -120,8 +120,11 @@ export function InvoiceEditor() {
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
 
-  // Fetch next Invoice number from server
+  // Fetch next Invoice number from server (only when creating new, not editing)
   const fetchNextNumber = useCallback(() => {
+    // Read current editingId from store to avoid stale closure
+    const currentEditingId = useDokuproStore.getState().invoiceEditingId;
+    if (currentEditingId) return; // Don't overwrite nomor when editing
     fetch('/api/history?preview=next-number&docType=invoice', { headers: getAuthHeaders() })
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.nextNumber) setInvoice((prev) => ({ ...prev, nomor: data.nextNumber })) })
@@ -142,15 +145,8 @@ export function InvoiceEditor() {
   // Sync clientInput when invoice.client.nama changes externally
   useEffect(() => { setClientInput(invoice.client.nama) }, [invoice.client.nama]);
 
-  // Filter riwayat list by input
-  const filteredRiwayatList = riwayatList.filter((r) => {
-    const search = referensiInput.toLowerCase().trim();
-    if (!search) return true;
-    const noHc = (r.nomorUrut || '').toLowerCase();
-    const printName = (r.printName || '').toLowerCase();
-    const name = (r.customerName || '').toLowerCase();
-    return noHc.includes(search) || printName.includes(search) || name.includes(search);
-  });
+  // Filter riwayat list — when dropdown is open show all, otherwise not used
+  const filteredRiwayatList = riwayatList;
 
   const handleReferensiInputChange = (value: string) => {
     setReferensiInput(value);
@@ -200,6 +196,7 @@ export function InvoiceEditor() {
       },
       items: newItems,
       catatan: '',
+      uangCapek: item.profitAmount || 0,
     }));
     setDropdownOpen(false);
   };
@@ -312,9 +309,7 @@ export function InvoiceEditor() {
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = invoice.dp || 0;
-  // ALWAYS derive dpAmount from originalTotal — single source of truth.
-  const originalTotalForDp = invoice.originalTotal !== undefined ? invoice.originalTotal : total;
-  const dpAmount = dpPercent > 0 ? originalTotalForDp * (dpPercent / 100) : 0;
+  const dpAmount = total * (dpPercent / 100);
   const sisa = total - dpAmount;
 
   const handleSuratJalan = async () => {
@@ -329,69 +324,101 @@ export function InvoiceEditor() {
     setSavingSj(true);
     try {
       // Save invoice to history first
-      const res = await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
-          docType: 'invoice',
-          nomor: invoice.nomor || '-',
-          tanggal: invoice.tanggal || '',
-          pihakKedua: invoice.client?.nama || '-',
-          total: '-',
-          dataJson: JSON.stringify({ ...invoice, dpAmount: dpAmount, originalTotal: invoice.originalTotal ?? total }),
-        }),
-      });
-      if (res.ok) {
-        const saved = await res.json();
-        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
-        toast.success('Invoice disimpan ke riwayat');
-        // Reset invoice form after saving
-        resetDocument('invoice');
-        router.push(`/surat-jalan?invoiceId=${saved.id}`);
-      } else if (res.status === 409) {
-        // Invoice already saved, get existing ID and navigate
-        const errData = await res.json().catch(() => ({}));
-        if (errData.id) {
+      const dataToSave = { ...invoice, dpAmount, originalTotal: total };
+
+      if (invoiceEditingId) {
+        // Update existing record
+        const res = await fetch(`/api/history/${invoiceEditingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            nomor: invoice.nomor || '-',
+            tanggal: invoice.tanggal || '',
+            pihakKedua: invoice.client?.nama || '-',
+            total: '-',
+            dataJson: JSON.stringify(dataToSave),
+          }),
+        });
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+          toast.success('Invoice diperbarui');
+          const invoiceId = invoiceEditingId;
+          setInvoiceEditingId(null);
           resetDocument('invoice');
-          router.push(`/surat-jalan?invoiceId=${errData.id}`);
+          router.push(`/surat-jalan?invoiceId=${invoiceId}`);
         } else {
-          toast('Invoice sudah ada di riwayat.');
+          toast.error('Gagal memperbarui invoice');
         }
       } else {
-        toast.error('Gagal menyimpan invoice');
+        const res = await fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            docType: 'invoice',
+            nomor: invoice.nomor || '-',
+            tanggal: invoice.tanggal || '',
+            pihakKedua: invoice.client?.nama || '-',
+            total: '-',
+            dataJson: JSON.stringify(dataToSave),
+          }),
+        });
+        if (res.ok) {
+          const saved = await res.json();
+          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+
+          // If invoice has DP, also create an invoice-pelunasan entry
+          if (invoice.dp > 0) {
+            try {
+              // Derive PEL nomor from INV nomor (same number, different prefix)
+              const invNomor = saved.nomor || invoice.nomor;
+              const pelNomor = invNomor.replace(/^INV/, 'PEL');
+
+              const pelunasanData = {
+                ...dataToSave,
+                type: 'invoice-pelunasan',
+                referensiInvoiceId: saved.id,
+                referensiInvoiceNomor: invNomor,
+                lunas: false,
+                tanggalPelunasan: '',
+              };
+              await fetch('/api/history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({
+                  docType: 'invoice-pelunasan',
+                  customNomor: pelNomor,
+                  tanggal: invoice.tanggal || '',
+                  pihakKedua: invoice.client?.nama || '-',
+                  total: '-',
+                  dataJson: JSON.stringify(pelunasanData),
+                }),
+              });
+            } catch {
+              console.error('Failed to create pelunasan invoice entry');
+            }
+          }
+
+          toast.success('Invoice disimpan ke riwayat');
+          // Reset invoice form after saving
+          resetDocument('invoice');
+          router.push(`/surat-jalan?invoiceId=${saved.id}`);
+        } else if (res.status === 409) {
+          // Invoice already saved, get existing ID and navigate
+          const errData = await res.json().catch(() => ({}));
+          if (errData.id) {
+            resetDocument('invoice');
+            router.push(`/surat-jalan?invoiceId=${errData.id}`);
+          } else {
+            toast('Invoice sudah ada di riwayat.');
+          }
+        } else {
+          toast.error('Gagal menyimpan invoice');
+        }
       }
     } catch {
       toast.error('Gagal menyimpan invoice');
     }
     setSavingSj(false);
-  };
-
-  // Generate JPG from preview (same as print output)
-  const handleGenerateJpg = async () => {
-    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
-    if (!previewEl) {
-      toast.error('Preview tidak ditemukan');
-      return;
-    }
-    setJpgGenerating(true);
-    try {
-      const dataUrl = await toJpeg(previewEl, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      });
-      const fileName = `Invoice-${invoice.nomor || 'draft'}.jpg`;
-      const link = document.createElement('a');
-      link.download = fileName;
-      link.href = dataUrl;
-      link.click();
-      toast.success('JPG berhasil didownload');
-    } catch (err) {
-      console.error('Failed to generate JPG:', err);
-      toast.error('Gagal membuat JPG');
-    } finally {
-      setJpgGenerating(false);
-    }
   };
 
   return (
@@ -401,24 +428,20 @@ export function InvoiceEditor() {
         previewContent={<InvoicePreview data={invoice} />}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            {invoiceEditingId && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold border border-amber-200">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                Mode Edit
+              </span>
+            )}
             <DocumentActionButtons
               docType="invoice"
               documentLabel="Invoice"
               currentData={invoice}
               onReset={() => resetDocument('invoice')}
+              editingId={invoiceEditingId}
+              onUpdateSuccess={() => setInvoiceEditingId(null)}
             />
-            <Button
-              size="sm"
-              onClick={handleGenerateJpg}
-              disabled={jpgGenerating}
-              className="bg-violet-600 hover:bg-violet-700 text-white h-8 sm:h-9"
-            >
-              {jpgGenerating ? (
-                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Membuat...</>
-              ) : (
-                <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>
-              )}
-            </Button>
             <Button
               size="sm"
               onClick={handleSuratJalan}
@@ -459,20 +482,16 @@ export function InvoiceEditor() {
             <Label className="text-xs">Referensi (No. HC)</Label>
             <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
               <PopoverAnchor asChild>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Pilih No. HC / ketik referensi..."
-                    value={referensiInput}
-                    onChange={(e) => handleReferensiInputChange(e.target.value)}
-                    onFocus={() => setDropdownOpen(true)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
-                  />
-                  {/* Dropdown chevron icon */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen(true)}
+                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm shadow-xs outline-none cursor-pointer hover:bg-slate-100 transition-colors text-left"
+                >
+                  <span className={referensiInput ? 'text-slate-900' : 'text-slate-400'}>
+                    {referensiInput || 'Pilih No. HC...'}
+                  </span>
+                  <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
               </PopoverAnchor>
               <PopoverContent
                 align="start"
@@ -672,8 +691,24 @@ export function InvoiceEditor() {
               min={0}
               max={100}
               value={invoice.dp || ''}
-              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0), dpAmount: undefined }))}
+              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
               placeholder="0"
+            />
+          </div>
+          <div className="space-y-1.5 mt-3">
+            <Label className="text-xs">Uang Capek</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={invoice.uangCapek ? invoice.uangCapek.toLocaleString('id-ID') : ''}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
+                const num = raw === '' ? 0 : Number(raw) || 0
+                setInvoice((prev) => ({ ...prev, uangCapek: num }))
+              }}
+              readOnly={!!invoice.referensi}
+              placeholder="0"
+              className={invoice.referensi ? 'bg-slate-50 cursor-not-allowed' : ''}
             />
           </div>
           <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">

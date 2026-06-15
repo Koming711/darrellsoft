@@ -48,6 +48,8 @@ interface DokuproState {
 
   invoice: InvoiceData;
   setInvoice: (data: InvoiceData | ((prev: InvoiceData) => InvoiceData)) => void;
+  invoiceEditingId: string | null;
+  setInvoiceEditingId: (id: string | null) => void;
 
   suratJalan: SuratJalanData;
   setSuratJalan: (data: SuratJalanData | ((prev: SuratJalanData) => SuratJalanData)) => void;
@@ -115,6 +117,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
   companyLoaded: false,
 
   invoice: createDefaultInvoice(),
+  invoiceEditingId: null,
   setInvoice: (data) => {
     set((state) => {
       const newData = typeof data === 'function' ? data(state.invoice) : data;
@@ -122,6 +125,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
       return { invoice: newData };
     });
   },
+  setInvoiceEditingId: (id) => set({ invoiceEditingId: id }),
 
   suratJalan: createDefaultSuratJalan(),
   setSuratJalan: (data) => {
@@ -219,7 +223,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
         const inv = createDefaultInvoice();
         inv.nomor = nextNumber(state.invoice.nomor, 'INV');
         saveToStorage(STORAGE_KEYS.invoice, inv);
-        set({ invoice: inv });
+        set({ invoice: inv, invoiceEditingId: null });
         break;
       }
       case 'surat-jalan': {

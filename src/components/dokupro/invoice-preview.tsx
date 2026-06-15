@@ -18,15 +18,12 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
-  // ALWAYS derive dpAmount from originalTotal — single source of truth.
-  // Never use saved dpAmount which could have been recalculated from current total incorrectly.
-  // dpAmountOverride is only used by the pelunasan editor for real-time preview before saving.
-  const originalTotalForDp = data.originalTotal !== undefined ? data.originalTotal : total;
+  // Priority: dpAmountOverride > data.dpAmount (saved) > calculate from percentage
   const dpAmount = dpAmountOverride !== undefined
     ? dpAmountOverride
-    : dpPercent > 0
-      ? originalTotalForDp * (dpPercent / 100)
-      : 0;
+    : data.dpAmount !== undefined
+      ? data.dpAmount
+      : total * (dpPercent / 100);
   const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
@@ -84,6 +81,9 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           <h2 className="text-lg font-bold print:text-[13px] text-black">INVOICE</h2>
           {showPelunasanLabel && (
             <p className="text-[11px] font-bold print:text-[10px] text-amber-700 tracking-wider">PELUNASAN</p>
+          )}
+          {showPelunasanLabel && data.referensiInvoiceNomor && (
+            <p className="text-[9px] print:text-[8px] text-violet-600 mt-0.5">Ref: {data.referensiInvoiceNomor}</p>
           )}
           {/* LUNAS stamp */}
           {data.lunas && (
@@ -166,7 +166,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               <tr
                 key={item.id}
               >
-                <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{i < data.items.length ? item.qty : ''}</td>
+                <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{i < data.items.length ? item.qty.toLocaleString('id-ID') : ''}</td>
                 <td className="py-1.5 px-1 print:py-0 whitespace-pre-line" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{item.deskripsi || ''}</td>
                 <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top', paddingRight: '11px' }}>{i < data.items.length ? formatRupiah(item.harga) : ''}</td>
                 <td className="py-1.5 px-4 text-right font-medium print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>

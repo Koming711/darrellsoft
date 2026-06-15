@@ -54,7 +54,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { dataJson } = body;
+    const { dataJson, nomor, tanggal, pihakKedua, total } = body;
 
     if (!dataJson) {
       return NextResponse.json({ error: 'dataJson wajib diisi' }, { status: 400 });
@@ -67,9 +67,16 @@ export async function PUT(
       return NextResponse.json({ error: 'dataJson harus berupa JSON valid' }, { status: 400 });
     }
 
+    // Build update data — always include dataJson, optionally include other fields
+    const updateData: Record<string, unknown> = { dataJson };
+    if (nomor !== undefined) updateData.nomor = nomor;
+    if (tanggal !== undefined) updateData.tanggal = tanggal;
+    if (pihakKedua !== undefined) updateData.pihakKedua = pihakKedua;
+    if (total !== undefined) updateData.total = total;
+
     const updated = await db.documentHistory.update({
       where: { id },
-      data: { dataJson },
+      data: updateData,
     });
 
     return NextResponse.json({ success: true, data: updated });
