@@ -180,8 +180,8 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
 
       {/* Totals */}
       <div className="mb-3 print:mb-[0.5mm] flex justify-end">
-        <div className="print-totals w-48 space-y-0.5 text-[9px] print:text-[9px] print:w-44">
-          <div className="flex justify-between text-neutral-600">
+        <div className="print-totals w-full space-y-0.5 text-[9px] print:text-[9px] print:w-full">
+          <div className="flex justify-between text-neutral-600 gap-[8cm]">
             <span>Subtotal</span>
             <span>{formatRupiah(subtotal)}</span>
           </div>
