@@ -226,7 +226,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
           <button
             onClick={onToggle}
             className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--app-sidebar-text-muted)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.06)'}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <X className="w-5 h-5" />
@@ -274,7 +274,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                       'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors',
                       isActive(item.href)
                         ? 'sidebar-active'
-                        : 'hover:bg-black/5 dark:hover:bg-white/10'
+                        : 'hover:bg-white/10'
                     )}
                     style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                   >
@@ -293,7 +293,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                             'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                             pathname === subItem.href
                               ? 'sidebar-active'
-                              : 'hover:bg-black/5 dark:hover:bg-white/10'
+                              : 'hover:bg-white/10'
                           )}
                           style={pathname === subItem.href ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text-muted)' }}
                         >
@@ -313,7 +313,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                     item.isPro ? 'opacity-60' : '',
                     isActive(item.href)
                       ? 'sidebar-active'
-                      : 'hover:bg-black/5 dark:hover:bg-white/10'
+                      : 'hover:bg-white/10'
                   )}
                   style={isActive(item.href) ? { backgroundColor: 'var(--app-sidebar-active-bg)', color: 'var(--app-sidebar-active-text)' } : { color: 'var(--app-sidebar-text)' }}
                 >
@@ -357,7 +357,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               }
               router.push('/')
             }}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[15px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[15px] font-medium text-red-400 hover:bg-white/10 transition-colors"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
             <span className={cn("transition-opacity", !isOpen && "lg:opacity-100 opacity-0")}>{t('keluar')}</span>

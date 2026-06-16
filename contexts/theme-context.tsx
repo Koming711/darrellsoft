@@ -28,9 +28,9 @@ function applySidebarTheme(color: string) {
   applyColor('--app-sidebar-bg', color)
   applyColor('--app-sidebar-border', isLight ? '#e2e8f0' : 'rgba(255,255,255,0.12)')
   applyColor('--app-sidebar-text', isLight ? '#1e293b' : '#f1f5f9')
-  applyColor('--app-sidebar-text-muted', isLight ? '#64748b' : '#94a3b8')
+  applyColor('--app-sidebar-text-muted', isLight ? '#64748b' : '#93c5fd')
   applyColor('--app-sidebar-active-bg', isLight ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.15)')
-  applyColor('--app-sidebar-active-text', isLight ? '#2563eb' : '#93c5fd')
+  applyColor('--app-sidebar-active-text', isLight ? '#2563eb' : '#ffffff')
 }
 
 function applyFontSize(size: string) {
