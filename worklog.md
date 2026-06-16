@@ -236,3 +236,24 @@ Stage Summary:
 - Top progress bar still provides visual feedback (completes in ~100-150ms)
 - Session cache restoration via useLayoutEffect eliminates the flash
 - Modified files: src/components/dashboard-layout.tsx, components/dashboard-layout.tsx
+
+---
+Task ID: 4
+Agent: main
+Task: Deploy to www.darrellsoft.com via Vercel
+
+Work Log:
+- Installed Vercel CLI globally (v54.14.0)
+- Fixed build error 1: Added `sendWhatsAppDocument` export to `src/lib/whatsapp.ts` (was missing, referenced by `app/api/whatsapp/send-pdf/route.ts`)
+- Fixed build error 2: Wrapped `useSearchParams()` in Suspense boundary in `src/app/payment/finish/page.tsx`
+- Ran prepare-build.js to swap schema to postgresql
+- Generated Prisma client for PostgreSQL
+- Deployed to Vercel production with token
+- Reverted schema back to sqlite for local development
+- Deployment successful: https://my-project-iota-azure-95.vercel.app (aliased to www.darrellsoft.com)
+
+Stage Summary:
+- Build errors fixed and deployed successfully
+- Production URL: www.darrellsoft.com
+- Local dev schema reverted to sqlite
+- Modified files: src/lib/whatsapp.ts, src/app/payment/finish/page.tsx (and their app/ copies)

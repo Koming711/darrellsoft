@@ -65,6 +65,69 @@ export async function sendWhatsAppMessage(
 }
 
 /**
+ * Send a WhatsApp document (PDF) using Fonnte API
+ * Requires wa_api_key and wa_api_url to be configured in settings
+ */
+export async function sendWhatsAppDocument(
+  targetPhone: string,
+  message: string,
+  pdfBase64: string,
+  fileName: string
+): Promise<WhatsAppMessageResult> {
+  try {
+    // Get WhatsApp API settings from database
+    const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
+    const apiUrlSetting = await db.setting.findUnique({ where: { key: 'wa_api_url' } })
+
+    const apiKey = apiKeySetting?.value?.trim()
+    const apiUrl = apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send'
+
+    if (!apiKey) {
+      return { success: false, error: 'WhatsApp API key belum dikonfigurasi. Hubungi administrator.' }
+    }
+
+    // Normalize target phone number
+    let normalizedPhone = targetPhone.replace(/[\s\-()+]/g, '')
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '62' + normalizedPhone.substring(1)
+    }
+
+    // Send document via Fonnte API
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': apiKey,
+      },
+      body: JSON.stringify({
+        target: normalizedPhone,
+        message: message,
+        document: pdfBase64,
+        filename: fileName,
+      }),
+    })
+
+    const data = await response.json()
+
+    // Fonnte returns { status: true, ... } on success
+    if (data.status === true || data.status === 'true' || response.ok) {
+      return { success: true }
+    }
+
+    return {
+      success: false,
+      error: data.message || data.reason || data.error || 'Gagal mengirim dokumen WhatsApp',
+    }
+  } catch (error: any) {
+    console.error('WhatsApp send document error:', error?.message || error)
+    return {
+      success: false,
+      error: 'Gagal mengirim dokumen WhatsApp. Periksa koneksi internet.',
+    }
+  }
+}
+
+/**
  * Generate a random password of specified length
  */
 export function generateRandomPassword(length: number = 8): string {
