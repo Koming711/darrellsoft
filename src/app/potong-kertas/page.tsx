@@ -1999,29 +1999,5 @@ function CalculatorPage() {
 }
 
 export default function Home() {
-  const router = useRouter()
-  const [ready, setReady] = useState(false)
-  const [user, setUser] = useState<{ username: string; name?: string; role?: string } | null>(null)
-
-  useEffect(() => {
-    const authUser = getAuthUser()
-    if (!authUser) {
-      router.push('/login')
-    } else {
-      setUser(authUser)
-    }
-    setReady(true)
-  }, [router])
-
-  if (!ready) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
-  if (!user) return null
-
   return <CalculatorPage />
 }
