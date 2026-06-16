@@ -33,8 +33,7 @@ import {
 import { toast } from 'sonner'
 import { SuratJalanPreview } from '@/components/dokupro/surat-jalan-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
-import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
-import { WhatsAppJpgDialog } from '@/components/dokupro/whatsapp-jpg-dialog'
+import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDokuproStore } from '@/lib/store'
 import type { SuratJalanData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
@@ -134,11 +133,6 @@ function SuratJalanRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewScale, setPreviewScale] = useState(1)
   const [sendingPdf, setSendingPdf] = useState(false)
-  // Desktop direct-send JPG dialog state
-  const [jpgDialogOpen, setJpgDialogOpen] = useState(false)
-  const [jpgBlob, setJpgBlob] = useState<Blob | null>(null)
-  const [jpgFileName, setJpgFileName] = useState('')
-  const [jpgInitialPhone, setJpgInitialPhone] = useState('')
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
   const fetchHistory = useCallback(async () => {
@@ -218,32 +212,28 @@ function SuratJalanRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (previewEl) {
         const blob = await captureElementAsJpg(previewEl)
         const fileName = `${(sjData.nomor || 'draft').replace(/\//g, '-')}.jpg`
+        const phone = sjData.penerima?.kontak || ''
 
-        // Mobile: use Web Share API (shares the file directly to WhatsApp app)
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-        if (isMobile && navigator.share && navigator.canShare) {
-          const file = new File([blob], fileName, { type: 'image/jpeg' })
-          if (navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({
-                files: [file],
-                text: `Surat Jalan ${sjData.nomor} - www.darrellsoft.com`,
-              })
-              toast.success('Gambar dikirim ke WhatsApp')
-              return
-            } catch (err: unknown) {
-              if (err instanceof Error && err.name === 'AbortError') return
-              // fall through to desktop flow
-            }
-          }
+        // No-API sharing: Web Share API first (auto-attaches file),
+        // then fallback to download + WhatsApp Web.
+        const result = await shareJpgToWhatsApp({
+          blob,
+          fileName,
+          documentLabel: `Surat Jalan ${sjData.nomor}`,
+          phone,
+        })
+
+        if (result.status === 'shared') {
+          toast.success('Gambar dibagikan ke WhatsApp')
+        } else if (result.status === 'cancelled') {
+          // silent
+        } else if (result.status === 'downloaded') {
+          toast.success('JPG diunduh. Lampirkan file ke WhatsApp manual.', {
+            description: 'WhatsApp Web telah dibuka dengan pesan siap dikirim.',
+          })
+        } else {
+          toast.error(result.error || 'Gagal mengirim gambar')
         }
-
-        // Desktop: open the direct-send dialog (sends via Fonnte API to a
-        // WhatsApp Business number, no manual attachment needed).
-        setJpgBlob(blob)
-        setJpgFileName(fileName)
-        setJpgInitialPhone(sjData.penerima?.kontak || '')
-        setJpgDialogOpen(true)
       } else {
         toast.error('Preview tidak ditemukan')
       }
@@ -556,15 +546,6 @@ function SuratJalanRiwayatTab({ onRestore }: { onRestore: () => void }) {
         </div>
       )}
 
-      {/* Desktop direct-send JPG dialog (sends via Fonnte API) */}
-      <WhatsAppJpgDialog
-        open={jpgDialogOpen}
-        onOpenChange={setJpgDialogOpen}
-        jpgBlob={jpgBlob}
-        fileName={jpgFileName}
-        documentLabel={`Surat Jalan ${sjData?.nomor || ''}`}
-        initialPhone={jpgInitialPhone}
-      />
     </>
   )
 }
