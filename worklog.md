@@ -216,3 +216,23 @@ Stage Summary:
 - Navigation now shows visual feedback: top progress bar (3px blue gradient) + content area "Memuat..." spinner
 - Both indicators appear immediately on click and disappear when new page renders
 - Modified files: navigation-progress.tsx (new), sidebar.tsx, dashboard-layout.tsx, pembukaan/page.tsx, layout.tsx (both dirs)
+
+---
+Task ID: 3
+Agent: main
+Task: Fix sidebar navigation delay — pages should load instantly without loading spinner
+
+Work Log:
+- Identified root cause: DashboardLayout remounts on every page navigation, showing loading spinner until auth verification completes
+- Added `useLayoutEffect` to instantly restore state from session cache before browser paint
+- Removed `NavigatingOverlay` ("Memuat..." spinner) from main content area — top progress bar is sufficient
+- Removed `getInitialReadyState`/`getInitialUserState` (would cause hydration mismatch on SSR)
+- Updated init useEffect to skip redundant state restoration when cache was already restored by useLayoutEffect
+- Synced files to root components/ directory
+- Browser verification: no loading spinner on navigation, pages load in 78-162ms (perceived instant), top progress bar works correctly
+
+Stage Summary:
+- Navigation is now instant — no visible loading spinner between page transitions
+- Top progress bar still provides visual feedback (completes in ~100-150ms)
+- Session cache restoration via useLayoutEffect eliminates the flash
+- Modified files: src/components/dashboard-layout.tsx, components/dashboard-layout.tsx

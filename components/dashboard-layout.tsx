@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { Sidebar, MobileHeader, MobileBottomNav } from './sidebar'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
@@ -66,35 +66,7 @@ function invalidateSessionCache() {
   }
 }
 
-/** Subtle overlay shown in main content area during route navigation */
-function NavigatingOverlay() {
-  const [show, setShow] = useState(false)
-  const pathname = usePathname()
 
-  // Listen for navigation start event
-  useEffect(() => {
-    const onStart = () => setShow(true)
-    window.addEventListener('navigation-start', onStart)
-    return () => window.removeEventListener('navigation-start', onStart)
-  }, [])
-
-  // When pathname changes, navigation is complete — hide overlay after brief delay
-  useEffect(() => {
-    const t = setTimeout(() => setShow(false), 100)
-    return () => clearTimeout(t)
-  }, [pathname])
-
-  if (!show) return null
-
-  return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-      <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm">
-        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm text-muted-foreground">Memuat...</span>
-      </div>
-    </div>
-  )
-}
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -137,6 +109,23 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === PERMISSION VERSION (forces re-render of Sidebar when permissions update) ===
   const [permVersion, setPermVersion] = useState(0)
 
+  // === INSTANT RESTORE FROM CACHE (useLayoutEffect runs before browser paint) ===
+  // This eliminates the loading spinner flash on client-side navigation.
+  // On SSR, cache is null so this is a no-op (spinner shows on first load as expected).
+  useLayoutEffect(() => {
+    const cache = getSessionCache()
+    if (cache) {
+      setUser(cache.user)
+      setSessionWarning(cache.sessionWarning ?? null)
+      setForceLogoutAvailable(cache.forceLogoutAvailable ?? false)
+      setAccountExpired(cache.accountExpired ?? false)
+      setAutoLogoutMin(cache.autoLogoutMin ?? 0)
+      setLogoutWarningSec(cache.logoutWarningSec ?? 0)
+      setUserProfile(cache.userProfile ?? null)
+      setReady(true)
+    }
+  }, [])
+
   // Listen for permission updates from hak-akses page (immediate re-render)
   useEffect(() => {
     const handler = () => setPermVersion(v => v + 1)
@@ -171,18 +160,11 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     if (initDoneRef.current) return
     initDoneRef.current = true
 
-    // If we have a valid cache, restore state immediately — then do a background refresh
+    // If cache was already restored by useLayoutEffect, skip the full init.
+    // Just do a background refresh to keep session data up-to-date.
     const existingCache = getSessionCache()
     if (existingCache) {
-      // Restore state from cache (avoids hydration mismatch by doing this in useEffect)
-      setUser(existingCache.user)
-      setSessionWarning(existingCache.sessionWarning ?? null)
-      setForceLogoutAvailable(existingCache.forceLogoutAvailable ?? false)
-      setAccountExpired(existingCache.accountExpired ?? false)
-      setAutoLogoutMin(existingCache.autoLogoutMin ?? 0)
-      setLogoutWarningSec(existingCache.logoutWarningSec ?? 0)
-      setUserProfile(existingCache.userProfile ?? null)
-      setReady(true)
+      // State was already restored by useLayoutEffect — just do background refresh
       // Do a background session refresh without blocking UI
       const bgRefresh = async () => {
         const authUser = getAuthUser()
@@ -566,9 +548,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         />
 
         {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
-        <main className="p-4 pb-20 lg:p-8 lg:pb-8 relative">
-          {/* Navigation loading overlay */}
-          <NavigatingOverlay />
+        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
           {children}
         </main>
       </div>
