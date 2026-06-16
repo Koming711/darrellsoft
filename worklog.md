@@ -304,3 +304,20 @@ Stage Summary:
   - Filename: ${nomor.replace(/\//g, '-')}.jpg
 - Removed: ImageIcon import, sendingJpg state, handleSendJpgButton function, amber JPG button
 - Both src/app/ and app/ versions synced
+
+---
+Task ID: 7
+Agent: Main
+Task: Deploy latest changes (PO JPG fix) to www.darrellsoft.com
+
+Work Log:
+- Verified .vercel/project.json points to darrellsoft project (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB)
+- Swapped Prisma schema to postgresql and generated client
+- Deployed to Vercel production — build succeeded in ~1 min (cache restored)
+- Domain www.darrellsoft.com automatically aliased to new deployment
+- Reverted schema back to sqlite for local development
+
+Stage Summary:
+- Deployment successful: https://www.darrellsoft.com
+- PO JPG fix is now live (single "Kirim WhatsApp" button matching Invoice page)
+- Local dev schema reverted to sqlite
