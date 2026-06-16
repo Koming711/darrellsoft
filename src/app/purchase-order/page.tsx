@@ -20,7 +20,6 @@ import {
   X,
   DatabaseBackup,
   Upload,
-  ImageIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -138,7 +137,6 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewScale, setPreviewScale] = useState(1)
   const [sendingPdf, setSendingPdf] = useState(false)
-  const [sendingJpg, setSendingJpg] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
   const fetchHistory = useCallback(async () => {
@@ -234,33 +232,6 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
       toast.error('Gagal mengirim gambar')
     } finally {
       setSendingPdf(false)
-    }
-  }, [poData])
-
-  const handleSendJpgButton = useCallback(async () => {
-    if (!poData) return
-    setSendingJpg(true)
-    try {
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
-      if (previewEl) {
-        const dataUrl = await toJpeg(previewEl, {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-        })
-        const res = await fetch(dataUrl)
-        const jpgBlob = await res.blob()
-        const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
-        await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
-        toast.success('JPG dikirim ke WhatsApp Business')
-      } else {
-        toast.error('Preview tidak ditemukan')
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error('Gagal mengirim JPG')
-    } finally {
-      setSendingJpg(false)
     }
   }, [poData])
 
@@ -554,20 +525,12 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
           {/* Action buttons - fixed at bottom */}
           <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
             <Button
-              onClick={handleSendJpgButton}
-              disabled={sendingJpg || sendingPdf}
-              size="sm"
-              className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5"
-            >
-              {sendingJpg ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim JPG...</> : <><ImageIcon className="w-4 h-4" /> JPG</>}
-            </Button>
-            <Button
               onClick={handleSendJpg}
-              disabled={sendingPdf || sendingJpg}
+              disabled={sendingPdf}
               size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {sendingPdf ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
+              {sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
             </Button>
           </div>
         </div>
