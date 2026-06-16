@@ -11,14 +11,11 @@ interface InvoicePreviewProps {
   dpAmountOverride?: number;
 }
 
-const MAX_ROWS = 8;
-
 export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: InvoicePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
-  // Priority: dpAmountOverride > data.dpAmount (saved) > calculate from percentage
   const dpAmount = dpAmountOverride !== undefined
     ? dpAmountOverride
     : data.dpAmount !== undefined
@@ -27,217 +24,253 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
   const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
-  // Pad items to MAX_ROWS
-  const rows = [...data.items];
-  while (rows.length < MAX_ROWS) {
-    rows.push({ id: `empty-${rows.length}`, deskripsi: '', qty: 0, satuan: '', harga: 0 });
-  }
+  const itemCount = data.items.length;
 
   return (
-    <div data-document-preview className="rounded-lg border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 print:shadow-none print:border-0 print:p-0 print:mb-0">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3 print:mb-[1mm]">
-        <div className="flex items-start gap-2">
+    <div
+      data-document-preview
+      className="a5-page bg-white text-black print:shadow-none print:border-0 print:p-0 print:mb-0"
+      style={{
+        width: '148mm',
+        minHeight: '210mm',
+        padding: '8mm 10mm',
+        fontSize: '9pt',
+        lineHeight: '1.35',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+      }}
+    >
+      {/* === HEADER === */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3mm' }}>
+        {/* Company info */}
+        <div style={{ display: 'flex', gap: '2mm', alignItems: 'flex-start' }}>
           <div
-            className="print-logo-box flex h-10 w-10 shrink-0 items-center justify-center rounded border-[3px] font-bold text-sm print:h-7 print:w-7 print:text-[10px]"
-            style={{ borderColor: data.company.logo ? 'transparent' : '#000000', color: data.company.logo ? 'inherit' : '#000000' }}
+            className="print-logo-box"
+            style={{
+              width: '10mm',
+              height: '10mm',
+              border: data.company.logo ? 'none' : '2px solid #000',
+              borderRadius: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              fontSize: '12pt',
+              flexShrink: 0,
+              color: data.company.logo ? 'inherit' : '#000',
+            }}
           >
             {data.company.logo ? (
-              <img
-                src={data.company.logo}
-                alt="Logo"
-                className="h-full w-full object-contain"
-              />
+              <img src={data.company.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
               <span>{companyInitials}</span>
             )}
           </div>
           <div className="company-info">
-            <p className="company-name text-[14px] font-bold print:text-[12px] text-black">
+            <p className="company-name" style={{ fontSize: '11pt', fontWeight: 'bold', color: '#000', margin: 0 }}>
               {data.company.nama || ''}
             </p>
             {data.company.alamat && (
-              <p className="text-[10px] print:text-[9px] text-neutral-600">{data.company.alamat}</p>
+              <p style={{ fontSize: '7pt', color: '#555', margin: '0.5mm 0 0' }}>{data.company.alamat}</p>
             )}
             {(data.company.telepon || data.company.email) && (
-              <div className="flex gap-4 text-[10px] print:text-[9px] text-neutral-600">
+              <p style={{ fontSize: '7pt', color: '#555', margin: '0.3mm 0 0' }}>
                 {data.company.telepon && <span>{data.company.telepon}</span>}
+                {data.company.telepon && data.company.email && <span> | </span>}
                 {data.company.email && <span>{data.company.email}</span>}
-              </div>
+              </p>
             )}
             {(data.company.bankName || data.company.bankName2) && (
-              <div className="text-[10px] print:text-[9px] text-neutral-600 mt-0.5">
+              <p style={{ fontSize: '6.5pt', color: '#555', margin: '0.3mm 0 0' }}>
                 {data.company.bankName && (
                   <span>{data.company.bankName} {data.company.bankAccount} a.n. {data.company.bankHolder}</span>
                 )}
                 {data.company.bankName2 && (
-                  <span className="ml-3">{data.company.bankName2} {data.company.bankAccount2} a.n. {data.company.bankHolder2}</span>
+                  <span style={{ marginLeft: '3mm' }}>{data.company.bankName2} {data.company.bankAccount2} a.n. {data.company.bankHolder2}</span>
                 )}
-              </div>
+              </p>
             )}
           </div>
         </div>
-        <div className="text-right">
-          <h2 className="text-[14px] font-bold print:text-[11px] text-black">INVOICE</h2>
+
+        {/* Invoice title */}
+        <div style={{ textAlign: 'right' }}>
+          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
           {showPelunasanLabel && (
-            <p className="text-[11px] font-bold text-amber-700 tracking-wider print:text-[9px]">PELUNASAN</p>
+            <p style={{ fontSize: '8pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>PELUNASAN</p>
           )}
           {showPelunasanLabel && data.referensiInvoiceNomor && (
-            <p className="text-[9px] text-violet-600 mt-0.5 print:text-[8px]">Ref: {data.referensiInvoiceNomor}</p>
+            <p style={{ fontSize: '7pt', color: '#7c3aed', margin: '0.3mm 0 0' }}>Ref: {data.referensiInvoiceNomor}</p>
           )}
-          {/* LUNAS stamp */}
           {data.lunas && (
-            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 border-2 border-green-500 print:bg-green-50 print:border-green-600">
-              <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-              <span className="text-[10px] font-black text-green-700 print:text-green-800 tracking-wider">LUNAS</span>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '1mm',
+              marginTop: '1mm', padding: '0.5mm 2mm', borderRadius: '10px',
+              backgroundColor: '#dcfce7', border: '1.5px solid #22c55e',
+            }}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
+              <span style={{ fontSize: '7pt', fontWeight: '900', color: '#15803d', letterSpacing: '1px' }}>LUNAS</span>
             </div>
           )}
           {data.tanggalJatuhTempo && !data.lunas && (
-            <div className="flex items-center justify-end gap-1 mt-1">
-              <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span className="text-[9px] font-semibold text-amber-700">Jatuh Tempo: {new Date(data.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1mm', marginTop: '1mm' }}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span style={{ fontSize: '7pt', fontWeight: '600', color: '#b45309' }}>
+                Jatuh Tempo: {new Date(data.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="print-divider mb-2 print:mb-[0.5mm]" />
+      {/* === DIVIDER === */}
+      <div className="print-divider" style={{ borderBottom: '2px solid #000', marginBottom: '2mm' }} />
 
-      {/* Client info */}
-      <div className="mb-2 print:mb-[0.5mm] grid grid-cols-2 gap-2 print:gap-1">
+      {/* === CLIENT + DOC INFO === */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm', marginBottom: '2mm' }}>
         <div className="doc-recipient">
-          <p className="text-[9px] font-semibold uppercase tracking-wider mb-0.5 print:text-[7px] text-neutral-600">
+          <p style={{ fontSize: '7.5pt', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#666', margin: '0 0 0.5mm' }}>
             Kepada Yth :
           </p>
-          <p className="text-[10px] font-medium print:text-[9px] text-black">
+          <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>
             {data.client.nama || '-'}
           </p>
           {data.client.kontak && (
-            <p className="text-[9px] print:text-[7px] text-neutral-600">{data.client.kontak}</p>
+            <p style={{ fontSize: '7.5pt', color: '#555', margin: '0.3mm 0 0' }}>{data.client.kontak}</p>
           )}
           {data.client.alamat && (
-            <p className="text-[9px] print:text-[7px] text-neutral-600">{data.client.alamat}</p>
+            <p style={{ fontSize: '7.5pt', color: '#555', margin: '0.3mm 0 0' }}>{data.client.alamat}</p>
           )}
         </div>
-        <div className="text-right">
-          <div className="inline-block text-left doc-detail">
-            <p className="text-[9px] print:text-[7px] text-neutral-600">No. Invoice</p>
-            <p className="text-[10px] font-medium print:text-[9px] text-black">{data.nomor}</p>
-            <p className="text-[9px] mt-0.5 print:text-[7px] text-neutral-600">Tanggal</p>
-            <p className="text-[10px] print:text-[9px] text-black">{formatTanggal(data.tanggal)}</p>
+        <div style={{ textAlign: 'right' }}>
+          <div className="doc-detail" style={{ display: 'inline-block', textAlign: 'left' }}>
+            <p style={{ fontSize: '7.5pt', color: '#666', margin: 0 }}>No. Invoice</p>
+            <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.nomor}</p>
+            <p style={{ fontSize: '7.5pt', color: '#666', margin: '0.5mm 0 0' }}>Tanggal</p>
+            <p style={{ fontSize: '9pt', color: '#000', margin: 0 }}>{formatTanggal(data.tanggal)}</p>
             {data.referensi && (
               <>
-                <p className="text-[9px] mt-0.5 print:text-[7px] text-neutral-600">Ref.</p>
-                <p className="text-[10px] font-medium print:text-[9px] text-black">{data.referensi}</p>
+                <p style={{ fontSize: '7.5pt', color: '#666', margin: '0.5mm 0 0' }}>Ref.</p>
+                <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.referensi}</p>
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Payment Info Row */}
+      {/* === PAYMENT INFO === */}
       {data.caraPembayaran && (
-        <div className="mb-2 print:mb-[0.5mm] flex items-center gap-2 print:gap-1 text-[9px] print:text-[7px]">
-          <div className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5 text-emerald-600 print:w-3 print:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-            <span className="text-neutral-600">Cara Bayar:</span>
-            <span className="font-semibold text-black uppercase">{data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}</span>
-            {data.caraPembayaran === 'giro' && data.tanggalGiro && (
-              <span className="text-neutral-500 ml-0.5">(Tgl: {new Date(data.tanggalGiro).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })})</span>
-            )}
-          </div>
+        <div style={{ marginBottom: '2mm', fontSize: '7.5pt', display: 'flex', alignItems: 'center', gap: '1.5mm' }}>
+          <span style={{ color: '#666' }}>Cara Bayar:</span>
+          <span style={{ fontWeight: '600', color: '#000', textTransform: 'uppercase' }}>
+            {data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}
+          </span>
+          {data.caraPembayaran === 'giro' && data.tanggalGiro && (
+            <span style={{ color: '#888' }}>
+              (Tgl: {new Date(data.tanggalGiro).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })})
+            </span>
+          )}
         </div>
       )}
 
-      {/* Items Table */}
-      <div className="overflow-x-auto mb-2 print:mb-[0.5mm]">
-        <table className="w-full text-[9px] print:text-[7px] print-table-8mm">
-          <thead>
-            <tr style={{ borderTop: '2px solid #000000', borderBottom: '2px solid #000000' }}>
-              <th className="py-1.5 px-1 text-right font-semibold text-black w-10 print:py-0">Qty</th>
-              <th className="py-1.5 px-1 text-left font-semibold text-black print:py-0">Nama Barang</th>
-              <th className="py-1.5 px-1 text-right font-semibold text-black w-[80px] print:py-0">Harga Satuan</th>
-              <th className="py-1.5 px-4 text-right font-semibold text-black w-[105px] print:py-0">Jumlah</th>
+      {/* === ITEMS TABLE === */}
+      <table className="print-table-8mm" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0' }}>
+        <thead>
+          <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
+            <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', fontSize: '8pt', width: '10mm' }}>Qty</th>
+            <th style={{ padding: '1.5mm 1mm', textAlign: 'left', fontWeight: '600', fontSize: '8pt' }}>Nama Barang</th>
+            <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', fontSize: '8pt', width: '25mm' }}>Harga Satuan</th>
+            <th style={{ padding: '1.5mm 3mm', textAlign: 'right', fontWeight: '600', fontSize: '8pt', width: '28mm' }}>Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.items.map((item, i) => (
+            <tr key={item.id} style={{ height: '8mm' }}>
+              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{item.qty}</td>
+              <td style={{ padding: '0 1mm', verticalAlign: 'top', color: '#000', whiteSpace: 'pre-line' }}>{item.deskripsi || ''}</td>
+              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.harga)}</td>
+              <td style={{ padding: '0 3mm', textAlign: 'right', fontWeight: '500', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.qty * item.harga)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((item, i) => (
-              <tr
-                key={item.id}
-              >
-                <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{i < data.items.length ? item.qty : ''}</td>
-                <td className="py-1.5 px-1 print:py-0 whitespace-pre-line" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{item.deskripsi || ''}</td>
-                <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top', paddingRight: '11px' }}>{i < data.items.length ? formatRupiah(item.harga) : ''}</td>
-                <td className="py-1.5 px-4 text-right font-medium print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>
-                  {i < data.items.length ? formatRupiah(item.qty * item.harga) : ''}
-                </td>
-              </tr>
-            ))}
-            {/* Totals inside table */}
+          ))}
+          {/* Empty rows to fill space */}
+          {Array.from({ length: Math.max(0, 8 - itemCount) }).map((_, i) => (
+            <tr key={`empty-${i}`} style={{ height: '8mm' }}>
+              <td /><td /><td /><td />
+            </tr>
+          ))}
+
+          {/* Totals inside table */}
+          <tr>
+            <td colSpan={2} />
+            <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>Subtotal</td>
+            <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>{formatRupiah(subtotal)}</td>
+          </tr>
+          {data.ppn > 0 && (
             <tr>
               <td colSpan={2} />
-              <td className="px-1 text-right text-neutral-600" style={{ paddingRight: '11px' }}>Subtotal</td>
-              <td className="px-4 text-right text-neutral-600">{formatRupiah(subtotal)}</td>
+              <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>PPN ({data.ppn}%)</td>
+              <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>{formatRupiah(ppnAmount)}</td>
             </tr>
-            {data.ppn > 0 && (
+          )}
+          <tr className="print-total-border" style={{ borderTop: '2px solid #000' }}>
+            <td colSpan={2} />
+            <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9pt' }}>TOTAL</td>
+            <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9.5pt' }}>{formatRupiah(total)}</td>
+          </tr>
+          {dpPercent > 0 && (
+            <>
               <tr>
                 <td colSpan={2} />
-                <td className="px-1 text-right text-neutral-600" style={{ paddingRight: '11px' }}>PPN ({data.ppn}%)</td>
-                <td className="px-4 text-right text-neutral-600">{formatRupiah(ppnAmount)}</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', color: '#555', fontSize: '8pt' }}>DP ({dpPercent}%)</td>
+                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', color: '#555', fontSize: '8pt' }}>{formatRupiah(dpAmount)}</td>
               </tr>
-            )}
-            <tr className="print-total-border">
-              <td colSpan={2} />
-              <td className="px-1 text-right font-bold text-black" style={{ paddingRight: '11px', fontSize: '10px' }}>TOTAL</td>
-              <td className="px-4 text-right font-bold text-black" style={{ fontSize: '11px' }}>{formatRupiah(total)}</td>
-            </tr>
-            {dpPercent > 0 && (
-              <>
-                <tr>
-                  <td colSpan={2} />
-                  <td className="px-1 text-right text-neutral-600" style={{ paddingRight: '11px' }}>DP ({dpPercent}%)</td>
-                  <td className="px-4 text-right text-neutral-600">{formatRupiah(dpAmount)}</td>
-                </tr>
-                <tr className="print-sisa-border">
-                  <td colSpan={2} />
-                  <td className="px-1 text-right font-bold text-black" style={{ paddingRight: '11px', fontSize: '10px' }}>SISA PEMBAYARAN</td>
-                  <td className="px-4 text-right font-bold text-black" style={{ fontSize: '11px' }}>{formatRupiah(sisa)}</td>
-                </tr>
-              </>
-            )}
-          </tbody>
-        </table>
-      </div>
+              <tr className="print-sisa-border" style={{ borderTop: '1px solid #000' }}>
+                <td colSpan={2} />
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9pt' }}>SISA PEMBAYARAN</td>
+                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9.5pt' }}>{formatRupiah(sisa)}</td>
+              </tr>
+            </>
+          )}
+        </tbody>
+      </table>
 
-      {/* Terbilang */}
-      <div className="mb-1 print:mb-[0.3mm]">
-        <p className="text-[8px] italic text-neutral-600 print:text-[7px]">
+      {/* === TERBILANG === */}
+      <div style={{ marginTop: '1.5mm', marginBottom: '1mm' }}>
+        <p style={{ fontSize: '7pt', fontStyle: 'italic', color: '#555', margin: 0 }}>
           Terbilang: {terbilang(dpPercent > 0 ? sisa : total)} rupiah
         </p>
       </div>
 
-      {/* Notes */}
+      {/* === NOTES === */}
       {data.catatan && (
-        <div className="mb-3 rounded p-2 text-[11px] print:text-[9px] print:p-1 print:mb-[0.5mm]" style={{ backgroundColor: '#F5F5F5', color: '#000000' }}>
-          <p className="font-semibold mb-0.5 text-black">Catatan:</p>
-          <p className="whitespace-pre-wrap">{data.catatan}</p>
+        <div style={{
+          marginBottom: '2mm', borderRadius: '2px', padding: '2mm',
+          backgroundColor: '#f5f5f5', fontSize: '7.5pt', color: '#000',
+        }}>
+          <p style={{ fontWeight: '600', margin: '0 0 0.5mm', color: '#000' }}>Catatan:</p>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{data.catatan}</p>
         </div>
       )}
 
-      {/* Signatures */}
-      <div className="print-sig-grid grid grid-cols-2 gap-4 mt-2 text-[10px] text-center print:text-[8px] print:mt-[0.5mm] print:gap-2">
+      {/* === SIGNATURES === */}
+      <div className="print-sig-grid" style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4mm',
+        marginTop: '3mm', textAlign: 'center', fontSize: '8pt',
+      }}>
         <div>
-          <p className="font-semibold mb-3 print:mb-2 text-black">Diterima Oleh</p>
-          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
+          <p style={{ fontWeight: '600', marginBottom: '12mm', color: '#000', margin: '0 0 12mm' }}>Diterima Oleh</p>
+          <div className="print-sig-line" style={{ borderBottom: '1px solid #000', margin: '0 auto', width: '60%' }} />
         </div>
         <div>
-          <p className="font-semibold mb-3 print:mb-2 text-black">Hormat Kami</p>
-          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
+          <p style={{ fontWeight: '600', marginBottom: '12mm', color: '#000', margin: '0 0 12mm' }}>Hormat Kami</p>
+          <div className="print-sig-line" style={{ borderBottom: '1px solid #000', margin: '0 auto', width: '60%' }} />
         </div>
       </div>
 
-      <p className="text-[7px] text-center mt-2 italic print:text-[6px] print:mt-[1mm] text-neutral-600">
+      {/* === FOOTER === */}
+      <p style={{
+        fontSize: '6pt', textAlign: 'center', marginTop: '3mm',
+        fontStyle: 'italic', color: '#888', margin: '3mm 0 0',
+      }}>
         Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.
       </p>
     </div>
