@@ -317,7 +317,7 @@ export function InvoicePelunasanEditor() {
       // Convert data URL to Blob for sharing
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      const fileName = `Invoice-PEL-${invoiceData?.nomor || 'draft'}.jpg`;
+      const fileName = `${(invoiceData?.nomor || 'draft').replace(/\//g, '-')}.jpg`;
       const file = new File([blob], fileName, { type: 'image/jpeg' });
 
       // Try Web Share API (mobile) — can share file directly to WhatsApp

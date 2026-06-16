@@ -217,7 +217,7 @@ function SuratJalanRiwayatTab({ onRestore }: { onRestore: () => void }) {
         })
         const res = await fetch(dataUrl)
         const jpgBlob = await res.blob()
-        const fileName = `SuratJalan_${sjData.nomor || 'draft'}.jpg`
+        const fileName = `${(sjData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Surat Jalan ${sjData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')
       } else {

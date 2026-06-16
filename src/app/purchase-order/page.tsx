@@ -223,7 +223,7 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
         })
         const res = await fetch(dataUrl)
         const jpgBlob = await res.blob()
-        const fileName = `PO_${poData.nomor || 'draft'}.jpg`
+        const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')
       } else {
@@ -250,7 +250,7 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
         })
         const res = await fetch(dataUrl)
         const jpgBlob = await res.blob()
-        const fileName = `PO_${poData.nomor || 'draft'}.jpg`
+        const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('JPG dikirim ke WhatsApp Business')
       } else {

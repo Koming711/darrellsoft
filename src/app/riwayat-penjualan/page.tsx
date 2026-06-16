@@ -378,7 +378,7 @@ export default function RiwayatPenjualanPage() {
         })
         const res = await fetch(dataUrl)
         const jpgBlob = await res.blob()
-        const fileName = `INV_${invData.nomor || 'draft'}.jpg`
+        const fileName = `${(invData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
         toast.success('JPG dikirim ke WhatsApp Business')
       } else {

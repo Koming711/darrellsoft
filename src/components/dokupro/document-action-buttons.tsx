@@ -187,7 +187,8 @@ export function DocumentActionButtons({
   const handleJpgWhatsApp = async () => {
     setGeneratingPdf(true);
     try {
-      const fileName = `${docType}-${Date.now()}.jpg`;
+      const nomor = (currentData as { nomor?: string }).nomor || 'draft';
+      const fileName = `${nomor.replace(/\//g, '-')}.jpg`;
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
       if (!previewEl) {
         toast.error('Pratinjau tidak ditemukan');
