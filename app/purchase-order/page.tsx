@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { PurchaseOrderEditor } from '@/components/dokupro/purchase-order-editor'
 import { useLanguage } from '@/contexts/language-context'
@@ -136,6 +136,8 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewScale, setPreviewScale] = useState(1)
+  const [previewDims, setPreviewDims] = useState<{ w: number; h: number } | null>(null)
+  const previewWrapperRef = useRef<HTMLDivElement>(null)
   const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
@@ -166,30 +168,44 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory])
 
-  // Scale preview to fit screen (1.3x bigger)
-  useEffect(() => {
-    if (!previewOpen) return
-    const DESIGN_W = 576
-    const DESIGN_H = DESIGN_W * (210 / 148)
-    const updateScale = () => {
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const pad = 16
-      const btnH = 56
-      const availW = vw - pad * 2
-      const availH = vh - pad * 2 - btnH
-      const baseScale = Math.min(availW / DESIGN_W, availH / DESIGN_H)
-      setPreviewScale(baseScale * 1.3)
-    }
-    const t = setTimeout(updateScale, 50)
-    window.addEventListener('resize', updateScale)
-    return () => { clearTimeout(t); window.removeEventListener('resize', updateScale) }
-  }, [previewOpen])
-
   const poData = useMemo(() => {
     if (!previewItem) return null
     return parsePurchaseOrderData(previewItem)
   }, [previewItem])
+
+  // Measure actual rendered element and fit it to the available viewport space.
+  // Fixes mobile cut-off: uses real offsetWidth/offsetHeight (unaffected by
+  // transform), top-left origin, and a wrapper sized to the scaled dimensions
+  // so flex layout reserves the correct visual space.
+  useLayoutEffect(() => {
+    if (!previewOpen) {
+      setPreviewDims(null)
+      setPreviewScale(1)
+      return
+    }
+    const measureAndScale = () => {
+      const el = previewWrapperRef.current
+      if (!el) return
+      const naturalW = el.offsetWidth
+      const naturalH = el.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        requestAnimationFrame(measureAndScale)
+        return
+      }
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const reservedH = 56 + 88 + 32
+      const reservedW = 32
+      const availW = Math.max(120, vw - reservedW)
+      const availH = Math.max(120, vh - reservedH)
+      const scale = Math.min(availW / naturalW, availH / naturalH, 1.4)
+      setPreviewScale(scale)
+      setPreviewDims({ w: naturalW * scale, h: naturalH * scale })
+    }
+    const t = setTimeout(measureAndScale, 50)
+    window.addEventListener('resize', measureAndScale)
+    return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
+  }, [previewOpen, poData])
 
   const handleDelete = async (id: string) => {
     try {
@@ -522,18 +538,28 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
 
       {/* Preview Popup */}
       {previewOpen && poData && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col overflow-auto">
+        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
           {/* Close button */}
-          <button
-            onClick={() => setPreviewOpen(false)}
-            className="sticky top-3 self-end z-10 mr-3 mt-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
-          >
-            <X className="w-4 h-4 text-slate-700" />
-          </button>
+          <div className="flex justify-end p-3 shrink-0">
+            <button
+              onClick={() => setPreviewOpen(false)}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
+            >
+              <X className="w-4 h-4 text-slate-700" />
+            </button>
+          </div>
           {/* Preview */}
-          <div className="flex-1 flex items-center justify-center p-4 pb-20">
-            <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}>
-              <PurchaseOrderPreview data={poData} />
+          <div className="flex-1 flex items-start justify-center overflow-auto p-4 pb-28 min-h-0">
+            <div
+              style={{ width: previewDims?.w, height: previewDims?.h }}
+              className="flex-shrink-0"
+            >
+              <div
+                ref={previewWrapperRef}
+                style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
+              >
+                <PurchaseOrderPreview data={poData} />
+              </div>
             </div>
           </div>
           {/* Action buttons - fixed at bottom */}
