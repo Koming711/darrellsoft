@@ -663,4 +663,19 @@
   vertical-align: top;
 }
 
-
+/* Re-add intentional borders that were removed by .print-mode border:none */
+.print-mode .print-divider {
+  border-bottom: 2px solid #000 !important;
+}
+.print-mode .print-total-border {
+  border-top: 2px solid #000 !important;
+}
+.print-mode .print-sisa-border {
+  border-top: 1px solid #000 !important;
+}
+.print-mode .print-sig-line {
+  border-bottom: 1px solid #000 !important;
+}
+.print-mode .print-logo-box {
+  border: 2px solid #000 !important;
+}
