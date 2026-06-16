@@ -174,46 +174,40 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
                 </td>
               </tr>
             ))}
+            {/* Totals inside table */}
+            <tr>
+              <td colSpan={2} />
+              <td className="px-1 text-right text-neutral-600" style={{ paddingRight: '11px' }}>Subtotal</td>
+              <td className="px-4 text-right text-neutral-600">{formatRupiah(subtotal)}</td>
+            </tr>
+            {data.ppn > 0 && (
+              <tr>
+                <td colSpan={2} />
+                <td className="px-1 text-right text-neutral-600" style={{ paddingRight: '11px' }}>PPN ({data.ppn}%)</td>
+                <td className="px-4 text-right text-neutral-600">{formatRupiah(ppnAmount)}</td>
+              </tr>
+            )}
+            <tr className="print-total-border">
+              <td colSpan={2} />
+              <td className="px-1 text-right font-bold text-black" style={{ paddingRight: '11px', fontSize: '10px' }}>TOTAL</td>
+              <td className="px-4 text-right font-bold text-black" style={{ fontSize: '11px' }}>{formatRupiah(total)}</td>
+            </tr>
+            {dpPercent > 0 && (
+              <>
+                <tr>
+                  <td colSpan={2} />
+                  <td className="px-1 text-right text-neutral-600" style={{ paddingRight: '11px' }}>DP ({dpPercent}%)</td>
+                  <td className="px-4 text-right text-neutral-600">{formatRupiah(dpAmount)}</td>
+                </tr>
+                <tr className="print-sisa-border">
+                  <td colSpan={2} />
+                  <td className="px-1 text-right font-bold text-black" style={{ paddingRight: '11px', fontSize: '10px' }}>SISA PEMBAYARAN</td>
+                  <td className="px-4 text-right font-bold text-black" style={{ fontSize: '11px' }}>{formatRupiah(sisa)}</td>
+                </tr>
+              </>
+            )}
           </tbody>
         </table>
-      </div>
-
-      {/* Totals */}
-      <div className="mb-3 print:mb-[0.5mm] flex justify-end">
-        <div className="print-totals w-full space-y-0.5 text-[9px] print:text-[9px] print:w-full">
-          <div className="flex justify-between text-neutral-600 gap-[9cm]">
-            <span>Subtotal</span>
-            <span>{formatRupiah(subtotal)}</span>
-          </div>
-          {data.ppn > 0 && (
-            <div className="flex justify-between text-neutral-600">
-              <span>PPN ({data.ppn}%)</span>
-              <span>{formatRupiah(ppnAmount)}</span>
-            </div>
-          )}
-          <div
-            className="print-total-border flex justify-between pt-0.5 font-bold text-black"
-            style={{ fontSize: '10px' }}
-          >
-            <span>TOTAL</span>
-            <span style={{ fontSize: '11px' }}>{formatRupiah(total)}</span>
-          </div>
-          {dpPercent > 0 && (
-            <>
-              <div className="flex justify-between text-neutral-600 mt-1">
-                <span>DP ({dpPercent}%)</span>
-                <span>{formatRupiah(dpAmount)}</span>
-              </div>
-              <div
-                className="print-sisa-border flex justify-between pt-0.5 font-bold text-black"
-                style={{ fontSize: '10px' }}
-              >
-                <span>SISA PEMBAYARAN</span>
-                <span style={{ fontSize: '11px' }}>{formatRupiah(sisa)}</span>
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Terbilang */}
