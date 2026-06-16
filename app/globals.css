@@ -405,6 +405,93 @@
   transform: scale(0.94);
 }
 
+/* ===== Landing Page Animation Effects ===== */
+
+/* Ripple effect on button click */
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.35) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0);
+  transition: none;
+  pointer-events: none;
+  z-index: 10;
+}
+.ripple-btn:active::after {
+  opacity: 1;
+  transform: scale(2.5);
+  transition: transform 0.5s ease-out, opacity 0.6s ease-out;
+}
+
+/* Dark button ripple */
+.ripple-btn-dark::after {
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(0,0,0,0.15) 0%, transparent 70%);
+}
+
+/* Card tap effect */
+.card-tap {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+.card-tap:active {
+  transform: scale(0.98) translateY(2px);
+}
+
+/* Nav link hover slide effect */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(to right, #f97316, #f59e0b);
+  transition: width 0.3s ease, left 0.3s ease;
+  border-radius: 1px;
+}
+.nav-link:hover::after,
+.nav-link:active::after {
+  width: 100%;
+  left: 0;
+}
+
+/* FAQ card pulse on tap */
+.faq-tap {
+  transition: transform 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.faq-tap:active {
+  transform: scale(0.985);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  border-color: #fb923c;
+}
+
+/* Advantage card slide effect */
+.advantage-tap {
+  transition: transform 0.25s ease, box-shadow 0.3s ease;
+}
+.advantage-tap:active {
+  transform: translateX(4px) scale(0.99);
+}
+
+/* CTA button glow pulse on hover */
+.cta-glow {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+.cta-glow:hover {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.4), 0 0 60px rgba(249, 115, 22, 0.15);
+}
+.cta-glow:active {
+  transform: scale(0.94);
+}
+
 /* ===== DokuPro Document Preview & Print Styles ===== */
 
 /* A5 Preview on screen — scale down to fit column */
