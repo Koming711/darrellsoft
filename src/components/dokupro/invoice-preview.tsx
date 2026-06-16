@@ -200,34 +200,34 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           ))}
 
           {/* Totals inside table */}
-          <tr>
+          <tr className="total-row">
             <td colSpan={2} />
-            <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555' }}>Subtotal</td>
-            <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555' }}>{formatRupiah(subtotal)}</td>
+            <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>Subtotal</td>
+            <td style={{ padding: '0 3mm', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>{formatRupiah(subtotal)}</td>
           </tr>
           {data.ppn > 0 && (
-            <tr>
+            <tr className="total-row">
               <td colSpan={2} />
-              <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555' }}>PPN ({data.ppn}%)</td>
-              <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555' }}>{formatRupiah(ppnAmount)}</td>
+              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>PPN ({data.ppn}%)</td>
+              <td style={{ padding: '0 3mm', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>{formatRupiah(ppnAmount)}</td>
             </tr>
           )}
-          <tr className="print-total-border" style={{ borderTop: '2px solid #000' }}>
+          <tr className="total-row print-total-border" style={{ borderTop: '2px solid #000' }}>
             <td colSpan={2} />
-            <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>TOTAL</td>
-            <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatRupiah(total)}</td>
+            <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000' }}>TOTAL</td>
+            <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000' }}>{formatRupiah(total)}</td>
           </tr>
           {dpPercent > 0 && (
             <>
-              <tr>
+              <tr className="total-row">
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', color: '#555' }}>DP ({dpPercent}%)</td>
-                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', color: '#555' }}>{formatRupiah(dpAmount)}</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>DP ({dpPercent}%)</td>
+                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>{formatRupiah(dpAmount)}</td>
               </tr>
-              <tr className="print-sisa-border" style={{ borderTop: '1px solid #000' }}>
+              <tr className="total-row print-sisa-border" style={{ borderTop: '1px solid #000' }}>
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>SISA PEMBAYARAN</td>
-                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatRupiah(sisa)}</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>SISA PEMBAYARAN</td>
+                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000' }}>{formatRupiah(sisa)}</td>
               </tr>
             </>
           )}
