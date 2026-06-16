@@ -1,13 +1,70 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Sidebar, MobileHeader } from './sidebar'
+import { Sidebar, MobileHeader, MobileBottomNav } from './sidebar'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
 import { toast } from 'sonner'
+
+// === MODULE-LEVEL SESSION CACHE ===
+// Persists across navigations so DashboardLayout doesn't need to re-verify on every mount
+interface CachedSession {
+  user: any
+  userProfile: { createdAt: string | null; validUntil: string | null } | null
+  autoLogoutMin: number
+  logoutWarningSec: number
+  sessionWarning: string | null
+  forceLogoutAvailable: boolean
+  accountExpired: boolean
+  cachedAt: number
+}
+let _sessionCache: CachedSession | null = null
+const SESSION_CACHE_TTL = 120_000 // 2 minutes
+
+function getSessionCache(): CachedSession | null {
+  // Check module-level cache first
+  if (_sessionCache && Date.now() - _sessionCache.cachedAt <= SESSION_CACHE_TTL) {
+    return _sessionCache
+  }
+  // Fallback to sessionStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem('__dashboard_session_cache')
+      if (stored) {
+        const parsed = JSON.parse(stored) as CachedSession
+        if (Date.now() - parsed.cachedAt <= SESSION_CACHE_TTL) {
+          _sessionCache = parsed
+          return parsed
+        }
+        sessionStorage.removeItem('__dashboard_session_cache')
+      }
+    } catch {}
+  }
+  _sessionCache = null
+  return null
+}
+
+function setSessionCache(data: Omit<CachedSession, 'cachedAt'>) {
+  const entry = { ...data, cachedAt: Date.now() }
+  _sessionCache = entry
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('__dashboard_session_cache', JSON.stringify(entry))
+    } catch {}
+  }
+}
+
+function invalidateSessionCache() {
+  _sessionCache = null
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.removeItem('__dashboard_session_cache')
+    } catch {}
+  }
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -60,6 +117,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === LOGOUT HANDLER ===
   const handleLogout = useCallback(() => {
     clearAuthUser()
+    invalidateSessionCache()
     setAccountExpired(false)
     setSessionWarning(null)
     setForceLogoutAvailable(false)
@@ -82,6 +140,64 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   useEffect(() => {
     if (initDoneRef.current) return
     initDoneRef.current = true
+
+    // If we have a valid cache, restore state immediately — then do a background refresh
+    const existingCache = getSessionCache()
+    if (existingCache) {
+      // Restore state from cache (avoids hydration mismatch by doing this in useEffect)
+      setUser(existingCache.user)
+      setSessionWarning(existingCache.sessionWarning ?? null)
+      setForceLogoutAvailable(existingCache.forceLogoutAvailable ?? false)
+      setAccountExpired(existingCache.accountExpired ?? false)
+      setAutoLogoutMin(existingCache.autoLogoutMin ?? 0)
+      setLogoutWarningSec(existingCache.logoutWarningSec ?? 0)
+      setUserProfile(existingCache.userProfile ?? null)
+      setReady(true)
+      // Do a background session refresh without blocking UI
+      const bgRefresh = async () => {
+        const authUser = getAuthUser()
+        if (!authUser) return
+        try {
+          const sessionRes = await authFetch('/api/auth/verify-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+          })
+          const data = await sessionRes.json()
+          if (data.securitySettings) {
+            setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
+            setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
+          }
+          if (data.permissions && authUser.role) {
+            saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+            setPermVersion(v => v + 1)
+          }
+          if (!data.valid) {
+            if (data.expired) {
+              setAccountExpired(true)
+              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+            } else if (data.warningMessage) {
+              setSessionWarning(data.warningMessage)
+              setForceLogoutAvailable(!!data.forceLogoutAvailable)
+            }
+          }
+          // Update cache with fresh data
+          setSessionCache({
+            user: authUser,
+            userProfile: existingCache.userProfile,
+            autoLogoutMin: data.securitySettings?.auto_logout_min || 0,
+            logoutWarningSec: data.securitySettings?.logout_warning_sec || 0,
+            sessionWarning: data.valid ? null : (data.warningMessage || null),
+            forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
+            accountExpired: data.valid ? false : !!data.expired,
+          })
+        } catch {
+          // Background refresh failed — keep using cached data
+        }
+      }
+      bgRefresh()
+      return
+    }
 
     let cancelled = false
 
@@ -107,7 +223,14 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             })
             return r.ok ? r.json() : null
           })
-          .then(data => { if (data && !cancelled) setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null }) })
+          .then(data => { if (data && !cancelled) {
+            setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null })
+            // Update cache with profile data
+            const currentCache = getSessionCache()
+            if (currentCache) {
+              setSessionCache({ ...currentCache, userProfile: { createdAt: data.createdAt || null, validUntil: data.validUntil || null } })
+            }
+          } })
           .catch(() => {})
 
         // Wait for session verification BEFORE checking permissions
@@ -141,6 +264,17 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             }
           }
 
+          // Update session cache with verified data
+          setSessionCache({
+            user: authUser,
+            userProfile: null,
+            autoLogoutMin: data.securitySettings?.auto_logout_min || 0,
+            logoutWarningSec: data.securitySettings?.logout_warning_sec || 0,
+            sessionWarning: data.valid ? null : (data.warningMessage || null),
+            forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
+            accountExpired: data.valid ? false : !!data.expired,
+          })
+
           // === AUTO-BACKUP CHECK ===
           // Check if auto-backup is due and trigger it silently
           if (data.valid && authUser.role !== 'superadmin') {
@@ -160,7 +294,22 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       } catch {
         // On error, don't redirect — just show the page
       } finally {
-        if (!cancelled) setReady(true)
+        if (!cancelled) {
+          setReady(true)
+          // Cache session data for instant navigation
+          const authUser = getAuthUser()
+          if (authUser) {
+            setSessionCache({
+              user: authUser,
+              userProfile: null, // will be updated by authFetch below
+              autoLogoutMin: 0,
+              logoutWarningSec: 0,
+              sessionWarning: null,
+              forceLogoutAvailable: false,
+              accountExpired: false,
+            })
+          }
+        }
       }
     }
 
@@ -272,7 +421,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === LOADING STATE ===
   if (!ready) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -280,7 +429,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
         <div className="text-center p-8">
           <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 mx-auto">
             <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -331,9 +480,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
         />
-        <div className="transition-all duration-300">
-          <MobileHeader onMenuToggle={() => setSidebarOpen(!sidebarOpen)} username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
-          <main className="p-4 lg:p-8">
+        <div className="lg:ml-16 transition-all duration-300">
+          <MobileHeader username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
+          <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
               <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
                 <Lock className="w-9 h-9 text-amber-500" />
@@ -378,20 +527,22 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         permVersion={permVersion}
       />
 
-      <div className="transition-all duration-300">
+      <div className="lg:ml-16 transition-all duration-300">
         <MobileHeader
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           username={user?.username}
           title={title}
           subtitle={subtitle}
           userProfile={userProfile}
         />
 
-        {/* Main Content */}
-        <main className="p-4 lg:p-8">
+        {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
+        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
           {children}
         </main>
       </div>
+
+      {/* ===== Mobile Bottom Navigation ===== */}
+      <MobileBottomNav role={user?.role} onMoreClick={() => setSidebarOpen(true)} username={user?.username} onLogout={handleLogout} />
 
       {/* ===== MODAL: ACCOUNT EXPIRED ===== */}
       {accountExpired && sessionWarning && (

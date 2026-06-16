@@ -401,11 +401,12 @@ export default function PembukaanPage() {
   const { t } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
-  const [greeting, setGreeting] = useState(getGreeting)
+  const [mounted, setMounted] = useState(false)
+  const [greeting, setGreeting] = useState('')
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Motivasi hari ini — berubah setiap refresh
+  // Motivasi hari ini — deterministic (day-of-year based) to avoid hydration mismatch
   const daftarMotivasi = [
     'Kerja keras hari ini, hasilnya nikmat besok hari.',
     'Setiap langkah kecil mendekatkanmu pada tujuan besar.',
@@ -439,7 +440,12 @@ export default function PembukaanPage() {
     'Terus belajar, terus berinovasi, dunia tidak menunggu siapa pun.',
     'Hari ini kamu satu langkah lebih dekat dari kemarin.',
   ]
-  const [motivasiHariIni] = useState(() => daftarMotivasi[Math.floor(Math.random() * daftarMotivasi.length)])
+  // Deterministic daily motivasi — same quote for the whole day, no Math.random() to avoid hydration mismatch
+  const [motivasiHariIni] = useState(() => {
+    const today = new Date()
+    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000)
+    return daftarMotivasi[dayOfYear % daftarMotivasi.length]
+  })
 
   // Date filter state
   const [filterType, setFilterType] = useState<FilterType>('today')
@@ -471,9 +477,21 @@ export default function PembukaanPage() {
   const [invPreviewScale, setInvPreviewScale] = useState(1)
   const [sendingInvPdf, setSendingInvPdf] = useState(false)
 
+  // Month names computed client-only to avoid hydration mismatch (server/client timezone difference)
+  const [currentMonthLabel, setCurrentMonthLabel] = useState('')
+  const [lastMonthLabel, setLastMonthLabel] = useState('')
+
+  useEffect(() => {
+    setCurrentMonthLabel(new Date().toLocaleDateString('id-ID', { month: 'long' }))
+    setLastMonthLabel(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'long' }))
+  }, [])
+
   const displayName = user?.name || user?.username || 'Pengguna'
 
   useEffect(() => {
+    // Set mounted + greeting on mount (client-only) to avoid hydration mismatch
+    setMounted(true)
+    setGreeting(getGreeting())
     const interval = setInterval(() => {
       setGreeting(getGreeting())
     }, 60000)
@@ -750,7 +768,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
-            label={`Total Pendapatan ${new Date().toLocaleDateString('id-ID', { month: 'long' })}`}
+            label={`Total Pendapatan ${currentMonthLabel}`}
             count={summary?.totals.revenue ?? 0}
             total={0}
             color="sky"
@@ -759,7 +777,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
-            label={`Total Pendapatan ${new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'long' })}`}
+            label={`Total Pendapatan ${lastMonthLabel}`}
             count={summary?.totals.lastMonthRevenue ?? 0}
             total={0}
             color="teal"

@@ -1,0 +1,1438 @@
+     1→'use client'
+     2→
+     3→import { DashboardLayout } from '@/components/dashboard-layout'
+     4→import { useLanguage } from '@/contexts/language-context'
+     5→import { useAuth } from '@/contexts/auth-context'
+     6→import { authFetch } from '@/lib/auth-fetch'
+     7→import { getAuthHeaders } from '@/lib/auth'
+     8→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     9→import {
+    10→  Dialog,
+    11→  DialogContent,
+    12→  DialogHeader,
+    13→  DialogTitle,
+    14→  DialogDescription,
+    15→  DialogFooter,
+    16→} from '@/components/ui/dialog'
+    17→import {
+    18→  Table,
+    19→  TableBody,
+    20→  TableCell,
+    21→  TableHead,
+    22→  TableHeader,
+    23→  TableRow,
+    24→} from '@/components/ui/table'
+    25→import { Calendar } from '@/components/ui/calendar'
+    26→import {
+    27→  Popover,
+    28→  PopoverContent,
+    29→  PopoverTrigger,
+    30→} from '@/components/ui/popover'
+    31→
+    32→import {
+    33→  FileText,
+    34→  Truck,
+    35→  ShoppingCart,
+    36→  Scissors,
+    37→  DollarSign,
+    38→  BookOpen,
+    39→  Clock,
+    40→  Calculator,
+    41→  TrendingUp,
+    42→  CalendarClock,
+    43→  ChevronRight,
+    44→  Sparkles,
+    45→  History,
+    46→  Receipt,
+    47→  Package,
+    48→  CalendarIcon,
+    49→  Filter,
+    50→  Eye,
+    51→  Loader2,
+    52→} from 'lucide-react'
+    53→import { useState, useEffect, useCallback, useMemo } from 'react'
+    54→import { useRouter } from 'next/navigation'
+    55→import { formatRupiah, formatTanggal } from '@/lib/format'
+    56→import { Button } from '@/components/ui/button'
+    57→import { cn } from '@/lib/utils'
+    58→import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
+    59→import { InvoicePreview } from '@/components/dokupro/invoice-preview'
+    60→import type { PurchaseOrderData, InvoiceData, CompanyInfo } from '@/lib/types'
+    61→import { DEFAULT_COMPANY } from '@/lib/types'
+    62→import { generatePurchaseOrderPdf, generateInvoicePdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+    63→import { toast } from 'sonner'
+    64→
+    65→// --- Types ---
+    66→interface CetakanRecord {
+    67→  id: string
+    68→  printName: string
+    69→  customerName: string
+    70→  profitAmount: number
+    71→  finishingNames: string
+    72→  jumlahPesanan: string
+    73→  grandTotal: number
+    74→  createdAt: string
+    75→}
+    76→
+    77→interface PotongKertasRecord {
+    78→  id: string
+    79→  namaCetakan: string
+    80→  namaCustomer: string
+    81→  paperName: string
+    82→  paperWidth: string
+    83→  paperHeight: string
+    84→  cutWidth: string
+    85→  cutHeight: string
+    86→  jumlahPesanan: string
+    87→  totalPrice: number
+    88→  createdAt: string
+    89→}
+    90→
+    91→interface HistoryEntry {
+    92→  id: string;
+    93→  docType: string;
+    94→  nomor: string;
+    95→  tanggal: string;
+    96→  pihakKedua: string;
+    97→  total: string;
+    98→  dataJson: string;
+    99→  createdAt: string;
+   100→}
+   101→
+   102→interface DashboardData {
+   103→  expiryInfo: {
+   104→    validUntil: string | null
+   105→    remainingDays: number | null
+   106→  }
+   107→  summary: {
+   108→    calculations: {
+   109→      cetakan: number
+   110→      finishing: number
+   111→      ongkosCetak: number
+   112→      hargaKertas: number
+   113→      potongKertas: number
+   114→      total: number
+   115→    }
+   116→    documents: {
+   117→      invoice: number
+   118→      suratJalan: number
+   119→      purchaseOrder: number
+   120→      total: number
+   121→    }
+   122→    totals: {
+   123→      cetakan: number
+   124→      finishing: number
+   125→      uangCapek: number
+   126→      ongkosCetak: number
+   127→      hargaKertas: number
+   128→      potongKertas: number
+   129→      invoice: number
+   130→      purchaseOrder: number
+   131→      revenue: number
+   132→      lastMonthRevenue: number
+   133→      modal: number
+   134→      todaySales: number
+   135→      todayOrderCount: number
+   136→      todayUangCapek: number
+   137→    }
+   138→  }
+   139→  recent: {
+   140→    cetakan: CetakanRecord[]
+   141→    potongKertas: PotongKertasRecord[]
+   142→  }
+   143→  daily: Record<string, { calculations: number; documents: number }>
+   144→}
+   145→
+   146→// --- Date filter types ---
+   147→type FilterType = 'today' | 'week' | 'month' | 'custom'
+   148→
+   149→function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date): { startDate: string; endDate: string } {
+   150→  const today = new Date()
+   151→  const formatDate = (d: Date) => {
+   152→    const y = d.getFullYear()
+   153→    const m = String(d.getMonth() + 1).padStart(2, '0')
+   154→    const day = String(d.getDate()).padStart(2, '0')
+   155→    return `${y}-${m}-${day}`
+   156→  }
+   157→
+   158→  switch (filter) {
+   159→    case 'today': {
+   160→      return { startDate: formatDate(today), endDate: formatDate(today) }
+   161→    }
+   162→    case 'week': {
+   163→      const startOfWeek = new Date(today)
+   164→      // Get Monday of current week
+   165→      const day = startOfWeek.getDay()
+   166→      const diff = day === 0 ? -6 : 1 - day
+   167→      startOfWeek.setDate(startOfWeek.getDate() + diff)
+   168→      return { startDate: formatDate(startOfWeek), endDate: formatDate(today) }
+   169→    }
+   170→    case 'month': {
+   171→      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+   172→      return { startDate: formatDate(startOfMonth), endDate: formatDate(today) }
+   173→    }
+   174→    case 'custom': {
+   175→      return {
+   176→        startDate: customStart ? formatDate(customStart) : formatDate(today),
+   177→        endDate: customEnd ? formatDate(customEnd) : formatDate(today),
+   178→      }
+   179→    }
+   180→  }
+   181→}
+   182→
+   183→function getFilterLabel(filter: FilterType): string {
+   184→  switch (filter) {
+   185→    case 'today': return 'Hari Ini'
+   186→    case 'week': return 'Minggu Ini'
+   187→    case 'month': return 'Bulan Ini'
+   188→    case 'custom': return 'Custom'
+   189→  }
+   190→}
+   191→
+   192→// --- Greeting ---
+   193→function getGreeting(): string {
+   194→  const hour = new Date().getHours()
+   195→  if (hour >= 0 && hour < 11) return 'Selamat Pagi'
+   196→  if (hour >= 11 && hour < 15) return 'Selamat Siang'
+   197→  if (hour >= 15 && hour < 18) return 'Selamat Sore'
+   198→  return 'Selamat Malam'
+   199→}
+   200→
+   201→// --- Helpers ---
+   202→function formatRupiahShort(n: number): string {
+   203→  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
+   204→}
+   205→
+   206→function formatDateShort(iso: string): string {
+   207→  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
+   208→}
+   209→
+   210→function formatDateDisplay(d: Date | undefined): string {
+   211→  if (!d) return 'Pilih tanggal'
+   212→  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+   213→}
+   214→
+   215→// --- Empty State ---
+   216→function EmptyState() {
+   217→  return (
+   218→    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
+   219→      <Clock className="mx-auto h-6 w-6 text-gray-300" />
+   220→      <p className="mt-2 text-sm text-gray-400">Belum ada data</p>
+   221→    </div>
+   222→  )
+   223→}
+   224→
+   225→// --- Loading Skeleton ---
+   226→function TableSkeleton() {
+   227→  return (
+   228→    <div className="space-y-2">
+   229→      {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
+   230→    </div>
+   231→  )
+   232→}
+   233→
+   234→// --- Parse dataJson for document info ---
+   235→function parseDocInfo(entry: HistoryEntry) {
+   236→  try {
+   237→    const parsed = JSON.parse(entry.dataJson);
+   238→    const items = parsed.items || [];
+   239→    const firstItem = items[0];
+   240→    const namaBarang = firstItem?.deskripsi || '';
+   241→    const hargaSatuan = firstItem?.harga || 0;
+   242→    const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0);
+   243→    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0);
+   244→    const ppn = parsed.ppn || 0;
+   245→    const totalHarga = subtotal + (subtotal * ppn / 100);
+   246→    const dp = parsed.dp || 0;
+   247→    const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga;
+   248→    const grandTotal = dp > 0 ? originalTotal : totalHarga;
+   249→    const referensi = parsed.referensi || '';
+   250→    return { namaBarang, hargaSatuan, totalQty, totalHarga, dp, originalTotal, grandTotal, referensi };
+   251→  } catch {
+   252→    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dp: 0, originalTotal: 0, grandTotal: 0, referensi: '' };
+   253→  }
+   254→}
+   255→
+   256→// --- Parse dataJson for InvoiceData ---
+   257→function parseInvoiceData(entry: HistoryEntry): InvoiceData {
+   258→  try {
+   259→    const parsed = JSON.parse(entry.dataJson)
+   260→    const company: CompanyInfo = {
+   261→      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+   262→      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+   263→      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+   264→      email: parsed.company?.email || DEFAULT_COMPANY.email,
+   265→      npwp: parsed.company?.npwp || '',
+   266→      website: parsed.company?.website || '',
+   267→      ppn: parsed.company?.ppn ?? parsed.ppn ?? 11,
+   268→      logo: parsed.company?.logo || '',
+   269→      bankName: parsed.company?.bankName || '',
+   270→      bankAccount: parsed.company?.bankAccount || '',
+   271→      bankHolder: parsed.company?.bankHolder || '',
+   272→      bankName2: parsed.company?.bankName2 || '',
+   273→      bankAccount2: parsed.company?.bankAccount2 || '',
+   274→      bankHolder2: parsed.company?.bankHolder2 || '',
+   275→    }
+   276→    const client = parsed.client || { nama: '', kontak: '', alamat: '' }
+   277→    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+   278→      id: it.id || `item-${i}`,
+   279→      deskripsi: it.deskripsi || '',
+   280→      qty: it.qty || 0,
+   281→      satuan: it.satuan || '',
+   282→      harga: it.harga || 0,
+   283→    }))
+   284→    return {
+   285→      type: 'invoice',
+   286→      company,
+   287→      nomor: parsed.nomor || entry.nomor || '',
+   288→      tanggal: parsed.tanggal || entry.tanggal || '',
+   289→      referensi: parsed.referensi || '',
+   290→      client,
+   291→      items,
+   292→      ppn: parsed.ppn ?? 11,
+   293→      catatan: parsed.catatan || '',
+   294→      tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
+   295→      caraPembayaran: parsed.caraPembayaran || '',
+   296→      tanggalGiro: parsed.tanggalGiro || '',
+   297→    }
+   298→  } catch {
+   299→    return {
+   300→      type: 'invoice',
+   301→      company: { ...DEFAULT_COMPANY },
+   302→      nomor: entry.nomor || '',
+   303→      tanggal: entry.tanggal || '',
+   304→      referensi: '',
+   305→      client: { nama: '', kontak: '', alamat: '' },
+   306→      items: [],
+   307→      ppn: 11,
+   308→      catatan: '',
+   309→      tanggalJatuhTempo: '',
+   310→      caraPembayaran: '',
+   311→      tanggalGiro: '',
+   312→    }
+   313→  }
+   314→}
+   315→
+   316→// --- Parse dataJson for PurchaseOrderData ---
+   317→function parsePurchaseOrderData(entry: HistoryEntry): PurchaseOrderData {
+   318→  try {
+   319→    const parsed = JSON.parse(entry.dataJson)
+   320→    const company: CompanyInfo = {
+   321→      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+   322→      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+   323→      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+   324→      email: parsed.company?.email || DEFAULT_COMPANY.email,
+   325→      npwp: parsed.company?.npwp || '',
+   326→      website: parsed.company?.website || '',
+   327→      ppn: parsed.company?.ppn ?? parsed.ppn ?? 11,
+   328→      logo: parsed.company?.logo || '',
+   329→      bankName: parsed.company?.bankName || '',
+   330→      bankAccount: parsed.company?.bankAccount || '',
+   331→      bankHolder: parsed.company?.bankHolder || '',
+   332→      bankName2: parsed.company?.bankName2 || '',
+   333→      bankAccount2: parsed.company?.bankAccount2 || '',
+   334→      bankHolder2: parsed.company?.bankHolder2 || '',
+   335→    }
+   336→    const pemasok = parsed.pemasok || parsed.client || { nama: '', jenisBarang: '', kontak: '', alamat: '' }
+   337→    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+   338→      id: it.id || `item-${i}`,
+   339→      deskripsi: it.deskripsi || '',
+   340→      qty: it.qty || 0,
+   341→      satuan: it.satuan || '',
+   342→      harga: it.harga || 0,
+   343→    }))
+   344→    return {
+   345→      type: 'purchase-order',
+   346→      company,
+   347→      nomor: parsed.nomor || entry.nomor || '',
+   348→      tanggal: parsed.tanggal || entry.tanggal || '',
+   349→      referensi: parsed.referensi || '',
+   350→      pemasok,
+   351→      items,
+   352→      ppn: parsed.ppn ?? 11,
+   353→      catatan: parsed.catatan || '',
+   354→      tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
+   355→    }
+   356→  } catch {
+   357→    return {
+   358→      type: 'purchase-order',
+   359→      company: { ...DEFAULT_COMPANY },
+   360→      nomor: entry.nomor || '',
+   361→      tanggal: entry.tanggal || '',
+   362→      referensi: '',
+   363→      pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
+   364→      items: [],
+   365→      ppn: 11,
+   366→      catatan: '',
+   367→      tanggalJatuhTempo: '',
+   368→    }
+   369→  }
+   370→}
+   371→
+   372→// Calculate uang capek (profit) for each invoice by matching referensi with riwayat cetakan profitAmount
+   373→// Referensi can be either a nomorUrut (e.g. "HC/05/2026/0007") or a printName (e.g. "Brosur")
+   374→function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { nomorUrut: string; printName: string; profitAmount: number }[]): Map<string, number> {
+   375→  const result = new Map<string, number>()
+   376→  
+   377→  // Build cetakan lookup by both nomorUrut and printName
+   378→  const cetakanByRef = new Map<string, number>()
+   379→  for (const c of cetakanRecords) {
+   380→    // Index by nomorUrut (preferred match)
+   381→    if (c.nomorUrut) {
+   382→      cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
+   383→    }
+   384→    // Also index by printName (fallback for older data)
+   385→    if (c.printName && !cetakanByRef.has(c.printName)) {
+   386→      cetakanByRef.set(c.printName, (cetakanByRef.get(c.printName) || 0) + c.profitAmount)
+   387→    }
+   388→  }
+   389→
+   390→  // Calculate uang capek per invoice
+   391→  for (const inv of invoices) {
+   392→    const info = parseDocInfo(inv)
+   393→    const uangCapek = info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0
+   394→    result.set(inv.id, uangCapek)
+   395→  }
+   396→
+   397→  return result
+   398→}
+   399→
+   400→export default function PembukaanPage() {
+   401→  const { t } = useLanguage()
+   402→  const { user } = useAuth()
+   403→  const router = useRouter()
+   404→  const [greeting, setGreeting] = useState(getGreeting)
+   405→  const [data, setData] = useState<DashboardData | null>(null)
+   406→  const [loading, setLoading] = useState(true)
+   407→
+   408→  // Motivasi hari ini — berubah setiap refresh
+   409→  const daftarMotivasi = [
+   410→    'Kerja keras hari ini, hasilnya nikmat besok hari.',
+   411→    'Setiap langkah kecil mendekatkanmu pada tujuan besar.',
+   412→    'Jangan takut gagal, takutlah untuk tidak mencoba.',
+   413→    'Kesuksesan dimulai dari keberanian untuk memulai.',
+   414→    'Disiplin adalah jembatan antara tujuan dan pencapaian.',
+   415→    'Hari ini adalah kesempatan baru untuk menjadi lebih baik.',
+   416→    'Usaha kecil yang konsisten mengalahkan usaha besar yang sporadis.',
+   417→    'Jangan bandingkan dirimu dengan orang lain, bandingkan dengan dirimu kemarin.',
+   418→    'Ketekunan adalah kunci yang membuka semua pintu kesuksesan.',
+   419→    'Setiap detik adalah kesempatan untuk mengubah hidupmu.',
+   420→    'Sulit di awal, indah di akhir. Teruslah berjalan.',
+   421→    'Berdoa, berusaha, bersabar — resep sukses yang tak pernah gagal.',
+   422→    'Orang sukses bukan orang yang tidak pernah gagal, tapi yang tidak pernah menyerah.',
+   423→    'Kualitas bukan kebetulan, tapi hasil dari niat dan usaha yang sungguh-sungguh.',
+   424→    'Hari ini sulit? Besok akan terasa lebih mudah karena kamu sudah melewatinya.',
+   425→    'Jangan menunggu sempurna, mulai saja dulu. Sempurnakan di jalan.',
+   426→    'Cetak kertas bisa dihitung, tapi semangatmu tak terbatas.',
+   427→    'UMKM kuat, Indonesia maju. Dan kamu adalah bagian dari itu.',
+   428→    'Satu pesanan hari ini bisa jadi seribu pesanan besok.',
+   429→    'Kerja cerdas, bukan kerja keras saja.',
+   430→    'Produk bagus + pelayanan baik = pelanggan setia.',
+   431→    'Konsistensi mengalahkan talenta yang malas.',
+   432→    'Mulailah dari yang paling kecil, impianmu tidak perlu izin.',
+   433→    'Setiap hari adalah halaman baru. Tulis ceritamu dengan bangga.',
+   434→    'Semangat pagi! Hari ini penuh peluang, tangkap sebelum lewat.',
+   435→    'Keberanian bukan tidak takut, tapi tetap maju meski takut.',
+   436→    'Rajinlah saat orang lain malas, bersyukurlah saat hasilnya tiba.',
+   437→    'Bisnis kecil bukan berarti impian kecil.',
+   438→    'Langkah pertama selalu yang paling berat, tapi juga yang paling penting.',
+   439→    'Terus belajar, terus berinovasi, dunia tidak menunggu siapa pun.',
+   440→    'Hari ini kamu satu langkah lebih dekat dari kemarin.',
+   441→  ]
+   442→  const [motivasiHariIni] = useState(() => daftarMotivasi[Math.floor(Math.random() * daftarMotivasi.length)])
+   443→
+   444→  // Date filter state
+   445→  const [filterType, setFilterType] = useState<FilterType>('today')
+   446→  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
+   447→  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
+   448→  const [showCustomDialog, setShowCustomDialog] = useState(false)
+   449→  const [tempStartDate, setTempStartDate] = useState<Date | undefined>(undefined)
+   450→  const [tempEndDate, setTempEndDate] = useState<Date | undefined>(undefined)
+   451→
+   452→  // Document history states
+   453→  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
+   454→  const [suratJalanHistory, setSuratJalanHistory] = useState<HistoryEntry[]>([])
+   455→  const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
+   456→  const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
+   457→  const [docLoading, setDocLoading] = useState(false)
+   458→
+   459→  // Calculate uang capek per invoice from riwayat cetakan profitAmount
+   460→  const invoiceUangCapek = useMemo(() => calculateUangCapek(invoiceHistory, cetakanList), [invoiceHistory, cetakanList])
+   461→
+   462→  // Popup state
+   463→
+   464→  const [showPenjualanPopup, setShowPenjualanPopup] = useState(false)
+   465→  const [poPreviewOpen, setPoPreviewOpen] = useState(false)
+   466→  const [poPreviewItem, setPoPreviewItem] = useState<HistoryEntry | null>(null)
+   467→  const [poPreviewScale, setPoPreviewScale] = useState(1)
+   468→  const [sendingPoPdf, setSendingPoPdf] = useState(false)
+   469→  const [invPreviewOpen, setInvPreviewOpen] = useState(false)
+   470→  const [invPreviewItem, setInvPreviewItem] = useState<HistoryEntry | null>(null)
+   471→  const [invPreviewScale, setInvPreviewScale] = useState(1)
+   472→  const [sendingInvPdf, setSendingInvPdf] = useState(false)
+   473→
+   474→  const displayName = user?.name || user?.username || 'Pengguna'
+   475→
+   476→  useEffect(() => {
+   477→    const interval = setInterval(() => {
+   478→      setGreeting(getGreeting())
+   479→    }, 60000)
+   480→    return () => clearInterval(interval)
+   481→  }, [])
+   482→
+   483→  const fetchDashboard = useCallback(async () => {
+   484→    try {
+   485→      setLoading(true)
+   486→      const { startDate, endDate } = getFilterDates(filterType, customStartDate, customEndDate)
+   487→      const res = await authFetch(`/api/dashboard?startDate=${startDate}&endDate=${endDate}`)
+   488→      if (res.ok) {
+   489→        const json = await res.json()
+   490→        setData(json)
+   491→      }
+   492→    } catch (err) {
+   493→      console.error('Failed to fetch dashboard:', err)
+   494→    } finally {
+   495→      setLoading(false)
+   496→    }
+   497→  }, [filterType, customStartDate, customEndDate])
+   498→
+   499→  const fetchDocHistory = useCallback(async () => {
+   500→    setDocLoading(true)
+   501→    try {
+   502→      const { startDate, endDate } = getFilterDates(filterType, customStartDate, customEndDate)
+   503→      const headers = getAuthHeaders()
+   504→      const [invRes, sjRes, poRes] = await Promise.all([
+   505→        fetch(`/api/history?docType=invoice&startDate=${startDate}&endDate=${endDate}`, { headers }),
+   506→        fetch(`/api/history?docType=surat-jalan&startDate=${startDate}&endDate=${endDate}`, { headers }),
+   507→        fetch(`/api/history?docType=purchase-order&startDate=${startDate}&endDate=${endDate}`, { headers }),
+   508→      ])
+   509→      if (invRes.ok) { const json = await invRes.json(); setInvoiceHistory(json.data || []) }
+   510→      if (sjRes.ok) { const json = await sjRes.json(); setSuratJalanHistory(json.data || []) }
+   511→      if (poRes.ok) { const json = await poRes.json(); setPoHistory(json.data || []) }
+   512→      // Fetch riwayat cetakan for uang capek calculation
+   513→      try {
+   514→        const cetRes = await fetch('/api/riwayat-cetakan', { headers })
+   515→        if (cetRes.ok) {
+   516→          const cetData = await cetRes.json()
+   517→          const mapped = (Array.isArray(cetData) ? cetData : []).map((r: { nomorUrut?: string; printName?: string; profitAmount?: number }) => ({
+   518→            nomorUrut: r.nomorUrut || '',
+   519→            printName: r.printName || '',
+   520→            profitAmount: r.profitAmount || 0,
+   521→          }))
+   522→          setCetakanList(mapped)
+   523→        }
+   524→      } catch {}
+   525→    } catch {
+   526→      // ignore
+   527→    } finally {
+   528→      setDocLoading(false)
+   529→    }
+   530→  }, [filterType, customStartDate, customEndDate])
+   531→
+   532→  useEffect(() => {
+   533→    fetchDashboard()
+   534→    fetchDocHistory()
+   535→  }, [fetchDashboard, fetchDocHistory])
+   536→
+   537→  // Listen for save events
+   538→  useEffect(() => {
+   539→    const handler = () => fetchDocHistory()
+   540→    window.addEventListener('dokupro:history-updated', handler)
+   541→    return () => window.removeEventListener('dokupro:history-updated', handler)
+   542→  }, [fetchDocHistory])
+   543→
+   544→  const handlePoPreview = (item: HistoryEntry) => {
+   545→    setPoPreviewItem(item)
+   546→    setPoPreviewOpen(true)
+   547→  }
+   548→
+   549→  const handleInvPreview = (item: HistoryEntry) => {
+   550→    setInvPreviewItem(item)
+   551→    setInvPreviewOpen(true)
+   552→  }
+   553→
+   554→  const poData = useMemo(() => {
+   555→    if (!poPreviewItem) return null
+   556→    return parsePurchaseOrderData(poPreviewItem)
+   557→  }, [poPreviewItem])
+   558→
+   559→  const invData = useMemo(() => {
+   560→    if (!invPreviewItem) return null
+   561→    return parseInvoiceData(invPreviewItem)
+   562→  }, [invPreviewItem])
+   563→
+   564→  const handleSendPoPdf = useCallback(async () => {
+   565→    if (!poData) return
+   566→    setSendingPoPdf(true)
+   567→    try {
+   568→      const blob = await generatePurchaseOrderPdf(poData)
+   569→      const fileName = `PO_${poData.nomor || 'draft'}.pdf`
+   570→      await sharePdfViaWhatsApp(blob, fileName, `Purchase Order ${poData.nomor}`)
+   571→      toast.success('PDF dikirim ke WhatsApp')
+   572→    } catch (err) {
+   573→      console.error(err)
+   574→      toast.error('Gagal mengirim PDF')
+   575→    } finally {
+   576→      setSendingPoPdf(false)
+   577→    }
+   578→  }, [poData])
+   579→
+   580→  const handleSendInvPdf = useCallback(async () => {
+   581→    if (!invData) return
+   582→    setSendingInvPdf(true)
+   583→    try {
+   584→      const blob = await generateInvoicePdf(invData)
+   585→      const fileName = `Invoice_${invData.nomor || 'draft'}.pdf`
+   586→      await sharePdfViaWhatsApp(blob, fileName, `Invoice ${invData.nomor}`)
+   587→      toast.success('PDF dikirim ke WhatsApp')
+   588→    } catch (err) {
+   589→      console.error(err)
+   590→      toast.error('Gagal mengirim PDF')
+   591→    } finally {
+   592→      setSendingInvPdf(false)
+   593→    }
+   594→  }, [invData])
+   595→
+   596→  // Scale A5 PO preview to fit inside a popup on both mobile & desktop
+   597→  useEffect(() => {
+   598→    const DESIGN_W = 576
+   599→    const DESIGN_H = DESIGN_W * (210 / 148)
+   600→    const updatePoScale = () => {
+   601→      const vw = window.innerWidth
+   602→      const vh = window.innerHeight
+   603→      const marginX = 24
+   604→      const marginY = 32
+   605→      const topPad = 48
+   606→      const btnArea = 56
+   607→      const availW = vw - marginX * 2
+   608→      const availH = vh - marginY * 2 - topPad - btnArea
+   609→      setPoPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
+   610→    }
+   611→    if (poPreviewOpen) {
+   612→      const t = setTimeout(updatePoScale, 60)
+   613→      window.addEventListener('resize', updatePoScale)
+   614→      return () => { clearTimeout(t); window.removeEventListener('resize', updatePoScale) }
+   615→    }
+   616→  }, [poPreviewOpen])
+   617→
+   618→  // Scale A5 Invoice preview to fit inside a popup on both mobile & desktop
+   619→  useEffect(() => {
+   620→    const DESIGN_W = 576
+   621→    const DESIGN_H = DESIGN_W * (210 / 148)
+   622→    const updateInvScale = () => {
+   623→      const vw = window.innerWidth
+   624→      const vh = window.innerHeight
+   625→      const marginX = 24
+   626→      const marginY = 32
+   627→      const topPad = 48
+   628→      const btnArea = 56
+   629→      const availW = vw - marginX * 2
+   630→      const availH = vh - marginY * 2 - topPad - btnArea
+   631→      setInvPreviewScale(Math.min(availW / DESIGN_W, availH / DESIGN_H, 1))
+   632→    }
+   633→    if (invPreviewOpen) {
+   634→      const t = setTimeout(updateInvScale, 60)
+   635→      window.addEventListener('resize', updateInvScale)
+   636→      return () => { clearTimeout(t); window.removeEventListener('resize', updateInvScale) }
+   637→    }
+   638→  }, [invPreviewOpen])
+   639→
+   640→  const handleFilterChange = (type: FilterType) => {
+   641→    if (type === 'custom') {
+   642→      setTempStartDate(customStartDate)
+   643→      setTempEndDate(customEndDate)
+   644→      setShowCustomDialog(true)
+   645→    } else {
+   646→      setFilterType(type)
+   647→    }
+   648→  }
+   649→
+   650→  const handleCustomApply = () => {
+   651→    if (tempStartDate && tempEndDate) {
+   652→      setCustomStartDate(tempStartDate)
+   653→      setCustomEndDate(tempEndDate)
+   654→      setFilterType('custom')
+   655→      setShowCustomDialog(false)
+   656→    }
+   657→  }
+   658→
+   659→  const summary = data?.summary
+   660→  const recent = data?.recent
+   661→
+   662→  const filterButtons: { type: FilterType; label: string }[] = [
+   663→    { type: 'today', label: 'Hari Ini' },
+   664→    { type: 'week', label: 'Minggu Ini' },
+   665→    { type: 'month', label: 'Bulan Ini' },
+   666→    { type: 'custom', label: 'Custom' },
+   667→  ]
+   668→
+   669→  return (
+   670→    <DashboardLayout title={t('pembukaan')} subtitle={t('subtitle_pembukaan')}>
+   671→      <div className="space-y-4 sm:space-y-6 pb-6">
+   672→        {/* Greeting Section */}
+   673→        <div className="flex items-center gap-3 sm:gap-4">
+   674→          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center shadow-lg shrink-0">
+   675→            <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+   676→          </div>
+   677→          <div className="min-w-0">
+   678→            <h2 className="text-sm sm:text-base font-normal uppercase text-slate-800">{greeting}</h2>
+   679→            <p className="text-lg sm:text-[27px] font-extrabold text-slate-800 truncate">Halo, {displayName}</p>
+   680→            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">Selamat Datang di <span className="font-extrabold text-blue-900">www.darrellsoft.com</span>, Aplikasi Hitung Cepat Cetakan untuk <span className="font-bold">UMKM</span>.</p>
+   681→          </div>
+   682→        </div>
+   683→
+   684→        {/* Motivasi Hari Ini */}
+   685→        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+   686→          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+   687→            <Sparkles className="w-4 h-4 text-amber-600" />
+   688→          </div>
+   689→          <div className="min-w-0">
+   690→            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">Motivasi Hari Ini</p>
+   691→            <p className="text-[13px] sm:text-[15px] text-slate-700 font-bold italic leading-relaxed">"{motivasiHariIni}"</p>
+   692→          </div>
+   693→        </div>
+   694→
+   695→        {/* Expired Akun Demo - only for demo role */}
+   696→        {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
+   697→          <button
+   698→            onClick={() => router.push('/checkout')}
+   699→            className="bg-teal-600 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
+   700→          >
+   701→            <div className="w-10 h-10 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
+   702→              <CalendarClock className="w-5 h-5" />
+   703→            </div>
+   704→            <div className="flex-1 min-w-0">
+   705→              <p className="text-xs text-teal-100">Expired Akun Demo</p>
+   706→              <div className="flex items-baseline gap-2 flex-wrap">
+   707→                <p className="text-base sm:text-lg font-bold text-white leading-tight">
+   708→                  {data.expiryInfo.remainingDays} hari lagi
+   709→                </p>
+   710→                <span className="text-xs text-teal-100">
+   711→                  s/d {new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+   712→                </span>
+   713→              </div>
+   714→              <p className="text-[11px] mt-1 text-teal-100">
+   715→                Lanjutkan sebelum akun mati dan data hilang
+   716→              </p>
+   717→            </div>
+   718→            <ChevronRight className="w-5 h-5 shrink-0 text-white/70" />
+   719→          </button>
+   720→        )}
+   721→
+   722→        {/* Summary Cards */}
+   723→        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+   724→          <StatCard
+   725→            icon={<TrendingUp className="w-5 h-5" />}
+   726→            label="Pendapatan Hari Ini"
+   727→            count={summary?.totals.todaySales ?? 0}
+   728→            total={0}
+   729→            color="rose"
+   730→            loading={loading}
+   731→            isCurrency
+   732→            subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} pesanan` : undefined}
+   733→          />
+   734→          <StatCard
+   735→            icon={<FileText className="w-5 h-5" />}
+   736→            label="Transaksi Hari Ini"
+   737→            count={invoiceHistory.length}
+   738→            total={summary?.totals.invoice ?? 0}
+   739→            color="emerald"
+   740→            loading={loading}
+   741→          />
+   742→          <StatCard
+   743→            icon={<Calculator className="w-5 h-5" />}
+   744→            label="Uang Capek Hari Ini"
+   745→            count={summary?.totals.todayUangCapek ?? 0}
+   746→            total={0}
+   747→            color="amber"
+   748→            loading={loading}
+   749→            isCurrency
+   750→          />
+   751→          <StatCard
+   752→            icon={<DollarSign className="w-5 h-5" />}
+   753→            label={`Total Pendapatan ${new Date().toLocaleDateString('id-ID', { month: 'long' })}`}
+   754→            count={summary?.totals.revenue ?? 0}
+   755→            total={0}
+   756→            color="sky"
+   757→            loading={loading}
+   758→            isCurrency
+   759→          />
+   760→          <StatCard
+   761→            icon={<DollarSign className="w-5 h-5" />}
+   762→            label={`Total Pendapatan ${new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'long' })}`}
+   763→            count={summary?.totals.lastMonthRevenue ?? 0}
+   764→            total={0}
+   765→            color="teal"
+   766→            loading={loading}
+   767→            isCurrency
+   768→          />
+   769→          <StatCard
+   770→            icon={<DollarSign className="w-5 h-5" />}
+   771→            label="Total Uang Capek"
+   772→            count={summary?.totals.uangCapek ?? 0}
+   773→            total={0}
+   774→            color="violet"
+   775→            loading={loading}
+   776→            isCurrency
+   777→            profitBadge={summary?.totals.modal && summary.totals.modal > 0 ? `${(((summary.totals.uangCapek ?? 0) / summary.totals.modal) * 100).toFixed(1)}%` : undefined}
+   778→          />
+   779→        </div>
+   780→
+   781→        {/* Quick Access Icons */}
+   782→        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+   783→          <QuickIcon
+   784→            icon={<History className="w-5 h-5" />}
+   785→            label="Penjualan"
+   786→            color="bg-amber-50 text-amber-600 border-amber-200"
+   787→            onClick={() => router.push('/riwayat')}
+   788→          />
+   789→          <QuickIcon
+   790→            icon={<ShoppingCart className="w-5 h-5" />}
+   791→            label="Pembelian"
+   792→            color="bg-blue-50 text-blue-600 border-blue-200"
+   793→            onClick={() => router.push('/riwayat-pembelian')}
+   794→          />
+   795→          <QuickIcon
+   796→            icon={<Receipt className="w-5 h-5" />}
+   797→            label="Invoice"
+   798→            color="bg-violet-50 text-violet-600 border-violet-200"
+   799→            onClick={() => router.push('/invoice')}
+   800→          />
+   801→        </div>
+   802→
+   803→        {/* Date Filter Section */}
+   804→        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+   805→          <div className="flex items-center gap-1.5 mr-1">
+   806→            <Filter className="w-4 h-4 text-slate-400" />
+   807→            <span className="text-xs font-medium text-slate-500">Periode:</span>
+   808→          </div>
+   809→          {filterButtons.map(btn => (
+   810→            <Button
+   811→              key={btn.type}
+   812→              variant="outline"
+   813→              size="sm"
+   814→              onClick={() => handleFilterChange(btn.type)}
+   815→              className={cn(
+   816→                'h-8 px-3 text-xs font-medium rounded-lg transition-all',
+   817→                filterType === btn.type
+   818→                  ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white shadow-sm'
+   819→                  : 'bg-white dark:bg-[#1a1a1a] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#222] hover:text-slate-800 dark:hover:text-slate-200'
+   820→              )}
+   821→            >
+   822→              {btn.type === 'custom' && <CalendarIcon className="w-3.5 h-3.5 mr-1" />}
+   823→              {btn.label}
+   824→            </Button>
+   825→          ))}
+   826→          {filterType === 'custom' && customStartDate && customEndDate && (
+   827→            <span className="text-xs text-slate-400 ml-1">
+   828→              {formatDateDisplay(customStartDate)} — {formatDateDisplay(customEndDate)}
+   829→            </span>
+   830→          )}
+   831→        </div>
+   832→
+   833→        {/* Riwayat Sections */}
+   834→        <div className="space-y-4">
+   835→          {/* Invoice */}
+   836→          <Card>
+   837→            <CardHeader className="pb-2">
+   838→              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+   839→                <FileText className="w-4 h-4 text-slate-400" />
+   840→                Riwayat Invoice
+   841→                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+   842→                  {invoiceHistory.length}
+   843→                </span>
+   844→              </CardTitle>
+   845→            </CardHeader>
+   846→            <CardContent>
+   847→              {docLoading ? <TableSkeleton /> : (
+   848→                invoiceHistory.length > 0 ? (
+   849→                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
+   850→                    <Table className="min-w-[750px]">
+   851→                      <TableHeader>
+   852→                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+   853→                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+   854→                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+   855→                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+   856→                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Customer</TableHead>
+   857→                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+   858→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+   859→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+   860→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+   861→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+   862→                        </TableRow>
+   863→                      </TableHeader>
+   864→                      <TableBody>
+   865→                        {invoiceHistory.map((entry, i) => {
+   866→                          const info = parseDocInfo(entry)
+   867→                          const uc = invoiceUangCapek.get(entry.id) ?? 0
+   868→                          return (
+   869→                            <TableRow key={entry.id} className="group">
+   870→                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+   871→                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
+   872→                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+   873→                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
+   874→                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
+   875→                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+   876→                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+   877→                              <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
+   878→                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
+   879→                            </TableRow>
+   880→                          )
+   881→                        })}
+   882→                      </TableBody>
+   883→                    </Table>
+   884→                  </div>
+   885→                ) : <EmptyState />
+   886→              )}
+   887→            </CardContent>
+   888→          </Card>
+   889→
+   890→          {/* Purchase Order */}
+   891→          <Card>
+   892→            <CardHeader className="pb-2">
+   893→              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+   894→                <ShoppingCart className="w-4 h-4 text-slate-400" />
+   895→                Riwayat Purchase Order
+   896→                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+   897→                  {poHistory.length}
+   898→                </span>
+   899→              </CardTitle>
+   900→            </CardHeader>
+   901→            <CardContent>
+   902→              {docLoading ? <TableSkeleton /> : (
+   903→                poHistory.length > 0 ? (
+   904→                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
+   905→                    <Table className="min-w-[650px]">
+   906→                      <TableHeader>
+   907→                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+   908→                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+   909→                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+   910→                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+   911→                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
+   912→                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+   913→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+   914→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+   915→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+   916→                        </TableRow>
+   917→                      </TableHeader>
+   918→                      <TableBody>
+   919→                        {poHistory.map((entry, i) => {
+   920→                          const info = parseDocInfo(entry)
+   921→                          return (
+   922→                            <TableRow key={entry.id} className="group">
+   923→                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+   924→                              <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
+   925→                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+   926→                              <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
+   927→                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
+   928→                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+   929→                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+   930→                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
+   931→                            </TableRow>
+   932→                          )
+   933→                        })}
+   934→                      </TableBody>
+   935→                    </Table>
+   936→                  </div>
+   937→                ) : <EmptyState />
+   938→              )}
+   939→            </CardContent>
+   940→          </Card>
+   941→
+   942→          {/* Hitung Cetakan */}
+   943→          <Card>
+   944→            <CardHeader className="pb-2">
+   945→              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+   946→                <Clock className="w-4 h-4 text-slate-400" />
+   947→                Riwayat Hitung Cetakan
+   948→                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+   949→                  {recent?.cetakan?.length ?? 0}
+   950→                </span>
+   951→              </CardTitle>
+   952→            </CardHeader>
+   953→            <CardContent>
+   954→              {loading ? <TableSkeleton /> : (
+   955→                recent?.cetakan && recent.cetakan.length > 0 ? (
+   956→                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
+   957→                    <Table className="min-w-[700px]">
+   958→                      <TableHeader>
+   959→                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+   960→                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+   961→                          <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
+   962→                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+   963→                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+   964→                          <TableHead className="text-[11px] font-semibold text-gray-500">Finishing</TableHead>
+   965→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml Pesanan</TableHead>
+   966→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+   967→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga/Pcs</TableHead>
+   968→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
+   969→                        </TableRow>
+   970→                      </TableHeader>
+   971→                      <TableBody>
+   972→                        {recent.cetakan.map((r, idx) => {
+   973→                          const qty = parseInt(r.jumlahPesanan || '0')
+   974→                          const hargaPcs = qty > 0 ? Math.round((r.grandTotal || 0) / qty) : 0
+   975→                          return (
+   976→                            <TableRow key={r.id} className="group">
+   977→                              <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
+   978→                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
+   979→                              <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.customerName || '-'}</TableCell>
+   980→                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[200px] truncate" title={r.printName || ''}>{r.printName || '-'}</TableCell>
+   981→                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[150px] truncate" title={r.finishingNames || ''}>
+   982→                                {r.finishingNames || '-'}
+   983→                              </TableCell>
+   984→                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{qty.toLocaleString('id-ID')}</TableCell>
+   985→                              <TableCell className={`py-2.5 text-xs text-right whitespace-nowrap font-semibold ${r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
+   986→                                {r.profitAmount > 0 ? formatRupiah(r.profitAmount) : '-'}
+   987→                              </TableCell>
+   988→                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{hargaPcs > 0 ? formatRupiah(hargaPcs) : '-'}</TableCell>
+   989→                              <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{formatRupiah(r.grandTotal || 0)}</TableCell>
+   990→                            </TableRow>
+   991→                          )
+   992→                        })}
+   993→                      </TableBody>
+   994→                    </Table>
+   995→                  </div>
+   996→                ) : <EmptyState />
+   997→              )}
+   998→            </CardContent>
+   999→          </Card>
+  1000→
+  1001→          {/* Potong Kertas */}
+  1002→          <Card>
+  1003→            <CardHeader className="pb-2">
+  1004→              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+  1005→                <Scissors className="w-4 h-4 text-slate-400" />
+  1006→                Riwayat Potong Kertas
+  1007→                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+  1008→                  {recent?.potongKertas?.length ?? 0}
+  1009→                </span>
+  1010→              </CardTitle>
+  1011→            </CardHeader>
+  1012→            <CardContent>
+  1013→              {loading ? <TableSkeleton /> : (
+  1014→                recent?.potongKertas && recent.potongKertas.length > 0 ? (
+  1015→                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
+  1016→                    <Table className="min-w-[650px]">
+  1017→                      <TableHeader>
+  1018→                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+  1019→                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+  1020→                          <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
+  1021→                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+  1022→                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+  1023→                          <TableHead className="text-[11px] font-semibold text-gray-500">Kertas</TableHead>
+  1024→                          <TableHead className="text-[11px] font-semibold text-gray-500">Uk. Kertas</TableHead>
+  1025→                          <TableHead className="text-[11px] font-semibold text-gray-500">Uk. Potong</TableHead>
+  1026→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml</TableHead>
+  1027→                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
+  1028→                        </TableRow>
+  1029→                      </TableHeader>
+  1030→                      <TableBody>
+  1031→                        {recent.potongKertas.map((r, idx) => (
+  1032→                          <TableRow key={r.id} className="group">
+  1033→                            <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
+  1034→                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
+  1035→                            <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.namaCustomer || '-'}</TableCell>
+  1036→                            <TableCell className="py-2.5 text-xs text-gray-700 max-w-[120px] truncate">{r.namaCetakan || '-'}</TableCell>
+  1037→                            <TableCell className="py-2.5 text-xs text-gray-700 max-w-[100px] truncate">{r.paperName || '-'}</TableCell>
+  1038→                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">
+  1039→                              {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
+  1040→                            </TableCell>
+  1041→                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">
+  1042→                              {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
+  1043→                            </TableCell>
+  1044→                            <TableCell className="py-2.5 text-xs text-right text-gray-700">{parseInt(r.jumlahPesanan || '0').toLocaleString('id-ID')}</TableCell>
+  1045→                            <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{formatRupiah(r.totalPrice || 0)}</TableCell>
+  1046→                          </TableRow>
+  1047→                        ))}
+  1048→                      </TableBody>
+  1049→                    </Table>
+  1050→                  </div>
+  1051→                ) : <EmptyState />
+  1052→              )}
+  1053→            </CardContent>
+  1054→          </Card>
+  1055→
+  1056→          {/* Surat Jalan */}
+  1057→          <Card>
+  1058→            <CardHeader className="pb-2">
+  1059→              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+  1060→                <Truck className="w-4 h-4 text-slate-400" />
+  1061→                Riwayat Surat Jalan
+  1062→                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+  1063→                  {suratJalanHistory.length}
+  1064→                </span>
+  1065→              </CardTitle>
+  1066→            </CardHeader>
+  1067→            <CardContent>
+  1068→              {docLoading ? <TableSkeleton /> : (
+  1069→                suratJalanHistory.length > 0 ? (
+  1070→                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
+  1071→                    <Table className="min-w-[450px]">
+  1072→                      <TableHeader>
+  1073→                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+  1074→                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+  1075→                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+  1076→                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+  1077→                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+  1078→                        </TableRow>
+  1079→                      </TableHeader>
+  1080→                      <TableBody>
+  1081→                        {suratJalanHistory.map((entry, i) => (
+  1082→                          <TableRow key={entry.id} className="group">
+  1083→                            <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+  1084→                            <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
+  1085→                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+  1086→                            <TableCell className="py-2.5 text-xs text-gray-600 max-w-[200px] truncate">{entry.pihakKedua}</TableCell>
+  1087→                          </TableRow>
+  1088→                        ))}
+  1089→                      </TableBody>
+  1090→                    </Table>
+  1091→                  </div>
+  1092→                ) : <EmptyState />
+  1093→              )}
+  1094→            </CardContent>
+  1095→          </Card>
+  1096→        </div>
+  1097→
+  1098→        {/* PO Preview Dialog — A5 format */}
+  1099→        <Dialog open={poPreviewOpen} onOpenChange={setPoPreviewOpen}>
+  1100→          <DialogContent
+  1101→            className="max-w-none w-auto overflow-hidden p-2 pt-10 gap-0 [&_button]:cursor-default"
+  1102→            style={{
+  1103→              width: `${576 * poPreviewScale + 16}px`,
+  1104→              maxHeight: `calc(100dvh - 32px)`,
+  1105→            }}
+  1106→            aria-label="Pratinjau Purchase Order"
+  1107→          >
+  1108→            <DialogTitle className="sr-only">Pratinjau Purchase Order</DialogTitle>
+  1109→            {poData && (
+  1110→              <div className="flex flex-col items-center gap-3">
+  1111→                <div style={{
+  1112→                  width: `${576 * poPreviewScale}px`,
+  1113→                  height: `${576 * (210 / 148) * poPreviewScale}px`,
+  1114→                  overflow: 'hidden',
+  1115→                  flexShrink: 0,
+  1116→                }}>
+  1117→                  <div style={{
+  1118→                    width: 576,
+  1119→                    height: 576 * (210 / 148),
+  1120→                    transform: `scale(${poPreviewScale})`,
+  1121→                    transformOrigin: 'top left',
+  1122→                  }}>
+  1123→                    <div className="bg-white" style={{ width: 576, height: 576 * (210 / 148) }}>
+  1124→                      <div className="a5-preview-scaler">
+  1125→                        <PurchaseOrderPreview data={poData} />
+  1126→                      </div>
+  1127→                    </div>
+  1128→                  </div>
+  1129→                </div>
+  1130→                <button
+  1131→                  onClick={handleSendPoPdf}
+  1132→                  disabled={sendingPoPdf}
+  1133→                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
+  1134→                >
+  1135→                  {sendingPoPdf ? (
+  1136→                    <Loader2 className="w-4 h-4 animate-spin" />
+  1137→                  ) : (
+  1138→                    <FileText className="w-4 h-4" />
+  1139→                  )}
+  1140→                  {sendingPoPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
+  1141→                </button>
+  1142→              </div>
+  1143→            )}
+  1144→          </DialogContent>
+  1145→        </Dialog>
+  1146→
+  1147→        {/* Popup Penjualan - Riwayat Invoice */}
+  1148→        <Dialog open={showPenjualanPopup} onOpenChange={setShowPenjualanPopup}>
+  1149→          <DialogContent className="sm:max-w-2xl p-0 gap-0">
+  1150→            <DialogHeader className="px-5 pt-5 pb-3">
+  1151→              <DialogTitle className="flex items-center gap-2 text-base">
+  1152→                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+  1153→                  <History className="w-4 h-4" />
+  1154→                </div>
+  1155→                Riwayat Penjualan
+  1156→              </DialogTitle>
+  1157→              <DialogDescription className="text-xs text-slate-400">Daftar invoice penjualan yang pernah dibuat</DialogDescription>
+  1158→            </DialogHeader>
+  1159→            <div className="px-5 pb-5">
+  1160→              {docLoading ? (
+  1161→                <div className="space-y-2">
+  1162→                  {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
+  1163→                </div>
+  1164→              ) : invoiceHistory.length === 0 ? (
+  1165→                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-8 text-center">
+  1166→                  <Receipt className="mx-auto h-8 w-8 text-amber-300" />
+  1167→                  <p className="mt-2 text-sm text-amber-400">Belum ada data invoice</p>
+  1168→                </div>
+  1169→              ) : (
+  1170→                <div className="rounded-lg border bg-card max-h-[60vh] overflow-auto">
+  1171→                  <Table>
+  1172→                    <TableHeader>
+  1173→                      <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+  1174→                        <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+  1175→                        <TableHead className="text-[11px] font-semibold text-gray-500">No. Invoice</TableHead>
+  1176→                        <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+  1177→                        <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+  1178→                        <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+  1179→                        <TableHead className="w-12 text-[11px] font-semibold text-gray-500 text-center">Aksi</TableHead>
+  1180→                      </TableRow>
+  1181→                    </TableHeader>
+  1182→                    <TableBody>
+  1183→                      {invoiceHistory.map((inv, i) => {
+  1184→                        const info = parseDocInfo(inv)
+  1185→                        return (
+  1186→                          <TableRow key={inv.id} className="hover:bg-amber-50/50">
+  1187→                            <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+  1188→                            <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{inv.nomor}</TableCell>
+  1189→                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{inv.tanggal ? formatTanggal(inv.tanggal) : '-'}</TableCell>
+  1190→                            <TableCell className="py-2.5 text-xs text-gray-600 max-w-[160px] truncate">{inv.pihakKedua || '-'}</TableCell>
+  1191→                            <TableCell className="py-2.5 text-xs text-right font-medium text-amber-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
+  1192→                            <TableCell className="py-2.5 text-center">
+  1193→                              <button onClick={() => handleInvPreview(inv)} title="Preview" className="p-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors cursor-default">
+  1194→                                <Eye className="w-3.5 h-3.5" />
+  1195→                              </button>
+  1196→                            </TableCell>
+  1197→                          </TableRow>
+  1198→                        )
+  1199→                      })}
+  1200→                    </TableBody>
+  1201→                  </Table>
+  1202→                </div>
+  1203→              )}
+  1204→            </div>
+  1205→          </DialogContent>
+  1206→        </Dialog>
+  1207→
+  1208→        {/* Invoice Preview Dialog — A5 format */}
+  1209→        <Dialog open={invPreviewOpen} onOpenChange={setInvPreviewOpen}>
+  1210→          <DialogContent
+  1211→            className="max-w-none w-auto overflow-hidden p-2 pt-10 gap-0 [&_button]:cursor-default"
+  1212→            style={{
+  1213→              width: `${576 * invPreviewScale + 16}px`,
+  1214→              maxHeight: `calc(100dvh - 32px)`,
+  1215→            }}
+  1216→            aria-label="Pratinjau Invoice"
+  1217→          >
+  1218→            <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
+  1219→            {invData && (
+  1220→              <div className="flex flex-col items-center gap-3">
+  1221→                <div style={{
+  1222→                  width: `${576 * invPreviewScale}px`,
+  1223→                  height: `${576 * (210 / 148) * invPreviewScale}px`,
+  1224→                  overflow: 'hidden',
+  1225→                  flexShrink: 0,
+  1226→                }}>
+  1227→                  <div style={{
+  1228→                    width: 576,
+  1229→                    height: 576 * (210 / 148),
+  1230→                    transform: `scale(${invPreviewScale})`,
+  1231→                    transformOrigin: 'top left',
+  1232→                  }}>
+  1233→                    <div className="bg-white" style={{ width: 576, height: 576 * (210 / 148) }}>
+  1234→                      <div className="a5-preview-scaler">
+  1235→                        <InvoicePreview data={invData} />
+  1236→                      </div>
+  1237→                    </div>
+  1238→                  </div>
+  1239→                </div>
+  1240→                <button
+  1241→                  onClick={handleSendInvPdf}
+  1242→                  disabled={sendingInvPdf}
+  1243→                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
+  1244→                >
+  1245→                  {sendingInvPdf ? (
+  1246→                    <Loader2 className="w-4 h-4 animate-spin" />
+  1247→                  ) : (
+  1248→                    <FileText className="w-4 h-4" />
+  1249→                  )}
+  1250→                  {sendingInvPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
+  1251→                </button>
+  1252→              </div>
+  1253→            )}
+  1254→          </DialogContent>
+  1255→        </Dialog>
+  1256→
+  1257→        {/* Custom Date Range Dialog */}
+  1258→        <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+  1259→          <DialogContent className="sm:max-w-md p-0 gap-0">
+  1260→            <DialogHeader className="px-5 pt-5 pb-3">
+  1261→              <DialogTitle className="flex items-center gap-2 text-base">
+  1262→                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+  1263→                  <CalendarIcon className="w-4 h-4" />
+  1264→                </div>
+  1265→                Pilih Rentang Tanggal
+  1266→              </DialogTitle>
+  1267→              <DialogDescription className="text-xs text-slate-400">Tentukan periode untuk menampilkan riwayat</DialogDescription>
+  1268→            </DialogHeader>
+  1269→            <div className="px-5 pb-4 space-y-4">
+  1270→              {/* Start Date */}
+  1271→              <div className="space-y-1.5">
+  1272→                <label className="text-xs font-medium text-slate-600">Tanggal Mulai</label>
+  1273→                <Popover>
+  1274→                  <PopoverTrigger asChild>
+  1275→                    <Button
+  1276→                      variant="outline"
+  1277→                      className={cn(
+  1278→                        'w-full justify-start text-left font-normal h-9 text-sm',
+  1279→                        !tempStartDate && 'text-muted-foreground'
+  1280→                      )}
+  1281→                    >
+  1282→                      <CalendarIcon className="mr-2 h-4 w-4" />
+  1283→                      {formatDateDisplay(tempStartDate)}
+  1284→                    </Button>
+  1285→                  </PopoverTrigger>
+  1286→                  <PopoverContent className="w-auto p-0" align="start">
+  1287→                    <Calendar
+  1288→                      mode="single"
+  1289→                      selected={tempStartDate}
+  1290→                      onSelect={setTempStartDate}
+  1291→                      initialFocus
+  1292→                    />
+  1293→                  </PopoverContent>
+  1294→                </Popover>
+  1295→              </div>
+  1296→
+  1297→              {/* End Date */}
+  1298→              <div className="space-y-1.5">
+  1299→                <label className="text-xs font-medium text-slate-600">Tanggal Akhir</label>
+  1300→                <Popover>
+  1301→                  <PopoverTrigger asChild>
+  1302→                    <Button
+  1303→                      variant="outline"
+  1304→                      className={cn(
+  1305→                        'w-full justify-start text-left font-normal h-9 text-sm',
+  1306→                        !tempEndDate && 'text-muted-foreground'
+  1307→                      )}
+  1308→                    >
+  1309→                      <CalendarIcon className="mr-2 h-4 w-4" />
+  1310→                      {formatDateDisplay(tempEndDate)}
+  1311→                    </Button>
+  1312→                  </PopoverTrigger>
+  1313→                  <PopoverContent className="w-auto p-0" align="start">
+  1314→                    <Calendar
+  1315→                      mode="single"
+  1316→                      selected={tempEndDate}
+  1317→                      onSelect={setTempEndDate}
+  1318→                      initialFocus
+  1319→                    />
+  1320→                  </PopoverContent>
+  1321→                </Popover>
+  1322→              </div>
+  1323→            </div>
+  1324→            <DialogFooter className="px-5 pb-5 pt-0 gap-2">
+  1325→              <Button
+  1326→                variant="outline"
+  1327→                size="sm"
+  1328→                onClick={() => setShowCustomDialog(false)}
+  1329→                className="text-xs"
+  1330→              >
+  1331→                Batal
+  1332→              </Button>
+  1333→              <Button
+  1334→                size="sm"
+  1335→                onClick={handleCustomApply}
+  1336→                disabled={!tempStartDate || !tempEndDate}
+  1337→                className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
+  1338→              >
+  1339→                Terapkan
+  1340→              </Button>
+  1341→            </DialogFooter>
+  1342→          </DialogContent>
+  1343→        </Dialog>
+  1344→      </div>
+  1345→    </DashboardLayout>
+  1346→  )
+  1347→}
+  1348→
+  1349→// --- Stat Card Component ---
+  1350→function StatCard({
+  1351→  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge, isDays,
+  1352→}: {
+  1353→  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean
+  1354→}) {
+  1355→  const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
+  1356→    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
+  1357→    sky: { bg: 'bg-sky-50', border: 'border-sky-200', iconBg: 'bg-sky-100 text-sky-600', text: 'text-sky-700' },
+  1358→    amber: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
+  1359→    violet: { bg: 'bg-violet-50', border: 'border-violet-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
+  1360→    rose: { bg: 'bg-rose-50', border: 'border-rose-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
+  1361→    red: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100 text-red-600', text: 'text-red-700' },
+  1362→    orange: { bg: 'bg-orange-50', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+  1363→    teal: { bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
+  1364→  }
+  1365→  const c = colorMap[color] || colorMap.emerald
+  1366→
+  1367→  return (
+  1368→    <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
+  1369→      {loading ? (
+  1370→        <div className="space-y-2">
+  1371→          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
+  1372→          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
+  1373→          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
+  1374→        </div>
+  1375→      ) : (
+  1376→        <>
+  1377→          <div className={`w-8 h-8 rounded-lg ${c.iconBg} flex items-center justify-center mb-2`}>{icon}</div>
+  1378→          <p className="text-xs text-slate-500 mb-0.5 break-words">{label} {profitBadge && <span className="text-[15px] font-bold text-violet-700">{profitBadge}</span>}</p>
+  1379→          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{isCurrency ? formatRupiahShort(count) : isDays ? `${count} hari` : count}</p>
+  1380→          {!isCurrency && total > 0 && <p className="text-[10px] text-slate-400">{formatRupiahShort(total)}</p>}
+  1381→          {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
+  1382→        </>
+  1383→      )}
+  1384→    </div>
+  1385→  )
+  1386→}
+  1387→
+  1388→// --- Doc Card Component ---
+  1389→function DocCard({
+  1390→  icon, label, count, total, color, loading,
+  1391→}: {
+  1392→  icon: React.ReactNode; label: string; count: number; total?: number; color: string; loading: boolean
+  1393→}) {
+  1394→  const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
+  1395→    blue: { bg: 'bg-blue-50', border: 'border-blue-200', iconBg: 'bg-blue-100 text-blue-600', text: 'text-blue-700' },
+  1396→    teal: { bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
+  1397→    orange: { bg: 'bg-orange-50', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+  1398→  }
+  1399→  const c = colorMap[color] || colorMap.blue
+  1400→
+  1401→  return (
+  1402→    <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
+  1403→      {loading ? (
+  1404→        <div className="space-y-2">
+  1405→          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
+  1406→          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
+  1407→          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
+  1408→        </div>
+  1409→      ) : (
+  1410→        <>
+  1411→          <div className={`w-8 h-8 rounded-lg ${c.iconBg} flex items-center justify-center mb-2`}>{icon}</div>
+  1412→          <p className="text-xs text-slate-500 mb-0.5">{label}</p>
+  1413→          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{count}</p>
+  1414→          {total !== undefined && total > 0 && <p className="text-[10px] text-slate-400">{formatRupiahShort(total)}</p>}
+  1415→        </>
+  1416→      )}
+  1417→    </div>
+  1418→  )
+  1419→}
+  1420→
+  1421→// --- Quick Icon Component ---
+  1422→function QuickIcon({
+  1423→  icon, label, color, onClick,
+  1424→}: {
+  1425→  icon: React.ReactNode; label: string; color: string; onClick: () => void
+  1426→}) {
+  1427→  const [bg, text, border] = color.split(' ')
+  1428→  return (
+  1429→    <button
+  1430→      onClick={onClick}
+  1431→      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
+  1432→    >
+  1433→      <div className={`${text}`}>{icon}</div>
+  1434→      <span className={`text-[11px] sm:text-xs font-medium ${text}`}>{label}</span>
+  1435→    </button>
+  1436→  )
+  1437→}
+  1438→

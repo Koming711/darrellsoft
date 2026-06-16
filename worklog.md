@@ -171,3 +171,24 @@ Stage Summary:
 - All font sizes in print reduced by ~25-35% from previous values
 - Table row heights reduced by ~36% (7.5mm → 4.8mm)
 - Files modified: app/globals.css, src/app/globals.css, components/dokupro/invoice-preview.tsx, src/components/dokupro/invoice-preview.tsx
+
+---
+Task ID: 1
+Agent: main
+Task: Fix React hydration error on pembukaan page (sidebar.tsx + dashboard-layout.tsx)
+
+Work Log:
+- Read and analyzed sidebar.tsx, dashboard-layout.tsx, pembukaan/page.tsx, layout.tsx, theme-context.tsx
+- Identified hydration risk areas: Math.random() in motivasi, new Date() in greeting/month labels, bg-background vs var(--app-content-bg) inconsistency
+- Fixed pembukaan/page.tsx: Math.random() → deterministic day-of-year selection for motivasi
+- Fixed pembukaan/page.tsx: getGreeting() in useState → empty string init, set in useEffect
+- Fixed pembukaan/page.tsx: new Date().toLocaleDateString() in render → computed in useEffect
+- Fixed dashboard-layout.tsx: Loading/not-logged-in states changed from bg-background to style with var(--app-content-bg) fallback for consistency
+- Synced dashboard-layout.tsx and sidebar.tsx to components/ directory
+- Verified with Agent Browser: zero hydration errors, all content renders correctly
+
+Stage Summary:
+- All hydration risk patterns eliminated from pembukaan page
+- Dashboard layout styling made consistent between loading and main states
+- Browser verification confirmed: no hydration errors, greeting/motivasi/month labels all display correctly
+- Modified files: src/app/pembukaan/page.tsx, src/components/dashboard-layout.tsx, components/dashboard-layout.tsx, components/sidebar.tsx

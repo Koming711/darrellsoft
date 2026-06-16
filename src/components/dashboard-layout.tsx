@@ -421,7 +421,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === LOADING STATE ===
   if (!ready) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -429,7 +429,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
         <div className="text-center p-8">
           <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 mx-auto">
             <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
