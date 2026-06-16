@@ -534,6 +534,7 @@
     print-color-adjust: exact;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
     height: auto !important;
     overflow: visible !important;
   }
@@ -564,6 +565,13 @@
   #document-preview > div {
     max-width: 100% !important;
     width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #document-preview > div > div {
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   #document-preview .sticky {
@@ -585,10 +593,13 @@
   #document-preview .a5-page {
     width: 148mm !important;
     min-height: auto !important;
+    max-width: 148mm !important;
     transform: none !important;
+    margin: 0 auto !important;
     padding: 8mm 10mm !important;
     font-size: 9pt !important;
     line-height: 1.35 !important;
+    box-sizing: border-box !important;
   }
 
   #document-preview .a5-page,
