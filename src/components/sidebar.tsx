@@ -358,8 +358,8 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t bg-white/95 backdrop-blur-md dark:bg-neutral-900/95 safe-area-bottom"
-      style={{ borderColor: 'var(--border)' }}
+      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t safe-area-bottom"
+      style={{ backgroundColor: '#1e40af', borderColor: 'rgba(255,255,255,0.12)' }}
     >
       <div className="flex items-center justify-around h-14">
         {visibleItems.map((item) => {
@@ -371,8 +371,8 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
               className={cn(
                 'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
                 active
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-neutral-400 dark:text-neutral-500'
+                  ? 'text-white'
+                  : 'text-blue-200/70'
               )}
             >
               <item.icon className={cn('w-5 h-5', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
@@ -389,8 +389,8 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
           className={cn(
             'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
             !isOnBottomNavPage
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-neutral-400 dark:text-neutral-500'
+              ? 'text-white'
+              : 'text-blue-200/70'
           )}
         >
           <MoreHorizontal className={cn('w-5 h-5', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
