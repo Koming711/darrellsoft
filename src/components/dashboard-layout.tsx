@@ -66,6 +66,36 @@ function invalidateSessionCache() {
   }
 }
 
+/** Subtle overlay shown in main content area during route navigation */
+function NavigatingOverlay() {
+  const [show, setShow] = useState(false)
+  const pathname = usePathname()
+
+  // Listen for navigation start event
+  useEffect(() => {
+    const onStart = () => setShow(true)
+    window.addEventListener('navigation-start', onStart)
+    return () => window.removeEventListener('navigation-start', onStart)
+  }, [])
+
+  // When pathname changes, navigation is complete — hide overlay after brief delay
+  useEffect(() => {
+    const t = setTimeout(() => setShow(false), 100)
+    return () => clearTimeout(t)
+  }, [pathname])
+
+  if (!show) return null
+
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+      <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm">
+        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-muted-foreground">Memuat...</span>
+      </div>
+    </div>
+  )
+}
+
 interface DashboardLayoutProps {
   children: React.ReactNode
   title?: string
@@ -536,7 +566,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         />
 
         {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
-        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
+        <main className="p-4 pb-20 lg:p-8 lg:pb-8 relative">
+          {/* Navigation loading overlay */}
+          <NavigatingOverlay />
           {children}
         </main>
       </div>

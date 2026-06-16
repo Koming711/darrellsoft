@@ -192,3 +192,27 @@ Stage Summary:
 - Dashboard layout styling made consistent between loading and main states
 - Browser verification confirmed: no hydration errors, greeting/motivasi/month labels all display correctly
 - Modified files: src/app/pembukaan/page.tsx, src/components/dashboard-layout.tsx, components/dashboard-layout.tsx, components/sidebar.tsx
+
+---
+Task ID: 2
+Agent: main
+Task: Add loading indicator when clicking sidebar menu icons (navigation progress)
+
+Work Log:
+- Created `/src/components/navigation-progress.tsx` — top progress bar component with animated gradient bar
+- Added `NavigationProgressBar` to both `src/app/layout.tsx` and `app/layout.tsx` root layouts
+- Modified `sidebar.tsx` — added `startNavigation()` + `navigation-start` event dispatch to all 3 Link types:
+  - Desktop sidebar Link onClick
+  - Mobile popup menu Link onClick
+  - Bottom nav bar Link onClick
+- Modified `dashboard-layout.tsx` — added `NavigatingOverlay` component showing "Memuat..." spinner during navigation
+- Modified `pembukaan/page.tsx` — added navigation progress triggers to QuickIcon and button router.push calls
+- Fixed race condition bug: used `prevPathnameRef` to only trigger finishing on actual pathname changes
+- Fixed syntax errors (triple braces `}}}` → `}}`)
+- Synced all files to root `components/` and `app/` directories
+- Browser verification: progress bar visible on all sidebar navigations, "Memuat..." overlay appears, all pages load correctly
+
+Stage Summary:
+- Navigation now shows visual feedback: top progress bar (3px blue gradient) + content area "Memuat..." spinner
+- Both indicators appear immediately on click and disappear when new page renders
+- Modified files: navigation-progress.tsx (new), sidebar.tsx, dashboard-layout.tsx, pembukaan/page.tsx, layout.tsx (both dirs)

@@ -31,6 +31,7 @@ import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
+import { startNavigation } from '@/components/navigation-progress'
 
 
 // Menu items with their feature IDs for permission checking
@@ -303,7 +304,11 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               )}
               <Link
                 href={item.href}
-                onClick={onToggle}
+                onClick={() => {
+                  startNavigation()
+                  window.dispatchEvent(new CustomEvent('navigation-start'))
+                  if (onToggle) onToggle()
+                }}
                 title={t(item.titleKey)}
                 className={cn(
                   'flex items-center justify-center w-full py-2.5 rounded-lg transition-colors relative',
@@ -431,7 +436,11 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                         <Link
                           key={item.href}
                           href={item.href}
-                          onClick={() => setShowPopup(false)}
+                          onClick={() => {
+                            startNavigation()
+                            window.dispatchEvent(new CustomEvent('navigation-start'))
+                            setShowPopup(false)
+                          }}
                           className={cn(
                             'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-colors',
                             active
@@ -482,6 +491,10 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => {
+                  startNavigation()
+                  window.dispatchEvent(new CustomEvent('navigation-start'))
+                }}
                 className={cn(
                   'flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full transition-colors',
                   active
