@@ -360,7 +360,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
         })
         const res = await fetch(dataUrl)
         const jpgBlob = await res.blob()
-        const fileName = `Invoice_${invData.nomor || 'draft'}.jpg`
+        const fileName = `${(invData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')
       } else {
