@@ -307,6 +307,17 @@
   display: none;
 }
 
+/* ===== Hide scrollbar on mobile ===== */
+@media (max-width: 1023px) {
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  *::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
 /* ===== Landing Page Animation Effects ===== */
 
 /* Ripple effect on button click */
