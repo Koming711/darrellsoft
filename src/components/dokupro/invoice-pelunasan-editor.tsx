@@ -27,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { toJpeg } from 'html-to-image';
+import { captureElementAsJpg } from '@/lib/capture-jpg';
 import { cn } from '@/lib/utils';
 import type { InvoiceData, CompanyInfo } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
@@ -308,15 +308,7 @@ export function InvoicePelunasanEditor() {
     }
     setJpgGenerating(true);
     try {
-      const dataUrl = await toJpeg(previewEl, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      });
-
-      // Convert data URL to Blob for sharing
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
+      const blob = await captureElementAsJpg(previewEl);
       const fileName = `${(invoiceData?.nomor || 'draft').replace(/\//g, '-')}.jpg`;
       const file = new File([blob], fileName, { type: 'image/jpeg' });
 
@@ -330,10 +322,12 @@ export function InvoicePelunasanEditor() {
         toast.success('JPG berhasil dikirim ke WhatsApp');
       } else {
         // Fallback (desktop): download JPG + open WhatsApp link
+        const dataUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.download = fileName;
         link.href = dataUrl;
         link.click();
+        setTimeout(() => URL.revokeObjectURL(dataUrl), 5000);
 
         const phone = invoiceData?.client?.kontak?.replace(/\D/g, '') || '';
         const message = encodeURIComponent(

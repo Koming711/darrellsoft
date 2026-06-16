@@ -36,7 +36,7 @@ import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import { generateInvoicePdf, sharePdfViaWhatsApp, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
-import { toJpeg } from 'html-to-image'
+import { captureElementAsJpg } from '@/lib/capture-jpg'
 
 // --- Types ---
 interface HistoryEntry {
@@ -371,13 +371,7 @@ export default function RiwayatPenjualanPage() {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const dataUrl = await toJpeg(previewEl, {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-        })
-        const res = await fetch(dataUrl)
-        const jpgBlob = await res.blob()
+        const jpgBlob = await captureElementAsJpg(previewEl)
         const fileName = `${(invData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
         toast.success('JPG dikirim ke WhatsApp Business')

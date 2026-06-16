@@ -44,7 +44,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
-import { toJpeg } from 'html-to-image'
+import { captureElementAsJpg } from '@/lib/capture-jpg'
 import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
 import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
@@ -353,13 +353,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const dataUrl = await toJpeg(previewEl, {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-        })
-        const res = await fetch(dataUrl)
-        const jpgBlob = await res.blob()
+        const jpgBlob = await captureElementAsJpg(previewEl)
         const fileName = `${(invData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')

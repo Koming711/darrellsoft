@@ -22,10 +22,12 @@ import {
   X,
   CalendarClock,
   AlertTriangle,
+  ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { captureElementAsJpg } from '@/lib/capture-jpg';
 import { cn } from '@/lib/utils';
 import type { InvoiceData, CompanyInfo } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
@@ -60,14 +62,17 @@ function parseDocInfo(entry: HistoryEntry) {
     const ppn = parsed.ppn || 0;
     const dpPercent = parsed.dp || 0;
     const totalHarga = subtotal + (subtotal * ppn / 100);
-    const dpAmount = totalHarga * (dpPercent / 100);
+    // Always derive dpAmount from originalTotal
+    const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga;
+    const dpAmount = originalTotal * (dpPercent / 100);
     const sisa = totalHarga - dpAmount;
     const lunas = parsed.lunas === true;
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || '';
     const tanggalPelunasan = parsed.tanggalPelunasan || '';
-    return { namaBarang, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan };
+    const referensiInvoiceNomor = parsed.referensiInvoiceNomor || '';
+    return { namaBarang, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensiInvoiceNomor, originalTotal };
   } catch {
-    return { namaBarang: '', totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '' };
+    return { namaBarang: '', totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensiInvoiceNomor: '', originalTotal: 0 };
   }
 }
 
@@ -100,7 +105,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       harga: it.harga || 0,
     }));
     return {
-      type: 'invoice',
+      type: 'invoice-pelunasan',
       company,
       nomor: parsed.nomor || entry.nomor || '',
       tanggal: parsed.tanggal || entry.tanggal || '',
@@ -109,16 +114,20 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       items,
       ppn: parsed.ppn ?? 11,
       dp: parsed.dp || 0,
+      dpAmount: parsed.dpAmount,
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
       lunas: parsed.lunas === true,
       tanggalPelunasan: parsed.tanggalPelunasan || '',
+      referensiInvoiceId: parsed.referensiInvoiceId || '',
+      referensiInvoiceNomor: parsed.referensiInvoiceNomor || '',
+      originalTotal: parsed.originalTotal,
     };
   } catch {
     return {
-      type: 'invoice',
+      type: 'invoice-pelunasan',
       company: { ...DEFAULT_COMPANY },
       nomor: entry.nomor || '',
       tanggal: entry.tanggal || '',
@@ -133,6 +142,8 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalGiro: '',
       lunas: false,
       tanggalPelunasan: '',
+      referensiInvoiceId: '',
+      referensiInvoiceNomor: '',
     };
   }
 }
@@ -146,6 +157,7 @@ export function InvoicePelunasanEditor() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [pelunasanSaving, setPelunasanSaving] = useState(false);
+  const [jpgGenerating, setJpgGenerating] = useState(false);
 
   // Pelunasan fields
   const [lunasToggle, setLunasToggle] = useState(false);
@@ -153,19 +165,23 @@ export function InvoicePelunasanEditor() {
   const [tanggalJatuhTempo, setTanggalJatuhTempo] = useState('');
   const [caraPembayaran, setCaraPembayaran] = useState('');
   const [tanggalGiro, setTanggalGiro] = useState('');
+
+  // Original DP amount — fixed when invoice is first selected, does NOT change when items are added
   const [originalDpAmount, setOriginalDpAmount] = useState(0);
+  // Original total (before pelunasan items added)
+  const [originalTotal, setOriginalTotal] = useState(0);
 
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      const res = await fetch('/api/history?docType=invoice', { headers });
+      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers });
       if (res.ok) {
         const json = await res.json();
         setInvoiceHistory(json.data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch invoice history:', err);
+      console.error('Failed to fetch pelunasan invoice history:', err);
     } finally {
       setLoading(false);
     }
@@ -181,11 +197,11 @@ export function InvoicePelunasanEditor() {
     return () => window.removeEventListener('dokupro:history-updated', handler);
   }, [fetchHistory]);
 
-  // Filter pending invoices (with DP and not yet lunas)
+  // Filter pending pelunasan invoices (not yet lunas)
   const pendingInvoices = useMemo(() => {
     return invoiceHistory.filter(entry => {
       const info = parseDocInfo(entry);
-      return info.dpPercent > 0 && !info.lunas && info.sisa > 0;
+      return !info.lunas;
     });
   }, [invoiceHistory]);
 
@@ -195,7 +211,7 @@ export function InvoicePelunasanEditor() {
     const q = searchQuery.toLowerCase().trim();
     return pendingInvoices.filter(entry => {
       const info = parseDocInfo(entry);
-      return entry.nomor?.toLowerCase().includes(q) || entry.pihakKedua?.toLowerCase().includes(q) || info.namaBarang?.toLowerCase().includes(q);
+      return entry.nomor?.toLowerCase().includes(q) || entry.pihakKedua?.toLowerCase().includes(q) || info.namaBarang?.toLowerCase().includes(q) || info.referensiInvoiceNomor?.toLowerCase().includes(q);
     });
   }, [pendingInvoices, searchQuery]);
 
@@ -210,12 +226,9 @@ export function InvoicePelunasanEditor() {
     setTanggalJatuhTempo(info.tanggalJatuhTempo || '');
     setCaraPembayaran(parsed.caraPembayaran || '');
     setTanggalGiro(parsed.tanggalGiro || '');
-    // Store original DP amount so it stays fixed in pelunasan view
-    const sub = parsed.items.reduce((s, item) => s + item.qty * item.harga, 0);
-    const ppn = sub * ((parsed.ppn || 0) / 100);
-    const tot = sub + ppn;
-    const dpAmt = parsed.dpAmount !== undefined ? parsed.dpAmount : tot * ((parsed.dp || 0) / 100);
-    setOriginalDpAmount(dpAmt);
+    // Fix: store original DP amount so it doesn't change when items are added
+    setOriginalDpAmount(info.dp);
+    setOriginalTotal(info.originalTotal);
     setDropdownOpen(false);
   };
 
@@ -229,6 +242,7 @@ export function InvoicePelunasanEditor() {
     setCaraPembayaran('');
     setTanggalGiro('');
     setOriginalDpAmount(0);
+    setOriginalTotal(0);
   };
 
   // Update invoice data locally
@@ -276,13 +290,62 @@ export function InvoicePelunasanEditor() {
     };
   }, [invoiceData, tanggalJatuhTempo, caraPembayaran, tanggalGiro, lunasToggle, tanggalPelunasan]);
 
-  // Calculate amounts — DP is FIXED at original amount
+  // Calculate amounts — DP is FIXED at original amount, only subtotal and sisa change
   const subtotal = invoiceData?.items.reduce((sum, item) => sum + item.qty * item.harga, 0) || 0;
   const ppnAmount = subtotal * ((invoiceData?.ppn || 0) / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = invoiceData?.dp || 0;
+  // DP amount stays fixed at original value, doesn't recalculate when items change
   const dpAmount = originalDpAmount;
   const sisa = total - dpAmount;
+
+  // Generate JPG from preview and send to WhatsApp
+  const handleGenerateJpg = async () => {
+    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+    if (!previewEl) {
+      toast.error('Preview tidak ditemukan');
+      return;
+    }
+    setJpgGenerating(true);
+    try {
+      const blob = await captureElementAsJpg(previewEl);
+      const fileName = `${(invoiceData?.nomor || 'draft').replace(/\//g, '-')}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+      // Try Web Share API (mobile) — can share file directly to WhatsApp
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${invoiceData?.nomor || ''}`,
+          text: `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}`,
+        });
+        toast.success('JPG berhasil dikirim ke WhatsApp');
+      } else {
+        // Fallback (desktop): download JPG + open WhatsApp link
+        const dataUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(dataUrl), 5000);
+
+        const phone = invoiceData?.client?.kontak?.replace(/\D/g, '') || '';
+        const message = encodeURIComponent(
+          `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}\n\nJPG invoice sudah didownload, silakan lampirkan ke chat ini.`
+        );
+        const waUrl = phone
+          ? `https://wa.me/${phone}?text=${message}`
+          : `https://wa.me/?text=${message}`;
+        window.open(waUrl, '_blank');
+        toast.success('JPG didownload & WhatsApp terbuka');
+      }
+    } catch (err) {
+      console.error('Failed to generate JPG:', err);
+      toast.error('Gagal membuat JPG');
+    } finally {
+      setJpgGenerating(false);
+    }
+  };
 
   // Save pelunasan — update the existing history entry
   const handleSavePelunasan = async () => {
@@ -307,11 +370,14 @@ export function InvoicePelunasanEditor() {
       parsed.items = invoiceData.items;
       parsed.ppn = invoiceData.ppn;
       parsed.dp = invoiceData.dp;
+      // Save fixed DP amount so it doesn't change on restore
       parsed.dpAmount = originalDpAmount;
+      parsed.originalTotal = originalTotal;
       parsed.catatan = invoiceData.catatan;
       parsed.nomor = invoiceData.nomor;
       parsed.tanggal = invoiceData.tanggal;
       parsed.referensi = invoiceData.referensi;
+      parsed.type = 'invoice-pelunasan';
       delete parsed.statusPembayaran;
 
       const newDataJson = JSON.stringify(parsed);
@@ -368,6 +434,18 @@ export function InvoicePelunasanEditor() {
             </Button>
             <Button
               size="sm"
+              onClick={handleGenerateJpg}
+              disabled={jpgGenerating}
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              {jpgGenerating ? (
+                <><Loader2 className="mr-1.5 h-3.5 h-3.5 animate-spin" /> Membuat...</>
+              ) : (
+                <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>
+              )}
+            </Button>
+            <Button
+              size="sm"
               onClick={handleSavePelunasan}
               disabled={pelunasanSaving}
               className={cn(
@@ -391,7 +469,7 @@ export function InvoicePelunasanEditor() {
       <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Wallet className="w-3.5 h-3.5 text-amber-600" />
-          Pilih Invoice Belum Lunas
+          Pilih Invoice Pelunasan
         </h3>
         <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <PopoverAnchor asChild>
@@ -445,6 +523,7 @@ export function InvoicePelunasanEditor() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-violet-700 text-xs">{entry.nomor || '-'}</span>
+                            {info.referensiInvoiceNomor && <span className="text-[9px] text-slate-400">ref: {info.referensiInvoiceNomor}</span>}
                             {isOverdue && <AlertTriangle className="w-3 h-3 text-red-500" />}
                           </div>
                           <p className="text-slate-600 text-[11px] truncate">{entry.pihakKedua || '-'}</p>
@@ -487,6 +566,7 @@ export function InvoicePelunasanEditor() {
                         {isOverdue && <AlertTriangle className="w-3 h-3 text-red-500" />}
                       </div>
                       <p className="text-slate-600 text-[11px] truncate">{entry.pihakKedua || '-'}</p>
+                      {info.referensiInvoiceNomor && <p className="text-[9px] text-slate-400">Ref: {info.referensiInvoiceNomor}</p>}
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-red-600 font-bold text-xs">{formatRupiah(info.sisa)}</p>
@@ -511,7 +591,7 @@ export function InvoicePelunasanEditor() {
             </h3>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">No. Invoice</Label>
+                <Label className="text-xs">No. Invoice Pelunasan</Label>
                 <Input
                   value={invoiceData.nomor}
                   readOnly
@@ -527,10 +607,13 @@ export function InvoicePelunasanEditor() {
                 />
               </div>
             </div>
-            {invoiceData.referensi && (
-              <div className="mt-2 space-y-1.5">
-                <Label className="text-xs">Referensi</Label>
-                <Input value={invoiceData.referensi} readOnly className="bg-slate-50 text-slate-500 cursor-not-allowed" />
+            {invoiceData.referensiInvoiceNomor && (
+              <div className="mt-2 rounded-lg bg-violet-50 p-2.5 flex items-center gap-2 border border-violet-200">
+                <svg className="w-3.5 h-3.5 text-violet-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                <div>
+                  <p className="text-xs font-semibold text-violet-800">Ref. Invoice DP</p>
+                  <p className="text-[11px] text-violet-600">{invoiceData.referensiInvoiceNomor}</p>
+                </div>
               </div>
             )}
           </div>
@@ -545,11 +628,21 @@ export function InvoicePelunasanEditor() {
             {/* Amount Summary */}
             <div className="rounded-lg bg-white p-3 space-y-1.5 mb-3 border border-amber-100">
               <div className="flex justify-between text-xs">
+                <span className="text-slate-500">Subtotal</span>
+                <span className="font-medium text-slate-700">{formatRupiah(subtotal)}</span>
+              </div>
+              {invoiceData?.ppn > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">PPN ({invoiceData.ppn}%)</span>
+                  <span className="font-medium text-slate-700">{formatRupiah(ppnAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Total</span>
                 <span className="font-bold text-emerald-700">{formatRupiah(total)}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">DP ({dpPercent}%)</span>
+                <span className="text-slate-500">DP Awal{dpPercent > 0 ? ` (${dpPercent}%)` : ''}</span>
                 <span className="font-medium text-violet-700">- {formatRupiah(dpAmount)}</span>
               </div>
               <div className="flex justify-between text-sm pt-1.5 border-t border-dashed border-amber-200">
@@ -726,18 +819,27 @@ export function InvoicePelunasanEditor() {
                 min={0}
                 max={100}
                 value={invoiceData.dp || ''}
-                onChange={(e) => updateInvoice({ dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) })}
+                readOnly
+                className="bg-slate-50 text-slate-500 cursor-not-allowed"
                 placeholder="0"
               />
             </div>
             <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
               <p className="text-sm text-emerald-800">
+                Subtotal: <span className="font-bold">{formatRupiah(subtotal)}</span>
+              </p>
+              {invoiceData.ppn > 0 && (
+                <p className="text-sm text-emerald-800">
+                  PPN ({invoiceData.ppn}%): <span className="font-bold">{formatRupiah(ppnAmount)}</span>
+                </p>
+              )}
+              <p className="text-sm text-emerald-800">
                 Total: <span className="font-bold">{formatRupiah(total)}</span>
               </p>
-              {invoiceData.dp > 0 && (
+              {dpAmount > 0 && (
                 <>
                   <p className="text-sm text-emerald-800">
-                    DP ({invoiceData.dp}%): <span className="font-bold">{formatRupiah(dpAmount)}</span>
+                    DP Awal: <span className="font-bold">{formatRupiah(dpAmount)}</span>
                   </p>
                   <p className="text-sm text-emerald-800">
                     Sisa Pembayaran: <span className="font-bold">{formatRupiah(sisa)}</span>
@@ -759,8 +861,8 @@ export function InvoicePelunasanEditor() {
       ) : (
         <div className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/30 p-6 text-center">
           <Wallet className="w-12 h-12 mx-auto text-amber-300 mb-3" />
-          <p className="text-sm font-medium text-slate-500">Pilih Invoice yang Belum Lunas</p>
-          <p className="text-xs text-slate-400 mt-1">Gunakan kolom pencarian di atas untuk memilih invoice yang akan dilunasi</p>
+          <p className="text-sm font-medium text-slate-500">Pilih Invoice Pelunasan</p>
+          <p className="text-xs text-slate-400 mt-1">Gunakan kolom pencarian di atas untuk memilih invoice pelunasan yang akan diproses</p>
         </div>
       )}
     </DocumentEditorLayout>

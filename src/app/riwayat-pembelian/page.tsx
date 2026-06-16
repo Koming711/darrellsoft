@@ -32,7 +32,7 @@ import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-previe
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import { generatePurchaseOrderPdf, sharePdfViaWhatsApp, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
-import { toJpeg } from 'html-to-image'
+import { captureElementAsJpg } from '@/lib/capture-jpg'
 import dynamic from 'next/dynamic'
 import type { CuttingResult } from '@/lib/cutting-engine'
 
@@ -551,13 +551,7 @@ export default function RiwayatPembelianPage() {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const dataUrl = await toJpeg(previewEl, {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-        })
-        const res = await fetch(dataUrl)
-        const jpgBlob = await res.blob()
+        const jpgBlob = await captureElementAsJpg(previewEl)
         const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('JPG dikirim ke WhatsApp Business')
