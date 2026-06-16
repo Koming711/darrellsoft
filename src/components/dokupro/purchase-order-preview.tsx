@@ -82,7 +82,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
       </div>
 
       {/* Divider */}
-      <div className="print-divider mb-3 print:mb-[1mm]" style={{ borderBottom: '2px solid #000000' }} />
+      <div className="print-divider mb-3 print:mb-[1mm]" />
 
       {/* Pemasok */}
       <div className="mb-3 print:mb-[1mm] grid grid-cols-2 gap-3 print:gap-1.5">
@@ -160,7 +160,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
           )}
           <div
             className="print-total-border flex justify-between pt-0.5 font-bold text-black"
-            style={{ fontSize: '12px', borderTop: '2px solid #000000' }}
+            style={{ fontSize: '12px' }}
           >
             <span>TOTAL</span>
             <span style={{ fontSize: '13px' }}>{formatRupiah(total)}</span>
@@ -187,15 +187,15 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
       <div className="print-sig-grid grid grid-cols-3 gap-4 mt-4 text-[11px] text-center print:text-[9px] print:mt-[2mm]">
         <div>
           <p className="font-semibold mb-8 print:mb-6 text-black">Toko</p>
-          <div className="mx-auto w-4/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-4/5 pb-0.5" />
         </div>
         <div>
           <p className="font-semibold mb-8 print:mb-6 text-black">Diketahui</p>
-          <div className="mx-auto w-4/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-4/5 pb-0.5" />
         </div>
         <div>
           <p className="font-semibold mb-8 print:mb-6 text-black">Disetujui Oleh</p>
-          <div className="mx-auto w-4/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-4/5 pb-0.5" />
         </div>
       </div>
 

@@ -102,7 +102,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </div>
 
       {/* Divider */}
-      <div className="print-divider mb-3" style={{ borderBottom: '2px solid #000000' }} />
+      <div className="print-divider mb-3" />
 
       {/* Client info */}
       <div className="mb-3 grid grid-cols-2 gap-3">
@@ -193,7 +193,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           )}
           <div
             className="print-total-border flex justify-between pt-0.5 font-bold text-black"
-            style={{ fontSize: '12px', borderTop: '2px solid #000000' }}
+            style={{ fontSize: '12px' }}
           >
             <span>TOTAL</span>
             <span style={{ fontSize: '13px' }}>{formatRupiah(total)}</span>
@@ -205,8 +205,8 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
                 <span>{formatRupiah(dpAmount)}</span>
               </div>
               <div
-                className="flex justify-between pt-0.5 font-bold text-black"
-                style={{ fontSize: '12px', borderTop: '1px solid #000000' }}
+                className="print-sisa-border flex justify-between pt-0.5 font-bold text-black"
+                style={{ fontSize: '12px' }}
               >
                 <span>SISA PEMBAYARAN</span>
                 <span style={{ fontSize: '13px' }}>{formatRupiah(sisa)}</span>
@@ -235,11 +235,11 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       <div className="print-sig-grid grid grid-cols-2 gap-6 mt-3 text-[12px] text-center">
         <div>
           <p className="font-semibold mb-4 text-black">Diterima Oleh</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
         <div>
           <p className="font-semibold mb-4 text-black">Hormat Kami</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
       </div>
 

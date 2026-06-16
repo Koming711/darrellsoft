@@ -88,7 +88,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
       </div>
 
       {/* Divider */}
-      <div className="print-divider mb-3 print:mb-[1mm]" style={{ borderBottom: '2px solid #000000' }} />
+      <div className="print-divider mb-3 print:mb-[1mm]" />
 
       {/* Client info */}
       <div className="mb-3 print:mb-[1mm] grid grid-cols-2 gap-3 print:gap-1.5">
@@ -179,7 +179,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
           )}
           <div
             className="print-total-border flex justify-between pt-0.5 font-bold text-black"
-            style={{ fontSize: '12px', borderTop: '2px solid #000000' }}
+            style={{ fontSize: '12px' }}
           >
             <span>TOTAL</span>
             <span style={{ fontSize: '13px' }}>{formatRupiah(total)}</span>
@@ -191,8 +191,8 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                 <span>{formatRupiah(dpAmount)}</span>
               </div>
               <div
-                className="flex justify-between pt-0.5 font-bold text-black"
-                style={{ fontSize: '12px', borderTop: '1px solid #000000' }}
+                className="print-sisa-border flex justify-between pt-0.5 font-bold text-black"
+                style={{ fontSize: '12px' }}
               >
                 <span>SISA PEMBAYARAN</span>
                 <span style={{ fontSize: '13px' }}>{formatRupiah(sisa)}</span>
@@ -221,11 +221,11 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
       <div className="print-sig-grid grid grid-cols-2 gap-6 mt-3 text-[12px] text-center print:text-[10px] print:mt-[1mm] print:gap-2">
         <div>
           <p className="font-semibold mb-4 print:mb-3 text-black">Diterima Oleh</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
         <div>
           <p className="font-semibold mb-4 print:mb-3 text-black">Hormat Kami</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
       </div>
 
