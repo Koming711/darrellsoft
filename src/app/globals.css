@@ -555,6 +555,8 @@
     min-height: auto !important;
   }
 
+  /* === Layout overrides only — preserve preview visual styles === */
+
   #document-preview {
     width: 100% !important;
     max-width: 100% !important;
@@ -579,6 +581,7 @@
     top: auto !important;
   }
 
+  /* Remove decorative container styles (border, shadow, radius) */
   .a5-preview-container {
     border: none !important;
     border-radius: 0 !important;
@@ -589,7 +592,7 @@
     height: auto !important;
   }
 
-  /* The A5 page itself — remove transform, render at full size */
+  /* The A5 page — remove JS transform scaling, render at actual 148mm size */
   #document-preview .a5-page {
     width: 148mm !important;
     min-height: auto !important;
@@ -600,17 +603,13 @@
     font-size: 9pt !important;
     line-height: 1.35 !important;
     box-sizing: border-box !important;
-  }
-
-  #document-preview .a5-page,
-  #document-preview table {
     page-break-inside: avoid !important;
   }
 
-  #document-preview *::before,
-  #document-preview *::after {
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
+  /* Ensure all preview colors and backgrounds print correctly */
+  #document-preview * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Table row heights */
@@ -622,56 +621,12 @@
     line-height: 1.35 !important;
     vertical-align: top;
   }
-
-  #document-preview p,
-  #document-preview span,
-  #document-preview td,
-  #document-preview th,
-  #document-preview div {
-    color: #000 !important;
-  }
-
-  /* Remove ALL borders by default in print, then add back only intentional ones */
-  #document-preview *,
-  #document-preview *::before,
-  #document-preview *::after {
-    border: none !important;
-  }
-
-  /* Re-add intentional borders */
-  #document-preview table thead tr {
-    background-color: #fff !important;
-    border-top: 2px solid #000 !important;
-    border-bottom: 2px solid #000 !important;
-  }
-  #document-preview .print-logo-box:not(:has(img)) {
-    background-color: transparent !important;
-    color: #000000 !important;
-    border: 2px solid #000000 !important;
-  }
-  #document-preview .print-divider {
-    border-bottom: 2px solid #000 !important;
-  }
-  #document-preview .print-total-border {
-    border-top: 2px solid #000 !important;
-  }
-  #document-preview .print-sisa-border {
-    border-top: 1px solid #000 !important;
-  }
-  #document-preview .print-sig-line {
-    border-bottom: 1px solid #000 !important;
-  }
-  #document-preview table tbody tr {
-    background-color: #fff !important;
-  }
 }
 
-/* ===== Print-mode CSS — mirrors @media print for DOM capture (JPG/PDF) ===== */
+/* ===== Print-mode CSS — for DOM capture (JPG) ===== */
 .print-mode {
   box-shadow: none !important;
-  border: none !important;
   border-radius: 0 !important;
-  margin-bottom: 0 !important;
   background-color: #fff !important;
   width: 148mm !important;
   padding: 8mm 10mm !important;
@@ -680,52 +635,10 @@
   box-sizing: border-box !important;
 }
 
-.print-mode p,
-.print-mode span,
-.print-mode td,
-.print-mode th,
-.print-mode div {
-  color: #000 !important;
-}
-
-/* Remove ALL borders by default in print-mode, then add back only intentional ones */
-.print-mode *,
-.print-mode *::before,
-.print-mode *::after {
-  border: none !important;
-}
-
-.print-mode .print-logo-box:not(:has(img)) {
-  background-color: transparent !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
-}
-
-.print-mode .print-divider {
-  border-bottom: 2px solid #000 !important;
-}
-.print-mode .print-total-border {
-  border-top: 2px solid #000 !important;
-}
-.print-mode .print-sisa-border {
-  border-top: 1px solid #000 !important;
-}
-.print-mode .print-sig-line {
-  border-bottom: 1px solid #000 !important;
-}
-
-.print-mode table thead tr {
-  background-color: #fff !important;
-  border-top: 2px solid #000 !important;
-  border-bottom: 2px solid #000 !important;
-}
-
-.print-mode table thead tr th {
-  color: #000 !important;
-}
-
-.print-mode table tbody tr {
-  background-color: #fff !important;
+/* Ensure all preview colors and backgrounds are preserved in capture */
+.print-mode * {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
 }
 
 .print-mode .print-table-8mm tr {

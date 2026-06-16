@@ -1173,7 +1173,6 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
   const PRINT_DPI = 96
   const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
   const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
-  const marginPx = Math.round(12 * PRINT_DPI / 25.4)          // ~45px
 
   // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
   const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
@@ -1193,14 +1192,15 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
       element.classList.add('print-mode')
       element.style.cssText = `
         box-shadow: none !important;
-        border: none !important;
         border-radius: 0 !important;
         margin: 0 !important;
         background-color: #fff !important;
         width: 100% !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: 8mm 10mm !important;
         box-sizing: border-box !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
       `
 
       previewContainer.classList.add('print-mode')
@@ -1227,7 +1227,7 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
           height: 100% !important;
           overflow: hidden !important;
           transform: none !important;
-          font-size: 10pt !important;
+
         `
       }
 
@@ -1282,14 +1282,15 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
       element.classList.add('print-mode')
       element.style.cssText = `
         box-shadow: none !important;
-        border: none !important;
         border-radius: 0 !important;
         margin: 0 !important;
         background-color: #fff !important;
         width: 100% !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: 8mm 10mm !important;
         box-sizing: border-box !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
       `
 
       // Set scale parent to A5 size, remove transform
@@ -1310,7 +1311,7 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
           background: white !important;
           z-index: 99999 !important;
           transform: none !important;
-          font-size: 10pt !important;
+
         `
       }
 
@@ -1381,7 +1382,6 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
   const PRINT_DPI = 96
   const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
   const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
-  const marginPx = Math.round(12 * PRINT_DPI / 25.4)          // ~45px
 
   // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
   const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
@@ -1402,14 +1402,15 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
       element.classList.add('print-mode')
       element.style.cssText = `
         box-shadow: none !important;
-        border: none !important;
         border-radius: 0 !important;
         margin: 0 !important;
         background-color: #fff !important;
         width: 100% !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: 8mm 10mm !important;
         box-sizing: border-box !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
       `
 
       previewContainer.classList.add('print-mode')
@@ -1436,7 +1437,7 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
           height: 100% !important;
           overflow: hidden !important;
           transform: none !important;
-          font-size: 10pt !important;
+
         `
       }
 
@@ -1480,14 +1481,15 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
       element.classList.add('print-mode')
       element.style.cssText = `
         box-shadow: none !important;
-        border: none !important;
         border-radius: 0 !important;
         margin: 0 !important;
         background-color: #fff !important;
         width: 100% !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: 8mm 10mm !important;
         box-sizing: border-box !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
       `
 
       // Set scale parent to A5 size, remove transform
@@ -1508,7 +1510,7 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
           background: white !important;
           z-index: 99999 !important;
           transform: none !important;
-          font-size: 10pt !important;
+
         `
       }
 
