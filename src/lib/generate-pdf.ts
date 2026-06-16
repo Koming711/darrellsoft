@@ -1155,219 +1155,93 @@ export async function generateJpgFromPdf(pdfBlob: Blob): Promise<Blob> {
 }
 
 // ============================================================
-// Generate JPG from preview DOM element (A5 size) — fallback
+// Generate JPG from preview DOM element (A5 size, matches print exactly)
 // ============================================================
 
 /**
- * Capture a preview DOM element as a JPG image at A5 resolution.
- * Uses html-to-image (SVG foreignObject).
+ * Generate a JPG image from the invoice preview element.
+ * Uses html2canvas (direct DOM→canvas rendering, no SVG foreignObject).
  *
- * A5 = 148mm × 210mm. At 150 DPI → 874 × 1240 px. We use 2x for quality.
+ * Strategy: Clone the element into an off-screen A5-sized container,
+ * apply .print-mode CSS class (mirrors @media print rules), capture, cleanup.
+ * This guarantees the JPG matches the print output pixel-for-pixel.
+ *
+ * A5 = 148mm × 210mm at 96 DPI → 559 × 793 px.
  */
 export async function generateJpgFromElement(element: HTMLElement): Promise<Blob> {
-  const { toCanvas } = await import('html-to-image')
+  const html2canvas = (await import('html2canvas')).default
 
-  // A5 dimensions in pixels at print DPI
+  // A5 dimensions in pixels at 96 DPI (screen/print standard)
   const A5_W_MM = 148
   const A5_H_MM = 210
-  const PRINT_DPI = 96
-  const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
-  const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
-  const paddingXPx = Math.round(10 * PRINT_DPI / 25.4)        // 10mm → ~38px
-  const paddingYPx = Math.round(8 * PRINT_DPI / 25.4)         // 8mm → ~30px
+  const DPI = 96
+  const a5WidthPx = Math.round(A5_W_MM * DPI / 25.4)   // 559
+  const a5HeightPx = Math.round(A5_H_MM * DPI / 25.4)  // 793
 
-  // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
-  const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
-  const previewScaler = element.closest('.a5-preview-scaler') as HTMLElement | null
+  // ── Step 1: Create off-screen A5 wrapper ──
+  const wrapper = document.createElement('div')
+  wrapper.style.cssText = `
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    width: ${a5WidthPx}px;
+    height: ${a5HeightPx}px;
+    overflow: hidden;
+    background: white;
+    z-index: -1;
+  `
+  document.body.appendChild(wrapper)
 
-  if (previewContainer) {
-    // ===== CASE 1: Element is inside .a5-preview-container (editor mode) =====
-    // Work on the actual element in the DOM for perfect style computation
-    const origStyle = element.getAttribute('style') || ''
-    const origClass = element.className
-    const origContainerStyle = previewContainer.getAttribute('style') || ''
-    const origScalerStyle = previewScaler?.getAttribute('style') || ''
-    const origContainerClass = previewContainer.className
-    const origScalerClass = previewScaler?.className || ''
+  // ── Step 2: Deep-clone the element (preserves all inline styles) ──
+  const clone = element.cloneNode(true) as HTMLElement
 
-    try {
-      element.classList.add('print-mode')
-      element.style.cssText = `
-        box-shadow: none !important;
-        border: none !important;
-        border-radius: 0 !important;
-        margin: 0 auto !important;
-        background-color: #fff !important;
-        width: 148mm !important;
-        max-width: 148mm !important;
-        min-height: auto !important;
-        transform: none !important;
-        overflow: hidden !important;
-        padding: ${paddingYPx}px ${paddingXPx}px !important;
-        font-size: 9pt !important;
-        line-height: 1.35 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        box-sizing: border-box !important;
-      `
+  // Remove any transform scaling applied by JS preview, apply print-mode
+  clone.classList.add('print-mode')
+  // Ensure the clone fills the wrapper exactly like the print page
+  clone.style.cssText = `
+    width: 148mm !important;
+    max-width: 148mm !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 8mm 10mm !important;
+    font-size: 9pt !important;
+    line-height: 1.35 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    box-sizing: border-box !important;
+    transform: none !important;
+    background: white !important;
+    color: #000 !important;
+  `
 
-      previewContainer.classList.add('print-mode')
-      previewContainer.style.cssText = `
-        position: fixed !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: ${a5WidthPx}px !important;
-        height: ${a5HeightPx}px !important;
-        max-width: ${a5WidthPx}px !important;
-        max-height: ${a5HeightPx}px !important;
-        border: none !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-        background: white !important;
-        z-index: 99999 !important;
-      `
+  wrapper.appendChild(clone)
 
-      if (previewScaler) {
-        previewScaler.classList.add('print-mode')
-        previewScaler.style.cssText = `
-          width: 100% !important;
-          height: 100% !important;
-          overflow: hidden !important;
-          transform: none !important;
-          font-size: 9pt !important;
-        `
-      }
+  // ── Step 3: Wait for styles to apply ──
+  await new Promise(resolve => setTimeout(resolve, 300))
 
-      await new Promise(resolve => setTimeout(resolve, 200))
+  // ── Step 4: Capture with html2canvas ──
+  const canvas = await html2canvas(wrapper, {
+    width: a5WidthPx,
+    height: a5HeightPx,
+    canvasWidth: a5WidthPx * 2,   // 2x for quality
+    canvasHeight: a5HeightPx * 2,
+    backgroundColor: '#ffffff',
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    removeContainer: false,
+  })
 
-      const CAPTURE_SCALE = 2
-      const canvas = await toCanvas(previewContainer, {
-        width: a5WidthPx,
-        height: a5HeightPx,
-        canvasWidth: a5WidthPx * CAPTURE_SCALE,
-        canvasHeight: a5HeightPx * CAPTURE_SCALE,
-        backgroundColor: '#ffffff',
-        pixelRatio: 1,
-      })
+  // ── Step 5: Cleanup ──
+  document.body.removeChild(wrapper)
 
-      return new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => { if (blob) resolve(blob); else reject(new Error('Failed to generate JPG')) },
-          'image/jpeg', 0.92
-        )
-      })
-    } finally {
-      element.setAttribute('style', origStyle)
-      element.className = origClass
-      previewContainer.setAttribute('style', origContainerStyle)
-      previewContainer.className = origContainerClass
-      if (previewScaler) {
-        previewScaler.setAttribute('style', origScalerStyle)
-        previewScaler.className = origScalerClass
-      }
-    }
-  } else {
-    // ===== CASE 2: No .a5-preview-container (riwayat overlay) =====
-    // Work on the actual element in the DOM for perfect style computation.
-    // The element is inside a scaled container in the riwayat overlay.
-    // We temporarily restructure it to A5 size, capture, then restore.
-
-    // Find the scale transform parent (the div with transform: scale(...))
-    const scaleParent = element.parentElement
-    const centeringParent = scaleParent?.parentElement
-
-    // Save original styles
-    const origElementStyle = element.getAttribute('style') || ''
-    const origElementClass = element.className
-    const origScaleParentStyle = scaleParent?.getAttribute('style') || ''
-    const origScaleParentClass = scaleParent?.className || ''
-    const origCenteringParentStyle = centeringParent?.getAttribute('style') || ''
-    const origCenteringParentClass = centeringParent?.className || ''
-
-    try {
-      // Apply print-mode to the element
-      element.classList.add('print-mode')
-      element.style.cssText = `
-        box-shadow: none !important;
-        border: none !important;
-        border-radius: 0 !important;
-        margin: 0 auto !important;
-        background-color: #fff !important;
-        width: 148mm !important;
-        max-width: 148mm !important;
-        min-height: auto !important;
-        transform: none !important;
-        overflow: hidden !important;
-        padding: ${paddingYPx}px ${paddingXPx}px !important;
-        font-size: 9pt !important;
-        line-height: 1.35 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        box-sizing: border-box !important;
-      `
-
-      // Set scale parent to A5 size, remove transform
-      if (scaleParent) {
-        scaleParent.classList.add('print-mode')
-        scaleParent.style.cssText = `
-          position: fixed !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: ${a5WidthPx}px !important;
-          height: ${a5HeightPx}px !important;
-          max-width: ${a5WidthPx}px !important;
-          max-height: ${a5HeightPx}px !important;
-          border: none !important;
-          border-radius: 0 !important;
-          box-shadow: none !important;
-          overflow: hidden !important;
-          background: white !important;
-          z-index: 99999 !important;
-          transform: none !important;
-          font-size: 9pt !important;
-        `
-      }
-
-      // Make centering parent not interfere
-      if (centeringParent) {
-        centeringParent.style.cssText = `
-          position: static !important;
-          padding: 0 !important;
-          margin: 0 !important;
-        `
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      const CAPTURE_SCALE = 2
-      const captureTarget = scaleParent || element
-      const canvas = await toCanvas(captureTarget, {
-        width: a5WidthPx,
-        height: a5HeightPx,
-        canvasWidth: a5WidthPx * CAPTURE_SCALE,
-        canvasHeight: a5HeightPx * CAPTURE_SCALE,
-        backgroundColor: '#ffffff',
-        pixelRatio: 1,
-      })
-
-      return new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (blob) => { if (blob) resolve(blob); else reject(new Error('Failed to generate JPG')) },
-          'image/jpeg', 0.92
-        )
-      })
-    } finally {
-      element.setAttribute('style', origElementStyle)
-      element.className = origElementClass
-      if (scaleParent) {
-        scaleParent.setAttribute('style', origScaleParentStyle)
-        scaleParent.className = origScaleParentClass
-      }
-      if (centeringParent) {
-        centeringParent.setAttribute('style', origCenteringParentStyle)
-        centeringParent.className = origCenteringParentClass
-      }
-    }
-  }
+  // ── Step 6: Return JPG blob ──
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => { if (blob) resolve(blob); else reject(new Error('Failed to generate JPG')) },
+      'image/jpeg', 0.95
+    )
+  })
 }
 
 // ============================================================
@@ -1376,209 +1250,78 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
 
 /**
  * Generate a PDF by capturing the actual DOM element as an image.
- * Temporarily applies `.print-mode` CSS and A5 dimensions to the element
- * so it renders identically to the browser's print output, then captures
- * it and embeds in a jsPDF A5 document.
- *
- * This approach works on the actual element in the DOM (not a clone)
- * when inside .a5-preview-container, ensuring perfect style computation.
- * Falls back to off-screen clone approach for standalone elements.
+ * Uses the same clone+html2canvas strategy as generateJpgFromElement
+ * for perfect print-matching, then embeds in a jsPDF A5 document.
  */
 export async function generatePdfFromElement(element: HTMLElement): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
-  const { toCanvas } = await import('html-to-image')
+  const html2canvas = (await import('html2canvas')).default
 
-  // A5 dimensions in pixels at print DPI
+  // A5 dimensions in pixels at 96 DPI
   const A5_W_MM = 148
   const A5_H_MM = 210
-  const PRINT_DPI = 96
-  const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
-  const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
-  const paddingXPx = Math.round(10 * PRINT_DPI / 25.4)        // 10mm → ~38px
-  const paddingYPx = Math.round(8 * PRINT_DPI / 25.4)         // 8mm → ~30px
+  const DPI = 96
+  const a5WidthPx = Math.round(A5_W_MM * DPI / 25.4)   // 559
+  const a5HeightPx = Math.round(A5_H_MM * DPI / 25.4)  // 793
 
-  // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
-  const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
-  const previewScaler = element.closest('.a5-preview-scaler') as HTMLElement | null
+  // ── Create off-screen A5 wrapper ──
+  const wrapper = document.createElement('div')
+  wrapper.style.cssText = `
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    width: ${a5WidthPx}px;
+    height: ${a5HeightPx}px;
+    overflow: hidden;
+    background: white;
+    z-index: -1;
+  `
+  document.body.appendChild(wrapper)
 
-  let canvas: HTMLCanvasElement
+  // ── Deep-clone the element ──
+  const clone = element.cloneNode(true) as HTMLElement
+  clone.classList.add('print-mode')
+  clone.style.cssText = `
+    width: 148mm !important;
+    max-width: 148mm !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 8mm 10mm !important;
+    font-size: 9pt !important;
+    line-height: 1.35 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    box-sizing: border-box !important;
+    transform: none !important;
+    background: white !important;
+    color: #000 !important;
+  `
+  wrapper.appendChild(clone)
 
-  if (previewContainer) {
-    // ===== CASE 1: Element is inside .a5-preview-container (editor mode) =====
-    const origStyle = element.getAttribute('style') || ''
-    const origClass = element.className
-    const origContainerStyle = previewContainer.getAttribute('style') || ''
-    const origScalerStyle = previewScaler?.getAttribute('style') || ''
-    const origContainerClass = previewContainer.className
-    const origScalerClass = previewScaler?.className || ''
+  await new Promise(resolve => setTimeout(resolve, 300))
 
-    try {
-      element.classList.add('print-mode')
-      element.style.cssText = `
-        box-shadow: none !important;
-        border: none !important;
-        border-radius: 0 !important;
-        margin: 0 auto !important;
-        background-color: #fff !important;
-        width: 148mm !important;
-        max-width: 148mm !important;
-        min-height: auto !important;
-        transform: none !important;
-        overflow: hidden !important;
-        padding: ${paddingYPx}px ${paddingXPx}px !important;
-        font-size: 9pt !important;
-        line-height: 1.35 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        box-sizing: border-box !important;
-      `
+  // ── Capture with html2canvas ──
+  const canvas = await html2canvas(wrapper, {
+    width: a5WidthPx,
+    height: a5HeightPx,
+    canvasWidth: a5WidthPx * 2,
+    canvasHeight: a5HeightPx * 2,
+    backgroundColor: '#ffffff',
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    removeContainer: false,
+  })
 
-      previewContainer.classList.add('print-mode')
-      previewContainer.style.cssText = `
-        position: fixed !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: ${a5WidthPx}px !important;
-        height: ${a5HeightPx}px !important;
-        max-width: ${a5WidthPx}px !important;
-        max-height: ${a5HeightPx}px !important;
-        border: none !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-        background: white !important;
-        z-index: 99999 !important;
-      `
+  // ── Cleanup ──
+  document.body.removeChild(wrapper)
 
-      if (previewScaler) {
-        previewScaler.classList.add('print-mode')
-        previewScaler.style.cssText = `
-          width: 100% !important;
-          height: 100% !important;
-          overflow: hidden !important;
-          transform: none !important;
-          font-size: 9pt !important;
-        `
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      const CAPTURE_SCALE = 2
-      canvas = await toCanvas(previewContainer, {
-        width: a5WidthPx,
-        height: a5HeightPx,
-        canvasWidth: a5WidthPx * CAPTURE_SCALE,
-        canvasHeight: a5HeightPx * CAPTURE_SCALE,
-        backgroundColor: '#ffffff',
-        pixelRatio: 1,
-      })
-    } finally {
-      element.setAttribute('style', origStyle)
-      element.className = origClass
-      previewContainer.setAttribute('style', origContainerStyle)
-      previewContainer.className = origContainerClass
-      if (previewScaler) {
-        previewScaler.setAttribute('style', origScalerStyle)
-        previewScaler.className = origScalerClass
-      }
-    }
-  } else {
-    // ===== CASE 2: No .a5-preview-container (riwayat overlay) =====
-    // Work on the actual element in the DOM for perfect style computation.
-    const scaleParent = element.parentElement
-    const centeringParent = scaleParent?.parentElement
-
-    // Save original styles
-    const origElementStyle = element.getAttribute('style') || ''
-    const origElementClass = element.className
-    const origScaleParentStyle = scaleParent?.getAttribute('style') || ''
-    const origScaleParentClass = scaleParent?.className || ''
-    const origCenteringParentStyle = centeringParent?.getAttribute('style') || ''
-    const origCenteringParentClass = centeringParent?.className || ''
-
-    try {
-      // Apply print-mode to the element
-      element.classList.add('print-mode')
-      element.style.cssText = `
-        box-shadow: none !important;
-        border: none !important;
-        border-radius: 0 !important;
-        margin: 0 auto !important;
-        background-color: #fff !important;
-        width: 148mm !important;
-        max-width: 148mm !important;
-        min-height: auto !important;
-        transform: none !important;
-        overflow: hidden !important;
-        padding: ${paddingYPx}px ${paddingXPx}px !important;
-        font-size: 9pt !important;
-        line-height: 1.35 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        box-sizing: border-box !important;
-      `
-
-      // Set scale parent to A5 size, remove transform
-      if (scaleParent) {
-        scaleParent.classList.add('print-mode')
-        scaleParent.style.cssText = `
-          position: fixed !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: ${a5WidthPx}px !important;
-          height: ${a5HeightPx}px !important;
-          max-width: ${a5WidthPx}px !important;
-          max-height: ${a5HeightPx}px !important;
-          border: none !important;
-          border-radius: 0 !important;
-          box-shadow: none !important;
-          overflow: hidden !important;
-          background: white !important;
-          z-index: 99999 !important;
-          transform: none !important;
-          font-size: 9pt !important;
-        `
-      }
-
-      // Make centering parent not interfere
-      if (centeringParent) {
-        centeringParent.style.cssText = `
-          position: static !important;
-          padding: 0 !important;
-          margin: 0 !important;
-        `
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      const CAPTURE_SCALE = 2
-      const captureTarget = scaleParent || element
-      canvas = await toCanvas(captureTarget, {
-        width: a5WidthPx,
-        height: a5HeightPx,
-        canvasWidth: a5WidthPx * CAPTURE_SCALE,
-        canvasHeight: a5HeightPx * CAPTURE_SCALE,
-        backgroundColor: '#ffffff',
-        pixelRatio: 1,
-      })
-    } finally {
-      element.setAttribute('style', origElementStyle)
-      element.className = origElementClass
-      if (scaleParent) {
-        scaleParent.setAttribute('style', origScaleParentStyle)
-        scaleParent.className = origScaleParentClass
-      }
-      if (centeringParent) {
-        centeringParent.setAttribute('style', origCenteringParentStyle)
-        centeringParent.className = origCenteringParentClass
-      }
-    }
-  }
-
-  // Create A5 PDF and embed image
+  // ── Create A5 PDF and embed image ──
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()  // 148
   const pageH = pdf.internal.pageSize.getHeight() // 210
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.92)
+  const imgData = canvas.toDataURL('image/jpeg', 0.95)
   pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH)
 
   return pdf.output('blob')
