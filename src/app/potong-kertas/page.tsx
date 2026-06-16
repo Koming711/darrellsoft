@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -1999,5 +1999,9 @@ function CalculatorPage() {
 }
 
 export default function Home() {
-  return <CalculatorPage />
+  return (
+    <Suspense fallback={null}>
+      <CalculatorPage />
+    </Suspense>
+  )
 }

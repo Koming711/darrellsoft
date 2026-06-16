@@ -171,35 +171,41 @@ const menuItems = [
   },
 ]
 
-// Bottom nav items — the 4 main items shown in the mobile bottom bar
+// Bottom nav items — the 5 main items shown in the mobile bottom bar
 // + "More" button that opens the full sidebar
+// shortTitleKey is used for the bottom nav label (shorter text)
 const bottomNavItems = [
   {
     titleKey: 'pembukaan' as TranslationKey,
+    shortTitle: 'Beranda',
     href: '/pembukaan',
     icon: Home,
     featureId: 'pembukaan',
   },
   {
     titleKey: 'potong_kertas' as TranslationKey,
+    shortTitle: 'Potong',
     href: '/potong-kertas',
     icon: Scissors,
     featureId: 'potong-kertas',
   },
   {
     titleKey: 'hitung_cetakan' as TranslationKey,
+    shortTitle: 'Cetakan',
     href: '/hitung-cetakan',
     icon: Calculator,
     featureId: 'hitung-cetakan',
   },
   {
     titleKey: 'invoice' as TranslationKey,
+    shortTitle: 'Invoice',
     href: '/invoice',
     icon: Receipt,
     featureId: 'invoice',
   },
   {
     titleKey: 'master_harga_kertas' as TranslationKey,
+    shortTitle: 'H.Kertas',
     href: '/master-harga-kertas',
     icon: FileText,
     featureId: 'master-harga-kertas',
@@ -469,7 +475,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
         className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t safe-area-bottom"
         style={{ backgroundColor: '#1e40af', borderColor: 'rgba(255,255,255,0.3)', borderWidth: '0.1px' }}
       >
-        <div className="flex items-center justify-around h-14">
+        <div className="flex items-stretch h-14">
           {visibleItems.map((item) => {
             const active = isActive(item.href)
             return (
@@ -477,15 +483,15 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+                  'flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full transition-colors',
                   active
                     ? 'text-white'
                     : 'text-blue-200/70'
                 )}
               >
-                <item.icon className={cn('w-5 h-5', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
-                <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
-                  {t(item.titleKey)}
+                <item.icon className={cn('w-5 h-5 flex-shrink-0', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
+                <span className={cn('text-[10px] leading-tight truncate w-full text-center px-0.5', active ? 'font-bold' : 'font-medium')}>
+                  {item.shortTitle}
                 </span>
               </Link>
             )
@@ -495,14 +501,14 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
           <button
             onClick={() => setShowPopup(true)}
             className={cn(
-              'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+              'flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full transition-colors',
               !isOnBottomNavPage
                 ? 'text-white'
                 : 'text-blue-200/70'
             )}
           >
-            <MoreHorizontal className={cn('w-5 h-5', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
-            <span className={cn('text-[10px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
+            <MoreHorizontal className={cn('w-5 h-5 flex-shrink-0', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
+            <span className={cn('text-[9px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
               Lainnya
             </span>
           </button>
