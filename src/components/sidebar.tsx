@@ -285,7 +285,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             <div key={item.href}>
               {showSection && (
                 <div className="my-2 mx-2">
-                  <div className="border-t" style={{ borderColor: '#ffffff', borderWidth: '0.25pt' }}></div>
+                  <div className="border-t" style={{ borderColor: '#ffffff', borderWidth: '0.5px' }}></div>
                 </div>
               )}
               <Link
@@ -312,7 +312,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </nav>
 
         {/* Logout */}
-        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: '#ffffff', borderWidth: '0.25pt' }}>
+        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: '#ffffff', borderWidth: '0.5px' }}>
           <button
             onClick={async () => {
               if (onLogout) {
@@ -359,7 +359,7 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t safe-area-bottom"
-      style={{ backgroundColor: '#1e40af', borderColor: '#ffffff', borderWidth: '0.25pt' }}
+      style={{ backgroundColor: '#1e40af', borderColor: '#ffffff', borderWidth: '0.5px' }}
     >
       <div className="flex items-center justify-around h-14">
         {visibleItems.map((item) => {

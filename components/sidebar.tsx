@@ -259,7 +259,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             <div key={item.href}>
               {showSection && (
                 <div className="mt-4 mb-1 px-3">
-                  <div className="border-t mb-2" style={{ borderColor: '#ffffff', borderWidth: '0.25pt' }}></div>
+                  <div className="border-t mb-2" style={{ borderColor: '#ffffff', borderWidth: '0.5px' }}></div>
                   <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--app-sidebar-text-muted)' }}>
                     {t(item.section as TranslationKey)}
                   </span>
@@ -330,7 +330,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </nav>
 
         {/* User Info & Logout */}
-        <div className="px-3 py-2 border-t" style={{ borderColor: '#ffffff', borderWidth: '0.25pt' }}>
+        <div className="px-3 py-2 border-t" style={{ borderColor: '#ffffff', borderWidth: '0.5px' }}>
           {username && (
             <div className={cn("mb-1.5 px-2 py-1.5 rounded-md transition-opacity", !isOpen && "lg:opacity-100 opacity-0")} style={{ backgroundColor: 'var(--app-sidebar-active-bg)' }}>
               <div className="flex items-center justify-between gap-1.5">
