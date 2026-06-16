@@ -46,6 +46,7 @@ import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
 import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
+import { WhatsAppJpgDialog } from '@/components/dokupro/whatsapp-jpg-dialog'
 import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
@@ -195,6 +196,11 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [previewScale, setPreviewScale] = useState(1)
   const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
+  // Desktop direct-send JPG dialog state
+  const [jpgDialogOpen, setJpgDialogOpen] = useState(false)
+  const [jpgBlob, setJpgBlob] = useState<Blob | null>(null)
+  const [jpgFileName, setJpgFileName] = useState('')
+  const [jpgInitialPhone, setJpgInitialPhone] = useState('')
 
   // Pelunasan dialog state
   const [pelunasanDialogOpen, setPelunasanDialogOpen] = useState(false)
@@ -353,10 +359,34 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const jpgBlob = await captureElementAsJpg(previewEl)
+        const blob = await captureElementAsJpg(previewEl)
         const fileName = `${(invData.nomor || 'draft').replace(/\//g, '-')}.jpg`
-        await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
-        toast.success('Gambar dikirim ke WhatsApp')
+
+        // Mobile: use Web Share API (shares the file directly to WhatsApp app)
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        if (isMobile && navigator.share && navigator.canShare) {
+          const file = new File([blob], fileName, { type: 'image/jpeg' })
+          if (navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                text: `Invoice ${invData.nomor} - www.darrellsoft.com`,
+              })
+              toast.success('Gambar dikirim ke WhatsApp')
+              return
+            } catch (err: unknown) {
+              if (err instanceof Error && err.name === 'AbortError') return
+              // fall through to desktop flow
+            }
+          }
+        }
+
+        // Desktop: open the direct-send dialog (sends via Fonnte API to a
+        // WhatsApp Business number, no manual attachment needed).
+        setJpgBlob(blob)
+        setJpgFileName(fileName)
+        setJpgInitialPhone(invData.client?.kontak || '')
+        setJpgDialogOpen(true)
       } else {
         toast.error('Preview tidak ditemukan')
       }
@@ -748,6 +778,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           </div>
         </div>
       )}
+
+      {/* Desktop direct-send JPG dialog (sends via Fonnte API) */}
+      <WhatsAppJpgDialog
+        open={jpgDialogOpen}
+        onOpenChange={setJpgDialogOpen}
+        jpgBlob={jpgBlob}
+        fileName={jpgFileName}
+        documentLabel={`Invoice ${invData?.nomor || ''}`}
+        initialPhone={jpgInitialPhone}
+      />
     </>
   )
 }

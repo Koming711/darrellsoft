@@ -422,3 +422,44 @@ Stage Summary:
 - The captureElementAsJpg() utility now passes explicit width/height to toJpeg, computed from scrollWidth/scrollHeight (transform-immune), eliminating the production-only clipping
 - Production URL: https://www.darrellsoft.com (deployment successful)
 - Local dev schema reverted to sqlite
+
+---
+Task ID: 11
+Agent: Main
+Task: Desktop: when JPG is clicked, send the JPG file directly to a target WhatsApp Business number (no manual attachment)
+
+Work Log:
+- Investigated existing WhatsApp Business integration:
+  - src/lib/whatsapp.ts has sendWhatsAppMessage and sendWhatsAppDocument (Fonnte API, server-side)
+  - src/lib/whatsapp-business.ts has openWhatsApp (client-side, opens WhatsApp app/web with text)
+  - src/components/dokupro/whatsapp-send-dialog.tsx existing dialog for PDF direct-send (pattern to follow)
+  - src/app/api/whatsapp/send-pdf/route.ts existing API route for PDF
+- Identified the issue: On desktop, shareJpgViaWhatsApp only downloaded the JPG and opened WhatsApp with a text message — user had to manually attach the file. The user wants the JPG sent directly to a WhatsApp Business number.
+- Implementation:
+  1. Added sendWhatsAppImage() to src/lib/whatsapp.ts — uses Fonnte API `image` parameter (base64) with `message` as caption. Handles data URL prefix, phone normalization (0→62), and Fonnte response parsing.
+  2. Created src/app/api/whatsapp/send-jpg/route.ts — POST endpoint accepting {phone, jpgBase64, fileName, documentLabel}. Validates phone (8-15 digits), calls sendWhatsAppImage, returns {success, error?}.
+  3. Created src/components/dokupro/whatsapp-jpg-dialog.tsx — React dialog with phone number input (prefixed +62), file preview (icon + name + size), send button, and success/error states. Pre-fills phone from document's kontak field. Converts blob to base64 in 32KB chunks (avoids call-stack overflow on large images).
+  4. Updated handleSendJpg in src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx:
+     - Mobile: keeps using Web Share API (shares file directly to WhatsApp app)
+     - Desktop: opens WhatsAppJpgDialog with JPG blob, filename, document label, and initial phone from client.kontak / pemasok.kontak / penerima.kontak
+  5. Updated handleJpgWhatsApp in src/components/dokupro/document-action-buttons.tsx (used in editor tabs) with same mobile/desktop split, extracting phone from client/penerima/pemasok kontak.
+  6. Updated handleGenerateJpg in src/components/dokupro/invoice-pelunasan-editor.tsx with same flow.
+- Synced all changes to root app/ and components/ directories (project has duplicate structure)
+- Lint: all files pass with zero errors
+- Browser testing (localhost:3000):
+  - Logged in as superadmin, navigated to /invoice → Riwayat tab
+  - Clicked Preview on INV/06/26/0002 → preview popup opened
+  - Clicked "Kirim WhatsApp" → WhatsAppJpgDialog opened with title "Kirim JPG ke WhatsApp", document label "Invoice INV/06/26/0002", file preview "INV-06-26-0002.jpg 95.4 KB"
+  - Phone input was empty (test invoice has no customer phone in kontak) — user can type any number
+  - Entered phone "81234567890", clicked "Kirim" → API called, error "WhatsApp API key belum dikonfigurasi" displayed correctly (local DB has empty wa_api_key)
+  - Set dummy API key, retried → success message "Invoice INV/06/26/0002 berhasil dikirim ke WhatsApp!" displayed
+  - Reverted dummy API key
+- Deployed to production: https://www.darrellsoft.com (build ~38s, Ready in 1m)
+- Reverted Prisma schema to sqlite for local dev
+
+Stage Summary:
+- Desktop flow now: click "Kirim WhatsApp" → dialog opens → enter/confirm phone number → JPG sent directly to WhatsApp Business number via Fonnte API (no manual download/attach)
+- Mobile flow unchanged: Web Share API shares file directly to WhatsApp app
+- New files: src/app/api/whatsapp/send-jpg/route.ts, src/components/dokupro/whatsapp-jpg-dialog.tsx
+- Modified: src/lib/whatsapp.ts (added sendWhatsAppImage), src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx, src/components/dokupro/document-action-buttons.tsx, src/components/dokupro/invoice-pelunasan-editor.tsx
+- Production requires wa_api_key setting to be configured (Fonnte API key) for the direct-send to work

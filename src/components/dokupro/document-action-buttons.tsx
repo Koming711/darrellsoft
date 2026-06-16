@@ -19,6 +19,7 @@ import { getAuthHeaders } from '@/lib/auth';
 import type { DocumentType } from '@/lib/types';
 import { captureElementAsJpg } from '@/lib/capture-jpg';
 import { shareJpgViaWhatsApp } from '@/lib/generate-pdf';
+import { WhatsAppJpgDialog } from '@/components/dokupro/whatsapp-jpg-dialog';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -52,6 +53,11 @@ export function DocumentActionButtons({
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  // Desktop direct-send JPG dialog state
+  const [jpgDialogOpen, setJpgDialogOpen] = useState(false);
+  const [jpgBlob, setJpgBlob] = useState<Blob | null>(null);
+  const [jpgFileName, setJpgFileName] = useState('');
+  const [jpgInitialPhone, setJpgInitialPhone] = useState('');
   const dataEmpty = isDataEmpty(currentData);
   const waWindowRef = useRef<Window | null>(null);
 
@@ -203,7 +209,37 @@ export function DocumentActionButtons({
         return;
       }
 
-      await shareJpgViaWhatsApp(blob, fileName, documentLabel, waWindowRef);
+      // Mobile: use Web Share API (shares the file directly to WhatsApp app)
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && navigator.share && navigator.canShare) {
+        const file = new File([blob], fileName, { type: 'image/jpeg' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              text: `${documentLabel} - www.darrellsoft.com`,
+            });
+            return;
+          } catch (err: unknown) {
+            if (err instanceof Error && err.name === 'AbortError') return;
+            // fall through to desktop flow
+          }
+        }
+      }
+
+      // Desktop: open the direct-send dialog (sends via Fonnte API to a
+      // WhatsApp Business number, no manual attachment needed).
+      // Extract the contact phone from the document data (client/penerima/pemasok)
+      const d = currentData as {
+        client?: { kontak?: string };
+        penerima?: { kontak?: string };
+        pemasok?: { kontak?: string };
+      };
+      const phone = d.client?.kontak || d.penerima?.kontak || d.pemasok?.kontak || '';
+      setJpgBlob(blob);
+      setJpgFileName(fileName);
+      setJpgInitialPhone(phone);
+      setJpgDialogOpen(true);
     } catch (err) {
       console.error('JPG generation error:', err);
       toast.error('Gagal membuat JPG. Coba lagi atau gunakan Cetak.');
@@ -387,6 +423,16 @@ export function DocumentActionButtons({
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {/* Desktop direct-send JPG dialog (sends via Fonnte API) */}
+      <WhatsAppJpgDialog
+        open={jpgDialogOpen}
+        onOpenChange={setJpgDialogOpen}
+        jpgBlob={jpgBlob}
+        fileName={jpgFileName}
+        documentLabel={documentLabel}
+        initialPhone={jpgInitialPhone}
+      />
     </div>
   );
 }

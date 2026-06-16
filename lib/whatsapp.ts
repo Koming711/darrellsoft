@@ -128,6 +128,79 @@ export async function sendWhatsAppDocument(
 }
 
 /**
+ * Send a WhatsApp image (JPG/PNG) using Fonnte API
+ * Requires wa_api_key and wa_api_url to be configured in settings
+ *
+ * The image is sent with an optional caption (message).
+ * Fonnte accepts base64-encoded image data in the `image` field.
+ */
+export async function sendWhatsAppImage(
+  targetPhone: string,
+  message: string,
+  imageBase64: string,
+  fileName: string
+): Promise<WhatsAppMessageResult> {
+  try {
+    // Get WhatsApp API settings from database
+    const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
+    const apiUrlSetting = await db.setting.findUnique({ where: { key: 'wa_api_url' } })
+
+    const apiKey = apiKeySetting?.value?.trim()
+    const apiUrl = apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send'
+
+    if (!apiKey) {
+      return { success: false, error: 'WhatsApp API key belum dikonfigurasi. Hubungi administrator.' }
+    }
+
+    // Normalize target phone number
+    let normalizedPhone = targetPhone.replace(/[\s\-()+]/g, '')
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '62' + normalizedPhone.substring(1)
+    }
+
+    // Ensure the base64 string has the correct data URL prefix for an image.
+    // Fonnte accepts either raw base64 or a data URL; we send a data URL for clarity.
+    const imageDataUrl = imageBase64.startsWith('data:')
+      ? imageBase64
+      : `data:image/jpeg;base64,${imageBase64}`
+
+    // Send image via Fonnte API.
+    // `message` acts as the caption for the image.
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': apiKey,
+      },
+      body: JSON.stringify({
+        target: normalizedPhone,
+        message: message,
+        image: imageDataUrl,
+        filename: fileName,
+      }),
+    })
+
+    const data = await response.json()
+
+    // Fonnte returns { status: true, ... } on success
+    if (data.status === true || data.status === 'true' || response.ok) {
+      return { success: true }
+    }
+
+    return {
+      success: false,
+      error: data.message || data.reason || data.error || 'Gagal mengirim gambar WhatsApp',
+    }
+  } catch (error: any) {
+    console.error('WhatsApp send image error:', error?.message || error)
+    return {
+      success: false,
+      error: 'Gagal mengirim gambar WhatsApp. Periksa koneksi internet.',
+    }
+  }
+}
+
+/**
  * Generate a random password of specified length
  */
 export function generateRandomPassword(length: number = 8): string {

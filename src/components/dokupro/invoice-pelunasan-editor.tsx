@@ -29,6 +29,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { captureElementAsJpg } from '@/lib/capture-jpg';
 import { cn } from '@/lib/utils';
+import { WhatsAppJpgDialog } from '@/components/dokupro/whatsapp-jpg-dialog';
 import type { InvoiceData, CompanyInfo } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
 
@@ -158,6 +159,11 @@ export function InvoicePelunasanEditor() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [pelunasanSaving, setPelunasanSaving] = useState(false);
   const [jpgGenerating, setJpgGenerating] = useState(false);
+  // Desktop direct-send JPG dialog state
+  const [jpgDialogOpen, setJpgDialogOpen] = useState(false);
+  const [jpgBlob, setJpgBlob] = useState<Blob | null>(null);
+  const [jpgFileName, setJpgFileName] = useState('');
+  const [jpgInitialPhone, setJpgInitialPhone] = useState('');
 
   // Pelunasan fields
   const [lunasToggle, setLunasToggle] = useState(false);
@@ -312,33 +318,29 @@ export function InvoicePelunasanEditor() {
       const fileName = `${(invoiceData?.nomor || 'draft').replace(/\//g, '-')}.jpg`;
       const file = new File([blob], fileName, { type: 'image/jpeg' });
 
-      // Try Web Share API (mobile) — can share file directly to WhatsApp
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Invoice ${invoiceData?.nomor || ''}`,
-          text: `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}`,
-        });
-        toast.success('JPG berhasil dikirim ke WhatsApp');
-      } else {
-        // Fallback (desktop): download JPG + open WhatsApp link
-        const dataUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = dataUrl;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(dataUrl), 5000);
-
-        const phone = invoiceData?.client?.kontak?.replace(/\D/g, '') || '';
-        const message = encodeURIComponent(
-          `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}\n\nJPG invoice sudah didownload, silakan lampirkan ke chat ini.`
-        );
-        const waUrl = phone
-          ? `https://wa.me/${phone}?text=${message}`
-          : `https://wa.me/?text=${message}`;
-        window.open(waUrl, '_blank');
-        toast.success('JPG didownload & WhatsApp terbuka');
+      // Mobile: use Web Share API (shares the file directly to WhatsApp app)
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Invoice ${invoiceData?.nomor || ''}`,
+            text: `Berikut invoice pelunasan ${invoiceData?.nomor || ''} dari ${invoiceData?.company?.nama || ''}`,
+          });
+          toast.success('JPG berhasil dikirim ke WhatsApp');
+          return;
+        } catch (err: unknown) {
+          if (err instanceof Error && err.name === 'AbortError') return;
+          // fall through to desktop flow
+        }
       }
+
+      // Desktop: open the direct-send dialog (sends via Fonnte API to a
+      // WhatsApp Business number, no manual attachment needed).
+      setJpgBlob(blob);
+      setJpgFileName(fileName);
+      setJpgInitialPhone(invoiceData?.client?.kontak || '');
+      setJpgDialogOpen(true);
     } catch (err) {
       console.error('Failed to generate JPG:', err);
       toast.error('Gagal membuat JPG');
@@ -865,6 +867,16 @@ export function InvoicePelunasanEditor() {
           <p className="text-xs text-slate-400 mt-1">Gunakan kolom pencarian di atas untuk memilih invoice pelunasan yang akan diproses</p>
         </div>
       )}
+
+      {/* Desktop direct-send JPG dialog (sends via Fonnte API) */}
+      <WhatsAppJpgDialog
+        open={jpgDialogOpen}
+        onOpenChange={setJpgDialogOpen}
+        jpgBlob={jpgBlob}
+        fileName={jpgFileName}
+        documentLabel={`Invoice Pelunasan ${invoiceData?.nomor || ''}`}
+        initialPhone={jpgInitialPhone}
+      />
     </DocumentEditorLayout>
   );
 }
