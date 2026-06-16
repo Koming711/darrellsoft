@@ -153,6 +153,7 @@ export function InvoicePelunasanEditor() {
   const [tanggalJatuhTempo, setTanggalJatuhTempo] = useState('');
   const [caraPembayaran, setCaraPembayaran] = useState('');
   const [tanggalGiro, setTanggalGiro] = useState('');
+  const [originalDpAmount, setOriginalDpAmount] = useState(0);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -209,6 +210,12 @@ export function InvoicePelunasanEditor() {
     setTanggalJatuhTempo(info.tanggalJatuhTempo || '');
     setCaraPembayaran(parsed.caraPembayaran || '');
     setTanggalGiro(parsed.tanggalGiro || '');
+    // Store original DP amount so it stays fixed in pelunasan view
+    const sub = parsed.items.reduce((s, item) => s + item.qty * item.harga, 0);
+    const ppn = sub * ((parsed.ppn || 0) / 100);
+    const tot = sub + ppn;
+    const dpAmt = parsed.dpAmount !== undefined ? parsed.dpAmount : tot * ((parsed.dp || 0) / 100);
+    setOriginalDpAmount(dpAmt);
     setDropdownOpen(false);
   };
 
@@ -221,6 +228,7 @@ export function InvoicePelunasanEditor() {
     setTanggalJatuhTempo('');
     setCaraPembayaran('');
     setTanggalGiro('');
+    setOriginalDpAmount(0);
   };
 
   // Update invoice data locally
@@ -241,7 +249,7 @@ export function InvoicePelunasanEditor() {
     if (!invoiceData) {
       // Default preview when no invoice is selected
       return {
-        type: 'invoice',
+        type: 'invoice-pelunasan',
         company: { ...DEFAULT_COMPANY },
         nomor: '-',
         tanggal: getTodayStr(),
@@ -268,12 +276,12 @@ export function InvoicePelunasanEditor() {
     };
   }, [invoiceData, tanggalJatuhTempo, caraPembayaran, tanggalGiro, lunasToggle, tanggalPelunasan]);
 
-  // Calculate amounts
+  // Calculate amounts — DP is FIXED at original amount
   const subtotal = invoiceData?.items.reduce((sum, item) => sum + item.qty * item.harga, 0) || 0;
   const ppnAmount = subtotal * ((invoiceData?.ppn || 0) / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = invoiceData?.dp || 0;
-  const dpAmount = total * (dpPercent / 100);
+  const dpAmount = originalDpAmount;
   const sisa = total - dpAmount;
 
   // Save pelunasan — update the existing history entry
@@ -299,6 +307,7 @@ export function InvoicePelunasanEditor() {
       parsed.items = invoiceData.items;
       parsed.ppn = invoiceData.ppn;
       parsed.dp = invoiceData.dp;
+      parsed.dpAmount = originalDpAmount;
       parsed.catatan = invoiceData.catatan;
       parsed.nomor = invoiceData.nomor;
       parsed.tanggal = invoiceData.tanggal;
@@ -329,7 +338,7 @@ export function InvoicePelunasanEditor() {
   return (
     <DocumentEditorLayout
       title="Invoice Pelunasan"
-      previewContent={<InvoicePreview data={previewData!} />}
+      previewContent={<InvoicePreview data={previewData!} showPelunasanLabel dpAmountOverride={originalDpAmount} />}
       actions={
         invoiceData ? (
           <div className="flex items-center gap-2 flex-wrap">

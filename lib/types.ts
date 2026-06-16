@@ -38,7 +38,7 @@ export interface CompanySettings {
 export type CaraPembayaran = 'cash' | 'transfer' | 'giro';
 
 export interface InvoiceData {
-  type: 'invoice';
+  type: 'invoice' | 'invoice-pelunasan';
   company: CompanyInfo;
   nomor: string;
   tanggal: string;
@@ -51,12 +51,14 @@ export interface InvoiceData {
   items: DocumentItem[];
   ppn: number; // percentage
   dp: number; // down payment percentage
+  dpAmount?: number; // fixed DP nominal amount (saved so it doesn't change when items are added)
   catatan: string;
   tanggalJatuhTempo: string; // due date (empty = no due date)
   caraPembayaran: CaraPembayaran | ''; // payment method
   tanggalGiro: string; // giro date (only used when caraPembayaran === 'giro')
   lunas?: boolean; // whether final payment has been made
   tanggalPelunasan?: string; // date of final payment
+  referensiInvoiceNomor?: string; // Nomor of the parent DP invoice (only for invoice-pelunasan type)
 }
 
 export interface SuratJalanData {
