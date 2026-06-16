@@ -6,16 +6,24 @@ import { terbilang } from '@/lib/terbilang';
 
 interface InvoicePreviewProps {
   data: InvoiceData;
+  showPelunasanLabel?: boolean;
+  /** Override DP amount — when set, DP stays fixed regardless of total changes (used in pelunasan editor) */
+  dpAmountOverride?: number;
 }
 
 const MAX_ROWS = 8;
 
-export function InvoicePreview({ data }: InvoicePreviewProps) {
+export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: InvoicePreviewProps) {
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
-  const dpAmount = total * (dpPercent / 100);
+  // Priority: dpAmountOverride > data.dpAmount (saved) > calculate from percentage
+  const dpAmount = dpAmountOverride !== undefined
+    ? dpAmountOverride
+    : data.dpAmount !== undefined
+      ? data.dpAmount
+      : total * (dpPercent / 100);
   const sisa = total - dpAmount;
   const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
@@ -71,6 +79,12 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
         </div>
         <div className="text-right">
           <h2 className="text-lg font-bold print:text-[13px] text-black">INVOICE</h2>
+          {showPelunasanLabel && (
+            <p className="text-[11px] font-bold text-amber-700 tracking-wider print:text-[9px]">PELUNASAN</p>
+          )}
+          {showPelunasanLabel && data.referensiInvoiceNomor && (
+            <p className="text-[9px] text-violet-600 mt-0.5 print:text-[8px]">Ref: {data.referensiInvoiceNomor}</p>
+          )}
           {/* LUNAS stamp */}
           {data.lunas && (
             <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 border-2 border-green-500 print:bg-green-50 print:border-green-600">
