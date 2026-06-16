@@ -138,3 +138,36 @@ Stage Summary:
 - Invoice number is preserved from the restored invoice (fetchNextNumber skips when editing)
 - After successful update, editingId is cleared and the editor returns to "create new" mode
 - The harga satuan thousand separator format (xxxx.xxx.xxx.xxx) was already applied in items-fields.tsx
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix invoice pelunasan tab print output - make rows smaller to match preview and fit A5
+
+Work Log:
+- Read invoice-pelunasan-editor.tsx, invoice-preview.tsx, document-editor-layout.tsx, globals.css
+- Identified root cause: print CSS used large font sizes (10pt body, 10pt tables, 12pt headings, 7.5mm row heights) vs preview's 9-10px fonts
+- Reduced @page margin from 12mm to 8mm for more content space on A5
+- Reduced html/body font-size from 10pt to 8pt in print
+- Reduced table row height from 7.5mm to 4.8mm in print
+- Added line-height: 1.2 for table cells in print
+- Reduced all heading/table/font sizes in print CSS:
+  - Company name: 12pt → 9pt
+  - Company info text: 8pt → 6.5pt
+  - h2 (INVOICE): 12pt → 9pt
+  - Table: 10pt → 7.5pt
+  - Doc detail/recipient: 10pt → 7.5pt
+  - Logo box: 28px → 22px
+- Added print-totals font overrides (7.5pt base, 8pt for total/sisa borders, 8.5pt for amounts)
+- Reduced signature grid margin-bottom from 3rem to 1.5rem
+- Reduced preview padding from p-6 to p-4, mb-4 to mb-3, gap-3 to gap-2
+- Made invoice-preview.tsx more compact: smaller fonts, tighter spacing matching print output
+- Synced all changes to src/ directory
+- Verified with Agent Browser - preview is compact, professional, fits A5
+- VLM analysis confirmed: preview is compact, rows small, fonts proportional, layout professional
+
+Stage Summary:
+- Print CSS completely overhauled for A5 fit with smaller rows
+- Preview panel also made more compact to match print output
+- All font sizes in print reduced by ~25-35% from previous values
+- Table row heights reduced by ~36% (7.5mm → 4.8mm)
+- Files modified: app/globals.css, src/app/globals.css, components/dokupro/invoice-preview.tsx, src/components/dokupro/invoice-preview.tsx
