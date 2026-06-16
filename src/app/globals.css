@@ -626,15 +626,21 @@
   }
 }
 
-/* ===== Print-mode CSS — for DOM capture (JPG) ===== */
+/* ===== Print-mode CSS — for DOM capture (JPG/PDF) ===== */
 .print-mode {
   box-shadow: none !important;
+  border: none !important;
   border-radius: 0 !important;
   background-color: #fff !important;
   width: 148mm !important;
+  max-width: 148mm !important;
+  min-height: auto !important;
+  transform: none !important;
+  margin: 0 auto !important;
   padding: 8mm 10mm !important;
   font-size: 9pt !important;
   line-height: 1.35 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
   box-sizing: border-box !important;
 }
 
