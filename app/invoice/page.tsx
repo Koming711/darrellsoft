@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { InvoiceEditor } from '@/components/dokupro/invoice-editor'
 import { InvoicePelunasanEditor } from '@/components/dokupro/invoice-pelunasan-editor'
@@ -193,6 +193,8 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewScale, setPreviewScale] = useState(1)
+  const [previewDims, setPreviewDims] = useState<{ w: number; h: number } | null>(null)
+  const previewWrapperRef = useRef<HTMLDivElement>(null)
   const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
@@ -257,29 +259,45 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory, fetchCetakan])
 
-  useEffect(() => {
-    if (!previewOpen) return
-    const DESIGN_W = 576
-    const DESIGN_H = DESIGN_W * (210 / 148)
-    const updateScale = () => {
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const pad = 16
-      const btnH = 56
-      const availW = vw - pad * 2
-      const availH = vh - pad * 2 - btnH
-      const baseScale = Math.min(availW / DESIGN_W, availH / DESIGN_H)
-      setPreviewScale(baseScale * 1.3)
-    }
-    const t = setTimeout(updateScale, 50)
-    window.addEventListener('resize', updateScale)
-    return () => { clearTimeout(t); window.removeEventListener('resize', updateScale) }
-  }, [previewOpen])
-
   const invData = useMemo(() => {
     if (!previewItem) return null
     return parseInvoiceData(previewItem)
   }, [previewItem])
+
+  useLayoutEffect(() => {
+    if (!previewOpen) {
+      setPreviewDims(null)
+      setPreviewScale(1)
+      return
+    }
+    const measureAndScale = () => {
+      const el = previewWrapperRef.current
+      if (!el) return
+      // offsetWidth/offsetHeight are NOT affected by CSS transform,
+      // so they give us the natural (unscaled) layout size.
+      const naturalW = el.offsetWidth
+      const naturalH = el.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        // Element not laid out yet — retry on next frame
+        requestAnimationFrame(measureAndScale)
+        return
+      }
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      // Reserved space: top close-button row (~56px) + bottom action bar (~88px) + padding (32px)
+      const reservedH = 56 + 88 + 32
+      const reservedW = 32
+      const availW = Math.max(120, vw - reservedW)
+      const availH = Math.max(120, vh - reservedH)
+      // Fit entirely within available space; cap at 1.4x for very large screens
+      const scale = Math.min(availW / naturalW, availH / naturalH, 1.4)
+      setPreviewScale(scale)
+      setPreviewDims({ w: naturalW * scale, h: naturalH * scale })
+    }
+    const t = setTimeout(measureAndScale, 50)
+    window.addEventListener('resize', measureAndScale)
+    return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
+  }, [previewOpen, invData])
 
   const handleDelete = async (id: string) => {
     try {
@@ -758,10 +776,26 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
 
       {/* Preview Popup */}
       {previewOpen && invData && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col overflow-auto">
-          <button onClick={() => setPreviewOpen(false)} className="sticky top-3 self-end z-10 mr-3 mt-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"><X className="w-4 h-4 text-slate-700" /></button>
-          <div className="flex-1 flex items-center justify-center p-4 pb-20">
-            <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'center center' }}><div data-invoice-preview><InvoicePreview data={invData} showPelunasanLabel={invData.type === 'invoice-pelunasan'} /></div></div>
+        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
+          <div className="flex justify-end p-3 shrink-0">
+            <button onClick={() => setPreviewOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"><X className="w-4 h-4 text-slate-700" /></button>
+          </div>
+          <div className="flex-1 flex items-start justify-center overflow-auto p-4 pb-28 min-h-0">
+            {/* Wrapper with the SCALED dimensions so flex layout reserves the
+                correct visual space and content stays reachable when scrolling. */}
+            <div
+              style={{ width: previewDims?.w, height: previewDims?.h }}
+              className="flex-shrink-0"
+            >
+              <div
+                ref={previewWrapperRef}
+                style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
+              >
+                <div data-invoice-preview>
+                  <InvoicePreview data={invData} showPelunasanLabel={invData.type === 'invoice-pelunasan'} />
+                </div>
+              </div>
+            </div>
           </div>
           <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
             <Button onClick={handleSendJpg} disabled={sendingPdf} size="sm" className="bg-green-600 hover:bg-green-700 text-white">{sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}</Button>

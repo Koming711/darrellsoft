@@ -554,3 +554,39 @@ Stage Summary:
 - On mobile: Web Share API shares file to WhatsApp app (unchanged)
 - Production URL: https://www.darrellsoft.com (deployment successful)
 - Local dev schema reverted to sqlite, dev server running normally
+
+---
+Task ID: 15
+Agent: Main
+Task: Fix invoice preview popup being cut off on mobile (Riwayat tab → click INV → popup terpotong). Make it fit to mobile screen.
+
+Work Log:
+- Root cause analysis of the mobile cut-off bug across 3 pages (invoice, purchase-order, surat-jalan) — all shared the same broken preview-scaling pattern:
+  1. `DESIGN_W = 576` was wrong — InvoicePreview has `width: '148mm'` which renders at ~559px (not 576), making the scale slightly too large.
+  2. `baseScale * 1.3` multiplier made the preview 30% LARGER than available space on mobile → overflow.
+  3. `transformOrigin: 'center center'` pushed overflow equally to both left/right sides → unreachable by scroll.
+  4. Flex centering (`flex items-center justify-center`) + `overflow-auto` made overflowed content inaccessible (centered off-screen).
+- Fix applied to all 3 pages (src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx):
+  - Added `useLayoutEffect` + `useRef` to measure the ACTUAL rendered element via `offsetWidth`/`offsetHeight` (these are NOT affected by CSS transform, so they give the true natural size).
+  - New scale formula: `scale = Math.min(availW / naturalW, availH / naturalH, 1.4)` — fits entirely within available viewport space, capped at 1.4x for large screens. Removed the `* 1.3` multiplier that caused overflow.
+  - Changed `transformOrigin` from `'center center'` to `'top left'` so scaled content anchors to top-left (no off-screen push).
+  - Added an outer wrapper div with the SCALED dimensions (`width: previewDims.w, height: previewDims.h`) so flex layout reserves the correct visual space and content stays reachable.
+  - Restructured popup: top close-button row (`shrink-0`), scrollable preview area (`flex-1 overflow-auto min-h-0`), fixed bottom action bar.
+  - Handles dynamic content height: if an invoice has many items (taller than 210mm), the natural height is measured correctly and scale shrinks to fit.
+  - Moved `invData`/`poData`/`sjData` useMemo BEFORE the useLayoutEffect to avoid temporal-dead-zone ReferenceError (effect deps reference the memoized value).
+- Synced all 3 modified files to root app/ directory (duplicates kept in sync per established pattern).
+- Lint: zero errors in modified files (pre-existing errors in unrelated files only).
+- Browser verification (agent-browser, iPhone 14 viewport 390x844px):
+  - Logged in as admin → /invoice → Riwayat tab → clicked INV/06/26/0006 → preview opened.
+  - DOM inspection confirmed: naturalW=559, naturalH=794, scale=scale(0.640429), transformOrigin='left top', outerWrapper=358px×508.5px — fits perfectly in 390px viewport (16px padding each side = 358px available).
+  - VLM analysis of screenshot confirmed: "The white invoice document is fully visible within the screen width—no part of it is cut off on the left or right edges. The right edge (invoice number, date, TOTAL/jumlah column) is visible. Green Kirim WhatsApp button visible at the bottom. Content readable, not clipped horizontally."
+  - Tested second invoice (INV/06/26/0001) — identical scale calculation, same correct fit.
+  - Close (X) button works correctly.
+  - Zero console errors, zero page errors.
+
+Stage Summary:
+- Invoice preview popup now fits-to-mobile: no horizontal clipping, entire invoice visible and readable on phone screens.
+- Same fix applied to purchase-order and surat-jalan preview popups (they shared the identical buggy pattern).
+- Key technique: measure actual `offsetWidth`/`offsetHeight` (transform-immune) via ref → compute exact fit scale → `transformOrigin: top left` → wrapper div with scaled dimensions for correct flex layout.
+- Files modified: src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx (+ synced duplicates in root app/).
+- No changes needed to the InvoicePreview/PurchaseOrderPreview/SuratJalanPreview components themselves — the A5 (148mm) fixed width is correct for print; the popup scaling handles mobile display.
