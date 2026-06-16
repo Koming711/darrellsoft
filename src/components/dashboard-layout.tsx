@@ -73,25 +73,24 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
-  const cache = getSessionCache()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [ready, setReady] = useState(!!cache)
-  const [user, setUser] = useState<any>(cache?.user ?? null)
+  const [ready, setReady] = useState(false)
+  const [user, setUser] = useState<any>(null)
   const pathname = usePathname()
   const router = useRouter()
 
   // === SESSION CHECK STATE ===
-  const [sessionWarning, setSessionWarning] = useState<string | null>(cache?.sessionWarning ?? null)
-  const [forceLogoutAvailable, setForceLogoutAvailable] = useState(cache?.forceLogoutAvailable ?? false)
+  const [sessionWarning, setSessionWarning] = useState<string | null>(null)
+  const [forceLogoutAvailable, setForceLogoutAvailable] = useState(false)
   const [isReclaiming, setIsReclaiming] = useState(false)
-  const [accountExpired, setAccountExpired] = useState(cache?.accountExpired ?? false)
+  const [accountExpired, setAccountExpired] = useState(false)
   const sessionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // === AUTO-LOGOUT STATE ===
   const lastActivityRef = useRef(Date.now())
   const countdownActiveRef = useRef(false)
-  const [autoLogoutMin, setAutoLogoutMin] = useState(cache?.autoLogoutMin ?? 0)
-  const [logoutWarningSec, setLogoutWarningSec] = useState(cache?.logoutWarningSec ?? 0)
+  const [autoLogoutMin, setAutoLogoutMin] = useState(0)
+  const [logoutWarningSec, setLogoutWarningSec] = useState(0)
   const [showCountdown, setShowCountdown] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const autoLogoutIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -103,7 +102,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const initDoneRef = useRef(false)
 
   // === USER PROFILE (for header dates) ===
-  const [userProfile, setUserProfile] = useState<{ createdAt: string | null; validUntil: string | null } | null>(cache?.userProfile ?? null)
+  const [userProfile, setUserProfile] = useState<{ createdAt: string | null; validUntil: string | null } | null>(null)
 
   // === PERMISSION VERSION (forces re-render of Sidebar when permissions update) ===
   const [permVersion, setPermVersion] = useState(0)
@@ -142,10 +141,18 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     if (initDoneRef.current) return
     initDoneRef.current = true
 
-    // If we have a valid cache, we're already ready — just do a background refresh
+    // If we have a valid cache, restore state immediately — then do a background refresh
     const existingCache = getSessionCache()
     if (existingCache) {
-      // Already set ready=true and user from cache in useState initializers
+      // Restore state from cache (avoids hydration mismatch by doing this in useEffect)
+      setUser(existingCache.user)
+      setSessionWarning(existingCache.sessionWarning ?? null)
+      setForceLogoutAvailable(existingCache.forceLogoutAvailable ?? false)
+      setAccountExpired(existingCache.accountExpired ?? false)
+      setAutoLogoutMin(existingCache.autoLogoutMin ?? 0)
+      setLogoutWarningSec(existingCache.logoutWarningSec ?? 0)
+      setUserProfile(existingCache.userProfile ?? null)
+      setReady(true)
       // Do a background session refresh without blocking UI
       const bgRefresh = async () => {
         const authUser = getAuthUser()
