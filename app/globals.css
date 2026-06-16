@@ -494,81 +494,20 @@
 
 /* ===== DokuPro Document Preview & Print Styles ===== */
 
-/* A5 Preview on screen — scale down to fit column */
+/* A5 Preview on screen — container that holds the scaled A5 page */
 .a5-preview-container {
   width: 100%;
-  max-width: 576px;
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   position: relative;
   background: white;
 }
 
-.a5-preview-scaler {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  transform-origin: top left;
-  font-size: 10pt;
+/* A5 page — actual 148mm × 210mm layout, scaled via JS to fit container */
+.a5-page {
+  background: white;
+  color: #000;
 }
 
-.a5-preview-container h2 {
-  font-size: 12pt !important;
-}
-.a5-preview-container table {
-  font-size: 10pt !important;
-}
-.a5-preview-container table thead th {
-  font-size: 10pt !important;
-}
-.a5-preview-container p,
-.a5-preview-container span {
-  font-size: inherit !important;
-}
-.doc-detail p,
-.doc-detail span {
-  font-size: 10pt !important;
-}
-.doc-detail {
-  padding-right: 1cm;
-}
-.doc-recipient p,
-.doc-recipient span {
-  font-size: 10pt !important;
-}
-.a5-preview-container .print-logo-box {
-  height: 28px !important;
-  width: 28px !important;
-  font-size: 14pt !important;
-}
-.a5-preview-container table td,
-.a5-preview-container table th {
-  border-bottom: none;
-}
-.a5-preview-container .print-totals {
-  font-size: 13px !important;
-}
-.a5-preview-container .print-sig-grid > div > p {
-  margin-bottom: 5rem !important;
-  font-size: 10pt !important;
-}
-.a5-preview-container .print-sig-grid {
-  gap: 1rem !important;
-}
-.a5-preview-container .print-sig-grid > div > div {
-  width: 80% !important;
-}
-.a5-preview-container .company-info .company-name {
-  font-size: 12pt !important;
-}
-.a5-preview-container .company-info p,
-.a5-preview-container .company-info span {
-  font-size: 8pt !important;
-}
-
-/* Screen-level document border styles (replaces inline styles in components) */
+/* Screen-level document border styles */
 .print-divider {
   border-bottom: 2px solid #000000;
 }
@@ -582,11 +521,11 @@
   border-bottom: 1px solid #000000;
 }
 
-/* Print styles — A5 portrait, 1 page */
+/* ===== Print styles — A5 portrait, fit to page ===== */
 @media print {
   @page {
     size: 148mm 210mm;
-    margin: 8mm;
+    margin: 0;
   }
 
   html, body {
@@ -595,9 +534,8 @@
     print-color-adjust: exact;
     margin: 0 !important;
     padding: 0 !important;
-    font-size: 8pt !important;
-    height: 100% !important;
-    overflow: hidden !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   header,
@@ -639,56 +577,39 @@
     box-shadow: none !important;
     max-width: 100% !important;
     width: 100% !important;
-    aspect-ratio: auto !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
-  .a5-preview-scaler {
-    overflow: hidden !important;
+  /* The A5 page itself — remove transform, render at full size */
+  #document-preview .a5-page {
+    width: 148mm !important;
+    min-height: auto !important;
     transform: none !important;
+    padding: 8mm 10mm !important;
+    font-size: 9pt !important;
+    line-height: 1.35 !important;
   }
 
-  #document-preview .a5-preview-scaler > div {
-    padding: 0 0 1mm 0 !important;
-  }
-
-  #document-preview > div > div:last-child,
-  .a5-preview-container {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    max-height: 186mm !important;
-    overflow: hidden !important;
-  }
-
-  #document-preview .a5-preview-container,
-  #document-preview .a5-preview-scaler,
+  #document-preview .a5-page,
   #document-preview table {
     page-break-inside: avoid !important;
   }
+
   #document-preview *::before,
   #document-preview *::after {
     page-break-after: avoid !important;
     page-break-before: avoid !important;
   }
 
+  /* Table row heights */
   .print-table-8mm tr {
     height: 8mm;
   }
   .print-table-8mm td,
   .print-table-8mm th {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    line-height: 1.2 !important;
-    vertical-align: middle;
-    border-bottom: none !important;
-  }
-
-  .print-sig-gap {
-    margin-bottom: 0 !important;
-  }
-
-  #document-preview .print-sig-grid > div > p {
-    margin-bottom: 1.5rem !important;
+    line-height: 1.35 !important;
+    vertical-align: top;
   }
 
   #document-preview p,
@@ -706,19 +627,16 @@
     border: none !important;
   }
 
-  /* Re-add intentional borders after blanket removal */
+  /* Re-add intentional borders */
   #document-preview table thead tr {
     background-color: #fff !important;
     border-top: 2px solid #000 !important;
     border-bottom: 2px solid #000 !important;
   }
-  #document-preview table thead tr th {
-    color: #000 !important;
-  }
   #document-preview .print-logo-box:not(:has(img)) {
     background-color: transparent !important;
     color: #000000 !important;
-    border: 3px solid #000000 !important;
+    border: 2px solid #000000 !important;
   }
   #document-preview .print-divider {
     border-bottom: 2px solid #000 !important;
@@ -732,75 +650,22 @@
   #document-preview .print-sig-line {
     border-bottom: 1px solid #000 !important;
   }
-
   #document-preview table tbody tr {
     background-color: #fff !important;
   }
-  #document-preview table tbody tr:last-child {
-    border-bottom: 1px solid #000 !important;
-  }
-
-  #document-preview .company-info .company-name {
-    font-size: 9pt !important;
-  }
-  #document-preview .company-info p,
-  #document-preview .company-info span {
-    font-size: 6.5pt !important;
-  }
-
-  #document-preview h2 {
-    font-size: 9pt !important;
-  }
-  #document-preview table {
-    font-size: 7.5pt !important;
-  }
-  #document-preview table thead th {
-    font-size: 7.5pt !important;
-  }
-  #document-preview p,
-  #document-preview span {
-    font-size: inherit !important;
-  }
-  #document-preview .doc-detail p,
-  #document-preview .doc-detail span {
-    font-size: 7.5pt !important;
-  }
-  #document-preview .doc-detail {
-    padding-right: 1cm !important;
-  }
-  #document-preview .doc-recipient p,
-  #document-preview .doc-recipient span {
-    font-size: 7.5pt !important;
-  }
-  #document-preview .print-logo-box {
-    height: 22px !important;
-    width: 22px !important;
-    font-size: 10pt !important;
-  }
-  #document-preview .print-totals {
-    font-size: 7.5pt !important;
-  }
-  #document-preview .print-totals .print-total-border,
-  #document-preview .print-totals .print-sisa-border {
-    font-size: 8pt !important;
-  }
-  #document-preview .print-totals .print-total-border span,
-  #document-preview .print-totals .print-sisa-border span {
-    font-size: 8.5pt !important;
-  }
-  #document-preview .print-totals > div {
-    line-height: 1.3 !important;
-  }
 }
 
-/* ===== Print-mode CSS — mirrors @media print for DOM capture ===== */
+/* ===== Print-mode CSS — mirrors @media print for DOM capture (JPG/PDF) ===== */
 .print-mode {
   box-shadow: none !important;
   border: none !important;
   border-radius: 0 !important;
-  padding: 0 !important;
   margin-bottom: 0 !important;
   background-color: #fff !important;
+  width: 148mm !important;
+  padding: 8mm 10mm !important;
+  font-size: 9pt !important;
+  line-height: 1.35 !important;
 }
 
 .print-mode p,
@@ -821,10 +686,9 @@
 .print-mode .print-logo-box:not(:has(img)) {
   background-color: transparent !important;
   color: #000000 !important;
-  border: 3px solid #000000 !important;
+  border: 2px solid #000000 !important;
 }
 
-/* Re-add intentional borders after blanket removal */
 .print-mode .print-divider {
   border-bottom: 2px solid #000 !important;
 }
@@ -852,83 +716,14 @@
   background-color: #fff !important;
 }
 
-.print-mode table tbody tr:last-child {
-  border-bottom: 1px solid #000 !important;
-}
-
-.print-mode .company-info .company-name {
-  font-size: 9pt !important;
-}
-
-.print-mode .company-info p,
-.print-mode .company-info span {
-  font-size: 6.5pt !important;
-}
-
-.print-mode h2 {
-  font-size: 9pt !important;
-}
-
-.print-mode table {
-  font-size: 7.5pt !important;
-}
-
-.print-mode table thead th {
-  font-size: 7.5pt !important;
-}
-
-.print-mode .doc-detail p,
-.print-mode .doc-detail span {
-  font-size: 7.5pt !important;
-}
-
-.print-mode .doc-detail {
-  padding-right: 1cm !important;
-}
-
-.print-mode .doc-recipient p,
-.print-mode .doc-recipient span {
-  font-size: 7.5pt !important;
-}
-
-.print-mode .print-logo-box {
-  height: 22px !important;
-  width: 22px !important;
-  font-size: 10pt !important;
-}
-
 .print-mode .print-table-8mm tr {
   height: 8mm;
 }
 
 .print-mode .print-table-8mm td,
 .print-mode .print-table-8mm th {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  line-height: 1.2 !important;
-  vertical-align: middle;
-  border-bottom: none !important;
+  line-height: 1.35 !important;
+  vertical-align: top;
 }
 
-.print-mode .print-sig-grid > div > p {
-  margin-bottom: 1.5rem !important;
-}
-
-.print-mode .print-totals {
-  font-size: 7.5pt !important;
-}
-
-.print-mode .print-totals .print-total-border,
-.print-mode .print-totals .print-sisa-border {
-  font-size: 8pt !important;
-}
-
-.print-mode .print-totals .print-total-border span,
-.print-mode .print-totals .print-sisa-border span {
-  font-size: 8.5pt !important;
-}
-
-.print-mode .print-totals > div {
-  line-height: 1.3 !important;
-}
 

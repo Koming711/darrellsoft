@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Eye, X, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface DocumentEditorLayoutProps {
@@ -16,6 +16,34 @@ export function DocumentEditorLayout({
   actions,
 }: DocumentEditorLayoutProps) {
   const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const previewWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Scale A5 preview to fit container
+  useEffect(() => {
+    const scalePreview = () => {
+      const wrapper = previewWrapperRef.current;
+      if (!wrapper) return;
+      const a5Page = wrapper.querySelector('.a5-page') as HTMLElement;
+      if (!a5Page) return;
+
+      const wrapperWidth = wrapper.clientWidth;
+      // A5 is 148mm, scale to fit wrapper
+      const scale = wrapperWidth / a5Page.offsetWidth;
+      a5Page.style.transform = `scale(${scale})`;
+      a5Page.style.transformOrigin = 'top left';
+      // Adjust wrapper height to match scaled content
+      wrapper.style.height = (a5Page.offsetHeight * scale) + 'px';
+    };
+
+    scalePreview();
+    window.addEventListener('resize', scalePreview);
+    // Small delay to let content render
+    const timer = setTimeout(scalePreview, 200);
+    return () => {
+      window.removeEventListener('resize', scalePreview);
+      clearTimeout(timer);
+    };
+  }, [previewContent]);
 
   return (
     <div className="min-h-screen">
@@ -30,16 +58,18 @@ export function DocumentEditorLayout({
 
           {/* Desktop Preview Panel — visible on lg+, and ALWAYS visible during print */}
           <div className="hidden lg:flex justify-center print:flex print:justify-center" id="document-preview">
-            <div className="w-full max-w-[680px] print:max-w-none">
+            <div className="w-full print:max-w-none">
               <div className="sticky top-20 print:static">
                 <div className="mb-2 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground print:hidden">
-                  Pratinjau
+                  Pratinjau A5
                 </div>
-                {/* A5 container: 148mm x 210mm ratio, scaled for screen */}
-                <div className="a5-preview-container mx-auto bg-white" style={{ aspectRatio: '148 / 210' }}>
-                  <div className="a5-preview-scaler">
-                    {previewContent}
-                  </div>
+                {/* A5 preview wrapper — scales the 148mm page to fit */}
+                <div
+                  ref={previewWrapperRef}
+                  className="a5-preview-container mx-auto bg-white overflow-hidden"
+                  style={{ border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                >
+                  {previewContent}
                 </div>
               </div>
             </div>
@@ -56,7 +86,7 @@ export function DocumentEditorLayout({
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4 text-slate-600" />
               <span className="text-sm font-semibold text-slate-700">
-                {showMobilePreview ? 'Sembunyikan Pratinjau' : 'Lihat Pratinjau'}
+                {showMobilePreview ? 'Sembunyikan Pratinjau' : 'Lihat Pratinjau A5'}
               </span>
             </div>
             {showMobilePreview ? (
@@ -70,10 +100,11 @@ export function DocumentEditorLayout({
           {showMobilePreview && (
             <div className="mt-3 flex justify-center">
               <div className="w-full max-w-[420px]">
-                <div className="a5-preview-container bg-white" style={{ aspectRatio: '148 / 210' }}>
-                  <div className="a5-preview-scaler">
-                    {previewContent}
-                  </div>
+                <div
+                  className="a5-preview-container bg-white overflow-hidden"
+                  style={{ border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                >
+                  {previewContent}
                 </div>
               </div>
             </div>
