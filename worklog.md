@@ -257,3 +257,23 @@ Stage Summary:
 - Production URL: www.darrellsoft.com
 - Local dev schema reverted to sqlite
 - Modified files: src/lib/whatsapp.ts, src/app/payment/finish/page.tsx (and their app/ copies)
+
+---
+Task ID: 5
+Agent: Main
+Task: Deploy to www.darrellsoft.com via Vercel
+
+Work Log:
+- Checked worklog: previous deployment was to wrong project (my-project instead of darrellsoft)
+- Discovered two Vercel projects: my-project (no domain) and darrellsoft (has www.darrellsoft.com + darrellsoft.com)
+- Updated .vercel/project.json to point to darrellsoft project (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB)
+- Swapped Prisma schema to postgresql and generated client
+- Deployed to Vercel production — build succeeded in ~1 min
+- Domain www.darrellsoft.com automatically aliased to new deployment
+- Reverted schema back to sqlite for local development
+
+Stage Summary:
+- Deployment successful: https://www.darrellsoft.com
+- Build: Next.js 16.1.3 (Turbopack), 95 pages, all API routes functional
+- Supabase pooler URL correctly transformed for Vercel serverless
+- Local dev schema reverted to sqlite
