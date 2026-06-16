@@ -1,12 +1,17 @@
 /**
  * Robust JPG capture utility for document previews.
  *
- * Solves local-vs-production differences by:
- * 1. Waiting for all web fonts to be ready (document.fonts.ready)
- * 2. Waiting for all <img> elements inside the target to fully load
- * 3. Pre-converting <img> src to data URLs (avoids CORS/tainted-canvas issues)
- * 4. Using cacheBust: true to force fresh resource loading
- * 5. Adding a small delay for CSS/layout to settle
+ * Solves local-vs-production "kepotong" (clipped) issue by cloning the target
+ * element into an ISOLATED, top-level container before capturing. This removes
+ * all ancestor interference that causes html-to-image to clip the output:
+ *
+ *   - ancestor CSS `transform: scale(...)` on the preview wrapper
+ *   - ancestor `overflow: auto/hidden` on the popup container
+ *   - element extending beyond the visible viewport (mobile / small screens)
+ *
+ * The clone renders at the element's natural size (e.g. 148mm × content height)
+ * with no transforms and no overflow constraints, so html-to-image always
+ * captures the FULL document — identical result on every screen size.
  */
 
 import { toJpeg } from 'html-to-image'
@@ -34,6 +39,7 @@ async function waitForImages(container: HTMLElement): Promise<void> {
 /**
  * Convert all <img> src attributes to data URLs so html-to-image
  * doesn't need to fetch them (which can fail due to CORS on production).
+ * Works on the CLONE so the original DOM is never mutated.
  */
 async function inlineImages(container: HTMLElement): Promise<void> {
   const imgs = Array.from(container.querySelectorAll('img'))
@@ -61,6 +67,11 @@ async function inlineImages(container: HTMLElement): Promise<void> {
 /**
  * Capture a DOM element as a high-quality JPG blob.
  *
+ * The element is cloned into an isolated, fixed-position container appended to
+ * document.body. This guarantees the capture is never clipped by ancestor
+ * transforms, overflow, or viewport boundaries — producing identical output
+ * on local and production environments regardless of screen size.
+ *
  * @param element - The HTMLElement to capture (should have data-document-preview)
  * @returns JPG Blob
  */
@@ -70,33 +81,71 @@ export async function captureElementAsJpg(element: HTMLElement): Promise<Blob> {
     try { await document.fonts.ready } catch {}
   }
 
-  // 2. Wait for all images to load
+  // 2. Wait for all images in the ORIGINAL to load (so the clone has them too)
   await waitForImages(element)
 
-  // 3. Pre-inline images as data URLs (avoids CORS issues on production)
-  await inlineImages(element)
+  // 3. Clone the element into an isolated, top-level container.
+  //    This is the KEY fix: the clone has NO ancestor transform/overflow,
+  //    so html-to-image captures the FULL element at its natural size.
+  const clone = element.cloneNode(true) as HTMLElement
 
-  // 4. Small delay for layout/CSS to settle
-  await new Promise((r) => setTimeout(r, 100))
+  // The clone must render at its natural size — strip any transform that
+  // might have been set on the original, and ensure it's a block element.
+  clone.style.transform = 'none'
+  clone.style.margin = '0'
+  clone.style.position = 'static'
 
-  // 5. Capture with html-to-image
-  const dataUrl = await toJpeg(element, {
-    quality: 0.95,
-    pixelRatio: 2,
-    backgroundColor: '#ffffff',
-    cacheBust: true,
-    skipFonts: false,
-    // Force cross-origin resources to be fetched with CORS
-    fetchRequestInit: { mode: 'cors' as RequestMode },
-  })
+  const wrapper = document.createElement('div')
+  // Position off-screen (left: -99999px) so it's rendered but invisible to
+  // the user. z-index: -1 keeps it behind everything. No overflow constraint
+  // means the clone can be as tall/wide as it needs to be.
+  wrapper.style.cssText = [
+    'position: fixed',
+    'top: 0',
+    'left: -99999px',          // way off-screen, but still rendered
+    'z-index: -1',              // behind everything
+    'pointer-events: none',
+    'background: #ffffff',
+    'opacity: 1',               // must be visible to html-to-image
+    'overflow: visible',        // never clip the clone
+    'width: auto',
+    'height: auto',
+  ].join(';')
 
-  // 6. Convert data URL to Blob
-  const res = await fetch(dataUrl)
-  const blob = await res.blob()
+  wrapper.appendChild(clone)
+  document.body.appendChild(wrapper)
 
-  if (!blob || blob.size === 0) {
-    throw new Error('Generated JPG blob is empty')
+  try {
+    // 4. Inline images on the CLONE as data URLs (avoids CORS issues, and
+    //    doesn't mutate the original DOM)
+    await inlineImages(clone)
+
+    // 5. Small delay for layout/CSS to settle on the clone
+    await new Promise((r) => setTimeout(r, 120))
+
+    // 6. Capture the CLONE (not the original) with html-to-image
+    const dataUrl = await toJpeg(clone, {
+      quality: 0.95,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      cacheBust: true,
+      skipFonts: false,
+      // Force cross-origin resources to be fetched with CORS
+      fetchRequestInit: { mode: 'cors' as RequestMode },
+    })
+
+    // 7. Convert data URL to Blob
+    const res = await fetch(dataUrl)
+    const blob = await res.blob()
+
+    if (!blob || blob.size === 0) {
+      throw new Error('Generated JPG blob is empty')
+    }
+
+    return blob
+  } finally {
+    // 8. Always clean up the wrapper, even if capture failed
+    wrapper.removeChild(clone)
+    document.body.removeChild(wrapper)
   }
-
-  return blob
 }
