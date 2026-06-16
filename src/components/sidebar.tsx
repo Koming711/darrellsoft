@@ -197,6 +197,12 @@ const bottomNavItems = [
     icon: Receipt,
     featureId: 'invoice',
   },
+  {
+    titleKey: 'master_harga_kertas' as TranslationKey,
+    href: '/master-harga-kertas',
+    icon: FileText,
+    featureId: 'master-harga-kertas',
+  },
 ]
 
 interface SidebarProps {
