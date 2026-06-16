@@ -357,3 +357,45 @@ Stage Summary:
 - Key fix: waiting for fonts.ready + inlining images as data URLs before capture
 - All document pages (Invoice, PO, Surat Jalan, Pelunasan, Riwayat) use the same robust capture utility
 - No more direct toJpeg calls — all go through captureElementAsJpg
+
+---
+Task ID: 9
+Agent: Main
+Task: Fix JPG output cut off (kepotong) on production for Invoice, Purchase Order, and Surat Jalan pages — make online match local
+
+Work Log:
+- Investigated root cause of JPG being clipped on production (www.darrellsoft.com) but not local
+- Read capture-jpg.ts (previous fix from Task ID 8 used clone + isolated wrapper, but did NOT pass explicit width/height to toJpeg)
+- Read html-to-image source (es/index.js, es/util.js, es/apply-style.js, es/clone-node.js) to understand dimension flow:
+  - toJpeg → toCanvas → toSvg → getImageSize(node, options)
+  - getImageSize uses options.width/height OR node.clientWidth/clientHeight (via getNodeWidth/getNodeHeight)
+  - nodeToDataURL creates SVG with width/height from getImageSize, and foreignObject at 100%
+  - applyStyle sets width/height on html-to-image's internal clone ONLY if options.width/height are provided
+- Root cause: WITHOUT explicit width/height options, html-to-image relies on clone.clientHeight which can differ between local and production due to:
+  1. Layout timing differences (production has network latency for fonts/CSS/images)
+  2. The clone being positioned off-screen (left: -99999px) — some browsers may not fully lay out off-screen fixed elements in time
+  3. No explicit dimension locking means any layout shift after clone creation can cause the SVG canvas to be smaller than actual content
+- Fix applied to src/lib/capture-jpg.ts (and synced to lib/capture-jpg.ts):
+  1. Added getNaturalDimensions() — reads scrollWidth/scrollHeight (immune to transforms, overflow, viewport clipping) with offsetWidth/offsetHeight + getBoundingClientRect fallbacks
+  2. Compute natural dimensions from the ORIGINAL element BEFORE cloning (most reliable source — original has been laid out for a while)
+  3. Lock dimensions on clone via inline style.width, style.height, style.minHeight, style.maxHeight
+  4. Pass width/height explicitly to toJpeg() — this ALSO triggers applyStyle to set them on html-to-image's internal clone, double-locking the SVG canvas size
+  5. Added waitForLayoutSettle() using double requestAnimationFrame + 120ms delay (more reliable than single setTimeout for production layout timing)
+  6. Re-read dimensions from clone AFTER layout settles, use the LARGER value (in case images pushed content down)
+- Verified locally with Agent Browser:
+  - Logged in as superadmin on localhost:3000
+  - Navigated to /invoice, opened Riwayat tab, clicked Preview on INV/06/26/0002
+  - Inspected [data-document-preview] element: scrollHeight=794px, clientHeight=794px (correct, matches 210mm min-height)
+  - Clicked "Kirim WhatsApp" button — capture completed with NO console errors, WhatsApp opened successfully
+  - JPG was generated and downloaded (desktop fallback path)
+- Lint check: capture-jpg.ts has zero lint errors
+- Dev server compiles cleanly after changes
+- Attempted to deploy to Vercel production — NO VERCEL TOKEN available in current session environment (token from previous session is no longer present). Schema was swapped to postgresql and prisma generate succeeded, but `vercel --prod --token` failed with "The specified token is not valid". Reverted schema back to sqlite for local dev.
+
+Stage Summary:
+- Root cause: html-to-image's auto-dimension via clientHeight is unreliable on production due to layout timing differences; the SVG canvas could be sized smaller than actual content, clipping the bottom (signatures, footer)
+- Fix: explicitly compute natural pixel dimensions from scrollWidth/scrollHeight (transform-immune) and pass them to toJpeg as width/height options + lock on clone
+- This double-locks the capture dimensions: (1) SVG canvas size = explicit width/height, (2) html-to-image's internal clone gets same via applyStyle
+- Local verification passed: capture runs without errors, JPG generates correctly, WhatsApp opens
+- DEPLOYMENT PENDING: needs Vercel token to deploy to www.darrellsoft.com. User must run `vercel --prod` with a valid token, or provide token so the fix can be deployed.
+- Modified files: src/lib/capture-jpg.ts, lib/capture-jpg.ts (synced duplicate)
