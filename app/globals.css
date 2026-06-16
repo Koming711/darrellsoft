@@ -672,7 +672,7 @@
   }
 
   .print-table-8mm tr {
-    height: 4.8mm;
+    height: 8mm;
   }
   .print-table-8mm td,
   .print-table-8mm th {
@@ -898,7 +898,7 @@
 }
 
 .print-mode .print-table-8mm tr {
-  height: 4.8mm;
+  height: 8mm;
 }
 
 .print-mode .print-table-8mm td,
