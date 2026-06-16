@@ -54,6 +54,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { startNavigation } from '@/components/navigation-progress'
 import { cn } from '@/lib/utils'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
@@ -713,7 +714,11 @@ export default function PembukaanPage() {
         {/* Expired Akun Demo - only for demo role */}
         {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
           <button
-            onClick={() => router.push('/checkout')}
+            onClick={() => {
+              startNavigation()
+              window.dispatchEvent(new CustomEvent('navigation-start'))
+              router.push('/checkout')
+            }}
             className="bg-teal-600 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
           >
             <div className="w-10 h-10 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
@@ -802,19 +807,31 @@ export default function PembukaanPage() {
             icon={<History className="w-5 h-5" />}
             label="Penjualan"
             color="bg-amber-50 text-amber-600 border-amber-200"
-            onClick={() => router.push('/riwayat')}
+            onClick={() => {
+              startNavigation()
+              window.dispatchEvent(new CustomEvent('navigation-start'))
+              router.push('/riwayat')
+            }}
           />
           <QuickIcon
             icon={<ShoppingCart className="w-5 h-5" />}
             label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
-            onClick={() => router.push('/riwayat-pembelian')}
+            onClick={() => {
+              startNavigation()
+              window.dispatchEvent(new CustomEvent('navigation-start'))
+              router.push('/riwayat-pembelian')
+            }}
           />
           <QuickIcon
             icon={<Receipt className="w-5 h-5" />}
             label="Invoice"
             color="bg-violet-50 text-violet-600 border-violet-200"
-            onClick={() => router.push('/invoice')}
+            onClick={() => {
+              startNavigation()
+              window.dispatchEvent(new CustomEvent('navigation-start'))
+              router.push('/invoice')
+            }}
           />
         </div>
 

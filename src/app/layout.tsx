@@ -11,6 +11,7 @@ import { ServiceWorkerRegistration } from "@/components/service-worker-registrat
 import { SplashScreen } from "@/components/splash-screen";
 import { InstallPrompt } from "@/components/install-prompt";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
+import { NavigationProgressBar } from "@/components/navigation-progress";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -84,6 +85,7 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <ThemeProvider>
+                <NavigationProgressBar />
                 <SplashScreen>
                   {children}
                 </SplashScreen>
