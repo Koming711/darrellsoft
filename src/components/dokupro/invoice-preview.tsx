@@ -34,12 +34,12 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
   }
 
   return (
-    <div data-document-preview className="doc-preview-root rounded-lg border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
+    <div data-document-preview className="rounded-lg border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-4 print:shadow-none print:border-0 print:p-0 print:mb-0">
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-start gap-3">
+      <div className="flex items-start justify-between mb-3 print:mb-[1mm]">
+        <div className="flex items-start gap-2">
           <div
-            className="print-logo-box flex h-12 w-12 shrink-0 items-center justify-center rounded border-[3px] font-bold text-lg"
+            className="print-logo-box flex h-10 w-10 shrink-0 items-center justify-center rounded border-[3px] font-bold text-sm print:h-7 print:w-7 print:text-[10px]"
             style={{ borderColor: data.company.logo ? 'transparent' : '#000000', color: data.company.logo ? 'inherit' : '#000000' }}
           >
             {data.company.logo ? (
@@ -53,20 +53,20 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             )}
           </div>
           <div className="company-info">
-            <p className="company-name text-[17px] font-bold text-black">
+            <p className="company-name text-[14px] font-bold print:text-[12px] text-black">
               {data.company.nama || ''}
             </p>
             {data.company.alamat && (
-              <p className="text-[12px] text-neutral-600">{data.company.alamat}</p>
+              <p className="text-[10px] print:text-[9px] text-neutral-600">{data.company.alamat}</p>
             )}
             {(data.company.telepon || data.company.email) && (
-              <div className="flex gap-4 text-[12px] text-neutral-600">
+              <div className="flex gap-4 text-[10px] print:text-[9px] text-neutral-600">
                 {data.company.telepon && <span>{data.company.telepon}</span>}
                 {data.company.email && <span>{data.company.email}</span>}
               </div>
             )}
             {(data.company.bankName || data.company.bankName2) && (
-              <div className="text-[10px] text-neutral-600 mt-0.5">
+              <div className="text-[10px] print:text-[9px] text-neutral-600 mt-0.5">
                 {data.company.bankName && (
                   <span>{data.company.bankName} {data.company.bankAccount} a.n. {data.company.bankHolder}</span>
                 )}
@@ -78,18 +78,18 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           </div>
         </div>
         <div className="text-right">
-          <h2 className="text-lg font-bold text-black">INVOICE</h2>
+          <h2 className="text-[14px] font-bold print:text-[11px] text-black">INVOICE</h2>
           {showPelunasanLabel && (
-            <p className="text-[11px] font-bold text-amber-700 tracking-wider">PELUNASAN</p>
+            <p className="text-[11px] font-bold text-amber-700 tracking-wider print:text-[9px]">PELUNASAN</p>
           )}
           {showPelunasanLabel && data.referensiInvoiceNomor && (
-            <p className="text-[9px] text-violet-600 mt-0.5">Ref: {data.referensiInvoiceNomor}</p>
+            <p className="text-[9px] text-violet-600 mt-0.5 print:text-[8px]">Ref: {data.referensiInvoiceNomor}</p>
           )}
           {/* LUNAS stamp */}
           {data.lunas && (
-            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 border-2 border-green-500">
+            <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 border-2 border-green-500 print:bg-green-50 print:border-green-600">
               <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-              <span className="text-[10px] font-black text-green-700 tracking-wider">LUNAS</span>
+              <span className="text-[10px] font-black text-green-700 print:text-green-800 tracking-wider">LUNAS</span>
             </div>
           )}
           {data.tanggalJatuhTempo && !data.lunas && (
@@ -102,34 +102,34 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </div>
 
       {/* Divider */}
-      <div className="print-divider mb-3" />
+      <div className="print-divider mb-2 print:mb-[0.5mm]" />
 
       {/* Client info */}
-      <div className="mb-3 grid grid-cols-2 gap-3">
+      <div className="mb-2 print:mb-[0.5mm] grid grid-cols-2 gap-2 print:gap-1">
         <div className="doc-recipient">
-          <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-neutral-600">
+          <p className="text-[9px] font-semibold uppercase tracking-wider mb-0.5 print:text-[7px] text-neutral-600">
             Kepada Yth :
           </p>
-          <p className="text-xs font-medium text-black">
+          <p className="text-[10px] font-medium print:text-[9px] text-black">
             {data.client.nama || '-'}
           </p>
           {data.client.kontak && (
-            <p className="text-[10px] text-neutral-600">{data.client.kontak}</p>
+            <p className="text-[9px] print:text-[7px] text-neutral-600">{data.client.kontak}</p>
           )}
           {data.client.alamat && (
-            <p className="text-[10px] text-neutral-600">{data.client.alamat}</p>
+            <p className="text-[9px] print:text-[7px] text-neutral-600">{data.client.alamat}</p>
           )}
         </div>
         <div className="text-right">
           <div className="inline-block text-left doc-detail">
-            <p className="text-[10px] text-neutral-600">No. Invoice</p>
-            <p className="text-xs font-medium text-black">{data.nomor}</p>
-            <p className="text-[10px] mt-0.5 text-neutral-600">Tanggal</p>
-            <p className="text-xs text-black">{formatTanggal(data.tanggal)}</p>
+            <p className="text-[9px] print:text-[7px] text-neutral-600">No. Invoice</p>
+            <p className="text-[10px] font-medium print:text-[9px] text-black">{data.nomor}</p>
+            <p className="text-[9px] mt-0.5 print:text-[7px] text-neutral-600">Tanggal</p>
+            <p className="text-[10px] print:text-[9px] text-black">{formatTanggal(data.tanggal)}</p>
             {data.referensi && (
               <>
-                <p className="text-[10px] mt-0.5 text-neutral-600">Ref.</p>
-                <p className="text-xs font-medium text-black">{data.referensi}</p>
+                <p className="text-[9px] mt-0.5 print:text-[7px] text-neutral-600">Ref.</p>
+                <p className="text-[10px] font-medium print:text-[9px] text-black">{data.referensi}</p>
               </>
             )}
           </div>
@@ -138,9 +138,9 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
 
       {/* Payment Info Row */}
       {data.caraPembayaran && (
-        <div className="mb-3 flex items-center gap-3 text-[10px]">
+        <div className="mb-2 print:mb-[0.5mm] flex items-center gap-2 print:gap-1 text-[9px] print:text-[7px]">
           <div className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            <svg className="w-3.5 h-3.5 text-emerald-600 print:w-3 print:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             <span className="text-neutral-600">Cara Bayar:</span>
             <span className="font-semibold text-black uppercase">{data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}</span>
             {data.caraPembayaran === 'giro' && data.tanggalGiro && (
@@ -151,14 +151,14 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       )}
 
       {/* Items Table */}
-      <div className="overflow-x-auto mb-3">
-        <table className="w-full text-[10px] print-table-8mm">
+      <div className="overflow-x-auto mb-2 print:mb-[0.5mm]">
+        <table className="w-full text-[9px] print:text-[7px] print-table-8mm">
           <thead>
             <tr style={{ borderTop: '2px solid #000000', borderBottom: '2px solid #000000' }}>
-              <th className="py-1.5 px-1 text-right font-semibold text-black w-10">Qty</th>
-              <th className="py-1.5 px-1 text-left font-semibold text-black">Nama Barang</th>
-              <th className="py-1.5 px-1 text-right font-semibold text-black w-[80px]">Harga Satuan</th>
-              <th className="py-1.5 px-4 text-right font-semibold text-black w-[105px]">Jumlah</th>
+              <th className="py-1.5 px-1 text-right font-semibold text-black w-10 print:py-0">Qty</th>
+              <th className="py-1.5 px-1 text-left font-semibold text-black print:py-0">Nama Barang</th>
+              <th className="py-1.5 px-1 text-right font-semibold text-black w-[80px] print:py-0">Harga Satuan</th>
+              <th className="py-1.5 px-4 text-right font-semibold text-black w-[105px] print:py-0">Jumlah</th>
             </tr>
           </thead>
           <tbody>
@@ -166,10 +166,10 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               <tr
                 key={item.id}
               >
-                <td className="py-1.5 px-1 text-right" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{i < data.items.length ? item.qty.toLocaleString('id-ID') : ''}</td>
-                <td className="py-1.5 px-1 whitespace-pre-line" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{item.deskripsi || ''}</td>
-                <td className="py-1.5 px-1 text-right" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top', paddingRight: '11px' }}>{i < data.items.length ? formatRupiah(item.harga) : ''}</td>
-                <td className="py-1.5 px-4 text-right font-medium" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>
+                <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{i < data.items.length ? item.qty : ''}</td>
+                <td className="py-1.5 px-1 print:py-0 whitespace-pre-line" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>{item.deskripsi || ''}</td>
+                <td className="py-1.5 px-1 text-right print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top', paddingRight: '11px' }}>{i < data.items.length ? formatRupiah(item.harga) : ''}</td>
+                <td className="py-1.5 px-4 text-right font-medium print:py-0" style={{ color: i < data.items.length ? '#000000' : '#CCCCCC', verticalAlign: 'top' }}>
                   {i < data.items.length ? formatRupiah(item.qty * item.harga) : ''}
                 </td>
               </tr>
@@ -179,8 +179,8 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </div>
 
       {/* Totals */}
-      <div className="mb-3 flex justify-end">
-        <div className="print-totals w-52 space-y-0.5 text-[10px]">
+      <div className="mb-3 print:mb-[0.5mm] flex justify-end">
+        <div className="print-totals w-48 space-y-0.5 text-[9px] print:text-[9px] print:w-44">
           <div className="flex justify-between text-neutral-600">
             <span>Subtotal</span>
             <span>{formatRupiah(subtotal)}</span>
@@ -193,10 +193,10 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           )}
           <div
             className="print-total-border flex justify-between pt-0.5 font-bold text-black"
-            style={{ fontSize: '12px' }}
+            style={{ fontSize: '10px' }}
           >
             <span>TOTAL</span>
-            <span style={{ fontSize: '13px' }}>{formatRupiah(total)}</span>
+            <span style={{ fontSize: '11px' }}>{formatRupiah(total)}</span>
           </div>
           {dpPercent > 0 && (
             <>
@@ -206,10 +206,10 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               </div>
               <div
                 className="print-sisa-border flex justify-between pt-0.5 font-bold text-black"
-                style={{ fontSize: '12px' }}
+                style={{ fontSize: '10px' }}
               >
                 <span>SISA PEMBAYARAN</span>
-                <span style={{ fontSize: '13px' }}>{formatRupiah(sisa)}</span>
+                <span style={{ fontSize: '11px' }}>{formatRupiah(sisa)}</span>
               </div>
             </>
           )}
@@ -217,33 +217,33 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </div>
 
       {/* Terbilang */}
-      <div className="mb-2">
-        <p className="text-[9px] italic text-neutral-600">
+      <div className="mb-1 print:mb-[0.3mm]">
+        <p className="text-[8px] italic text-neutral-600 print:text-[7px]">
           Terbilang: {terbilang(dpPercent > 0 ? sisa : total)} rupiah
         </p>
       </div>
 
       {/* Notes */}
       {data.catatan && (
-        <div className="mb-3 rounded p-2 text-[11px]" style={{ backgroundColor: '#F5F5F5', color: '#000000' }}>
+        <div className="mb-3 rounded p-2 text-[11px] print:text-[9px] print:p-1 print:mb-[0.5mm]" style={{ backgroundColor: '#F5F5F5', color: '#000000' }}>
           <p className="font-semibold mb-0.5 text-black">Catatan:</p>
           <p className="whitespace-pre-wrap">{data.catatan}</p>
         </div>
       )}
 
       {/* Signatures */}
-      <div className="print-sig-grid grid grid-cols-2 gap-6 mt-3 text-[12px] text-center">
+      <div className="print-sig-grid grid grid-cols-2 gap-4 mt-2 text-[10px] text-center print:text-[8px] print:mt-[0.5mm] print:gap-2">
         <div>
-          <p className="font-semibold mb-4 text-black">Diterima Oleh</p>
+          <p className="font-semibold mb-3 print:mb-2 text-black">Diterima Oleh</p>
           <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
         <div>
-          <p className="font-semibold mb-4 text-black">Hormat Kami</p>
+          <p className="font-semibold mb-3 print:mb-2 text-black">Hormat Kami</p>
           <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
       </div>
 
-      <p className="text-[8px] text-center mt-4 italic text-neutral-600">
+      <p className="text-[7px] text-center mt-2 italic print:text-[6px] print:mt-[1mm] text-neutral-600">
         Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.
       </p>
     </div>

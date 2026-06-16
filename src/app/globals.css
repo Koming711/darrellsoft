@@ -85,10 +85,10 @@
   --sidebar-ring: #a8a29e;
   --app-sidebar-bg: #1e40af;
   --app-sidebar-border: rgba(255,255,255,0.12);
-  --app-sidebar-active-bg: rgba(255,255,255,0.15);
-  --app-sidebar-active-text: #ffffff;
   --app-sidebar-text: #f1f5f9;
   --app-sidebar-text-muted: #93c5fd;
+  --app-sidebar-active-bg: rgba(255,255,255,0.15);
+  --app-sidebar-active-text: #ffffff;
   --app-content-bg: #f8fafc;
   --app-banner-bg: #ffffff;
   --app-banner-text: #1e293b;
@@ -133,7 +133,7 @@
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #78716c;
   --app-sidebar-bg: #1e3a8a;
-  --app-sidebar-border: rgba(255,255,255,0.08);
+  --app-sidebar-border: rgba(255, 255, 255, 0.08);
   --app-sidebar-text: #f1f5f9;
   --app-sidebar-text-muted: #93c5fd;
   --app-sidebar-active-bg: rgba(255,255,255,0.12);
@@ -405,6 +405,93 @@
   transform: scale(0.94);
 }
 
+/* ===== Landing Page Animation Effects ===== */
+
+/* Ripple effect on button click */
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.35) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0);
+  transition: none;
+  pointer-events: none;
+  z-index: 10;
+}
+.ripple-btn:active::after {
+  opacity: 1;
+  transform: scale(2.5);
+  transition: transform 0.5s ease-out, opacity 0.6s ease-out;
+}
+
+/* Dark button ripple */
+.ripple-btn-dark::after {
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(0,0,0,0.15) 0%, transparent 70%);
+}
+
+/* Card tap effect */
+.card-tap {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+.card-tap:active {
+  transform: scale(0.98) translateY(2px);
+}
+
+/* Nav link hover slide effect */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(to right, #f97316, #f59e0b);
+  transition: width 0.3s ease, left 0.3s ease;
+  border-radius: 1px;
+}
+.nav-link:hover::after,
+.nav-link:active::after {
+  width: 100%;
+  left: 0;
+}
+
+/* FAQ card pulse on tap */
+.faq-tap {
+  transition: transform 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.faq-tap:active {
+  transform: scale(0.985);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  border-color: #fb923c;
+}
+
+/* Advantage card slide effect */
+.advantage-tap {
+  transition: transform 0.25s ease, box-shadow 0.3s ease;
+}
+.advantage-tap:active {
+  transform: translateX(4px) scale(0.99);
+}
+
+/* CTA button glow pulse on hover */
+.cta-glow {
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+.cta-glow:hover {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.4), 0 0 60px rgba(249, 115, 22, 0.15);
+}
+.cta-glow:active {
+  transform: scale(0.94);
+}
+
 /* ===== DokuPro Document Preview & Print Styles ===== */
 
 /* A5 Preview on screen — scale down to fit column */
@@ -427,16 +514,6 @@
   font-size: 10pt;
 }
 
-/* ===== Document preview styles (screen + print unified) ===== */
-.a5-preview-container .doc-preview-root,
-.doc-preview-root {
-  padding: 6mm;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  background: white;
-}
-
 .a5-preview-container h2 {
   font-size: 12pt !important;
 }
@@ -450,15 +527,15 @@
 .a5-preview-container span {
   font-size: inherit !important;
 }
-.a5-preview-container .doc-detail p,
-.a5-preview-container .doc-detail span {
+.doc-detail p,
+.doc-detail span {
   font-size: 10pt !important;
 }
-.a5-preview-container .doc-detail {
+.doc-detail {
   padding-right: 1cm;
 }
-.a5-preview-container .doc-recipient p,
-.a5-preview-container .doc-recipient span {
+.doc-recipient p,
+.doc-recipient span {
   font-size: 10pt !important;
 }
 .a5-preview-container .print-logo-box {
@@ -474,7 +551,7 @@
   font-size: 13px !important;
 }
 .a5-preview-container .print-sig-grid > div > p {
-  margin-bottom: 3rem !important;
+  margin-bottom: 5rem !important;
   font-size: 10pt !important;
 }
 .a5-preview-container .print-sig-grid {
@@ -509,7 +586,7 @@
 @media print {
   @page {
     size: 148mm 210mm;
-    margin: 12mm;
+    margin: 8mm;
   }
 
   html, body {
@@ -518,7 +595,7 @@
     print-color-adjust: exact;
     margin: 0 !important;
     padding: 0 !important;
-    font-size: 10pt !important;
+    font-size: 8pt !important;
     height: 100% !important;
     overflow: hidden !important;
   }
@@ -572,7 +649,7 @@
   }
 
   #document-preview .a5-preview-scaler > div {
-    padding: 0 !important;
+    padding: 0 0 1mm 0 !important;
   }
 
   #document-preview > div > div:last-child,
@@ -594,22 +671,14 @@
     page-break-before: avoid !important;
   }
 
-  /* ===== Print: match preview exactly ===== */
-  .doc-preview-root {
-    padding: 0 !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    margin-bottom: 0 !important;
-  }
-
   .print-table-8mm tr {
-    height: 7.5mm;
+    height: 4.8mm;
   }
   .print-table-8mm td,
   .print-table-8mm th {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
+    line-height: 1.2 !important;
     vertical-align: middle;
     border-bottom: none !important;
   }
@@ -619,7 +688,7 @@
   }
 
   #document-preview .print-sig-grid > div > p {
-    margin-bottom: 3rem !important;
+    margin-bottom: 1.5rem !important;
   }
 
   #document-preview p,
@@ -672,21 +741,21 @@
   }
 
   #document-preview .company-info .company-name {
-    font-size: 12pt !important;
+    font-size: 9pt !important;
   }
   #document-preview .company-info p,
   #document-preview .company-info span {
-    font-size: 8pt !important;
+    font-size: 6.5pt !important;
   }
 
   #document-preview h2 {
-    font-size: 12pt !important;
+    font-size: 9pt !important;
   }
   #document-preview table {
-    font-size: 10pt !important;
+    font-size: 7.5pt !important;
   }
   #document-preview table thead th {
-    font-size: 10pt !important;
+    font-size: 7.5pt !important;
   }
   #document-preview p,
   #document-preview span {
@@ -694,30 +763,33 @@
   }
   #document-preview .doc-detail p,
   #document-preview .doc-detail span {
-    font-size: 10pt !important;
+    font-size: 7.5pt !important;
   }
   #document-preview .doc-detail {
     padding-right: 1cm !important;
   }
   #document-preview .doc-recipient p,
   #document-preview .doc-recipient span {
-    font-size: 10pt !important;
+    font-size: 7.5pt !important;
   }
   #document-preview .print-logo-box {
-    height: 28px !important;
-    width: 28px !important;
-    font-size: 14pt !important;
+    height: 22px !important;
+    width: 22px !important;
+    font-size: 10pt !important;
   }
-
   #document-preview .print-totals {
-    font-size: 13px !important;
+    font-size: 7.5pt !important;
   }
-
-  #document-preview .print-sig-grid {
-    gap: 1rem !important;
+  #document-preview .print-totals .print-total-border,
+  #document-preview .print-totals .print-sisa-border {
+    font-size: 8pt !important;
   }
-  #document-preview .print-sig-grid > div > div {
-    width: 80% !important;
+  #document-preview .print-totals .print-total-border span,
+  #document-preview .print-totals .print-sisa-border span {
+    font-size: 8.5pt !important;
+  }
+  #document-preview .print-totals > div {
+    line-height: 1.3 !important;
   }
 }
 
@@ -785,29 +857,29 @@
 }
 
 .print-mode .company-info .company-name {
-  font-size: 12pt !important;
+  font-size: 9pt !important;
 }
 
 .print-mode .company-info p,
 .print-mode .company-info span {
-  font-size: 8pt !important;
+  font-size: 6.5pt !important;
 }
 
 .print-mode h2 {
-  font-size: 12pt !important;
+  font-size: 9pt !important;
 }
 
 .print-mode table {
-  font-size: 10pt !important;
+  font-size: 7.5pt !important;
 }
 
 .print-mode table thead th {
-  font-size: 10pt !important;
+  font-size: 7.5pt !important;
 }
 
 .print-mode .doc-detail p,
 .print-mode .doc-detail span {
-  font-size: 10pt !important;
+  font-size: 7.5pt !important;
 }
 
 .print-mode .doc-detail {
@@ -816,37 +888,47 @@
 
 .print-mode .doc-recipient p,
 .print-mode .doc-recipient span {
-  font-size: 10pt !important;
+  font-size: 7.5pt !important;
 }
 
 .print-mode .print-logo-box {
-  height: 28px !important;
-  width: 28px !important;
-  font-size: 14pt !important;
+  height: 22px !important;
+  width: 22px !important;
+  font-size: 10pt !important;
 }
 
 .print-mode .print-table-8mm tr {
-  height: 7.5mm;
+  height: 4.8mm;
 }
 
 .print-mode .print-table-8mm td,
 .print-mode .print-table-8mm th {
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+  line-height: 1.2 !important;
   vertical-align: middle;
   border-bottom: none !important;
 }
 
 .print-mode .print-sig-grid > div > p {
-  margin-bottom: 2rem !important;
+  margin-bottom: 1.5rem !important;
 }
 
 .print-mode .print-totals {
-  font-size: 13px !important;
+  font-size: 7.5pt !important;
 }
 
-/* ===== Mobile Bottom Nav Safe Area ===== */
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+.print-mode .print-totals .print-total-border,
+.print-mode .print-totals .print-sisa-border {
+  font-size: 8pt !important;
+}
+
+.print-mode .print-totals .print-total-border span,
+.print-mode .print-totals .print-sisa-border span {
+  font-size: 8.5pt !important;
+}
+
+.print-mode .print-totals > div {
+  line-height: 1.3 !important;
 }
 
