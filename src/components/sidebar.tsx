@@ -251,14 +251,14 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
           // On desktop (lg+): always visible
           "lg:translate-x-0"
         )}
-        style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{ backgroundColor: '#1e40af', borderColor: 'rgba(255,255,255,0.12)' }}
       >
         {/* Close button - only on mobile */}
         <div className="flex justify-center pt-2 lg:hidden">
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg transition-colors" style={{ color: '#94a3b8' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+            className="p-1.5 rounded-lg transition-colors" style={{ color: '#93c5fd' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <X className="w-5 h-5" />
@@ -285,7 +285,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
             <div key={item.href}>
               {showSection && (
                 <div className="my-2 mx-2">
-                  <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}></div>
+                  <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.12)' }}></div>
                 </div>
               )}
               <Link
@@ -299,7 +299,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                     ? 'sidebar-active'
                     : 'hover:bg-white/10'
                 )}
-                style={isActive(item.href) ? { backgroundColor: 'rgba(255,255,255,0.12)', color: '#38bdf8' } : { color: '#e2e8f0' }}
+                style={isActive(item.href) ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff' } : { color: '#f1f5f9' }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 {item.isPro && (
@@ -312,7 +312,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </nav>
 
         {/* Logout */}
-        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <div className="py-2 border-t w-full flex justify-center" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
           <button
             onClick={async () => {
               if (onLogout) {
@@ -321,7 +321,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               router.push('/')
             }}
             title={t('keluar')}
-            className="p-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+            className="p-2 rounded-lg text-red-400 hover:bg-white/10 transition-colors"
           >
             <LogOut className="w-5 h-5" />
           </button>
