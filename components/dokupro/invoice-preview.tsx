@@ -225,7 +225,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               </tr>
               <tr className="print-sisa-border" style={{ borderTop: '1px solid #000' }}>
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9pt' }}>SISA PEMBAYARAN</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9pt', whiteSpace: 'nowrap' }}>SISA PEMBAYARAN</td>
                 <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9.5pt' }}>{formatRupiah(sisa)}</td>
               </tr>
             </>
