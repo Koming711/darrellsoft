@@ -99,9 +99,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           {showPelunasanLabel && (
             <p style={{ fontSize: '8pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>PELUNASAN</p>
           )}
-          {showPelunasanLabel && data.referensiInvoiceNomor && (
-            <p style={{ fontSize: '7pt', color: '#7c3aed', margin: '0.3mm 0 0' }}>Ref: {data.referensiInvoiceNomor}</p>
-          )}
+
           {data.lunas && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '1mm',
@@ -148,6 +146,12 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.nomor}</p>
             <p style={{ fontSize: '7.5pt', color: '#666', margin: '0.5mm 0 0' }}>Tanggal</p>
             <p style={{ fontSize: '9pt', color: '#000', margin: 0 }}>{formatTanggal(data.tanggal)}</p>
+            {showPelunasanLabel && data.referensiInvoiceNomor && (
+              <>
+                <p style={{ fontSize: '7.5pt', color: '#666', margin: '0.5mm 0 0' }}>Ref.</p>
+                <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.referensiInvoiceNomor}</p>
+              </>
+            )}
             {data.referensi && (
               <>
                 <p style={{ fontSize: '7.5pt', color: '#666', margin: '0.5mm 0 0' }}>Ref.</p>
