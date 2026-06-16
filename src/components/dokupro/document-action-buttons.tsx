@@ -13,16 +13,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Save, RotateCcw, Printer, AlertTriangle, FileDown, Loader2 } from 'lucide-react';
+import { Save, RotateCcw, Printer, AlertTriangle, ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '@/lib/auth';
-import type { DocumentType, InvoiceData, PurchaseOrderData, SuratJalanData } from '@/lib/types';
+import type { DocumentType } from '@/lib/types';
 import {
-  generateInvoicePdf,
-  generatePurchaseOrderPdf,
-  generateSuratJalanPdf,
-  generatePdfFromElement,
-  sharePdfViaWhatsApp,
+  generateJpgFromElement,
+  shareJpgViaWhatsApp,
 } from '@/lib/generate-pdf';
 
 interface DocumentActionButtonsProps {
@@ -189,51 +186,27 @@ export function DocumentActionButtons({
     toast.success(`Dokumen ${documentLabel.toLowerCase()} direset`);
   };
 
-  const handlePdfWhatsApp = async () => {
+  const handleJpgWhatsApp = async () => {
     setGeneratingPdf(true);
     try {
-      const fileName = `${docType}-${Date.now()}.pdf`;
-      let blob: Blob;
-
-      if (docType === 'invoice') {
-        // For invoice: capture the preview DOM element to match print output exactly
-        const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
-        if (previewEl) {
-          blob = await generatePdfFromElement(previewEl);
-        } else {
-          // Fallback to programmatic PDF if element not found
-          blob = await generateInvoicePdf(currentData as unknown as InvoiceData);
-        }
-      } else if (docType === 'purchase-order') {
-        // Try DOM element capture first for A5-fitted output matching print
-        const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
-        if (previewEl) {
-          blob = await generatePdfFromElement(previewEl);
-        } else {
-          blob = await generatePurchaseOrderPdf(currentData as unknown as PurchaseOrderData);
-        }
-      } else if (docType === 'surat-jalan') {
-        // Try DOM element capture first for A5-fitted output matching print
-        const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
-        if (previewEl) {
-          blob = await generatePdfFromElement(previewEl);
-        } else {
-          blob = await generateSuratJalanPdf(currentData as unknown as SuratJalanData);
-        }
-      } else {
-        toast.error('Tipe dokumen tidak didukung untuk PDF');
+      const fileName = `${docType}-${Date.now()}.jpg`;
+      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+      if (!previewEl) {
+        toast.error('Pratinjau tidak ditemukan');
         return;
       }
+
+      const blob = await generateJpgFromElement(previewEl);
 
       if (!blob || !(blob instanceof Blob)) {
-        toast.error('Gagal membuat PDF - blob tidak valid');
+        toast.error('Gagal membuat JPG - blob tidak valid');
         return;
       }
 
-      await sharePdfViaWhatsApp(blob, fileName, documentLabel, waWindowRef);
+      await shareJpgViaWhatsApp(blob, fileName, documentLabel, waWindowRef);
     } catch (err) {
-      console.error('PDF generation error:', err);
-      toast.error('Gagal membuat PDF. Coba lagi atau gunakan Cetak.');
+      console.error('JPG generation error:', err);
+      toast.error('Gagal membuat JPG. Coba lagi atau gunakan Cetak.');
     } finally {
       setGeneratingPdf(false);
     }
@@ -270,19 +243,19 @@ export function DocumentActionButtons({
         </Button>
         <Button
           size="sm"
-          onClick={handlePdfWhatsApp}
+          onClick={handleJpgWhatsApp}
           disabled={generatingPdf || dataEmpty}
           className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {generatingPdf ? (
             <>
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              PDF...
+              JPG...
             </>
           ) : (
             <>
-              <FileDown className="mr-1.5 h-3.5 w-3.5" />
-              PDF
+              <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+              JPG
             </>
           )}
         </Button>
@@ -357,19 +330,19 @@ export function DocumentActionButtons({
         </Button>
         <Button
           size="sm"
-          onClick={handlePdfWhatsApp}
+          onClick={handleJpgWhatsApp}
           disabled={generatingPdf || dataEmpty}
           className="bg-green-600 hover:bg-green-700 disabled:opacity-50 h-9"
         >
           {generatingPdf ? (
             <>
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              PDF...
+              JPG...
             </>
           ) : (
             <>
-              <FileDown className="mr-1.5 h-3.5 w-3.5" />
-              PDF
+              <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+              JPG
             </>
           )}
         </Button>
