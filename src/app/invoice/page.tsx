@@ -44,7 +44,8 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
-import { generateJpgFromElement, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
+import { toJpeg } from 'html-to-image'
+import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
 import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
@@ -352,28 +353,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const scaleWrapper = previewEl.closest('[style*="transform"]') as HTMLElement
-        previewEl.classList.add('print-mode')
-        const origTransform = previewEl.style.transform
-        const origTransformOrigin = previewEl.style.transformOrigin
-        previewEl.style.transform = 'none'
-        previewEl.style.transformOrigin = 'top left'
-        let scaleWrapperOrigTransform = ''
-        if (scaleWrapper) {
-          scaleWrapperOrigTransform = scaleWrapper.style.transform
-          scaleWrapper.style.transform = 'none'
-        }
-        try {
-          const jpgBlob = await generateJpgFromElement(previewEl)
-          const fileName = `Invoice_${invData.nomor || 'draft'}.jpg`
-          await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
-          toast.success('Gambar dikirim ke WhatsApp')
-        } finally {
-          previewEl.classList.remove('print-mode')
-          previewEl.style.transform = origTransform
-          previewEl.style.transformOrigin = origTransformOrigin
-          if (scaleWrapper) scaleWrapper.style.transform = scaleWrapperOrigTransform
-        }
+        const dataUrl = await toJpeg(previewEl, {
+          quality: 0.95,
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+        })
+        const res = await fetch(dataUrl)
+        const jpgBlob = await res.blob()
+        const fileName = `Invoice_${invData.nomor || 'draft'}.jpg`
+        await shareJpgViaWhatsApp(jpgBlob, fileName, `Invoice ${invData.nomor}`)
+        toast.success('Gambar dikirim ke WhatsApp')
       } else {
         toast.error('Preview tidak ditemukan')
       }

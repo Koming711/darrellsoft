@@ -17,10 +17,8 @@ import { Save, RotateCcw, Printer, AlertTriangle, ImageIcon, Loader2 } from 'luc
 import { toast } from 'sonner';
 import { getAuthHeaders } from '@/lib/auth';
 import type { DocumentType } from '@/lib/types';
-import {
-  generateJpgFromElement,
-  shareJpgViaWhatsApp,
-} from '@/lib/generate-pdf';
+import { toJpeg } from 'html-to-image';
+import { shareJpgViaWhatsApp } from '@/lib/generate-pdf';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -196,7 +194,16 @@ export function DocumentActionButtons({
         return;
       }
 
-      const blob = await generateJpgFromElement(previewEl);
+      // Use same toJpeg approach as invoice pelunasan
+      const dataUrl = await toJpeg(previewEl, {
+        quality: 0.95,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      });
+
+      // Convert data URL to Blob
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
 
       if (!blob || !(blob instanceof Blob)) {
         toast.error('Gagal membuat JPG - blob tidak valid');

@@ -33,7 +33,8 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
-import { generateJpgFromElement, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
+import { toJpeg } from 'html-to-image'
+import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
 import { useDokuproStore } from '@/lib/store'
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
@@ -215,7 +216,13 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
       // Capture the preview DOM element as A5-sized JPG (matches print output)
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const jpgBlob = await generateJpgFromElement(previewEl)
+        const dataUrl = await toJpeg(previewEl, {
+          quality: 0.95,
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+        })
+        const res = await fetch(dataUrl)
+        const jpgBlob = await res.blob()
         const fileName = `PO_${poData.nomor || 'draft'}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')
@@ -236,7 +243,13 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const jpgBlob = await generateJpgFromElement(previewEl)
+        const dataUrl = await toJpeg(previewEl, {
+          quality: 0.95,
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+        })
+        const res = await fetch(dataUrl)
+        const jpgBlob = await res.blob()
         const fileName = `PO_${poData.nomor || 'draft'}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('JPG dikirim ke WhatsApp Business')
