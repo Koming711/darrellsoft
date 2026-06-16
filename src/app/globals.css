@@ -612,9 +612,12 @@
     print-color-adjust: exact !important;
   }
 
-  /* Table row heights */
-  .print-table-8mm tr {
+  /* Table row heights — only item rows, NOT total rows */
+  .print-table-8mm tr:not(.total-row) {
     height: 8mm;
+  }
+  .print-table-8mm tr.total-row {
+    height: auto;
   }
   .print-table-8mm td,
   .print-table-8mm th {
@@ -641,8 +644,11 @@
   print-color-adjust: exact !important;
 }
 
-.print-mode .print-table-8mm tr {
+.print-mode .print-table-8mm tr:not(.total-row) {
   height: 8mm;
+}
+.print-mode .print-table-8mm tr.total-row {
+  height: auto;
 }
 
 .print-mode .print-table-8mm td,
