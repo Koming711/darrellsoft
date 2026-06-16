@@ -399,3 +399,26 @@ Stage Summary:
 - Local verification passed: capture runs without errors, JPG generates correctly, WhatsApp opens
 - DEPLOYMENT PENDING: needs Vercel token to deploy to www.darrellsoft.com. User must run `vercel --prod` with a valid token, or provide token so the fix can be deployed.
 - Modified files: src/lib/capture-jpg.ts, lib/capture-jpg.ts (synced duplicate)
+
+---
+Task ID: 10
+Agent: Main
+Task: Deploy JPG kepotong fix to www.darrellsoft.com (user provided Vercel token)
+
+Work Log:
+- User provided Vercel token via chat
+- Swapped Prisma schema from sqlite to postgresql
+- Ran `npx prisma generate` for postgresql client
+- Deployed to Vercel production with `npx vercel --prod --yes --token <provided>`
+- Build completed in ~43s, deployment completed in 1m
+- Aliased to https://www.darrellsoft.com
+- Reverted Prisma schema back to sqlite for local development
+- Regenerated sqlite Prisma client
+- Verified production site: HTTP 200, 0.29s response time
+- Verified dev server still running cleanly after schema revert
+
+Stage Summary:
+- Fix for JPG kepotong (clipping) issue is now LIVE on www.darrellsoft.com
+- The captureElementAsJpg() utility now passes explicit width/height to toJpeg, computed from scrollWidth/scrollHeight (transform-immune), eliminating the production-only clipping
+- Production URL: https://www.darrellsoft.com (deployment successful)
+- Local dev schema reverted to sqlite
