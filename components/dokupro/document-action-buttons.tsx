@@ -224,11 +224,11 @@ export function DocumentActionButtons({
       } else if (result.status === 'cancelled') {
         // User cancelled — silent
       } else if (result.status === 'downloaded') {
-        toast.success('JPG diunduh. Lampirkan file ke WhatsApp manual.', {
-          description: 'WhatsApp Web telah dibuka dengan pesan siap dikirim.',
+        toast.success(`${fileName} tersimpan ke perangkat`, {
+          description: 'File JPG telah diunduh ke folder Downloads.',
         });
       } else {
-        toast.error(result.error || 'Gagal membagikan JPG');
+        toast.error(result.error || 'Gagal memproses JPG');
       }
     } catch (err) {
       console.error('JPG generation error:', err);
