@@ -1,49 +1,44 @@
 /**
- * No-API JPG sharing to WhatsApp.
+ * JPG sharing / download utility.
  *
- * Strategy (no Fonnte / no API key needed):
- *   1. Try Web Share API with files — works on mobile AND modern desktop
- *      (Chrome 93+, Edge, Safari). Opens the OS share sheet so the user
- *      picks WhatsApp (Desktop or mobile app) and the JPG is auto-attached.
- *   2. Fallback: download the JPG locally + open WhatsApp Web (wa.me) with
- *      the phone number and caption pre-filled. The user attaches the
- *      downloaded file manually (one extra step, but works everywhere).
+ * Behavior:
+ *   - Mobile (Android/iOS): use Web Share API — opens WhatsApp app with the
+ *     JPG auto-attached. No API needed.
+ *   - Desktop: directly download the JPG file to the user's Downloads folder
+ *     (or desktop, depending on browser settings). No WhatsApp Web, no share
+ *     sheet, no API. User can then attach the file manually wherever they want.
  *
- * This replaces the previous Fonnte-based direct-send dialog on desktop.
+ * This is the simplest, most reliable approach with zero configuration.
  */
 
 export interface ShareJpgOptions {
-  /** JPG blob to share */
+  /** JPG blob to share / download */
   blob: Blob
   /** File name e.g. "INV-06-26-0002.jpg" */
   fileName: string
-  /** Human label for the caption e.g. "Invoice INV/06/26/0002" */
+  /** Human label for the caption (mobile only) e.g. "Invoice INV/06/26/0002" */
   documentLabel: string
-  /** Optional phone number (digits, may start with 0 / + / 62) */
+  /** Optional phone number (unused on desktop, used for mobile caption) */
   phone?: string
 }
 
 /**
- * Normalize a phone number to international digits (62...) for wa.me links.
- * Returns empty string if input is empty/invalid.
+ * Detect mobile platform (Android / iOS).
  */
-function normalizePhone(raw: string): string {
-  let p = raw.replace(/[\s\-()+]/g, '')
-  if (!p) return ''
-  if (p.startsWith('62')) return p
-  if (p.startsWith('0')) return '62' + p.substring(1)
-  // Assume local number without leading 0
-  return '62' + p
+function isMobile(): boolean {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 }
 
 /**
- * Trigger a browser download of the JPG blob.
+ * Trigger a browser download of the JPG blob to the user's device.
+ * On desktop this saves to the Downloads folder (or Desktop if configured).
  */
 function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = fileName
+  // Ensure the link is in the DOM so the click works in all browsers
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -51,48 +46,27 @@ function downloadBlob(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/**
- * Open WhatsApp Web / app with a pre-filled phone number and text.
- * Uses https://wa.me/<phone>?text=<msg> which works on both desktop
- * (opens WhatsApp Web) and mobile (opens WhatsApp app).
- */
-function openWhatsAppWeb(phone: string, message: string): void {
-  const encoded = encodeURIComponent(message)
-  const normalized = normalizePhone(phone)
-  const url = normalized
-    ? `https://wa.me/${normalized}?text=${encoded}`
-    : `https://wa.me/?text=${encoded}`
-  window.open(url, '_blank')
-}
-
 export type ShareJpgResult =
-  | { status: 'shared' }                       // Web Share API succeeded
-  | { status: 'downloaded'; phone: string }    // Downloaded + WhatsApp Web opened
-  | { status: 'cancelled' }                    // User cancelled Web Share
+  | { status: 'shared' }                       // Web Share API succeeded (mobile)
+  | { status: 'downloaded' }                   // File downloaded to device (desktop)
+  | { status: 'cancelled' }                    // User cancelled Web Share (mobile)
   | { status: 'error'; error: string }
 
 /**
- * Share a JPG to WhatsApp without using any API.
- *
- * Tries Web Share API first (auto-attaches the file on supported browsers),
- * then falls back to downloading the file + opening WhatsApp Web with the
- * phone and caption pre-filled.
+ * Handle a JPG blob based on platform:
+ *   - Mobile: share to WhatsApp via Web Share API (file auto-attached)
+ *   - Desktop: download the JPG file directly to the user's device
  */
 export async function shareJpgToWhatsApp({
   blob,
   fileName,
   documentLabel,
-  phone = '',
 }: ShareJpgOptions): Promise<ShareJpgResult> {
-  const caption = `${documentLabel} - www.darrellsoft.com`
-
-  // 1. Try Web Share API with files.
-  //    Works on: mobile (all), desktop Chrome 93+, Edge, Safari 14+.
-  //    Opens the native OS share sheet — user picks WhatsApp, file is
-  //    auto-attached with the caption. No API needed.
-  if (navigator.share && navigator.canShare) {
+  // Mobile: use Web Share API to send the file directly to WhatsApp app
+  if (isMobile() && navigator.share && navigator.canShare) {
     const file = new File([blob], fileName, { type: 'image/jpeg' })
     if (navigator.canShare({ files: [file] })) {
+      const caption = `${documentLabel} - www.darrellsoft.com`
       try {
         await navigator.share({
           files: [file],
@@ -104,14 +78,12 @@ export async function shareJpgToWhatsApp({
         if (err instanceof Error && err.name === 'AbortError') {
           return { status: 'cancelled' }
         }
-        // Other errors → fall through to download fallback
+        // Other errors → fall through to download
       }
     }
   }
 
-  // 2. Fallback: download the JPG + open WhatsApp Web with phone + caption.
-  //    User manually attaches the downloaded file in WhatsApp.
+  // Desktop (or mobile without Web Share): download the JPG file directly
   downloadBlob(blob, fileName)
-  openWhatsAppWeb(phone, caption)
-  return { status: 'downloaded', phone }
+  return { status: 'downloaded' }
 }

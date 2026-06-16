@@ -500,3 +500,33 @@ Stage Summary:
 - Mobile flow unchanged: Web Share API shares file directly to WhatsApp app
 - Removed dependency on wa_api_key setting for JPG sharing (PDF sharing still uses API if configured)
 - The WhatsAppJpgDialog component and /api/whatsapp/send-jpg route are no longer used by the UI but remain in codebase (can be removed later if desired)
+
+---
+Task ID: 13
+Agent: Main
+Task: Desktop JPG button → directly save file to device (no WhatsApp Web, no share sheet, no API)
+
+Work Log:
+- User clarified: on desktop, clicking JPG should just save the file directly to the device (Downloads folder)
+- Previous implementation (Task 12) used Web Share API + WhatsApp Web fallback which opened extra tabs/sheets
+- Updated src/lib/share-jpg.ts to simplify desktop behavior:
+  - Mobile (Android/iOS): keep Web Share API (share file to WhatsApp app with caption)
+  - Desktop: directly download the JPG file to the user's Downloads folder — NO share sheet, NO WhatsApp Web, NO API
+- Updated toast messages in all handlers to reflect new behavior:
+  - "shared" (mobile): "{documentLabel} dibagikan ke WhatsApp"
+  - "downloaded" (desktop): "{fileName} tersimpan ke perangkat" / "File JPG telah diunduh ke folder Downloads."
+- Synced all changes to root app/ and components/ directories
+- Browser test (localhost:3000/invoice):
+  - Logged in as superadmin → Invoice → Riwayat → Preview INV/06/26/0002
+  - Clicked "Kirim WhatsApp" → JPG generated and downloaded directly
+  - Toast appeared: "INV-06-26-0002.jpg tersimpan ke perangkat" / "File JPG telah diunduh ke folder Downloads."
+  - NO new tab opened (confirmed only 1 tab in browser)
+  - NO share sheet appeared
+  - NO API calls to /api/whatsapp/send-jpg in dev log
+  - Zero console errors, zero page errors
+
+Stage Summary:
+- Desktop behavior now: click JPG → file saved directly to Downloads folder. Simple, no friction, no API.
+- Mobile behavior unchanged: Web Share API shares file to WhatsApp app
+- No WhatsApp Web popup, no share sheet, no API key needed
+- Files modified: src/lib/share-jpg.ts, src/components/dokupro/document-action-buttons.tsx, src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx, src/components/dokupro/invoice-pelunasan-editor.tsx (+ synced duplicates in root app/ and components/)

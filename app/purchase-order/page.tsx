@@ -232,11 +232,11 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
         } else if (result.status === 'cancelled') {
           // silent
         } else if (result.status === 'downloaded') {
-          toast.success('JPG diunduh. Lampirkan file ke WhatsApp manual.', {
-            description: 'WhatsApp Web telah dibuka dengan pesan siap dikirim.',
+          toast.success(`${fileName} tersimpan ke perangkat`, {
+            description: 'File JPG telah diunduh ke folder Downloads.',
           })
         } else {
-          toast.error(result.error || 'Gagal mengirim gambar')
+          toast.error(result.error || 'Gagal memproses JPG')
         }
       } else {
         toast.error('Preview tidak ditemukan')
