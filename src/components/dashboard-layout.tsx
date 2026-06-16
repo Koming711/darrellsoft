@@ -22,23 +22,48 @@ interface CachedSession {
   cachedAt: number
 }
 let _sessionCache: CachedSession | null = null
-const SESSION_CACHE_TTL = 30_000 // 30 seconds
+const SESSION_CACHE_TTL = 120_000 // 2 minutes
 
 function getSessionCache(): CachedSession | null {
-  if (!_sessionCache) return null
-  if (Date.now() - _sessionCache.cachedAt > SESSION_CACHE_TTL) {
-    _sessionCache = null
-    return null
+  // Check module-level cache first
+  if (_sessionCache && Date.now() - _sessionCache.cachedAt <= SESSION_CACHE_TTL) {
+    return _sessionCache
   }
-  return _sessionCache
+  // Fallback to sessionStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem('__dashboard_session_cache')
+      if (stored) {
+        const parsed = JSON.parse(stored) as CachedSession
+        if (Date.now() - parsed.cachedAt <= SESSION_CACHE_TTL) {
+          _sessionCache = parsed
+          return parsed
+        }
+        sessionStorage.removeItem('__dashboard_session_cache')
+      }
+    } catch {}
+  }
+  _sessionCache = null
+  return null
 }
 
 function setSessionCache(data: Omit<CachedSession, 'cachedAt'>) {
-  _sessionCache = { ...data, cachedAt: Date.now() }
+  const entry = { ...data, cachedAt: Date.now() }
+  _sessionCache = entry
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('__dashboard_session_cache', JSON.stringify(entry))
+    } catch {}
+  }
 }
 
 function invalidateSessionCache() {
   _sessionCache = null
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.removeItem('__dashboard_session_cache')
+    } catch {}
+  }
 }
 
 interface DashboardLayoutProps {
