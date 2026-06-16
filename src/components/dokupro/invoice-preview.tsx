@@ -37,6 +37,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
         fontSize: '9pt',
         lineHeight: '1.35',
         fontFamily: 'Arial, Helvetica, sans-serif',
+        boxSizing: 'border-box',
       }}
     >
       {/* === HEADER === */}
@@ -176,10 +177,10 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       <table className="print-table-8mm" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0' }}>
         <thead>
           <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
-            <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', fontSize: '8pt', width: '10mm' }}>Qty</th>
-            <th style={{ padding: '1.5mm 1mm', textAlign: 'left', fontWeight: '600', fontSize: '8pt' }}>Nama Barang</th>
-            <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', fontSize: '8pt', width: '25mm' }}>Harga Satuan</th>
-            <th style={{ padding: '1.5mm 3mm', textAlign: 'right', fontWeight: '600', fontSize: '8pt', width: '28mm' }}>Jumlah</th>
+            <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', width: '10mm' }}>Qty</th>
+            <th style={{ padding: '1.5mm 1mm', textAlign: 'left', fontWeight: '600' }}>Nama Barang</th>
+            <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', width: '25mm' }}>Harga Satuan</th>
+            <th style={{ padding: '1.5mm 3mm', textAlign: 'right', fontWeight: '600', width: '28mm' }}>Jumlah</th>
           </tr>
         </thead>
         <tbody>
@@ -188,7 +189,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{item.qty}</td>
               <td style={{ padding: '0 1mm', verticalAlign: 'top', color: '#000', whiteSpace: 'pre-line' }}>{item.deskripsi || ''}</td>
               <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.harga)}</td>
-              <td style={{ padding: '0 3mm', textAlign: 'right', fontWeight: '500', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.qty * item.harga)}</td>
+              <td style={{ padding: '0 3mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.qty * item.harga)}</td>
             </tr>
           ))}
           {/* Empty rows to fill space */}
@@ -201,32 +202,32 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           {/* Totals inside table */}
           <tr>
             <td colSpan={2} />
-            <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>Subtotal</td>
-            <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>{formatRupiah(subtotal)}</td>
+            <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555' }}>Subtotal</td>
+            <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555' }}>{formatRupiah(subtotal)}</td>
           </tr>
           {data.ppn > 0 && (
             <tr>
               <td colSpan={2} />
-              <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>PPN ({data.ppn}%)</td>
-              <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555', fontSize: '8pt' }}>{formatRupiah(ppnAmount)}</td>
+              <td style={{ padding: '0 1mm', textAlign: 'right', color: '#555' }}>PPN ({data.ppn}%)</td>
+              <td style={{ padding: '0 3mm', textAlign: 'right', color: '#555' }}>{formatRupiah(ppnAmount)}</td>
             </tr>
           )}
           <tr className="print-total-border" style={{ borderTop: '2px solid #000' }}>
             <td colSpan={2} />
-            <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9pt' }}>TOTAL</td>
-            <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9.5pt' }}>{formatRupiah(total)}</td>
+            <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>TOTAL</td>
+            <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatRupiah(total)}</td>
           </tr>
           {dpPercent > 0 && (
             <>
               <tr>
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', color: '#555', fontSize: '8pt' }}>DP ({dpPercent}%)</td>
-                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', color: '#555', fontSize: '8pt' }}>{formatRupiah(dpAmount)}</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', color: '#555' }}>DP ({dpPercent}%)</td>
+                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', color: '#555' }}>{formatRupiah(dpAmount)}</td>
               </tr>
               <tr className="print-sisa-border" style={{ borderTop: '1px solid #000' }}>
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9pt', whiteSpace: 'nowrap' }}>SISA PEMBAYARAN</td>
-                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', fontSize: '9.5pt' }}>{formatRupiah(sisa)}</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>SISA PEMBAYARAN</td>
+                <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatRupiah(sisa)}</td>
               </tr>
             </>
           )}

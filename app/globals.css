@@ -677,6 +677,7 @@
   padding: 8mm 10mm !important;
   font-size: 9pt !important;
   line-height: 1.35 !important;
+  box-sizing: border-box !important;
 }
 
 .print-mode p,
