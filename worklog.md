@@ -277,3 +277,30 @@ Stage Summary:
 - Build: Next.js 16.1.3 (Turbopack), 95 pages, all API routes functional
 - Supabase pooler URL correctly transformed for Vercel serverless
 - Local dev schema reverted to sqlite
+
+---
+Task ID: 6
+Agent: Main
+Task: Fix Purchase Order JPG system to match Invoice page system
+
+Work Log:
+- Analyzed Invoice page JPG system: single "Kirim WhatsApp" button, single handleSendJpg handler, uses toJpeg from html-to-image with quality 0.95/pixelRatio 2/backgroundColor #ffffff
+- Analyzed Purchase Order page: found redundant duplicate system — TWO handlers (handleSendJpg + handleSendJpgButton), TWO buttons (amber "JPG" + green "Kirim WhatsApp"), TWO state variables (sendingPdf + sendingJpg)
+- Root cause: PO page had copy-pasted duplicate JPG code that was confusing and redundant
+- Fixed src/app/purchase-order/page.tsx:
+  - Removed ImageIcon import from lucide-react
+  - Removed sendingJpg state variable
+  - Removed duplicate handleSendJpgButton function (was identical to handleSendJpg)
+  - Removed amber "JPG" button from preview popup
+  - Kept only green "Kirim WhatsApp" button (matching Invoice page exactly)
+- Synced same fix to root app/purchase-order/page.tsx (also switched from generateJpgFromElement/html2canvas to toJpeg/html-to-image for consistency with Invoice page)
+- Browser verified: PO preview popup now shows only ONE "Kirim WhatsApp" button, no "JPG" button, no console errors
+
+Stage Summary:
+- PO page JPG system now matches Invoice page exactly:
+  - One handler: handleSendJpg (uses toJpeg with quality 0.95, pixelRatio 2, backgroundColor #ffffff)
+  - One button: "Kirim WhatsApp" (green, bg-green-600)
+  - One state: sendingPdf
+  - Filename: ${nomor.replace(/\//g, '-')}.jpg
+- Removed: ImageIcon import, sendingJpg state, handleSendJpgButton function, amber JPG button
+- Both src/app/ and app/ versions synced
