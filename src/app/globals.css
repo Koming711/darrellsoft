@@ -491,6 +491,20 @@
   font-size: 8pt !important;
 }
 
+/* Screen-level document border styles (replaces inline styles in components) */
+.print-divider {
+  border-bottom: 2px solid #000000;
+}
+.print-total-border {
+  border-top: 2px solid #000000;
+}
+.print-sisa-border {
+  border-top: 1px solid #000000;
+}
+.print-sig-line {
+  border-bottom: 1px solid #000000;
+}
+
 /* Print styles — A5 portrait, 1 page */
 @media print {
   @page {
@@ -614,13 +628,20 @@
   #document-preview th,
   #document-preview div {
     color: #000 !important;
-    border-color: #000 !important;
   }
 
+  /* Remove ALL borders by default in print, then add back only intentional ones */
+  #document-preview *,
+  #document-preview *::before,
+  #document-preview *::after {
+    border: none !important;
+  }
+
+  /* Re-add intentional borders after blanket removal */
   #document-preview table thead tr {
     background-color: #fff !important;
     border-top: 2px solid #000 !important;
-    border-bottom: 1px solid #000 !important;
+    border-bottom: 2px solid #000 !important;
   }
   #document-preview table thead tr th {
     color: #000 !important;
@@ -631,10 +652,16 @@
     border: 3px solid #000000 !important;
   }
   #document-preview .print-divider {
-    border-bottom-color: #000 !important;
+    border-bottom: 2px solid #000 !important;
   }
   #document-preview .print-total-border {
-    border-top-color: #000 !important;
+    border-top: 2px solid #000 !important;
+  }
+  #document-preview .print-sisa-border {
+    border-top: 1px solid #000 !important;
+  }
+  #document-preview .print-sig-line {
+    border-bottom: 1px solid #000 !important;
   }
 
   #document-preview table tbody tr {
@@ -710,7 +737,13 @@
 .print-mode th,
 .print-mode div {
   color: #000 !important;
-  border-color: #000 !important;
+}
+
+/* Remove ALL borders by default in print-mode, then add back only intentional ones */
+.print-mode *,
+.print-mode *::before,
+.print-mode *::after {
+  border: none !important;
 }
 
 .print-mode .print-logo-box:not(:has(img)) {
@@ -719,18 +752,24 @@
   border: 3px solid #000000 !important;
 }
 
+/* Re-add intentional borders after blanket removal */
 .print-mode .print-divider {
-  border-bottom-color: #000 !important;
+  border-bottom: 2px solid #000 !important;
 }
-
 .print-mode .print-total-border {
-  border-top-color: #000 !important;
+  border-top: 2px solid #000 !important;
+}
+.print-mode .print-sisa-border {
+  border-top: 1px solid #000 !important;
+}
+.print-mode .print-sig-line {
+  border-bottom: 1px solid #000 !important;
 }
 
 .print-mode table thead tr {
   background-color: #fff !important;
   border-top: 2px solid #000 !important;
-  border-bottom: 1px solid #000 !important;
+  border-bottom: 2px solid #000 !important;
 }
 
 .print-mode table thead tr th {

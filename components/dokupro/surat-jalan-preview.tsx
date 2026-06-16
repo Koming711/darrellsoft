@@ -70,7 +70,7 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
       </div>
 
       {/* Divider */}
-      <div className="print-divider mb-3 print:mb-[1mm]" style={{ borderBottom: '2px solid #000000' }} />
+      <div className="print-divider mb-3 print:mb-[1mm]" />
 
       {/* Penerima */}
       <div className="mb-3 print:mb-[1mm] grid grid-cols-2 gap-3 print:gap-1.5">
@@ -148,11 +148,11 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
       <div className="print-sig-grid grid grid-cols-2 gap-6 mt-3 text-[12px] text-center print:text-[9px] print:mt-[1mm] print:gap-2">
         <div>
           <p className="font-semibold mb-4 print:mb-3 text-black">Penerima</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
         <div>
           <p className="font-semibold mb-4 print:mb-3 text-black">Pengirim</p>
-          <div className="mx-auto w-3/5 pb-0.5" style={{ borderBottom: '1px solid #000000' }} />
+          <div className="print-sig-line mx-auto w-3/5 pb-0.5" />
         </div>
       </div>
 
