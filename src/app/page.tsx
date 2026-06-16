@@ -316,7 +316,7 @@ export default function Home() {
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <img src="/logo-ds.png" alt="Logo" className="w-9 h-9 rounded-xl object-contain shadow-none" />
-            <span className="text-[22px] tracking-tight text-blue-900 dark:text-blue-300" style={{ fontWeight: 900 }}>
+            <span className="text-[16px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300" style={{ fontWeight: 900 }}>
               darrellsoft.com
             </span>
           </div>
