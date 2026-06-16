@@ -403,7 +403,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
           </div>
 
           {/* Menu items */}
-          <div className="overflow-y-auto px-4 pb-8" style={{ maxHeight: 'calc(100vh - 56px)' }}>
+          <div className="overflow-y-auto px-4 pb-8 hide-scrollbar" style={{ maxHeight: 'calc(100vh - 56px)' }}>
             {sectionOrder.map((section) => {
               const sectionItems = allMenuItems.filter(item => item.section === section.key)
               if (sectionItems.length === 0) return null
