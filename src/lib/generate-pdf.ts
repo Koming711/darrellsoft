@@ -1173,7 +1173,8 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
   const PRINT_DPI = 96
   const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
   const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
-  const marginPx = Math.round(12 * PRINT_DPI / 25.4)          // ~45px
+  const paddingXPx = Math.round(10 * PRINT_DPI / 25.4)        // 10mm → ~38px
+  const paddingYPx = Math.round(8 * PRINT_DPI / 25.4)         // 8mm → ~30px
 
   // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
   const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
@@ -1195,11 +1196,17 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         background-color: #fff !important;
-        width: 100% !important;
+        width: 148mm !important;
+        max-width: 148mm !important;
+        min-height: auto !important;
+        transform: none !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: ${paddingYPx}px ${paddingXPx}px !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
         box-sizing: border-box !important;
       `
 
@@ -1227,7 +1234,7 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
           height: 100% !important;
           overflow: hidden !important;
           transform: none !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
         `
       }
 
@@ -1284,11 +1291,17 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         background-color: #fff !important;
-        width: 100% !important;
+        width: 148mm !important;
+        max-width: 148mm !important;
+        min-height: auto !important;
+        transform: none !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: ${paddingYPx}px ${paddingXPx}px !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
         box-sizing: border-box !important;
       `
 
@@ -1310,7 +1323,7 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
           background: white !important;
           z-index: 99999 !important;
           transform: none !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
         `
       }
 
@@ -1381,7 +1394,8 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
   const PRINT_DPI = 96
   const a5WidthPx = Math.round(A5_W_MM * PRINT_DPI / 25.4)   // ~559px
   const a5HeightPx = Math.round(A5_H_MM * PRINT_DPI / 25.4)  // ~793px
-  const marginPx = Math.round(12 * PRINT_DPI / 25.4)          // ~45px
+  const paddingXPx = Math.round(10 * PRINT_DPI / 25.4)        // 10mm → ~38px
+  const paddingYPx = Math.round(8 * PRINT_DPI / 25.4)         // 8mm → ~30px
 
   // Find the a5-preview-container parent (exists in editor, not in riwayat overlay)
   const previewContainer = element.closest('.a5-preview-container') as HTMLElement | null
@@ -1404,11 +1418,17 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         background-color: #fff !important;
-        width: 100% !important;
+        width: 148mm !important;
+        max-width: 148mm !important;
+        min-height: auto !important;
+        transform: none !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: ${paddingYPx}px ${paddingXPx}px !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
         box-sizing: border-box !important;
       `
 
@@ -1436,7 +1456,7 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
           height: 100% !important;
           overflow: hidden !important;
           transform: none !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
         `
       }
 
@@ -1482,11 +1502,17 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         background-color: #fff !important;
-        width: 100% !important;
+        width: 148mm !important;
+        max-width: 148mm !important;
+        min-height: auto !important;
+        transform: none !important;
         overflow: hidden !important;
-        padding: ${marginPx}px !important;
+        padding: ${paddingYPx}px ${paddingXPx}px !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
+        font-family: Arial, Helvetica, sans-serif !important;
         box-sizing: border-box !important;
       `
 
@@ -1508,7 +1534,7 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
           background: white !important;
           z-index: 99999 !important;
           transform: none !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
         `
       }
 
