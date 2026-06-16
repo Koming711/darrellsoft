@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { SuratJalanPreview } from '@/components/dokupro/surat-jalan-preview'
-import { toJpeg } from 'html-to-image'
+import { captureElementAsJpg } from '@/lib/capture-jpg'
 import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
 import { useDokuproStore } from '@/lib/store'
 import type { SuratJalanData, CompanyInfo } from '@/lib/types'
@@ -210,13 +210,7 @@ function SuratJalanRiwayatTab({ onRestore }: { onRestore: () => void }) {
       // Capture the preview DOM element as A5-sized JPG (matches print output)
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const dataUrl = await toJpeg(previewEl, {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-        })
-        const res = await fetch(dataUrl)
-        const jpgBlob = await res.blob()
+        const jpgBlob = await captureElementAsJpg(previewEl)
         const fileName = `${(sjData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Surat Jalan ${sjData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')

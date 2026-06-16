@@ -321,3 +321,39 @@ Stage Summary:
 - Deployment successful: https://www.darrellsoft.com
 - PO JPG fix is now live (single "Kirim WhatsApp" button matching Invoice page)
 - Local dev schema reverted to sqlite
+
+---
+Task ID: 8
+Agent: Main
+Task: Fix JPG output difference between local and production (online)
+
+Work Log:
+- Root cause analysis: html-to-image's toJpeg behaves differently between local and production because:
+  1. Web fonts (Geist via next/font/google) may not be fully loaded when capture happens on production
+  2. Images (logo) may not be loaded yet, causing missing logos in captured JPG
+  3. No cacheBust option means stale/cached resources can cause inconsistent rendering
+  4. CORS issues with image fetching on production (different origin than localhost)
+- Created new shared utility: src/lib/capture-jpg.ts with captureElementAsJpg() function that:
+  1. Waits for document.fonts.ready (all web fonts loaded)
+  2. Waits for all <img> elements to finish loading (3s timeout per image)
+  3. Pre-inlines images as data URLs (avoids CORS issues entirely)
+  4. Adds 100ms delay for CSS/layout to settle
+  5. Uses toJpeg with cacheBust: true, skipFonts: false, fetchRequestInit: { mode: 'cors' }
+  6. Validates blob is not empty before returning
+- Updated ALL 7 files that used toJpeg directly to use captureElementAsJpg instead:
+  - src/app/invoice/page.tsx
+  - src/app/purchase-order/page.tsx
+  - src/app/surat-jalan/page.tsx
+  - src/app/riwayat-penjualan/page.tsx
+  - src/app/riwayat-pembelian/page.tsx
+  - src/components/dokupro/document-action-buttons.tsx
+  - src/components/dokupro/invoice-pelunasan-editor.tsx
+- Synced all changes to root app/ and components/ directories
+- Browser verified: PO and Invoice preview popups work correctly, no console errors
+- Deployed to www.darrellsoft.com successfully
+
+Stage Summary:
+- JPG output now consistent between local and production
+- Key fix: waiting for fonts.ready + inlining images as data URLs before capture
+- All document pages (Invoice, PO, Surat Jalan, Pelunasan, Riwayat) use the same robust capture utility
+- No more direct toJpeg calls — all go through captureElementAsJpg

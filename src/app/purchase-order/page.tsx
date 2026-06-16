@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
-import { toJpeg } from 'html-to-image'
+import { captureElementAsJpg } from '@/lib/capture-jpg'
 import { shareJpgViaWhatsApp } from '@/lib/generate-pdf'
 import { useDokuproStore } from '@/lib/store'
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
@@ -214,13 +214,7 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
       // Capture the preview DOM element as A5-sized JPG (matches print output)
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
-        const dataUrl = await toJpeg(previewEl, {
-          quality: 0.95,
-          pixelRatio: 2,
-          backgroundColor: '#ffffff',
-        })
-        const res = await fetch(dataUrl)
-        const jpgBlob = await res.blob()
+        const jpgBlob = await captureElementAsJpg(previewEl)
         const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('Gambar dikirim ke WhatsApp')
