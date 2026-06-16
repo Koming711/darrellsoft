@@ -530,3 +530,27 @@ Stage Summary:
 - Mobile behavior unchanged: Web Share API shares file to WhatsApp app
 - No WhatsApp Web popup, no share sheet, no API key needed
 - Files modified: src/lib/share-jpg.ts, src/components/dokupro/document-action-buttons.tsx, src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx, src/components/dokupro/invoice-pelunasan-editor.tsx (+ synced duplicates in root app/ and components/)
+
+---
+Task ID: 14
+Agent: Main
+Task: Deploy no-API JPG download fix to www.darrellsoft.com
+
+Work Log:
+- User provided Vercel token: vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr
+- Verified Prisma schema is sqlite (local dev)
+- Vercel build command in vercel.json automatically swaps sqlite→postgresql via scripts/prepare-build.js
+- Ran: npx vercel --prod --yes --token <provided>
+- Build completed in 45s, deployment completed in 1m
+- Aliased to https://www.darrellsoft.com
+- Verified production site: HTTP 200
+- Schema auto-reverted to sqlite by build process (confirmed via grep)
+- Regenerated sqlite Prisma client for local dev
+- Dev server still running cleanly on port 3000
+
+Stage Summary:
+- Desktop JPG download behavior (Task ID 13) is now LIVE on www.darrellsoft.com
+- On desktop: click JPG → file saved directly to Downloads folder (no API, no WhatsApp Web, no share sheet)
+- On mobile: Web Share API shares file to WhatsApp app (unchanged)
+- Production URL: https://www.darrellsoft.com (deployment successful)
+- Local dev schema reverted to sqlite, dev server running normally
