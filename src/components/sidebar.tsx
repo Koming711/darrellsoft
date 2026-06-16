@@ -15,7 +15,6 @@ import {
   Shield,
   LogOut,
   X,
-  Menu,
   Paintbrush,
   Sheet,
   Receipt,
@@ -267,7 +266,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-4 space-y-0.5 w-full">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-4 space-y-0.5 w-full hide-scrollbar">
           {/* Logo - Icon Only */}
           <div className="flex flex-col items-center mb-3 mt-2">
             <img
@@ -409,21 +408,13 @@ function formatDateIndo(dateStr: string | null | undefined): string {
   return new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export function MobileHeader({ onMenuToggle, username, title, subtitle, userProfile }: { onMenuToggle: () => void; username?: string; title?: string; subtitle?: string; userProfile?: { createdAt: string | null; validUntil: string | null } | null }) {
+export function MobileHeader({ username, title, subtitle, userProfile }: { username?: string; title?: string; subtitle?: string; userProfile?: { createdAt: string | null; validUntil: string | null } | null }) {
   const { t } = useLanguage()
 
   return (
     <header className="px-3 py-3 lg:py-3 sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--app-banner-bg)', borderColor: 'var(--border)' }}>
       <div className="flex items-center gap-2 lg:gap-3">
-        {/* Hamburger menu — hidden on mobile (use bottom nav), visible on lg+ */}
-        <button
-          onClick={onMenuToggle}
-          className="p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 hidden lg:flex" style={{ color: 'var(--app-banner-text-muted)' }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.06)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="flex-shrink-0">
             <img src={'/logo-ds.png'} alt="Logo" className="w-[32px] h-[32px] lg:w-[32px] lg:h-[32px] rounded-lg object-contain shadow-none" />
