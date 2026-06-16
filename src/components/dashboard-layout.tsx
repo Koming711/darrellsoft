@@ -9,6 +9,38 @@ import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 
+// === MODULE-LEVEL SESSION CACHE ===
+// Persists across navigations so DashboardLayout doesn't need to re-verify on every mount
+interface CachedSession {
+  user: any
+  userProfile: { createdAt: string | null; validUntil: string | null } | null
+  autoLogoutMin: number
+  logoutWarningSec: number
+  sessionWarning: string | null
+  forceLogoutAvailable: boolean
+  accountExpired: boolean
+  cachedAt: number
+}
+let _sessionCache: CachedSession | null = null
+const SESSION_CACHE_TTL = 30_000 // 30 seconds
+
+function getSessionCache(): CachedSession | null {
+  if (!_sessionCache) return null
+  if (Date.now() - _sessionCache.cachedAt > SESSION_CACHE_TTL) {
+    _sessionCache = null
+    return null
+  }
+  return _sessionCache
+}
+
+function setSessionCache(data: Omit<CachedSession, 'cachedAt'>) {
+  _sessionCache = { ...data, cachedAt: Date.now() }
+}
+
+function invalidateSessionCache() {
+  _sessionCache = null
+}
+
 interface DashboardLayoutProps {
   children: React.ReactNode
   title?: string
@@ -16,24 +48,25 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+  const cache = getSessionCache()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [ready, setReady] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [ready, setReady] = useState(!!cache)
+  const [user, setUser] = useState<any>(cache?.user ?? null)
   const pathname = usePathname()
   const router = useRouter()
 
   // === SESSION CHECK STATE ===
-  const [sessionWarning, setSessionWarning] = useState<string | null>(null)
-  const [forceLogoutAvailable, setForceLogoutAvailable] = useState(false)
+  const [sessionWarning, setSessionWarning] = useState<string | null>(cache?.sessionWarning ?? null)
+  const [forceLogoutAvailable, setForceLogoutAvailable] = useState(cache?.forceLogoutAvailable ?? false)
   const [isReclaiming, setIsReclaiming] = useState(false)
-  const [accountExpired, setAccountExpired] = useState(false)
+  const [accountExpired, setAccountExpired] = useState(cache?.accountExpired ?? false)
   const sessionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // === AUTO-LOGOUT STATE ===
   const lastActivityRef = useRef(Date.now())
   const countdownActiveRef = useRef(false)
-  const [autoLogoutMin, setAutoLogoutMin] = useState(0)
-  const [logoutWarningSec, setLogoutWarningSec] = useState(0)
+  const [autoLogoutMin, setAutoLogoutMin] = useState(cache?.autoLogoutMin ?? 0)
+  const [logoutWarningSec, setLogoutWarningSec] = useState(cache?.logoutWarningSec ?? 0)
   const [showCountdown, setShowCountdown] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const autoLogoutIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -45,7 +78,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const initDoneRef = useRef(false)
 
   // === USER PROFILE (for header dates) ===
-  const [userProfile, setUserProfile] = useState<{ createdAt: string | null; validUntil: string | null } | null>(null)
+  const [userProfile, setUserProfile] = useState<{ createdAt: string | null; validUntil: string | null } | null>(cache?.userProfile ?? null)
 
   // === PERMISSION VERSION (forces re-render of Sidebar when permissions update) ===
   const [permVersion, setPermVersion] = useState(0)
@@ -60,6 +93,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === LOGOUT HANDLER ===
   const handleLogout = useCallback(() => {
     clearAuthUser()
+    invalidateSessionCache()
     setAccountExpired(false)
     setSessionWarning(null)
     setForceLogoutAvailable(false)
@@ -82,6 +116,56 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   useEffect(() => {
     if (initDoneRef.current) return
     initDoneRef.current = true
+
+    // If we have a valid cache, we're already ready — just do a background refresh
+    const existingCache = getSessionCache()
+    if (existingCache) {
+      // Already set ready=true and user from cache in useState initializers
+      // Do a background session refresh without blocking UI
+      const bgRefresh = async () => {
+        const authUser = getAuthUser()
+        if (!authUser) return
+        try {
+          const sessionRes = await authFetch('/api/auth/verify-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+          })
+          const data = await sessionRes.json()
+          if (data.securitySettings) {
+            setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
+            setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
+          }
+          if (data.permissions && authUser.role) {
+            saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+            setPermVersion(v => v + 1)
+          }
+          if (!data.valid) {
+            if (data.expired) {
+              setAccountExpired(true)
+              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+            } else if (data.warningMessage) {
+              setSessionWarning(data.warningMessage)
+              setForceLogoutAvailable(!!data.forceLogoutAvailable)
+            }
+          }
+          // Update cache with fresh data
+          setSessionCache({
+            user: authUser,
+            userProfile: existingCache.userProfile,
+            autoLogoutMin: data.securitySettings?.auto_logout_min || 0,
+            logoutWarningSec: data.securitySettings?.logout_warning_sec || 0,
+            sessionWarning: data.valid ? null : (data.warningMessage || null),
+            forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
+            accountExpired: data.valid ? false : !!data.expired,
+          })
+        } catch {
+          // Background refresh failed — keep using cached data
+        }
+      }
+      bgRefresh()
+      return
+    }
 
     let cancelled = false
 
@@ -107,7 +191,14 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             })
             return r.ok ? r.json() : null
           })
-          .then(data => { if (data && !cancelled) setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null }) })
+          .then(data => { if (data && !cancelled) {
+            setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null })
+            // Update cache with profile data
+            const currentCache = getSessionCache()
+            if (currentCache) {
+              setSessionCache({ ...currentCache, userProfile: { createdAt: data.createdAt || null, validUntil: data.validUntil || null } })
+            }
+          } })
           .catch(() => {})
 
         // Wait for session verification BEFORE checking permissions
@@ -141,6 +232,17 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             }
           }
 
+          // Update session cache with verified data
+          setSessionCache({
+            user: authUser,
+            userProfile: null,
+            autoLogoutMin: data.securitySettings?.auto_logout_min || 0,
+            logoutWarningSec: data.securitySettings?.logout_warning_sec || 0,
+            sessionWarning: data.valid ? null : (data.warningMessage || null),
+            forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
+            accountExpired: data.valid ? false : !!data.expired,
+          })
+
           // === AUTO-BACKUP CHECK ===
           // Check if auto-backup is due and trigger it silently
           if (data.valid && authUser.role !== 'superadmin') {
@@ -160,7 +262,22 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       } catch {
         // On error, don't redirect — just show the page
       } finally {
-        if (!cancelled) setReady(true)
+        if (!cancelled) {
+          setReady(true)
+          // Cache session data for instant navigation
+          const authUser = getAuthUser()
+          if (authUser) {
+            setSessionCache({
+              user: authUser,
+              userProfile: null, // will be updated by authFetch below
+              autoLogoutMin: 0,
+              logoutWarningSec: 0,
+              sessionWarning: null,
+              forceLogoutAvailable: false,
+              accountExpired: false,
+            })
+          }
+        }
       }
     }
 
