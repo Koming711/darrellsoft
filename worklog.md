@@ -590,3 +590,34 @@ Stage Summary:
 - Key technique: measure actual `offsetWidth`/`offsetHeight` (transform-immune) via ref → compute exact fit scale → `transformOrigin: top left` → wrapper div with scaled dimensions for correct flex layout.
 - Files modified: src/app/invoice/page.tsx, src/app/purchase-order/page.tsx, src/app/surat-jalan/page.tsx (+ synced duplicates in root app/).
 - No changes needed to the InvoicePreview/PurchaseOrderPreview/SuratJalanPreview components themselves — the A5 (148mm) fixed width is correct for print; the popup scaling handles mobile display.
+
+---
+Task ID: 16
+Agent: Main
+Task: Fix Invoice Editor tab A5 preview being cut off on mobile (pratinjau A5 kepotong). Make it fit to mobile.
+
+Work Log:
+- Root cause: `src/components/dokupro/document-editor-layout.tsx` rendered the A5 preview (148mm ≈ 559px wide) in TWO containers — desktop (lg+) and mobile (<lg) — but only the DESKTOP container had the scale-to-fit ref + transform logic. The MOBILE container had NO ref and NO scaling, so the 559px A5 page overflowed the ~332px mobile container and was clipped by `overflow-hidden`.
+- This single shared component is used by ALL 4 document editors (invoice, purchase-order, surat-jalan, invoice-pelunasan), so the bug affected all of them on mobile.
+- Fix applied to `src/components/dokupro/document-editor-layout.tsx`:
+  - Added a separate `mobileWrapperRef` for the mobile preview container (previously had no ref).
+  - Extracted the scaling logic into a reusable `scaleContainer(wrapper)` function that: reads `wrapper.clientWidth` and `a5Page.offsetWidth` (both transform-immune), computes `scale = wrapperWidth / pageWidth`, applies `transform: scale(scale)` with `transformOrigin: top left`, and sets `wrapper.style.height` to the scaled height so layout below flows correctly.
+  - Added a zero-dimension guard (`if wrapperWidth === 0 || pageWidth === 0 return`) to skip scaling when the container isn't laid out yet or is hidden.
+  - Switched from `useEffect` to `useLayoutEffect` so the transform is applied post-DOM-mutation but pre-paint — prevents a flash of the unscaled 559px A5 page overflowing the container.
+  - The effect now scales BOTH wrappers (`desktopWrapperRef` + `mobileWrapperRef`) on every run, and re-runs when `previewContent` changes (data edited) OR `showMobilePreview` changes (toggle opened/closed) so the freshly-mounted mobile container gets scaled.
+  - Added `requestAnimationFrame` + `setTimeout(250)` re-measurement to cover web-font / image load timing that can change the A5 page's natural height after initial layout.
+- Synced the fix to the root `components/dokupro/document-editor-layout.tsx` duplicate.
+- Lint: zero errors in the modified file.
+- Browser verification (agent-browser, iPhone 14 viewport 390×844px):
+  - Logged in as admin → /invoice → Editor tab → clicked "Lihat Pratinjau A5".
+  - DOM inspection confirmed the mobile container (index 1) is now scaled: wrapperW=332, a5W=559 (natural, unaffected by transform), transform=matrix(0.593918,0,0,0.593918,0,0) = scale(0.594), transformOrigin=0px 0px (top left), wrapperStyleH=471.571px (scaled height reserved). The 559px A5 page is scaled to 332px to fit the mobile container perfectly.
+  - VLM analysis of screenshot confirmed: "The white invoice preview is fully visible within the screen width — not cut off or clipped on left or right edges. The right edge (invoice number, date, TOTAL/jumlah column) is clearly visible. Content readable, not horizontally clipped."
+  - Tested toggle off → on: scaling re-applied correctly on re-mount.
+  - Verified purchase-order and surat-jalan editors (same shared component) also scale correctly: transform=scale(0.594), VLM confirmed "fully visible, no horizontal clipping."
+  - Zero console errors, zero page errors.
+
+Stage Summary:
+- Invoice (and purchase-order, surat-jalan, invoice-pelunasan) Editor tab A5 preview now fits-to-mobile: no horizontal clipping, entire document visible and readable on phone screens.
+- Single fix in the shared `DocumentEditorLayout` component covers all 4 document editors.
+- Key technique: separate refs for desktop + mobile containers, shared `scaleContainer()` function, `useLayoutEffect` (pre-paint, no flash), `transformOrigin: top left`, zero-dimension guard, re-measure on rAF + timer.
+- Files modified: src/components/dokupro/document-editor-layout.tsx (+ synced duplicate in root components/).
