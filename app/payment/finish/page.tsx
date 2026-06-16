@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckCircle2, XCircle, Clock, ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,6 @@ function getPaymentStatus(statusCode?: string | null, transactionStatus?: string
   if (transactionStatus === 'cancel') return 'cancel'
   if (transactionStatus === 'expire') return 'expire'
   if (transactionStatus === 'failure' || statusCode === '200' || transactionStatus === 'success') return 'success'
-  // If we have a status_code 200, it's generally success
   if (statusCode === '200') return 'success'
   return 'unknown'
 }
@@ -78,7 +77,7 @@ const statusConfig: Record<string, { icon: typeof CheckCircle2; title: string; d
   },
 }
 
-export default function PaymentFinishPage() {
+function PaymentFinishContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [countdown, setCountdown] = useState(10)
@@ -88,7 +87,6 @@ export default function PaymentFinishPage() {
   const orderId = searchParams.get('order_id')
   const paymentType = searchParams.get('payment_type')
 
-  // Also check for custom query params (?payment=finish, ?payment=error, ?payment=pending)
   const paymentParam = searchParams.get('payment')
 
   let status: PaymentStatus
@@ -105,7 +103,6 @@ export default function PaymentFinishPage() {
   const config = statusConfig[status]
   const Icon = config.icon
 
-  // Auto-redirect countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
@@ -223,5 +220,24 @@ export default function PaymentFinishPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function PaymentFinishFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center p-4">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <p className="text-sm text-slate-500">Memuat status pembayaran...</p>
+      </div>
+    </div>
+  )
+}
+
+export default function PaymentFinishPage() {
+  return (
+    <Suspense fallback={<PaymentFinishFallback />}>
+      <PaymentFinishContent />
+    </Suspense>
   )
 }
