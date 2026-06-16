@@ -393,7 +393,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       </div>
 
       {/* ===== Mobile Bottom Navigation ===== */}
-      <MobileBottomNav role={user?.role} onMoreClick={() => setSidebarOpen(true)} />
+      <MobileBottomNav role={user?.role} onMoreClick={() => setSidebarOpen(true)} username={user?.username} onLogout={handleLogout} />
 
       {/* ===== MODAL: ACCOUNT EXPIRED ===== */}
       {accountExpired && sessionWarning && (

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calculator,
@@ -341,11 +342,14 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
 interface MobileBottomNavProps {
   role?: string
   onMoreClick: () => void
+  username?: string
+  onLogout?: () => void | Promise<void>
 }
 
-export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
+export function MobileBottomNav({ role, onMoreClick, username, onLogout }: MobileBottomNavProps) {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const [showPopup, setShowPopup] = useState(false)
 
   const isActive = (href: string) => {
     if (href === '/potong-kertas') return pathname === '/potong-kertas'
@@ -359,53 +363,152 @@ export function MobileBottomNav({ role, onMoreClick }: MobileBottomNavProps) {
     return hasFeatureAccess(role, item.featureId)
   })
 
+  // All menu items accessible by role
+  const allMenuItems = menuItems.filter(item => {
+    if (!role || role === 'superadmin') return true
+    return hasFeatureAccess(role, item.featureId)
+  })
+
+  // Group menu items by section
+  const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
+    { key: undefined, labelKey: 'pembukaan' as TranslationKey },
+    { key: 'hitung_biaya_produksi', labelKey: 'hitung_biaya_produksi' as TranslationKey },
+    { key: 'dokumen', labelKey: 'dokumen' as TranslationKey },
+    { key: 'biaya_produksi', labelKey: 'biaya_produksi' as TranslationKey },
+    { key: 'master_cetakan', labelKey: 'master_cetakan' as TranslationKey },
+    { key: 'administrasi', labelKey: 'administrasi' as TranslationKey },
+    { key: 'setting', labelKey: 'setting' as TranslationKey },
+  ]
+
   // Check if current page is one of the bottom nav items
   const isOnBottomNavPage = visibleItems.some(item => isActive(item.href))
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t safe-area-bottom"
-      style={{ backgroundColor: '#1e40af', borderColor: 'rgba(255,255,255,0.3)', borderWidth: '0.1px' }}
-    >
-      <div className="flex items-center justify-around h-14">
-        {visibleItems.map((item) => {
-          const active = isActive(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
-                active
-                  ? 'text-white'
-                  : 'text-blue-200/70'
-              )}
+    <>
+      {/* Full-page menu popup */}
+      {showPopup && (
+        <div className="fixed inset-0 z-[60] lg:hidden" style={{ backgroundColor: '#1e40af' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 h-14">
+            <div className="flex items-center gap-2.5">
+              <img src="/logo-ds.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
+              <span className="text-white font-extrabold text-base tracking-tight">darrellsoft.com</span>
+            </div>
+            <button
+              onClick={() => setShowPopup(false)}
+              className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
-              <item.icon className={cn('w-5 h-5', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
-              <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
-                {t(item.titleKey)}
-              </span>
-            </Link>
-          )
-        })}
+              <X className="w-6 h-6" />
+            </button>
+          </div>
 
-        {/* More button — opens the full sidebar */}
-        <button
-          onClick={onMoreClick}
-          className={cn(
-            'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
-            !isOnBottomNavPage
-              ? 'text-white'
-              : 'text-blue-200/70'
-          )}
-        >
-          <MoreHorizontal className={cn('w-5 h-5', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
-          <span className={cn('text-[10px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
-            Lainnya
-          </span>
-        </button>
-      </div>
-    </nav>
+          {/* Menu items */}
+          <div className="overflow-y-auto px-4 pb-8" style={{ maxHeight: 'calc(100vh - 56px)' }}>
+            {sectionOrder.map((section) => {
+              const sectionItems = allMenuItems.filter(item => item.section === section.key)
+              if (sectionItems.length === 0) return null
+
+              return (
+                <div key={section.key ?? 'main'} className="mb-3">
+                  {section.key && (
+                    <div className="py-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-200/70">
+                        {t(section.labelKey)}
+                      </span>
+                      <div className="mt-1" style={{ borderColor: 'rgba(255,255,255,0.15)', borderWidth: '0.1px' }} />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-4 gap-2">
+                    {sectionItems.map((item) => {
+                      const active = isActive(item.href)
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setShowPopup(false)}
+                          className={cn(
+                            'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-colors',
+                            active
+                              ? 'bg-white/15 text-white'
+                              : 'text-blue-200/70 hover:bg-white/10 hover:text-white'
+                          )}
+                        >
+                          <item.icon className="w-6 h-6" strokeWidth={active ? 2.5 : 1.8} />
+                          <span className={cn('text-[10px] leading-tight text-center', active ? 'font-bold' : 'font-medium')}>
+                            {t(item.titleKey)}
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Logout */}
+            {username && onLogout && (
+              <div className="mt-4 pt-3" style={{ borderColor: 'rgba(255,255,255,0.15)', borderWidth: '0.1px' }}>
+                <button
+                  onClick={async () => {
+                    setShowPopup(false)
+                    if (onLogout) await onLogout()
+                  }}
+                  className="flex items-center justify-center gap-2 w-full p-3 rounded-xl text-red-400 hover:bg-white/10 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-sm font-medium">{t('keluar')}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom nav bar */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t safe-area-bottom"
+        style={{ backgroundColor: '#1e40af', borderColor: 'rgba(255,255,255,0.3)', borderWidth: '0.1px' }}
+      >
+        <div className="flex items-center justify-around h-14">
+          {visibleItems.map((item) => {
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+                  active
+                    ? 'text-white'
+                    : 'text-blue-200/70'
+                )}
+              >
+                <item.icon className={cn('w-5 h-5', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
+                <span className={cn('text-[10px] leading-tight', active ? 'font-bold' : 'font-medium')}>
+                  {t(item.titleKey)}
+                </span>
+              </Link>
+            )
+          })}
+
+          {/* More button — opens full-page menu popup */}
+          <button
+            onClick={() => setShowPopup(true)}
+            className={cn(
+              'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
+              !isOnBottomNavPage
+                ? 'text-white'
+                : 'text-blue-200/70'
+            )}
+          >
+            <MoreHorizontal className={cn('w-5 h-5', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
+            <span className={cn('text-[10px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
+              Lainnya
+            </span>
+          </button>
+        </div>
+      </nav>
+    </>
   )
 }
 
