@@ -4,6 +4,7 @@ import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -84,6 +85,8 @@ export default function PengaturanPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [removingLogo, setRemovingLogo] = useState(false)
+  const [showDeleteLogoDialog, setShowDeleteLogoDialog] = useState(false)
 
   // Preview toggle
   const [showPreview, setShowPreview] = useState(false)
@@ -541,11 +544,14 @@ export default function PengaturanPage() {
   }
 
   const handleRemoveLogo = async () => {
-    setCompanyLogo(null)
+    setRemovingLogo(true)
     try {
       await authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'company_logo', value: '' }) })
+      setCompanyLogo(null)
       toast.success(t('logo_removed'))
+      setShowDeleteLogoDialog(false)
     } catch { toast.error(t('logo_remove_error')) }
+    finally { setRemovingLogo(false) }
   }
 
   // Backup/Restore
@@ -973,7 +979,7 @@ export default function PengaturanPage() {
                         )}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-card border border-input rounded-lg text-sm font-medium text-foreground hover:bg-muted/50 transition-colors">
                             {uploadingLogo ? <><Loader2 className="w-4 h-4 animate-spin" />{t('mengupload')}</> : <><Upload className="w-4 h-4" />{t('upload_logo')}</>}
                             <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} disabled={uploadingLogo} className="hidden" />
@@ -981,6 +987,11 @@ export default function PengaturanPage() {
                           <button type="button" onClick={handleCameraCapture} disabled={uploadingLogo} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors">
                             {uploadingLogo ? <><Loader2 className="w-4 h-4 animate-spin" />{t('mengupload')}</> : <><Camera className="w-4 h-4" />{t('ambil_foto')}</>}
                           </button>
+                          {companyLogo && (
+                            <button type="button" onClick={() => setShowDeleteLogoDialog(true)} disabled={removingLogo || uploadingLogo} className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg text-sm font-medium transition-colors">
+                              {removingLogo ? <><Loader2 className="w-4 h-4 animate-spin" />{t('menghapus')}</> : <><Trash2 className="w-4 h-4" />{t('hapus_logo')}</>}
+                            </button>
+                          )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-1.5">{t('logo_format_hint_auto')}</p>
                       </div>
@@ -1386,6 +1397,31 @@ export default function PengaturanPage() {
         </div>
 
       </div>
+
+      {/* Delete Logo Confirmation Dialog */}
+      <AlertDialog open={showDeleteLogoDialog} onOpenChange={setShowDeleteLogoDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              {t('hapus_logo')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('hapus_logo_konfirmasi')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removingLogo}>{t('batal')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRemoveLogo() }}
+              disabled={removingLogo}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {removingLogo ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('menghapus')}</> : <><Trash2 className="w-4 h-4 mr-2" />{t('hapus')}</>}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }
