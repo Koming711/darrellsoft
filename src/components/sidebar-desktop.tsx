@@ -30,6 +30,10 @@ import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
 
+// ===== Theme tokens — DS logo blue background =====
+const SIDEBAR_BG = '#1e40af'
+const SIDEBAR_BORDER = 'rgba(255,255,255,0.12)'
+
 // Menu items with their feature IDs for permission checking
 const menuItems = [
   {
@@ -188,10 +192,9 @@ interface SidebarProps {
 /**
  * Sidebar — Desktop-only collapsible navigation.
  *
- * Design reference: extracted `sidebar.tsx` (white background, emerald accent,
- * expand/collapse to icon-only). Adapted to this app's menu, permissions,
- * routing and i18n.
- *
+ * - Background: DS logo blue (`#1e40af`), white text.
+ * - Menu boxes wrap tight to their content (icon + label), not the full
+ *   sidebar width — left-aligned when expanded, centered when collapsed.
  * - Visible only on `lg:` and up (`hidden lg:flex`).
  * - Expanded width: `w-64` (with labels). Collapsed width: `w-16` (icon only).
  * - Collapse state persists in localStorage via `useSidebarCollapse`.
@@ -235,18 +238,18 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
   return (
     <aside
       className={cn(
-        'hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col border-r bg-white transition-all duration-300 ease-in-out print:hidden',
+        'hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col transition-all duration-300 ease-in-out print:hidden',
         collapsed ? 'w-16' : 'w-64'
       )}
-      style={{ borderColor: 'var(--border)' }}
+      style={{ backgroundColor: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
     >
       {/* ===== Header / Branding ===== */}
       <div
         className={cn(
-          'flex h-14 items-center border-b transition-all duration-300',
-          collapsed ? 'justify-center px-2' : 'justify-between px-4'
+          'flex h-14 items-center transition-all duration-300',
+          collapsed ? 'justify-center px-2' : 'px-4'
         )}
-        style={{ borderColor: 'var(--border)' }}
+        style={{ borderBottom: `1px solid ${SIDEBAR_BORDER}` }}
       >
         <Link
           href="/pembukaan"
@@ -267,7 +270,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
           />
           <span
             className={cn(
-              'whitespace-nowrap text-base font-bold text-gray-900 transition-all duration-300',
+              'whitespace-nowrap text-base font-bold text-white transition-all duration-300',
               collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
             )}
           >
@@ -277,7 +280,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
       </div>
 
       {/* ===== Navigation ===== */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 hide-scrollbar">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 hide-scrollbar">
         {sectionOrder.map((section) => {
           const sectionItems = menuWithAccess.filter((item) => item.section === section.key)
           if (sectionItems.length === 0) return null
@@ -287,7 +290,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
               {/* Section label — hidden when collapsed */}
               <p
                 className={cn(
-                  'mb-1 overflow-hidden px-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 transition-all duration-300',
+                  'mb-1 overflow-hidden px-3 text-[10px] font-semibold uppercase tracking-widest text-blue-200/70 transition-all duration-300',
                   collapsed ? 'h-0 opacity-0' : 'h-auto py-1.5 opacity-100'
                 )}
               >
@@ -296,10 +299,10 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
 
               {/* Collapsed divider */}
               {collapsed && section.key && (
-                <div className="my-2 mx-2 border-t" style={{ borderColor: 'var(--border)' }} />
+                <div className="my-2 mx-3" style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }} />
               )}
 
-              <ul className="space-y-0.5">
+              <ul className={cn('space-y-0.5', collapsed ? 'flex flex-col items-center px-1' : 'px-2')}>
                 {sectionItems.map((item) => {
                   const active = isActive(item.href)
                   return (
@@ -312,12 +315,13 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                         }}
                         title={collapsed ? t(item.titleKey) : undefined}
                         className={cn(
-                          'flex w-full items-center rounded-lg text-sm transition-colors relative',
-                          collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
+                          // w-fit → box wraps tight to icon+text only
+                          'flex w-fit items-center rounded-lg text-sm transition-colors relative',
+                          collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2',
                           item.isPro ? 'opacity-60' : '',
                           active
-                            ? 'bg-emerald-50 font-medium text-emerald-700'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-white/15 font-medium text-white'
+                            : 'text-blue-100 hover:bg-white/10 hover:text-white'
                         )}
                       >
                         <item.icon className="h-5 w-5 shrink-0" />
@@ -332,8 +336,8 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                         {item.isPro && (
                           <span
                             className={cn(
-                              'absolute rounded-full bg-amber-500',
-                              collapsed ? 'top-1 right-1.5 h-1.5 w-1.5' : 'top-2 right-2 h-1.5 w-1.5'
+                              'absolute rounded-full bg-amber-400',
+                              collapsed ? 'top-1 right-1 h-1.5 w-1.5' : 'top-1.5 right-1.5 h-1.5 w-1.5'
                             )}
                           />
                         )}
@@ -349,53 +353,55 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
 
       {/* ===== Bottom: Logout + Collapse toggle ===== */}
       <div
-        className="border-t px-2 py-3"
-        style={{ borderColor: 'var(--border)' }}
+        className="py-3"
+        style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}
       >
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          title={t('keluar')}
-          className={cn(
-            'flex w-full items-center rounded-lg text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900',
-            collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-          )}
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          <span
+        <div className={cn('space-y-0.5', collapsed ? 'flex flex-col items-center px-1' : 'px-2')}>
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            title={t('keluar')}
             className={cn(
-              'whitespace-nowrap overflow-hidden transition-all duration-300',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              'flex w-fit items-center rounded-lg text-sm text-blue-100 transition-colors hover:bg-white/10 hover:text-white',
+              collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
             )}
           >
-            {t('keluar')}
-          </span>
-        </button>
+            <LogOut className="h-5 w-5 shrink-0" />
+            <span
+              className={cn(
+                'whitespace-nowrap overflow-hidden transition-all duration-300',
+                collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              )}
+            >
+              {t('keluar')}
+            </span>
+          </button>
 
-        {/* Collapse / Expand toggle — desktop only */}
-        <button
-          onClick={toggle}
-          aria-label={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
-          title={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
-          className={cn(
-            'mt-1 flex w-full items-center rounded-lg text-sm text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700',
-            collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-          )}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-5 w-5 shrink-0" />
-          ) : (
-            <ChevronLeft className="h-5 w-5 shrink-0" />
-          )}
-          <span
+          {/* Collapse / Expand toggle — desktop only */}
+          <button
+            onClick={toggle}
+            aria-label={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
+            title={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
             className={cn(
-              'whitespace-nowrap overflow-hidden transition-all duration-300',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              'flex w-fit items-center rounded-lg text-sm text-blue-200/70 transition-colors hover:bg-white/10 hover:text-white',
+              collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
             )}
           >
-            Perkecil
-          </span>
-        </button>
+            {collapsed ? (
+              <ChevronRight className="h-5 w-5 shrink-0" />
+            ) : (
+              <ChevronLeft className="h-5 w-5 shrink-0" />
+            )}
+            <span
+              className={cn(
+                'whitespace-nowrap overflow-hidden transition-all duration-300',
+                collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+              )}
+            >
+              Perkecil
+            </span>
+          </button>
+        </div>
       </div>
     </aside>
   )
