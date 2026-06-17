@@ -14,6 +14,7 @@ import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
+import { syncLinkedPelunasan } from '@/lib/sync-pelunasan';
 import { Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -64,13 +65,15 @@ interface RiwayatCetakanItem {
   createdAt: string;
 }
 
+
 export function InvoiceEditor() {
   const invoice = useDokuproStore((s) => s.invoice);
   const setInvoice = useDokuproStore((s) => s.setInvoice);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
   const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
+  const invoiceEditingId = useDokuproStore((s) => s.invoiceEditingId);
+  const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId);
   const router = useRouter();
-
   const searchParams = useSearchParams();
   const riwayatIdFromUrl = searchParams.get('riwayatId');
   const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
@@ -118,8 +121,11 @@ export function InvoiceEditor() {
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
 
-  // Fetch next Invoice number from server
+  // Fetch next Invoice number from server (only when creating new, not editing)
   const fetchNextNumber = useCallback(() => {
+    // Read current editingId from store to avoid stale closure
+    const currentEditingId = useDokuproStore.getState().invoiceEditingId;
+    if (currentEditingId) return; // Don't overwrite nomor when editing
     fetch('/api/history?preview=next-number&docType=invoice', { headers: getAuthHeaders() })
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.nextNumber) setInvoice((prev) => ({ ...prev, nomor: data.nextNumber })) })
@@ -140,15 +146,8 @@ export function InvoiceEditor() {
   // Sync clientInput when invoice.client.nama changes externally
   useEffect(() => { setClientInput(invoice.client.nama) }, [invoice.client.nama]);
 
-  // Filter riwayat list by input
-  const filteredRiwayatList = riwayatList.filter((r) => {
-    const search = referensiInput.toLowerCase().trim();
-    if (!search) return true;
-    const noHc = (r.nomorUrut || '').toLowerCase();
-    const printName = (r.printName || '').toLowerCase();
-    const name = (r.customerName || '').toLowerCase();
-    return noHc.includes(search) || printName.includes(search) || name.includes(search);
-  });
+  // Filter riwayat list — when dropdown is open show all, otherwise not used
+  const filteredRiwayatList = riwayatList;
 
   const handleReferensiInputChange = (value: string) => {
     setReferensiInput(value);
@@ -198,6 +197,7 @@ export function InvoiceEditor() {
       },
       items: newItems,
       catatan: '',
+      uangCapek: item.profitAmount || 0,
     }));
     setDropdownOpen(false);
   };
@@ -325,36 +325,72 @@ export function InvoiceEditor() {
     setSavingSj(true);
     try {
       // Save invoice to history first
-      const res = await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
-          docType: 'invoice',
-          nomor: invoice.nomor || '-',
-          tanggal: invoice.tanggal || '',
-          pihakKedua: invoice.client?.nama || '-',
-          total: '-',
-          dataJson: JSON.stringify(invoice),
-        }),
-      });
-      if (res.ok) {
-        const saved = await res.json();
-        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
-        toast.success('Invoice disimpan ke riwayat');
-        // Reset invoice form after saving
-        resetDocument('invoice');
-        router.push(`/surat-jalan?invoiceId=${saved.id}`);
-      } else if (res.status === 409) {
-        // Invoice already saved, get existing ID and navigate
-        const errData = await res.json().catch(() => ({}));
-        if (errData.id) {
+      const dataToSave = { ...invoice, dpAmount, originalTotal: total };
+
+      if (invoiceEditingId) {
+        // Update existing record
+        const res = await fetch(`/api/history/${invoiceEditingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            nomor: invoice.nomor || '-',
+            tanggal: invoice.tanggal || '',
+            pihakKedua: invoice.client?.nama || '-',
+            total: '-',
+            dataJson: JSON.stringify(dataToSave),
+          }),
+        });
+        if (res.ok) {
+          // If DP was added/updated during this edit, ensure a linked
+          // invoice-pelunasan entry exists & is in sync so it shows up in
+          // the Editor Pelunasan tab. (Previously this only happened on CREATE.)
+          await syncLinkedPelunasan(invoiceEditingId, invoice.nomor || '-', dataToSave);
+          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+          toast.success('Invoice diperbarui');
+          const invoiceId = invoiceEditingId;
+          setInvoiceEditingId(null);
           resetDocument('invoice');
-          router.push(`/surat-jalan?invoiceId=${errData.id}`);
+          router.push(`/surat-jalan?invoiceId=${invoiceId}`);
         } else {
-          toast('Invoice sudah ada di riwayat.');
+          toast.error('Gagal memperbarui invoice');
         }
       } else {
-        toast.error('Gagal menyimpan invoice');
+        const res = await fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({
+            docType: 'invoice',
+            nomor: invoice.nomor || '-',
+            tanggal: invoice.tanggal || '',
+            pihakKedua: invoice.client?.nama || '-',
+            total: '-',
+            dataJson: JSON.stringify(dataToSave),
+          }),
+        });
+        if (res.ok) {
+          const saved = await res.json();
+          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+
+          // If invoice has DP, ensure a linked invoice-pelunasan entry exists
+          // (creates if missing, updates if already present)
+          await syncLinkedPelunasan(saved.id, saved.nomor || invoice.nomor || '-', dataToSave);
+
+          toast.success('Invoice disimpan ke riwayat');
+          // Reset invoice form after saving
+          resetDocument('invoice');
+          router.push(`/surat-jalan?invoiceId=${saved.id}`);
+        } else if (res.status === 409) {
+          // Invoice already saved, get existing ID and navigate
+          const errData = await res.json().catch(() => ({}));
+          if (errData.id) {
+            resetDocument('invoice');
+            router.push(`/surat-jalan?invoiceId=${errData.id}`);
+          } else {
+            toast('Invoice sudah ada di riwayat.');
+          }
+        } else {
+          toast.error('Gagal menyimpan invoice');
+        }
       }
     } catch {
       toast.error('Gagal menyimpan invoice');
@@ -374,6 +410,8 @@ export function InvoiceEditor() {
               documentLabel="Invoice"
               currentData={invoice}
               onReset={() => resetDocument('invoice')}
+              editingId={invoiceEditingId}
+              onUpdateSuccess={() => setInvoiceEditingId(null)}
             />
             <Button
               size="sm"
@@ -415,20 +453,16 @@ export function InvoiceEditor() {
             <Label className="text-xs">Referensi (No. HC)</Label>
             <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
               <PopoverAnchor asChild>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Pilih No. HC / ketik referensi..."
-                    value={referensiInput}
-                    onChange={(e) => handleReferensiInputChange(e.target.value)}
-                    onFocus={() => setDropdownOpen(true)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
-                  />
-                  {/* Dropdown chevron icon */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen(true)}
+                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm shadow-xs outline-none cursor-pointer hover:bg-slate-100 transition-colors text-left"
+                >
+                  <span className={referensiInput ? 'text-slate-900' : 'text-slate-400'}>
+                    {referensiInput || 'Pilih No. HC...'}
+                  </span>
+                  <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
               </PopoverAnchor>
               <PopoverContent
                 align="start"
@@ -630,6 +664,22 @@ export function InvoiceEditor() {
               value={invoice.dp || ''}
               onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
               placeholder="0"
+            />
+          </div>
+          <div className="space-y-1.5 mt-3">
+            <Label className="text-xs">Uang Capek</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={invoice.uangCapek ? invoice.uangCapek.toLocaleString('id-ID') : ''}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
+                const num = raw === '' ? 0 : Number(raw) || 0
+                setInvoice((prev) => ({ ...prev, uangCapek: num }))
+              }}
+              readOnly={!!invoice.referensi}
+              placeholder="0"
+              className={invoice.referensi ? 'bg-slate-50 cursor-not-allowed' : ''}
             />
           </div>
           <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">

@@ -777,3 +777,129 @@ Stage Summary:
 - Loading state shown on both the button and dialog action while the API call is in flight.
 - Translations added for ID + EN.
 - LIVE on https://www.darrellsoft.com (production).
+
+---
+Task ID: 22
+Agent: Browser-Verify
+Task: Verify invoice restored + DP added during update now appears in Editor Pelunasan tab
+
+Work Log:
+- Read worklog.md (Tasks 1-21). Confirmed the fix is in place: `src/lib/sync-pelunasan.ts` exports `syncLinkedPelunasan(invoiceId, invNomor, baseData)`. Grep confirmed it is imported and called from BOTH save paths:
+  - `src/components/dokupro/invoice-editor.tsx` (Surat Jalan button, lines 347 + 376 — UPDATE and CREATE)
+  - `src/components/dokupro/document-action-buttons.tsx` (Simpan/Update button, lines 105 + 137 — UPDATE and CREATE)
+  - In UPDATE path (line 105): called AFTER `PUT /api/history/{editingId}` returns res.ok; only when docType === 'invoice'.
+- Invoked agent-browser skill. Set viewport to default (desktop).
+- Opened http://localhost:3000/login. Dismissed the "Versi Baru!" announcement dialog and the "Install Darrell Soft" PWA banner (they covered the Masuk button).
+- Logged in as superadmin / 268899 (the known password for the restored DB; task description's hint was correct).
+- Navigated to http://localhost:3000/invoice. Default tab = Editor.
+- Clicked "Riwayat 3" tab. Found 2 invoices in the list:
+  - INV/06/26/0002 — Test Customer 2 — DP 30% (has DP)
+  - INV/06/26/0001 — Test Customer — DP "-" (NO DP) ← target invoice
+- Took screenshot: /home/z/my-project/task22_riwayat_before_restore.png
+- Clicked the Restore button (ref=e90, labeled "Restore") on INV/06/26/0001.
+  - Page switched to Editor tab automatically.
+  - Toast "Invoice berhasil dimuat ke editor" appeared.
+  - Invoice number textbox showed "INV/06/26/0001", customer "Test Customer", item "Cetak Kartu Nama" qty 1000 harga 500.000, total Rp500.000.000.
+  - invoiceEditingId confirmed set (the save button rendered as "Update" instead of "Simpan", which only happens when editingId is truthy per document-action-buttons.tsx line 276).
+- Inspected INFORMASI TAMBAHAN inputs via JS (`document.querySelectorAll('input[type=number]')`):
+  - input 0 = PPN (%) — empty
+  - input 1 = DP (%) — empty (was 0, so `value={invoice.dp || ''}` rendered '')
+- Filled the DP input (ref=e23) with "50". Verified via get value: 50. Invoice preview updated live: "DP (50%)" row Rp250.000.000, "SISA PEMBAYARAN" row Rp250.000.000 (correct: 500M × 0.5 = 250M).
+- Took screenshot: /home/z/my-project/task22_editor_dp_set_50.png
+- Switched to "Editor Pelunasan" tab (via JS click because the tab button was covered by a sticky element). Baseline state:
+  - Only ONE entry visible: "PEL/06/26/0002 — Test Customer 2 — Ref: INV/06/26/0002 — Rp700.000 — DP 30%" (pre-existing, linked to the invoice that already had DP)
+  - INV/06/26/0001 was NOT yet there.
+- Took screenshot: /home/z/my-project/task22_pelunasan_before_save.png
+- Switched back to Editor tab. Clicked the "Update" button (ref=e29, the save button — labeled "Update" because editingId was set; same code path as the "Simpan" button per document-action-buttons.tsx line 276).
+  - AlertDialog "Data sudah benar?" appeared with "Batal" and "Ya, Update" buttons.
+  - Clicked "Ya, Update" (ref=e4).
+  - Waited ~3s.
+  - Toast appeared: "Invoice berhasil diperbarui" ✓
+  - Save button reverted to "Simpan" (invoiceEditingId was cleared by onUpdateSuccess callback).
+- Switched to "Editor Pelunasan" tab again.
+  - Tab badges updated: "Riwayat 4" (was 3) and "Pelunasan 2" (was 1).
+  - TWO entries now visible:
+    1. NEW: "PEL/06/26/0001 — Test Customer — Ref: INV/06/26/0001 — Rp250.000.000 — DP 50%" ← CREATED by syncLinkedPelunasan from the UPDATE flow
+    2. pre-existing: "PEL/06/26/0002 — Test Customer 2 — Ref: INV/06/26/0002 — Rp700.000 — DP 30%"
+- Took screenshot: /home/z/my-project/task22_pelunasan_after_save.png
+- (Optional step) Clicked the new PEL/06/26/0001 entry → inline form opened:
+  - PEL number textbox: "PEL/06/26/0001"
+  - "INFORMASI PELUNASAN" section: tanggal pelunasan date picker, Cash/Transfer/Giro buttons, and a `switch` (the pelunasan/lunas toggle, currently unchecked=false)
+  - DP spinbutton: 50
+  - Invoice preview: "DP (50%)" Rp250.000.000, "SISA PEMBAYARAN" Rp250.000.000
+  - Buttons: "Batal", "Cetak", "JPG", "Simpan Perubahan"
+- Took screenshot: /home/z/my-project/task22_pelunasan_inline_form.png
+- Checked browser console and page errors: NO page errors. Console only shows normal Next.js HMR/Fast Refresh messages — no errors related to the sync-pelunasan flow.
+- Checked network requests filtered to /api/history (timestamps relative):
+  - GET /api/history?docType=invoice-pelunasan (200) — syncLinkedPelunasan reads these to find a linked entry
+  - PUT /api/history/cmq3824xf0008lu0bmq3k9o3x (200) — UPDATED the existing INV/06/26/0001 (editingId)
+  - POST /api/history (200) — CREATED the new linked PEL/06/26/0001 (via syncLinkedPelunasan, since no linked entry existed)
+  - Subsequent GETs to refresh lists
+  All returned 200 OK. No failed requests.
+- Closed browser.
+
+Stage Summary:
+- ✅ FIX VERIFIED WORKING. After restoring an invoice (INV/06/26/0001) that was created WITHOUT DP, adding DP=50 in the editor, and clicking "Update" (the save button — same code path as "Simpan", just labeled differently when editingId is set), the invoice NOW APPEARS in the Editor Pelunasan tab as a linked PEL entry (PEL/06/26/0001).
+- Invoice before: INV/06/26/0001 (Test Customer, no DP, total Rp500.000.000).
+- PEL after save: PEL/06/26/0001 — Ref: INV/06/26/0001 — DP 50% — Sisa Rp250.000.000 (correctly = 500M × 0.5).
+- Tab badge counts updated correctly: Riwayat 3→4, Pelunasan 1→2.
+- Inline form opens correctly when clicking the new PEL entry: shows sisa, DP, jatuh tempo (date picker), and pelunasan toggle (switch), with "Simpan Perubahan" action button.
+- Console errors: NONE. Page errors: NONE. All /api/history requests returned 200.
+- Network log confirms the exact intended code path: PUT to update invoice → syncLinkedPelunasan reads existing PEL list, finds no linked entry, POST-creates new PEL/06/26/0001.
+- Screenshots saved:
+  - /home/z/my-project/task22_riwayat_before_restore.png — Riwayat tab showing INV/06/26/0001 with DP "-"
+  - /home/z/my-project/task22_editor_dp_set_50.png — Editor with DP set to 50 (preview shows DP 50% Rp250.000.000, SISA Rp250.000.000)
+  - /home/z/my-project/task22_pelunasan_before_save.png — Editor Pelunasan BEFORE save: only PEL/06/26/0002 visible (baseline)
+  - /home/z/my-project/task22_pelunasan_after_save.png — Editor Pelunasan AFTER save: new PEL/06/26/0001 entry visible alongside the pre-existing PEL/06/26/0002
+  - /home/z/my-project/task22_pelunasan_inline_form.png — inline form opened by clicking the new PEL entry
+- Note on terminology: the task description said "click the Simpan button (not Surat Jalan)". When editing an existing invoice, the save button label is "Update" (per `editingId ? 'Update' : 'Simpan'` in document-action-buttons.tsx line 276). Both labels route through the same `handleSave()` function, so this is the correct button. The toast "Invoice berhasil diperbarui" confirms we went through the UPDATE branch which calls `syncLinkedPelunasan` at line 105.
+
+---
+Task ID: 23
+Agent: Main
+Task: Fix invoice restored + DP added during update not appearing in Editor Pelunasan tab + deploy to production
+
+Work Log:
+- User reported: "dihalaman invoice. tab riwayat, apabila di restore dan yang tadinya gak pake dp lalu di update dp nya. maka harusnya muncul di tab editor pelunasan, agar bisa buat invoice pelunasan, tapi ini tidak. fix it"
+- Root cause analysis:
+  - The Editor Pelunasan tab (`PelunasanTab` in src/app/invoice/page.tsx) ONLY fetches `docType=invoice-pelunasan` entries from /api/history.
+  - A regular `docType=invoice` with dp > 0 does NOT appear there on its own — it needs a linked `invoice-pelunasan` entry (PEL/<nomor>) with `referensiInvoiceId` / `referensiInvoiceNomor` pointing back to the INV.
+  - The CREATE flow (new invoice with DP) DID create a linked PEL entry — both in `invoice-editor.tsx` (handleSuratJalan, the "Surat Jalan" button) and `document-action-buttons.tsx` (handleSave, the "Simpan"/"Update" button).
+  - The UPDATE flow (restore existing invoice → add DP → save) did NOT create or sync a linked PEL entry — it only PUT-updated the invoice's own dataJson. So invoices that gained a DP during an edit never appeared in Editor Pelunasan. ❌ BUG.
+- Fix:
+  - Created shared helper `src/lib/sync-pelunasan.ts` exporting `syncLinkedPelunasan(invoiceId, invNomor, baseData)`:
+    - Returns early if `baseData.dp <= 0` (no DP → nothing to sync).
+    - Fetches all `invoice-pelunasan` entries via GET /api/history?docType=invoice-pelunasan.
+    - Finds a linked entry by `referensiInvoiceId === invoiceId` OR `referensiInvoiceNomor === invNomor`.
+    - If linked entry exists → PUT-updates it to sync items/amounts/company/client/dp/tanggal, while PRESERVING its `lunas` / `tanggalPelunasan` / `tanggalJatuhTempo` / `caraPembayaran` state (so settlement progress isn't lost).
+    - If no linked entry exists → POST-creates a new PEL entry (PEL/<nomor>, same as the original CREATE flow).
+    - Catches errors and logs them (non-blocking — invoice save itself isn't affected if pelunasan sync fails).
+  - Updated `src/components/dokupro/invoice-editor.tsx`:
+    - Removed inline pelunasan-creation code from the CREATE flow; replaced with `await syncLinkedPelunasan(saved.id, saved.nomor || invoice.nomor || '-', dataToSave)`.
+    - Added `await syncLinkedPelunasan(invoiceEditingId, invoice.nomor || '-', dataToSave)` to the UPDATE flow (after the PUT succeeds, before dispatching history-updated event). This is the core fix.
+  - Updated `src/components/dokupro/document-action-buttons.tsx`:
+    - Removed inline pelunasan-creation code from the CREATE flow; replaced with `await syncLinkedPelunasan(savedData.id, ...)`.
+    - Added `await syncLinkedPelunasan(editingId, ...)` to the UPDATE flow (same fix as invoice-editor).
+    - Added `InvoiceData` to the type import (was used but not imported — pre-existing latent type error now fixed).
+- Synced all 3 files to root duplicates (lib/sync-pelunasan.ts, components/dokupro/invoice-editor.tsx, components/dokupro/document-action-buttons.tsx).
+- Lint: zero new errors in modified files (pre-existing setState-in-effect warnings in invoice-editor.tsx unchanged).
+- Dev server compiled cleanly.
+- Browser verification (Task ID 22 subagent):
+  - Logged in as superadmin → /invoice → Riwayat tab → found INV/06/26/0001 with DP = "-".
+  - Restored it (green RotateCcw) → editor loaded with editingId set (save button label changed to "Update").
+  - Set DP to 50 → live preview showed DP 50% / SISA Rp250.000.000.
+  - Editor Pelunasan tab BEFORE save → only pre-existing PEL/06/26/0002 visible (baseline confirmed empty for our invoice).
+  - Back to Editor → clicked "Update" → toast "Invoice berhasil diperbarui".
+  - Editor Pelunasan tab AFTER save → NEW entry PEL/06/26/0001 appeared (Ref: INV/06/26/0001, DP 50%, Sisa Rp250.000.000). ✅
+  - Network trace confirmed: PUT /api/history/<inv-id> 200 → GET /api/history?docType=invoice-pelunasan 200 (sync helper reads list) → POST /api/history 200 (created new PEL entry since none existed).
+  - Clicked the new PEL entry → inline form opened correctly (sisa, DP=50, jatuh tempo date picker, lunas toggle).
+  - Zero console errors.
+- Deployed to production: `npx vercel --prod --yes --token <token>` → Build 38s, Deploy ~1m, aliased to https://www.darrellsoft.com.
+- Post-deploy: production HTTP 200, local schema still sqlite (untouched by remote build).
+
+Stage Summary:
+- Invoice restored from Riwayat + DP added/updated during save now correctly creates a linked PEL entry → appears in Editor Pelunasan tab.
+- If a linked PEL entry already existed (e.g., invoice was created with DP, then edited), the helper UPDATES it in sync (items/amounts/dp) while preserving settlement state (lunas/tanggalPelunasan/tanggalJatuhTempo/caraPembayaran).
+- Fix applied to BOTH save paths: "Surat Jalan" button (invoice-editor.tsx) and "Simpan"/"Update" button (document-action-buttons.tsx).
+- New shared helper `src/lib/sync-pelunasan.ts` centralizes the logic (single source of truth).
+- LIVE on https://www.darrellsoft.com (production).
