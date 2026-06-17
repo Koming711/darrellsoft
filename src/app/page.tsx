@@ -424,12 +424,12 @@ export default function Home() {
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 md:scale-110 md:origin-top p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
-                      { src: '/dus-makanan.png', label: 'Dus Makanan' },
-                      { src: '/dus-kue.png', label: 'Dus Kue' },
-                      { src: '/hampers.png', label: 'Hampers' },
-                      { src: '/dus-kebab.png', label: 'Dus Kebab' },
-                      { src: '/dus-donut.png', label: 'Dus Donut' },
-                      { src: '/dus-ayam.png', label: 'Dus Ayam' },
+                      { src: '/dus-makanan.jpg', label: 'Dus Makanan' },
+                      { src: '/dus-kue.jpg', label: 'Dus Kue' },
+                      { src: '/hampers.jpg', label: 'Hampers' },
+                      { src: '/dus-kebab.jpg', label: 'Dus Kebab' },
+                      { src: '/dus-donut.jpg', label: 'Dus Donut' },
+                      { src: '/dus-ayam.jpg', label: 'Dus Ayam' },
                     ].map((item, i) => (
                       <motion.div
                         key={item.src}
