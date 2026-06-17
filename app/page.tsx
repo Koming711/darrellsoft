@@ -467,24 +467,24 @@ export default function Home() {
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
                       <p className="text-xs sm:text-sm font-bold text-white text-center leading-tight">Mesin Cetak Kemasan</p>
                     </div>
+                    {/* Hitung Cepat badge — overlaid on the printing machine image (top-right) */}
+                    <motion.div
+                      animate={{ y: [0, 4, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+                      className="absolute top-2 right-2 md:top-3 md:right-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
+                    >
+                      <div className="flex items-center gap-1.5 md:gap-2">
+                        <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center">
+                          <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-blue-700 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">Hitung Cepat</p>
+                          <p className="text-xs md:text-base font-bold text-blue-700 dark:text-blue-400 leading-tight">&lt; 5 detik</p>
+                        </div>
+                      </div>
+                    </motion.div>
                   </motion.div>
                 </div>
-                {/* Another floating badge */}
-                <motion.div
-                  animate={{ y: [0, 8, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                  className="absolute -top-4 -right-4 md:-right-6 bg-white dark:bg-[#111] rounded-xl shadow-xl p-3 md:p-4 border border-gray-100 dark:border-white/10"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-                      <Calculator className="w-5 h-5 text-blue-700 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Hitung Cepat</p>
-                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400">&lt; 5 detik</p>
-                    </div>
-                  </div>
-                </motion.div>
                 {/* Profit Naik badge — moved OUTSIDE the image (below it, normal flow) */}
                 <motion.div
                   animate={{ y: [0, -8, 0] }}

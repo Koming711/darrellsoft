@@ -1003,3 +1003,41 @@ Stage Summary:
 - Responsive heights: 128px on mobile, 176px on sm, 192px on md+.
 - Same hover/animation style as the food box items for visual consistency.
 - Local only — NOT deployed (awaiting user authorization).
+
+---
+Task ID: 27
+Agent: Main
+Task: Move "Hitung Cepat < 5 detik" badge from food box grid to printing machine image
+
+Work Log:
+- User requested: "Hitung Cepat < 5 detik dipindahin ke gambar mesin cetak"
+- Previously the "Hitung Cepat < 5 detik" badge was a floating card at top-right of the OUTER container (positioned `absolute -top-4 -right-4 md:-right-6` on the wrapper div that holds both the food grid and the printing machine image). It visually sat above the food box grid.
+- Restructured in src/app/page.tsx:
+  - Removed the original standalone Hitung Cepat badge (lines 472-487 of previous version).
+  - Added a new Hitung Cepat badge INSIDE the printing machine motion.div, positioned as an OVERLAY on the image (top-right corner):
+    - Positioning: `absolute top-2 right-2 md:top-3 md:right-3` (inside the image, not extending outside)
+    - Styling: `bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10`
+    - Semi-transparent + backdrop-blur so it reads well over the photo background
+    - Icon container: `w-7 h-7 md:w-9 md:h-9 rounded-md bg-blue-50 dark:bg-blue-900/40` with `Calculator w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-blue-700 dark:text-blue-400`
+    - Text: `text-[9px] md:text-[11px]` for "Hitung Cepat" label, `text-xs md:text-base font-bold` for "< 5 detik"
+    - Float animation: `y: [0, 4, 0]` (smaller amplitude than before since it's now an overlay)
+    - z-10 to ensure it stays above the bottom label gradient
+  - The Mesin Cetak Kemasan bottom label stays at the bottom of the image (unchanged).
+- Note: Used overlay positioning (top-2 right-2 inside the image) instead of floating card (-top-3 -right-3 extending outside) because the outer hero container has `overflow-hidden` to clip the food grid's rounded corners. An overlay avoids any clipping issues and reads cleanly as a "stamp" on the machine photo.
+- Synced change to root duplicate app/page.tsx via cp.
+- Dev server compiled cleanly (✓ Compiled in 214ms).
+- Browser verification via agent-browser:
+  - Desktop (1280x800): badge found ON machine image at x=1020, y=838, w=134, h=58 — inside machine rect (x=690, y=824, w=476, h=192). insideMachine: true.
+  - Mobile (390x844): badge at x=250, y=1635, w=102, h=42 — inside machine rect (x=30, y=1624, w=330, h=128). insideMachine: true.
+  - The "Mesin Cetak Kemasan" bottom label still correctly positioned at the bottom of the image on both viewports.
+  - Only one Hitung Cepat badge remains on the page (verified via Grep — text "Hitung Cepat" only appears at line 470/481 of page.tsx, plus unrelated "Sistem Hitung Cepat Percetakan" badge text at line 357).
+  - Zero browser console errors, zero page errors.
+- Did NOT deploy (user has not authorized deployment for these changes).
+
+Stage Summary:
+- "Hitung Cepat < 5 detik" badge moved from floating above the food box grid → overlay on the printing machine image (top-right corner).
+- Badge now appears as a "stamp" on the machine photo with semi-transparent white background + backdrop blur.
+- Responsive sizing: smaller on mobile (p-1.5, w-7 h-7 icon, text-[9px]/text-xs), larger on desktop (p-2.5, w-9 h-9 icon, text-[11px]/text-base).
+- No clipping issues (overlay is inside the image, not extending outside the overflow-hidden container).
+- Profit Naik +40% badge remains below the hero image container (unchanged from previous task).
+- Local only — NOT deployed (awaiting user authorization).
