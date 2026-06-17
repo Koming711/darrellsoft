@@ -358,11 +358,9 @@ export default function Home() {
                 </Badge>
 
                 <h1 className="text-4xl md:text-5xl lg:text-6xl text-gray-900 dark:text-gray-100 leading-tight" style={{ fontWeight: 900 }}>
-                  Mau bisnis{' '}
-                  <span className="font-extrabold" style={{ color: '#4374C1' }}>cetakan</span>{' '}
-                  tapi tidak bisa hitung?{' '}
-                  <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent">Sering salah hitung</span>{' '}
-                  hingga rugi?
+                  Jangan jadi penonton saja!!!.{' '}
+                  <span className="font-extrabold" style={{ color: '#4374C1' }}>Sekarang sudah bisa mulai bisnis</span>{' '}
+                  <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent">Dus Makanan, Dus Kue, Hampers, dll</span>
                 </h1>
 
                 <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
