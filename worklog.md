@@ -656,3 +656,29 @@ Stage Summary:
 - Dev server running and healthy on port 3000; site renders correctly.
 - worklog.md now reflects the archive's state (through Task 16) plus this Task 18 entry.
 - Production (www.darrellsoft.com) still has the Task 17 deploy live; local code is in sync with that deploy (same fixes).
+
+---
+Task ID: 19
+Agent: Main
+Task: Deploy current project state to www.darrellsoft.com (Vercel production)
+
+Work Log:
+- User provided Vercel token: vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr
+- Discovered `.vercel/project.json` was missing (not present after the Task 18 archive restore), so the local dir was not linked to the Vercel project.
+- Listed Vercel projects with token → confirmed `darrellsoft` project exists (Latest Production URL: https://www.darrellsoft.com, updated 20h ago).
+- Ran `npx vercel link --project darrellsoft --yes --token <token>` → linked ~/my-project to koming711s-projects/darrellsoft.
+- Ran `npx vercel --prod --yes --token <token>`:
+  - Build runs REMOTELY on Vercel (buildCommand = `node scripts/prepare-build.js && npx prisma generate && npx next build`), so prepare-build.js swaps sqlite→postgresql only inside the Vercel build environment.
+  - Build Completed in 46s.
+  - Deployment completed in ~1m.
+  - Aliased to https://www.darrellsoft.com.
+- Post-deploy verification:
+  - Production https://www.darrellsoft.com/ → HTTP 200, 134KB response, 1.6s.
+  - Local prisma/schema.prisma provider still = "sqlite" (untouched by remote build — local dev unaffected).
+  - Local dev server (port 3000) still running, HTTP 200.
+
+Stage Summary:
+- Current project state is now LIVE on https://www.darrellsoft.com (production).
+- Local `.vercel/project.json` now exists, so future deploys can run `npx vercel --prod --yes --token <token>` directly without re-linking.
+- Local dev schema remains sqlite; dev server healthy on port 3000.
+- No manual schema revert needed (build ran remotely; local files untouched).
