@@ -1162,3 +1162,42 @@ Stage Summary:
 - On desktop, the 2-column layout is fully preserved (text left, images right with 171px top alignment).
 - Single source of truth: `heroImagePanel` variable holds the image panel JSX, rendered in two places with different visibility classes.
 - Local only — NOT deployed (awaiting user authorization).
+
+---
+Task ID: 30
+Agent: Main
+Task: Deploy landing page updates (Tasks 25-29) to production www.darrellsoft.com
+
+Work Log:
+- User authorized deployment: "deploy ke www.darrellsoft.com. token vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr"
+- Ran: cd /home/z/my-project && npx vercel --prod --yes --token "<token>"
+- Build: 39s, Deployment: ~1m, aliased to https://www.darrellsoft.com
+- Production HTTP/2 200 response confirmed via curl.
+
+Production content verified (all recent landing page changes are LIVE):
+- Sistem Hitung Cepat Percetakan badge (moved near navbar)
+- Profit Naik +40% badge (overlay bottom-left of machine image)
+- Hitung Cepat < 5 detik badge (overlay top-right of machine image)
+- 9 food box images: dus-makanan, dus-kue, hampers, kantong-kebab, dus-donut, dus-ayam-geprek, lunchbox-paper, paperbowl, paperbag
+- hero-printing.png (Mesin Cetak Kemasan image restored)
+
+Production browser verification via agent-browser:
+- Desktop (1280x800):
+  - Title: "Darrell Soft - Kalkulator Hitung Cetakan"
+  - 12 visible images: Logo + 9 food boxes + Mesin Cetak Kemasan + Logo (footer)
+  - Sistem badge distance from navbar: 16px ✓ (was 80px before deploy)
+- Mobile (390x844):
+  - Navbar bottom: 65
+  - H1: top=127, bottom=397
+  - Machine image: top=777 (right after H1) ✓
+  - imagesAfterH1: true ✓ (mobile layout reorder is LIVE)
+- Zero console errors, zero page errors on production.
+
+Stage Summary:
+- All landing page changes from Tasks 25-29 are now LIVE on https://www.darrellsoft.com:
+  - Task 25: 9-item food box grid (added Kantong Kebab, Paperbag, enlarged images)
+  - Task 26: Printing machine image (hero-printing.png) added below food box grid
+  - Task 27: Hitung Cepat < 5 detik badge moved to overlay on machine image (top-right)
+  - Task 28: Profit Naik +40% moved to overlay on machine image (bottom-left); Sistem Hitung Cepat title moved near navbar
+  - Task 29: Mobile layout reordered (images appear below H1); Sistem badge moved closer to navbar (16px on mobile, 24px on desktop)
+- Production verified end-to-end on both desktop and mobile viewports.
