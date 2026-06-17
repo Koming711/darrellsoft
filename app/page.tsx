@@ -308,6 +308,91 @@ export default function Home() {
     router.push(`/checkout?plan=${pkgType}`);
   };
 
+  // Hero image panel (food box grid + printing machine with overlay badges).
+  // On mobile it renders inline right after the H1; on desktop it's in the right column.
+  const heroImagePanel = (
+    <div className="relative">
+      <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          {[
+            { src: '/dus-makanan.jpg', label: 'Dus Makanan' },
+            { src: '/dus-kue.jpg', label: 'Dus Kue' },
+            { src: '/hampers.jpg', label: 'Hampers' },
+            { src: '/kantong-kebab.jpg', label: 'Kantong Kebab' },
+            { src: '/dus-donut.jpg', label: 'Dus Donut' },
+            { src: '/dus-ayam-geprek.jpg', label: 'Dus Ayam Geprek' },
+            { src: '/lunchbox-paper.jpg', label: 'Lunchbox Paper' },
+            { src: '/paperbowl.png', label: 'Paperbowl' },
+            { src: '/paperbag.jpg', label: 'Paperbag' },
+          ].map((item, i) => (
+            <motion.div
+              key={item.src}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 + i * 0.07, duration: 0.4 }}
+              className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10 aspect-square"
+            >
+              <img
+                src={item.src}
+                alt={item.label}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1.5 sm:py-2">
+                <p className="text-[10px] sm:text-xs font-bold text-white text-center leading-tight">{item.label}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        {/* Printing machine image — below the food box grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 + 9 * 0.07, duration: 0.5 }}
+          className="mt-2.5 sm:mt-3 relative rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800"
+        >
+          <img
+            src="/hero-printing.png"
+            alt="Mesin Cetak Kemasan"
+            className="w-full h-32 sm:h-44 md:h-48 object-cover transition-transform duration-500 hover:scale-105"
+          />
+          <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+          {/* Hitung Cepat badge — overlaid on the printing machine image (top-right) */}
+          <motion.div
+            animate={{ y: [0, 4, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+            className="absolute top-2 right-2 md:top-3 md:right-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
+          >
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center">
+                <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-blue-700 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">Hitung Cepat</p>
+                <p className="text-xs md:text-base font-bold text-blue-700 dark:text-blue-400 leading-tight">&lt; 5 detik</p>
+              </div>
+            </div>
+          </motion.div>
+          {/* Profit Naik badge — overlaid on the printing machine image (bottom-left) */}
+          <motion.div
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+            className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
+          >
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">Profit Naik</p>
+                <p className="text-xs md:text-base font-bold text-green-600 dark:text-green-400 leading-tight">+40%</p>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
       {/* =================== NAVBAR =================== */}
@@ -348,10 +433,10 @@ export default function Home() {
           <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-100/20 dark:bg-blue-900/10 rounded-full blur-3xl" />
         </div>
 
-        <div className="max-w-6xl mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-16 md:pb-24">
-          {/* Section title — centered, near the Darrellsoft navbar banner */}
+        <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-6 pb-16 md:pb-24">
+          {/* Section title — centered, close to the Darrellsoft navbar banner */}
           <FadeIn direction="down" delay={0.05}>
-            <div className="flex justify-center mb-6 md:mb-8">
+            <div className="flex justify-center mb-4 md:mb-6">
               <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-4 py-1.5 text-xs md:text-sm font-semibold">
                 <Zap className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" /> Sistem Hitung Cepat Percetakan
               </Badge>
@@ -367,6 +452,9 @@ export default function Home() {
                   <span className="font-extrabold" style={{ color: '#4374C1' }}>Sekarang sudah bisa mulai bisnis</span>{' '}
                   <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent">Dus Makanan, Dus Kue, Hampers, dll</span>
                 </h1>
+
+                {/* Mobile: show images right after H1 (below the "Hampers" text) */}
+                <div className="md:hidden">{heroImagePanel}</div>
 
                 <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
                   <span className="font-bold text-blue-600 dark:text-blue-400">Tidak ada alasan lagi gak bisa hitung modal cetakan...!!</span><br />
@@ -423,88 +511,9 @@ export default function Home() {
               </div>
             </FadeIn>
 
-            {/* Right - Hero image grid (food boxes) */}
-            <FadeIn direction="left" delay={0.2} className="md:pt-[171px]">
-              <div className="relative">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
-                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-                    {[
-                      { src: '/dus-makanan.jpg', label: 'Dus Makanan' },
-                      { src: '/dus-kue.jpg', label: 'Dus Kue' },
-                      { src: '/hampers.jpg', label: 'Hampers' },
-                      { src: '/kantong-kebab.jpg', label: 'Kantong Kebab' },
-                      { src: '/dus-donut.jpg', label: 'Dus Donut' },
-                      { src: '/dus-ayam-geprek.jpg', label: 'Dus Ayam Geprek' },
-                      { src: '/lunchbox-paper.jpg', label: 'Lunchbox Paper' },
-                      { src: '/paperbowl.png', label: 'Paperbowl' },
-                      { src: '/paperbag.jpg', label: 'Paperbag' },
-                    ].map((item, i) => (
-                      <motion.div
-                        key={item.src}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.3 + i * 0.07, duration: 0.4 }}
-                        className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10 aspect-square"
-                      >
-                        <img
-                          src={item.src}
-                          alt={item.label}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1.5 sm:py-2">
-                          <p className="text-[10px] sm:text-xs font-bold text-white text-center leading-tight">{item.label}</p>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                  {/* Printing machine image — below the food box grid */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + 9 * 0.07, duration: 0.5 }}
-                    className="mt-2.5 sm:mt-3 relative rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800"
-                  >
-                    <img
-                      src="/hero-printing.png"
-                      alt="Mesin Cetak Kemasan"
-                      className="w-full h-32 sm:h-44 md:h-48 object-cover transition-transform duration-500 hover:scale-105"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-                    {/* Hitung Cepat badge — overlaid on the printing machine image (top-right) */}
-                    <motion.div
-                      animate={{ y: [0, 4, 0] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                      className="absolute top-2 right-2 md:top-3 md:right-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
-                    >
-                      <div className="flex items-center gap-1.5 md:gap-2">
-                        <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center">
-                          <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-blue-700 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">Hitung Cepat</p>
-                          <p className="text-xs md:text-base font-bold text-blue-700 dark:text-blue-400 leading-tight">&lt; 5 detik</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                    {/* Profit Naik badge — overlaid on the printing machine image (bottom-left) */}
-                    <motion.div
-                      animate={{ y: [0, -4, 0] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                      className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
-                    >
-                      <div className="flex items-center gap-1.5 md:gap-2">
-                        <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                          <TrendingUp className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-green-600 dark:text-green-400" />
-                        </div>
-                        <div>
-                          <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">Profit Naik</p>
-                          <p className="text-xs md:text-base font-bold text-green-600 dark:text-green-400 leading-tight">+40%</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-                </div>
-              </div>
+            {/* Right - Hero image grid (food boxes) — desktop only (mobile shows it inline after H1) */}
+            <FadeIn direction="left" delay={0.2} className="md:pt-[171px] hidden md:block">
+              {heroImagePanel}
             </FadeIn>
           </div>
         </div>
