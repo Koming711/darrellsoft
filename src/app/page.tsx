@@ -422,50 +422,36 @@ export default function Home() {
             <FadeIn direction="left" delay={0.2} className="md:pt-[171px]">
               <div className="relative">
                 <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 md:scale-110 md:origin-top p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
                     {[
                       { src: '/dus-makanan.jpg', label: 'Dus Makanan' },
                       { src: '/dus-kue.jpg', label: 'Dus Kue' },
                       { src: '/hampers.jpg', label: 'Hampers' },
                       { src: '/dus-kebab.jpg', label: 'Dus Kebab' },
                       { src: '/dus-donut.jpg', label: 'Dus Donut' },
-                      { src: '/dus-ayam.jpg', label: 'Dus Ayam' },
+                      { src: '/dus-ayam-geprek.jpg', label: 'Dus Ayam Geprek' },
+                      { src: '/lunchbox-paper.jpg', label: 'Lunchbox Paper' },
+                      { src: '/paperbowl.png', label: 'Paperbowl' },
                     ].map((item, i) => (
                       <motion.div
                         key={item.src}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.3 + i * 0.1, duration: 0.4 }}
-                        className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10"
+                        transition={{ delay: 0.3 + i * 0.08, duration: 0.4 }}
+                        className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10 aspect-square"
                       >
                         <img
                           src={item.src}
                           alt={item.label}
-                          className="w-full aspect-square object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
-                          <p className="text-[9px] sm:text-[11px] font-bold text-white text-center leading-tight">{item.label}</p>
+                          <p className="text-[8px] sm:text-[10px] font-bold text-white text-center leading-tight">{item.label}</p>
                         </div>
                       </motion.div>
                     ))}
                   </div>
                 </div>
-                {/* Floating badge */}
-                <motion.div
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                  className="absolute -bottom-4 -left-4 md:-left-6 bg-white dark:bg-[#111] rounded-xl shadow-xl p-3 md:p-4 border border-gray-100 dark:border-white/10"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Profit Naik</p>
-                      <p className="text-lg font-bold text-green-600 dark:text-green-400">+40%</p>
-                    </div>
-                  </div>
-                </motion.div>
                 {/* Another floating badge */}
                 <motion.div
                   animate={{ y: [0, 8, 0] }}
@@ -479,6 +465,22 @@ export default function Home() {
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Hitung Cepat</p>
                       <p className="text-lg font-bold text-blue-700 dark:text-blue-400">&lt; 5 detik</p>
+                    </div>
+                  </div>
+                </motion.div>
+                {/* Profit Naik badge — moved OUTSIDE the image (below it, normal flow) */}
+                <motion.div
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                  className="mt-4 mx-auto w-fit bg-white dark:bg-[#111] rounded-xl shadow-xl p-3 md:p-4 border border-gray-100 dark:border-white/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Profit Naik</p>
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">+40%</p>
                     </div>
                   </div>
                 </motion.div>
