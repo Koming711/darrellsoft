@@ -1102,3 +1102,63 @@ Stage Summary:
   - Bottom-left: "Profit Naik +40%" (green)
 - Hero layout now: navbar → Sistem Hitung Cepat Percetakan centered kicker → 2-column grid (text left, image panel right).
 - Local only — NOT deployed (awaiting user authorization).
+
+---
+Task ID: 29
+Agent: Main
+Task: Mobile: move all images below the H1 ("Hampers" text) + bring Sistem Hitung Cepat Percetakan badge closer to darrellsoft navbar
+
+Work Log:
+- User requested: "di tampilan mobile, semua gambar dipindahin ke bawah tulisan hampers. jarak antara Sistem Hitung Cepat Percetakan dengan banner darrellsoft.com terlalu jauh. buat lebih dekat otomatis semua naik"
+
+CHANGE 1 — Reduce distance between Sistem badge and navbar:
+- Changed hero section top padding from `pt-12 md:pt-20` (48px/80px) → `pt-4 md:pt-6` (16px/24px).
+- Changed Sistem badge bottom margin from `mb-6 md:mb-8` (24px/32px) → `mb-4 md:mb-6` (16px/24px).
+- Result on mobile: Sistem badge now sits 16px below navbar (was 48px).
+- Result on desktop: Sistem badge now sits 24px below navbar (was 80px).
+- Everything in the hero shifted up automatically as a side effect.
+
+CHANGE 2 — Mobile: images below H1 (below "Hampers" text):
+- Problem: On mobile, the hero used `grid md:grid-cols-2` which stacks into 1 column. The left column (all text: H1 + paragraph + trust signals + CTA) came first, then the right column (images). So images appeared at the very bottom, after all text + CTA.
+- User wanted images to appear right after the H1 (which contains "Hampers" text), before the paragraph/CTA.
+- Solution: Extracted the entire image panel (food box 3×3 grid + printing machine image with overlay badges) into a reusable JSX variable `heroImagePanel` defined before the return statement.
+- Rendered it in TWO places:
+  1. Mobile-only: `<div className="md:hidden">{heroImagePanel}</div>` inserted right after `</h1>` inside the left column's flex container (so it gets gap-6 spacing).
+  2. Desktop-only: `<FadeIn direction="left" delay={0.2} className="md:pt-[171px] hidden md:block">{heroImagePanel}</FadeIn>` in the right grid column (unchanged position/alignment, just added `hidden md:block` so it's hidden on mobile).
+- On mobile: the `md:hidden` div shows images after H1; the desktop FadeIn is `display: none`.
+- On desktop: the `md:hidden` div is hidden; the desktop FadeIn shows images in the right column with `md:pt-[171px]` alignment preserved.
+- The `heroImagePanel` variable holds the full image panel JSX (food box grid with 9 items + printing machine with Hitung Cepat top-right overlay + Profit Naik bottom-left overlay). Rendering the same JSX variable in two places creates two independent React instances — no key conflicts.
+
+Synced both changes to root duplicate app/page.tsx via cp.
+Dev server compiled cleanly (✓ Compiled in 191ms).
+Lint: zero errors in page.tsx.
+
+Browser verification via agent-browser:
+
+Mobile (390x844) — after hard reload (HMR needed a full reload to pick up the structural change):
+- Navbar bottom: 65
+- Sistem badge: top=81, distance from navbar = 16px ✓ (was 48px)
+- H1: top=127, bottom=397
+- Machine image: top=777, bottom=905 ← images now appear RIGHT AFTER H1 ✓ (was at y=1628, after CTA)
+- Paragraph "Tidak ada alasan...": top=943 ← now below images ✓
+- CTA buttons: top=1522
+- Mobile panel (`md:hidden` div) confirmed in DOM: 10 images (9 food boxes + 1 printing machine), visible.
+- Order: navbar → sistemBadge → H1 → images → paragraph → CTA ✓
+
+Desktop (1280x800):
+- Sistem badge: 24px below navbar ✓ (was 80px)
+- H1: top=147, bottom=672
+- Desktop image panel (FadeIn with `hidden md:block`): display=block, visible at x=672, y=147, 512×889px (right column) ✓
+- Machine image (desktop instance): 476×192 at (690, 826) ✓
+- Mobile panel (`md:hidden`): hidden on desktop (0×0 dimensions) ✓
+- 2-column layout preserved: text left, images right ✓
+- 2 machine image elements in DOM (one per panel instance); only the desktop one is visible on desktop, only the mobile one is visible on mobile.
+
+Zero browser console errors, zero page errors.
+
+Stage Summary:
+- Sistem Hitung Cepat Percetakan badge now 16px below navbar on mobile (was 48px), 24px on desktop (was 80px) — much closer to the darrellsoft.com banner.
+- On mobile, all images (3×3 food box grid + printing machine with both overlay badges) now appear immediately after the H1 ("...Hampers, dll"), before the paragraph and CTA buttons.
+- On desktop, the 2-column layout is fully preserved (text left, images right with 171px top alignment).
+- Single source of truth: `heroImagePanel` variable holds the image panel JSX, rendered in two places with different visibility classes.
+- Local only — NOT deployed (awaiting user authorization).
