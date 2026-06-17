@@ -1041,3 +1041,64 @@ Stage Summary:
 - No clipping issues (overlay is inside the image, not extending outside the overflow-hidden container).
 - Profit Naik +40% badge remains below the hero image container (unchanged from previous task).
 - Local only — NOT deployed (awaiting user authorization).
+
+---
+Task ID: 28
+Agent: Main
+Task: Move "Profit Naik +40%" to bottom-left of machine image + move "Sistem Hitung Cepat Percetakan" title near the Darrellsoft navbar banner
+
+Work Log:
+- User requested: "tulisan Profit Naik +40% dipindahin ke kiri pojok bawah gambar mesin cetak. judul Sistem Hitung Cepat Percetakan di naikin ke atas dekat dengan banner darrellsoft"
+
+CHANGE 1 — Profit Naik +40% badge:
+- Previously the Profit Naik badge was a standalone card positioned BELOW the entire hero image container (in normal document flow, with `mt-4 mx-auto w-fit`).
+- Removed that standalone card entirely.
+- Added a new Profit Naik badge INSIDE the printing machine motion.div, as an OVERLAY positioned at bottom-left:
+  - Positioning: `absolute bottom-2 left-2 md:bottom-3 md:left-3` (overlaid on the image, bottom-left corner)
+  - Styling: `bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10` (matches the Hitung Cepat badge style for visual consistency)
+  - Icon container: `w-7 h-7 md:w-9 md:h-9 rounded-md bg-green-100 dark:bg-green-900/40` with `TrendingUp w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-green-600 dark:text-green-400` (smaller than before to fit as an overlay)
+  - Text: `text-[9px] md:text-[11px]` for "Profit Naik" label, `text-xs md:text-base font-bold` for "+40%"
+  - Float animation: `y: [0, -4, 0]` (opposite direction to Hitung Cepat's `[0, 4, 0]` so they don't move in lockstep)
+  - z-10 to stay above the gradient
+- Also removed the redundant "Mesin Cetak Kemasan" centered bottom label that previously overlapped with the new Profit Naik badge. Replaced it with a simple gradient overlay (h-1/3 from-black/60 to-transparent, pointer-events-none) so the bottom-left Profit Naik badge reads cleanly without competing text.
+- The image alt="Mesin Cetak Kemasan" is retained for accessibility/screen readers.
+
+CHANGE 2 — Sistem Hitung Cepat Percetakan title:
+- Previously the "Sistem Hitung Cepat Percetakan" Badge was the first child inside the hero left text column (right above the H1).
+- Removed it from the left column.
+- Added it as a CENTERED badge at the TOP of the hero section, BEFORE the 2-column grid (between the navbar and the hero text content):
+  - Wrapped in FadeIn direction="down" delay={0.05} for a subtle entrance
+  - Container: `flex justify-center mb-6 md:mb-8`
+  - Badge: slightly enlarged from before — `px-4 py-1.5 text-xs md:text-sm` (was `px-3 py-1 text-xs`)
+  - Zap icon also enlarged: `w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5` (was `w-3 h-3 mr-1`)
+- This places the badge just ~80px below the navbar (which contains the "darrellsoft.com" banner text), making it visually near the Darrellsoft brand.
+
+Synced both changes to root duplicate app/page.tsx via cp.
+Dev server compiled cleanly (✓ Compiled in 189ms).
+
+Browser verification via agent-browser:
+
+Desktop (1280x800):
+- Navbar bottom at y=65
+- Sistem Hitung Cepat Percetakan badge at y=145, distanceFromNavbarBottom=80px (close to navbar as requested)
+- Machine image at x=689, y=889, w=478, h=194 (bottom-left corner ≈ x=689, y=1083)
+- Profit Naik badge at x=702, y=1011, w=119, h=58 — bottom-left of machine image ✓ (13px from left edge, ends 14px above machine bottom)
+- Hitung Cepat badge at x=1020, y=906 — top-right of machine image ✓ (unchanged from previous task)
+- The old Profit Naik standalone card below the hero image is GONE (verified no longer in DOM)
+
+Mobile (390x844):
+- Sistem Hitung Cepat badge at y=113, 48px below navbar ✓
+- Machine at x=30, y=1628, w=330, h=128
+- Profit Naik badge at x=38, y=1704, w=91, h=42 — bottom-left of machine image ✓
+
+Zero browser console errors, zero page errors.
+
+Stage Summary:
+- Profit Naik +40% badge moved from below the hero image container → OVERLAY at bottom-left corner of the printing machine image (matches Hitung Cepat's overlay style at top-right).
+- "Mesin Cetak Kemasan" bottom label removed (was redundant with the new overlay badge). Replaced with a subtle gradient only.
+- "Sistem Hitung Cepat Percetakan" badge moved from inside the hero left text column → CENTERED at the top of the hero section, ~80px below the navbar (near the "darrellsoft.com" banner text).
+- Three overlay badges now coexist on the printing machine image:
+  - Top-right: "Hitung Cepat < 5 detik" (blue)
+  - Bottom-left: "Profit Naik +40%" (green)
+- Hero layout now: navbar → Sistem Hitung Cepat Percetakan centered kicker → 2-column grid (text left, image panel right).
+- Local only — NOT deployed (awaiting user authorization).
