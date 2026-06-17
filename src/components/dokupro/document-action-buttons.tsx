@@ -16,9 +16,10 @@ import {
 import { Save, RotateCcw, Printer, AlertTriangle, ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '@/lib/auth';
-import type { DocumentType } from '@/lib/types';
+import type { DocumentType, InvoiceData } from '@/lib/types';
 import { captureElementAsJpg } from '@/lib/capture-jpg';
 import { shareJpgToWhatsApp } from '@/lib/share-jpg';
+import { syncLinkedPelunasan } from '@/lib/sync-pelunasan';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -95,6 +96,18 @@ export function DocumentActionButtons({
         });
 
         if (res.ok) {
+          // If this is an invoice and DP was added/updated during this edit,
+          // ensure a linked invoice-pelunasan entry exists & is in sync so it
+          // shows up in the Editor Pelunasan tab. (Previously this only
+          // happened on CREATE, so restored invoices that gained a DP never
+          // appeared in Editor Pelunasan.)
+          if (docType === 'invoice') {
+            await syncLinkedPelunasan(
+              editingId,
+              data.nomor || '-',
+              dataToSave as InvoiceData & { dpAmount: number; originalTotal: number },
+            );
+          }
           toast.success(`${documentLabel} berhasil diperbarui`);
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
           if (onUpdateSuccess) onUpdateSuccess();
@@ -118,47 +131,14 @@ export function DocumentActionButtons({
         if (res.ok) {
           const savedData = await res.json();
 
-          // If this is an invoice with DP, also create an invoice-pelunasan entry
-          if (docType === 'invoice' && (data.dp || 0) > 0) {
-            try {
-              const invData = currentData as unknown as InvoiceData;
-              const subtotal = invData.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
-              const ppnAmount = subtotal * (invData.ppn / 100);
-              const total = subtotal + ppnAmount;
-              const dpAmount = total * (invData.dp / 100);
-
-              // Derive PEL nomor from INV nomor (same number, different prefix)
-              const invNomor = savedData.nomor || data.nomor;
-              const pelNomor = invNomor.replace(/^INV/, 'PEL');
-
-              const pelunasanData: Record<string, unknown> = {
-                ...dataToSave,
-                type: 'invoice-pelunasan',
-                referensiInvoiceId: savedData.id,
-                referensiInvoiceNomor: invNomor,
-                dpAmount,
-                originalTotal: total,
-                lunas: false,
-                tanggalPelunasan: '',
-                // Pelunasan invoice keeps same items, same dp — but its preview will show PELUNASAN label
-              };
-
-              await fetch('/api/history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                body: JSON.stringify({
-                  docType: 'invoice-pelunasan',
-                  customNomor: pelNomor,
-                  tanggal: data.tanggal || '',
-                  pihakKedua,
-                  total: '-',
-                  dataJson: JSON.stringify(pelunasanData),
-                }),
-              });
-            } catch {
-              // Pelunasan creation failed — not critical, the DP invoice is already saved
-              console.error('Failed to create pelunasan invoice entry');
-            }
+          // If this is an invoice with DP, ensure a linked invoice-pelunasan
+          // entry exists (creates if missing, updates if already present)
+          if (docType === 'invoice') {
+            await syncLinkedPelunasan(
+              savedData.id,
+              savedData.nomor || data.nomor || '-',
+              dataToSave as InvoiceData & { dpAmount: number; originalTotal: number },
+            );
           }
 
           toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);

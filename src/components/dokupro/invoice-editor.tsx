@@ -14,6 +14,7 @@ import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
+import { syncLinkedPelunasan } from '@/lib/sync-pelunasan';
 import { Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -64,6 +65,7 @@ interface RiwayatCetakanItem {
   createdAt: string;
 }
 
+
 export function InvoiceEditor() {
   const invoice = useDokuproStore((s) => s.invoice);
   const setInvoice = useDokuproStore((s) => s.setInvoice);
@@ -72,7 +74,6 @@ export function InvoiceEditor() {
   const invoiceEditingId = useDokuproStore((s) => s.invoiceEditingId);
   const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId);
   const router = useRouter();
-
   const searchParams = useSearchParams();
   const riwayatIdFromUrl = searchParams.get('riwayatId');
   const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
@@ -340,6 +341,10 @@ export function InvoiceEditor() {
           }),
         });
         if (res.ok) {
+          // If DP was added/updated during this edit, ensure a linked
+          // invoice-pelunasan entry exists & is in sync so it shows up in
+          // the Editor Pelunasan tab. (Previously this only happened on CREATE.)
+          await syncLinkedPelunasan(invoiceEditingId, invoice.nomor || '-', dataToSave);
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
           toast.success('Invoice diperbarui');
           const invoiceId = invoiceEditingId;
@@ -366,37 +371,9 @@ export function InvoiceEditor() {
           const saved = await res.json();
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
 
-          // If invoice has DP, also create an invoice-pelunasan entry
-          if (invoice.dp > 0) {
-            try {
-              // Derive PEL nomor from INV nomor (same number, different prefix)
-              const invNomor = saved.nomor || invoice.nomor;
-              const pelNomor = invNomor.replace(/^INV/, 'PEL');
-
-              const pelunasanData = {
-                ...dataToSave,
-                type: 'invoice-pelunasan',
-                referensiInvoiceId: saved.id,
-                referensiInvoiceNomor: invNomor,
-                lunas: false,
-                tanggalPelunasan: '',
-              };
-              await fetch('/api/history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                body: JSON.stringify({
-                  docType: 'invoice-pelunasan',
-                  customNomor: pelNomor,
-                  tanggal: invoice.tanggal || '',
-                  pihakKedua: invoice.client?.nama || '-',
-                  total: '-',
-                  dataJson: JSON.stringify(pelunasanData),
-                }),
-              });
-            } catch {
-              console.error('Failed to create pelunasan invoice entry');
-            }
-          }
+          // If invoice has DP, ensure a linked invoice-pelunasan entry exists
+          // (creates if missing, updates if already present)
+          await syncLinkedPelunasan(saved.id, saved.nomor || invoice.nomor || '-', dataToSave);
 
           toast.success('Invoice disimpan ke riwayat');
           // Reset invoice form after saving
