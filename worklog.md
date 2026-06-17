@@ -967,3 +967,39 @@ Stage Summary:
 - New images are real product photos (not AI-generated) — kantong kebab from Alibaba (DECHEN PACKAGING), paperbag from Berlian Printing (BAK & CO)
 - Changes saved to both src/app/page.tsx and root duplicate app/page.tsx (kept in sync)
 - Local only — NOT deployed (awaiting user authorization)
+
+---
+Task ID: 26
+Agent: Main
+Task: Add printing machine image (public/hero-printing.png) below the food box grid on landing page
+
+Work Log:
+- User requested: "dibawahnya balikin lagi gambar mesin cetak. public/hero-printing.png"
+- Confirmed public/hero-printing.png exists (768x432 JPEG, 156KB).
+- Updated src/app/page.tsx hero image container (lines ~455-470):
+  - Added a new motion.div block immediately after the food box grid (still inside the same rounded container, below the `</div>` closing the grid)
+  - Image: <img src="/hero-printing.png" alt="Mesin Cetak Kemasan">
+  - Styling: full-width banner with fixed heights — `w-full h-32 sm:h-44 md:h-48 object-cover` (responsive: 128px mobile / 176px sm / 192px md)
+  - Same border + shadow + rounded-xl + bg-white treatment as the food box items, with `mt-2.5 sm:mt-3` spacing from the grid above
+  - Hover effect: `transition-transform duration-500 hover:scale-105` (slightly slower than food items for the larger image)
+  - Label overlay at bottom: "Mesin Cetak Kemasan" (text-xs sm:text-sm font-bold white text, gradient black-to-transparent background, px-3 py-2)
+  - Framer Motion entrance: `initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}` with delay 0.93s (0.3 + 9*0.07, follows the 9 food items animating in sequence)
+- Synced change to root duplicate app/page.tsx via cp.
+- Dev server compiled cleanly (✓ Compiled in 205ms).
+- Lint check: zero new errors in page.tsx.
+- Browser verification via agent-browser:
+  - Initial page load didn't show machine image (cache/stale render). After agent-browser reload, machine image confirmed rendering.
+  - All 10 images now visible: 9 food boxes + 1 printing machine banner.
+  - Desktop (1280x800): machine image rendered at x=690, y=824, 476x192px (below the 3x3 grid which ends ~y=666)
+  - Mobile (390x844): machine image rendered at x=30, y=1623, 330x128px (full-width banner)
+  - Natural image dimensions confirmed: 768x432 (the original hero-printing.png)
+  - Grid item count still 9 (unchanged)
+  - Zero browser console errors, zero page errors
+- Did NOT deploy (user has not authorized deployment for these changes).
+
+Stage Summary:
+- Printing machine image (public/hero-printing.png) restored and added BELOW the 3x3 food box grid, inside the same rounded hero image container.
+- Now the hero image panel shows: 3x3 food boxes grid (top) + printing machine banner (bottom), creating a cohesive "from machine to product" visual narrative.
+- Responsive heights: 128px on mobile, 176px on sm, 192px on md+.
+- Same hover/animation style as the food box items for visual consistency.
+- Local only — NOT deployed (awaiting user authorization).

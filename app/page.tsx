@@ -452,6 +452,22 @@ export default function Home() {
                       </motion.div>
                     ))}
                   </div>
+                  {/* Printing machine image — below the food box grid */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + 9 * 0.07, duration: 0.5 }}
+                    className="mt-2.5 sm:mt-3 relative rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800"
+                  >
+                    <img
+                      src="/hero-printing.png"
+                      alt="Mesin Cetak Kemasan"
+                      className="w-full h-32 sm:h-44 md:h-48 object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
+                      <p className="text-xs sm:text-sm font-bold text-white text-center leading-tight">Mesin Cetak Kemasan</p>
+                    </div>
+                  </motion.div>
                 </div>
                 {/* Another floating badge */}
                 <motion.div
