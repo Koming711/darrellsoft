@@ -903,3 +903,24 @@ Stage Summary:
 - Fix applied to BOTH save paths: "Surat Jalan" button (invoice-editor.tsx) and "Simpan"/"Update" button (document-action-buttons.tsx).
 - New shared helper `src/lib/sync-pelunasan.ts` centralizes the logic (single source of truth).
 - LIVE on https://www.darrellsoft.com (production).
+
+---
+Task ID: 24
+Agent: Main
+Task: Replace landing page H1 heading text + deploy to production
+
+Work Log:
+- User requested: di halaman landing, tulisan "Mau bisnis cetakan tapi tidak bisa hitung? Sering salah hitung hingga rugi?" diganti jadi "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis Dus Makanan, Dus Kue, Hampers, dll"
+- Found the H1 in src/app/page.tsx line 360-366 (Hero section).
+- Replaced the heading text. Kept the existing styling structure (font weight 900, gradient red-to-rose for the highlight phrase, blue #4374C1 for the main phrase) so the visual hierarchy is preserved:
+  - "Jangan jadi penonton saja!!!." (plain)
+  - "Sekarang sudah bisa mulai bisnis" (blue #4374C1, font-extrabold)
+  - "Dus Makanan, Dus Kue, Hampers, dll" (gradient red→rose, bg-clip-text transparent)
+- Synced change to root duplicate app/page.tsx.
+- Dev server compiled cleanly (✓ Compiled in 193ms, no errors).
+- Deployed to production: `npx vercel --prod --yes --token <token>` → Build 38s, Deploy ~1m, aliased to https://www.darrellsoft.com.
+- Post-deploy: production HTTP 200, 0.77s response.
+
+Stage Summary:
+- Landing page hero H1 now reads: "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis Dus Makanan, Dus Kue, Hampers, dll"
+- LIVE on https://www.darrellsoft.com (production).
