@@ -924,3 +924,46 @@ Work Log:
 Stage Summary:
 - Landing page hero H1 now reads: "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis Dus Makanan, Dus Kue, Hampers, dll"
 - LIVE on https://www.darrellsoft.com (production).
+
+---
+Task ID: 25
+Agent: Main
+Task: Landing page image grid — replace dus kebab with kantong kebab, add paperbag, enlarge images
+
+Work Log:
+- User requested: "dus kebab diganti jadi kantong kebab dan tambahkan gambar paperbag. gambarnya dibesarin lagi"
+- Used z-ai image-search to find real internet images:
+  - "kantong kebab kertas food paper bag kebab packaging" → picked DECHEN PACKAGING 4-kebab-designs photo (1500x1500, source: Alibaba)
+  - "paperbag kertas makanan food paper bag packaging custom print" → picked BAK & CO brown paper bag photo (1080x1080, source: Berlian Printing)
+- Downloaded both images via curl:
+  - /home/z/my-project/public/kantong-kebab.jpg (1500x1500, 547KB)
+  - /home/z/my-project/public/paperbag.jpg (1080x1080, 113KB)
+- Removed old /home/z/my-project/public/dus-kebab.jpg (replaced)
+- Updated src/app/page.tsx hero image grid (lines ~425-454):
+  - Replaced `{ src: '/dus-kebab.jpg', label: 'Dus Kebab' }` → `{ src: '/kantong-kebab.jpg', label: 'Kantong Kebab' }`
+  - Added `{ src: '/paperbag.jpg', label: 'Paperbag' }` as 9th item
+  - Changed grid layout from `grid-cols-3 sm:grid-cols-4` → `grid-cols-3` (3 cols on ALL viewports, so 3×3 = bigger images on desktop)
+  - Removed `md:scale-110 md:origin-top` (no longer needed with bigger natural grid size)
+  - Bumped gap from `gap-2 sm:gap-3` → `gap-2.5 sm:gap-3`
+  - Enlarged labels: `text-[8px] sm:text-[10px]` → `text-[10px] sm:text-xs`
+  - Increased label padding: `py-1` → `py-1.5 sm:py-2`
+  - Adjusted motion delay step from 0.08 → 0.07 (slightly snappier for 9 items)
+- Synced change to root duplicate app/page.tsx via cp.
+- Dev server compiled cleanly (✓ Compiled in 199ms).
+- Lint: zero new errors in page.tsx (all 1351 problems are pre-existing in unrelated files).
+- Browser verification via agent-browser:
+  - Opened http://localhost:3000/ → page renders cleanly (title: "Darrell Soft - Kalkulator Hitung Cetakan")
+  - All 9 images load successfully with correct alt text and natural dimensions:
+    - Dus Makanan, Dus Kue, Hampers (1200x1200), Kantong Kebab (1500x1500), Dus Donut (3840x3840), Dus Ayam Geprek (1000x1000), Lunchbox Paper (1600x1600), Paperbowl (1500x1500), Paperbag (1080x1080)
+  - Grid layout verified at desktop (1280x800): 3 cols × 3 rows, each image 151×151px (33% bigger than previous 4-col layout which was ~113px)
+  - Grid layout verified at mobile (390x844): 3 cols × 3 rows, each image 104×104px
+  - Zero browser console errors, zero page errors
+- Did NOT deploy (user has not authorized deployment for these changes; previous "jangan deploy" instruction still applies until user requests it).
+
+Stage Summary:
+- Landing page hero image grid now contains 9 items (was 8): Dus Makanan, Dus Kue, Hampers, Kantong Kebab (replaced Dus Kebab), Dus Donut, Dus Ayam Geprek, Lunchbox Paper, Paperbowl, Paperbag (new)
+- All images are now ~33% larger on desktop (151×151px in 3×3 layout vs previous 113×113px in 3×2/4-col layout)
+- Mobile layout remains 3×3 (responsive, 104×104px per image on 390px viewport)
+- New images are real product photos (not AI-generated) — kantong kebab from Alibaba (DECHEN PACKAGING), paperbag from Berlian Printing (BAK & CO)
+- Changes saved to both src/app/page.tsx and root duplicate app/page.tsx (kept in sync)
+- Local only — NOT deployed (awaiting user authorization)

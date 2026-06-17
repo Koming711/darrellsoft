@@ -421,23 +421,24 @@ export default function Home() {
             {/* Right - Hero image grid (food boxes) */}
             <FadeIn direction="left" delay={0.2} className="md:pt-[171px]">
               <div className="relative">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 md:scale-110 md:origin-top p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
                     {[
                       { src: '/dus-makanan.jpg', label: 'Dus Makanan' },
                       { src: '/dus-kue.jpg', label: 'Dus Kue' },
                       { src: '/hampers.jpg', label: 'Hampers' },
-                      { src: '/dus-kebab.jpg', label: 'Dus Kebab' },
+                      { src: '/kantong-kebab.jpg', label: 'Kantong Kebab' },
                       { src: '/dus-donut.jpg', label: 'Dus Donut' },
                       { src: '/dus-ayam-geprek.jpg', label: 'Dus Ayam Geprek' },
                       { src: '/lunchbox-paper.jpg', label: 'Lunchbox Paper' },
                       { src: '/paperbowl.png', label: 'Paperbowl' },
+                      { src: '/paperbag.jpg', label: 'Paperbag' },
                     ].map((item, i) => (
                       <motion.div
                         key={item.src}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.3 + i * 0.08, duration: 0.4 }}
+                        transition={{ delay: 0.3 + i * 0.07, duration: 0.4 }}
                         className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10 aspect-square"
                       >
                         <img
@@ -445,8 +446,8 @@ export default function Home() {
                           alt={item.label}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
-                          <p className="text-[8px] sm:text-[10px] font-bold text-white text-center leading-tight">{item.label}</p>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1.5 sm:py-2">
+                          <p className="text-[10px] sm:text-xs font-bold text-white text-center leading-tight">{item.label}</p>
                         </div>
                       </motion.div>
                     ))}
