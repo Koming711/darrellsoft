@@ -83,8 +83,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const pathname = usePathname()
   const router = useRouter()
   const { collapsed: sidebarCollapsed } = useSidebarCollapse()
-  // Desktop content left-margin follows the sidebar width (w-64 expanded / w-16 collapsed)
-  const desktopMargin = sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+  // Desktop content left-margin follows the sidebar width (w-52 expanded / w-14 collapsed)
+  const desktopMargin = sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'
 
   // === SESSION CHECK STATE ===
   const [sessionWarning, setSessionWarning] = useState<string | null>(null)

@@ -196,7 +196,7 @@ interface SidebarProps {
  * - Menu boxes wrap tight to their content (icon + label), not the full
  *   sidebar width — left-aligned when expanded, centered when collapsed.
  * - Visible only on `lg:` and up (`hidden lg:flex`).
- * - Expanded width: `w-64` (with labels). Collapsed width: `w-16` (icon only).
+ * - Expanded width: `w-52` (with labels). Collapsed width: `w-14` (icon only).
  * - Collapse state persists in localStorage via `useSidebarCollapse`.
  * - Mobile continues to use the existing bottom nav (`MobileBottomNav`).
  */
@@ -239,7 +239,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     <aside
       className={cn(
         'hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col transition-all duration-300 ease-in-out print:hidden',
-        collapsed ? 'w-16' : 'w-64'
+        collapsed ? 'w-14' : 'w-52'
       )}
       style={{ backgroundColor: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
     >
