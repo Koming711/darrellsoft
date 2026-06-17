@@ -621,3 +621,38 @@ Stage Summary:
 - Single fix in the shared `DocumentEditorLayout` component covers all 4 document editors.
 - Key technique: separate refs for desktop + mobile containers, shared `scaleContainer()` function, `useLayoutEffect` (pre-paint, no flash), `transformOrigin: top left`, zero-dimension guard, re-measure on rAF + timer.
 - Files modified: src/components/dokupro/document-editor-layout.tsx (+ synced duplicate in root components/).
+
+---
+Task ID: 18
+Agent: Main
+Task: Extract uploaded tar archive and replace ALL project content with it.
+
+Work Log:
+- User uploaded: workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (44).tar (38MB) to /home/z/my-project/upload/
+- Inspected archive: 2116 non-git files + 5289 git objects. Full workspace snapshot including src/, app/, prisma/, db/custom.db, .env, .git/, public/, mini-services/, scripts/, Caddyfile, vercel.json, worklog.md. No node_modules (derived).
+- Stopped running dev server (killed PIDs 1058/1060/1075/1105) to release DB/file locks.
+- Extracted archive to /tmp/restore-workspace.
+- Verified archive .env (DATABASE_URL=file:/home/z/my-project/db/custom.db), schema (sqlite), package.json — all correct for local dev.
+- Replaced all project content via rsync: `rsync -a --delete --exclude=node_modules/ --exclude=.next/ --exclude=upload/ --exclude=skills/ --exclude=dev.log /tmp/restore-workspace/ /home/z/my-project/`
+  - Excluded node_modules (preserved, ~994 packages, no reinstall needed), .next (build cache), upload/ (contains the tar itself), skills/ (Skill tooling infra), dev.log (runtime).
+  - --delete removed all stray files (old screenshots, backup JSONs, apple-touch-icon.png, build.sh, etc.) not present in the archive.
+- Ran `bun install` to sync dependencies — no changes (package.json matched), Prisma client auto-generated.
+- Verified both schema.prisma files (root + prisma/) are sqlite and consistent.
+- Started dev server: `NODE_OPTIONS='--max-old-space-size=4096' ./node_modules/.bin/next dev -p 3000`.
+  - Ready in 692ms, SQLite database connected, settings synced.
+  - HTTP 200 on / and /api/public-settings.
+- Browser verification (agent-browser, iPhone 14 viewport):
+  - Opened http://localhost:3000/ → page rendered correctly.
+  - Title: "Darrell Soft - Kalkulator Hitung Cetakan", H1 rendered, landing page intact.
+- Verified archive includes prior fixes: editor-layout fix (7 matches: mobileWrapperRef/scaleContainer/useLayoutEffect) and invoice riwayat popup fix (6 matches: previewDims/previewWrapperRef/transformOrigin) both present.
+- Verified database intact: all 7 users present (superadmin, admin, aming, testownerfinal2, testuserfinal2, browsertestowner, browsertestuser).
+- Cleaned up /tmp/restore-workspace.
+- Dev server running (PID 2735, port 3000).
+
+Stage Summary:
+- All project content replaced with the uploaded archive. Project is now at the archive's snapshot state (includes mobile preview fixes from Tasks 15-16).
+- node_modules preserved (no reinstall needed), upload/ and skills/ preserved.
+- Database (db/custom.db) replaced with archive's copy — all users/data intact.
+- Dev server running and healthy on port 3000; site renders correctly.
+- worklog.md now reflects the archive's state (through Task 16) plus this Task 18 entry.
+- Production (www.darrellsoft.com) still has the Task 17 deploy live; local code is in sync with that deploy (same fixes).
