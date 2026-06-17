@@ -364,7 +364,7 @@ export default function Home() {
                 </h1>
 
                 <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">Sekarang sudah gak jaman lagi salah hitung...!</span><br />
+                  <span className="font-bold text-blue-600 dark:text-blue-400">Tidak ada alasan lagi gak bisa hitung modal cetakan...!!</span><br />
                   <span className="font-bold text-gray-900 dark:text-gray-100">Pakai Darrell Soft aja!</span>.<br />
                   Dulu cuma yang ahli yang bisa hitung modal cetak.
                   Sekarang, <span className="font-semibold text-blue-700 dark:text-blue-400">siapapun bisa</span> jadi pengusaha percetakan yang sukses!
