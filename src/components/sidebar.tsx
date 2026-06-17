@@ -26,6 +26,10 @@ import {
   ShoppingBag,
   Home,
   MoreHorizontal,
+  TrendingUp,
+  Wallet,
+  ScrollText,
+  UserCog,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -88,7 +92,7 @@ const menuItems = [
   {
     titleKey: 'riwayat_penjualan' as TranslationKey,
     href: '/riwayat-penjualan',
-    icon: Receipt,
+    icon: TrendingUp,
     featureId: 'invoice',
     section: 'dokumen',
   },
@@ -117,14 +121,14 @@ const menuItems = [
   {
     titleKey: 'master_harga_kertas' as TranslationKey,
     href: '/master-harga-kertas',
-    icon: FileText,
+    icon: ScrollText,
     featureId: 'master-harga-kertas',
     section: 'master_cetakan',
   },
   {
     titleKey: 'master_ongkos_cetak' as TranslationKey,
     href: '/master-ongkos-cetak',
-    icon: DollarSign,
+    icon: Wallet,
     featureId: 'master-ongkos-cetak',
     section: 'master_cetakan',
   },
@@ -159,7 +163,7 @@ const menuItems = [
   {
     titleKey: 'pengguna' as TranslationKey,
     href: '/administrasi/pengguna',
-    icon: Users,
+    icon: UserCog,
     featureId: 'pengguna',
     section: 'administrasi',
   },
@@ -180,7 +184,7 @@ const bottomNavItems = [
     titleKey: 'pembukaan' as TranslationKey,
     shortTitle: 'Beranda',
     href: '/pembukaan',
-    icon: Home,
+    icon: BookOpen,
     featureId: 'pembukaan',
   },
   {
@@ -208,7 +212,7 @@ const bottomNavItems = [
     titleKey: 'master_harga_kertas' as TranslationKey,
     shortTitle: 'H.Kertas',
     href: '/master-harga-kertas',
-    icon: FileText,
+    icon: ScrollText,
     featureId: 'master-harga-kertas',
   },
 ]
