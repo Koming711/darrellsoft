@@ -418,16 +418,37 @@ export default function Home() {
               </div>
             </FadeIn>
 
-            {/* Right - Hero image */}
+            {/* Right - Hero image grid (food boxes) */}
             <FadeIn direction="left" delay={0.2} className="md:pt-[171px]">
               <div className="relative">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 md:scale-110 md:origin-top">
-                  <img
-                    src="/hero-printing.png"
-                    alt="Darrell Soft - Sistem Kasir Percetakan"
-                    className="w-full h-auto object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 to-transparent" />
+                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 md:scale-110 md:origin-top p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    {[
+                      { src: '/dus-makanan.png', label: 'Dus Makanan' },
+                      { src: '/dus-kue.png', label: 'Dus Kue' },
+                      { src: '/hampers.png', label: 'Hampers' },
+                      { src: '/dus-kebab.png', label: 'Dus Kebab' },
+                      { src: '/dus-donut.png', label: 'Dus Donut' },
+                      { src: '/dus-ayam.png', label: 'Dus Ayam' },
+                    ].map((item, i) => (
+                      <motion.div
+                        key={item.src}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.3 + i * 0.1, duration: 0.4 }}
+                        className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10"
+                      >
+                        <img
+                          src={item.src}
+                          alt={item.label}
+                          className="w-full aspect-square object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
+                          <p className="text-[9px] sm:text-[11px] font-bold text-white text-center leading-tight">{item.label}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
                 {/* Floating badge */}
                 <motion.div
