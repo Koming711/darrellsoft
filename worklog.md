@@ -1201,3 +1201,63 @@ Stage Summary:
   - Task 28: Profit Naik +40% moved to overlay on machine image (bottom-left); Sistem Hitung Cepat title moved near navbar
   - Task 29: Mobile layout reordered (images appear below H1); Sistem badge moved closer to navbar (16px on mobile, 24px on desktop)
 - Production verified end-to-end on both desktop and mobile viewports.
+
+---
+Task ID: 31
+Agent: Main
+Task: Extract uploaded workspace-(45).tar and replace all project content with it
+
+Work Log:
+- User uploaded: workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (45).tar (51.8MB) to /home/z/my-project/upload/
+- Inspected archive: 7634 total entries (5205 git objects + 2429 non-git files). Full workspace snapshot including src/, app/ (root duplicate), lib/, components/, contexts/, hooks/, stores/, prisma/, db/custom.db, .env, .git/, public/, mini-services/, scripts/, Caddyfile, vercel.json, eslint.config.mjs, worklog.md, daemon.cjs, root-level config files.
+- Archive worklog ends at Task ID 30 (deploy to production www.darrellsoft.com verified). This is the MOST RECENT state — newer than the backup-darrellsoft.tar.gz I had partially applied earlier.
+- Archive .env: DATABASE_URL=file:/home/z/my-project/db/custom.db (matches sandbox setup).
+- Archive next.config.ts: includes allowedDevOrigins for sandbox (0.0.0.0, 127.0.0.1, localhost, .space-z.ai, preview-chat-67f99cb9-...space-z.ai).
+- Archive schema.prisma (both root and prisma/): sqlite provider, includes Grup/TokoPemasuk/PasswordResetToken/nomorUrut models (latest schema).
+- Created safety backup: /tmp/darrell-restore-BEFORE-20260618-020146.tar.gz (4.9MB, excludes node_modules/.git/.next).
+- Stopped dev server (killed PIDs 1815, 1887 from previous session).
+- Extracted archive to /tmp/workspace-45-extract (2133 non-git files + 5205 git objects).
+- Replaced all project content via rsync: `rsync -a --delete --exclude='node_modules/' --exclude='.next/' --exclude='upload/' --exclude='skills/' --exclude='dev.log' --exclude='.agent-browser*' /tmp/workspace-45-extract/ /home/z/my-project/`
+  - Excluded node_modules (preserved, ~994 packages, no reinstall needed), .next (build cache — cleared separately due to stale RSC manifest), upload/ (contains the tar itself), skills/ (Skill tooling infra), dev.log (regenerated), .agent-browser* (browser session data).
+  - --delete removed all files not present in the archive.
+- Ran `bun install` to sync dependencies — no changes (package.json matched archive), Prisma client auto-generated.
+- Cleared stale .next cache (was causing: "Could not find the module '[project]/app/page.tsx#default' in the React Client Manifest" error due to RSC bundler cache from pre-rsync state).
+- Started dev server via project's daemon.cjs (persistent process manager with auto-restart): `node daemon.cjs start`
+  - Daemon PID 4365, server PID 4400.
+  - Ready in 640ms, SQLite connected, settings synced.
+  - GET / 200 in 3.7s (clean compile), GET /api/public-settings 200.
+- Browser verification (agent-browser):
+  - Opened http://localhost:3000/ → page rendered correctly.
+  - Title: "Darrell Soft - Kalkulator Hitung Cetakan"
+  - H1: "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis Dus Makanan, Dus Kue, Hampers, dll" (latest version from Task 29)
+  - 9 food box images present: dus-makanan, dus-kue, hampers, kantong-kebab, dus-donut, dus-ayam-geprek, lunchbox-paper, paperbowl, paperbag ✓
+  - Printing machine image: hero-printing.png (alt="Mesin Cetak Kemasan") ✓
+  - Badges: "Hitung Cepat" + "Profit Naik" both present (Tasks 27, 28) ✓
+  - "Sistem Hitung Cepat Percetakan" badge near navbar (Task 28) ✓
+  - Mobile layout (390x844): images appear right after H1 (h1Bottom=397, firstImgTop=435) (Task 29) ✓
+  - Zero browser console errors, zero page errors. HMR connected, SW registered.
+- Login flow verified:
+  - Navigated to /login → form rendered (username, password, Masuk, Daftar Akun, Lupa Password?).
+  - Logged in as superadmin → redirected to /pembukaan (dashboard).
+  - Dashboard: full sidebar (Beranda, Potong Kertas, Hitung Cetakan, Invoice, Surat Jalan, Purchase Order, Riwayat, Master, Hak Akses, Pengguna, Pengaturan), "SELAMAT PAGI" greeting, filter buttons. Zero errors.
+- Core feature navigation verified:
+  - Clicked "Hitung Cetakan" → /hitung-cetakan loaded with H1 "Hitung Cetakan". Zero errors.
+- API endpoints verified:
+  - /api/health → {"status":"healthy","uptime":137s,"environment":"development"}
+  - /api/public-settings → {"company_name":"Darrellsoft","app_language":"id",...}
+  - /api/auth/me → 401 Unauthorized (correct for unauthenticated)
+- Footer verified: landing page footer at bottom of content (footerBottom=9721=bodyHeight), naturally pushed down by long content (no overlap).
+- Cleaned up /tmp/workspace-45-extract.
+- Dev server running via daemon (PID 4365, auto-restart enabled, port 3000).
+
+Stage Summary:
+- All project content replaced with the uploaded archive (workspace-(45).tar).
+- Project is now at the archive's snapshot state (Task 30 — most recent, production-deployed state).
+- node_modules preserved (no reinstall needed), upload/ and skills/ preserved.
+- Database (db/custom.db) replaced with archive's copy (593KB, includes superadmin user).
+- .next cache cleared to resolve stale RSC manifest error.
+- Dev server running via daemon.cjs (persistent, auto-restart) on port 3000; site renders correctly with no errors.
+- All landing page features from Tasks 25-29 verified LIVE locally: 9-item food box grid, printing machine image, badge overlays, mobile layout reorder, Sistem badge near navbar.
+- Login flow works end-to-end (superadmin → dashboard with full sidebar).
+- Core feature navigation works (/hitung-cetakan loads correctly).
+- Production (www.darrellsoft.com) is NOT affected by this local restore — still has the previously deployed version live (which matches this archive's state since archive worklog ends at Task 30 deploy).
