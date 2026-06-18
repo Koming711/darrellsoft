@@ -1310,3 +1310,56 @@ Stage Summary:
 - Page renders correctly on desktop and mobile, all interactions work (plan selection, step navigation, back button), zero errors.
 - Dev server running healthy via daemon.cjs (port 3000).
 - Local only — NOT deployed to production.
+
+---
+Task ID: 33
+Agent: Main
+Task: Extract workspace-(29).tar and replace landing page pricing with its pricing
+
+Work Log:
+- User uploaded: workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (29).tar (22MB) to /home/z/my-project/upload/
+- Extracted archive to /tmp/workspace-29-extract (601 non-git files). Full workspace snapshot, worklog ends at Task ID 15 (older state).
+- Located pricing section in archive's src/app/page.tsx (lines 886-962) and compared with current landing page pricing (lines 1014-1085).
+- Identified pricing differences:
+  - Plan 1: "Demo Gratis" (Rp 0, goToLogin) → "Bulanan Ekonomis" (Rp 78.000, openPayment('bulanan-ekonomis'), 1 akun pengguna)
+  - Plan 2: "Langganan Bulanan" Rp 118.000 → Rp 128.000 (added "2 akun untuk team")
+  - Plan 3: "Langganan Tahunan" Rp 888.000 (unchanged price, added "3 akun untuk group")
+  - Plan 4: "Tanpa Langganan" Rp 3.888.000 (unchanged price, added "4 akun untuk group solid")
+  - Grid width: max-w-5xl → max-w-6xl
+- Also found 3 CTA mentions of "Rp 118.000" needing update to "Rp 128.000":
+  - Line 839: "Cuma Rp 118.000/bulan — lebih murah dari sekali salah hitung!" (Kenapa Bayar section)
+  - Line 1190: "Cuma Rp 118.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!" (Main CTA Card heading)
+  - Line 1194: "kamu bayar cuma Rp 118.000/bulan" (Main CTA Card paragraph)
+- Applied all 4 edits via MultiEdit on src/app/page.tsx:
+  1. Replaced entire pricing grid div (4 PricingCard components) with archive's version.
+  2. Updated CTA mention #1 (line 839).
+  3. Updated CTA mention #2 (line 1190).
+  4. Updated CTA mention #3 (line 1194).
+- Synced src/app/page.tsx → root app/page.tsx (project dual-root structure). Verified IDENTICAL.
+- Dev server (daemon.cjs) picked up changes via HMR (Fast Refresh rebuilt in 923ms, no errors).
+- Browser verification (agent-browser):
+  - Opened http://localhost:3000/ → page rendered correctly.
+  - Scrolled to #harga section. Verified 4 pricing cards render with new content:
+    - "Bulanan Ekonomis" Rp 78.000 (1 akun pengguna) ✓
+    - "Langganan Bulanan" Rp 128.000 (2 akun untuk team) ✓
+    - "Langganan Tahunan" Rp 888.000 (3 akun untuk group) ✓
+    - "Tanpa Langganan" Rp 3.888.000 (4 akun untuk group solid) ✓
+  - All 4 account counts present in DOM ✓
+  - CTA mentions: All 3 "Rp 128.000" CTAs present, zero "Rp 118.000" remaining ✓
+  - Interaction test: Clicked "Pilih Paket" on Bulanan Ekonomis card → navigated to /checkout?plan=bulanan-ekonomis ✓
+  - Checkout page: H2 "Pilih Paket yang Tepat", Ekonomis plan pre-selected ✓
+  - Zero console errors, zero page errors.
+- Cleaned up /tmp/workspace-29-extract.
+
+Stage Summary:
+- Landing page pricing section (#harga) replaced with pricing from archive (29):
+  - Removed "Demo Gratis" (Rp 0) plan; added "Bulanan Ekonomis" (Rp 78.000/bulan, 1 akun) as first plan.
+  - Updated "Langganan Bulanan" price from Rp 118.000 → Rp 128.000 (added "2 akun untuk team").
+  - "Langganan Tahunan" Rp 888.000 (added "3 akun untuk group").
+  - "Tanpa Langganan" Rp 3.888.000 (added "4 akun untuk group solid").
+  - Grid widened from max-w-5xl → max-w-6xl to accommodate longer feature lists.
+- Updated 3 CTA price mentions from Rp 118.000 → Rp 128.000 (Kenapa Bayar section + Main CTA Card).
+- Both src/app/page.tsx and root app/page.tsx updated and identical (1355 lines each).
+- Dev server running healthy via daemon.cjs (port 3000); HMR picked up changes cleanly.
+- Plan selection → checkout flow verified end-to-end (Bulanan Ekonomis → /checkout?plan=bulanan-ekonomis with Ekonomis pre-selected).
+- Local only — NOT deployed to production.
