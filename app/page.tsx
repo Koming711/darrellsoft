@@ -836,7 +836,7 @@ export default function Home() {
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                     <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <span>Cuma <strong className="text-amber-600 dark:text-amber-400">Rp 118.000/bulan</strong> — lebih murah dari sekali salah hitung!</span>
+                    <span>Cuma <strong className="text-amber-600 dark:text-amber-400">Rp 128.000/bulan</strong> — lebih murah dari sekali salah hitung!</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                     <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -1011,29 +1011,33 @@ export default function Home() {
           </div>
         </FadeIn>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 max-w-5xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 max-w-6xl mx-auto">
           <PricingCard
-            title="Demo Gratis"
-            price="Rp 0"
-            period="gratis"
-            description="Coba dulu sebelum berlangganan"
+            title="Bulanan Ekonomis"
+            price="Rp 78.000"
+            period="per bulan"
+            description="1 akun, hemat untuk pemula"
+            periodBelow
             features={[
+              '1 akun pengguna',
               'Semua fitur kalkulasi cetak',
-              'Coba selama 3 hari',
-              'Tanpa kartu kredit',
+              'Update harga kertas & ongkos',
+              'Hitung otomatis harga modal',
               'Akses Desktop & Mobile',
-              'Boleh langganan kapan saja',
+              <span key="bold" className="font-bold">Boleh langganan 1 bulan saja</span>,
+              'Tidak ada biaya denda sama sekali',
             ]}
             delay={0}
-            onSelect={() => goToLogin('register')}
+            onSelect={() => openPayment('bulanan-ekonomis')}
           />
           <PricingCard
             title="Langganan Bulanan"
-            price="Rp 118.000"
+            price="Rp 128.000"
             period="per bulan"
             description="Langganan bulanan, sangat fleksibel"
             periodBelow
             features={[
+              '2 akun untuk team',
               'Semua fitur kalkulasi cetak',
               'Update harga kertas & ongkos',
               'Hitung otomatis harga modal',
@@ -1053,6 +1057,7 @@ export default function Home() {
             popular
             periodBelow
             features={[
+              '3 akun untuk group',
               'Semua fitur kalkulasi cetak',
               'Update harga kertas & ongkos',
               'Hitung otomatis harga modal',
@@ -1071,6 +1076,7 @@ export default function Home() {
             description="Beli putus, tidak perlu langganan"
             periodBelow
             features={[
+              '4 akun untuk group solid',
               'Semua fitur kalkulasi cetak',
               'Update harga kertas & ongkos',
               'Hitung otomatis harga modal',
@@ -1187,11 +1193,11 @@ export default function Home() {
           <FadeIn delay={0.3}>
             <div className="bg-white rounded-2xl p-6 md:p-8 shadow-2xl text-center max-w-3xl mx-auto">
               <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-4">
-                Cuma Rp 118.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!
+                Cuma Rp 128.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!
               </h3>
               <p className="text-gray-600 text-base md:text-lg leading-relaxed mb-4">
                 Bayangkan: <span className="font-bold text-gray-900">1 kali salah hitung saja bisa rugi ratusan ribu hingga jutaan rupiah</span>. 
-                Dengan Darrell Soft, kamu bayar cuma Rp 118.000/bulan tapi hemat jutaan dari kesalahan hitung. 
+                Dengan Darrell Soft, kamu bayar cuma Rp 128.000/bulan tapi hemat jutaan dari kesalahan hitung. 
                 <span className="font-bold text-blue-600"> Investasi kecil, untung besar!</span>
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
