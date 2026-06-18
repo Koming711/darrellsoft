@@ -1261,3 +1261,52 @@ Stage Summary:
 - Login flow works end-to-end (superadmin → dashboard with full sidebar).
 - Core feature navigation works (/hitung-cetakan loads correctly).
 - Production (www.darrellsoft.com) is NOT affected by this local restore — still has the previously deployed version live (which matches this archive's state since archive worklog ends at Task 30 deploy).
+
+---
+Task ID: 32
+Agent: Main
+Task: Replace checkout landing page with uploaded page(3).tsx
+
+Work Log:
+- User uploaded: page(3).tsx (28.4KB, 647 lines) to /home/z/my-project/upload/
+- Inspected uploaded file: Netflix-style dark theme (#141414 bg, #e50914 red accent, #46d369 green) checkout page with:
+  - 3-step flow: Pilih Paket → Info Pembayaran → Konfirmasi & Bayar
+  - 4 plans: bulanan-ekonomis (Rp 78.000), bulanan (Rp 128.000), tahunan (Rp 888.000 - HEMAT 42%), lifetime (Rp 3.888.000)
+  - Account creation: username, password, confirm password (with show/hide toggles)
+  - Payment info: name, email, phone
+  - handlePay calls /api/midtrans/create-transaction then opens PaymentDialog
+  - After payment success: redirects to /login (manual login)
+  - Resume functionality via localStorage (checkout_pending)
+  - framer-motion animations (slide transitions between steps)
+  - WhatsApp admin link (6285888082208)
+- Compared with current checkout page (687 lines). Uploaded version is SIMPLER:
+  - Removed: maxAccounts field, secondUsername state, "Akun Kedua" multi-account form section, autoLoggedIn state, multi-account validation
+  - Changed: handlePay now calls /api/midtrans/create-transaction first (current version just opens PaymentDialog which creates transaction internally)
+  - Changed: post-payment redirect to /login (current redirects to /pembukaan with auto-login)
+  - Changed: PaymentDialog no longer receives username/password/secondUsername
+- Verified all dependencies available: PaymentDialog component (src/ + root), Midtrans API route, framer-motion, lucide-react, Button/Input/Label UI components.
+- Verified PaymentDialog props interface supports uploaded file's usage (customerData.username/password/secondUsername are optional).
+- Replaced src/app/checkout/page.tsx with uploaded file via cp.
+- Synced to root duplicate app/checkout/page.tsx (project uses dual-root structure).
+- Verified both files IDENTICAL (647 lines each).
+- Lint: React Compiler warnings (setState in effect, "Cannot create components during render") — non-blocking, project has typescript.ignoreBuildErrors: true.
+- Dev server (daemon.cjs) picked up change via HMR, no restart needed.
+- Browser verification (agent-browser):
+  - Opened http://localhost:3000/checkout → page rendered correctly (after dismissing "Versi Baru!" dialog and install prompt).
+  - Title: "Darrell Soft - Kalkulator Hitung Cetakan"
+  - Step 1 (Pilih Paket): H2 "Pilih Paket yang Tepat", step indicator (Pilih Paket / Info Pembayaran / Konfirmasi & Bayar), 4 plan buttons (Ekonomis Rp 78.000, Basic Rp 128.000, Premium Rp 888.000 HEMAT 42%, Lifetime Rp 3.888.000), "Lanjutkan" button.
+  - Interaction test: Clicked Premium plan → clicked Lanjutkan → advanced to Step 2.
+  - Step 2 (Info Pembayaran): H2 "Buat Akun & Info Pembayaran", 6 form fields (username, password, confirm password, nama lengkap, email, no. HP), Kembali + Lanjutkan buttons. All fields rendered correctly.
+  - Back navigation: Clicked Kembali → returned to Step 1 "Pilih Paket yang Tepat". ✓
+  - Mobile (390x844): H2 visible, 4 plan buttons render, NO horizontal overflow. ✓
+  - Zero console errors, zero page errors.
+- API test: GET /checkout 200, GET /checkout?plan=bulanan 200 — both compile and serve cleanly.
+- Dev log: clean, no errors.
+
+Stage Summary:
+- Checkout landing page (/checkout) replaced with uploaded page(3).tsx.
+- New checkout page: simpler 3-step flow, 4 plans, account creation + payment info, Midtrans integration, redirects to /login after payment (no auto-login, no multi-account).
+- Both src/app/checkout/page.tsx and root app/checkout/page.tsx updated and identical.
+- Page renders correctly on desktop and mobile, all interactions work (plan selection, step navigation, back button), zero errors.
+- Dev server running healthy via daemon.cjs (port 3000).
+- Local only — NOT deployed to production.
