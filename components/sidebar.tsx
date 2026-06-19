@@ -26,6 +26,11 @@ import {
   ShoppingBag,
   Home,
   MoreHorizontal,
+  TrendingUp,
+  Wallet,
+  ScrollText,
+  UserCog,
+  Banknote,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -88,9 +93,16 @@ const menuItems = [
   {
     titleKey: 'riwayat_penjualan' as TranslationKey,
     href: '/riwayat-penjualan',
-    icon: Receipt,
+    icon: TrendingUp,
     featureId: 'invoice',
     section: 'dokumen',
+  },
+  {
+    titleKey: 'biaya' as TranslationKey,
+    href: '/biaya',
+    icon: Banknote,
+    featureId: 'biaya',
+    section: 'biaya',
   },
   {
     titleKey: 'hitung_finishing' as TranslationKey,
@@ -117,14 +129,14 @@ const menuItems = [
   {
     titleKey: 'master_harga_kertas' as TranslationKey,
     href: '/master-harga-kertas',
-    icon: FileText,
+    icon: ScrollText,
     featureId: 'master-harga-kertas',
     section: 'master_cetakan',
   },
   {
     titleKey: 'master_ongkos_cetak' as TranslationKey,
     href: '/master-ongkos-cetak',
-    icon: DollarSign,
+    icon: Wallet,
     featureId: 'master-ongkos-cetak',
     section: 'master_cetakan',
   },
@@ -159,7 +171,7 @@ const menuItems = [
   {
     titleKey: 'pengguna' as TranslationKey,
     href: '/administrasi/pengguna',
-    icon: Users,
+    icon: UserCog,
     featureId: 'pengguna',
     section: 'administrasi',
   },
@@ -180,7 +192,7 @@ const bottomNavItems = [
     titleKey: 'pembukaan' as TranslationKey,
     shortTitle: 'Beranda',
     href: '/pembukaan',
-    icon: Home,
+    icon: BookOpen,
     featureId: 'pembukaan',
   },
   {
@@ -208,7 +220,7 @@ const bottomNavItems = [
     titleKey: 'master_harga_kertas' as TranslationKey,
     shortTitle: 'H.Kertas',
     href: '/master-harga-kertas',
-    icon: FileText,
+    icon: ScrollText,
     featureId: 'master-harga-kertas',
   },
 ]
@@ -385,6 +397,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     { key: undefined, labelKey: 'pembukaan' as TranslationKey },
     { key: 'hitung_biaya_produksi', labelKey: 'hitung_biaya_produksi' as TranslationKey },
     { key: 'dokumen', labelKey: 'dokumen' as TranslationKey },
+    { key: 'biaya', labelKey: 'biaya' as TranslationKey },
     { key: 'biaya_produksi', labelKey: 'biaya_produksi' as TranslationKey },
     { key: 'master_cetakan', labelKey: 'master_cetakan' as TranslationKey },
     { key: 'administrasi', labelKey: 'administrasi' as TranslationKey },
@@ -420,13 +433,13 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               if (sectionItems.length === 0) return null
 
               return (
-                <div key={section.key ?? 'main'} className="mb-3">
+                <div key={section.key ?? 'main'} className="mb-4">
                   {section.key && (
                     <div className="py-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-200/70">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-white/85">
                         {t(section.labelKey)}
                       </span>
-                      <div className="mt-1" style={{ borderColor: 'rgba(255,255,255,0.15)', borderWidth: '0.1px' }} />
+                      <div className="mt-1" style={{ borderColor: 'rgba(255,255,255,0.2)', borderWidth: '0.1px' }} />
                     </div>
                   )}
                   <div className="grid grid-cols-4 gap-2">
@@ -442,14 +455,14 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                             setShowPopup(false)
                           }}
                           className={cn(
-                            'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-colors',
+                            'flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors',
                             active
-                              ? 'bg-white/15 text-white'
-                              : 'text-blue-200/70 hover:bg-white/10 hover:text-white'
+                              ? 'bg-white/20 text-white'
+                              : 'text-white hover:bg-white/15'
                           )}
                         >
-                          <item.icon className="w-6 h-6" strokeWidth={active ? 2.5 : 1.8} />
-                          <span className={cn('text-[10px] leading-tight text-center', active ? 'font-bold' : 'font-medium')}>
+                          <item.icon className="w-7 h-7" strokeWidth={active ? 2.5 : 2} />
+                          <span className={cn('text-xs leading-tight text-center', active ? 'font-bold' : 'font-medium')}>
                             {t(item.titleKey)}
                           </span>
                         </Link>
@@ -462,16 +475,16 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
 
             {/* Logout */}
             {username && onLogout && (
-              <div className="mt-4 pt-3" style={{ borderColor: 'rgba(255,255,255,0.15)', borderWidth: '0.1px' }}>
+              <div className="mt-4 pt-3" style={{ borderColor: 'rgba(255,255,255,0.2)', borderWidth: '0.1px' }}>
                 <button
                   onClick={async () => {
                     setShowPopup(false)
                     if (onLogout) await onLogout()
                   }}
-                  className="flex items-center justify-center gap-2 w-full p-3 rounded-xl text-red-400 hover:bg-white/10 transition-colors"
+                  className="flex items-center justify-center gap-2 w-full p-4 rounded-xl text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors"
                 >
-                  <LogOut className="w-5 h-5" />
-                  <span className="text-sm font-medium">{t('keluar')}</span>
+                  <LogOut className="w-6 h-6" />
+                  <span className="text-sm font-semibold">{t('keluar')}</span>
                 </button>
               </div>
             )}

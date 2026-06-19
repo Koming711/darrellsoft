@@ -68,6 +68,15 @@ export const GROUP_FEATURES = [
     ]
   },
   {
+    id: 'biaya', name: 'Biaya',
+    subPermissions: [
+      { id: 'biaya-lihat', name: 'Daftar Biaya' },
+      { id: 'biaya-tambah', name: 'Tambah Biaya' },
+      { id: 'biaya-edit', name: 'Edit Biaya' },
+      { id: 'biaya-hapus', name: 'Hapus Biaya' },
+    ]
+  },
+  {
     id: 'daftar-pengguna', name: 'Daftar Pengguna',
     subPermissions: [
       { id: 'daftar-pengguna-tambah', name: 'Tambah' },
