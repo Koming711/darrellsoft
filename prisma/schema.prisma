@@ -393,3 +393,16 @@ model PasswordResetToken {
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model Biaya {
+  id              String   @id @default(cuid())
+  tanggal         String   // ISO date string (YYYY-MM-DD) for portability across SQLite/Postgres
+  kategori        String   // e.g. Listrik, Air, Tinta, Kertas, Gaji, Sewa, Transportasi, ATK, Maintenance, Lainnya
+  keterangan      String   @default("")
+  jumlah          Float    // amount in Rupiah
+  metodePembayaran String  @default("Tunai") // Tunai, Transfer, Kartu, QRIS, Lainnya
+  supplier        String   @default("")
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

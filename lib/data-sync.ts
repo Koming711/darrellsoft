@@ -10,19 +10,20 @@
  * Supported entities: papers, printing-costs, finishings, customers, settings, riwayat-potong-kertas, riwayat-cetakan
  */
 
-export type DataEntity = 
-  | 'papers' 
-  | 'printing-costs' 
-  | 'finishings' 
-  | 'customers' 
-  | 'settings' 
-  | 'riwayat-potong-kertas' 
+export type DataEntity =
+  | 'papers'
+  | 'printing-costs'
+  | 'finishings'
+  | 'customers'
+  | 'settings'
+  | 'riwayat-potong-kertas'
   | 'riwayat-cetakan'
   | 'invoice'
   | 'surat-jalan'
   | 'pengguna'
   | 'calon-pembeli'
   | 'pembeli'
+  | 'biaya'
 
 // BroadcastChannel for cross-tab sync
 let channel: BroadcastChannel | null = null

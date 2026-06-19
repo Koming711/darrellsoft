@@ -18,6 +18,13 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
+model Grup {
+  id        String     @id @default(cuid())
+  nama      String
+  createdAt DateTime   @default(now())
+  pengguna  Pengguna[]
+}
+
 model Pengguna {
   id           String         @id @default(cuid())
   namaLengkap  String
@@ -26,6 +33,8 @@ model Pengguna {
   username     String         @unique
   password     String
   role         String         @default("user")
+  grupId       String?
+  grup         Grup?          @relation(fields: [grupId], references: [id])
   createdAt    DateTime       @default(now())
   validUntil   DateTime?
   calonPembeli CalonPembeli[]
@@ -383,4 +392,17 @@ model PasswordResetToken {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model Biaya {
+  id              String   @id @default(cuid())
+  tanggal         String   // ISO date string (YYYY-MM-DD) for portability across SQLite/Postgres
+  kategori        String   // e.g. Listrik, Air, Tinta, Kertas, Gaji, Sewa, Transportasi, ATK, Maintenance, Lainnya
+  keterangan      String   @default("")
+  jumlah          Float    // amount in Rupiah
+  metodePembayaran String  @default("Tunai") // Tunai, Transfer, Kartu, QRIS, Lainnya
+  supplier        String   @default("")
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

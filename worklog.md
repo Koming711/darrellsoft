@@ -1409,3 +1409,63 @@ Stage Summary:
 - Dev server running healthy via daemon.cjs on port 3000 (Next.js 16.1.3 Turbopack, SQLite database, mock Midtrans mode).
 - upload/ retains: daemon.cjs, mid1.jpg, page(3).tsx, workspace-46.tar.001, workspace-46.tar.002.
 - Local dev ONLY — production at www.darrellsoft.com unchanged.
+
+---
+Task ID: 39
+Agent: Main
+Task: Add "Biaya" (Operational Expenses) menu to sidebar menu
+
+Work Log:
+- User requested: "tambahkan menu biaya di sidebar menu" (add a Biaya menu in the sidebar).
+- Analyzed project structure: printing business management app (Darrell Soft) with sidebar menus organized by sections (hitung_biaya_produksi, dokumen, biaya_produksi, master_cetakan, administrasi, setting). No existing "Biaya" operational-expense feature existed.
+- Created full-stack Biaya feature (CRUD operational expense tracking):
+  1. Prisma schema (prisma/schema.prisma): added `Biaya` model with fields: id, tanggal (String YYYY-MM-DD), kategori, keterangan, jumlah (Float), metodePembayaran, supplier, userId, createdAt, updatedAt.
+  2. Ran `bunx prisma db push --schema=prisma/schema.prisma --accept-data-loss` → created Biaya table in SQLite (db/custom.db). Initial `bun run db:push` reported "already in sync" but didn't actually create the table — had to use explicit --schema flag + --accept-data-loss to force. Verified via `db.biaya.count()` = 0.
+  3. API routes (src/app/api/biaya/):
+     - route.ts: GET (list, filtered by userId via getDataFilter), POST (create with validation: tanggal/kategori/jumlah required)
+     - [id]/route.ts: GET/PUT/DELETE with ownership check (userId match)
+  4. Page (src/app/biaya/page.tsx): full CRUD UI with:
+     - 4 summary cards (Bulan Ini, Tahun Ini, Total Keseluruhan, Jumlah Transaksi)
+     - Toolbar: search (kategori/keterangan/supplier/metode), month picker filter, Cetak (print), Tambah
+     - Desktop table + mobile cards (responsive)
+     - Custom add/edit Dialog (not DialogForm, because needed date + select fields): tanggal (date), kategori (select: Listrik/Air/Tinta/Kertas/Gaji/Sewa/Transportasi/ATK/Maintenance/Internet/Telepon/Lainnya), jumlah (number), metodePembayaran (select: Tunai/Transfer/Kartu/QRIS/Lainnya), supplier (text), keterangan (text)
+     - Delete with confirm
+     - Print report (opens window with formatted table + grand total)
+     - Permission-aware: canView/canAdd/canEdit/canDelete via hasSubPermission('biaya', 'biaya-lihat'/'biaya-tambah'/'biaya-edit'/'biaya-hapus')
+     - Active state highlight on sidebar
+  5. Sidebar (src/components/sidebar.tsx — MOBILE): added Banknote import, added Biaya menu item in new 'biaya' section between 'dokumen' and 'biaya_produksi', added 'biaya' to sectionOrder for mobile Lainnya popup.
+  6. Sidebar desktop (src/components/sidebar-desktop.tsx — DESKTOP): same 3 changes (Banknote import, Biaya menu item, 'biaya' section in sectionOrder). NOTE: this file was missed initially — agent-browser verification caught it.
+  7. i18n (src/lib/i18n.ts): added 'biaya' and 'subtitle_biaya' translation keys for both id ("Biaya" / "Catat dan pantau pengeluaran biaya operasional") and en ("Expenses" / "Track and monitor operational expense records").
+  8. Permissions (src/lib/permission-defaults.ts): added 'biaya' as a GROUP_FEATURE with 4 sub-permissions (biaya-lihat, biaya-tambah, biaya-edit, biaya-hapus). Auto-granted to superadmin/admin/manager via existing buildDefaultPermissions/buildDefaultSubPermissions logic.
+  9. Permissions (src/lib/permissions.ts): added '/biaya' → 'biaya' mapping in getFeatureIdForPath, and 'biaya' → '/biaya' in getPathForFeatureId.
+  10. Data sync (src/lib/data-sync.ts): added 'biaya' to DataEntity union type for cross-tab sync.
+- Synced ALL touched files to root dual-root structure (app/, components/, lib/, schema.prisma) — verified identical via diff.
+- Lint: all new/modified files pass ESLint with zero errors (pre-existing errors in upload/page(3).tsx and websocket/frontend.tsx are unrelated).
+- Restarted daemon (had to pkill old next-server that was holding port 3000 — daemon.cjs stop didn't kill the actual Next.js process). Cleared .next cache. Server ready in 830ms.
+- E2E verification (agent-browser, Task 39 + 39b):
+  - Login as superadmin / 268899 → /pembukaan ✓
+  - DESKTOP sidebar (1280x800): BIAYA section with Biaya menu item (Banknote icon) appears between DOKUMEN and BIAYA PRODUKSI sections ✓
+  - MOBILE sidebar (390x844): Biaya appears in Lainnya popup grid between Riwayat Penjualan and Hitung Finishing ✓
+  - /biaya page renders: H1 "Biaya", subtitle "Catat dan pantau pengeluaran biaya operasional", 4 summary cards (all Rp 0 initially), toolbar, empty state ✓
+  - ADD: Tambah → dialog with 6 fields → save → toast "Biaya berhasil ditambahkan" → row appears, summary cards update ✓
+  - Add second entry → both show, cards aggregate correctly ✓
+  - SEARCH: "listrik" filters to 1 row, clear returns both ✓
+  - EDIT: pencil → dialog pre-filled → change Jumlah 150000→175000 → save → toast "Biaya berhasil diperbarui" → row + cards update ✓
+  - DELETE: trash → confirm "Yakin mau hapus data biaya ini?" → accept → toast "Biaya berhasil dihapus" → row removed ✓
+  - Month filter: current month shows entry, 2024-01 shows empty state "Tidak ada data biaya sesuai filter", reset works ✓
+  - Mobile responsive: cards 2-col grid, table→card view, bottom nav appears ✓
+  - Collapse toggle (desktop): Perkecil → sidebar 208px→56px, Banknote icon still visible, title="Biaya" tooltip; Perbesar → expands back ✓
+  - Active state: Biaya menu item highlighted (bg-white/15) when on /biaya ✓
+  - Zero console errors throughout ✓
+
+Stage Summary:
+- New "Biaya" (Operational Expenses) feature fully implemented end-to-end and verified working.
+- Database: new Biaya table created in SQLite.
+- API: full CRUD at /api/biaya and /api/biaya/[id] with per-user data isolation.
+- UI: /biaya page with summary cards, search, month filter, CRUD dialog, print, responsive desktop table + mobile cards.
+- Sidebar: "Biaya" menu item added to BOTH sidebar.tsx (mobile) AND sidebar-desktop.tsx (desktop) in a new "biaya" section, positioned between DOKUMEN and BIAYA PRODUKSI. Banknote icon used.
+- Permissions: 'biaya' registered as GROUP_FEATURE with 4 sub-permissions (lihat/tambah/edit/hapus), granted to superadmin/admin/manager by default.
+- i18n: 'biaya' + 'subtitle_biaya' added for id and en.
+- All files synced to dual-root structure (src/ + root).
+- Dev server running healthy via daemon.cjs on port 3000.
+- Local only — NOT deployed to production (www.darrellsoft.com unchanged).

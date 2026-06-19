@@ -30,6 +30,7 @@ import {
   Wallet,
   ScrollText,
   UserCog,
+  Banknote,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -95,6 +96,13 @@ const menuItems = [
     icon: TrendingUp,
     featureId: 'invoice',
     section: 'dokumen',
+  },
+  {
+    titleKey: 'biaya' as TranslationKey,
+    href: '/biaya',
+    icon: Banknote,
+    featureId: 'biaya',
+    section: 'biaya',
   },
   {
     titleKey: 'hitung_finishing' as TranslationKey,
@@ -389,6 +397,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     { key: undefined, labelKey: 'pembukaan' as TranslationKey },
     { key: 'hitung_biaya_produksi', labelKey: 'hitung_biaya_produksi' as TranslationKey },
     { key: 'dokumen', labelKey: 'dokumen' as TranslationKey },
+    { key: 'biaya', labelKey: 'biaya' as TranslationKey },
     { key: 'biaya_produksi', labelKey: 'biaya_produksi' as TranslationKey },
     { key: 'master_cetakan', labelKey: 'master_cetakan' as TranslationKey },
     { key: 'administrasi', labelKey: 'administrasi' as TranslationKey },
