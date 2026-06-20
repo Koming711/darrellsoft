@@ -1469,3 +1469,51 @@ Stage Summary:
 - All files synced to dual-root structure (src/ + root).
 - Dev server running healthy via daemon.cjs on port 3000.
 - Local only — NOT deployed to production (www.darrellsoft.com unchanged).
+
+---
+Task ID: 40
+Agent: Main
+Task: Fix "Gagal membuat transaksi" error on checkout page when clicking "Bayar Sekarang"
+
+Work Log:
+- User reported: "dihalaman checkout, apabila di klik bayar sekarang kenapa tidk bisa? muncul 'Gagal membuat transaksi'. check and fix"
+- Checked dev.log: found `Create transaction error: Error [MidtransError]: Midtrans API is returning API error. HTTP status code: 401` followed by `POST /api/midtrans/create-transaction 500`. Root cause = Midtrans API called with invalid/missing server key.
+- Inspected /home/z/my-project/.env: ONLY contained `DATABASE_URL=file:/home/z/my-project/db/custom.db`. The Midtrans FAKE_KEY vars (which trigger MOCK MODE in create-transaction/route.ts) were MISSING — lost during Task 38 archive re-extraction (archive 46 .env only has DATABASE_URL).
+- Verified create-transaction/route.ts logic: MOCK MODE triggers when `process.env.MIDTRANS_SERVER_KEY === 'SB-Mid-server-FAKE_TEST_KEY_12345'` (line 6-7). Without this env var, code falls through to PRODUCTION MODE (line 101) which calls real Midtrans API → 401 Unauthorized.
+- Verified checkout page (src/app/checkout/page.tsx): Task 37 fixes still intact — handlePay simplified to just `setShowPaymentPopup(true)` (line 169-171), customerData includes username+password (line 601-602). No code changes needed here.
+- Verified payment-dialog.tsx: correctly sends username+password to /api/midtrans/create-transaction (line 145-156). No code changes needed.
+- Fix applied: Restored .env with 5 Midtrans vars:
+  ```
+  DATABASE_URL=file:/home/z/my-project/db/custom.db
+  MIDTRANS_SERVER_KEY=SB-Mid-server-FAKE_TEST_KEY_12345
+  MIDTRANS_IS_PRODUCTION=false
+  NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=SB-Mid-client-FAKE_TEST_KEY
+  NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION=false
+  NEXT_PUBLIC_BASE_URL=http://localhost:3000
+  ```
+- Restarted dev server: killed old daemon + next-server, cleared .next cache, started fresh daemon (setsid for detach). Server ready in ~1s.
+- API verification (curl): POST /api/midtrans/create-transaction → `{"success":true,"token":"fake_snap_token_1781998724176_RH3OEA","redirectUrl":"","orderId":"PKG-BULANAN-1781998724176-RH3OEA","mock":true}` — MOCK MODE confirmed active, no 401.
+- E2E browser verification (agent-browser, full checkout flow):
+  - Open /checkout?plan=bulanan → Step 1 "Pilih Paket yang Tepat" with 4 plans ✓
+  - Dismiss "Versi Baru!" version dialog ✓
+  - Click "Lanjutkan" → Step 2 "Buat Akun & Info Pembayaran" with 6 fields ✓
+  - Fill all fields: username=browsertest5, password=testpass123, confirm=testpass123, name=Browser Test, email=browsertest5@example.com, phone=081234567890 ✓ (verified via eval: all values correct)
+  - Force-hide PWA "Install Darrell Soft" overlay (was blocking button clicks) ✓
+  - Click "Lanjutkan" → Step 3 "Konfirmasi & Bayar" with order summary (Basic, Rp 128.000) ✓
+  - Click "Bayar Sekarang" → **PaymentDialog opened** with ALL payment methods:
+    - TRANSFER BANK: BCA, BNI, Mandiri, BRI
+    - VIRTUAL ACCOUNT: Permata, BSI
+    - E-MONEY: GoPay, ShopeePay, DANA
+    - DEBIT: Kartu Debit
+    - KREDIT: Kartu Kredit
+    - QRIS: QRIS
+  - **NO "Gagal membuat transaksi" error** (eval check returned "NO_ERROR") ✓
+  - Console: only normal logs (HMR, SW, Fast Refresh) — zero errors ✓
+  - Page errors: empty ✓
+- Dev server left running for user (daemon PID 5213, next-server PID 5240, port 3000, HTTP 200).
+
+Stage Summary:
+- Root cause: .env file lost its Midtrans FAKE_KEY environment variables (during Task 38 archive re-extraction), so MOCK MODE was not triggered. The create-transaction API fell through to PRODUCTION MODE, calling the real Midtrans API with no valid server key → 401 Unauthorized → "Gagal membuat transaksi" error shown to user.
+- Fix: Restored 5 Midtrans env vars to .env (MIDTRANS_SERVER_KEY=SB-Mid-server-FAKE_TEST_KEY_12345 triggers mock mode). No code changes were needed — checkout page (Task 37 fixes) and payment-dialog were already correct.
+- Verified end-to-end: API returns mock token (mock:true), and full browser checkout flow (select plan → fill account form → confirm → click Bayar Sekarang) opens the PaymentDialog with all payment methods, zero errors.
+- Dev server running healthy on port 3000. Local only — NOT deployed to production.
