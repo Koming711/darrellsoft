@@ -386,7 +386,7 @@ function LoginContent() {
               className="w-[134px] h-[134px] rounded-2xl object-contain mx-auto shadow-none"
             />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">{t('app_name')}</h1>
+          <h1 className="text-3xl text-foreground" style={{ fontWeight: 900 }}>{t('app_name')}</h1>
           <p className="text-muted-foreground mt-2 text-base">{t('app_tagline')}</p>
         </div>
 
