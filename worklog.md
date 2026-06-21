@@ -3055,3 +3055,52 @@ Stage Summary:
 Files Reverted:
 - src/app/pembukaan/page.tsx (→ commit 2443d23 version)
 - app/pembukaan/page.tsx (→ commit 2443d23 version)
+
+---
+Task ID: 82
+Agent: Main
+Task: Dihalaman beranda semua kotak dibuat putih saja (white background only, no border color change)
+
+Work Log:
+- Read src/app/pembukaan/page.tsx (1517 lines) to map all colored box patterns
+- Identified the main box components:
+  - StatCard outer div (colorMap with 8 colors: emerald/sky/amber/violet/rose/red/orange/teal)
+  - DocCard outer div (colorMap with 3 colors: blue/teal/orange)
+  - QuickIcon button (3 instances: amber/blue/violet)
+  - Motivasi Hari In box (gradient bg-amber-50 to-orange-50)
+  - Date Filter container (bg-slate-50/80)
+  - Invoice history empty-state box (bg-amber-50/50)
+  - 6 table containers using bg-card (already white via CSS var)
+  - 5 <Card> components (shadcn Card uses bg-card = #ffffff in light, #111 in dark)
+- Applied targeted edits via MultiEdit to src/app/pembukaan/page.tsx:
+  1. Motivasi box (line 749): bg-gradient-to-r from-amber-50 to-orange-50 → bg-white dark:bg-zinc-900 (kept border-amber-200)
+  2. Date filter container (line 884): bg-slate-50/80 → bg-white dark:bg-zinc-900
+  3. Invoice empty-state (line 1245): bg-amber-50/50 → bg-white dark:bg-zinc-900
+  4. StatCard colorMap: all 8 colors' bg property changed from bg-{color}-50 → bg-white dark:bg-zinc-900 (kept colored border, iconBg, text)
+  5. DocCard colorMap: all 3 colors' bg property changed similarly
+  6. StatCard/DocCard skeleton loaders: bg-white/50 → bg-slate-100 dark:bg-zinc-800 (since on white bg, white/50 would be invisible)
+  7. QuickIcon button className: ${bg} ${border} → bg-white dark:bg-zinc-900 ${border} (kept colored border + text color)
+- Synced src/app/pembukaan/page.tsx to app/pembukaan/page.tsx (dual-root)
+- Encountered pre-existing syntax error in both files at line 461: 'Successful people aren't those...' (apostrophe inside single-quoted string)
+  - This error was masked in src/ because Next.js App Router uses root app/ directory for routing
+  - Fixed by changing outer quotes to double quotes: "Successful people aren't those..." (text content unchanged)
+  - Applied to BOTH src/app/pembukaan/page.tsx and app/pembukaan/page.tsx
+- Verified page compiles: HTTP 200
+- Logged in via browser (admin/268899) → /pembukaan loads with "Beranda" heading
+- Verified via computed styles: 15 main .rounded-xl cards all have backgroundColor rgb(255,255,255) ✓
+- 0 colored backgrounds remaining on main cards
+- Buttons (Masuk, Oke Mengerti), icon circles (bg-amber-100 etc), and accent badges intentionally left colored
+- Screenshot saved: /tmp/beranda-all-white-final.png
+- Lint: no errors for pembukaan files (pre-existing errors in unrelated files only)
+
+Stage Summary:
+- All boxes/cards on Beranda page now have white background (dark mode: zinc-900)
+- Colored borders, icons, icon backgrounds, text colors, and buttons PRESERVED (only background changed to white)
+- This differs from the cancelled Task 80 which also changed borders to black — this task ONLY changes backgrounds to white, keeping the colored borders for visual variety
+- Pre-existing apostrophe syntax error at line 461 also fixed (was blocking compilation)
+- Dual-root sync completed (both files identical)
+- Page compiles and serves HTTP 200, dashboard renders with all-white boxes
+- 15 cards verified white via computed styles
+
+Files Modified:
+- src/app/pembukaan/page.tsx (and app/pembukaan/page.tsx) — StatCard/DocCard/QuickIcon colorMaps, Motivasi box, Date filter, empty-state, apostrophe fix at line 461
