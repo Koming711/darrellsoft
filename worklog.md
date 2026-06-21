@@ -3368,3 +3368,98 @@ Stage Summary:
 
 Files Modified:
 - src/app/invoice/page.tsx (and app/invoice/page.tsx) — InvoiceRiwayatTab: all colored boxes -> white bg + slate-200 border (main container, header, search bar, DP/Pelunasan section dividers, 2 table headers, Pelunasan dialog info box + 2 green status boxes + 1 blue info box)
+
+---
+Task ID: 89
+Agent: Main
+Task: Dihalaman invoice, tab riwayat pembelian dan tab riwayat penjualan - buat semua kotak warna putih dan line lite grey
+
+Work Log:
+- Read src/app/riwayat-pembelian/page.tsx (1168 lines) and src/app/riwayat-penjualan/page.tsx (959 lines)
+- Identified all colored content boxes in both pages (parallel analysis):
+
+  RIWAYAT PEMBELIAN (8 edit groups):
+  * 3 stat cards (blue/emerald/amber) - lines 633, 640, 647
+  * Filter/search bar bg-card - line 657
+  * Empty state bg-slate-50/50 - line 693
+  * Table container bg-card - line 701
+  * Table header bg-slate-50/80 - line 704
+  * Mobile card bg-card - line 795
+  * Cutting diagram dialog container p-4 bg-card - line 1078
+  * 4 colored info boxes (violet/teal/blue/emerald) - lines 1081, 1085, 1089, 1093
+  * 3 slate-50 boxes (Ukuran Bahan, Lembar Dibutuhkan, Efisiensi) - lines 1101, 1105, 1109
+
+  RIWAYAT PENJUALAN (12 edit groups):
+  * 5 stat cards (blue/emerald/violet/amber/green) - lines 468, 475, 482, 489, 496
+  * Filter/search bar bg-card - line 506
+  * Empty state bg-slate-50/50 - line 542
+  * Table container bg-card - line 550
+  * Table header bg-slate-50/80 - line 553
+  * Mobile card bg-card - line 636
+  * Status dialog info box bg-slate-50 - line 851
+  * Status dialog "Pelunasan" box border-slate-200 - line 892 (added dark variant + bg-white)
+  * Status dialog "Sudah Lunas" green box bg-green-50 - line 927
+
+- Applied MultiEdit (9 edits) to src/app/riwayat-pembelian/page.tsx - all successful
+- Applied MultiEdit (12 edits) to src/app/riwayat-penjualan/page.tsx - all successful
+- Conversion pattern for all boxes:
+  * bg-{color}-50 -> bg-white dark:bg-zinc-900
+  * bg-card -> bg-white dark:bg-zinc-900
+  * bg-slate-50/80, bg-slate-50/50, bg-slate-50 -> bg-white dark:bg-zinc-900
+  * border-{color}-100/200 -> border-slate-200 dark:border-zinc-700
+  * border-slate-200 -> border-slate-200 dark:border-zinc-700
+- Left intentionally colored (small badges/CTAs, not content boxes):
+  * Stat card inner icon containers (bg-blue-100 text-blue-600, bg-emerald-100 etc) - small icon badges
+  * Stat card value text (text-blue-700, text-emerald-700 etc) - accent text colors
+  * Status pills in tables (bg-red-100, bg-amber-100, bg-green-100) - status indicators
+  * Action buttons (bg-violet-50 hover:bg-violet-100 - small action pills for cutting diagram buttons)
+  * Filter button active state (bg-blue-600 text-white) - CTA
+  * Row hover states (hover:bg-blue-50/40) - interaction feedback
+  * Zebra stripes (bg-slate-50/50 for odd rows) - table striping
+  * Status alert pill in dialog (bg-red-50 text-red-700 / bg-amber-50 text-amber-700) - alert indicator
+  * Delete button (bg-red-500 hover:bg-red-600 text-white) - CTA
+  * Cutting diagram step number circles (bg-violet-100 text-violet-700) - small badges
+  * Info box label/value text colors (text-violet-500, text-violet-800 etc) - kept as accent
+  * Green "Sudah Lunas" icon and text colors (text-green-600, text-green-800) - status indicator
+- Synced both files to dual-root mirror (app/riwayat-pembelian/page.tsx, app/riwayat-penjualan/page.tsx)
+- Both pages compile: HTTP 200
+
+- Verified via agent-browser (after admin/268899 login):
+  RIWAYAT PEMBELIAN (light mode):
+  * 3 stat cards: bg rgb(255,255,255) + border slate-200 ✓
+  * Filter bar: bg rgb(255,255,255) + border slate-200 ✓
+  * Table container: bg rgb(255,255,255) + border slate-200 ✓
+  * Table header row: bg rgb(255,255,255) + border slate-200 ✓
+  * Mobile card: bg rgb(255,255,255) + border slate-200 ✓
+  * Cutting diagram dialog (8 boxes: Customer, Kertas, Ukuran Potong, Potongan/Lembar, Ukuran Bahan, Lembar Dibutuhkan, Efisiensi + outer): all bg rgb(255,255,255) + border slate-200 ✓
+
+  RIWAYAT PENJUALAN (light mode):
+  * 5 stat cards (Total Penjualan, Nilai Penjualan, Total DP, Belum Lunas, Lunas): all bg rgb(255,255,255) + border slate-200 ✓
+  * Filter bar: bg rgb(255,255,255) + border slate-200 ✓
+  * Table container: bg rgb(255,255,255) + border slate-200 ✓
+  * Table header row: bg rgb(255,255,255) + border slate-200 ✓
+  * Mobile cards: bg rgb(255,255,255) + border slate-200 ✓
+  * Status dialog "No. Invoice" info box: bg rgb(255,255,255) + border slate-200 ✓
+  * Status dialog "Pelunasan" box: bg rgb(255,255,255) + border slate-200 ✓
+  * Status dialog "Sudah Lunas" green box (toggled switch to show): bg rgb(255,255,255) + border slate-200 ✓
+
+  Dark mode verified: cutting diagram boxes show lab(8.3, 0.6, -2.2) = zinc-900 with rgba(255,255,255,0.1) border ✓
+
+- Screenshots saved:
+  * /tmp/riwayat-pembelian-white.png (light mode, main view)
+  * /tmp/riwayat-pembelian-cutting-dialog-white.png (light mode, cutting diagram dialog)
+  * /tmp/riwayat-penjualan-white.png (light mode, main view)
+  * /tmp/riwayat-penjualan-status-dialog-white.png (light mode, status dialog with toggle on)
+
+Stage Summary:
+- All content boxes on both Riwayat Pembelian and Riwayat Penjualan pages now have white background (dark: zinc-900) with light gray (slate-200) borders
+- Riwayat Pembelian: 3 stat cards, filter bar, empty state, table container, table header, mobile card, cutting diagram dialog container, 4 colored info boxes, 3 slate info boxes (total ~14 boxes converted)
+- Riwayat Penjualan: 5 stat cards, filter bar, empty state, table container, table header, mobile card, status dialog info box, pelunasan box, "Sudah Lunas" green box (total ~12 boxes converted)
+- Icon badges, value text colors, status pills, action buttons, row hover, zebra stripes, and step number circles PRESERVED (intentionally left colored)
+- Dark mode variants added consistently (dark:bg-zinc-900 dark:border-zinc-700)
+- Dual-root sync completed for both files
+- Pages compile and serve HTTP 200, all boxes verified white via computed styles
+
+Files Modified:
+- src/app/riwayat-pembelian/page.tsx (and app/riwayat-pembelian/page.tsx) — all colored boxes -> white bg + slate-200 border (stat cards, filter bar, empty state, table container/header, mobile card, cutting dialog container + 7 info boxes)
+- src/app/riwayat-penjualan/page.tsx (and app/riwayat-penjualan/page.tsx) — all colored boxes -> white bg + slate-200 border (5 stat cards, filter bar, empty state, table container/header, mobile card, status dialog info box + pelunasan box + Sudah Lunas green box)

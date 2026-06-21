@@ -630,21 +630,21 @@ export default function RiwayatPembelianPage() {
       <div className="space-y-4 sm:space-y-6 pb-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
               <ShoppingBag className="w-5 h-5" />
             </div>
             <p className="text-xs text-slate-500 mb-0.5">Total Pembelian</p>
             <p className="text-base sm:text-lg font-bold text-blue-700 leading-tight">{poHistory.length}</p>
           </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2">
               <Package className="w-5 h-5" />
             </div>
             <p className="text-xs text-slate-500 mb-0.5">Nilai Pembelian</p>
             <p className="text-base sm:text-lg font-bold text-emerald-700 leading-tight">{formatRupiahShort(totalPembelian)}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
@@ -654,7 +654,7 @@ export default function RiwayatPembelianPage() {
         </div>
 
         {/* Search + Filter */}
-        <div className="bg-card rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 p-4">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -690,7 +690,7 @@ export default function RiwayatPembelianPage() {
             ))}
           </div>
         ) : filteredHistories.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center">
+          <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-12 text-center">
             <Package className="mx-auto h-12 w-12 text-slate-300" />
             <p className="mt-3 text-sm text-slate-400 font-medium">Belum ada data pembelian</p>
             <p className="text-xs text-slate-300 mt-1">Data purchase order akan muncul di sini</p>
@@ -698,10 +698,10 @@ export default function RiwayatPembelianPage() {
         ) : (
           <>
             {/* Desktop Table */}
-            <div className="hidden sm:block bg-card rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <div className="hidden sm:block bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                     <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">No. PO</th>
                     <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Tanggal</th>
                     <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Nama Toko</th>
@@ -792,7 +792,7 @@ export default function RiwayatPembelianPage() {
                 const info = parseDocInfo(po)
                 const cutting = getCuttingInfo(po, pkLookup)
                 return (
-                  <div key={po.id} className="bg-card border border-slate-200 rounded-lg p-3 cursor-pointer" onClick={() => handlePreview(po)}>
+                  <div key={po.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-3 cursor-pointer" onClick={() => handlePreview(po)}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -1075,22 +1075,22 @@ export default function RiwayatPembelianPage() {
             </DialogHeader>
 
             {cuttingDiagramData && (
-              <div className="p-4 bg-card space-y-3">
+              <div className="p-4 bg-white dark:bg-zinc-900 space-y-3">
                 {/* Info cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="bg-violet-50 border border-violet-100 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-violet-500 font-medium">Customer</p>
                     <p className="text-sm font-bold text-violet-800 truncate">{cuttingDiagramInfo.customer}</p>
                   </div>
-                  <div className="bg-teal-50 border border-teal-100 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-teal-500 font-medium">Kertas</p>
                     <p className="text-sm font-bold text-teal-800 truncate">{cuttingDiagramInfo.paper}</p>
                   </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-blue-500 font-medium">Ukuran Potong</p>
                     <p className="text-sm font-bold text-blue-800">{cuttingDiagramInfo.cutSize}</p>
                   </div>
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-emerald-500 font-medium">Potongan/Lembar</p>
                     <p className="text-sm font-bold text-emerald-800">{cuttingDiagramInfo.totalPieces} pcs</p>
                   </div>
@@ -1098,15 +1098,15 @@ export default function RiwayatPembelianPage() {
 
                 {/* Cutting details */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-slate-500 font-medium">Ukuran Bahan</p>
                     <p className="text-sm font-bold text-slate-700">{cuttingDiagramData.paperWidth} × {cuttingDiagramData.paperHeight} cm</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-slate-500 font-medium">Lembar Dibutuhkan</p>
                     <p className="text-sm font-bold text-slate-700">{cuttingDiagramData.sheetsNeeded} lbr</p>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5">
                     <p className="text-[10px] text-slate-500 font-medium">Efisiensi</p>
                     <p className="text-sm font-bold text-slate-700">{cuttingDiagramData.efficiency.toFixed(1)}%</p>
                   </div>
