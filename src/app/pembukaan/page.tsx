@@ -458,7 +458,7 @@ export default function PembukaanPage() {
       'Every second is a chance to change your life.',
       'Hard in the beginning, beautiful at the end. Keep walking.',
       'Pray, work, be patient — a success recipe that never fails.',
-      'Successful people aren't those who never fail, but those who never quit.',
+      "Successful people aren't those who never fail, but those who never quit.",
       'Quality is no accident — it is the result of sincere intention and effort.',
       'Today is hard? Tomorrow will feel easier because you already made it through.',
       "Don't wait for perfection — just start. Refine along the way.",
@@ -746,7 +746,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Motivasi Hari Ini */}
-        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+        <div className="mt-3 bg-white dark:bg-zinc-900 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4 text-amber-600" />
           </div>
@@ -881,7 +881,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Date Filter Section */}
-        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 bg-white dark:bg-zinc-900 px-3 py-2.5">
           <div className="flex items-center gap-1.5 mr-1">
             <Filter className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-medium text-slate-500">{t('period')}</span>
@@ -1242,7 +1242,7 @@ export default function PembukaanPage() {
                   {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
                 </div>
               ) : invoiceHistory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-8 text-center">
+                <div className="rounded-lg border border-dashed border-amber-200 bg-white dark:bg-zinc-900 p-8 text-center">
                   <Receipt className="mx-auto h-8 w-8 text-amber-300" />
                   <p className="mt-2 text-sm text-amber-400">{t('belum_ada_data_invoice')}</p>
                 </div>
@@ -1433,14 +1433,14 @@ function StatCard({
   icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean; daysLabel?: string
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
-    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
-    sky: { bg: 'bg-sky-50', border: 'border-sky-200', iconBg: 'bg-sky-100 text-sky-600', text: 'text-sky-700' },
-    amber: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
-    violet: { bg: 'bg-violet-50', border: 'border-violet-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
-    rose: { bg: 'bg-rose-50', border: 'border-rose-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
-    red: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100 text-red-600', text: 'text-red-700' },
-    orange: { bg: 'bg-orange-50', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
-    teal: { bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
+    emerald: { bg: 'bg-white dark:bg-zinc-900', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
+    sky: { bg: 'bg-white dark:bg-zinc-900', border: 'border-sky-200', iconBg: 'bg-sky-100 text-sky-600', text: 'text-sky-700' },
+    amber: { bg: 'bg-white dark:bg-zinc-900', border: 'border-amber-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
+    violet: { bg: 'bg-white dark:bg-zinc-900', border: 'border-violet-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
+    rose: { bg: 'bg-white dark:bg-zinc-900', border: 'border-rose-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
+    red: { bg: 'bg-white dark:bg-zinc-900', border: 'border-red-200', iconBg: 'bg-red-100 text-red-600', text: 'text-red-700' },
+    orange: { bg: 'bg-white dark:bg-zinc-900', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+    teal: { bg: 'bg-white dark:bg-zinc-900', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
   }
   const c = colorMap[color] || colorMap.emerald
 
@@ -1448,9 +1448,9 @@ function StatCard({
     <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
-          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
-          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
+          <div className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 animate-pulse" />
+          <div className="h-4 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
         </div>
       ) : (
         <>
@@ -1472,9 +1472,9 @@ function DocCard({
   icon: React.ReactNode; label: string; count: number; total?: number; color: string; loading: boolean
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
-    blue: { bg: 'bg-blue-50', border: 'border-blue-200', iconBg: 'bg-blue-100 text-blue-600', text: 'text-blue-700' },
-    teal: { bg: 'bg-teal-50', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
-    orange: { bg: 'bg-orange-50', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+    blue: { bg: 'bg-white dark:bg-zinc-900', border: 'border-blue-200', iconBg: 'bg-blue-100 text-blue-600', text: 'text-blue-700' },
+    teal: { bg: 'bg-white dark:bg-zinc-900', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
+    orange: { bg: 'bg-white dark:bg-zinc-900', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
   }
   const c = colorMap[color] || colorMap.blue
 
@@ -1482,9 +1482,9 @@ function DocCard({
     <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
-          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
-          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
+          <div className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 animate-pulse" />
+          <div className="h-4 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
         </div>
       ) : (
         <>
@@ -1508,7 +1508,7 @@ function QuickIcon({
   return (
     <button
       onClick={onClick}
-      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
+      className={`bg-white dark:bg-zinc-900 ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
     >
       <div className={`${text}`}>{icon}</div>
       <span className={`text-[11px] sm:text-xs font-medium ${text}`}>{label}</span>
