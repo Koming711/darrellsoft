@@ -437,7 +437,7 @@ export default function Home() {
           {/* Section title — centered, close to the Darrellsoft navbar banner */}
           <FadeIn direction="down" delay={0.05}>
             <div className="flex justify-center mb-4 md:mb-6">
-              <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-8 py-3 text-[18px] md:text-[22px] font-semibold">
+              <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-8 py-3 text-[18px] md:text-[22px] font-bold">
                 <Zap className="w-7 h-7 md:w-8 md:h-8 mr-3" /> Sistem Hitung Cepat Percetakan
               </Badge>
             </div>
@@ -630,7 +630,7 @@ export default function Home() {
       <Section id="fitur" className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px]">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               Fitur Unggulan
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
@@ -669,7 +669,7 @@ export default function Home() {
       <Section id="keunggulan" className="bg-gradient-to-b from-blue-50/30 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px]">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               Kenapa Darrell Soft?
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
@@ -739,7 +739,7 @@ export default function Home() {
       <Section id="kenapa-langganan" className="bg-gradient-to-b from-sky-50/50 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-sky-50 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 border-sky-100 dark:border-sky-800 mb-4 px-6 py-2 text-[18px] md:text-[22px]">
+            <Badge variant="secondary" className="bg-sky-50 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 border-sky-100 dark:border-sky-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               Kenapa Harus Berlangganan?
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
@@ -959,7 +959,7 @@ export default function Home() {
       <Section className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px]">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               Cara Kerja
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
@@ -998,7 +998,7 @@ export default function Home() {
       <Section id="harga" className="bg-gradient-to-b from-gray-900 to-gray-950">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-400/10 text-blue-300 border-blue-400/20 mb-4 px-6 py-2 text-[18px] md:text-[22px]">
+            <Badge variant="secondary" className="bg-blue-400/10 text-blue-300 border-blue-400/20 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               Harga
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-white">
@@ -1107,7 +1107,7 @@ export default function Home() {
       <Section id="testimoni" className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px]">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               Testimoni
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
