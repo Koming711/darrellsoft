@@ -12,6 +12,7 @@ import { SplashScreen } from "@/components/splash-screen";
 import { InstallPrompt } from "@/components/install-prompt";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
 import { NavigationProgressBar } from "@/components/navigation-progress";
+import { DocumentLanguageSync } from "@/components/document-language-sync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -78,6 +79,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <LanguageProvider>
+            <DocumentLanguageSync />
             <NextThemesProvider
               attribute="class"
               defaultTheme="light"
@@ -93,11 +95,11 @@ export default function RootLayout({
               <Toaster />
               <SonnerToaster />
             </NextThemesProvider>
+            <InstallPrompt />
+            <WhatsNewDialog />
           </LanguageProvider>
         </AuthProvider>
         <ServiceWorkerRegistration />
-        <InstallPrompt />
-        <WhatsNewDialog />
       </body>
     </html>
   );

@@ -151,11 +151,11 @@ function LoginContent() {
       console.error('Login network error:', err)
       // Provide more specific error messages
       if (err?.name === 'AbortError') {
-        setLoginError('Permintaan timeout. Server terlalu lama merespons. Coba lagi.')
+        setLoginError(t('permintaan_timeout'))
       } else if (err?.name === 'TypeError' && err?.message?.includes('fetch')) {
-        setLoginError('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.')
+        setLoginError(t('tidak_terhubung_server'))
       } else {
-        setLoginError('Terjadi kesalahan jaringan. Coba lagi dalam beberapa detik.')
+        setLoginError(t('terjadi_kesalahan_jaringan_coba'))
       }
       setLoginLoading(false)
     }
@@ -178,20 +178,20 @@ function LoginContent() {
       const data = await res.json()
 
       if (res.status === 404) {
-        setFpError(data.message || 'Email tidak ditemukan')
+        setFpError(data.message || t('email_tidak_ditemukan'))
         setFpLoading(false)
         return
       }
 
       if (!res.ok) {
-        setFpError(data.error || 'Terjadi kesalahan')
+        setFpError(data.error || t('terjadi_kesalahan'))
         setFpLoading(false)
         return
       }
 
       setFpAccount({ name: data.name, username: data.username, userId: data.userId, userType: data.userType })
     } catch {
-      setFpError('Terjadi kesalahan jaringan')
+      setFpError(t('terjadi_kesalahan_jaringan'))
     } finally {
       setFpLoading(false)
     }
@@ -203,12 +203,12 @@ function LoginContent() {
     setFpError('')
 
     if (fpNewPassword.length < 6) {
-      setFpError('Password baru minimal 6 karakter')
+      setFpError(t('password_baru_minimal_6'))
       return
     }
 
     if (fpNewPassword !== fpConfirmPassword) {
-      setFpError('Password dan konfirmasi password tidak sama')
+      setFpError(t('password_konfirmasi_tidak_sama'))
       return
     }
 
@@ -223,14 +223,14 @@ function LoginContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        setFpError(data.error || 'Terjadi kesalahan')
+        setFpError(data.error || t('terjadi_kesalahan'))
         setFpLoading(false)
         return
       }
 
       setFpSuccess(true)
     } catch {
-      setFpError('Terjadi kesalahan jaringan')
+      setFpError(t('terjadi_kesalahan_jaringan'))
     } finally {
       setFpLoading(false)
     }
@@ -272,13 +272,13 @@ function LoginContent() {
     }
 
     if (regPassword.length < 6) {
-      setRegError('Password minimal 6 karakter')
+      setRegError(t('password_minimal_6'))
       setRegLoading(false)
       return
     }
 
     if (regPassword !== regConfirmPassword) {
-      setRegError('Password dan konfirmasi password tidak sama')
+      setRegError(t('password_konfirmasi_tidak_sama'))
       setRegLoading(false)
       return
     }
@@ -299,7 +299,7 @@ function LoginContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        setRegError(data.error || 'Pendaftaran gagal')
+        setRegError(data.error || t('pendaftaran_gagal'))
         return
       }
 
@@ -307,7 +307,7 @@ function LoginContent() {
       if (data.id && data.role) {
         // Notify other tabs (e.g., admin's pengguna page) about the new calon pembeli
         notifyDataChange('calon-pembeli')
-        toast.success('Pendaftaran berhasil! Selamat datang, ' + (data.name || data.username) + '!', { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 4000 })
+        toast.success(t('pendaftaran_berhasil_selamat_prefix') + (data.name || data.username) + t('pendaftaran_berhasil_selamat_suffix'), { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 4000 })
         setAuthUser({
           id: data.id,
           username: data.username,
@@ -347,11 +347,11 @@ function LoginContent() {
       } else {
         // Notify other tabs about the new calon pembeli
         notifyDataChange('calon-pembeli')
-        toast.success('Pendaftaran berhasil! Silakan tunggu konfirmasi dari administrator.', { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 5000 })
+        toast.success(t('pendaftaran_berhasil_toast'), { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 5000 })
         setRegSuccess(true)
       }
     } catch (err) {
-      setRegError('Terjadi kesalahan jaringan')
+      setRegError(t('terjadi_kesalahan_jaringan'))
     } finally {
       setRegLoading(false)
     }
@@ -375,7 +375,7 @@ function LoginContent() {
           className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Kembali
+          {t('back')}
         </button>
       </div>
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
@@ -522,9 +522,9 @@ function LoginContent() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">Pendaftaran Berhasil!</h3>
+                  <h3 className="text-lg font-bold text-foreground">{t('pendaftaran_berhasil_title')}</h3>
                   <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
-                    Akun Anda telah berhasil didaftarkan. Silakan tunggu konfirmasi dari administrator sebelum dapat login.
+                    {t('akun_berhasil_didaftarkan')}
                   </p>
                 </div>
                 <button
@@ -541,7 +541,7 @@ function LoginContent() {
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 >
-                  Kembali ke Login
+                  {t('kembali_ke_login')}
                 </button>
               </div>
             ) : (
@@ -563,7 +563,7 @@ function LoginContent() {
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="Masukkan nama lengkap"
+                      placeholder={t('masukkan_nama_lengkap')}
                       required
                       value={regNamaLengkap}
                       onChange={(e) => setRegNamaLengkap(e.target.value)}
@@ -581,7 +581,7 @@ function LoginContent() {
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="tel"
-                      placeholder="Contoh: 081234567890"
+                      placeholder={t('contoh_nomor_hp')}
                       required
                       value={regNomorHP}
                       onChange={(e) => setRegNomorHP(e.target.value)}
@@ -599,7 +599,7 @@ function LoginContent() {
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="email"
-                      placeholder="email@contoh.com"
+                      placeholder={t('email_contoh')}
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
@@ -639,12 +639,12 @@ function LoginContent() {
                 {/* Password */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('password')} <span className="text-xs text-muted-foreground">(minimal 6 karakter)</span>
+                    {t('password')} <span className="text-xs text-muted-foreground">{t('minimal_6_karakter')}</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Buat password"
+                      placeholder={t('buat_password')}
                       required
                       autoComplete="new-password"
                       autoCapitalize="none"
@@ -667,7 +667,7 @@ function LoginContent() {
                     </button>
                   </div>
                   {regPassword.length > 0 && regPassword.length < 6 && (
-                    <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({regPassword.length}/6)</p>
+                    <p className="text-xs text-red-500 mt-1">{t('password_harus_minimal_6_prefix')}{regPassword.length}{t('password_harus_minimal_6_suffix')}</p>
                   )}
                 </div>
 
@@ -679,7 +679,7 @@ function LoginContent() {
                   <div className="relative">
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder="Ulangi password"
+                      placeholder={t('ulangi_password')}
                       required
                       autoComplete="new-password"
                       autoCapitalize="none"
@@ -702,7 +702,7 @@ function LoginContent() {
                     </button>
                   </div>
                   {regConfirmPassword.length > 0 && regConfirmPassword !== regPassword && (
-                    <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
+                    <p className="text-xs text-red-500 mt-1">{t('password_tidak_cocok')}</p>
                   )}
                 </div>
 
@@ -751,8 +751,8 @@ function LoginContent() {
                 <KeyRound className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-foreground">Lupa Password?</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Atur ulang password Anda melalui email.</p>
+                <h3 className="text-lg font-bold text-foreground">{t('lupa_password')}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('atur_ulang_password_email')}</p>
               </div>
               <button
                 type="button"
@@ -769,11 +769,11 @@ function LoginContent() {
                 <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
-                    <p className="text-sm font-semibold text-green-800 dark:text-green-400">Password Berhasil Diubah!</p>
+                    <p className="text-sm font-semibold text-green-800 dark:text-green-400">{t('password_berhasil_diubah_title')}</p>
                   </div>
                   <div className="ml-7">
                     <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">
-                      Password untuk akun <strong>{fpAccount?.name}</strong> telah berhasil diubah. Silakan login dengan password baru Anda.
+                      {t('password_berhasil_diubah_prefix')}<strong>{fpAccount?.name}</strong>{t('password_berhasil_diubah_suffix')}
                     </p>
                   </div>
                 </div>
@@ -782,7 +782,7 @@ function LoginContent() {
                   onClick={closeFpDialog}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 >
-                  Masuk Sekarang
+                  {t('masuk_sekarang')}
                 </button>
               </div>
             ) : !fpAccount ? (
@@ -796,12 +796,12 @@ function LoginContent() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Email</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('email_label')}</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="email"
-                      placeholder="Masukkan email akun Anda"
+                      placeholder={t('masukkan_email_akun')}
                       required
                       autoComplete="email"
                       value={fpEmail}
@@ -809,7 +809,7 @@ function LoginContent() {
                       className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Atur password baru langsung — tanpa perlu cek email.</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('atur_password_baru_langsung')}</p>
                 </div>
 
                 <button
@@ -817,7 +817,7 @@ function LoginContent() {
                   disabled={fpLoading}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
-                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Mencari...</> : 'Cari Akun'}
+                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('mencari')}</> : t('cari_akun')}
                 </button>
                 <button
                   type="button"
@@ -841,19 +841,19 @@ function LoginContent() {
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                     <p className="text-sm text-green-700 dark:text-green-400">
-                      Akun <strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} ditemukan
+                      {t('akun_ditemukan_prefix')}<strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} {t('akun_ditemukan_suffix')}
                     </p>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    Password Baru <span className="text-xs text-muted-foreground">(minimal 6 karakter)</span>
+                    {t('password_baru_label')} <span className="text-xs text-muted-foreground">{t('minimal_6_karakter')}</span>
                   </label>
                   <div className="relative">
                     <input
                       type={fpShowPassword ? 'text' : 'password'}
-                      placeholder="Buat password baru"
+                      placeholder={t('buat_password_baru')}
                       required
                       minLength={6}
                       autoComplete="new-password"
@@ -866,16 +866,16 @@ function LoginContent() {
                     </button>
                   </div>
                   {fpNewPassword.length > 0 && fpNewPassword.length < 6 && (
-                    <p className="text-xs text-red-500 mt-1">Password harus minimal 6 karakter ({fpNewPassword.length}/6)</p>
+                    <p className="text-xs text-red-500 mt-1">{t('password_harus_minimal_6_prefix')}{fpNewPassword.length}{t('password_harus_minimal_6_suffix')}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Konfirmasi Password Baru</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('konfirmasi_password_baru_label')}</label>
                   <div className="relative">
                     <input
                       type={fpShowConfirm ? 'text' : 'password'}
-                      placeholder="Ulangi password baru"
+                      placeholder={t('ulangi_password_baru')}
                       required
                       minLength={6}
                       autoComplete="new-password"
@@ -890,7 +890,7 @@ function LoginContent() {
                     </button>
                   </div>
                   {fpConfirmPassword.length > 0 && fpConfirmPassword !== fpNewPassword && (
-                    <p className="text-xs text-red-500 mt-1">Password tidak cocok</p>
+                    <p className="text-xs text-red-500 mt-1">{t('password_tidak_cocok')}</p>
                   )}
                 </div>
 
@@ -899,7 +899,7 @@ function LoginContent() {
                   disabled={fpLoading || fpNewPassword.length < 6 || fpConfirmPassword.length < 6 || fpNewPassword !== fpConfirmPassword}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
-                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Ubah Password'}
+                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('menyimpan')}</> : t('ubah_password')}
                 </button>
 
                 <button
@@ -907,7 +907,7 @@ function LoginContent() {
                   onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
                   className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
                 >
-                  ← Ganti Email
+                  {t('ganti_email')}
                 </button>
               </form>
             )}
@@ -924,7 +924,7 @@ function LoginContent() {
                 <Info className="w-5 h-5 text-amber-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-foreground">Akun Demo</h3>
+                <h3 className="text-lg font-bold text-foreground">{t('akun_demo')}</h3>
                 {demoRemaining !== null && (
                   <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
                     {demoRemaining} {t('hari_tersisa')}
@@ -940,13 +940,13 @@ function LoginContent() {
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
               autoFocus
             >
-              Ok
+              {t('ok')}
             </button>
             <button
               onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
               className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
             >
-              Masuk ke Halaman Utama
+              {t('masuk_ke_halaman_utama')}
             </button>
           </div>
         </div>
