@@ -54,7 +54,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 import { Button } from '@/components/ui/button'
-import { startNavigation } from '@/components/navigation-progress'
 import { cn } from '@/lib/utils'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
@@ -181,24 +180,22 @@ function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date
   }
 }
 
-function getFilterLabel(filter: FilterType, lang: 'id' | 'en' = 'id'): string {
-  const map: Record<FilterType, { id: string; en: string }> = {
-    today: { id: 'Hari Ini', en: 'Today' },
-    week: { id: 'Minggu Ini', en: 'This Week' },
-    month: { id: 'Bulan Ini', en: 'This Month' },
-    custom: { id: 'Custom', en: 'Custom' },
+function getFilterLabel(filter: FilterType): string {
+  switch (filter) {
+    case 'today': return 'Hari Ini'
+    case 'week': return 'Minggu Ini'
+    case 'month': return 'Bulan Ini'
+    case 'custom': return 'Custom'
   }
-  return map[filter][lang]
 }
-// Note: getFilterLabel is kept as a utility helper. Active UI uses t('today') etc. directly.
 
 // --- Greeting ---
-function getGreetingKey(): 'greeting_morning' | 'greeting_afternoon' | 'greeting_evening' | 'greeting_night' {
+function getGreeting(): string {
   const hour = new Date().getHours()
-  if (hour >= 0 && hour < 11) return 'greeting_morning'
-  if (hour >= 11 && hour < 15) return 'greeting_afternoon'
-  if (hour >= 15 && hour < 18) return 'greeting_evening'
-  return 'greeting_night'
+  if (hour >= 0 && hour < 11) return 'Selamat Pagi'
+  if (hour >= 11 && hour < 15) return 'Selamat Siang'
+  if (hour >= 15 && hour < 18) return 'Selamat Sore'
+  return 'Selamat Malam'
 }
 
 // --- Helpers ---
@@ -206,21 +203,21 @@ function formatRupiahShort(n: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
 }
 
-function formatDateShort(iso: string, lang: 'id' | 'en' = 'id'): string {
-  return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', { day: '2-digit', month: 'short' })
+function formatDateShort(iso: string): string {
+  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })
 }
 
-function formatDateDisplay(d: Date | undefined, lang: 'id' | 'en' = 'id', fallback?: string): string {
-  if (!d) return fallback ?? 'Pilih tanggal'
-  return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+function formatDateDisplay(d: Date | undefined): string {
+  if (!d) return 'Pilih tanggal'
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
 // --- Empty State ---
-function EmptyState({ label }: { label: string }) {
+function EmptyState() {
   return (
-    <div className="rounded-lg border border-dashed border-black dark:border-white bg-white dark:bg-zinc-900 p-6 text-center">
+    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
       <Clock className="mx-auto h-6 w-6 text-gray-300" />
-      <p className="mt-2 text-sm text-gray-400">{label}</p>
+      <p className="mt-2 text-sm text-gray-400">Belum ada data</p>
     </div>
   )
 }
@@ -401,91 +398,48 @@ function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { nomorUru
 }
 
 export default function PembukaanPage() {
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
-  const [greetingKey, setGreetingKey] = useState<'greeting_morning' | 'greeting_afternoon' | 'greeting_evening' | 'greeting_night'>('greeting_morning')
+  const [greeting, setGreeting] = useState(getGreeting)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Motivasi hari ini — deterministic (day-of-year based) to avoid hydration mismatch
-  // Bilingual quotes: same daily index used for both `id` and `en` arrays.
-  const daftarMotivasi: { id: string[]; en: string[] } = {
-    id: [
-      'Kerja keras hari ini, hasilnya nikmat besok hari.',
-      'Setiap langkah kecil mendekatkanmu pada tujuan besar.',
-      'Jangan takut gagal, takutlah untuk tidak mencoba.',
-      'Kesuksesan dimulai dari keberanian untuk memulai.',
-      'Disiplin adalah jembatan antara tujuan dan pencapaian.',
-      'Hari ini adalah kesempatan baru untuk menjadi lebih baik.',
-      'Usaha kecil yang konsisten mengalahkan usaha besar yang sporadis.',
-      'Jangan bandingkan dirimu dengan orang lain, bandingkan dengan dirimu kemarin.',
-      'Ketekunan adalah kunci yang membuka semua pintu kesuksesan.',
-      'Setiap detik adalah kesempatan untuk mengubah hidupmu.',
-      'Sulit di awal, indah di akhir. Teruslah berjalan.',
-      'Berdoa, berusaha, bersabar — resep sukses yang tak pernah gagal.',
-      'Orang sukses bukan orang yang tidak pernah gagal, tapi yang tidak pernah menyerah.',
-      'Kualitas bukan kebetulan, tapi hasil dari niat dan usaha yang sungguh-sungguh.',
-      'Hari ini sulit? Besok akan terasa lebih mudah karena kamu sudah melewatinya.',
-      'Jangan menunggu sempurna, mulai saja dulu. Sempurnakan di jalan.',
-      'Cetak kertas bisa dihitung, tapi semangatmu tak terbatas.',
-      'UMKM kuat, Indonesia maju. Dan kamu adalah bagian dari itu.',
-      'Satu pesanan hari ini bisa jadi seribu pesanan besok.',
-      'Kerja cerdas, bukan kerja keras saja.',
-      'Produk bagus + pelayanan baik = pelanggan setia.',
-      'Konsistensi mengalahkan talenta yang malas.',
-      'Mulailah dari yang paling kecil, impianmu tidak perlu izin.',
-      'Setiap hari adalah halaman baru. Tulis ceritamu dengan bangga.',
-      'Semangat pagi! Hari ini penuh peluang, tangkap sebelum lewat.',
-      'Keberanian bukan tidak takut, tapi tetap maju meski takut.',
-      'Rajinlah saat orang lain malas, bersyukurlah saat hasilnya tiba.',
-      'Bisnis kecil bukan berarti impian kecil.',
-      'Langkah pertama selalu yang paling berat, tapi juga yang paling penting.',
-      'Terus belajar, terus berinovasi, dunia tidak menunggu siapa pun.',
-      'Hari ini kamu satu langkah lebih dekat dari kemarin.',
-    ],
-    en: [
-      "Hard work today, sweet results tomorrow.",
-      'Every small step brings you closer to your big goal.',
-      "Don't be afraid to fail — be afraid of never trying.",
-      'Success begins with the courage to start.',
-      'Discipline is the bridge between goals and accomplishments.',
-      'Today is a new opportunity to be better.',
-      'Small consistent effort beats large sporadic effort.',
-      "Don't compare yourself to others — compare yourself to yesterday's you.",
-      'Persistence is the key that opens every door to success.',
-      'Every second is a chance to change your life.',
-      'Hard in the beginning, beautiful at the end. Keep walking.',
-      'Pray, work, be patient — a success recipe that never fails.',
-      "Successful people aren't those who never fail, but those who never quit.",
-      'Quality is no accident — it is the result of sincere intention and effort.',
-      'Today is hard? Tomorrow will feel easier because you already made it through.',
-      "Don't wait for perfection — just start. Refine along the way.",
-      'Paper printing can be calculated, but your spirit is limitless.',
-      'Strong SMEs, a thriving nation. And you are part of it.',
-      'One order today can become a thousand orders tomorrow.',
-      'Work smart, not just hard.',
-      'Great product + great service = loyal customers.',
-      'Consistency beats lazy talent.',
-      'Start small — your dreams need no permission.',
-      'Each day is a new page. Write your story with pride.',
-      'Good morning! Today is full of opportunities — grab them before they pass.',
-      'Courage is not the absence of fear, but moving forward despite it.',
-      'Be diligent when others are lazy; be grateful when the results arrive.',
-      'A small business does not mean small dreams.',
-      'The first step is always the hardest, but also the most important.',
-      'Keep learning, keep innovating — the world waits for no one.',
-      'Today you are one step closer than yesterday.',
-    ],
-  }
-  // Deterministic daily motivasi — same quote for the whole day, no Math.random() to avoid hydration mismatch
-  const [motivasiHariIni] = useState(() => {
-    const today = new Date()
-    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000)
-    const arr = daftarMotivasi[language]
-    return arr[dayOfYear % arr.length]
-  })
+  // Motivasi hari ini — berubah setiap refresh
+  const daftarMotivasi = [
+    'Kerja keras hari ini, hasilnya nikmat besok hari.',
+    'Setiap langkah kecil mendekatkanmu pada tujuan besar.',
+    'Jangan takut gagal, takutlah untuk tidak mencoba.',
+    'Kesuksesan dimulai dari keberanian untuk memulai.',
+    'Disiplin adalah jembatan antara tujuan dan pencapaian.',
+    'Hari ini adalah kesempatan baru untuk menjadi lebih baik.',
+    'Usaha kecil yang konsisten mengalahkan usaha besar yang sporadis.',
+    'Jangan bandingkan dirimu dengan orang lain, bandingkan dengan dirimu kemarin.',
+    'Ketekunan adalah kunci yang membuka semua pintu kesuksesan.',
+    'Setiap detik adalah kesempatan untuk mengubah hidupmu.',
+    'Sulit di awal, indah di akhir. Teruslah berjalan.',
+    'Berdoa, berusaha, bersabar — resep sukses yang tak pernah gagal.',
+    'Orang sukses bukan orang yang tidak pernah gagal, tapi yang tidak pernah menyerah.',
+    'Kualitas bukan kebetulan, tapi hasil dari niat dan usaha yang sungguh-sungguh.',
+    'Hari ini sulit? Besok akan terasa lebih mudah karena kamu sudah melewatinya.',
+    'Jangan menunggu sempurna, mulai saja dulu. Sempurnakan di jalan.',
+    'Cetak kertas bisa dihitung, tapi semangatmu tak terbatas.',
+    'UMKM kuat, Indonesia maju. Dan kamu adalah bagian dari itu.',
+    'Satu pesanan hari ini bisa jadi seribu pesanan besok.',
+    'Kerja cerdas, bukan kerja keras saja.',
+    'Produk bagus + pelayanan baik = pelanggan setia.',
+    'Konsistensi mengalahkan talenta yang malas.',
+    'Mulailah dari yang paling kecil, impianmu tidak perlu izin.',
+    'Setiap hari adalah halaman baru. Tulis ceritamu dengan bangga.',
+    'Semangat pagi! Hari ini penuh peluang, tangkap sebelum lewat.',
+    'Keberanian bukan tidak takut, tapi tetap maju meski takut.',
+    'Rajinlah saat orang lain malas, bersyukurlah saat hasilnya tiba.',
+    'Bisnis kecil bukan berarti impian kecil.',
+    'Langkah pertama selalu yang paling berat, tapi juga yang paling penting.',
+    'Terus belajar, terus berinovasi, dunia tidak menunggu siapa pun.',
+    'Hari ini kamu satu langkah lebih dekat dari kemarin.',
+  ]
+  const [motivasiHariIni] = useState(() => daftarMotivasi[Math.floor(Math.random() * daftarMotivasi.length)])
 
   // Date filter state
   const [filterType, setFilterType] = useState<FilterType>('today')
@@ -517,23 +471,11 @@ export default function PembukaanPage() {
   const [invPreviewScale, setInvPreviewScale] = useState(1)
   const [sendingInvPdf, setSendingInvPdf] = useState(false)
 
-  // Month names computed client-only to avoid hydration mismatch (server/client timezone difference)
-  const [currentMonthLabel, setCurrentMonthLabel] = useState('')
-  const [lastMonthLabel, setLastMonthLabel] = useState('')
+  const displayName = user?.name || user?.username || 'Pengguna'
 
   useEffect(() => {
-    setCurrentMonthLabel(new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { month: 'long' }))
-    setLastMonthLabel(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { month: 'long' }))
-  }, [language])
-
-  const displayName = user?.name || user?.username || (language === 'en' ? 'User' : 'Pengguna')
-
-  useEffect(() => {
-    // Set mounted + greeting on mount (client-only) to avoid hydration mismatch
-    setMounted(true)
-    setGreetingKey(getGreetingKey())
     const interval = setInterval(() => {
-      setGreetingKey(getGreetingKey())
+      setGreeting(getGreeting())
     }, 60000)
     return () => clearInterval(interval)
   }, [])
@@ -626,14 +568,14 @@ export default function PembukaanPage() {
       const blob = await generatePurchaseOrderPdf(poData)
       const fileName = `PO_${poData.nomor || 'draft'}.pdf`
       await sharePdfViaWhatsApp(blob, fileName, `Purchase Order ${poData.nomor}`)
-      toast.success(t('pdf_dikirim_wa'))
+      toast.success('PDF dikirim ke WhatsApp')
     } catch (err) {
       console.error(err)
-      toast.error(t('gagal_mengirim_pdf'))
+      toast.error('Gagal mengirim PDF')
     } finally {
       setSendingPoPdf(false)
     }
-  }, [poData, t])
+  }, [poData])
 
   const handleSendInvPdf = useCallback(async () => {
     if (!invData) return
@@ -642,14 +584,14 @@ export default function PembukaanPage() {
       const blob = await generateInvoicePdf(invData)
       const fileName = `Invoice_${invData.nomor || 'draft'}.pdf`
       await sharePdfViaWhatsApp(blob, fileName, `Invoice ${invData.nomor}`)
-      toast.success(t('pdf_dikirim_wa'))
+      toast.success('PDF dikirim ke WhatsApp')
     } catch (err) {
       console.error(err)
-      toast.error(t('gagal_mengirim_pdf'))
+      toast.error('Gagal mengirim PDF')
     } finally {
       setSendingInvPdf(false)
     }
-  }, [invData, t])
+  }, [invData])
 
   // Scale A5 PO preview to fit inside a popup on both mobile & desktop
   useEffect(() => {
@@ -718,10 +660,10 @@ export default function PembukaanPage() {
   const recent = data?.recent
 
   const filterButtons: { type: FilterType; label: string }[] = [
-    { type: 'today', label: t('today') },
-    { type: 'week', label: t('this_week') },
-    { type: 'month', label: t('this_month') },
-    { type: 'custom', label: t('custom') },
+    { type: 'today', label: 'Hari Ini' },
+    { type: 'week', label: 'Minggu Ini' },
+    { type: 'month', label: 'Bulan Ini' },
+    { type: 'custom', label: 'Custom' },
   ]
 
   return (
@@ -733,25 +675,19 @@ export default function PembukaanPage() {
             <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-normal uppercase text-slate-800">{mounted ? t(greetingKey) : t('greeting_morning')}</h2>
-            <p className="text-lg sm:text-[27px] font-extrabold text-slate-800 truncate">{t('hello')}{displayName}</p>
-            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-              {language === 'en' ? (
-                <>Welcome to <span className="font-extrabold text-blue-900">www.darrellsoft.com</span>, Fast Printing Cost Calculator for <span className="font-bold">SMEs</span>.</>
-              ) : (
-                <>Selamat Datang di <span className="font-extrabold text-blue-900">www.darrellsoft.com</span>, Aplikasi Hitung Cepat Cetakan untuk <span className="font-bold">UMKM</span>.</>
-              )}
-            </p>
+            <h2 className="text-sm sm:text-base font-normal uppercase text-slate-800">{greeting}</h2>
+            <p className="text-lg sm:text-[27px] font-extrabold text-slate-800 truncate">Halo, {displayName}</p>
+            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">Selamat Datang di <span className="font-extrabold text-blue-900">www.darrellsoft.com</span>, Aplikasi Hitung Cepat Cetakan untuk <span className="font-bold">UMKM</span>.</p>
           </div>
         </div>
 
         {/* Motivasi Hari Ini */}
-        <div className="mt-3 bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl px-4 py-3 flex items-start gap-3">
+        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4 text-amber-600" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">{t('motivation_today')}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-0.5">Motivasi Hari Ini</p>
             <p className="text-[13px] sm:text-[15px] text-slate-700 font-bold italic leading-relaxed">"{motivasiHariIni}"</p>
           </div>
         </div>
@@ -759,28 +695,24 @@ export default function PembukaanPage() {
         {/* Expired Akun Demo - only for demo role */}
         {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
           <button
-            onClick={() => {
-              startNavigation()
-              window.dispatchEvent(new CustomEvent('navigation-start'))
-              router.push('/checkout')
-            }}
+            onClick={() => router.push('/checkout')}
             className="bg-teal-600 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
           >
             <div className="w-10 h-10 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
               <CalendarClock className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-teal-100">{t('expired_akun_demo')}</p>
+              <p className="text-xs text-teal-100">Expired Akun Demo</p>
               <div className="flex items-baseline gap-2 flex-wrap">
                 <p className="text-base sm:text-lg font-bold text-white leading-tight">
-                  {data.expiryInfo.remainingDays} {t('hari_lagi')}
+                  {data.expiryInfo.remainingDays} hari lagi
                 </p>
                 <span className="text-xs text-teal-100">
-                  {language === 'en' ? 'until' : 's/d'} {new Date(data.expiryInfo.validUntil).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  s/d {new Date(data.expiryInfo.validUntil).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               </div>
               <p className="text-[11px] mt-1 text-teal-100">
-                {t('lanjutkan_sebelum')}
+                Lanjutkan sebelum akun mati dan data hilang
               </p>
             </div>
             <ChevronRight className="w-5 h-5 shrink-0 text-white/70" />
@@ -791,17 +723,17 @@ export default function PembukaanPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
-            label={t('revenue_today')}
+            label="Pendapatan Hari Ini"
             count={summary?.totals.todaySales ?? 0}
             total={0}
             color="rose"
             loading={loading}
             isCurrency
-            subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} ${t('pesanan')}` : undefined}
+            subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} pesanan` : undefined}
           />
           <StatCard
             icon={<FileText className="w-5 h-5" />}
-            label={t('transactions_today')}
+            label="Transaksi Hari Ini"
             count={invoiceHistory.length}
             total={summary?.totals.invoice ?? 0}
             color="emerald"
@@ -809,7 +741,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<Calculator className="w-5 h-5" />}
-            label={t('tired_money_today')}
+            label="Uang Capek Hari Ini"
             count={summary?.totals.todayUangCapek ?? 0}
             total={0}
             color="amber"
@@ -818,7 +750,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
-            label={`${t('total_revenue')} ${currentMonthLabel}`}
+            label={`Total Pendapatan ${new Date().toLocaleDateString('id-ID', { month: 'long' })}`}
             count={summary?.totals.revenue ?? 0}
             total={0}
             color="sky"
@@ -827,7 +759,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
-            label={`${t('total_revenue')} ${lastMonthLabel}`}
+            label={`Total Pendapatan ${new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString('id-ID', { month: 'long' })}`}
             count={summary?.totals.lastMonthRevenue ?? 0}
             total={0}
             color="teal"
@@ -836,7 +768,7 @@ export default function PembukaanPage() {
           />
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
-            label={t('total_tired_money')}
+            label="Total Uang Capek"
             count={summary?.totals.uangCapek ?? 0}
             total={0}
             color="violet"
@@ -850,41 +782,29 @@ export default function PembukaanPage() {
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <QuickIcon
             icon={<History className="w-5 h-5" />}
-            label={t('penjualan')}
+            label="Penjualan"
             color="bg-amber-50 text-amber-600 border-amber-200"
-            onClick={() => {
-              startNavigation()
-              window.dispatchEvent(new CustomEvent('navigation-start'))
-              router.push('/riwayat')
-            }}
+            onClick={() => router.push('/riwayat')}
           />
           <QuickIcon
             icon={<ShoppingCart className="w-5 h-5" />}
-            label={t('pembelian')}
+            label="Pembelian"
             color="bg-blue-50 text-blue-600 border-blue-200"
-            onClick={() => {
-              startNavigation()
-              window.dispatchEvent(new CustomEvent('navigation-start'))
-              router.push('/riwayat-pembelian')
-            }}
+            onClick={() => router.push('/riwayat-pembelian')}
           />
           <QuickIcon
             icon={<Receipt className="w-5 h-5" />}
-            label={t('invoice')}
+            label="Invoice"
             color="bg-violet-50 text-violet-600 border-violet-200"
-            onClick={() => {
-              startNavigation()
-              window.dispatchEvent(new CustomEvent('navigation-start'))
-              router.push('/invoice')
-            }}
+            onClick={() => router.push('/invoice')}
           />
         </div>
 
         {/* Date Filter Section */}
-        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 px-3 py-2.5">
+        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
           <div className="flex items-center gap-1.5 mr-1">
             <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-medium text-slate-500">{t('period')}</span>
+            <span className="text-xs font-medium text-slate-500">Periode:</span>
           </div>
           {filterButtons.map(btn => (
             <Button
@@ -905,7 +825,7 @@ export default function PembukaanPage() {
           ))}
           {filterType === 'custom' && customStartDate && customEndDate && (
             <span className="text-xs text-slate-400 ml-1">
-              {formatDateDisplay(customStartDate, language, t('pilih_tanggal'))} — {formatDateDisplay(customEndDate, language, t('pilih_tanggal'))}
+              {formatDateDisplay(customStartDate)} — {formatDateDisplay(customEndDate)}
             </span>
           )}
         </div>
@@ -913,11 +833,11 @@ export default function PembukaanPage() {
         {/* Riwayat Sections */}
         <div className="space-y-4">
           {/* Invoice */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-400" />
-                {t('invoice_history')}
+                Riwayat Invoice
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                   {invoiceHistory.length}
                 </span>
@@ -926,19 +846,19 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 invoiceHistory.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[750px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('no_doc_number')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('tanggal')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_customer')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_barang')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('qty')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('harga_satuan')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('uang_capek')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('total_harga')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Customer</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -949,10 +869,10 @@ export default function PembukaanPage() {
                             <TableRow key={entry.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
                               <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal, language) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString(language === 'en' ? 'en-US' : 'id-ID') : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
                               <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
@@ -962,17 +882,17 @@ export default function PembukaanPage() {
                       </TableBody>
                     </Table>
                   </div>
-                ) : <EmptyState label={t('no_data_yet')} />
+                ) : <EmptyState />
               )}
             </CardContent>
           </Card>
 
           {/* Purchase Order */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-slate-400" />
-                {t('po_history')}
+                Riwayat Purchase Order
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                   {poHistory.length}
                 </span>
@@ -981,18 +901,18 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 poHistory.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('no_doc_number')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('tanggal')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('pemasok')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_barang')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('qty')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('harga_satuan')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('total_harga')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Pemasok</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Qty</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1002,10 +922,10 @@ export default function PembukaanPage() {
                             <TableRow key={entry.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
                               <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal, language) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-600 max-w-[120px] truncate">{entry.pihakKedua}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString(language === 'en' ? 'en-US' : 'id-ID') : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
                             </TableRow>
@@ -1014,17 +934,17 @@ export default function PembukaanPage() {
                       </TableBody>
                     </Table>
                   </div>
-                ) : <EmptyState label={t('no_data_yet')} />
+                ) : <EmptyState />
               )}
             </CardContent>
           </Card>
 
           {/* Hitung Cetakan */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-slate-400" />
-                {t('print_calc_history')}
+                Riwayat Hitung Cetakan
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                   {recent?.cetakan?.length ?? 0}
                 </span>
@@ -1033,19 +953,19 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.cetakan && recent.cetakan.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[700px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('tgl')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('customer_label')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_barang')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('finishing')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('jml_pesanan')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('uang_capek')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('harga_pcs')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('total_harga')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Finishing</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml Pesanan</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga/Pcs</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1055,13 +975,13 @@ export default function PembukaanPage() {
                           return (
                             <TableRow key={r.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
-                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt, language)}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.customerName || '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[200px] truncate" title={r.printName || ''}>{r.printName || '-'}</TableCell>
                               <TableCell className="py-2.5 text-xs text-gray-700 max-w-[150px] truncate" title={r.finishingNames || ''}>
                                 {r.finishingNames || '-'}
                               </TableCell>
-                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{qty.toLocaleString(language === 'en' ? 'en-US' : 'id-ID')}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{qty.toLocaleString('id-ID')}</TableCell>
                               <TableCell className={`py-2.5 text-xs text-right whitespace-nowrap font-semibold ${r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
                                 {r.profitAmount > 0 ? formatRupiah(r.profitAmount) : '-'}
                               </TableCell>
@@ -1073,17 +993,17 @@ export default function PembukaanPage() {
                       </TableBody>
                     </Table>
                   </div>
-                ) : <EmptyState label={t('no_data_yet')} />
+                ) : <EmptyState />
               )}
             </CardContent>
           </Card>
 
           {/* Potong Kertas */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Scissors className="w-4 h-4 text-slate-400" />
-                {t('paper_cut_history')}
+                Riwayat Potong Kertas
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                   {recent?.potongKertas?.length ?? 0}
                 </span>
@@ -1092,26 +1012,26 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.potongKertas && recent.potongKertas.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('tgl')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('customer_label')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_barang')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('kertas')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('uk_kertas')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('uk_potong')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('jml')}</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('total_harga')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tgl</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Nama Barang</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Kertas</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Uk. Kertas</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Uk. Potong</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Jml</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {recent.potongKertas.map((r, idx) => (
                           <TableRow key={r.id} className="group">
                             <TableCell className="py-2.5 text-xs text-gray-400">{idx + 1}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt, language)}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{formatDateShort(r.createdAt)}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-700 font-medium max-w-[100px] truncate">{r.namaCustomer || '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-700 max-w-[120px] truncate">{r.namaCetakan || '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-700 max-w-[100px] truncate">{r.paperName || '-'}</TableCell>
@@ -1121,24 +1041,24 @@ export default function PembukaanPage() {
                             <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">
                               {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
                             </TableCell>
-                            <TableCell className="py-2.5 text-xs text-right text-gray-700">{parseInt(r.jumlahPesanan || '0').toLocaleString(language === 'en' ? 'en-US' : 'id-ID')}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-right text-gray-700">{parseInt(r.jumlahPesanan || '0').toLocaleString('id-ID')}</TableCell>
                             <TableCell className="py-2.5 text-xs text-right font-medium text-emerald-700 whitespace-nowrap">{formatRupiah(r.totalPrice || 0)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
-                ) : <EmptyState label={t('no_data_yet')} />
+                ) : <EmptyState />
               )}
             </CardContent>
           </Card>
 
           {/* Surat Jalan */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Truck className="w-4 h-4 text-slate-400" />
-                {t('delivery_note_history')}
+                Riwayat Surat Jalan
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                   {suratJalanHistory.length}
                 </span>
@@ -1147,14 +1067,14 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 suratJalanHistory.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[450px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                           <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('no_doc_number')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('tanggal')}</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('customer_label')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">No. Dokumen</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1162,14 +1082,14 @@ export default function PembukaanPage() {
                           <TableRow key={entry.id} className="group">
                             <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
                             <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{entry.nomor}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal, language) : '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-600 max-w-[200px] truncate">{entry.pihakKedua}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
-                ) : <EmptyState label={t('no_data_yet')} />
+                ) : <EmptyState />
               )}
             </CardContent>
           </Card>
@@ -1183,9 +1103,9 @@ export default function PembukaanPage() {
               width: `${576 * poPreviewScale + 16}px`,
               maxHeight: `calc(100dvh - 32px)`,
             }}
-            aria-label={t('pratinjau_purchase_order')}
+            aria-label="Pratinjau Purchase Order"
           >
-            <DialogTitle className="sr-only">{t('pratinjau_purchase_order')}</DialogTitle>
+            <DialogTitle className="sr-only">Pratinjau Purchase Order</DialogTitle>
             {poData && (
               <div className="flex flex-col items-center gap-3">
                 <div style={{
@@ -1217,7 +1137,7 @@ export default function PembukaanPage() {
                   ) : (
                     <FileText className="w-4 h-4" />
                   )}
-                  {sendingPoPdf ? t('mengirim_pdf') : t('kirim_pdf_wa')}
+                  {sendingPoPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
                 </button>
               </div>
             )}
@@ -1232,9 +1152,9 @@ export default function PembukaanPage() {
                 <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
                   <History className="w-4 h-4" />
                 </div>
-                {t('riwayat_penjualan')}
+                Riwayat Penjualan
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">{t('daftar_invoice_penjualan')}</DialogDescription>
+              <DialogDescription className="text-xs text-slate-400">Daftar invoice penjualan yang pernah dibuat</DialogDescription>
             </DialogHeader>
             <div className="px-5 pb-5">
               {docLoading ? (
@@ -1242,21 +1162,21 @@ export default function PembukaanPage() {
                   {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
                 </div>
               ) : invoiceHistory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-black dark:border-white bg-white dark:bg-zinc-900 p-8 text-center">
+                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-8 text-center">
                   <Receipt className="mx-auto h-8 w-8 text-amber-300" />
-                  <p className="mt-2 text-sm text-amber-400">{t('belum_ada_data_invoice')}</p>
+                  <p className="mt-2 text-sm text-amber-400">Belum ada data invoice</p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[60vh] overflow-auto">
+                <div className="rounded-lg border bg-card max-h-[60vh] overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                         <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                        <TableHead className="text-[11px] font-semibold text-gray-500">{t('no_invoice')}</TableHead>
-                        <TableHead className="text-[11px] font-semibold text-gray-500">{t('tanggal')}</TableHead>
-                        <TableHead className="text-[11px] font-semibold text-gray-500">{t('customer_label')}</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('total_harga')}</TableHead>
-                        <TableHead className="w-12 text-[11px] font-semibold text-gray-500 text-center">{t('aksi')}</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">No. Invoice</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">Tanggal</TableHead>
+                        <TableHead className="text-[11px] font-semibold text-gray-500">Customer</TableHead>
+                        <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>
+                        <TableHead className="w-12 text-[11px] font-semibold text-gray-500 text-center">Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1266,11 +1186,11 @@ export default function PembukaanPage() {
                           <TableRow key={inv.id} className="hover:bg-amber-50/50">
                             <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
                             <TableCell className="py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap">{inv.nomor}</TableCell>
-                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{inv.tanggal ? formatTanggal(inv.tanggal, language) : '-'}</TableCell>
+                            <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{inv.tanggal ? formatTanggal(inv.tanggal) : '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-gray-600 max-w-[160px] truncate">{inv.pihakKedua || '-'}</TableCell>
                             <TableCell className="py-2.5 text-xs text-right font-medium text-amber-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
                             <TableCell className="py-2.5 text-center">
-                              <button onClick={() => handleInvPreview(inv)} title={t('preview')} className="p-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors cursor-default">
+                              <button onClick={() => handleInvPreview(inv)} title="Preview" className="p-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors cursor-default">
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
                             </TableCell>
@@ -1293,9 +1213,9 @@ export default function PembukaanPage() {
               width: `${576 * invPreviewScale + 16}px`,
               maxHeight: `calc(100dvh - 32px)`,
             }}
-            aria-label={t('pratinjau_invoice')}
+            aria-label="Pratinjau Invoice"
           >
-            <DialogTitle className="sr-only">{t('pratinjau_invoice')}</DialogTitle>
+            <DialogTitle className="sr-only">Pratinjau Invoice</DialogTitle>
             {invData && (
               <div className="flex flex-col items-center gap-3">
                 <div style={{
@@ -1327,7 +1247,7 @@ export default function PembukaanPage() {
                   ) : (
                     <FileText className="w-4 h-4" />
                   )}
-                  {sendingInvPdf ? t('mengirim_pdf') : t('kirim_pdf_wa')}
+                  {sendingInvPdf ? 'Mengirim PDF...' : 'Kirim PDF ke WhatsApp'}
                 </button>
               </div>
             )}
@@ -1342,14 +1262,14 @@ export default function PembukaanPage() {
                 <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
                   <CalendarIcon className="w-4 h-4" />
                 </div>
-                {t('pilih_rentang_tanggal')}
+                Pilih Rentang Tanggal
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">{t('tentukan_periode')}</DialogDescription>
+              <DialogDescription className="text-xs text-slate-400">Tentukan periode untuk menampilkan riwayat</DialogDescription>
             </DialogHeader>
             <div className="px-5 pb-4 space-y-4">
               {/* Start Date */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-600">{t('tanggal_mulai')}</label>
+                <label className="text-xs font-medium text-slate-600">Tanggal Mulai</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -1360,7 +1280,7 @@ export default function PembukaanPage() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formatDateDisplay(tempStartDate, language, t('pilih_tanggal'))}
+                      {formatDateDisplay(tempStartDate)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1376,7 +1296,7 @@ export default function PembukaanPage() {
 
               {/* End Date */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-600">{t('tanggal_akhir')}</label>
+                <label className="text-xs font-medium text-slate-600">Tanggal Akhir</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -1387,7 +1307,7 @@ export default function PembukaanPage() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formatDateDisplay(tempEndDate, language, t('pilih_tanggal'))}
+                      {formatDateDisplay(tempEndDate)}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1408,7 +1328,7 @@ export default function PembukaanPage() {
                 onClick={() => setShowCustomDialog(false)}
                 className="text-xs"
               >
-                {t('batal')}
+                Batal
               </Button>
               <Button
                 size="sm"
@@ -1416,7 +1336,7 @@ export default function PembukaanPage() {
                 disabled={!tempStartDate || !tempEndDate}
                 className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {t('terapkan')}
+                Terapkan
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1428,9 +1348,9 @@ export default function PembukaanPage() {
 
 // --- Stat Card Component ---
 function StatCard({
-  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge, isDays, daysLabel,
+  icon, label, count, total, color, loading, isCurrency, subtitle, profitBadge, isDays,
 }: {
-  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean; daysLabel?: string
+  icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
@@ -1445,18 +1365,18 @@ function StatCard({
   const c = colorMap[color] || colorMap.emerald
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl p-3 sm:p-4">
+    <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 animate-pulse" />
-          <div className="h-4 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
-          <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
+          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
+          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
         </div>
       ) : (
         <>
           <div className={`w-8 h-8 rounded-lg ${c.iconBg} flex items-center justify-center mb-2`}>{icon}</div>
           <p className="text-xs text-slate-500 mb-0.5 break-words">{label} {profitBadge && <span className="text-[15px] font-bold text-violet-700">{profitBadge}</span>}</p>
-          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{isCurrency ? formatRupiahShort(count) : isDays ? `${count} ${daysLabel ?? 'hari'}` : count}</p>
+          <p className={`text-base sm:text-lg font-bold ${c.text} leading-tight`}>{isCurrency ? formatRupiahShort(count) : isDays ? `${count} hari` : count}</p>
           {!isCurrency && total > 0 && <p className="text-[10px] text-slate-400">{formatRupiahShort(total)}</p>}
           {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
         </>
@@ -1479,12 +1399,12 @@ function DocCard({
   const c = colorMap[color] || colorMap.blue
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl p-3 sm:p-4">
+    <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 animate-pulse" />
-          <div className="h-4 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
-          <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
+          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
+          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
         </div>
       ) : (
         <>
@@ -1504,11 +1424,11 @@ function QuickIcon({
 }: {
   icon: React.ReactNode; label: string; color: string; onClick: () => void
 }) {
-  const [, text] = color.split(' ')
+  const [bg, text, border] = color.split(' ')
   return (
     <button
       onClick={onClick}
-      className="bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
+      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
     >
       <div className={`${text}`}>{icon}</div>
       <span className={`text-[11px] sm:text-xs font-medium ${text}`}>{label}</span>

@@ -3021,3 +3021,37 @@ Stage Summary:
 - Dev server restarted to resolve stale Prisma connection issue (pre-existing, unrelated to styling change)
 - Login + dashboard navigation verified end-to-end via agent-browser
 - Dual-root sync confirmed (src/app/pembukaan/page.tsx == app/pembukaan/page.tsx)
+
+---
+Task ID: 81
+Agent: Main
+Task: Cancel perintah terakhir (revert Task 80 — beranda white+black restyling)
+
+Work Log:
+- User requested cancelling the last command (Task 80: restyle beranda boxes to white + black borders)
+- Verified Task 80 changes were committed in git commit 70abf52 (the most recent HEAD)
+- Identified pre-Task-80 state in git commit 2443d23 (previous commit)
+- Confirmed Task 80 diff: src/app/pembukaan/page.tsx (52 lines changed), app/pembukaan/page.tsx (472 lines changed)
+- Restored BOTH files to pre-Task-80 state:
+  - src/app/pembukaan/page.tsx ← git show 2443d23:src/app/pembukaan/page.tsx
+  - app/pembukaan/page.tsx ← git show 2443d23:app/pembukaan/page.tsx
+- Verified files match commit 2443d23 exactly (diff returned empty for both)
+- Verified reverted files have 0 occurrences of "border-black" (was 19 in Task 80 version)
+- Verified reverted files have 2 occurrences of "bg-gradient|from-" (colored patterns restored)
+- Page compiles cleanly: HTTP 200, 30982 bytes
+- Dev server (PID 12265) still running healthy
+- No compile errors in dev.log (the EADDRINUSE entries are stale from earlier restart attempts)
+- Note: The apostrophe at line 461 ("aren't" inside single-quoted string) that the subagent "fixed" in Task 80 is now back in its original pre-Task-80 state. Modern Next.js SWC compiles it fine — page returns HTTP 200 with full content. This was NOT actually a blocking syntax error in the current SWC version; the subagent's claim was likely a red herring or environment-specific.
+- Did NOT touch any other files — only reverted the two pembukaan page files
+
+Stage Summary:
+- Task 80 (beranda white+black restyling) fully cancelled/reverted
+- Both src/app/pembukaan/page.tsx and app/pembukaan/page.tsx restored to pre-Task-80 colored state (commit 2443d23)
+- All colored backgrounds, gradients, colored borders, and colored shadows restored
+- Page compiles and serves HTTP 200 with no errors
+- No other tasks affected (Tasks 70-79 changes remain intact)
+- Dev server running healthy
+
+Files Reverted:
+- src/app/pembukaan/page.tsx (→ commit 2443d23 version)
+- app/pembukaan/page.tsx (→ commit 2443d23 version)

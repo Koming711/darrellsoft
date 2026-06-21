@@ -218,7 +218,7 @@ function formatDateDisplay(d: Date | undefined, lang: 'id' | 'en' = 'id', fallba
 // --- Empty State ---
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-black dark:border-white bg-white dark:bg-zinc-900 p-6 text-center">
+    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
       <Clock className="mx-auto h-6 w-6 text-gray-300" />
       <p className="mt-2 text-sm text-gray-400">{label}</p>
     </div>
@@ -458,7 +458,7 @@ export default function PembukaanPage() {
       'Every second is a chance to change your life.',
       'Hard in the beginning, beautiful at the end. Keep walking.',
       'Pray, work, be patient — a success recipe that never fails.',
-      "Successful people aren't those who never fail, but those who never quit.",
+      'Successful people aren't those who never fail, but those who never quit.',
       'Quality is no accident — it is the result of sincere intention and effort.',
       'Today is hard? Tomorrow will feel easier because you already made it through.',
       "Don't wait for perfection — just start. Refine along the way.",
@@ -746,7 +746,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Motivasi Hari Ini */}
-        <div className="mt-3 bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl px-4 py-3 flex items-start gap-3">
+        <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4 text-amber-600" />
           </div>
@@ -881,7 +881,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Date Filter Section */}
-        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 px-3 py-2.5">
+        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
           <div className="flex items-center gap-1.5 mr-1">
             <Filter className="w-4 h-4 text-slate-400" />
             <span className="text-xs font-medium text-slate-500">{t('period')}</span>
@@ -913,7 +913,7 @@ export default function PembukaanPage() {
         {/* Riwayat Sections */}
         <div className="space-y-4">
           {/* Invoice */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-400" />
@@ -926,7 +926,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 invoiceHistory.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[750px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -968,7 +968,7 @@ export default function PembukaanPage() {
           </Card>
 
           {/* Purchase Order */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-slate-400" />
@@ -981,7 +981,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 poHistory.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -1020,7 +1020,7 @@ export default function PembukaanPage() {
           </Card>
 
           {/* Hitung Cetakan */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-slate-400" />
@@ -1033,7 +1033,7 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.cetakan && recent.cetakan.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[700px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -1079,7 +1079,7 @@ export default function PembukaanPage() {
           </Card>
 
           {/* Potong Kertas */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Scissors className="w-4 h-4 text-slate-400" />
@@ -1092,7 +1092,7 @@ export default function PembukaanPage() {
             <CardContent>
               {loading ? <TableSkeleton /> : (
                 recent?.potongKertas && recent.potongKertas.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[650px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -1134,7 +1134,7 @@ export default function PembukaanPage() {
           </Card>
 
           {/* Surat Jalan */}
-          <Card className="bg-white dark:bg-zinc-900 border-black dark:border-white">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                 <Truck className="w-4 h-4 text-slate-400" />
@@ -1147,7 +1147,7 @@ export default function PembukaanPage() {
             <CardContent>
               {docLoading ? <TableSkeleton /> : (
                 suratJalanHistory.length > 0 ? (
-                  <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[400px] overflow-auto">
+                  <div className="rounded-lg border bg-card max-h-[400px] overflow-auto">
                     <Table className="min-w-[450px]">
                       <TableHeader>
                         <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -1242,12 +1242,12 @@ export default function PembukaanPage() {
                   {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
                 </div>
               ) : invoiceHistory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-black dark:border-white bg-white dark:bg-zinc-900 p-8 text-center">
+                <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-8 text-center">
                   <Receipt className="mx-auto h-8 w-8 text-amber-300" />
                   <p className="mt-2 text-sm text-amber-400">{t('belum_ada_data_invoice')}</p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-black dark:border-white bg-white dark:bg-zinc-900 max-h-[60vh] overflow-auto">
+                <div className="rounded-lg border bg-card max-h-[60vh] overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
@@ -1445,12 +1445,12 @@ function StatCard({
   const c = colorMap[color] || colorMap.emerald
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl p-3 sm:p-4">
+    <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 animate-pulse" />
-          <div className="h-4 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
-          <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
+          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
+          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
         </div>
       ) : (
         <>
@@ -1479,12 +1479,12 @@ function DocCard({
   const c = colorMap[color] || colorMap.blue
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl p-3 sm:p-4">
+    <div className={`${c.bg} ${c.border} border rounded-xl p-3 sm:p-4`}>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-5 w-5 rounded bg-slate-100 dark:bg-zinc-800 animate-pulse" />
-          <div className="h-4 w-20 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
-          <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
+          <div className="h-5 w-5 rounded bg-white/50 animate-pulse" />
+          <div className="h-4 w-20 bg-white/50 rounded animate-pulse" />
+          <div className="h-3 w-16 bg-white/50 rounded animate-pulse" />
         </div>
       ) : (
         <>
@@ -1504,11 +1504,11 @@ function QuickIcon({
 }: {
   icon: React.ReactNode; label: string; color: string; onClick: () => void
 }) {
-  const [, text] = color.split(' ')
+  const [bg, text, border] = color.split(' ')
   return (
     <button
       onClick={onClick}
-      className="bg-white dark:bg-zinc-900 border border-black dark:border-white rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
+      className={`${bg} ${border} border rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer`}
     >
       <div className={`${text}`}>{icon}</div>
       <span className={`text-[11px] sm:text-xs font-medium ${text}`}>{label}</span>
