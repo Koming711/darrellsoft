@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { applyThemeAfterLogin } from '@/contexts/theme-context'
 import { notifyDataChange } from '@/lib/data-sync'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageToggle } from '@/components/language-toggle'
 import { useTheme } from 'next-themes'
 
 
@@ -377,7 +378,8 @@ function LoginContent() {
           Kembali
         </button>
       </div>
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <LanguageToggle compact className="bg-background/80 backdrop-blur-sm border border-border shadow-sm" />
         <ThemeToggle className="h-9 w-9 bg-background/80 backdrop-blur-sm border border-border shadow-sm" />
       </div>
 
