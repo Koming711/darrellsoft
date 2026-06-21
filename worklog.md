@@ -2950,3 +2950,74 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx) — brand span text size
+
+---
+Task ID: 80
+Agent: Beranda Restyle Subagent
+Task: Restyle Beranda (pembukaan) page boxes to white background with black line borders (remove colored backgrounds/gradients/colored borders/colored shadows); preserve dark mode, content, layout, icons/badges, CTA buttons, status pills.
+
+Work Log:
+- Read worklog.md and full src/app/pembukaan/page.tsx (1518 lines) to inventory all box/card/container patterns
+- Identified ~30+ box/container instances to restyle, plus leave-alone list (CTA buttons, status pills, accent icons, filter toggle buttons, table headers, count badges)
+- Applied MultiEdit to src/app/pembukaan/page.tsx:
+  * EmptyState component: border-gray-200 bg-gray-50/50 -> border-black dark:border-white bg-white dark:bg-zinc-900
+  * Motivasi Hari Ini box: bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 -> bg-white dark:bg-zinc-900 border-black dark:border-white
+  * Date Filter Section container: border-slate-200 bg-slate-50/80 -> border-black dark:border-white bg-white dark:bg-zinc-900
+  * 5x <Card> usages: added className="bg-white dark:bg-zinc-900 border-black dark:border-white" override (Card component itself NOT modified to keep changes scoped to Beranda)
+  * 5x table containers (max-h-[400px]) + 1x (max-h-[60vh]): border bg-card -> border border-black dark:border-white bg-white dark:bg-zinc-900
+  * Popup Penjualan empty state: border-amber-200 bg-amber-50/50 -> border-black dark:border-white bg-white dark:bg-zinc-900
+  * StatCard + DocCard outer divs: `${c.bg} ${c.border} border` -> bg-white dark:bg-zinc-900 border border-black dark:border-white (kept c.iconBg and c.text colored for icon accents and value text)
+  * StatCard + DocCard skeleton loaders (6x): bg-white/50 (invisible on white) -> bg-slate-100 dark:bg-zinc-800
+  * QuickIcon button: `${bg} ${border} border` -> bg-white dark:bg-zinc-900 border border-black dark:border-white hover:bg-gray-50 dark:hover:bg-zinc-800 (kept text color for icon+label; removed unused bg/border vars)
+- Left intentionally colored per task constraints: greeting avatar gradient (decorative logo), motivasi icon container (amber accent), Expired Akun Demo CTA button (teal), filter toggle buttons (active=blue status indicator), Kirim PDF WA buttons (emerald CTA), Terapkan button (blue CTA), dialog header icon containers (small accent icons), Eye preview button, count badges (bg-gray-100), table header rows (table internal styling)
+- Synced src/app/pembukaan/page.tsx -> app/pembukaan/page.tsx (dual-root mirror)
+- Hit a pre-existing compile blocker: src/app/pembukaan/page.tsx line 461 had unescaped apostrophe inside single-quoted string ('Successful people aren't those...') which made Next.js SWC parser fail with "Parsing ecmascript source code failed" -> HTTP 500. This bug pre-existed in src/ HEAD but was masked because the dual-root app/ had an older working version. After sync, the bug surfaced. Fixed by changing outer quotes to double quotes ("Successful people aren't those...") — text content unchanged. This was a necessary side-fix for the restyle to be visible/compilable.
+- Re-synced src -> app after apostrophe fix; verified /pembukaan now returns HTTP 200 (30986 bytes, no error)
+- Ran `bun run lint`: pembukaan files now have ZERO lint errors (the pre-existing parsing error at 461:30 is also resolved by the apostrophe fix). Remaining lint errors in the project are all in unrelated files (upload/page(3).tsx, websocket/frontend.tsx) — pre-existing, not touched by this task.
+- Verified dev.log shows no compile errors; app serving pages normally.
+
+Stage Summary:
+- Beranda (pembukaan) page now uses consistent white background + black border (with dark:bg-zinc-900 dark:border-white for dark mode) on ALL content boxes/cards: greeting motivasi box, date filter container, 5 history Cards (Invoice/PO/Cetakan/PotongKertas/SuratJalan), 6 table containers, 2 empty-state boxes, 6 StatCards, 3 QuickIcons, and the popup empty state.
+- Dual-root sync completed: src/app/pembukaan/page.tsx and app/pembukaan/page.tsx are byte-identical.
+- Side-fix: resolved pre-existing apostrophe syntax error at line 461 (changed ' to " outer quotes; text content preserved) so the page actually compiles. /pembukaan returns HTTP 200.
+- Lint: clean for pembukaan files (no new errors introduced).
+- Dev log: no compile errors; app running normally.
+- Constraints honored: only pembukaan modified; dark mode preserved; content/layout unchanged; icons/badges/CTAs/status pills left colored; Card shared component NOT modified (scoped className override instead).
+
+---
+Task ID: 80-verify
+Agent: Main
+Task: Verify beranda boxes restyled to white + black borders (Task 80 verification)
+
+Work Log:
+- Subagent (Task 80) restyled ~30+ boxes in src/app/pembukaan/page.tsx to bg-white + border-black (with dark mode variants)
+- Subagent also fixed a pre-existing apostrophe syntax error (line 461) that was blocking SWC compilation
+- Dev server had been running since Jun 20 (over 24h) and login API was degraded (returning P2027 "Kesalahan database" even though raw Node Prisma worked fine)
+- Restarted dev server cleanly: killed stale next-server processes, freed port 3000, started fresh `bun run dev` (PID 12174 → next-server 12265)
+- After restart: login API works (admin/268899), returns full session+permissions JSON
+- Logged in via agent-browser: admin/268899 → redirected to /pembukaan (Beranda) ✓
+- Verified card styling via computed styles inspection (12 main content cards sampled):
+  - Motivasi Hari In: bg rgb(255,255,255) + border rgb(0,0,0) + shadow none ✓
+  - StatCard "Pendapatan Hari Ini": white + black border ✓
+  - StatCard "Transaksi Hari Ini": white + black border ✓
+  - StatCard "Uang Capek Hari Ini": white + black border ✓
+  - StatCard "Total Pendapatan Juni": white + black border ✓
+  - StatCard "Total Pendapatan Mei": white + black border ✓
+  - StatCard "Total Uang Capek": white + black border ✓
+  - DocCard "Penjualan": white + black border ✓
+  - DocCard "Pembelian": white + black border ✓
+  - DocCard "Invoice": white + black border ✓
+  - History "Riwayat Invoice": white + black border ✓
+  - History "Riwayat Purchase Order": white + black border ✓
+- Total: 21 elements confirmed white-bg + black-border (rgb 255,255,255 + rgb 0,0,0)
+- Screenshots saved: /tmp/beranda-white-black.png, /tmp/beranda-white-black-full.png
+- Dev server restarted cleanly, no errors in dev.log
+
+Stage Summary:
+- Beranda (dashboard home) page boxes successfully restyled: all cards now white background with black line borders
+- Colored backgrounds, gradients, colored shadows, and colored borders removed from containers
+- Buttons, status badges, icons, and accent colors preserved (intentionally left colored)
+- Dark mode variants added (dark:bg-zinc-900 dark:border-white) for readability
+- Dev server restarted to resolve stale Prisma connection issue (pre-existing, unrelated to styling change)
+- Login + dashboard navigation verified end-to-end via agent-browser
+- Dual-root sync confirmed (src/app/pembukaan/page.tsx == app/pembukaan/page.tsx)
