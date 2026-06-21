@@ -2537,3 +2537,73 @@ Files Modified (this verification round):
 - src/app/layout.tsx (moved InstallPrompt + WhatsNewDialog inside LanguageProvider)
 - src/components/document-language-sync.tsx (React 19 <title>/<meta> tag hoisting instead of imperative document.title)
 - Dual-root sync: app/layout.tsx, components/document-language-sync.tsx
+
+---
+Task ID: 68
+Agent: Main
+Task: Tambahkan AI (AI Assistant Chatbot)
+
+Work Log:
+- Invoked LLM skill to understand z-ai-web-dev-sdk usage for chat completions
+- Created backend API route at src/app/api/ai-chat/route.ts:
+  - Uses z-ai-web-dev-sdk (ZAI.create() + zai.chat.completions.create())
+  - Bilingual system prompt (Indonesian + English) — AI acts as "Darrell AI", a printing business assistant
+  - In-memory conversation store (Map) keyed by sessionId, keeps last 20 messages
+  - 30-minute TTL with periodic cleanup every 5 minutes
+  - Input validation (max 2000 chars), error handling
+  - Accepts { message, sessionId, language } in POST body
+  - Returns { response, sessionId }
+- Created AI chat widget component at src/components/ai-chat.tsx:
+  - Floating teal/green gradient button (bottom-right, z-[9990]) with pulsing ring animation
+  - Chat panel (400px wide, 600px tall, responsive on mobile)
+  - Header: Darrell AI avatar + title + online indicator + clear/close buttons
+  - Messages area: user/assistant bubbles with avatars (Bot/User icons), auto-scroll
+  - Loading state with spinner + "AI is typing..." text
+  - Error state with red badge
+  - Suggested questions (4 per language) shown when no user messages yet
+  - Input area: auto-resizing textarea + Send button, Enter to send, Shift+Enter for newline
+  - Full i18n: all UI text (title, subtitle, placeholder, buttons, suggestions, errors) translated ID/EN via useLanguage()
+  - Session ID stored in sessionStorage for persistence across page navigation
+  - Unread badge indicator when panel is closed and new message arrives
+  - Hydration-safe (mount guard, client-only rendering)
+  - Dark mode support (dark: classes throughout)
+- Added <AIChat /> to src/app/layout.tsx inside <LanguageProvider> (so it has access to language context)
+- Synced all 3 files to dual-root (app/api/ai-chat/route.ts, components/ai-chat.tsx, app/layout.tsx)
+- Verified via agent-browser:
+  - Landing page (/): AI button visible bottom-right, "Open AI assistant" aria-label ✓
+  - Click button → chat panel opens with greeting message ✓
+  - EN mode: Title "Darrell AI", subtitle "Smart Printing Assistant", placeholder "Type your question...", 4 English suggestions ✓
+  - Typed "How do I calculate printing costs for a food box?" → AI responded with detailed breakdown (paper cost, printing cost, finishing, profit margin, formula, example calculation in Rp) ✓
+  - ID mode: Title "Darrell AI", subtitle "Asisten Cerdas Percetakan", placeholder "Tulis pertanyaan Anda...", 4 Indonesian suggestions ✓
+  - Typed "Bagaimana cara menghitung biaya cetak dus makanan?" → AI responded in fluent Indonesian with same quality breakdown ✓
+  - Login page: AI button present ✓
+  - Dashboard /pembukaan: AI button present ✓
+  - Screenshots saved: /tmp/ai-chat-en.png, /tmp/ai-chat-id.png
+- Lint: No errors or warnings in ai-chat.tsx (cleaned up unused eslint-disable directives)
+
+Stage Summary:
+- AI Assistant Chatbot ("Darrell AI") successfully added to the application
+- Available on ALL pages (landing, login, dashboard) via floating button bottom-right
+- Bilingual: responds in Indonesian or English based on app language setting
+- AI is specialized as a printing business assistant — helps with:
+  - Printing cost calculations (paper, printing, finishing, profit margins)
+  - Business advice (pricing strategy, profit optimization)
+  - App usage questions
+  - Printing materials and techniques knowledge
+  - Business management tips
+- Uses Z.AI LLM via z-ai-web-dev-sdk (backend only, never client-side)
+- Conversation context maintained per session (last 20 messages, 30-min TTL)
+- Full i18n support: all UI text translates with language toggle
+- Dark mode compatible
+- Mobile responsive (full-width on small screens)
+- Dual-root sync completed
+- No lint errors
+
+Files Created:
+- src/app/api/ai-chat/route.ts (backend API, z-ai-web-dev-sdk)
+- src/components/ai-chat.tsx (floating chat widget)
+- (dual-root mirrors: app/api/ai-chat/route.ts, components/ai-chat.tsx)
+
+Files Modified:
+- src/app/layout.tsx (added <AIChat /> inside <LanguageProvider>)
+- (dual-root mirror: app/layout.tsx)

@@ -183,16 +183,17 @@ const menuItems = [
   },
 ]
 
-// Section rendering order with their i18n label keys
+// Section rendering order with their i18n label keys (using dedicated section_* keys for
+// proper ID/EN translations of the UPPERCASE sidebar section headers).
 const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
-  { key: undefined, labelKey: 'pembukaan' as TranslationKey },
-  { key: 'hitung_biaya_produksi', labelKey: 'hitung_biaya_produksi' as TranslationKey },
-  { key: 'dokumen', labelKey: 'dokumen' as TranslationKey },
-  { key: 'biaya', labelKey: 'biaya' as TranslationKey },
-  { key: 'biaya_produksi', labelKey: 'biaya_produksi' as TranslationKey },
-  { key: 'master_cetakan', labelKey: 'master_cetakan' as TranslationKey },
-  { key: 'administrasi', labelKey: 'administrasi' as TranslationKey },
-  { key: 'setting', labelKey: 'setting' as TranslationKey },
+  { key: undefined, labelKey: 'section_beranda' as TranslationKey },
+  { key: 'hitung_biaya_produksi', labelKey: 'section_total_cost_calc' as TranslationKey },
+  { key: 'dokumen', labelKey: 'section_documents' as TranslationKey },
+  { key: 'biaya', labelKey: 'section_expenses' as TranslationKey },
+  { key: 'biaya_produksi', labelKey: 'section_production_cost' as TranslationKey },
+  { key: 'master_cetakan', labelKey: 'section_print_master' as TranslationKey },
+  { key: 'administrasi', labelKey: 'section_administration' as TranslationKey },
+  { key: 'setting', labelKey: 'section_setting' as TranslationKey },
 ]
 
 interface SidebarProps {
@@ -307,7 +308,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                   collapsed ? 'h-0 opacity-0' : 'h-auto py-1.5 opacity-100'
                 )}
               >
-                {section.key ? t(section.labelKey) : t('pembukaan')}
+                {t(section.labelKey)}
               </p>
 
               {/* Collapsed divider */}
@@ -393,8 +394,8 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
           {/* Collapse / Expand toggle — desktop only */}
           <button
             onClick={toggle}
-            aria-label={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
-            title={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
+            aria-label={collapsed ? t('expand') : t('collapse')}
+            title={collapsed ? t('expand') : t('collapse')}
             className={cn(
               'flex w-fit items-center rounded-lg text-sm text-blue-200/70 transition-colors hover:bg-white/10 hover:text-white',
               collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
@@ -411,7 +412,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                 collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
               )}
             >
-              Perkecil
+              {t('collapse')}
             </span>
           </button>
         </div>
