@@ -146,6 +146,10 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
         sessionId: data.sessionId,
       })
 
+      // Tandai wajib isi Data Perusahaan (sama dengan flow checkout & login page).
+      // CompanyDataPopup di DashboardLayout akan muncul sampai data diisi & disimpan.
+      localStorage.setItem('companyDataRequired', 'true')
+
       if (data.permissions) {
         const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
         allPerms[data.role] = data.permissions

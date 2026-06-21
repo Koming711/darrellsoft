@@ -1672,3 +1672,51 @@ Stage Summary:
 - "Lewati dulu" button removed from the "Lengkapi Data Perusahaan" popup. The popup is now mandatory — demo users MUST fill the required company data fields (nama, alamat, telepon) and click "Simpan Data Perusahaan" to close it. No skip option, no X button, no backdrop/ESC dismiss.
 - Single file modified: src/components/company-data-popup.tsx (+ synced to root components/).
 - Dev server running healthy on port 3000. Local only — NOT deployed to production.
+
+---
+Task ID: 41d
+Agent: Main
+Task: Show "Lengkapi Data Perusahaan" popup after registering on the login page (same as checkout flow)
+
+Work Log:
+- User requested: "dihalaman login. apabila isi daftar akun dihalaman login dan berhasil masuk maka sama dengan isi di halaman checkout muncul popup lengkapi data perusahaan juga."
+- Analyzed the register flow in src/app/login/page.tsx (handleRegister, lines 91-349):
+  - After successful registration via /api/register, the API returns a CalonPembeli record with role='demo'.
+  - The code calls setAuthUser(...) to auto-login (line 309).
+  - If data.demoPopupMessage exists: shows "Akun Demo" popup (line 330-333). User clicks "Ok" → redirects to /pembukaan (line 924).
+  - Else: directly redirects to /pembukaan after 1.5s (line 336).
+  - Neither path set the companyDataRequired flag, so CompanyDataPopup never appeared.
+- Analyzed CompanyDataPopup trigger logic (src/components/company-data-popup.tsx lines 46-69):
+  - Popup shows when: URL has `?fill_company=1` query param, OR `localStorage.getItem('companyDataRequired') === 'true'`.
+  - The localStorage flag is persistent — popup reappears on every dashboard page until user fills & saves the data.
+- Applied fix to src/app/login/page.tsx (handleRegister):
+  - Added `localStorage.setItem('companyDataRequired', 'true')` right after setAuthUser (line 322), with explanatory comment.
+  - This sets the persistent flag BEFORE either the demo popup or the direct redirect to /pembukaan.
+  - When user arrives at /pembukaan, CompanyDataPopup's useEffect checks localStorage → finds 'true' → opens popup.
+  - No need to change the redirect URL (no `?fill_company=1` needed) — the localStorage flag alone triggers the popup.
+  - This approach is correct because: (a) for new registrations, the flag is set → popup shows; (b) for existing demo users logging in who already filled data, the flag was cleared during their previous session → no popup (correct behavior).
+- Applied the same fix to src/components/inline-login.tsx (handleRegister, line 141-147):
+  - Added `localStorage.setItem('companyDataRequired', 'true')` after setAuthUser, with comment.
+  - This component is used elsewhere (e.g., homepage inline login) — same consistency needed.
+- Did NOT modify the login flow (handleLogin) in either file — the flag should only be set on NEW registration, not on every login. Existing demo users who haven't filled data will still see the popup because the flag persists from their registration.
+- Synced both files to dual-root (src/ → root app/login/ + components/) — verified IDENTICAL via diff.
+- Lint: zero errors on both modified files.
+- E2E browser verification (agent-browser, full register flow on /login):
+  1. Opened /login → cleared localStorage/sessionStorage → dismissed version dialog → hid PWA overlay
+  2. Clicked "Daftar Akun" tab → register form appeared with 6 fields (nama lengkap, nomor HP, email, username, password, konfirmasi password)
+  3. Filled all fields: name="Login Reg Test", phone="081234567890", email="loginreg1782002847@example.com", username="loginreg1782002847", password="TestPass123"
+  4. Clicked "Daftar Akun" submit button
+  5. Registration succeeded: authUser set with role='demo', companyDataRequired='true' ✓
+  6. Demo popup ("Akun Demo" with demo days remaining) appeared
+  7. Clicked "Ok" on demo popup → redirected to /pembukaan
+  8. **Company popup appeared**: `hasCompanyPopup: true` ✓, `hasLewatiDulu: false` ✓ (no skip button), `hasSimpanButton: true` ✓
+  9. Greeting: `"Halo, Login Reg Test"` ✓ (actual username, not "Pengguna")
+  10. Filled company form (nama="PT. Login Reg Perusahaan", alamat, telepon) → clicked "Simpan Data Perusahaan"
+  11. Post-save: `popupStillOpen: false` ✓ (popup closed), `greeting: "Halo, Login Reg Test"` ✓ (still shows username), `companySaved: true` ✓ (flag cleared)
+  12. Console: zero errors
+
+Stage Summary:
+- Registration on the login page now triggers the same "Lengkapi Data Perusahaan" popup as the checkout flow. After registering (role=demo CalonPembeli) → auto-login → demo popup (if applicable) → redirect to /pembukaan → company data popup appears (mandatory, no skip). User must fill required fields (nama, alamat, telepon) and save to close the popup.
+- Two files modified: src/app/login/page.tsx (handleRegister), src/components/inline-login.tsx (handleRegister). Both set `localStorage.setItem('companyDataRequired', 'true')` after setAuthUser.
+- Login flow (handleLogin) intentionally NOT modified — flag should only be set on new registration, not every login. Existing demo users who haven't filled data still see the popup via the persistent localStorage flag from their registration.
+- All files synced to dual-root (src/ + root). Dev server running healthy on port 3000. Local only — NOT deployed to production.
