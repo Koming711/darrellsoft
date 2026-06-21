@@ -1965,3 +1965,23 @@ Stage Summary:
 - Color styling preserved: black (default) + blue (#4374C1) + red-rose gradient
 - Dual-root sync completed (src/app/page.tsx and app/page.tsx both updated)
 - No compilation errors
+---
+Task ID: 52
+Agent: Main
+Task: tulisan judul di halaman login dibesarin
+
+Work Log:
+- Located H1 title in src/app/login/page.tsx line 389 (login page header)
+- Original: <h1 className="text-3xl font-bold text-foreground"> (30px, fontWeight 700)
+- Updated to: <h1 className="text-5xl md:text-6xl text-foreground" style={{ fontWeight: 900 }}> (48px mobile / 60px desktop, fontWeight 900 = super bold/black)
+- Also enlarged the tagline subtitle below: from "text-base mt-2" → "text-lg md:text-xl mt-3" (for better visual proportion with larger title)
+- Synced change to dual-root: copied src/app/login/page.tsx → app/login/page.tsx
+- Verified via agent-browser eval: H1 "Darrell Soft" now renders at fontSize 60px, fontWeight 900 (was 30px / 700)
+- Verified via VLM screenshot: title confirmed large and bold/thick, visually dominant on page
+
+Stage Summary:
+- Login page title "Darrell Soft" enlarged from text-3xl (30px) to text-5xl md:text-6xl (48px / 60px desktop) — 2x larger
+- Font weight changed from font-bold (700) to fontWeight 900 (super bold / black weight)
+- Subtitle/tagline also enlarged proportionally (text-base → text-lg md:text-xl) for balanced visual hierarchy
+- Dual-root sync completed
+- No compilation errors
