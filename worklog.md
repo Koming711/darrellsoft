@@ -3251,3 +3251,54 @@ Stage Summary:
 
 Files Modified:
 - src/app/hitung-cetakan/page.tsx (and app/hitung-cetakan/page.tsx) — No. Hitung Cetakan box: text colors changed to blue (label blue-600, value blue-700)
+
+---
+Task ID: 87
+Agent: Main
+Task: Dihalaman invoice, tab pelunasan - semua kotak diganti warna putih dan line light grey
+
+Work Log:
+- Read src/app/invoice/page.tsx (1332 lines) and located PelunasanTab component (lines 813-1230)
+- Identified all colored boxes in the Pelunasan tab:
+  * 4 summary cards: amber-50/red-50/violet-50/rose-50 with colored borders
+  * Form Pelunasan container: border-2 border-amber-200 + header bg-amber-50/60
+  * Invoice Info box: bg-slate-50 (inside form)
+  * Pelunasan Toggle box: border-2 border-amber-200 bg-amber-50/40
+  * Empty state "Pilih Invoice" box: border-dashed border-slate-300
+  * Sudah Lunas collapsed header: bg-green-50/60
+- Applied MultiEdit to src/app/invoice/page.tsx:
+  * 4 summary cards: bg-{amber|red|violet|rose}-50 border-{amber|red|violet|rose}-200 -> bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 (icon bg circles -> bg-slate-100 dark:bg-zinc-800, value text -> text-black dark:text-white, kept icon colors)
+  * Form container: border-2 border-amber-200 -> border-2 border-slate-200 dark:border-zinc-700
+  * Form Header: bg-amber-50/60 border-amber-200 -> bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700
+  * Invoice Info box: bg-slate-50 -> bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700
+  * Pelunasan Toggle box: border-2 border-amber-200 bg-amber-50/40 -> border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900
+  * Empty state: added dark:border-zinc-700
+  * Sudah Lunas summary header: bg-green-50/60 hover:bg-green-50 -> bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800
+- Left intentionally colored (status indicators, not content boxes):
+  * Badge counts (bg-amber-100, bg-green-100) - status pills
+  * Status badges in table (bg-red-100, bg-amber-100) - status pills
+  * Action buttons (bg-amber-600) - CTA
+  * Switch, icons accent colors - interactive elements
+  * Mobile card selection state (bg-amber-50 when selected) - selection feedback
+  * Table row hover states - hover feedback
+- Synced src/app/invoice/page.tsx -> app/invoice/page.tsx (dual-root mirror)
+- Page compiles: HTTP 200
+- Verified via agent-browser (light mode):
+  * 4 summary cards: bg rgb(255,255,255) + border slate-200 + value text rgb(0,0,0) ✓
+  * Invoice Info box: bg rgb(255,255,255) + border slate-200 ✓
+  * Pelunasan Toggle box: bg rgb(255,255,255) + border slate-200 ✓
+  * Form Header: bg rgb(255,255,255) + border slate-200 ✓
+- Screenshot saved: /tmp/invoice-pelunasan-white.png
+
+Stage Summary:
+- All content boxes on invoice "Pelunasan" tab now have white background (dark: zinc-900) with light gray (slate-200) borders
+- 4 summary cards (Belum Lunas, Total Sisa, Total DP Diterima, Jatuh Tempo) restyled from colored (amber/red/violet/rose) to white
+- Form Pelunasan container + header + invoice info box + pelunasan toggle box restyled from amber-themed to white
+- Sudah Lunas section header restyled from green to white
+- Icon accent colors, status badges, CTA buttons, and selection states PRESERVED (intentionally left colored)
+- Dark mode variants added (dark:bg-zinc-900 dark:border-zinc-700)
+- Dual-root sync completed
+- Page compiles and serves HTTP 200, all 7 boxes verified white via computed styles
+
+Files Modified:
+- src/app/invoice/page.tsx (and app/invoice/page.tsx) — PelunasanTab: all colored boxes -> white bg + slate-200 border
