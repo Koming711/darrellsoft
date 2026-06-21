@@ -3528,3 +3528,38 @@ Stage Summary:
 
 Files Modified:
 - src/app/potong-kertas/page.tsx (and app/potong-kertas/page.tsx) — "Hitung Cetakan Lengkap" button: amber gradient -> blue gradient, border-amber-400 -> border-blue-500 (the "Hitung Potongan" button was already blue, no change)
+
+---
+Task ID: 92
+Agent: Main
+Task: Dihalaman pengaturan, di tab pengaturan tampilan, delete tema warna aplikasi
+
+Work Log:
+- Read src/app/administrasi/pengaturan/page.tsx and located the Tampilan tab (lines 1286-1394)
+- Found two references to "tema warna aplikasi":
+  1. Line 1291: subtitle <p> under main heading "Pengaturan Tampilan" (misleading tab description)
+  2. Lines 1349-1385: entire "COLOR PICKERS" section with heading "Tema Warna Aplikasi", 3 ColorPicker components (sidebar, background, banner), and "Kembalikan ke Default" reset button
+- Applied MultiEdit to src/app/administrasi/pengaturan/page.tsx:
+  * Removed subtitle <p> on line 1291 (kept only the <h3> heading)
+  * Removed entire COLOR PICKERS section (lines 1349-1385): Pipette icon + heading, 3 ColorPicker components (sidebar/bg/banner), and reset button div
+- Synced identical edits to mirror file app/administrasi/pengaturan/page.tsx (dual-root mirror)
+- Verified via agent-browser (light mode):
+  * Dismissed security warning dialog (force logout) that was covering the page
+  * Clicked "Pengaturan Tampilan" tab
+  * Tab now shows ONLY: heading "Pengaturan Tampilan", Language dropdown, Font Size dropdown, Dark Mode toggle, and "Simpan Perubahan" button
+  * Confirmed "tema warna" text NO LONGER appears anywhere on page (eval check)
+  * Confirmed color picker labels (Warna Sidebar, Warna Background, Warna Banner, Kembalikan ke Default) are GONE
+  * No console/page errors
+- Screenshot saved: /tmp/pengaturan-tampilan-after.png
+- Page compiles and serves HTTP 200
+
+Stage Summary:
+- "Tema Warna Aplikasi" (application color theme) section fully removed from Pengaturan Tampilan tab
+- Removed: subtitle text "Tema Warna Aplikasi" under main heading, entire color picker section (sidebar color, background color, banner color pickers + reset to default button)
+- Tampilan tab now contains only: Bahasa (Language), Ukuran Font (Font Size), Mode Gelap (Dark Mode) toggle, and Simpan Perubahan (Save) button
+- State variables (sidebarColor, bgColor, bannerColor) and handlers (handleSidebarColorChange, handleBgColorChange, handleBannerColorChange, handleResetColors) left in place - they don't cause issues and are still referenced by handleSaveTimplan and dark mode toggle logic (applies existing saved colors in light mode)
+- Dual-root sync completed (src + app mirror)
+- Page compiles, serves HTTP 200, verified via browser - no errors
+
+Files Modified:
+- src/app/administrasi/pengaturan/page.tsx (and app/administrasi/pengaturan/page.tsx) — removed "Tema Warna Aplikasi" subtitle and entire color picker section from Tampilan tab
