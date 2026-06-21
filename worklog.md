@@ -2398,3 +2398,70 @@ Stage Summary:
 - Compact mode used on mobile/login/dashboard for space efficiency
 - Dual-root sync completed
 - No compilation errors
+
+---
+Task ID: 66
+Agent: Main
+Task: Fix language toggle SVG flags + i18n landing page (page.tsx)
+
+Work Log:
+- Issue 1 (SVG flags): Replaced emoji spans (🇮🇩 🇺🇸) in `src/components/language-toggle.tsx` with inline SVG flag images. Indonesian flag = red top half + white bottom half. American flag = simplified stars-and-stripes with blue canton. Kept the same button structure, compact mode, ring highlight on active flag, and useLanguage() hook. Synced to dual-root `components/language-toggle.tsx`.
+
+- Issue 2 (Landing page i18n): Replaced ALL hardcoded Indonesian text in `src/app/page.tsx` with translation keys driven by `useLanguage()` from `@/contexts/language-context`.
+  - Added import: `import { useLanguage } from '@/contexts/language-context'`
+  - Added `LANDING_T = { id: {...}, en: {...} } as const` translations object before the `Home()` component containing 252 translation keys per language (504 entries total). All sections covered: nav, hero, stats, urgency, fitur, keunggulan, kenapa-langganan (4 cloud cards + golden banner), cara kerja, harga (4 pricing cards with full feature lists), testimoni (4 testimonials with name/role/quote), CTA final card, FAQ (4 Q&A), footer.
+  - Inside Home(): `const { language } = useLanguage()` + `const t = LANDING_T[language]`
+  - Replaced every visible Indonesian string with `t.<key>` references. For complex JSX with bold/inline emphasis spans, split into prefix/bold/post keys (e.g. `cloud1_b1_pre`, `cloud1_b1_bold`, `cloud1_b1_post`).
+  - Updated PricingCard component type signature from `features: string[]` to `features: React.ReactNode[]` (since one feature is a JSX <span> for bold emphasis). Added two new optional props `popularLabel` and `buttonLabel` to PricingCard so the "Hemat Banget!" popular badge and "Pilih Paket" button text also translate.
+  - All natural English translations, not literal (e.g. "Hitung Modal Jadi Semudah Mengetik" → "Calculating Costs Is As Easy As Typing", "Penawaran Terbatas" → "Limited Offer").
+  - Synced to dual-root `app/page.tsx`.
+
+- Verified dev.log: GET / returns 200 OK (5ms compile, ~150ms render). No compilation errors. The pre-existing Midtrans 401 error in dev.log is unrelated (payment gateway credentials issue).
+- Verified lint: No errors reported for `app/page.tsx` (root landing) or `language-toggle.tsx`. Pre-existing errors in other files (checkout, hitung-finishing, hitung-harga-kertas, hitung-ongkos-cetak) were not touched.
+
+Stage Summary:
+- Flag emojis replaced with proper inline SVG flags (red/white for ID, stars-and-stripes for US) — render correctly in all browsers without depending on system emoji support
+- Clicking ID flag → Indonesian text; clicking US flag → English text — all 252 strings translate, including dynamic arrays (pricing features, testimonials, FAQ, advantage cards)
+- All existing functionality preserved: dark mode, framer-motion animations, responsive design, WhatsApp links, login redirect, checkout redirect
+- No TypeScript or lint errors in modified files
+- 252 translation keys × 2 languages = 504 total entries in LANDING_T
+
+Files Modified:
+- src/components/language-toggle.tsx (and dual-root components/language-toggle.tsx)
+- src/app/page.tsx (and dual-root app/page.tsx)
+---
+
+---
+Task ID: 66
+Agent: full-stack-developer (subagent)
+Task: Fix flag images not rendering + make landing page fully translatable (ID/EN)
+
+Work Log:
+- Issue 1: Flag emojis (🇮🇩 🇺🇸) were not rendering in the browser. Replaced them with inline SVG flag images in src/components/language-toggle.tsx:
+  - Indonesian flag: red top half + white bottom half SVG
+  - American flag: simplified stars-and-stripes with blue canton SVG
+  - Kept same button structure, active state ring highlight, compact mode, useLanguage() hook
+  - Synced to dual-root components/language-toggle.tsx
+- Issue 2: Landing page (src/app/page.tsx) had ALL text hardcoded in Indonesian. Created comprehensive i18n:
+  - Added `import { useLanguage } from '@/contexts/language-context'`
+  - Created LANDING_T object with 252 keys per language (504 total entries) covering every visible text string
+  - Added `const { language } = useLanguage()` + `const t = LANDING_T[language]` in component
+  - Replaced ALL hardcoded Indonesian strings with t.<key> references
+  - Updated PricingCard to accept React.ReactNode[] for features + added popularLabel/buttonLabel props
+  - Sections covered: Navbar, Hero, Stats, Penawaran Terbatas, Fitur, Keunggulan, Kenapa Langganan (4 cloud cards + golden banner), Cara Kerja, Harga (4 pricing cards), Testimoni (4 testimonials), CTA Final, FAQ (4 Q&A), Footer
+  - Synced to dual-root app/page.tsx
+- Verified via agent-browser:
+  - SVG flags render at 20x14px on landing page ✓
+  - SVG flags render at 20x14px on login page ✓
+  - Click ID flag → savedLang="id", heroH1="Jangan jadi penonton saja!!!", nav links="Fitur, Kenapa Langganan, Harga, Testimoni" ✓
+  - Click US flag → savedLang="en", heroH1="Don't just be a spectator!!!", nav links="Features, Why Subscribe, Pricing, Testimonials" ✓
+- Verified via VLM: "Yes, two flag images are visible (one red/white Indonesian flag and one American flag with stars/stripes)"
+
+Stage Summary:
+- Flag images now render as inline SVG (Indonesian red/white + American stars/stripes) — visible on landing, login, and all dashboard pages
+- Landing page is fully translatable: 252 translation keys × 2 languages = 504 entries
+- Clicking ID flag instantly switches ALL landing page text to Indonesian
+- Clicking US flag instantly switches ALL landing page text to English
+- Language preference persists via localStorage + /api/settings
+- Dual-root sync completed
+- No compilation errors
