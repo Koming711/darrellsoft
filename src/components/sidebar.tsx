@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from './theme-toggle'
 import {
   Calculator,
   Scissors,
@@ -570,16 +571,20 @@ export function MobileHeader({ username, title, subtitle, userProfile }: { usern
           )}
         </div>
         {/* Mobile: simple date (hidden on md+) */}
-        <div className="flex-shrink-0 md:hidden">
+        <div className="flex-shrink-0 md:hidden flex items-center gap-1">
           <span className="text-[11px] hidden sm:block" style={{ color: 'var(--app-banner-text-muted)' }}>
             {new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
           </span>
+          <ThemeToggle className="h-8 w-8" />
         </div>
         {/* Desktop: full date + account info (visible on md+) */}
         <div className="hidden md:flex flex-col items-end justify-center gap-1 flex-shrink-0">
-          <span className="text-[13px] font-semibold" style={{ color: 'var(--app-banner-text)' }}>
-            {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </span>
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="h-8 w-8" />
+            <span className="text-[13px] font-semibold" style={{ color: 'var(--app-banner-text)' }}>
+              {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             {userProfile?.createdAt && (
               <span className="text-[11px]" style={{ color: 'var(--app-banner-text-muted)' }}>Daftar: {formatDateIndo(userProfile.createdAt)}</span>
