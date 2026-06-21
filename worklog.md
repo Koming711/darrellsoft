@@ -1985,3 +1985,20 @@ Stage Summary:
 - Subtitle/tagline also enlarged proportionally (text-base → text-lg md:text-xl) for balanced visual hierarchy
 - Dual-root sync completed
 - No compilation errors
+---
+Task ID: 52-cancel
+Agent: Main
+Task: Cancel Task 52 (pembesaran judul login page) — kembalikan ke ukuran semula
+
+Work Log:
+- User requested "cancel" after Task 52 was completed
+- Reverted H1 in src/app/login/page.tsx line 389 from "text-5xl md:text-6xl" + fontWeight 900 back to original "text-3xl font-bold" (30px, fontWeight 700)
+- Reverted subtitle from "text-lg md:text-xl mt-3" back to original "text-base mt-2"
+- Synced revert to dual-root: copied src/app/login/page.tsx → app/login/page.tsx
+- Verified via agent-browser eval: H1 "Darrell Soft" now back to fontSize 30px, fontWeight 700 (original state)
+
+Stage Summary:
+- Task 52 changes fully reverted; login page title "Darrell Soft" back to original size (text-3xl / 30px) and weight (font-bold / 700)
+- Subtitle also reverted to original (text-base mt-2)
+- Dual-root sync completed
+- Login page now in original pre-Task-52 state
