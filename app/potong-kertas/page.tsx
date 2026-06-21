@@ -1791,20 +1791,13 @@ function CalculatorPage() {
                     <p className="text-[11px] font-bold text-slate-700 mb-1">Detail Blok:</p>
                     <div className="space-y-1">
                       {results.blocks.map((block: any, idx: number) => {
-                        const bgColors = ['bg-blue-50', 'bg-emerald-50', 'bg-amber-50', 'bg-red-50', 'bg-violet-50']
-                        const borderColors = ['border-blue-200', 'border-emerald-200', 'border-amber-200', 'border-red-200', 'border-violet-200']
-                        const badgeBg = ['bg-blue-100', 'bg-emerald-100', 'bg-amber-100', 'bg-red-100', 'bg-violet-100']
-                        const badgeText = ['text-blue-700', 'text-emerald-700', 'text-amber-700', 'text-red-700', 'text-violet-700']
-                        const nameColors = ['text-blue-800', 'text-emerald-800', 'text-amber-800', 'text-red-800', 'text-violet-800']
-                        const detailColors = ['text-blue-600', 'text-emerald-600', 'text-amber-600', 'text-red-600', 'text-violet-600']
-                        const ci = idx % 5
                         return (
-                          <div key={idx} className={`border ${borderColors[ci]} ${bgColors[ci]} rounded-md p-1.5`}>
+                          <div key={idx} className="border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md p-1.5">
                             <div className="flex items-center justify-between mb-0">
-                              <span className={`text-[10px] font-bold ${nameColors[ci]}`}>{block.name}</span>
-                              <span className={`px-1 py-0 ${badgeBg[ci]} ${badgeText[ci]} rounded-full text-[8px] font-semibold`}>{block.pieces} pcs</span>
+                              <span className="text-[10px] font-bold text-black dark:text-white">{block.name}</span>
+                              <span className="px-1 py-0 bg-slate-100 dark:bg-zinc-800 text-black dark:text-white rounded-full text-[8px] font-semibold">{block.pieces} pcs</span>
                             </div>
-                            <div className={`grid grid-cols-2 gap-x-1 gap-y-0 text-[9px] ${detailColors[ci]}`}>
+                            <div className="grid grid-cols-2 gap-x-1 gap-y-0 text-[9px] text-black dark:text-white">
                               <div><span className="opacity-70">Ukuran: </span><span className="font-bold">{block.width.toFixed(1)}×{block.height.toFixed(1)}</span></div>
                               <div><span className="opacity-70">Layout: </span><span className="font-bold">{block.horizontal}×{block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
                             </div>

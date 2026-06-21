@@ -3186,3 +3186,38 @@ Stage Summary:
 
 Files Modified:
 - src/app/potong-kertas/page.tsx (and app/potong-kertas/page.tsx) — all colored content boxes -> white bg + black text + slate-200 border
+
+---
+Task ID: 85
+Agent: Main
+Task: Kotak "Detail Blok" dihalaman potong kertas dibuat putih (block detail boxes -> white bg + black text)
+
+Work Log:
+- Read src/app/potong-kertas/page.tsx around line 1789-1815 (editor "Detail Blok" section)
+- Found colored block detail boxes using arrays: bgColors (blue-50/emerald-50/amber-50/red-50/violet-50), borderColors (blue-200/emerald-200/amber-200/red-200/violet-200), badgeBg, badgeText, nameColors, detailColors - all cycling per block index
+- Replaced entire colored block rendering with single white style:
+  * Container: `border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md p-1.5`
+  * Block name: text-black dark:text-white (was cycled colored)
+  * Pieces badge: bg-slate-100 dark:bg-zinc-800 text-black dark:text-white (was cycled colored)
+  * Detail grid: text-black dark:text-white (was cycled colored)
+- Removed unused color arrays (bgColors, borderColors, badgeBg, badgeText, nameColors, detailColors, ci)
+- Preview dialog's "Detail per Blok" (line 1968) was already using neutral border-slate-200 + bg-white via earlier Task 84 styling, no change needed
+- Synced src/app/potong-kertas/page.tsx -> app/potong-kertas/page.tsx (dual-root mirror)
+- Page compiles: HTTP 200
+- Reloaded via agent-browser, verified computed styles (light mode):
+  * Blok A1 box: bg rgb(255,255,255) white + text rgb(28,25,23) near-black + border slate-200 ✓
+  * Blok B1 box: bg rgb(255,255,255) white + text rgb(28,25,23) near-black + border slate-200 ✓
+  * className confirmed: "border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md p-1.5"
+- Dark mode also works (verified earlier in dark mode): bg zinc-900 + text white
+- Screenshot saved: /tmp/potong-kertas-detail-blok-white.png
+
+Stage Summary:
+- "Detail Blok" boxes in editor results section now have white background + black text + light gray border (matching other boxes on the page)
+- Colored cycling (blue/emerald/amber/red/violet per block index) removed - all blocks now uniform white
+- Dark mode variant preserved (dark:bg-zinc-900 dark:border-zinc-700 dark:text-white)
+- Preview dialog's "Detail per Blok" was already neutral from Task 84, no further change
+- Dual-root sync completed
+- Page compiles and serves HTTP 200, both light and dark mode verified
+
+Files Modified:
+- src/app/potong-kertas/page.tsx (and app/potong-kertas/page.tsx) — Detail Blok boxes: colored cycling arrays -> uniform white bg + black text + slate-200 border
