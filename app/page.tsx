@@ -448,9 +448,9 @@ export default function Home() {
             <FadeIn direction="right">
               <div className="flex flex-col gap-6">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl text-gray-900 dark:text-gray-100 leading-tight" style={{ fontWeight: 900 }}>
-                  Jangan jadi penonton saja!!!.{' '}
-                  <span className="font-extrabold" style={{ color: '#4374C1' }}>Sekarang sudah bisa mulai bisnis</span>{' '}
-                  <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent">Dus Makanan, Dus Kue, Hampers, dll</span>
+                  <span style={{ fontWeight: 900 }}>Jangan jadi penonton saja!!!.{' '}</span>
+                  <span className="font-extrabold" style={{ color: '#4374C1', fontWeight: 900 }}>Sekarang sudah bisa mulai bisnis cetak</span>{' '}
+                  <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>Dus Makanan, Dus Kue, Hampers, dll</span>
                 </h1>
 
                 {/* Mobile: show images right after H1 (below the "Hampers" text) */}

@@ -1941,3 +1941,27 @@ Stage Summary:
 - File: public/kantong-kebab.jpg (12584 bytes, direct copy from upload)
 - Backups: kantong-kebab.jpg.bak (original with logos), .bak2 (Task 46 paper bag), .bak3 (Task 48 paper box), .bak4 (Task 49 AI-generated logo-free 4-container version)
 - Label remains "Kantong Kebab" in grid (no code change)
+---
+Task ID: 51
+Agent: Main
+Task: ganti tulisan "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis Dus Makanan, Dus Kue, Hampers, dll" jadi "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis cetak Dus Makanan, Dus Kue, Hampers, dll" dengan font super bold
+
+Work Log:
+- Located the H1 in src/app/page.tsx line 450-454 (hero section heading)
+- Original text: "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis Dus Makanan, Dus Kue, Hampers, dll"
+- Requested text: "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis cetak Dus Makanan, Dus Kue, Hampers, dll" (added word "cetak" after "bisnis")
+- Wrapped each part of the heading in <span> elements with explicit style={{ fontWeight: 900 }} to enforce super bold (900 = black/heaviest weight):
+  - "Jangan jadi penonton saja!!!." → span with fontWeight 900
+  - "Sekarang sudah bisa mulai bisnis cetak" → blue span (#4374C1) with fontWeight 900 (kept font-extrabold class + inline style override)
+  - "Dus Makanan, Dus Kue, Hampers, dll" → gradient red-rose span with fontWeight 900
+- H1 parent already had style={{ fontWeight: 900 }} (kept)
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser eval: H1 text = "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis cetak Dus Makanan, Dus Kue, Hampers, dll", all 3 spans fontWeight = "900"
+- Verified via VLM screenshot: confirmed full heading text reads correctly with "cetak" word included, font is super bold/thick (black weight)
+
+Stage Summary:
+- Hero H1 heading text updated: added "cetak" word → now reads "Sekarang sudah bisa mulai bisnis cetak Dus Makanan..."
+- Font weight enforced as super bold (900) on H1 + all 3 child spans (Jangan jadi penonton, Sekarang...cetak, Dus Makanan...dll)
+- Color styling preserved: black (default) + blue (#4374C1) + red-rose gradient
+- Dual-root sync completed (src/app/page.tsx and app/page.tsx both updated)
+- No compilation errors
