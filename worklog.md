@@ -2145,3 +2145,33 @@ Stage Summary:
 - Padding and icons unchanged from Task 56
 - Dual-root sync completed
 - No compilation errors
+---
+Task ID: 58
+Agent: Main
+Task: dikecilin lagi 2pt (label-label section landing page)
+
+Work Log:
+- Previous sizes (Task 57): 26px (3 badges) and 21px (6 badges)
+- User requested reduction of another 2pt: 2pt ≈ 2.67px
+- 26px badges → ~23.3px → set to 23px
+- 21px badges → ~18.3px → set to 18px
+- Updated all 9 badges via MultiEdit (same pattern as Task 57)
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser eval — all 9 badges reduced by ~2pt:
+  - Sistem Hitung Cepat Percetakan: 26px → 23px ✓
+  - Penawaran Terbatas: 26px → 23px ✓
+  - Kesempatan Emas: 26px → 23px ✓
+  - Fitur Unggulan: 21px → 18px ✓
+  - Kenapa Darrell Soft?: 21px → 18px ✓
+  - Kenapa Harus Berlangganan?: 21px → 18px ✓
+  - Cara Kerja: 21px → 18px ✓
+  - Harga: 21px → 18px ✓
+  - Testimoni: 21px → 18px ✓
+
+Stage Summary:
+- All 9 section eyebrow badges on landing page reduced by another ~2pt
+- Cumulative reduction from Task 56 (2x enlarge): 28px→23px and 24px→18px (roughly back to ~1.6x original sizes)
+- Final sizes: 23px (3 badges) and 18px (6 badges)
+- Padding and icons unchanged
+- Dual-root sync completed
+- No compilation errors
