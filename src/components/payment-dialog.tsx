@@ -164,23 +164,66 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
       setSnapToken(data.token);
       sessionStorage.setItem('lastPaymentOrderId', data.orderId);
 
-      // ─── MOCK MODE: simulasi pembayaran ───
+      // ─── MOCK MODE: daftarkan sebagai CalonPembeli role demo ───
       if (data.mock) {
         setIsMockMode(true);
         setStep('paying');
         setCountdown(3);
-        // Simulasi delay 3 detik lalu auto success & redirect ke beranda
-        setTimeout(async () => {
-          // Auto-login (accounts already created in create-transaction for mock mode)
-          await performAutoLogin();
 
-          // Show brief success message then auto-redirect to beranda
+        // Jika backend membuat CalonPembeli + session, gunakan data itu langsung (tanpa panggil login lagi)
+        if (data.demoRegister && data.user) {
+          const u = data.user;
+          // Set localStorage auth (auto-login)
+          try {
+            localStorage.setItem('auth', JSON.stringify({
+              id: u.id,
+              username: u.username,
+              name: u.name,
+              role: u.role,
+              sessionId: u.sessionId,
+            }));
+            if (u.permissions) {
+              const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {};
+              allPerms[u.role] = u.permissions;
+              try {
+                const existing = localStorage.getItem('permissions');
+                if (existing) {
+                  const parsed = JSON.parse(existing);
+                  Object.assign(allPerms, parsed);
+                }
+              } catch {}
+              localStorage.setItem('permissions', JSON.stringify(allPerms));
+            }
+          } catch {}
+
+          if (onAutoLogin) {
+            onAutoLogin({
+              id: u.id,
+              username: u.username,
+              name: u.name,
+              role: u.role,
+              sessionId: u.sessionId,
+              permissions: u.permissions,
+            });
+          }
+          console.log('[PaymentDialog] Demo register + auto-login successful for', u.username);
+        }
+
+        // Simulasi delay 3 detik lalu auto success & redirect ke beranda
+        setTimeout(() => {
+          // Fallback: jika tidak ada data.user, coba performAutoLogin via /api/auth/login
+          if (!data.user) {
+            performAutoLogin();
+          }
+
           setStep('result');
           setResult('success');
-          setResultMessage('Pembayaran berhasil! Mengalihkan ke beranda...');
+          setResultMessage(data.demoRegister
+            ? 'Akun demo berhasil dibuat! Mengalihkan ke beranda...'
+            : 'Pembayaran berhasil! Mengalihkan ke beranda...');
           setLoading(false);
 
-          // Auto-redirect to beranda after 1.5 seconds
+          // Auto-redirect to beranda after 1.5 seconds (with fill_company flag for demo)
           setTimeout(() => {
             if (onSuccess) onSuccess();
           }, 1500);

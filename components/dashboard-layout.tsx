@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
-import { Sidebar, MobileHeader, MobileBottomNav } from './sidebar'
+import { Sidebar } from './sidebar-desktop'
+import { MobileHeader, MobileBottomNav } from './sidebar'
+import { CompanyDataPopup } from './company-data-popup'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
 import { toast } from 'sonner'
+import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
 
 // === MODULE-LEVEL SESSION CACHE ===
 // Persists across navigations so DashboardLayout doesn't need to re-verify on every mount
@@ -80,6 +83,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const [user, setUser] = useState<any>(null)
   const pathname = usePathname()
   const router = useRouter()
+  const { collapsed: sidebarCollapsed } = useSidebarCollapse()
+  // Desktop content left-margin follows the sidebar width (w-52 expanded / w-14 collapsed)
+  const desktopMargin = sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'
 
   // === SESSION CHECK STATE ===
   const [sessionWarning, setSessionWarning] = useState<string | null>(null)
@@ -489,10 +495,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           username={user?.username || 'User'}
           role={user?.role}
           onLogout={handleLogout}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
         />
-        <div className="lg:ml-16 transition-all duration-300">
+        <div className={`${desktopMargin} transition-all duration-300`}>
           <MobileHeader username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
           <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -534,12 +538,10 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         username={user?.username || 'User'}
         role={user?.role}
         onLogout={handleLogout}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
         permVersion={permVersion}
       />
 
-      <div className="lg:ml-16 transition-all duration-300">
+      <div className={`${desktopMargin} transition-all duration-300`}>
         <MobileHeader
           username={user?.username}
           title={title}
@@ -689,6 +691,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           </div>
         </div>
       )}
+
+      {/* ===== MODAL: COMPANY DATA POPUP (untuk demo user baru dari checkout) ===== */}
+      {user && <CompanyDataPopup />}
     </div>
   )
 }
