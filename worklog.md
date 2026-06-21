@@ -2021,3 +2021,22 @@ Stage Summary:
 - Font SIZE unchanged (text-3xl / 30px) — only weight modified per user request
 - Dual-root sync completed
 - No compilation errors
+---
+Task ID: 54
+Agent: Main
+Task: font darrell soft di halaman login dikecilin 2pt
+
+Work Log:
+- Located H1 "Darrell Soft" in src/app/login/page.tsx line 389
+- Previous size: text-3xl = 30px (1.875rem)
+- User requested reduction of 2pt: 1pt = 1.333px, so 2pt ≈ 2.67px → target ~27.3px
+- Updated className from "text-3xl" to "text-[27px]" (Tailwind arbitrary value for precise 27px)
+- Kept fontWeight: 900 (super bold from Task 53) unchanged
+- Synced change to dual-root: copied src/app/login/page.tsx → app/login/page.tsx
+- Verified via agent-browser eval: H1 fontSize now 27px (was 30px), fontWeight still 900
+
+Stage Summary:
+- Login page title "Darrell Soft" font size reduced by ~2pt: 30px → 27px
+- Font weight unchanged (still super bold / 900)
+- Dual-root sync completed
+- No compilation errors
