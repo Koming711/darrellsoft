@@ -4,6 +4,9 @@ import * as React from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
+import { persistDarkMode, clearInlineOverridesForDarkMode } from '@/contexts/theme-context'
+import { getAuthUser } from '@/lib/auth'
+import { authFetch, getAuthHeaders } from '@/lib/auth-fetch'
 
 interface ThemeToggleProps {
   /** Visual variant for the button */
@@ -15,8 +18,15 @@ interface ThemeToggleProps {
 }
 
 /**
- * Theme toggle button — switches between light and dark mode using next-themes.
- * Modeled after the ERP header theme toggle (Moon icon in light mode, Sun icon in dark mode).
+ * Theme toggle button — switches between light and dark mode.
+ *
+ * Syncs with THREE systems so dark mode persists across ALL pages and login sessions:
+ * 1. next-themes (applies .dark class to <html> immediately + stores in localStorage "theme")
+ * 2. Custom darrellsoft_dark_mode localStorage key (read by ThemeProvider for non-auth pages)
+ * 3. Database /api/settings theme_dark_mode (read by applyThemeAfterLogin after login)
+ *
+ * This mirrors the logic in the administrasi/pengaturan settings page so the toggle
+ * works identically everywhere.
  */
 export function ThemeToggle({
   variant = 'ghost',
@@ -32,9 +42,36 @@ export function ThemeToggle({
 
   const current = resolvedTheme ?? theme
 
-  const toggle = () => {
-    setTheme(current === 'dark' ? 'light' : 'dark')
-  }
+  const toggle = React.useCallback(async () => {
+    const isDark = current === 'dark'
+    const next = isDark ? 'light' : 'dark'
+
+    // 1. next-themes: apply .dark class + persist to localStorage "theme"
+    setTheme(next)
+
+    // 2. Custom localStorage key (read by ThemeProvider on non-auth pages)
+    persistDarkMode(!isDark)
+
+    // 3. If authenticated, persist to database so applyThemeAfterLogin picks it up
+    const user = getAuthUser()
+    if (user) {
+      try {
+        await authFetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ key: 'theme_dark_mode', value: (!isDark).toString() }),
+        })
+      } catch {
+        /* silent — localStorage fallback still works */
+      }
+    }
+
+    // 4. If switching to dark, clear any inline color overrides so .dark CSS vars take effect
+    if (!isDark) {
+      // Small delay to let next-themes apply the .dark class first
+      setTimeout(() => clearInlineOverridesForDarkMode(), 50)
+    }
+  }, [current, setTheme])
 
   return (
     <Button

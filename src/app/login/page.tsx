@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/language-context'
 import { toast } from 'sonner'
 import { applyThemeAfterLogin } from '@/contexts/theme-context'
 import { notifyDataChange } from '@/lib/data-sync'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { useTheme } from 'next-themes'
 
 
@@ -366,14 +367,19 @@ function LoginContent() {
 
   return (
     <div className={`min-h-screen flex flex-col px-4 py-8 bg-gradient-to-br from-blue-50 via-white to-slate-100 dark:from-black dark:via-[#111] dark:to-black`}>
-      {/* Back button */}
-      <button
-        onClick={() => router.push('/')}
-        className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-fit mt-2"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Kembali
-      </button>
+      {/* Top bar: back button + theme toggle */}
+      <div className="flex items-center justify-between w-fit mt-2">
+        <button
+          onClick={() => router.push('/')}
+          className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Kembali
+        </button>
+      </div>
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle className="h-9 w-9 bg-background/80 backdrop-blur-sm border border-border shadow-sm" />
+      </div>
 
       <div className="flex-1 flex items-center justify-center">
       <div className="w-full max-w-md">

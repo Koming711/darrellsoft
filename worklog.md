@@ -2306,3 +2306,50 @@ Stage Summary:
 - Theme persists across navigation via next-themes localStorage
 - Dual-root sync completed
 - No compilation errors
+
+---
+Task ID: 64
+Agent: Main
+Task: dark mode berlaku disemua halaman (dashboard, login, dll)
+
+Work Log:
+- Analyzed the existing dark mode infrastructure:
+  - NextThemesProvider in root layout (attribute="class", defaultTheme="light")
+  - Custom ThemeProvider in theme-context.tsx that reads from /api/settings (database) on login
+  - globals.css has .dark CSS variables + dark: prefix classes throughout
+  - Dashboard uses CSS variables: --app-content-bg, --app-banner-bg, --app-banner-text (all have .dark variants)
+- Found the root cause of theme not persisting: TWO dark mode systems were conflicting
+  1. next-themes (my ThemeToggle from Task 63) — stores in localStorage "theme"
+  2. Custom theme-context.tsx — reads from database /api/settings theme_dark_mode, overrides on page load
+  - When navigating between pages, ThemeProvider fetched DB settings and called setTheme('light'), overriding the toggle
+- Updated ThemeToggle component (src/components/theme-toggle.tsx) to sync with ALL THREE systems:
+  1. next-themes setTheme() — applies .dark class immediately
+  2. persistDarkMode() — saves to darrellsoft_dark_mode localStorage key
+  3. authFetch /api/settings POST theme_dark_mode — saves to database (for authenticated users)
+  4. clearInlineOverridesForDarkMode() — clears inline color overrides so .dark CSS vars take effect
+- Added ThemeToggle to MobileHeader component (src/components/sidebar.tsx) — appears on ALL authenticated dashboard pages:
+  - Mobile section (md:hidden): toggle next to date
+  - Desktop section (hidden md:flex): toggle next to date in header bar
+- Added ThemeToggle to login page (src/app/login/page.tsx) — fixed top-right corner with backdrop blur
+- Synced all changes to dual-root (src/ → app/, src/components → components/)
+- Verified via agent-browser (logged in as admin/268899):
+  - Dashboard /pembukaan: clicked toggle → htmlClass light→dark, bodyBg white→black, headerBg white→#111 ✓
+  - DB save confirmed: theme_dark_mode "false"→"true" ✓
+  - Navigated to /hitung-finishing: dark mode persisted (htmlClass dark, bodyBg black, headerBg #111) ✓
+  - Navigated to / (landing): dark mode persisted (htmlClass dark, bodyBg black, navBg dark) ✓
+  - Login page: toggle visible at top-right (x=1228), dark mode applied ✓
+- Verified via VLM screenshot: "The dark theme is applied consistently across the dashboard... cohesive: sidebar uses dark blue, header and main content share black background, with light text/icons for readability"
+
+Stage Summary:
+- Dark mode now works on ALL pages: landing, login, and all authenticated dashboard pages
+- Theme toggle button (Moon/Sun) accessible on:
+  - Landing page navbar (desktop + mobile)
+  - Login page (fixed top-right)
+  - All dashboard pages (in MobileHeader, both mobile + desktop layouts)
+- ThemeToggle syncs with 3 systems: next-themes, custom localStorage, database settings
+- Dark mode preference persists across:
+  - Page navigation (full page loads) — via database settings + localStorage
+  - Login/logout transitions — via database settings
+  - Client-side navigation — via next-themes .dark class
+- Dual-root sync completed
+- No compilation errors
