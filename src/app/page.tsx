@@ -28,6 +28,7 @@ import {
   Crown,
   type LucideIcon,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -412,15 +413,19 @@ export default function Home() {
             <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Kenapa Langganan</a>
             <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Harga</a>
             <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">Testimoni</a>
+            <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300">
               Login <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
 
-          {/* Mobile: Masuk button instead of hamburger */}
-          <Button onClick={() => goToLogin()} className="md:hidden ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-3 py-1.5 h-8">
-            Login <ChevronRight className="ml-1 w-3 h-3" />
-          </Button>
+          {/* Mobile: Masuk button + theme toggle instead of hamburger */}
+          <div className="md:hidden flex items-center gap-1.5">
+            <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-3 py-1.5 h-8">
+              Login <ChevronRight className="ml-1 w-3 h-3" />
+            </Button>
+          </div>
         </div>
 
       </nav>
