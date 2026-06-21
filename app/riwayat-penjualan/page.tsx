@@ -465,35 +465,35 @@ export default function RiwayatPenjualanPage() {
       <div className="space-y-4 sm:space-y-6 pb-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
               <Receipt className="w-5 h-5" />
             </div>
             <p className="text-xs text-slate-500 mb-0.5">Total Penjualan</p>
             <p className="text-base sm:text-lg font-bold text-blue-700 leading-tight">{invHistory.length}</p>
           </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mb-2">
               <Package className="w-5 h-5" />
             </div>
             <p className="text-xs text-slate-500 mb-0.5">Nilai Penjualan</p>
             <p className="text-base sm:text-lg font-bold text-emerald-700 leading-tight">{formatRupiahShort(totalPenjualan)}</p>
           </div>
-          <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center mb-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             </div>
             <p className="text-xs text-slate-500 mb-0.5">Total DP</p>
             <p className="text-base sm:text-lg font-bold text-violet-700 leading-tight">{formatRupiahShort(totalDP)}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
             <p className="text-xs text-slate-500 mb-0.5">Belum Lunas</p>
             <p className="text-base sm:text-lg font-bold text-amber-700 leading-tight">{formatRupiahShort(totalSisa)}</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 col-span-2 sm:col-span-1">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4 col-span-2 sm:col-span-1">
             <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center mb-2">
               <CheckCircle2 className="w-5 h-5" />
             </div>
@@ -503,7 +503,7 @@ export default function RiwayatPenjualanPage() {
         </div>
 
         {/* Search + Filter */}
-        <div className="bg-card rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 p-4">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -539,7 +539,7 @@ export default function RiwayatPenjualanPage() {
             ))}
           </div>
         ) : filteredHistories.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center">
+          <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-12 text-center">
             <Receipt className="mx-auto h-12 w-12 text-slate-300" />
             <p className="mt-3 text-sm text-slate-400 font-medium">Belum ada data penjualan</p>
             <p className="text-xs text-slate-300 mt-1">Data invoice akan muncul di sini</p>
@@ -547,10 +547,10 @@ export default function RiwayatPenjualanPage() {
         ) : (
           <>
             {/* Desktop Table */}
-            <div className="hidden sm:block bg-card rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <div className="hidden sm:block bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                     <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
                     <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Tanggal</th>
                     <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
@@ -633,7 +633,7 @@ export default function RiwayatPenjualanPage() {
                 const info = parseDocInfo(inv)
                 const isLunas = info.lunas || info.sisa <= 0
                 return (
-                  <div key={inv.id} className="bg-card border border-slate-200 rounded-lg p-3 cursor-pointer" onClick={() => handlePreview(inv)}>
+                  <div key={inv.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-3 cursor-pointer" onClick={() => handlePreview(inv)}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -848,7 +848,7 @@ export default function RiwayatPenjualanPage() {
               return (
                 <div className="space-y-5 pt-1">
                   {/* Invoice Info */}
-                  <div className="rounded-lg bg-slate-50 p-3 space-y-1">
+                  <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500">No. Invoice</span>
                       <span className="font-semibold text-slate-800">{statusDialogItem.nomor}</span>
@@ -889,7 +889,7 @@ export default function RiwayatPenjualanPage() {
 
                   {/* Pelunasan — only shown when there's DP */}
                   {hasDP && (
-                    <div className="rounded-lg border border-slate-200 p-4 space-y-4">
+                    <div className="rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {pelunasanToggle ? (
@@ -924,7 +924,7 @@ export default function RiwayatPenjualanPage() {
                         </div>
                       )}
                       {pelunasanToggle && (
-                        <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2">
+                        <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-2.5 flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
                           <div>
                             <p className="text-xs font-semibold text-green-800">Sudah Lunas</p>
