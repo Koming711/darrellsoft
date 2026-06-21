@@ -1288,7 +1288,6 @@ export default function PengaturanPage() {
               <div className="space-y-4 sm:space-y-6">
                 <div>
                   <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">{t('pengaturan_tampilan')}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">{t('tema_warna_aplikasi')}</p>
                 </div>
                 <div className="space-y-5">
                   {/* Language */}
@@ -1346,43 +1345,6 @@ export default function PengaturanPage() {
                     </button>
                   </div>
 
-                  {/* ===== COLOR PICKERS ===== */}
-                  <div className="border-t border-border pt-5">
-                    <div className="flex items-center gap-2 mb-5">
-                      <Pipette className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                      <h4 className="text-sm font-semibold text-foreground">{t('tema_warna_aplikasi')}</h4>
-                    </div>
-                    <div className="space-y-6">
-                      <ColorPicker
-                        label={t('color_sidebar')}
-                        icon={<div className="w-4 h-4 rounded bg-muted-foreground border border-input" />}
-                        value={sidebarColor}
-                        onChange={handleSidebarColorChange}
-                        presets={colorPresets.sidebar}
-                      />
-                      <ColorPicker
-                        label={t('color_background')}
-                        icon={<div className="w-4 h-4 rounded bg-muted border border-input" />}
-                        value={bgColor}
-                        onChange={handleBgColorChange}
-                        presets={colorPresets.background}
-                      />
-
-                      <ColorPicker
-                        label={t('color_banner')}
-                        icon={<div className="w-4 h-4 rounded bg-blue-50 dark:bg-blue-950/50 border border-input" />}
-                        value={bannerColor}
-                        onChange={handleBannerColorChange}
-                        presets={colorPresets.banner}
-                      />
-
-                    </div>
-                    <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border">
-                      <Button onClick={handleResetColors} variant="outline" size="sm">
-                        <Undo2 className="w-3.5 h-3.5 mr-1.5" />{t('color_default')}
-                      </Button>
-                    </div>
-                  </div>
                 </div>
                 {/* Save Perubahan Button */}
                 <div className="pt-4 border-t border-border">
