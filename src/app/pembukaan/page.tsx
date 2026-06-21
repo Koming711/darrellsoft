@@ -746,7 +746,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* Motivasi Hari Ini */}
-        <div className="mt-3 bg-white dark:bg-zinc-900 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+        <div className="mt-3 bg-white dark:bg-zinc-900 border border-slate-200 rounded-xl px-4 py-3 flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4 text-amber-600" />
           </div>
@@ -851,7 +851,7 @@ export default function PembukaanPage() {
           <QuickIcon
             icon={<History className="w-5 h-5" />}
             label={t('penjualan')}
-            color="bg-amber-50 text-amber-600 border-amber-200"
+            color="bg-amber-50 text-amber-600 border-slate-200"
             onClick={() => {
               startNavigation()
               window.dispatchEvent(new CustomEvent('navigation-start'))
@@ -861,7 +861,7 @@ export default function PembukaanPage() {
           <QuickIcon
             icon={<ShoppingCart className="w-5 h-5" />}
             label={t('pembelian')}
-            color="bg-blue-50 text-blue-600 border-blue-200"
+            color="bg-blue-50 text-blue-600 border-slate-200"
             onClick={() => {
               startNavigation()
               window.dispatchEvent(new CustomEvent('navigation-start'))
@@ -871,7 +871,7 @@ export default function PembukaanPage() {
           <QuickIcon
             icon={<Receipt className="w-5 h-5" />}
             label={t('invoice')}
-            color="bg-violet-50 text-violet-600 border-violet-200"
+            color="bg-violet-50 text-violet-600 border-slate-200"
             onClick={() => {
               startNavigation()
               window.dispatchEvent(new CustomEvent('navigation-start'))
@@ -1242,7 +1242,7 @@ export default function PembukaanPage() {
                   {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />)}
                 </div>
               ) : invoiceHistory.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-amber-200 bg-white dark:bg-zinc-900 p-8 text-center">
+                <div className="rounded-lg border border-dashed border-slate-200 bg-white dark:bg-zinc-900 p-8 text-center">
                   <Receipt className="mx-auto h-8 w-8 text-amber-300" />
                   <p className="mt-2 text-sm text-amber-400">{t('belum_ada_data_invoice')}</p>
                 </div>
@@ -1433,14 +1433,14 @@ function StatCard({
   icon: React.ReactNode; label: string; count: number; total: number; color: string; loading: boolean; isCurrency?: boolean; subtitle?: string; profitBadge?: string; isDays?: boolean; daysLabel?: string
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
-    emerald: { bg: 'bg-white dark:bg-zinc-900', border: 'border-emerald-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
-    sky: { bg: 'bg-white dark:bg-zinc-900', border: 'border-sky-200', iconBg: 'bg-sky-100 text-sky-600', text: 'text-sky-700' },
-    amber: { bg: 'bg-white dark:bg-zinc-900', border: 'border-amber-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
-    violet: { bg: 'bg-white dark:bg-zinc-900', border: 'border-violet-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
-    rose: { bg: 'bg-white dark:bg-zinc-900', border: 'border-rose-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
-    red: { bg: 'bg-white dark:bg-zinc-900', border: 'border-red-200', iconBg: 'bg-red-100 text-red-600', text: 'text-red-700' },
-    orange: { bg: 'bg-white dark:bg-zinc-900', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
-    teal: { bg: 'bg-white dark:bg-zinc-900', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
+    emerald: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-emerald-100 text-emerald-600', text: 'text-emerald-700' },
+    sky: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-sky-100 text-sky-600', text: 'text-sky-700' },
+    amber: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-amber-100 text-amber-600', text: 'text-amber-700' },
+    violet: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-violet-100 text-violet-600', text: 'text-violet-700' },
+    rose: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-rose-100 text-rose-600', text: 'text-rose-700' },
+    red: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-red-100 text-red-600', text: 'text-red-700' },
+    orange: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+    teal: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
   }
   const c = colorMap[color] || colorMap.emerald
 
@@ -1472,9 +1472,9 @@ function DocCard({
   icon: React.ReactNode; label: string; count: number; total?: number; color: string; loading: boolean
 }) {
   const colorMap: Record<string, { bg: string; border: string; iconBg: string; text: string }> = {
-    blue: { bg: 'bg-white dark:bg-zinc-900', border: 'border-blue-200', iconBg: 'bg-blue-100 text-blue-600', text: 'text-blue-700' },
-    teal: { bg: 'bg-white dark:bg-zinc-900', border: 'border-teal-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
-    orange: { bg: 'bg-white dark:bg-zinc-900', border: 'border-orange-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
+    blue: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-blue-100 text-blue-600', text: 'text-blue-700' },
+    teal: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-teal-100 text-teal-600', text: 'text-teal-700' },
+    orange: { bg: 'bg-white dark:bg-zinc-900', border: 'border-slate-200', iconBg: 'bg-orange-100 text-orange-600', text: 'text-orange-700' },
   }
   const c = colorMap[color] || colorMap.blue
 
