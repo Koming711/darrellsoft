@@ -5,8 +5,24 @@ import { X, Sparkles, ChevronRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { CURRENT_VERSION, CHANGELOG } from '@/lib/changelog'
+import { useLanguage } from '@/contexts/language-context'
+
+const T = {
+  id: {
+    sr_label: 'Informasi fitur terbaru Darrell Soft',
+    new_version: 'Versi Baru!',
+    got_it: 'Oke, Mengerti',
+  },
+  en: {
+    sr_label: 'Darrell Soft latest feature info',
+    new_version: 'New Version!',
+    got_it: 'OK, Got It',
+  },
+} as const
 
 export function WhatsNewDialog() {
+  const { language } = useLanguage()
+  const t = T[language]
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -32,7 +48,7 @@ export function WhatsNewDialog() {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden border-0 shadow-2xl">
-        <DialogDescription className="sr-only">Informasi fitur terbaru Darrell Soft</DialogDescription>
+        <DialogDescription className="sr-only">{t.sr_label}</DialogDescription>
         {/* Header with gradient */}
         <div className="relative bg-gradient-to-br from-teal-600 via-emerald-600 to-green-700 px-5 pt-5 pb-4">
           <button
@@ -46,20 +62,20 @@ export function WhatsNewDialog() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Versi Baru!</h2>
-              <p className="text-xs text-white/70 font-medium">{latestEntry.date}</p>
+              <h2 className="text-lg font-bold text-white">{t.new_version}</h2>
+              <p className="text-xs text-white/70 font-medium">{latestEntry.date[language]}</p>
             </div>
           </div>
         </div>
 
         {/* Body */}
         <div className="px-5 py-4 bg-white">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">{latestEntry.title}</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-3">{latestEntry.title[language]}</h3>
           <ul className="space-y-2">
             {latestEntry.items.map((item, idx) => (
               <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
                 <ChevronRight className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                <span>{item}</span>
+                <span>{item[language]}</span>
               </li>
             ))}
           </ul>
@@ -71,7 +87,7 @@ export function WhatsNewDialog() {
             onClick={handleClose}
             className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold"
           >
-            Oke, Mengerti
+            {t.got_it}
           </Button>
         </div>
       </DialogContent>

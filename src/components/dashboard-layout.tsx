@@ -11,6 +11,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
+import { useLanguage } from '@/contexts/language-context'
 
 // === MODULE-LEVEL SESSION CACHE ===
 // Persists across navigations so DashboardLayout doesn't need to re-verify on every mount
@@ -83,6 +84,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const [user, setUser] = useState<any>(null)
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useLanguage()
   const { collapsed: sidebarCollapsed } = useSidebarCollapse()
   // Desktop content left-margin follows the sidebar width (w-52 expanded / w-14 collapsed)
   const desktopMargin = sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'
@@ -193,7 +195,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           if (!data.valid) {
             if (data.expired) {
               setAccountExpired(true)
-              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+              setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
             } else if (data.warningMessage) {
               setSessionWarning(data.warningMessage)
               setForceLogoutAvailable(!!data.forceLogoutAvailable)
@@ -235,7 +237,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             if (r.status === 403) return r.json().then(data => {
               if (data?.expired && !cancelled) {
                 setAccountExpired(true)
-                setSessionWarning(data.error || 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.')
+                setSessionWarning(data.error || t('akun_expired_perpanjang'))
               }
               return null
             })
@@ -275,7 +277,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           if (!data.valid) {
             if (data.expired) {
               setAccountExpired(true)
-              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+              setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
             } else if (data.warningMessage) {
               setSessionWarning(data.warningMessage)
               setForceLogoutAvailable(!!data.forceLogoutAvailable)
@@ -368,7 +370,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         if (!data.valid) {
           if (data.expired) {
             setAccountExpired(true)
-            setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+            setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
           } else if (data.warningMessage) {
             setSessionWarning(data.warningMessage)
             setForceLogoutAvailable(!!data.forceLogoutAvailable)
@@ -452,8 +454,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 mx-auto">
             <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Belum Login</h2>
-          <p className="text-sm text-muted-foreground mb-4">Silakan login terlebih dahulu untuk mengakses halaman ini.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t('not_logged_in')}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t('login_required_msg')}</p>
           <button
             onClick={() => {
               clearAuthUser()
@@ -461,7 +463,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             }}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
           >
-            Masuk
+            {t('masuk')}
           </button>
         </div>
       </div>
@@ -472,11 +474,11 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // Compute back navigation info
   const berandaPath = user ? (getFirstAccessiblePath(user.role) || '/pembukaan') : '/pembukaan'
   const backLabelMap: Record<string, string> = {
-    '/invoice': 'Kembali ke Beranda',
-    '/surat-jalan': 'Kembali ke Beranda',
-    '/purchase-order': 'Kembali ke Beranda',
-    '/riwayat-pembelian': 'Kembali ke Beranda',
-    '/riwayat-penjualan': 'Kembali ke Beranda',
+    '/invoice': t('kembali_ke_beranda'),
+    '/surat-jalan': t('kembali_ke_beranda'),
+    '/purchase-order': t('kembali_ke_beranda'),
+    '/riwayat-pembelian': t('kembali_ke_beranda'),
+    '/riwayat-penjualan': t('kembali_ke_beranda'),
   }
   const backPathMap: Record<string, string> = {
     '/invoice': berandaPath,
@@ -485,7 +487,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     '/riwayat-pembelian': berandaPath,
     '/riwayat-penjualan': berandaPath,
   }
-  const backLabel = backLabelMap[pathname] || 'Kembali ke Beranda'
+  const backLabel = backLabelMap[pathname] || t('kembali_ke_beranda')
   const backPath = backPathMap[pathname] || (user ? (getFirstAccessiblePath(user.role) || '/pembukaan') : '/pembukaan')
 
   if (noAccess) {
@@ -507,12 +509,12 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 </div>
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 mb-3">
-                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Fitur PRO</span>
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">{t('fitur_pro')}</span>
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">Fitur Belum Tersedia</h2>
+              <h2 className="text-xl font-bold text-foreground mb-2">{t('fitur_belum_tersedia')}</h2>
               <p className="text-sm text-muted-foreground max-w-md">
-                Fitur <span className="font-semibold text-foreground">{title}</span> belum diaktifkan untuk akun Anda.
-                Hubungi administrator untuk mendapatkan akses.
+                {t('fitur_belum_diaktifkan_prefix')}<span className="font-semibold text-foreground">{title}</span>{t('fitur_belum_diaktifkan_suffix')}
+                {t('hubungi_admin')}
               </p>
               <a
                 href="/pembukaan"
@@ -567,8 +569,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 <TimerOff className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">Akun Kadaluarsa</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Masa berlaku akun telah habis</p>
+                <h3 className="text-lg font-bold text-foreground">{t('account_expired')}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('account_expired_desc')}</p>
               </div>
             </div>
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
@@ -580,7 +582,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
               autoFocus
             >
               <span className="flex items-center justify-center gap-2">
-                <LogOut className="w-4 h-4" /> OK, Mengerti
+                <LogOut className="w-4 h-4" /> {t('ok_mengerti')}
               </span>
             </button>
           </div>
@@ -596,8 +598,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 {forceLogoutAvailable ? <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> : <Smartphone className="w-5 h-5 text-red-600 dark:text-red-400" />}
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">Peringatan Keamanan</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Akun digunakan di perangkat lain</p>
+                <h3 className="text-lg font-bold text-foreground">{t('peringatan_keamanan')}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('akun_digunakan_di_perangkat_lain')}</p>
               </div>
             </div>
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
@@ -611,7 +613,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                     try {
                       const authUser = getAuthUser()
                       if (!authUser?.sessionId) {
-                        toast.error('Data sesi tidak ditemukan, silakan login ulang')
+                        toast.error(t('session_data_not_found'))
                         setIsReclaiming(false)
                         handleLogout()
                         return
@@ -625,12 +627,12 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                       if (res.ok) {
                         setSessionWarning(null)
                         setForceLogoutAvailable(false)
-                        toast.success('Perangkat lain berhasil di-logout')
+                        toast.success(t('other_device_logged_out'))
                       } else {
-                        toast.error(data.error || 'Gagal mengklaim sesi. Silakan coba lagi.')
+                        toast.error(data.error || t('reclaim_session_failed'))
                       }
                     } catch {
-                      toast.error('Terjadi kesalahan jaringan')
+                      toast.error(t('terjadi_kesalahan_jaringan'))
                     }
                     setIsReclaiming(false)
                   }}
@@ -639,16 +641,16 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                   autoFocus
                 >
                   {isReclaiming ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Memproses...</>
+                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t('memproses')}</>
                   ) : (
-                    <><ShieldAlert className="w-4 h-4" /> Paksa Logout Perangkat Lain</>
+                    <><ShieldAlert className="w-4 h-4" /> {t('paksa_logout_perangkat_lain')}</>
                   )}
                 </button>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold py-2.5 rounded-xl transition-colors"
                 >
-                  <LogOut className="w-4 h-4" /> Logout dari Sini
+                  <LogOut className="w-4 h-4" /> {t('logout_dari_sini')}
                 </button>
               </div>
             ) : (
@@ -657,7 +659,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 autoFocus
               >
-                OK, Logout
+                {t('ok_logout')}
               </button>
             )}
           </div>
@@ -673,20 +675,20 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                 <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">Sesi Akan Berakhir</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Anda tidak aktif, akan otomatis logout</p>
+                <h3 className="text-lg font-bold text-foreground">{t('session_ending')}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('session_ending_desc')}</p>
               </div>
             </div>
             <div className="text-center py-5">
               <div className="text-6xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{countdown}</div>
-              <p className="text-sm text-muted-foreground mt-2">detik tersisa</p>
+              <p className="text-sm text-muted-foreground mt-2">{t('detik_tersisa')}</p>
             </div>
             <button
               onClick={handleStayLoggedIn}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
               autoFocus
             >
-              Tetap Login
+              {t('tetap_login')}
             </button>
           </div>
         </div>

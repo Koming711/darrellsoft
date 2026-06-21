@@ -2,8 +2,84 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Download, X, Smartphone, Monitor, Share, MoreVertical } from 'lucide-react'
+import { useLanguage } from '@/contexts/language-context'
+
+const T = {
+  id: {
+    install_app: 'Install Aplikasi',
+    installed_title: 'Berhasil Diinstall!',
+    installed_desc: 'Buka dari home screen untuk mulai',
+    install_darrell: 'Install Darrell Soft',
+    install_subtitle: 'Akses lebih cepat tanpa browser',
+    like_app: 'Buka seperti Aplikasi',
+    like_app_desc: 'Tampilan fullscreen tanpa address bar',
+    quick_access: 'Akses Cepat dari Home Screen',
+    quick_access_desc: 'Satu klik langsung buka aplikasi',
+    works_offline: 'Works Offline',
+    works_offline_desc: 'Data tersimpan lokal, tetap bisa diakses',
+    install_ios_title: 'Cara Install di iPhone/iPad:',
+    install_android_title: 'Cara Install di Android:',
+    install_desktop_title: 'Cara Install di Desktop:',
+    install_ios_step1_pre: '1. Tap',
+    install_ios_step1_post: 'di toolbar Safari',
+    install_ios_step2: '2. Pilih',
+    install_ios_step3: '3. Tap',
+    install_android_step1_pre: '1. Tap',
+    install_android_step1_post: '(titik 3) di kanan atas Chrome',
+    install_android_step2: '2. Pilih',
+    install_android_step3: '3. Tap',
+    install_desktop_chrome: 'Chrome: Klik icon ⓘ di address bar',
+    install_desktop_edge: 'Edge: Menu → Apps → Install',
+    install_desktop_safari: 'Safari: File → Add to Dock',
+    try_again: 'Coba Lagi',
+    installing: 'Menginstall...',
+    waiting_browser: 'Menunggu browser...',
+    install_now: 'Install Sekarang',
+    add_to_home_screen: '"Add to Home Screen"',
+    add: '"Add"',
+    install_app_label: '"Install app"',
+    install_label: '"Install"',
+  },
+  en: {
+    install_app: 'Install App',
+    installed_title: 'Successfully Installed!',
+    installed_desc: 'Open from home screen to start',
+    install_darrell: 'Install Darrell Soft',
+    install_subtitle: 'Faster access without browser',
+    like_app: 'Open like an App',
+    like_app_desc: 'Fullscreen view without address bar',
+    quick_access: 'Quick Access from Home Screen',
+    quick_access_desc: 'One click to open the app instantly',
+    works_offline: 'Works Offline',
+    works_offline_desc: 'Data stored locally, still accessible',
+    install_ios_title: 'How to Install on iPhone/iPad:',
+    install_android_title: 'How to Install on Android:',
+    install_desktop_title: 'How to Install on Desktop:',
+    install_ios_step1_pre: '1. Tap',
+    install_ios_step1_post: 'in Safari toolbar',
+    install_ios_step2: '2. Select',
+    install_ios_step3: '3. Tap',
+    install_android_step1_pre: '1. Tap',
+    install_android_step1_post: '(3 dots) at top right of Chrome',
+    install_android_step2: '2. Select',
+    install_android_step3: '3. Tap',
+    install_desktop_chrome: 'Chrome: Click the ⓘ icon in address bar',
+    install_desktop_edge: 'Edge: Menu → Apps → Install',
+    install_desktop_safari: 'Safari: File → Add to Dock',
+    try_again: 'Try Again',
+    installing: 'Installing...',
+    waiting_browser: 'Waiting for browser...',
+    install_now: 'Install Now',
+    add_to_home_screen: '"Add to Home Screen"',
+    add: '"Add"',
+    install_app_label: '"Install app"',
+    install_label: '"Install"',
+  },
+} as const
 
 export function InstallPrompt() {
+  const { language } = useLanguage()
+  const t = T[language]
   const [showPrompt, setShowPrompt] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isAndroid, setIsAndroid] = useState(false)
@@ -174,8 +250,8 @@ export function InstallPrompt() {
           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
             <Download className="w-5 h-5 text-blue-700" />
           </div>
-          <h3 className="text-sm font-bold text-slate-800">Berhasil Diinstall!</h3>
-          <p className="text-[10px] text-slate-500 mt-1">Buka dari home screen untuk mulai</p>
+          <h3 className="text-sm font-bold text-slate-800">{t.installed_title}</h3>
+          <p className="text-[10px] text-slate-500 mt-1">{t.installed_desc}</p>
         </div>
         <style>{`
           @keyframes installPopIn {
@@ -197,7 +273,7 @@ export function InstallPrompt() {
           onClick={() => { setDismissed(false); setShowPrompt(true); setShowManualInstall(false); sessionStorage.removeItem('install_dismissed'); }}
           className="fixed bottom-4 right-4 z-[9998] w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           style={{ background: 'linear-gradient(135deg, #074290, #0a5eb8)' }}
-          title="Install Aplikasi"
+          title={t.install_app}
         >
           <Download className="w-5 h-5" />
         </button>
@@ -219,8 +295,8 @@ export function InstallPrompt() {
               >
                 <X className="w-3 h-3 text-white" />
               </button>
-              <h2 className="text-base font-bold text-white">Install Darrell Soft</h2>
-              <p className="text-[10px] text-blue-200 mt-0.5">Akses lebih cepat tanpa browser</p>
+              <h2 className="text-base font-bold text-white">{t.install_darrell}</h2>
+              <p className="text-[10px] text-blue-200 mt-0.5">{t.install_subtitle}</p>
             </div>
 
             {/* Benefits */}
@@ -230,8 +306,8 @@ export function InstallPrompt() {
                   <Monitor className="w-3.5 h-3.5 text-blue-700" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-800">Buka seperti Aplikasi</p>
-                  <p className="text-[10px] text-slate-500">Tampilan fullscreen tanpa address bar</p>
+                  <p className="text-xs font-semibold text-slate-800">{t.like_app}</p>
+                  <p className="text-[10px] text-slate-500">{t.like_app_desc}</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
@@ -239,8 +315,8 @@ export function InstallPrompt() {
                   <Download className="w-3.5 h-3.5 text-blue-700" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-800">Akses Cepat dari Home Screen</p>
-                  <p className="text-[10px] text-slate-500">Satu klik langsung buka aplikasi</p>
+                  <p className="text-xs font-semibold text-slate-800">{t.quick_access}</p>
+                  <p className="text-[10px] text-slate-500">{t.quick_access_desc}</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
@@ -248,8 +324,8 @@ export function InstallPrompt() {
                   <Smartphone className="w-3.5 h-3.5 text-blue-700" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-800">Works Offline</p>
-                  <p className="text-[10px] text-slate-500">Data tersimpan lokal, tetap bisa diakses</p>
+                  <p className="text-xs font-semibold text-slate-800">{t.works_offline}</p>
+                  <p className="text-[10px] text-slate-500">{t.works_offline_desc}</p>
                 </div>
               </div>
             </div>
@@ -258,34 +334,34 @@ export function InstallPrompt() {
             <div className="px-4 pb-4">
               {isIOS ? (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Cara Install di iPhone/iPad:</p>
+                  <p className="text-[10px] font-semibold text-slate-700 mb-1.5">{t.install_ios_title}</p>
                   <div className="flex items-center gap-1 text-[10px] text-slate-600">
-                    <span>1. Tap</span>
+                    <span>{t.install_ios_step1_pre}</span>
                     <Share className="w-3 h-3 text-blue-500" />
-                    <span>di toolbar Safari</span>
+                    <span>{t.install_ios_step1_post}</span>
                   </div>
-                  <p className="text-[10px] text-slate-600 mt-0.5">2. Pilih <strong>&quot;Add to Home Screen&quot;</strong></p>
-                  <p className="text-[10px] text-slate-600 mt-0.5">3. Tap <strong>&quot;Add&quot;</strong></p>
+                  <p className="text-[10px] text-slate-600 mt-0.5">{t.install_ios_step2} <strong>{t.add_to_home_screen}</strong></p>
+                  <p className="text-[10px] text-slate-600 mt-0.5">{t.install_ios_step3} <strong>{t.add}</strong></p>
                 </div>
               ) : showManualInstall ? (
                 <div className="space-y-2">
                   {isAndroid ? (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                      <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Cara Install di Android:</p>
+                      <p className="text-[10px] font-semibold text-slate-700 mb-1.5">{t.install_android_title}</p>
                       <div className="flex items-center gap-1 text-[10px] text-slate-600">
-                        <span>1. Tap</span>
+                        <span>{t.install_android_step1_pre}</span>
                         <MoreVertical className="w-3 h-3 text-slate-600" />
-                        <span>(titik 3) di kanan atas Chrome</span>
+                        <span>{t.install_android_step1_post}</span>
                       </div>
-                      <p className="text-[10px] text-slate-600 mt-0.5">2. Pilih <strong>&quot;Install app&quot;</strong></p>
-                      <p className="text-[10px] text-slate-600 mt-0.5">3. Tap <strong>&quot;Install&quot;</strong></p>
+                      <p className="text-[10px] text-slate-600 mt-0.5">{t.install_android_step2} <strong>{t.install_app_label}</strong></p>
+                      <p className="text-[10px] text-slate-600 mt-0.5">{t.install_android_step3} <strong>{t.install_label}</strong></p>
                     </div>
                   ) : (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                      <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Cara Install di Desktop:</p>
-                      <p className="text-[10px] text-slate-600"><strong>Chrome:</strong> Klik icon ⓘ di address bar</p>
-                      <p className="text-[10px] text-slate-600"><strong>Edge:</strong> Menu → Apps → Install</p>
-                      <p className="text-[10px] text-slate-600"><strong>Safari:</strong> File → Add to Dock</p>
+                      <p className="text-[10px] font-semibold text-slate-700 mb-1.5">{t.install_desktop_title}</p>
+                      <p className="text-[10px] text-slate-600">{t.install_desktop_chrome}</p>
+                      <p className="text-[10px] text-slate-600">{t.install_desktop_edge}</p>
+                      <p className="text-[10px] text-slate-600">{t.install_desktop_safari}</p>
                     </div>
                   )}
                   <button
@@ -293,7 +369,7 @@ export function InstallPrompt() {
                     className="w-full py-2 rounded-lg text-xs font-bold text-white transition-all active:scale-[0.98]"
                     style={{ background: 'linear-gradient(to right, #074290, #0a5eb8)' }}
                   >
-                    Coba Lagi
+                    {t.try_again}
                   </button>
                 </div>
               ) : (
@@ -303,7 +379,7 @@ export function InstallPrompt() {
                   className="w-full py-2.5 rounded-lg text-xs font-bold text-white shadow-md transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-wait"
                   style={{ background: 'linear-gradient(to right, #074290, #0a5eb8)', boxShadow: installing || waitingForPrompt ? 'none' : '0 4px 14px rgba(7, 66, 144, 0.35)' }}
                 >
-                  {installing ? 'Menginstall...' : waitingForPrompt ? 'Menunggu browser...' : 'Install Sekarang'}
+                  {installing ? t.installing : waitingForPrompt ? t.waiting_browser : t.install_now}
                 </button>
               )}
             </div>
