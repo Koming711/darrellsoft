@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
 import { createSnapTransaction, savePaymentRecord } from '@/lib/midtrans';
 import { sanitizeError } from '@/lib/api-error';
+import { seedUserData } from '@/lib/auto-seed';
+import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults';
 
 const FAKE_KEY = 'SB-Mid-server-FAKE_TEST_KEY_12345';
 const isFakeKey = process.env.MIDTRANS_SERVER_KEY === FAKE_KEY;
@@ -38,56 +41,122 @@ export async function POST(request: NextRequest) {
       metadata,
     });
 
-    // ─── MOCK MODE: tidak memanggil Midtrans API asli ───
+    // ─── MOCK MODE: daftarkan sebagai CalonPembeli role demo (tanpa Midtrans) ───
     if (isFakeKey) {
-      // In mock mode, also create accounts immediately so auto-login works
+      const metaUname = (username || '').trim();
+      const metaPwd = password || '';
+
+      // Update payment status to success (record kept for history)
+      await db.payment.update({ where: { orderId }, data: { transactionStatus: 'success' } });
+
+      let calonId: string | null = null;
+      let calonCreated = false;
+
       try {
-        const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
-          'bulanan-ekonomis': { durationMonths: 1, maxAccounts: 1 },
-          'bulanan': { durationMonths: 1, maxAccounts: 2 },
-          'tahunan': { durationMonths: 12, maxAccounts: 2 },
-          'lifetime': { durationMonths: 1200, maxAccounts: 2 },
-        };
-        const planConfig = PLAN_CONFIG[packageType] || { durationMonths: 1, maxAccounts: 1 };
-        const now = new Date();
-        const validUntil = new Date(now);
-        validUntil.setMonth(validUntil.getMonth() + planConfig.durationMonths);
-        const metaUname = username || '';
-        const metaPwd = password || '';
-        const metaSecondUname = secondUsername || '';
-
-        // Update payment status to success
-        await db.payment.update({ where: { orderId }, data: { transactionStatus: 'success' } });
-
-        // Check if pengguna already exists
+        // Cek apakah CalonPembeli / Pengguna dengan username/email sudah ada
+        const existingCalon = await db.calonPembeli.findFirst({
+          where: { OR: [{ email: customerEmail }, { username: metaUname }] },
+        });
         const existingPengguna = await db.pengguna.findFirst({
           where: { OR: [{ email: customerEmail }, { username: metaUname }] },
         });
 
-        if (!existingPengguna && metaUname && metaPwd) {
-          if (planConfig.maxAccounts >= 2 && metaSecondUname) {
-            const grup = await db.grup.create({ data: { nama: `Grup ${metaUname}` } });
-            const owner = await db.pengguna.create({
-              data: { namaLengkap: customerName, nomorHP: customerPhone, email: customerEmail, username: metaUname, password: metaPwd, role: 'owner', grupId: grup.id, validUntil },
-            });
-            const userAcc = await db.pengguna.create({
-              data: { namaLengkap: `Anggota ${metaSecondUname}`, nomorHP: customerPhone, email: `${metaSecondUname}@grup.${metaUname}`, username: metaSecondUname, password: metaPwd, role: 'user', grupId: grup.id, validUntil },
-            });
-            await db.pembeli.create({ data: { nama: customerName, nomorHP: customerPhone, email: customerEmail, alamat: '', catatan: `Pembayaran ${packageName} (Owner)`, role: 'owner', expiredDate: validUntil, penggunaId: owner.id } });
-            await db.pembeli.create({ data: { nama: `Anggota ${metaSecondUname}`, nomorHP: customerPhone, email: `${metaSecondUname}@grup.${metaUname}`, alamat: '', catatan: `Pembayaran ${packageName} (User)`, role: 'user', expiredDate: validUntil, penggunaId: userAcc.id } });
-            await db.payment.update({ where: { orderId }, data: { userId: owner.id } });
-          } else {
-            const pengguna = await db.pengguna.create({
-              data: { namaLengkap: customerName, nomorHP: customerPhone, email: customerEmail, username: metaUname, password: metaPwd, role: 'owner', validUntil },
-            });
-            await db.pembeli.create({ data: { nama: customerName, nomorHP: customerPhone, email: customerEmail, alamat: '', catatan: `Pembayaran ${packageName}`, role: 'owner', expiredDate: validUntil, penggunaId: pengguna.id } });
-            await db.payment.update({ where: { orderId }, data: { userId: pengguna.id } });
+        if (!existingCalon && !existingPengguna && metaUname && metaPwd) {
+          // Ambil masa aktif demo dari settings (default 7 hari)
+          const demoDaysSetting = await db.setting.findUnique({ where: { key: 'demo_days' } });
+          const demoDays = parseInt(demoDaysSetting?.value || '7', 10) || 7;
+          const expiredDate = new Date();
+          expiredDate.setDate(expiredDate.getDate() + demoDays);
+
+          // Buat CalonPembeli (bukan Pengguna) — muncul di halaman Pengguna tab Calon Pembeli
+          const calon = await db.calonPembeli.create({
+            data: {
+              nama: customerName,
+              nomorHP: customerPhone,
+              email: customerEmail,
+              alamat: '',
+              catatan: `Pendaftaran via Checkout (Paket ${packageName})`,
+              status: 'baru',
+              role: 'demo',
+              expiredDate,
+              username: metaUname,
+              password: metaPwd,
+            },
+          });
+          calonId = calon.id;
+          calonCreated = true;
+
+          // Seed sample master data (harga kertas, ongkos cetak, finishing) untuk user baru
+          try {
+            await seedUserData(calon.id);
+          } catch (seedErr) {
+            console.warn('[Mock Register] Seed data error (non-fatal):', seedErr);
           }
+
+          // Generate session
+          const sessionId = randomUUID();
+          const singleDeviceSetting = await db.setting.findUnique({ where: { key: 'single_device' } });
+          const singleDevice = singleDeviceSetting?.value !== 'false';
+          if (singleDevice) {
+            await db.setting.upsert({
+              where: { key: `session_${metaUname}` },
+              update: { value: sessionId },
+              create: { key: `session_${metaUname}`, value: sessionId },
+            });
+          }
+
+          // Build permissions untuk role demo
+          const role = 'demo';
+          const features = { ...buildDefaultPermissions(role) };
+          const subPermissions = JSON.parse(JSON.stringify(buildDefaultSubPermissions(role)));
+          try {
+            const customPermsSetting = await db.setting.findUnique({ where: { key: 'role_permissions' } });
+            if (customPermsSetting?.value) {
+              const allPerms = JSON.parse(customPermsSetting.value);
+              if (allPerms[role]?.features) {
+                Object.assign(features, allPerms[role].features);
+              }
+              if (allPerms[role]?.subPermissions) {
+                for (const [group, subs] of Object.entries(allPerms[role].subPermissions)) {
+                  if (typeof subs === 'object' && subs !== null && !Array.isArray(subs)) {
+                    subPermissions[group] = { ...(subPermissions[group] || {}), ...(subs as Record<string, boolean>) };
+                  }
+                }
+              }
+            }
+          } catch {}
+
+          // Link payment ke calon pembeli
+          await db.payment.update({ where: { orderId }, data: { userId: calon.id } });
+
+          const fakeToken = `fake_snap_token_${timestamp}_${random}`;
+          const response = NextResponse.json({
+            success: true,
+            token: fakeToken,
+            redirectUrl: '',
+            orderId,
+            mock: true,
+            demoRegister: true,
+            user: {
+              id: calon.id,
+              username: metaUname,
+              name: customerName,
+              role: 'demo',
+              sessionId,
+              singleDevice,
+              permissions: { features, subPermissions },
+            },
+          });
+          // Set cookies agar auto-login langsung terautentikasi
+          response.cookies.set('userId', calon.id, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+          response.cookies.set('userRole', 'demo', { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
+          return response;
         }
       } catch (activateErr) {
-        console.warn('[Mock Activate] Error creating accounts:', activateErr);
+        console.warn('[Mock Register] Error creating calon pembeli:', activateErr);
       }
 
+      // Fallback: akun sudah ada atau gagal buat — tetap kembalikan mock token
       const fakeToken = `fake_snap_token_${timestamp}_${random}`;
       return NextResponse.json({
         success: true,
@@ -95,6 +164,8 @@ export async function POST(request: NextRequest) {
         redirectUrl: '',
         orderId,
         mock: true,
+        demoRegister: calonCreated,
+        calonId,
       });
     }
 

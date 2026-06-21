@@ -586,7 +586,7 @@ function CheckoutContent() {
         <PaymentDialog
           open={showPaymentPopup}
           onClose={() => setShowPaymentPopup(false)}
-          onSuccess={() => { setShowPaymentPopup(false); router.push('/login'); }}
+          onSuccess={() => { setShowPaymentPopup(false); router.push('/pembukaan?fill_company=1'); }}
           pkg={{
             type: plan.id,
             name: plan.name,

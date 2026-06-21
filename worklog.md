@@ -1517,3 +1517,67 @@ Stage Summary:
 - Fix: Restored 5 Midtrans env vars to .env (MIDTRANS_SERVER_KEY=SB-Mid-server-FAKE_TEST_KEY_12345 triggers mock mode). No code changes were needed — checkout page (Task 37 fixes) and payment-dialog were already correct.
 - Verified end-to-end: API returns mock token (mock:true), and full browser checkout flow (select plan → fill account form → confirm → click Bayar Sekarang) opens the PaymentDialog with all payment methods, zero errors.
 - Dev server running healthy on port 3000. Local only — NOT deployed to production.
+
+---
+Task ID: 41
+Agent: Main
+Task: Checkout "Bayar dengan Pilih Metode" → register as CalonPembeli (role demo) → auto-login → redirect to dashboard → show company data popup
+
+Work Log:
+- User requested: "dihalaman checkout. di metode pembayaran, apabila diklik tombol bayar dengan pilih metode, maka masuk ke calon pembeli di halaman pengguna denga role demo dan langsung masuk dan muncul popup data perusahaan yang harus diisi."
+- Explored existing infrastructure: found `demo` role already exists in permission-defaults.ts (with access to dashboard, pembukaan, potong-kertas, hitung-cetakan, hitung-finishing, hitung-ongkos-cetak, hitung-harga-kertas). Found `CalonPembeli` table in schema (role defaults to 'demo', status defaults to 'baru'). Found `/api/calon-pembeli` route, `/api/register` route (creates CalonPembeli + auto-login), `/api/auth/login` (handles CalonPembeli login with role='demo'). Found pengguna page (/administrasi/pengguna) has a Calon Pembeli tab that lists CalonPembeli records. Found CompanyInfo type + settings API (company_name, company_address, company_phone, company_email, npwp, bank_name, etc.).
+- Modified `/api/midtrans/create-transaction/route.ts` MOCK MODE branch:
+  - REMOVED: Pengguna + Pembeli + Grup creation (the old mock-payment flow that created full paid accounts)
+  - ADDED: CalonPembeli creation with role='demo', status='baru', expiredDate=now+demo_days (from settings, default 7 days), catatan='Pendaftaran via Checkout (Paket {packageName})'
+  - ADDED: seedUserData(calon.id) to seed master data (harga kertas, ongkos cetak, finishing)
+  - ADDED: Session generation (sessionId via randomUUID) + single_device setting upsert
+  - ADDED: Build demo permissions via buildDefaultPermissions('demo') + buildDefaultSubPermissions('demo') + custom role_permissions merge
+  - ADDED: Set cookies (userId=calon.id, userRole='demo') for auto-login
+  - ADDED: Return `demoRegister: true` flag + full `user` object (id, username, name, role, sessionId, permissions) so payment-dialog can auto-login without calling /api/auth/login again
+  - Kept: Payment record update (transactionStatus='success') for history
+  - Fallback: If CalonPembeli/Pengguna with same email/username already exists, return mock token without creating duplicate
+- Modified `payment-dialog.tsx` MOCK MODE branch (handlePay):
+  - When `data.demoRegister && data.user`: directly set localStorage 'auth' + 'permissions' from returned user data (no need to call /api/auth/login — cookies already set by API)
+  - Call onAutoLogin callback with user data
+  - Show success message: "Akun demo berhasil dibuat! Mengalihkan ke beranda..."
+  - Fallback: if no data.user, still call performAutoLogin() (which calls /api/auth/login → finds CalonPembeli → returns demo user)
+  - After 3s mock processing + 1.5s success display → call onSuccess (redirects to /pembukaan?fill_company=1)
+- Modified `checkout/page.tsx` onSuccess callback: changed `router.push('/login')` → `router.push('/pembukaan?fill_company=1')` so user lands on dashboard with company popup trigger
+- Created new component `src/components/company-data-popup.tsx`:
+  - Modal dialog with company data form: Nama Perusahaan* (required), Alamat* (required), Telepon* (required), Email, NPWP, Nama Bank, Nomor Rekening, Nama Pemilik Rekening
+  - Trigger conditions: URL has `?fill_company=1` query param AND sessionStorage 'companyPopupSkipped' is not 'true'; OR localStorage 'companyDataRequired' is 'true' AND not skipped
+  - On open via query param: sets localStorage 'companyDataRequired=true' (persistent flag), cleans URL (removes ?fill_company=1 via router.replace)
+  - On save: validates required fields, POSTs each field to /api/settings (company_name, company_address, company_phone, company_email, npwp, bank_name, bank_account, bank_holder), clears localStorage flag, sets sessionStorage 'companyPopupFilled=true', dispatches 'company-data-updated' CustomEvent so other components can refresh, shows success toast, closes popup
+  - "Lewati dulu" button: sets sessionStorage 'companyPopupSkipped=true' (session-only, reappears next session), closes popup, shows info toast
+  - Uses authFetch for authenticated API calls, shadcn/ui Button + Input + Label + Textarea components, Building2/MapPin/Phone/Mail/Hash/Landmark icons
+- Modified `dashboard-layout.tsx`: imported CompanyDataPopup, rendered `{user && <CompanyDataPopup />}` at the end of the main return (after all other modals). This ensures the popup appears on every dashboard page (pembukaan, potong-kertas, etc.) when triggered, until the user fills it or skips for the session.
+- Synced ALL modified files to dual-root structure (src/ + root): create-transaction/route.ts, payment-dialog.tsx, company-data-popup.tsx, dashboard-layout.tsx, checkout/page.tsx — all verified IDENTICAL via diff.
+- Lint check: all new/modified files pass ESLint with zero errors (1 pre-existing error in checkout/page.tsx line 110 unrelated to my changes).
+- E2E browser verification (agent-browser, full flow):
+  1. API test: POST /api/midtrans/create-transaction → `{"success":true,"mock":true,"demoRegister":true,"user":{"id":"cmqn0qmf...","username":"e2e1781999914","name":"E2E Test","role":"demo","sessionId":"...","permissions":{...}}}` ✓
+  2. Admin API: CalonPembeli list shows "E2E Test | username=e2e1781999914 | role=demo | status=baru" ✓ (visible in pengguna page Calon Pembeli tab)
+  3. Browser: Open /checkout?plan=bulanan → dismiss version dialog → Step 1 "Pilih Paket" → click Lanjutkan → Step 2 "Buat Akun & Info Pembayaran" → fill all 6 fields (username, password, confirm, nama, email, HP) → click Lanjutkan → Step 3 "Konfirmasi & Bayar" → click "Bayar Sekarang" → PaymentDialog opens with all payment methods ✓
+  4. Select "Transfer BCA" → button changes to "Bayar dengan Transfer BCA" → click → 3s mock processing ✓
+  5. Auto-login: localStorage 'auth' set with {id, username, name, role:'demo', sessionId} ✓. Console: "[PaymentDialog] Auto-login successful for e2e1781999914" ✓
+  6. Redirect to /pembukaan (dashboard): Beranda page renders with sidebar (Beranda, Potong Kertas, Hitung Cetakan, Invoice, Surat Jalan, Purchase Order, Riwayat, Biaya, Hitung Finishing, etc.), "SELAMAT MALAM" greeting ✓
+  7. **Company data popup appears**: "Lengkapi Data Perusahaan PENTING" modal with all 8 fields (Nama Perusahaan*, Alamat*, Telepon*, Email, NPWP, Nama Bank, Nomor Rekening, Nama Pemilik Rekening) + "Lewati dulu" + "Simpan Data Perusahaan" buttons ✓
+  8. localStorage 'companyDataRequired' = 'true' (persistent flag set) ✓
+  9. Fill company form (PT. E2E Test Perusahaan, Jl. Test No. 123 Jakarta, 021-1234567, info@e2etest.com) → click "Simpan Data Perusahaan" ✓
+  10. Popup closes, settings saved: GET /api/settings?key=company_name → {"value":"PT. E2E Test Perusahaan"} ✓, company_address → {"value":"Jl. Test No. 123, Jakarta"} ✓
+  11. NO "Gagal membuat transaksi" error ✓
+  12. Console: zero errors (only normal HMR/SW/Fast Refresh logs) ✓
+  13. Page errors: empty ✓
+
+Stage Summary:
+- Checkout "Bayar dengan Pilih Metode" button (in MOCK MODE / local dev) now triggers a demo-registration flow instead of payment simulation:
+  1. Creates CalonPembeli record with role='demo', status='baru' (visible in pengguna page → Calon Pembeli tab)
+  2. Auto-login (sets cookies + localStorage auth + permissions)
+  3. Redirects to /pembukaan?fill_company=1 (dashboard)
+  4. Shows "Lengkapi Data Perusahaan" popup (mandatory fields: nama, alamat, telepon; optional: email, NPWP, bank info)
+  5. On save: persists to settings API (company_name, company_address, company_phone, company_email, npwp, bank_name, bank_account, bank_holder), clears popup flag
+  6. "Lewati dulu" skips for current session (reappears next login until filled)
+- New file: src/components/company-data-popup.tsx (modal component, ~280 lines)
+- Modified: create-transaction/route.ts (mock mode creates CalonPembeli instead of Pengguna), payment-dialog.tsx (auto-login from API response + redirect with fill_company flag), checkout/page.tsx (onSuccess redirect to /pembukaan?fill_company=1), dashboard-layout.tsx (render CompanyDataPopup)
+- All files synced to dual-root (src/ + root).
+- Dev server running healthy on port 3000 (daemon PID 6229, next-server PID 6256).
+- Local only — NOT deployed to production (www.darrellsoft.com unchanged). Production mode (real Midtrans) still uses the original payment flow.

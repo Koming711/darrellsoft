@@ -1,0 +1,696 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+     4→import { Sidebar } from './sidebar-desktop'
+     5→import { MobileHeader, MobileBottomNav } from './sidebar'
+     6→import { usePathname, useRouter } from 'next/navigation'
+     7→import { getAuthUser, clearAuthUser } from '@/lib/auth'
+     8→import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
+     9→import { authFetch } from '@/lib/auth-fetch'
+    10→import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
+    11→import { toast } from 'sonner'
+    12→import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
+    13→
+    14→// === MODULE-LEVEL SESSION CACHE ===
+    15→// Persists across navigations so DashboardLayout doesn't need to re-verify on every mount
+    16→interface CachedSession {
+    17→  user: any
+    18→  userProfile: { createdAt: string | null; validUntil: string | null } | null
+    19→  autoLogoutMin: number
+    20→  logoutWarningSec: number
+    21→  sessionWarning: string | null
+    22→  forceLogoutAvailable: boolean
+    23→  accountExpired: boolean
+    24→  cachedAt: number
+    25→}
+    26→let _sessionCache: CachedSession | null = null
+    27→const SESSION_CACHE_TTL = 120_000 // 2 minutes
+    28→
+    29→function getSessionCache(): CachedSession | null {
+    30→  // Check module-level cache first
+    31→  if (_sessionCache && Date.now() - _sessionCache.cachedAt <= SESSION_CACHE_TTL) {
+    32→    return _sessionCache
+    33→  }
+    34→  // Fallback to sessionStorage
+    35→  if (typeof window !== 'undefined') {
+    36→    try {
+    37→      const stored = sessionStorage.getItem('__dashboard_session_cache')
+    38→      if (stored) {
+    39→        const parsed = JSON.parse(stored) as CachedSession
+    40→        if (Date.now() - parsed.cachedAt <= SESSION_CACHE_TTL) {
+    41→          _sessionCache = parsed
+    42→          return parsed
+    43→        }
+    44→        sessionStorage.removeItem('__dashboard_session_cache')
+    45→      }
+    46→    } catch {}
+    47→  }
+    48→  _sessionCache = null
+    49→  return null
+    50→}
+    51→
+    52→function setSessionCache(data: Omit<CachedSession, 'cachedAt'>) {
+    53→  const entry = { ...data, cachedAt: Date.now() }
+    54→  _sessionCache = entry
+    55→  if (typeof window !== 'undefined') {
+    56→    try {
+    57→      sessionStorage.setItem('__dashboard_session_cache', JSON.stringify(entry))
+    58→    } catch {}
+    59→  }
+    60→}
+    61→
+    62→function invalidateSessionCache() {
+    63→  _sessionCache = null
+    64→  if (typeof window !== 'undefined') {
+    65→    try {
+    66→      sessionStorage.removeItem('__dashboard_session_cache')
+    67→    } catch {}
+    68→  }
+    69→}
+    70→
+    71→
+    72→
+    73→interface DashboardLayoutProps {
+    74→  children: React.ReactNode
+    75→  title?: string
+    76→  subtitle?: string
+    77→}
+    78→
+    79→export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+    80→  const [sidebarOpen, setSidebarOpen] = useState(false)
+    81→  const [ready, setReady] = useState(false)
+    82→  const [user, setUser] = useState<any>(null)
+    83→  const pathname = usePathname()
+    84→  const router = useRouter()
+    85→  const { collapsed: sidebarCollapsed } = useSidebarCollapse()
+    86→  // Desktop content left-margin follows the sidebar width (w-52 expanded / w-14 collapsed)
+    87→  const desktopMargin = sidebarCollapsed ? 'lg:ml-14' : 'lg:ml-52'
+    88→
+    89→  // === SESSION CHECK STATE ===
+    90→  const [sessionWarning, setSessionWarning] = useState<string | null>(null)
+    91→  const [forceLogoutAvailable, setForceLogoutAvailable] = useState(false)
+    92→  const [isReclaiming, setIsReclaiming] = useState(false)
+    93→  const [accountExpired, setAccountExpired] = useState(false)
+    94→  const sessionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    95→
+    96→  // === AUTO-LOGOUT STATE ===
+    97→  const lastActivityRef = useRef(Date.now())
+    98→  const countdownActiveRef = useRef(false)
+    99→  const [autoLogoutMin, setAutoLogoutMin] = useState(0)
+   100→  const [logoutWarningSec, setLogoutWarningSec] = useState(0)
+   101→  const [showCountdown, setShowCountdown] = useState(false)
+   102→  const [countdown, setCountdown] = useState(0)
+   103→  const autoLogoutIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   104→
+   105→  // === NO ACCESS STATE ===
+   106→  const [noAccess, setNoAccess] = useState(false)
+   107→
+   108→  // === INIT GUARD (prevent double init in StrictMode) ===
+   109→  const initDoneRef = useRef(false)
+   110→
+   111→  // === USER PROFILE (for header dates) ===
+   112→  const [userProfile, setUserProfile] = useState<{ createdAt: string | null; validUntil: string | null } | null>(null)
+   113→
+   114→  // === PERMISSION VERSION (forces re-render of Sidebar when permissions update) ===
+   115→  const [permVersion, setPermVersion] = useState(0)
+   116→
+   117→  // === INSTANT RESTORE FROM CACHE (useLayoutEffect runs before browser paint) ===
+   118→  // This eliminates the loading spinner flash on client-side navigation.
+   119→  // On SSR, cache is null so this is a no-op (spinner shows on first load as expected).
+   120→  useLayoutEffect(() => {
+   121→    const cache = getSessionCache()
+   122→    if (cache) {
+   123→      setUser(cache.user)
+   124→      setSessionWarning(cache.sessionWarning ?? null)
+   125→      setForceLogoutAvailable(cache.forceLogoutAvailable ?? false)
+   126→      setAccountExpired(cache.accountExpired ?? false)
+   127→      setAutoLogoutMin(cache.autoLogoutMin ?? 0)
+   128→      setLogoutWarningSec(cache.logoutWarningSec ?? 0)
+   129→      setUserProfile(cache.userProfile ?? null)
+   130→      setReady(true)
+   131→    }
+   132→  }, [])
+   133→
+   134→  // Listen for permission updates from hak-akses page (immediate re-render)
+   135→  useEffect(() => {
+   136→    const handler = () => setPermVersion(v => v + 1)
+   137→    window.addEventListener('permissions-updated', handler)
+   138→    return () => window.removeEventListener('permissions-updated', handler)
+   139→  }, [])
+   140→
+   141→  // === LOGOUT HANDLER ===
+   142→  const handleLogout = useCallback(() => {
+   143→    clearAuthUser()
+   144→    invalidateSessionCache()
+   145→    setAccountExpired(false)
+   146→    setSessionWarning(null)
+   147→    setForceLogoutAvailable(false)
+   148→    if (sessionIntervalRef.current) clearInterval(sessionIntervalRef.current)
+   149→    if (autoLogoutIntervalRef.current) clearInterval(autoLogoutIntervalRef.current)
+   150→    sessionIntervalRef.current = null
+   151→    autoLogoutIntervalRef.current = null
+   152→    window.location.href = '/'
+   153→  }, [])
+   154→
+   155→  // Stay logged in handler (resets activity + dismisses countdown)
+   156→  const handleStayLoggedIn = useCallback(() => {
+   157→    lastActivityRef.current = Date.now()
+   158→    countdownActiveRef.current = false
+   159→    setShowCountdown(false)
+   160→    setCountdown(0)
+   161→  }, [])
+   162→
+   163→  // === INITIAL AUTH + SETTINGS LOAD (runs once) ===
+   164→  useEffect(() => {
+   165→    if (initDoneRef.current) return
+   166→    initDoneRef.current = true
+   167→
+   168→    // If cache was already restored by useLayoutEffect, skip the full init.
+   169→    // Just do a background refresh to keep session data up-to-date.
+   170→    const existingCache = getSessionCache()
+   171→    if (existingCache) {
+   172→      // State was already restored by useLayoutEffect — just do background refresh
+   173→      // Do a background session refresh without blocking UI
+   174→      const bgRefresh = async () => {
+   175→        const authUser = getAuthUser()
+   176→        if (!authUser) return
+   177→        try {
+   178→          const sessionRes = await authFetch('/api/auth/verify-session', {
+   179→            method: 'POST',
+   180→            headers: { 'Content-Type': 'application/json' },
+   181→            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+   182→          })
+   183→          const data = await sessionRes.json()
+   184→          if (data.securitySettings) {
+   185→            setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
+   186→            setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
+   187→          }
+   188→          if (data.permissions && authUser.role) {
+   189→            saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+   190→            setPermVersion(v => v + 1)
+   191→          }
+   192→          if (!data.valid) {
+   193→            if (data.expired) {
+   194→              setAccountExpired(true)
+   195→              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+   196→            } else if (data.warningMessage) {
+   197→              setSessionWarning(data.warningMessage)
+   198→              setForceLogoutAvailable(!!data.forceLogoutAvailable)
+   199→            }
+   200→          }
+   201→          // Update cache with fresh data
+   202→          setSessionCache({
+   203→            user: authUser,
+   204→            userProfile: existingCache.userProfile,
+   205→            autoLogoutMin: data.securitySettings?.auto_logout_min || 0,
+   206→            logoutWarningSec: data.securitySettings?.logout_warning_sec || 0,
+   207→            sessionWarning: data.valid ? null : (data.warningMessage || null),
+   208→            forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
+   209→            accountExpired: data.valid ? false : !!data.expired,
+   210→          })
+   211→        } catch {
+   212→          // Background refresh failed — keep using cached data
+   213→        }
+   214→      }
+   215→      bgRefresh()
+   216→      return
+   217→    }
+   218→
+   219→    let cancelled = false
+   220→
+   221→    const init = async () => {
+   222→      try {
+   223→        const authUser = getAuthUser()
+   224→        if (!authUser) {
+   225→          if (!cancelled) setReady(true)
+   226→          return
+   227→        }
+   228→        if (cancelled) return
+   229→        setUser(authUser)
+   230→
+   231→        // Fetch user profile for header dates (fire and forget)
+   232→        authFetch('/api/auth/me')
+   233→          .then(r => {
+   234→            if (r.status === 403) return r.json().then(data => {
+   235→              if (data?.expired && !cancelled) {
+   236→                setAccountExpired(true)
+   237→                setSessionWarning(data.error || 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.')
+   238→              }
+   239→              return null
+   240→            })
+   241→            return r.ok ? r.json() : null
+   242→          })
+   243→          .then(data => { if (data && !cancelled) {
+   244→            setUserProfile({ createdAt: data.createdAt || null, validUntil: data.validUntil || null })
+   245→            // Update cache with profile data
+   246→            const currentCache = getSessionCache()
+   247→            if (currentCache) {
+   248→              setSessionCache({ ...currentCache, userProfile: { createdAt: data.createdAt || null, validUntil: data.validUntil || null } })
+   249→            }
+   250→          } })
+   251→          .catch(() => {})
+   252→
+   253→        // Wait for session verification BEFORE checking permissions
+   254→        try {
+   255→          const sessionRes = await authFetch('/api/auth/verify-session', {
+   256→            method: 'POST',
+   257→            headers: { 'Content-Type': 'application/json' },
+   258→            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+   259→          })
+   260→          if (cancelled) return
+   261→          const data = await sessionRes.json()
+   262→          if (cancelled) return
+   263→
+   264→          // Load security settings from verify-session response
+   265→          if (data.securitySettings) {
+   266→            setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
+   267→            setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
+   268→          }
+   269→          // Sync latest permissions from server to localStorage
+   270→          if (data.permissions && authUser.role) {
+   271→            saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+   272→            setPermVersion(v => v + 1)
+   273→          }
+   274→          if (!data.valid) {
+   275→            if (data.expired) {
+   276→              setAccountExpired(true)
+   277→              setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+   278→            } else if (data.warningMessage) {
+   279→              setSessionWarning(data.warningMessage)
+   280→              setForceLogoutAvailable(!!data.forceLogoutAvailable)
+   281→            }
+   282→          }
+   283→
+   284→          // Update session cache with verified data
+   285→          setSessionCache({
+   286→            user: authUser,
+   287→            userProfile: null,
+   288→            autoLogoutMin: data.securitySettings?.auto_logout_min || 0,
+   289→            logoutWarningSec: data.securitySettings?.logout_warning_sec || 0,
+   290→            sessionWarning: data.valid ? null : (data.warningMessage || null),
+   291→            forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
+   292→            accountExpired: data.valid ? false : !!data.expired,
+   293→          })
+   294→
+   295→          // === AUTO-BACKUP CHECK ===
+   296→          // Check if auto-backup is due and trigger it silently
+   297→          if (data.valid && authUser.role !== 'superadmin') {
+   298→            authFetch('/api/database/auto-backup', { method: 'POST' })
+   299→              .then(r => r.ok ? r.json() : null)
+   300→              .then(backupData => {
+   301→                if (backupData?.success && !backupData?.skipped) {
+   302→                  console.log(`✅ Auto backup: ${backupData.fileName} (${backupData.totalRows} records)`)
+   303→                }
+   304→              })
+   305→              .catch(() => {}) // silent fail
+   306→          }
+   307→        } catch {
+   308→          // Session verification failed - continue anyway
+   309→        }
+   310→
+   311→      } catch {
+   312→        // On error, don't redirect — just show the page
+   313→      } finally {
+   314→        if (!cancelled) {
+   315→          setReady(true)
+   316→          // Cache session data for instant navigation
+   317→          const authUser = getAuthUser()
+   318→          if (authUser) {
+   319→            setSessionCache({
+   320→              user: authUser,
+   321→              userProfile: null, // will be updated by authFetch below
+   322→              autoLogoutMin: 0,
+   323→              logoutWarningSec: 0,
+   324→              sessionWarning: null,
+   325→              forceLogoutAvailable: false,
+   326→              accountExpired: false,
+   327→            })
+   328→          }
+   329→        }
+   330→      }
+   331→    }
+   332→
+   333→    init()
+   334→
+   335→    return () => { cancelled = true }
+   336→  }, [])
+   337→
+   338→  // === PERMISSION CHECK ON ROUTE CHANGE ===
+   339→  useEffect(() => {
+   340→    if (!user || !ready) return
+   341→    if (user.role === 'superadmin') { setNoAccess(false); return }
+   342→
+   343→    const featureId = getFeatureIdForPath(pathname)
+   344→    if (featureId) {
+   345→      const allowed = hasFeatureAccess(user.role, featureId)
+   346→      setNoAccess(!allowed)
+   347→    } else {
+   348→      setNoAccess(false)
+   349→    }
+   350→  }, [pathname, user, ready, permVersion])
+   351→
+   352→  // === PERIODIC SESSION CHECK (every 10s) ===
+   353→  useEffect(() => {
+   354→    if (!ready || !user) return
+   355→
+   356→    sessionIntervalRef.current = setInterval(() => {
+   357→      const authUser = getAuthUser()
+   358→      if (!authUser || !authUser.sessionId) return
+   359→
+   360→      authFetch('/api/auth/verify-session', {
+   361→        method: 'POST',
+   362→        headers: { 'Content-Type': 'application/json' },
+   363→        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+   364→      })
+   365→      .then(r => r.json())
+   366→      .then(data => {
+   367→        if (!data.valid) {
+   368→          if (data.expired) {
+   369→            setAccountExpired(true)
+   370→            setSessionWarning(data.warningMessage || 'Akun sudah expired.')
+   371→          } else if (data.warningMessage) {
+   372→            setSessionWarning(data.warningMessage)
+   373→            setForceLogoutAvailable(!!data.forceLogoutAvailable)
+   374→          }
+   375→        }
+   376→        if (data.permissions && authUser.role) {
+   377→          saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+   378→          setPermVersion(v => v + 1)
+   379→        }
+   380→        if (data.securitySettings) {
+   381→          setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
+   382→          setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
+   383→        }
+   384→      })
+   385→      .catch(() => {})
+   386→    }, 10000)
+   387→
+   388→    return () => {
+   389→      if (sessionIntervalRef.current) {
+   390→        clearInterval(sessionIntervalRef.current)
+   391→        sessionIntervalRef.current = null
+   392→      }
+   393→    }
+   394→  }, [ready, user])
+   395→
+   396→  // === ACTIVITY LISTENERS ===
+   397→  useEffect(() => {
+   398→    const events = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'] as const
+   399→    const handler = () => { lastActivityRef.current = Date.now() }
+   400→    events.forEach(e => window.addEventListener(e, handler, { passive: true }))
+   401→    return () => events.forEach(e => window.removeEventListener(e, handler))
+   402→  }, [])
+   403→
+   404→  // === AUTO-LOGOUT INTERVAL ===
+   405→  useEffect(() => {
+   406→    if (!ready) return
+   407→
+   408→    autoLogoutIntervalRef.current = setInterval(() => {
+   409→      if (autoLogoutMin === 0) return
+   410→
+   411→      const elapsed = (Date.now() - lastActivityRef.current) / 1000
+   412→      const autoLogoutSec = autoLogoutMin * 60
+   413→
+   414→      if (elapsed >= autoLogoutSec) {
+   415→        handleLogout()
+   416→        return
+   417→      }
+   418→
+   419→      if (logoutWarningSec > 0 && elapsed >= autoLogoutSec - logoutWarningSec) {
+   420→        countdownActiveRef.current = true
+   421→        setShowCountdown(true)
+   422→        setCountdown(Math.ceil(autoLogoutSec - elapsed))
+   423→      } else if (countdownActiveRef.current) {
+   424→        countdownActiveRef.current = false
+   425→        setShowCountdown(false)
+   426→        setCountdown(0)
+   427→      }
+   428→    }, 1000)
+   429→
+   430→    return () => {
+   431→      if (autoLogoutIntervalRef.current) {
+   432→        clearInterval(autoLogoutIntervalRef.current)
+   433→        autoLogoutIntervalRef.current = null
+   434→      }
+   435→    }
+   436→  }, [ready, autoLogoutMin, logoutWarningSec, handleLogout])
+   437→
+   438→  // === LOADING STATE ===
+   439→  if (!ready) {
+   440→    return (
+   441→      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
+   442→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+   443→      </div>
+   444→    )
+   445→  }
+   446→
+   447→  if (!user) {
+   448→    return (
+   449→      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
+   450→        <div className="text-center p-8">
+   451→          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 mx-auto">
+   452→            <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+   453→          </div>
+   454→          <h2 className="text-xl font-bold text-foreground mb-2">Belum Login</h2>
+   455→          <p className="text-sm text-muted-foreground mb-4">Silakan login terlebih dahulu untuk mengakses halaman ini.</p>
+   456→          <button
+   457→            onClick={() => {
+   458→              clearAuthUser()
+   459→              window.location.href = '/login'
+   460→            }}
+   461→            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+   462→          >
+   463→            Masuk
+   464→          </button>
+   465→        </div>
+   466→      </div>
+   467→    )
+   468→  }
+   469→
+   470→  // === NO ACCESS SCREEN (PRO) ===
+   471→  // Compute back navigation info
+   472→  const berandaPath = user ? (getFirstAccessiblePath(user.role) || '/pembukaan') : '/pembukaan'
+   473→  const backLabelMap: Record<string, string> = {
+   474→    '/invoice': 'Kembali ke Beranda',
+   475→    '/surat-jalan': 'Kembali ke Beranda',
+   476→    '/purchase-order': 'Kembali ke Beranda',
+   477→    '/riwayat-pembelian': 'Kembali ke Beranda',
+   478→    '/riwayat-penjualan': 'Kembali ke Beranda',
+   479→  }
+   480→  const backPathMap: Record<string, string> = {
+   481→    '/invoice': berandaPath,
+   482→    '/surat-jalan': berandaPath,
+   483→    '/purchase-order': berandaPath,
+   484→    '/riwayat-pembelian': berandaPath,
+   485→    '/riwayat-penjualan': berandaPath,
+   486→  }
+   487→  const backLabel = backLabelMap[pathname] || 'Kembali ke Beranda'
+   488→  const backPath = backPathMap[pathname] || (user ? (getFirstAccessiblePath(user.role) || '/pembukaan') : '/pembukaan')
+   489→
+   490→  if (noAccess) {
+   491→    return (
+   492→      <div className="min-h-screen" style={{ backgroundColor: 'var(--app-content-bg)' }}>
+   493→        <Sidebar
+   494→          username={user?.username || 'User'}
+   495→          role={user?.role}
+   496→          onLogout={handleLogout}
+   497→        />
+   498→        <div className={`${desktopMargin} transition-all duration-300`}>
+   499→          <MobileHeader username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
+   500→          <main className="p-4 pb-20 lg:p-8 lg:pb-8">
+   501→            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+   502→              <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
+   503→                <Lock className="w-9 h-9 text-amber-500" />
+   504→                <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center">
+   505→                  <Crown className="w-4 h-4 text-white" />
+   506→                </div>
+   507→              </div>
+   508→              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 mb-3">
+   509→                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Fitur PRO</span>
+   510→              </div>
+   511→              <h2 className="text-xl font-bold text-foreground mb-2">Fitur Belum Tersedia</h2>
+   512→              <p className="text-sm text-muted-foreground max-w-md">
+   513→                Fitur <span className="font-semibold text-foreground">{title}</span> belum diaktifkan untuk akun Anda.
+   514→                Hubungi administrator untuk mendapatkan akses.
+   515→              </p>
+   516→              <a
+   517→                href="/pembukaan"
+   518→                onClick={(e) => {
+   519→                  e.preventDefault()
+   520→                  window.location.replace('/pembukaan')
+   521→                }}
+   522→                className="mt-5 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors no-underline inline-block cursor-pointer"
+   523→              >
+   524→                {backLabel}
+   525→              </a>
+   526→            </div>
+   527→          </main>
+   528→        </div>
+   529→      </div>
+   530→    )
+   531→  }
+   532→
+   533→  // === RENDER ===
+   534→  return (
+   535→    <div className="min-h-screen" style={{ backgroundColor: 'var(--app-content-bg)' }}>
+   536→      <Sidebar
+   537→        username={user?.username || 'User'}
+   538→        role={user?.role}
+   539→        onLogout={handleLogout}
+   540→        permVersion={permVersion}
+   541→      />
+   542→
+   543→      <div className={`${desktopMargin} transition-all duration-300`}>
+   544→        <MobileHeader
+   545→          username={user?.username}
+   546→          title={title}
+   547→          subtitle={subtitle}
+   548→          userProfile={userProfile}
+   549→        />
+   550→
+   551→        {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
+   552→        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
+   553→          {children}
+   554→        </main>
+   555→      </div>
+   556→
+   557→      {/* ===== Mobile Bottom Navigation ===== */}
+   558→      <MobileBottomNav role={user?.role} onMoreClick={() => setSidebarOpen(true)} username={user?.username} onLogout={handleLogout} />
+   559→
+   560→      {/* ===== MODAL: ACCOUNT EXPIRED ===== */}
+   561→      {accountExpired && sessionWarning && (
+   562→        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+   563→          <div className="rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
+   564→            <div className="flex items-start gap-3 mb-4">
+   565→              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+   566→                <TimerOff className="w-5 h-5 text-red-600 dark:text-red-400" />
+   567→              </div>
+   568→              <div>
+   569→                <h3 className="text-lg font-bold text-foreground">Akun Kadaluarsa</h3>
+   570→                <p className="text-xs text-muted-foreground mt-0.5">Masa berlaku akun telah habis</p>
+   571→              </div>
+   572→            </div>
+   573→            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
+   574→              <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{sessionWarning}</p>
+   575→            </div>
+   576→            <button
+   577→              onClick={handleLogout}
+   578→              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   579→              autoFocus
+   580→            >
+   581→              <span className="flex items-center justify-center gap-2">
+   582→                <LogOut className="w-4 h-4" /> OK, Mengerti
+   583→              </span>
+   584→            </button>
+   585→          </div>
+   586→        </div>
+   587→      )}
+   588→
+   589→      {/* ===== MODAL: SESSION WARNING (Multi-Device) ===== */}
+   590→      {sessionWarning && !accountExpired && (
+   591→        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+   592→          <div className="rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
+   593→            <div className="flex items-start gap-3 mb-4">
+   594→              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+   595→                {forceLogoutAvailable ? <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> : <Smartphone className="w-5 h-5 text-red-600 dark:text-red-400" />}
+   596→              </div>
+   597→              <div>
+   598→                <h3 className="text-lg font-bold text-foreground">Peringatan Keamanan</h3>
+   599→                <p className="text-xs text-muted-foreground mt-0.5">Akun digunakan di perangkat lain</p>
+   600→              </div>
+   601→            </div>
+   602→            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
+   603→              <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{sessionWarning}</p>
+   604→            </div>
+   605→            {forceLogoutAvailable ? (
+   606→              <div className="space-y-2.5">
+   607→                <button
+   608→                  onClick={async () => {
+   609→                    setIsReclaiming(true)
+   610→                    try {
+   611→                      const authUser = getAuthUser()
+   612→                      if (!authUser?.sessionId) {
+   613→                        toast.error('Data sesi tidak ditemukan, silakan login ulang')
+   614→                        setIsReclaiming(false)
+   615→                        handleLogout()
+   616→                        return
+   617→                      }
+   618→                      const res = await authFetch('/api/auth/reclaim-session', {
+   619→                        method: 'POST',
+   620→                        headers: { 'Content-Type': 'application/json' },
+   621→                        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, userId: authUser.id }),
+   622→                      })
+   623→                      const data = await res.json()
+   624→                      if (res.ok) {
+   625→                        setSessionWarning(null)
+   626→                        setForceLogoutAvailable(false)
+   627→                        toast.success('Perangkat lain berhasil di-logout')
+   628→                      } else {
+   629→                        toast.error(data.error || 'Gagal mengklaim sesi. Silakan coba lagi.')
+   630→                      }
+   631→                    } catch {
+   632→                      toast.error('Terjadi kesalahan jaringan')
+   633→                    }
+   634→                    setIsReclaiming(false)
+   635→                  }}
+   636→                  disabled={isReclaiming}
+   637→                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   638→                  autoFocus
+   639→                >
+   640→                  {isReclaiming ? (
+   641→                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Memproses...</>
+   642→                  ) : (
+   643→                    <><ShieldAlert className="w-4 h-4" /> Paksa Logout Perangkat Lain</>
+   644→                  )}
+   645→                </button>
+   646→                <button
+   647→                  onClick={handleLogout}
+   648→                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold py-2.5 rounded-xl transition-colors"
+   649→                >
+   650→                  <LogOut className="w-4 h-4" /> Logout dari Sini
+   651→                </button>
+   652→              </div>
+   653→            ) : (
+   654→              <button
+   655→                onClick={handleLogout}
+   656→                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   657→                autoFocus
+   658→              >
+   659→                OK, Logout
+   660→              </button>
+   661→            )}
+   662→          </div>
+   663→        </div>
+   664→      )}
+   665→
+   666→      {/* ===== MODAL: AUTO-LOGOUT COUNTDOWN ===== */}
+   667→      {showCountdown && (
+   668→        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+   669→          <div className="rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
+   670→            <div className="flex items-start gap-3 mb-4">
+   671→              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+   672→                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+   673→              </div>
+   674→              <div>
+   675→                <h3 className="text-lg font-bold text-foreground">Sesi Akan Berakhir</h3>
+   676→                <p className="text-xs text-muted-foreground mt-0.5">Anda tidak aktif, akan otomatis logout</p>
+   677→              </div>
+   678→            </div>
+   679→            <div className="text-center py-5">
+   680→              <div className="text-6xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{countdown}</div>
+   681→              <p className="text-sm text-muted-foreground mt-2">detik tersisa</p>
+   682→            </div>
+   683→            <button
+   684→              onClick={handleStayLoggedIn}
+   685→              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
+   686→              autoFocus
+   687→            >
+   688→              Tetap Login
+   689→            </button>
+   690→          </div>
+   691→        </div>
+   692→      )}
+   693→    </div>
+   694→  )
+   695→}
+   696→

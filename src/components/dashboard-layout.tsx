@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { Sidebar } from './sidebar-desktop'
 import { MobileHeader, MobileBottomNav } from './sidebar'
+import { CompanyDataPopup } from './company-data-popup'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, clearAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
@@ -690,6 +691,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           </div>
         </div>
       )}
+
+      {/* ===== MODAL: COMPANY DATA POPUP (untuk demo user baru dari checkout) ===== */}
+      {user && <CompanyDataPopup />}
     </div>
   )
 }
