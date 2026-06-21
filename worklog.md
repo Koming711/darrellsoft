@@ -3221,3 +3221,33 @@ Stage Summary:
 
 Files Modified:
 - src/app/potong-kertas/page.tsx (and app/potong-kertas/page.tsx) — Detail Blok boxes: colored cycling arrays -> uniform white bg + black text + slate-200 border
+
+---
+Task ID: 86
+Agent: Main
+Task: Kotak "No. Hitung Cetakan" (HC/06/26/0005) dibuat putih, tulisan biru
+
+Work Log:
+- Read src/app/hitung-cetakan/page.tsx line 1770-1777 to find the No. Hitung Cetakan box
+- Box was already white bg (from earlier Task in progress - all boxes to white) with slate-600 label + black value text
+- Applied Edit to change text colors to blue:
+  * Label "No. Hitung Cetakan": text-slate-600 -> text-blue-600 dark:text-blue-400
+  * Value (HC/06/26/xxxxx): text-black -> text-blue-700 dark:text-blue-300
+  * Box bg remains white (bg-white dark:bg-zinc-900), border slate-200 (dark:zinc-700)
+- Synced src/app/hitung-cetakan/page.tsx -> app/hitung-cetakan/page.tsx (dual-root mirror)
+- Page compiles: HTTP 200
+- Verified via agent-browser computed styles (light mode):
+  * Box background: rgb(255,255,255) white ✓
+  * Label color: lab(44.06, 29.03, -86.04) = blue-600 ✓
+  * Value color: lab(36.91, 35.10, -85.69) = blue-700 ✓
+- Screenshot saved: /tmp/hitung-cetakan-no-blue.png
+
+Stage Summary:
+- "No. Hitung Cetakan" box now has white background with blue text (label=blue-600, value=blue-700)
+- Dark mode preserved: dark:bg-zinc-900 dark:text-blue-400/dark:text-blue-300
+- Box border remains light gray (slate-200)
+- Dual-root sync completed
+- Page compiles and serves HTTP 200, verified via computed styles
+
+Files Modified:
+- src/app/hitung-cetakan/page.tsx (and app/hitung-cetakan/page.tsx) — No. Hitung Cetakan box: text colors changed to blue (label blue-600, value blue-700)
