@@ -315,7 +315,6 @@ export default function Home() {
       <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 p-3 sm:p-4 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
         <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
           {[
-            { src: '/dus-makanan.jpg', label: 'Dus Makanan' },
             { src: '/dus-kue.jpg', label: 'Dus Kue' },
             { src: '/hampers.jpg', label: 'Hampers' },
             { src: '/kantong-kebab.jpg', label: 'Kantong Kebab' },

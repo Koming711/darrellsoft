@@ -1720,3 +1720,44 @@ Stage Summary:
 - Two files modified: src/app/login/page.tsx (handleRegister), src/components/inline-login.tsx (handleRegister). Both set `localStorage.setItem('companyDataRequired', 'true')` after setAuthUser.
 - Login flow (handleLogin) intentionally NOT modified — flag should only be set on new registration, not every login. Existing demo users who haven't filled data still see the popup via the persistent localStorage flag from their registration.
 - All files synced to dual-root (src/ + root). Dev server running healthy on port 3000. Local only — NOT deployed to production.
+
+---
+Task ID: 42
+Agent: Main
+Task: Remove dus-makanan image (has logo) from landing page + replace hampers image with logo-free version
+
+Work Log:
+- User requested: "dihalaman landing, gambar dus makanan logo diatas dihilangin. dan gambar hampers diganti yang tanpa logo."
+- Analyzed existing images with VLM (z-ai vision CLI):
+  - /public/dus-makanan.jpg: Has "Outlet Kemasan / GROSIR ANEKA KEMASAN" orange+black logo at top, plus faded "Outlet Kemasan" watermark on the middle box. Main subject: stack of 5 brown cardboard boxes.
+  - /public/hampers.jpg: Has "MILLION PARCEL" logo with "MP" emblem + "Official Store" text at top, plus "MillionParcel" watermark on the large black box. Main subject: 5 gift boxes with decorative bows (orange, pink, white, black, dark gray).
+- Interpreted user request: "dihilangin" (removed) for dus-makanan = remove from grid entirely; "diganti" (replaced) for hampers = generate new image without logo.
+- Change 1 — Removed dus-makanan from landing page image grid (src/app/page.tsx, heroImagePanel array, line 318):
+  - Removed entry: `{ src: '/dus-makanan.jpg', label: 'Dus Makanan' }`
+  - Grid now has 8 items (was 9): Dus Kue, Hampers, Kantong Kebab, Dus Donut, Dus Ayam Geprek, Lunchbox Paper, Paperbowl, Paperbag.
+  - Layout: grid-cols-3 with 8 items → 3+3+2 (last row has 2 items). Acceptable.
+  - Did NOT delete the dus-makanan.jpg file from /public (safe approach — just dereferenced).
+- Change 2 — Generated new hampers image without logo (z-ai image CLI):
+  - Prompt: "Professional product photography of assorted gift hamper boxes with decorative ribbon bows, collection of 4-5 elegant gift boxes in varying sizes and colors including warm orange, soft pink, white, and matte black, minimalist clean white background, studio lighting, centered composition, modern e-commerce style, high quality, detailed, NO text, NO logo, NO watermark, NO brand name, NO letters"
+  - Size: 1024x1024 (square, matches the grid's aspect-square items)
+  - Saved to /tmp/hampers-new.png
+  - VLM verification of new image: "NO. There are no logos, brand names, watermarks, text, or letters visible. Main subject: collection of gift boxes with satin bows. Colors: Orange, red, black, white, pink, maroon."
+  - Converted PNG → JPG (PIL, quality=92) to preserve original filename/extension /public/hampers.jpg (no code change needed for img src).
+  - Backed up original to /public/hampers.jpg.bak before overwriting.
+  - Final VLM check on /public/hampers.jpg: "NO [logo/text]. Gift boxes." ✓
+- Synced src/app/page.tsx → app/page.tsx (dual-root) — verified IDENTICAL via diff.
+- Lint: zero errors on src/app/page.tsx.
+- E2E browser verification (agent-browser, desktop 1280x800):
+  - Opened / → dismissed version dialog → hid PWA overlay
+  - Checked all product images in hero grid: `hasDusMakanan: false` ✓ (removed), `hasHampers: true` ✓ (still present, now logo-free)
+  - Image list (8 unique, ×2 for mobile+desktop renderings = 16 total): Dus Kue, Hampers, Kantong Kebab, Dus Donut, Dus Ayam Geprek, Lunchbox Paper, Paperbowl, Paperbag ✓
+  - HTTP: /hampers.jpg → 200, 110949 bytes, image/jpeg ✓
+  - Console: zero errors
+  - Screenshot saved to /tmp/landing-page-updated.png
+
+Stage Summary:
+- dus-makanan image (had "Outlet Kemasan / GROSIR ANEKA KEMASAN" logo) REMOVED from the landing page hero image grid. Grid now shows 8 product images instead of 9.
+- hampers image REPLACED with a new AI-generated image (no logo, no text, no watermark). Same filename /public/hampers.jpg so no code change needed for the img src. Original backed up to /public/hampers.jpg.bak.
+- Single code file modified: src/app/page.tsx (+ synced to root app/page.tsx).
+- Single image file replaced: /public/hampers.jpg (new content, same path).
+- Dev server running healthy on port 3000. Local only — NOT deployed to production.
