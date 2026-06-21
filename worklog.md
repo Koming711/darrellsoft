@@ -3104,3 +3104,41 @@ Stage Summary:
 
 Files Modified:
 - src/app/pembukaan/page.tsx (and app/pembukaan/page.tsx) — StatCard/DocCard/QuickIcon colorMaps, Motivasi box, Date filter, empty-state, apostrophe fix at line 461
+
+---
+Task ID: 83
+Agent: Main
+Task: Line kotak dibuat abu abu muda (box borders → light gray)
+
+Work Log:
+- Previous state (Task 82): all boxes had white background but kept colored borders (emerald-200, sky-200, amber-200, violet-200, rose-200, red-200, orange-200, teal-200, blue-200)
+- User requested changing all box borders to light gray ("abu abu muda")
+- Used MultiEdit with replace_all=true to replace all 9 colored border variants with border-slate-200 (#e2e8f0, light gray) in src/app/pembukaan/page.tsx:
+  - border-amber-200 → border-slate-200
+  - border-blue-200 → border-slate-200
+  - border-violet-200 → border-slate-200
+  - border-emerald-200 → border-slate-200
+  - border-sky-200 → border-slate-200
+  - border-rose-200 → border-slate-200
+  - border-red-200 → border-slate-200
+  - border-orange-200 → border-slate-200
+  - border-teal-200 → border-slate-200
+- Verified: 0 colored borders remaining, 18 slate-200 borders now
+- Synced to dual-root app/pembukaan/page.tsx (files identical)
+- Page compiles: HTTP 200
+- Logged in via agent-browser (admin/268899) → /pembukaan dashboard loads
+- Verified via computed styles (10 cards sampled):
+  - Background: all rgb(255,255,255) white ✓
+  - Border: all lab(91.7353...) = slate-200 light gray ✓
+- Screenshot saved: /tmp/beranda-white-gray-border.png
+- No lint errors for pembukaan files
+
+Stage Summary:
+- All box borders on Beranda page changed from colored (emerald/sky/amber/violet/rose/red/orange/teal/blue) to uniform light gray (slate-200)
+- Boxes now have: white background + light gray border (clean, uniform look)
+- Icon colors, icon background circles, text value colors, and buttons still preserved (colored accents remain inside the boxes)
+- Dark mode: slate-200 is visible against zinc-900 dark background
+- Dual-root sync completed
+
+Files Modified:
+- src/app/pembukaan/page.tsx (and app/pembukaan/page.tsx) — all colored border-200 → border-slate-200
