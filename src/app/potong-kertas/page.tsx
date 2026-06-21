@@ -1754,7 +1754,7 @@ function CalculatorPage() {
                 </div>
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-7">
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Total Harga</p>
-                  <p className="text-xl lg:text-xl font-bold text-black dark:text-white leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
+                  <p className="text-xl lg:text-xl font-bold text-blue-700 dark:text-blue-300 leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
                 </div>
               </div>
 
