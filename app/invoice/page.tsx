@@ -947,25 +947,25 @@ function PelunasanTab() {
     <div className="space-y-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2"><Wallet className="w-5 h-5" /></div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-amber-600 flex items-center justify-center mb-2"><Wallet className="w-5 h-5" /></div>
           <p className="text-xs text-slate-500 mb-0.5">Belum Lunas</p>
-          <p className="text-lg sm:text-xl font-bold text-amber-700 leading-tight">{pendingInvoices.length}</p>
+          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{pendingInvoices.length}</p>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center mb-2"><Banknote className="w-5 h-5" /></div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-red-600 flex items-center justify-center mb-2"><Banknote className="w-5 h-5" /></div>
           <p className="text-xs text-slate-500 mb-0.5">Total Sisa</p>
-          <p className="text-lg sm:text-xl font-bold text-red-700 leading-tight">{formatRupiahShort(totalSisa)}</p>
+          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{formatRupiahShort(totalSisa)}</p>
         </div>
-        <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center mb-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-violet-600 flex items-center justify-center mb-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
           <p className="text-xs text-slate-500 mb-0.5">Total DP Diterima</p>
-          <p className="text-lg sm:text-xl font-bold text-violet-700 leading-tight">{formatRupiahShort(totalDP)}</p>
+          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{formatRupiahShort(totalDP)}</p>
         </div>
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mb-2"><AlertTriangle className="w-5 h-5" /></div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-rose-600 flex items-center justify-center mb-2"><AlertTriangle className="w-5 h-5" /></div>
           <p className="text-xs text-slate-500 mb-0.5">Jatuh Tempo</p>
-          <p className="text-lg sm:text-xl font-bold text-rose-700 leading-tight">{overdueCount}</p>
+          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{overdueCount}</p>
         </div>
       </div>
 
@@ -1072,9 +1072,9 @@ function PelunasanTab() {
         {/* Right: Form Pelunasan */}
         <div className="lg:col-span-2">
           {selectedItem && selectedInfo ? (
-            <div className="bg-card rounded-2xl shadow-sm border-2 border-amber-200 overflow-hidden">
+            <div className="bg-card rounded-2xl shadow-sm border-2 border-slate-200 dark:border-zinc-700 overflow-hidden">
               {/* Form Header */}
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-amber-200 bg-amber-50/60">
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-amber-600" />
                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Form Pelunasan</h2>
@@ -1086,7 +1086,7 @@ function PelunasanTab() {
 
               <div className="p-4 space-y-4">
                 {/* Invoice Info */}
-                <div className="rounded-xl bg-slate-50 p-3 space-y-1.5">
+                <div className="rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 space-y-1.5">
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">No. Invoice</span>
                     <span className="font-semibold text-amber-800">{selectedItem.nomor}</span>
@@ -1132,7 +1132,7 @@ function PelunasanTab() {
                 </div>
 
                 {/* Pelunasan Toggle */}
-                <div className="rounded-xl border-2 border-amber-200 bg-amber-50/40 p-3 space-y-3">
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       {pelunasanToggle ? (
@@ -1184,7 +1184,7 @@ function PelunasanTab() {
               </div>
             </div>
           ) : (
-            <div className="bg-card rounded-2xl shadow-sm border border-dashed border-slate-300 p-8 text-center">
+            <div className="bg-card rounded-2xl shadow-sm border border-dashed border-slate-300 dark:border-zinc-700 p-8 text-center">
               <Wallet className="w-12 h-12 mx-auto text-slate-200 mb-3" />
               <p className="text-sm font-medium text-slate-400">Pilih Invoice</p>
               <p className="text-xs text-slate-300 mt-1">Klik invoice di daftar untuk mengisi form pelunasan</p>
@@ -1197,7 +1197,7 @@ function PelunasanTab() {
       {lunasInvoices.length > 0 && (
         <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <details>
-            <summary className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-green-50/60 cursor-pointer hover:bg-green-50 transition-colors">
+            <summary className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Sudah Lunas</h2>
               <span className="text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{lunasInvoices.length} invoice</span>
