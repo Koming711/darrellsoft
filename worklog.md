@@ -2893,3 +2893,33 @@ Stage Summary:
 
 Files Modified:
 - src/components/language-toggle.tsx (and components/language-toggle.tsx) — full rewrite
+
+---
+Task ID: 78
+Agent: Main
+Task: Deketin icon bendera ke icon dark mode di navbar
+
+Work Log:
+- Inspected current navbar layout: LanguageToggle and ThemeToggle were siblings in the same flex container
+  - Desktop: parent gap-8 (32px) applied between ALL items including flag↔theme
+  - Mobile: parent gap-1 (4px) between flag↔theme↔login
+- Restructured both desktop and mobile nav in src/app/page.tsx:
+  - Wrapped <LanguageToggle /> + <ThemeToggle /> in a tight cluster: <div className="flex items-center gap-0.5">
+  - Desktop outer container kept gap-8 (so cluster sits 32px away from nav links and Login button)
+  - Mobile outer container changed to gap-2 (so Login button has 8px separation from the cluster)
+- Result: flag and dark-mode icons now grouped together with only 2px gap, visually adjacent
+- Synced to dual-root mirror app/page.tsx
+- Verified via agent-browser:
+  - Mobile (375px): flag_right=230, theme_x=232 → flag↔theme gap = 2px ✓; theme↔login gap = 8px
+  - Desktop (1280px): flag_right=1026, theme_x=1028 → flag↔theme gap = 2px ✓; theme↔login gap = 32px (clean separation)
+- Screenshots saved: /tmp/navbar-grouped-mobile.png, /tmp/navbar-grouped-desktop.png
+- No lint/compilation errors in dev.log
+
+Stage Summary:
+- Flag icon and dark-mode icon now grouped tightly together (2px gap) in a dedicated cluster
+- Login button and nav links remain comfortably separated
+- Works on both mobile (gap-2 outer) and desktop (gap-8 outer) layouts
+- Dual-root sync completed
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx) — navbar desktop + mobile control grouping

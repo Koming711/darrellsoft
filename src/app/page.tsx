@@ -981,17 +981,21 @@ export default function Home() {
             <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_kenapa}</a>
             <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_harga}</a>
             <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_testimoni}</a>
-            <LanguageToggle />
-            <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+            <div className="flex items-center gap-0.5">
+              <LanguageToggle />
+              <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+            </div>
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300">
               Login <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
 
           {/* Mobile: Masuk button + theme toggle + language toggle instead of hamburger */}
-          <div className="md:hidden flex items-center gap-1 shrink-0">
-            <LanguageToggle compact />
-            <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+          <div className="md:hidden flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-0.5">
+              <LanguageToggle compact />
+              <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+            </div>
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-2.5 py-1.5 h-8 whitespace-nowrap">
               Login <ChevronRight className="ml-1 w-3 h-3" />
             </Button>
