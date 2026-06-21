@@ -2063,3 +2063,46 @@ Stage Summary:
 - Text content unchanged ("Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis cetak Dus Makanan, Dus Kue, Hampers, dll")
 - Dual-root sync completed
 - No compilation errors
+---
+Task ID: 56
+Agent: Main
+Task: di halaman landing, label-label section diperbesar 2x dari sekarang (Sistem Hitung Cepat Percetakan, Penawaran Terbatas, Fitur Unggulan, Kenapa Darrell Soft?, Kenapa Harus Berlangganan?, Kesempatan Emas, Cara Kerja, Harga, Testimoni)
+
+Work Log:
+- Located all 9 section eyebrow badges/labels in src/app/page.tsx
+- Checked current sizes via agent-browser eval:
+  - Sistem Hitung Cepat Percetakan: 14px (text-xs md:text-sm)
+  - Penawaran Terbatas: 14px (text-sm)
+  - Fitur Unggulan: 12px (Badge default text-xs)
+  - Kenapa Darrell Soft?: 12px
+  - Kenapa Harus Berlangganan?: 12px
+  - Kesempatan Emas: 14px (text-sm, in a span)
+  - Cara Kerja: 12px
+  - Harga: 12px
+  - Testimoni: 12px
+- Doubled each badge's font size + scaled padding/icons proportionally via MultiEdit (9 edits):
+  - 14px badges → text-[28px] (28px = 2x14)
+  - 12px badges → text-2xl (24px = 2x12)
+  - Padding: px-4 py-1.5 → px-8 py-3 (for Sistem Hitung Cepat), px-4 py-1.5 → px-8 py-3 (Penawaran Terbatas), added px-6 py-2 to default badges
+  - Icons scaled 2x: w-3.5 h-3.5 md:w-4 md:h-4 → w-7 h-7 md:w-8 md:h-8 (Sistem Hitung), w-4 h-4 → w-8 h-8 (Penawaran Terbatas), w-5 h-5 → w-8 h-8 (Kesempatan Emas Crown)
+  - Kesempatan Emas: also bumped container gap-2→gap-3, px-5 py-2 → px-8 py-4
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser eval — all 9 badges now render at 2x original size:
+  - Sistem Hitung Cepat Percetakan: 28px ✓
+  - Penawaran Terbatas: 28px ✓
+  - Fitur Unggulan: 24px ✓
+  - Kenapa Darrell Soft?: 24px ✓
+  - Kenapa Harus Berlangganan?: 24px ✓
+  - Kesempatan Emas: 28px ✓
+  - Cara Kerja: 24px ✓
+  - Harga: 24px ✓
+  - Testimoni: 24px ✓
+- Verified via VLM screenshot: section labels confirmed large and prominent
+
+Stage Summary:
+- All 9 section eyebrow badges on landing page enlarged to 2x original font size
+- Padding and icons also scaled proportionally for visual balance
+- Changes applied to: Sistem Hitung Cepat Percetakan, Penawaran Terbatas, Fitur Unggulan, Kenapa Darrell Soft?, Kenapa Harus Berlangganan?, Kesempatan Emas, Cara Kerja, Harga, Testimoni
+- H2 section headings below badges NOT changed (only the eyebrow labels per user request)
+- Dual-root sync completed
+- No compilation errors
