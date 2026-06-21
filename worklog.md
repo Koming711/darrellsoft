@@ -1790,3 +1790,27 @@ Stage Summary:
 - dus-ayam-geprek image REPLACED with a new AI-generated blank kraft paper food takeout box (no logo, no text, no watermark, no brand name). The new image is a proper food packaging container (rectangular kraft box with fold-over lid) — more appropriate for "dus ayam geprek" than the original which was an instant noodle product box.
 - Same filename /public/dus-ayam-geprek.jpg so no code change needed. Original backed up to /public/dus-ayam-geprek.jpg.bak.
 - Dev server running healthy on port 3000. Local only — NOT deployed to production.
+---
+Task ID: 44
+Agent: Main
+Task: tambahkan gambar dus ayam geprek di halaman landing (user said "gak muncul juga")
+
+Work Log:
+- Investigated user complaint that dus-ayam-geprek image "not showing" on landing page
+- Verified via agent-browser that the image WAS in the DOM, loading correctly (naturalWidth 1024), and visible (offsetWidth 149)
+- Analyzed the actual image with VLM: discovered the Task 43 AI-generated replacement was a PLAIN BLANK kraft paper box with NO food inside — it looked like an empty/broken image compared to other grid images which all show actual food/products
+- Root cause: the image was technically "showing" but looked blank/unrecognizable as "dus ayam geprek" because it had no fried chicken visible
+- Generated a new image with z-ai image CLI: "Professional product photography of a kraft paper food takeout box (dus ayam geprek) filled with crispy golden fried chicken (ayam geprek), the box is open showing the fried chicken inside... completely blank box exterior with no printing, no text, no labels, no branding"
+- Verified new image with VLM: "open brown cardboard food box containing fried chicken... box exterior is blank—there is no visible text, logo, or branding"
+- Backed up old image to dus-ayam-geprek.jpg.bak2
+- Converted new PNG to JPG using ffmpeg and replaced public/dus-ayam-geprek.jpg (83086 bytes → 103792 bytes)
+- Forced browser cache clear and reloaded page
+- Verified via VLM screenshot analysis: "brown cardboard box... open, revealing fried chicken pieces inside... golden-brown, crispy-looking pieces within the open container"
+
+Stage Summary:
+- Root cause was NOT that the image was missing from code — it was there since Task 43
+- The real issue: the AI-generated logo-free replacement from Task 43 was too plain (just a blank empty box) and didn't look like a proper product photo, so user perceived it as "not showing"
+- Fixed by regenerating the image to show actual ayam geprek (fried chicken) inside the kraft box, while keeping the box exterior blank (no logo/text/branding)
+- Image now clearly recognizable as "Dus Ayam Geprek" in the landing page grid
+- File: public/dus-ayam-geprek.jpg (replaced, no code changes needed — src path unchanged)
+- Backups: dus-ayam-geprek.jpg.bak (original with logo), dus-ayam-geprek.jpg.bak2 (Task 43 blank box version)
