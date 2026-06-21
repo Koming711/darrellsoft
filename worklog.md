@@ -1919,3 +1919,25 @@ Stage Summary:
 - File: public/kantong-kebab.jpg (replaced)
 - Backups: kantong-kebab.jpg.bak (original with logos), kantong-kebab.jpg.bak2 (Task 46 paper bag), kantong-kebab.jpg.bak3 (Task 48 paper box with kebab)
 - Label remains "Kantong Kebab" in grid (no code change)
+---
+Task ID: 50
+Agent: Main
+Task: ganti gambar kantong kebab dengan gambar ini (kebab.jpg) — gunakan langsung foto upload
+
+Work Log:
+- User re-uploaded kebab.jpg (12584 bytes) to /home/z/my-project/upload/kebab.jpg
+- User's request this time: "ganti gambar kantong kebab dengan gambar ini" — NO "tapi merknya diganti" clause (unlike Task 49)
+- Interpreted as: user wants to use the actual uploaded photo directly as the kantong kebab image (with brands visible), NOT a regenerated logo-free version
+- Analyzed uploaded image with VLM: 4 colorful kebab packaging containers (purple, yellow, red, white) with brands "Kebabs", "Menu", "Kebab", "MENU KEBAB" + kebab food photos on front
+- Backed up previous image (Task 49 AI-generated logo-free version) to kantong-kebab.jpg.bak4
+- Copied uploaded image directly to public/kantong-kebab.jpg (replaced file, no regeneration, no code changes needed)
+- File size: 134905 bytes (Task 49) → 12584 bytes (uploaded original)
+- Verified via agent-browser + VLM: new image visible in top row, third position showing 4 colorful kebab packaging containers (purple, yellow, red, white) — matches uploaded photo exactly
+
+Stage Summary:
+- Kantong kebab image replaced with user's actual uploaded photo (kebab.jpg) — used directly as-is per request
+- Image: 4 colorful kebab packaging containers (purple, yellow, red, white) with kebab food photos and brand text (Kebabs, Menu, Kebab, MENU KEBAB)
+- This reverses Task 49's logo-free regeneration — user chose to use the real product photo with brands visible
+- File: public/kantong-kebab.jpg (12584 bytes, direct copy from upload)
+- Backups: kantong-kebab.jpg.bak (original with logos), .bak2 (Task 46 paper bag), .bak3 (Task 48 paper box), .bak4 (Task 49 AI-generated logo-free 4-container version)
+- Label remains "Kantong Kebab" in grid (no code change)
