@@ -13,7 +13,7 @@ import { authFetch } from '@/lib/auth-fetch';
 interface CompanyDataPopupProps {
   /** Force open regardless of query param (used when triggered manually) */
   forceOpen?: boolean;
-  /** Called when popup is closed (either after save or skip) */
+  /** Called when popup is closed (after save) */
   onClose?: () => void;
 }
 
@@ -24,8 +24,8 @@ interface CompanyDataPopupProps {
  * - URL berisi query param `?fill_company=1` (dari redirect checkout setelah demo register)
  * - ATAU localStorage `companyDataRequired=true` (persisten sampai diisi)
  *
- * User bisa "Lewati dulu" → popup tutup untuk sesi ini (sessionStorage flag),
- * tapi akan muncul lagi di sesi berikutnya sampai data perusahaan diisi.
+ * Popup tidak bisa dilewati — user wajib mengisi & menyimpan data perusahaan
+ * (field wajib: nama, alamat, telepon) sebelum bisa menutup popup.
  */
 export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopupProps) {
   const router = useRouter();
@@ -52,12 +52,10 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
     // Cek query param
     const params = new URLSearchParams(window.location.search);
     const fillCompany = params.get('fill_company');
-    // Cek sessionStorage flag (sudah skip sesi ini)
-    const skipped = sessionStorage.getItem('companyPopupSkipped') === 'true';
-    // Cek localStorage flag (persisten)
+    // Cek localStorage flag (persisten sampai diisi)
     const required = localStorage.getItem('companyDataRequired') === 'true';
 
-    if (fillCompany === '1' && !skipped) {
+    if (fillCompany === '1') {
       setOpen(true);
       // Set persistent flag
       localStorage.setItem('companyDataRequired', 'true');
@@ -65,7 +63,7 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
       params.delete('fill_company');
       const newUrl = pathname + (params.toString() ? `?${params.toString()}` : '');
       router.replace(newUrl);
-    } else if (required && !skipped) {
+    } else if (required) {
       setOpen(true);
     }
   }, [forceOpen, pathname, router]);
@@ -128,13 +126,6 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSkip = () => {
-    sessionStorage.setItem('companyPopupSkipped', 'true');
-    setOpen(false);
-    if (onClose) onClose();
-    toast.info(' Anda bisa mengisi data perusahaan nanti di menu Pengaturan');
   };
 
   if (!open) return null;
@@ -281,18 +272,11 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
         </div>
 
         {/* Footer */}
-        <div className="p-5 sm:p-6 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-between gap-2 sm:items-center">
-          <button
-            onClick={handleSkip}
-            disabled={loading}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2 px-3 text-center"
-          >
-            Lewati dulu
-          </button>
+        <div className="p-5 sm:p-6 border-t border-border flex justify-center sm:justify-end gap-2 sm:items-center">
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-semibold sm:min-w-[180px]"
+            className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-semibold w-full sm:w-auto sm:min-w-[220px]"
           >
             {loading ? (
               <>

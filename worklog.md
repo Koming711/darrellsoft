@@ -1642,3 +1642,33 @@ Stage Summary:
 - Verified end-to-end: after checkout payment → redirect to /pembukaan → greeting shows "Halo, [user name]" immediately. After filling + saving company data popup → greeting STILL shows "Halo, [user name]" (not "Pengguna"). Zero errors.
 - All files synced to dual-root (src/ + root). Dev server running healthy on port 3000.
 - Local only — NOT deployed to production (www.darrellsoft.com unchanged).
+
+---
+Task ID: 41c
+Agent: Main
+Task: Remove "Lewati dulu" (Skip) button from the "Lengkapi Data Perusahaan" popup
+
+Work Log:
+- User requested: "tulisan lewati dulu di popup lengkapi data perusahaan dihapus"
+- Edited src/components/company-data-popup.tsx:
+  1. Removed the `handleSkip` function (which set sessionStorage 'companyPopupSkipped=true', closed popup, and showed info toast).
+  2. Removed the "Lewati dulu" `<button>` element from the popup footer.
+  3. Removed the dead `sessionStorage.getItem('companyPopupSkipped')` checks in the trigger useEffect (since nothing can set that flag anymore, the checks are now dead code). Simplified trigger logic: popup shows when `?fill_company=1` query param OR localStorage 'companyDataRequired=true' — no more skip-based suppression.
+  4. Updated footer layout: changed `flex flex-col-reverse sm:flex-row sm:justify-between` → `flex justify-center sm:justify-end` (since there's only one button now). Made the save button full-width on mobile (`w-full sm:w-auto sm:min-w-[220px]`) for better touch target.
+  5. Updated JSDoc comment: removed mention of "Lewati dulu" skip behavior; now states "Popup tidak bisa dilewati — user wajib mengisi & menyimpan data perusahaan (field wajib: nama, alamat, telepon) sebelum bisa menutup popup."
+  6. Updated `onClose` prop JSDoc: "Called when popup is closed (after save)" (was "either after save or skip").
+- The popup has NO close button (X), NO skip button, NO backdrop-click dismiss, NO ESC dismiss — it can ONLY be closed by filling the required fields (nama, alamat, telepon) and clicking "Simpan Data Perusahaan". This enforces that demo users complete their company data before using the app.
+- Synced to dual-root: src/components/company-data-popup.tsx → components/company-data-popup.tsx (verified IDENTICAL via diff).
+- Lint: zero errors.
+- E2E browser verification (agent-browser):
+  1. Full checkout flow: /checkout?plan=bulanan → dismiss version dialog → hide PWA overlay → Step 1 (Basic pre-selected) → Lanjutkan → Step 2 (fill 6 fields: username=verify21782002084, name="Verify Two User") → Lanjutkan → Step 3 → Bayar Sekarang
+  2. PaymentDialog: select Transfer BCA → click "Bayar dengan Transfer BCA" → mock processing → auto-login → redirect to /pembukaan
+  3. Company popup appeared: **`hasLewatiDulu: false`** ✓ (Lewati dulu button GONE), `hasSimpanButton: true` ✓, `popupButtons: ["Simpan Data Perusahaan"]` ✓ (only one button)
+  4. Filled required fields (nama="PT. Verify Two Perusahaan", alamat, telepon) → clicked "Simpan Data Perusahaan"
+  5. Post-save: `popupStillOpen: false` ✓ (popup closed), `greeting: "Halo, Verify Two User"` ✓ (username still shown), `companySaved: true` ✓
+  6. Console: zero errors (only normal HMR/SW/Fast Refresh + auto-login success log)
+
+Stage Summary:
+- "Lewati dulu" button removed from the "Lengkapi Data Perusahaan" popup. The popup is now mandatory — demo users MUST fill the required company data fields (nama, alamat, telepon) and click "Simpan Data Perusahaan" to close it. No skip option, no X button, no backdrop/ESC dismiss.
+- Single file modified: src/components/company-data-popup.tsx (+ synced to root components/).
+- Dev server running healthy on port 3000. Local only — NOT deployed to production.
