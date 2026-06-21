@@ -13,7 +13,6 @@ import { InstallPrompt } from "@/components/install-prompt";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
 import { NavigationProgressBar } from "@/components/navigation-progress";
 import { DocumentLanguageSync } from "@/components/document-language-sync";
-import { AIChat } from "@/components/ai-chat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -98,7 +97,6 @@ export default function RootLayout({
             </NextThemesProvider>
             <InstallPrompt />
             <WhatsNewDialog />
-            <AIChat />
           </LanguageProvider>
         </AuthProvider>
         <ServiceWorkerRegistration />

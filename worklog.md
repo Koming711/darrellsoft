@@ -2607,3 +2607,25 @@ Files Created:
 Files Modified:
 - src/app/layout.tsx (added <AIChat /> inside <LanguageProvider>)
 - (dual-root mirror: app/layout.tsx)
+
+---
+Task ID: 69
+Agent: Main
+Task: Cancel/remove AI feature (revert Task 68)
+
+Work Log:
+- Removed <AIChat /> import and usage from src/app/layout.tsx
+- Deleted src/components/ai-chat.tsx
+- Deleted src/app/api/ai-chat/ directory (route.ts)
+- Synced deletions to dual-root: components/ai-chat.tsx, app/api/ai-chat/
+- Synced updated layout.tsx to app/layout.tsx
+- Verified via agent-browser: "AI fully removed - no button, no panel" on landing page
+- Lint: no ai-chat references remain
+- Dev log: no errors
+
+Stage Summary:
+- AI Assistant Chatbot feature completely removed as requested
+- All files deleted from both roots (src/ and root-level)
+- layout.tsx restored to pre-AI state (InstallPrompt + WhatsNewDialog only, no AIChat)
+- No lint errors, no compilation errors
+- Application back to state before Task 68
