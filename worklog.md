@@ -2353,3 +2353,48 @@ Stage Summary:
   - Client-side navigation — via next-themes .dark class
 - Dual-root sync completed
 - No compilation errors
+
+---
+Task ID: 65
+Agent: Main
+Task: tambahkan tombol bendera amerika dan indonesia buat rubah bahasa di samping icon darkmode
+
+Work Log:
+- Analyzed existing language system: LanguageContext (src/contexts/language-context.tsx) supports 'id' and 'en' with setLanguage(), persists to localStorage 'app_language' + /api/settings
+- Created LanguageToggle component (src/components/language-toggle.tsx):
+  - Two flag buttons: 🇮🇩 (Indonesian) and 🇺🇸 (American/English)
+  - Active language highlighted with ring + background; inactive at 50% opacity
+  - Compact mode for tight spaces (mobile, login, dashboard header)
+  - Hydration-safe (mount guard)
+  - Uses useLanguage() from LanguageContext
+- Added LanguageToggle next to ThemeToggle in 3 locations:
+  1. Landing page navbar (src/app/page.tsx):
+     - Desktop: LanguageToggle + ThemeToggle between nav links and Login button
+     - Mobile: LanguageToggle (compact) + ThemeToggle in flex container
+  2. Login page (src/app/login/page.tsx):
+     - Fixed top-right: LanguageToggle (compact) + ThemeToggle with backdrop blur
+  3. Dashboard MobileHeader (src/components/sidebar.tsx):
+     - Mobile section: LanguageToggle (compact) + ThemeToggle next to date
+     - Desktop section: LanguageToggle (compact) + ThemeToggle before date text
+- Synced all files to dual-root (src/ → app/, src/components → components/)
+- Verified via agent-browser:
+  - Landing page desktop (1280px): ID flag at x=919, EN flag at x=957 (both 36px); clicking EN flag switched savedLang id→en, EN flag became active ✓
+  - Login page: ID flag at x=1151, EN flag + theme toggle all found ✓
+  - Dashboard /pembukaan (logged in as admin): ID flag at x=1019, EN flag at x=1053, theme toggle at x=1095 (all 32px, correct order) ✓
+  - Dashboard: clicking EN flag switched savedLang to "en", EN flag became active ✓
+  - Landing page mobile (375px): ID flag at x=160, EN flag at x=194, theme toggle at x=234 (all visible) ✓
+- Verified via VLM:
+  - Landing navbar: "a language/region selector with two flag emojis (Indonesian red/white flag and American flag) next to each other, and a moon/sun icon"
+  - Dashboard header: "Two flag emojis (Indonesian 🇮🇩 and American 🇺🇸) next to a moon/sun icon"
+
+Stage Summary:
+- Language toggle (flag buttons 🇮🇩/🇺🇸) added next to the dark mode icon in all locations:
+  - Landing page navbar (desktop + mobile)
+  - Login page (fixed top-right)
+  - All dashboard pages (in MobileHeader, both mobile + desktop layouts)
+- Active language is visually highlighted (ring + bg); inactive at 50% opacity
+- Clicking a flag immediately switches the app language and persists to localStorage + /api/settings
+- Order: ID flag → EN flag → Theme toggle (Moon/Sun) — flags are to the left of the dark mode icon as requested
+- Compact mode used on mobile/login/dashboard for space efficiency
+- Dual-root sync completed
+- No compilation errors

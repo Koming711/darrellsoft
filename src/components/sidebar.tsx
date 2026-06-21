@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './theme-toggle'
+import { LanguageToggle } from './language-toggle'
 import {
   Calculator,
   Scissors,
@@ -575,11 +576,13 @@ export function MobileHeader({ username, title, subtitle, userProfile }: { usern
           <span className="text-[11px] hidden sm:block" style={{ color: 'var(--app-banner-text-muted)' }}>
             {new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
           </span>
+          <LanguageToggle compact />
           <ThemeToggle className="h-8 w-8" />
         </div>
         {/* Desktop: full date + account info (visible on md+) */}
         <div className="hidden md:flex flex-col items-end justify-center gap-1 flex-shrink-0">
           <div className="flex items-center gap-2">
+            <LanguageToggle compact />
             <ThemeToggle className="h-8 w-8" />
             <span className="text-[13px] font-semibold" style={{ color: 'var(--app-banner-text)' }}>
               {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
