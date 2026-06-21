@@ -188,39 +188,39 @@ const menuItems = [
 
 // Bottom nav items — the 5 main items shown in the mobile bottom bar
 // + "More" button that opens the full sidebar
-// shortTitleKey is used for the bottom nav label (shorter text)
+// shortTitleKey is used for the bottom nav label (shorter text, translatable)
 const bottomNavItems = [
   {
     titleKey: 'pembukaan' as TranslationKey,
-    shortTitle: 'Beranda',
+    shortTitleKey: 'short_beranda' as TranslationKey,
     href: '/pembukaan',
     icon: BookOpen,
     featureId: 'pembukaan',
   },
   {
     titleKey: 'potong_kertas' as TranslationKey,
-    shortTitle: 'Potong',
+    shortTitleKey: 'short_potong' as TranslationKey,
     href: '/potong-kertas',
     icon: Scissors,
     featureId: 'potong-kertas',
   },
   {
     titleKey: 'hitung_cetakan' as TranslationKey,
-    shortTitle: 'Cetakan',
+    shortTitleKey: 'short_cetakan' as TranslationKey,
     href: '/hitung-cetakan',
     icon: Calculator,
     featureId: 'hitung-cetakan',
   },
   {
     titleKey: 'invoice' as TranslationKey,
-    shortTitle: 'Invoice',
+    shortTitleKey: 'short_invoice' as TranslationKey,
     href: '/invoice',
     icon: Receipt,
     featureId: 'invoice',
   },
   {
     titleKey: 'master_harga_kertas' as TranslationKey,
-    shortTitle: 'H.Kertas',
+    shortTitleKey: 'short_h_kertas' as TranslationKey,
     href: '/master-harga-kertas',
     icon: ScrollText,
     featureId: 'master-harga-kertas',
@@ -396,14 +396,14 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
 
   // Group menu items by section
   const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
-    { key: undefined, labelKey: 'pembukaan' as TranslationKey },
-    { key: 'hitung_biaya_produksi', labelKey: 'hitung_biaya_produksi' as TranslationKey },
-    { key: 'dokumen', labelKey: 'dokumen' as TranslationKey },
-    { key: 'biaya', labelKey: 'biaya' as TranslationKey },
-    { key: 'biaya_produksi', labelKey: 'biaya_produksi' as TranslationKey },
-    { key: 'master_cetakan', labelKey: 'master_cetakan' as TranslationKey },
-    { key: 'administrasi', labelKey: 'administrasi' as TranslationKey },
-    { key: 'setting', labelKey: 'setting' as TranslationKey },
+    { key: undefined, labelKey: 'section_beranda' as TranslationKey },
+    { key: 'hitung_biaya_produksi', labelKey: 'section_total_cost_calc' as TranslationKey },
+    { key: 'dokumen', labelKey: 'section_documents' as TranslationKey },
+    { key: 'biaya', labelKey: 'section_expenses' as TranslationKey },
+    { key: 'biaya_produksi', labelKey: 'section_production_cost' as TranslationKey },
+    { key: 'master_cetakan', labelKey: 'section_print_master' as TranslationKey },
+    { key: 'administrasi', labelKey: 'section_administration' as TranslationKey },
+    { key: 'setting', labelKey: 'section_setting' as TranslationKey },
   ]
 
   // Check if current page is one of the bottom nav items
@@ -519,7 +519,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               >
                 <item.icon className={cn('w-5 h-5 flex-shrink-0', active && 'drop-shadow-sm')} strokeWidth={active ? 2.5 : 1.8} />
                 <span className={cn('text-[10px] leading-tight truncate w-full text-center px-0.5', active ? 'font-bold' : 'font-medium')}>
-                  {item.shortTitle}
+                  {t(item.shortTitleKey)}
                 </span>
               </Link>
             )
@@ -537,7 +537,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
           >
             <MoreHorizontal className={cn('w-5 h-5 flex-shrink-0', !isOnBottomNavPage && 'drop-shadow-sm')} strokeWidth={!isOnBottomNavPage ? 2.5 : 1.8} />
             <span className={cn('text-[9px] leading-tight', !isOnBottomNavPage ? 'font-bold' : 'font-medium')}>
-              Lainnya
+              {t('lainnya')}
             </span>
           </button>
         </div>
@@ -546,13 +546,13 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   )
 }
 
-function formatDateIndo(dateStr: string | null | undefined): string {
+function formatDateIndo(dateStr: string | null | undefined, lang: 'id' | 'en' = 'id'): string {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return new Date(dateStr).toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 export function MobileHeader({ username, title, subtitle, userProfile }: { username?: string; title?: string; subtitle?: string; userProfile?: { createdAt: string | null; validUntil: string | null } | null }) {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   return (
     <header className="px-3 py-3 lg:py-3 sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--app-banner-bg)', borderColor: 'var(--border)' }}>
@@ -574,7 +574,7 @@ export function MobileHeader({ username, title, subtitle, userProfile }: { usern
         {/* Mobile: simple date (hidden on md+) */}
         <div className="flex-shrink-0 md:hidden flex items-center gap-1">
           <span className="text-[11px] hidden sm:block" style={{ color: 'var(--app-banner-text-muted)' }}>
-            {new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
+            {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
           </span>
           <LanguageToggle compact />
           <ThemeToggle className="h-8 w-8" />
@@ -585,15 +585,15 @@ export function MobileHeader({ username, title, subtitle, userProfile }: { usern
             <LanguageToggle compact />
             <ThemeToggle className="h-8 w-8" />
             <span className="text-[13px] font-semibold" style={{ color: 'var(--app-banner-text)' }}>
-              {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
           <div className="flex items-center gap-3">
             {userProfile?.createdAt && (
-              <span className="text-[11px]" style={{ color: 'var(--app-banner-text-muted)' }}>Daftar: {formatDateIndo(userProfile.createdAt)}</span>
+              <span className="text-[11px]" style={{ color: 'var(--app-banner-text-muted)' }}>{t('registered')} {formatDateIndo(userProfile.createdAt, language)}</span>
             )}
             {userProfile?.validUntil && (
-              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Expired: {formatDateIndo(userProfile.validUntil)}</span>
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">{t('expired_label')} {formatDateIndo(userProfile.validUntil, language)}</span>
             )}
           </div>
         </div>

@@ -7,12 +7,20 @@ export function formatRupiah(amount: number): string {
 }
 
 /**
- * Format a date string (YYYY-MM-DD) to Indonesian format.
+ * Format a date string (YYYY-MM-DD) to a localized date format.
+ * Pass `'en'` for English (e.g. "January 15, 2026"), `'id'` (default) for Indonesian (e.g. "15 Januari 2026").
  */
-export function formatTanggal(dateStr: string): string {
+export function formatTanggal(dateStr: string, lang: 'id' | 'en' = 'id'): string {
   if (!dateStr) return '-';
   try {
     const date = new Date(dateStr + 'T00:00:00');
+    if (lang === 'en') {
+      const monthsEn = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      return `${monthsEn[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    }
     const bulan = [
       'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
