@@ -1875,3 +1875,24 @@ Stage Summary:
 - Backups: hampers.jpg.bak (original original with logo from pre-Task 42), hampers.jpg.bak.task46 (Task 42 AI-generated logo-free version)
 - Note: This is the user's real product photo, so it intentionally contains "Selamat Hari Raya Idul Fitri" text (unlike AI-generated logo-free placeholders)
 - Distinct from hampers-lebaran.jpg (Task 45, green gift boxes) which is in bottom row
+---
+Task ID: 48
+Agent: Main
+Task: ganti gambar kantong kebab dengan gambar kotak kebab yang ada nongol keluar kebabnya
+
+Work Log:
+- User wanted to change kantong kebab image from a paper BAG to a paper BOX (kotak kebab) with kebab sticking out
+- Previous image (Task 46): brown paper BAG with kebab wrap sticking out
+- Generated new image with z-ai image CLI: "Professional product photography of a brown kraft paper food box (kotak kebab / open takeout food container) with a delicious kebab wrap (doner kebab in flatbread with grilled chicken meat, fresh lettuce, tomatoes, onions and sauce visible) sticking out slightly from the top of the open box... completely blank box exterior with no printing, no text, no labels, no branding, no logo, no watermark"
+- Verified new image with VLM: "brown paper food box (not a bag) with a kebab wrap sticking out of the top. The box has a simple, open-top design with folded flaps, and its exterior is blank—no text, logo, or branding. Inside the box, the kebab wrap is filled with golden-brown, seasoned diced meat, crisp green lettuce leaves, two thick slices of red tomato, and small white diced onions"
+- Backed up previous image (Task 46 paper bag version) to kantong-kebab.jpg.bak2
+- Converted new PNG to JPG using ffmpeg and replaced public/kantong-kebab.jpg (90499 bytes → 109468 bytes)
+- Verified via agent-browser + VLM: new image visible in top row, third position showing paper food BOX (not bag) with kebab sticking out of the top
+
+Stage Summary:
+- Kantong kebab image changed from paper BAG to paper BOX (kotak kebab) with kebab wrap sticking out — exactly as requested
+- New image: brown kraft paper food box (open-top with folded flaps, blank exterior) + kebab wrap with grilled chicken, lettuce, tomato, onion visible coming out of the box
+- Label remains "Kantong Kebab" (no code change needed — only image file replaced)
+- File: public/kantong-kebab.jpg (replaced)
+- Backups: kantong-kebab.jpg.bak (original with logos), kantong-kebab.jpg.bak2 (Task 46 paper bag version)
+- Note: Label text "Kantong Kebab" still used in grid even though image now shows a BOX (kotak) per user's wording in this task. Did not change label since user did not request it — only asked to change the image.
