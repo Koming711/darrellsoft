@@ -2256,3 +2256,22 @@ Stage Summary:
 - Font sizes unchanged from Task 60 (18px mobile / 22px desktop)
 - Dual-root sync completed
 - No compilation errors
+
+---
+Task ID: 62
+Agent: Main
+Task: tulisan FAQ di mobile 18px bold dan di desktop 22px bold
+
+Work Log:
+- Located FAQ badge in src/app/page.tsx line 1252
+- Previous state: `<Badge ... className="bg-blue-50 ... mb-4">` — missing px-6 py-2 padding, missing font size, missing font-bold
+- Updated to match other section labels: added `px-6 py-2 text-[18px] md:text-[22px] font-bold`
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser eval at desktop viewport (1280px): FAQ badge → fontSize 22px, fontWeight 700 ✓
+- Verified via agent-browser eval at mobile viewport (375px): FAQ badge → fontSize 18px, fontWeight 700 ✓
+
+Stage Summary:
+- FAQ section label on landing page now matches the style of all other section labels (Sistem Hitung, Fitur Unggulan, etc.): 18px bold on mobile, 22px bold on desktop
+- All 10 section badges on the landing page are now uniformly styled
+- Dual-root sync completed
+- No compilation errors
