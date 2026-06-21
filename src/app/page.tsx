@@ -323,6 +323,7 @@ export default function Home() {
             { src: '/lunchbox-paper.jpg', label: 'Lunchbox Paper' },
             { src: '/paperbowl.png', label: 'Paperbowl' },
             { src: '/paperbag.jpg', label: 'Paperbag' },
+            { src: '/hampers-lebaran.jpg', label: 'Hampers Lebaran' },
           ].map((item, i) => (
             <motion.div
               key={item.src}
