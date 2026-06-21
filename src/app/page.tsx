@@ -970,7 +970,7 @@ export default function Home() {
           {/* Logo */}
           <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
             <img src="/logo-ds.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-xl object-contain shadow-none shrink-0" />
-            <span className="hidden min-[360px]:inline text-[13px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300 whitespace-nowrap" style={{ fontWeight: 900 }}>
+            <span className="hidden min-[360px]:inline text-[15px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300 whitespace-nowrap" style={{ fontWeight: 900 }}>
               darrellsoft.com
             </span>
           </div>

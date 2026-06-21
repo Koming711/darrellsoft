@@ -2923,3 +2923,30 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx) — navbar desktop + mobile control grouping
+
+---
+Task ID: 79
+Agent: Main
+Task: Besarin tulisan "darrellsoft.com" di mobile landing navbar
+
+Work Log:
+- Previous mobile font size was text-[13px] (set in Task 76 to fix overlap)
+- User requested enlarging the brand text on mobile
+- Updated src/app/page.tsx line 973: text-[13px] → text-[15px] (mobile only, md:text-[22px] unchanged)
+- Initial sync to dual-root (cp) did not persist; re-synced app/page.tsx explicitly and confirmed both files match
+- Verified via agent-browser at 3 mobile viewports:
+  - 320px: text hidden (display:none, only logo) — unchanged behavior ✓
+  - 375px: 15px font, text width 115px, right edge 171px, flag starts 198px → 27px gap, no overlap ✓
+  - 414px: 15px font, 66px gap, no overlap ✓
+- Screenshot saved: /tmp/navbar-mobile-15px-final.png
+- No lint/compilation errors in dev.log
+
+Stage Summary:
+- "darrellsoft.com" brand text on mobile enlarged from 13px → 15px (~15% bigger)
+- Desktop size unchanged (22px)
+- No overlap with flag/dark-mode cluster on any mobile width (27px+ gap)
+- Text still hidden below 360px to protect tiny screens (iPhone SE 320px)
+- Dual-root sync completed (both files now show text-[15px])
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx) — brand span text size
