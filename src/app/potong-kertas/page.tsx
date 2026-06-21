@@ -1430,9 +1430,9 @@ function CalculatorPage() {
         <div className="lg:w-[386px] xl:w-[416px] flex-shrink-0 flex flex-col gap-1.5">
           {/* No Potong Kertas */}
           {nextPotongKertasNumber && (
-            <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-teal-600 uppercase tracking-wider whitespace-nowrap">No. Potong Kertas :</span>
-              <span className="text-sm font-bold text-teal-800">{nextPotongKertasNumber}</span>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">No. Potong Kertas :</span>
+              <span className="text-sm font-bold text-black dark:text-white">{nextPotongKertasNumber}</span>
             </div>
           )}
           {/* Info Cetak */}
@@ -1710,37 +1710,37 @@ function CalculatorPage() {
             <div className="flex-1 flex flex-col gap-1.5 lg:min-h-0 lg:overflow-hidden">
               {/* Stats Grid - mobile 2col, desktop 3col/5col */}
               <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2 flex-shrink-0">
-                <div className="bg-blue-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-blue-600 font-medium leading-tight">Diperlukan</p>
-                  <p className="text-lg lg:text-lg font-bold text-blue-700 leading-tight">{computedQuantity || quantity || '0'}</p>
-                  <p className="text-[10px] text-blue-500">lembar</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Diperlukan</p>
+                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{computedQuantity || quantity || '0'}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
                 </div>
-                <div className="bg-sky-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-sky-600 font-medium leading-tight">Insit Kertas</p>
-                  <p className="text-lg lg:text-lg font-bold text-sky-700 leading-tight">{setelanKertas || '0'}</p>
-                  <p className="text-[10px] text-sky-500">lembar</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Insit Kertas</p>
+                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{setelanKertas || '0'}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-purple-600 font-medium leading-tight">Potongan/Lembar</p>
-                  <p className="text-lg lg:text-lg font-bold text-purple-700 leading-tight">{results.totalPieces}</p>
-                  <p className="text-[10px] text-purple-500">lembar</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Potongan/Lembar</p>
+                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{results.totalPieces}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
                 </div>
-                <div className="bg-emerald-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-emerald-600 font-medium leading-tight">Kertas Yg Dibeli</p>
-                  <p className="text-lg lg:text-lg font-bold text-emerald-700 leading-tight">{results.sheetsNeeded}</p>
-                  <p className="text-[10px] text-emerald-500">lembar</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Kertas Yg Dibeli</p>
+                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{results.sheetsNeeded}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
                 </div>
-                <div className="bg-amber-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-amber-600 font-medium leading-tight">Harga / Lembar</p>
-                  <p className="text-sm lg:text-sm font-bold text-amber-700 leading-tight">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Harga / Lembar</p>
+                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
                 </div>
-                <div className="bg-rose-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-rose-600 font-medium leading-tight">Harga/Lembar Setelah Dipotong</p>
-                  <p className="text-sm lg:text-sm font-bold text-rose-700 leading-tight">Rp {results.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / results.totalPieces).toLocaleString('id-ID') : '0'}</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Harga/Lembar Setelah Dipotong</p>
+                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">Rp {results.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / results.totalPieces).toLocaleString('id-ID') : '0'}</p>
                 </div>
-                <div className="bg-cyan-50 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-cyan-600 font-medium leading-tight">Berat Kertas</p>
-                  <p className="text-sm lg:text-sm font-bold text-cyan-700 leading-tight">{(() => {
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Berat Kertas</p>
+                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">{(() => {
                     const g = parseFloat(grammage) || 0
                     const w = parseFloat(paperWidth) || 0
                     const h = parseFloat(paperHeight) || 0
@@ -1752,16 +1752,16 @@ function CalculatorPage() {
                     return '0'
                   })()}</p>
                 </div>
-                <div className="bg-orange-50 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-7">
-                  <p className="text-[10px] text-orange-600 font-medium leading-tight">Total Harga</p>
-                  <p className="text-xl lg:text-xl font-bold text-orange-700 leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-7">
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Total Harga</p>
+                  <p className="text-xl lg:text-xl font-bold text-black dark:text-white leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
                 </div>
               </div>
 
               {/* Strategy */}
-              <div className="bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 flex-shrink-0" style={{ transform: 'scale(1.05)', transformOrigin: 'left center' }}>
-                <span className="text-[10px] font-bold text-indigo-800">Strategi: </span>
-                <span className="text-[10px] text-indigo-700 font-medium">{results.strategy}</span>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded px-1.5 py-0.5 flex-shrink-0" style={{ transform: 'scale(1.05)', transformOrigin: 'left center' }}>
+                <span className="text-[10px] font-bold text-black dark:text-white">Strategi: </span>
+                <span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">{results.strategy}</span>
               </div>
 
               {/* Diagram + Steps side by side */}
@@ -1891,48 +1891,48 @@ function CalculatorPage() {
 
             {/* Info Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3">
-              <div className="bg-sky-50 border border-sky-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-sky-600 font-medium">Jumlah Pesanan</p>
-                <p className="text-base sm:text-xl font-bold text-sky-700">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
               </div>
-              <div className="bg-violet-50 border border-violet-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-violet-600 font-medium"><span className="sm:hidden">Cetak Brp Mata</span><span className="hidden sm:inline">Cetak Berapa Mata</span></p>
-                <p className="text-base sm:text-xl font-bold text-violet-700">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium"><span className="sm:hidden">Cetak Brp Mata</span><span className="hidden sm:inline">Cetak Berapa Mata</span></p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
               </div>
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-blue-600 font-medium">Jumlah Cetakan</p>
-                <p className="text-base sm:text-xl font-bold text-blue-700">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Cetakan</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-amber-600 font-medium">Insit Kertas</p>
-                <p className="text-base sm:text-xl font-bold text-amber-700">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Insit Kertas</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
               </div>
-              <div className="bg-purple-50 border border-purple-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-purple-600 font-medium">Potongan / Lembar</p>
-                <p className="text-base sm:text-xl font-bold text-purple-700">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Potongan / Lembar</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-emerald-600 font-medium">Lembar Kertas</p>
-                <p className="text-base sm:text-xl font-bold text-emerald-700">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Lembar Kertas</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-orange-50 border border-orange-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-orange-600 font-medium">Total Harga Kertas</p>
-                <p className="text-lg sm:text-[24px] font-bold text-orange-700">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Total Harga Kertas</p>
+                <p className="text-lg sm:text-[24px] font-bold text-black dark:text-white">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
               </div>
-              <div className="bg-rose-50 border border-rose-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-rose-600 font-medium">Harga / Lembar</p>
-                <p className="text-base sm:text-xl font-bold text-rose-700">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga / Lembar</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
               </div>
-              <div className="bg-teal-50 border border-teal-100 rounded-lg p-2 sm:p-3">
-                <p className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Harga/Lembar Setelah Dipotong</p>
-                <p className="text-base sm:text-xl font-bold text-teal-700">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga/Lembar Setelah Dipotong</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
               </div>
             </div>
 
             {/* Strategy */}
-            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 mb-3">
-              <p className="text-[8px] sm:text-[10px] text-indigo-600 font-medium text-center">Strategi Optimasi</p>
-              <p className="text-[11px] sm:text-sm font-bold text-indigo-700 text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 mb-3">
+              <p className="text-[8px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium text-center">Strategi Optimasi</p>
+              <p className="text-[11px] sm:text-sm font-bold text-black dark:text-white text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
             </div>
 
             {/* Diagram */}

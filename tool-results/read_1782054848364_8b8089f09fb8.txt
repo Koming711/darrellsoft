@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+     4→import { useRouter, useSearchParams } from 'next/navigation'
+     5→import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload } from 'lucide-react'
+     6→import { DashboardLayout } from '@/components/dashboard-layout'
+     7→import { useLanguage } from '@/contexts/language-context'
+     8→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+     9→import { toast } from 'sonner'
+    10→import type { Customer, Paper, CuttingResult } from '@/lib/cutting-engine'
+    11→import dynamic from 'next/dynamic'
+    12→import { getAuthUser } from '@/lib/auth'
+    13→import { getAuthHeaders } from '@/lib/auth'
+    14→import { authFetch } from '@/lib/auth-fetch'
+    15→import { fetcher } from '@/lib/fetcher'
+    16→import { notifyDataChange } from '@/lib/data-sync'
+    17→import { Button } from '@/components/ui/button'
+    18→import { openWhatsApp } from '@/lib/whatsapp-business'
+    19→import { useDataChange } from '@/hooks/use-data-change'
+    20→
+    21→const CuttingDiagram = dynamic(
+    22→  () => import('@/components/cutting-results').then(m => ({ default: m.CuttingDiagram })),
+    23→  { ssr: false, loading: () => <div className="h-full flex items-center justify-center text-xs text-slate-400">Memuat diagram...</div> }
+    24→)
+    25→
+    26→// Form state keys for localStorage persistence (per-user scoped)
+    27→function userKey(base: string): string {
+    28→  try {
+    29→    const a = JSON.parse(localStorage.getItem('auth') || '{}')
+    30→    if (a.id) return `${base}_${a.id}`
+    31→  } catch {}
+    32→  return base
+    33→}
+    34→const STORAGE_KEY = () => userKey('potong-kertas-form')
+    35→const STORAGE_RESULTS_KEY = () => userKey('potong-kertas-results')
+    36→const STORAGE_VERSION_KEY = () => userKey('potong-kertas-form-version')
+    37→const STORAGE_VERSION = 'v6'
+    38→
+    39→interface FormData {
+    40→  paperWidth: string
+    41→  paperHeight: string
+    42→  cutWidth: string
+    43→  cutHeight: string
+    44→  selectedCustomerId: string
+    45→  selectedPaperId: string
+    46→  grammage: string
+    47→  pricePerSheet: string
+    48→  quantity: string
+    49→  jumlahPesanan: string
+    50→  berapaMata: string
+    51→  setelanKertas: string
+    52→  printName: string
+    53→  isCustomPaper: boolean
+    54→  optimizationMode: string
+    55→}
+    56→
+    57→function getInitialFormState(): FormData {
+    58→  if (typeof window === 'undefined') {
+    59→    return {
+    60→      paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
+    61→      selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '',
+    62→      quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
+    63→    }
+    64→  }
+    65→  try {
+    66→    const savedVersion = localStorage.getItem(STORAGE_VERSION_KEY())
+    67→    if (savedVersion && savedVersion !== STORAGE_VERSION) {
+    68→      localStorage.removeItem(STORAGE_KEY())
+    69→      localStorage.removeItem(STORAGE_RESULTS_KEY())
+    70→      localStorage.setItem(STORAGE_VERSION_KEY(), STORAGE_VERSION)
+    71→    }
+    72→    const saved = localStorage.getItem(STORAGE_KEY())
+    73→    if (saved) return JSON.parse(saved)
+    74→  } catch {}
+    75→  return {
+    76→    paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
+    77→    selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '',
+    78→    quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
+    79→  }
+    80→}
+    81→
+    82→// Compact styles (mobile larger, desktop compact)
+    83→const inp = "w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-blue-500 focus:border-transparent bg-card"
+    84→const inpDisabled = "w-full border border-slate-200 rounded-md px-2.5 py-1.5 text-sm text-slate-500 bg-slate-100 cursor-not-allowed"
+    85→const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
+    86→
+    87→// Preview Dialog Component (centered, scrollable)
+    88→function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+    89→  return (
+    90→    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    91→      {/* Backdrop */}
+    92→      <div className="absolute inset-0 bg-black/50" />
+    93→      {/* Dialog - centered with CSS flex, scrollable content */}
+    94→      <div
+    95→        onClick={(e) => e.stopPropagation()}
+    96→        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col"
+    97→      >
+    98→        {/* Header */}
+    99→        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
+   100→          <div className="flex items-center gap-2">
+   101→            <div className="flex gap-1">
+   102→              <div className="w-2.5 h-2.5 rounded-full bg-red-400 cursor-pointer" onClick={onClose} />
+   103→              <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+   104→              <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+   105→            </div>
+   106→            <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-2">{title}</span>
+   107→          </div>
+   108→          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+   109→            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+   110→          </button>
+   111→        </div>
+   112→        {/* Scrollable Content */}
+   113→        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch">
+   114→          {children}
+   115→        </div>
+   116→      </div>
+   117→    </div>
+   118→  )
+   119→}
+   120→
+   121→function CalculatorPage() {
+   122→  const { t } = useLanguage()
+   123→  const router = useRouter()
+   124→  const searchParams = useSearchParams()
+   125→  const initialForm = useRef<FormData>(getInitialFormState())
+   126→  const [paperWidth, setPaperWidth] = useState(initialForm.current.paperWidth)
+   127→  const [paperHeight, setPaperHeight] = useState(initialForm.current.paperHeight)
+   128→  const [cutWidth, setCutWidth] = useState(initialForm.current.cutWidth)
+   129→  const [cutHeight, setCutHeight] = useState(initialForm.current.cutHeight)
+   130→  const [selectedCustomerId, setSelectedCustomerId] = useState(initialForm.current.selectedCustomerId)
+   131→  const [selectedPaperId, setSelectedPaperId] = useState(initialForm.current.selectedPaperId)
+   132→  const [customers, setCustomers] = useState<Customer[]>([])
+   133→  const [papers, setPapers] = useState<Paper[]>([])
+   134→  const [grammage, setGrammage] = useState(initialForm.current.grammage)
+   135→  const [pricePerSheet, setPricePerSheet] = useState(initialForm.current.pricePerSheet)
+   136→  const [quantity, setQuantity] = useState(initialForm.current.quantity)
+   137→  const [jumlahPesanan, setJumlahPesanan] = useState(initialForm.current.jumlahPesanan || '')
+   138→  const [berapaMata, setBerapaMata] = useState(initialForm.current.berapaMata || '')
+   139→
+   140→  // Auto-calculate quantity = jumlahPesanan / berapaMata
+   141→  const computedQuantity = (() => {
+   142→    const jp = parseInt(jumlahPesanan) || 0
+   143→    const bm = parseInt(berapaMata) || 0
+   144→    if (jp > 0 && bm > 0) return Math.ceil(jp / bm).toString()
+   145→    return ''
+   146→  })()
+   147→
+   148→  // Sync computedQuantity into quantity state so all existing checks work
+   149→  useEffect(() => {
+   150→    if (computedQuantity) setQuantity(computedQuantity)
+   151→  }, [computedQuantity])
+   152→  const [setelanKertas, setSetelanKertas] = useState(initialForm.current.setelanKertas)
+   153→  const [printName, setPrintName] = useState(initialForm.current.printName)
+   154→  const [isCustomPaper, setIsCustomPaper] = useState(initialForm.current.isCustomPaper)
+   155→  const [restoredPaperName, setRestoredPaperName] = useState<string | null>(null)
+   156→  const [results, setResults] = useState<CuttingResult | null>(() => {
+   157→    if (typeof window === 'undefined') return null
+   158→    try {
+   159→      const savedResults = localStorage.getItem(STORAGE_RESULTS_KEY())
+   160→      if (savedResults) return JSON.parse(savedResults)
+   161→    } catch {}
+   162→    return null
+   163→  })
+   164→  const [optimizationMode, setOptimizationMode] = useState<'fast' | 'maximal'>(initialForm.current.optimizationMode as 'fast' | 'maximal')
+   165→  const [isCalculating, setIsCalculating] = useState(false)
+   166→
+   167→  // Extra costs state
+   168→  const [extraCosts, setExtraCosts] = useState<{ id: string; name: string; amount: number }[]>([])
+   169→  const extraCostsIdRef = useRef(0)
+   170→  const waWindowRef = useRef<Window | null>(null)
+   171→
+   172→  // Flag to skip selectedPaper useEffect during restore
+   173→  const isRestoringRef = useRef(false)
+   174→
+   175→  // Riwayat states
+   176→  const [savingRiwayat, setSavingRiwayat] = useState(false)
+   177→  const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
+   178→  const [needsRecalc, setNeedsRecalc] = useState(false)
+   179→  const justCalculatedRef = useRef(false)
+   180→  const [riwayatList, setRiwayatList] = useState<any[]>([])
+   181→  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+   182→  const [nextPotongKertasNumber, setNextPotongKertasNumber] = useState('')
+   183→  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
+   184→
+   185→  // Preview state
+   186→  const [previewOpen, setPreviewOpen] = useState(false)
+   187→  const [previewRiwayatData, setPreviewRiwayatData] = useState<CuttingResult | null>(null)
+   188→  const [previewRiwayatInfo, setPreviewRiwayatInfo] = useState<{ customer: string; paper: string; jumlahPesanan: string; berapaMata: string; setelanKertas: string }>({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
+   189→  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+   190→  const previewRef = useRef<HTMLDivElement>(null)
+   191→
+   192→  // Auto-persist form data to localStorage
+   193→  const formData: FormData = {
+   194→    paperWidth, paperHeight, cutWidth, cutHeight,
+   195→    selectedCustomerId, selectedPaperId, grammage, pricePerSheet,
+   196→    quantity, jumlahPesanan, berapaMata, setelanKertas, printName, isCustomPaper, optimizationMode,
+   197→  }
+   198→
+   199→  useEffect(() => {
+   200→    localStorage.setItem(STORAGE_KEY(), JSON.stringify(formData))
+   201→  }, [formData])
+   202→
+   203→  // Mark needsRecalc when any form field changes
+   204→  // (defined as ref+state pair; the useEffect is placed after customerInput declaration)
+   205→  const restoreDoneRef = useRef(false)
+   206→
+   207→  const fetchPapersData = () => {
+   208→    authFetch('/api/papers')
+   209→      .then(res => { if (!res.ok) return []; return res.json() })
+   210→      .then(data => { if (Array.isArray(data)) setPapers(data); else setPapers([]) })
+   211→      .catch(() => setPapers([]))
+   212→  }
+   213→
+   214→  const fetchCustomersData = () => {
+   215→    authFetch('/api/customers')
+   216→      .then(res => { if (!res.ok) return []; return res.json() })
+   217→      .then(data => { if (Array.isArray(data)) setCustomers(data); else setCustomers([]) })
+   218→      .catch(() => setCustomers([]))
+   219→  }
+   220→
+   221→  const fetchNextNumber = () => {
+   222→    authFetch('/api/riwayat-potong-kertas?preview=next-number')
+   223→      .then(res => { if (!res.ok) return null; return res.json() })
+   224→      .then(data => { if (data?.nextNumber) setNextPotongKertasNumber(data.nextNumber) })
+   225→      .catch(() => {})
+   226→  }
+   227→
+   228→  useEffect(() => {
+   229→    fetchCustomersData()
+   230→    fetchPapersData()
+   231→    fetchRiwayat()
+   232→    fetchNextNumber()
+   233→  }, [])
+   234→
+   235→  useDataChange(['papers', 'customers', 'finishings', 'settings'], (entity) => {
+   236→    if (entity === 'papers') fetchPapersData()
+   237→    if (entity === 'customers') fetchCustomersData()
+   238→  })
+   239→
+   240→  // Restore dari riwayat URL params
+   241→  useEffect(() => {
+   242→    const restored = searchParams.get('restoredFromRiwayat')
+   243→    if (!restored) return
+   244→
+   245→    const printNameParam = searchParams.get('printName')
+   246→    const customerNameParam = searchParams.get('customerName')
+   247→    const paperNameParam = searchParams.get('paperName')
+   248→    const paperLengthParam = searchParams.get('paperLength')
+   249→    const paperWidthParam = searchParams.get('paperWidth')
+   250→    const cutWidthParam = searchParams.get('cutWidth')
+   251→    const cutHeightParam = searchParams.get('cutHeight')
+   252→    const quantityParam = searchParams.get('quantity')
+   253→
+   254→    if (printNameParam) setPrintName(printNameParam)
+   255→    if (paperLengthParam) setPaperWidth(paperLengthParam)
+   256→    if (paperWidthParam) setPaperHeight(paperWidthParam)
+   257→    if (cutWidthParam) setCutWidth(cutWidthParam)
+   258→    if (cutHeightParam) setCutHeight(cutHeightParam)
+   259→    if (quantityParam) setQuantity(quantityParam)
+   260→
+   261→    // Set custom paper mode since we're restoring specific dimensions
+   262→    if (paperLengthParam || paperWidthParam) {
+   263→      setSelectedPaperId('custom')
+   264→      setIsCustomPaper(true)
+   265→    }
+   266→
+   267→    // Matching customer by name
+   268→    if (customerNameParam) {
+   269→      const match = customers.find(c => c.name === customerNameParam)
+   270→      if (match) setSelectedCustomerId(match.id)
+   271→    }
+   272→
+   273→    toast.success('Data berhasil di-restore dari riwayat!')
+   274→    // Bersihkan URL params
+   275→    window.history.replaceState({}, '', '/potong-kertas')
+   276→  }, [searchParams, customers])
+   277→
+   278→  const selectedPaper = papers.find(p => p.id === selectedPaperId)
+   279→  const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
+   280→
+   281→  // Customer combobox state
+   282→  const [customerInput, setCustomerInput] = useState(() => {
+   283→    if (typeof window === 'undefined') return ''
+   284→    try {
+   285→      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY()) || '{}')
+   286→      const cid = saved.selectedCustomerId
+   287→      if (cid) {
+   288→        const c = customers.find(p => p.id === cid)
+   289→        return c?.name || ''
+   290→      }
+   291→    } catch {}
+   292→    return ''
+   293→  })
+   294→  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
+   295→  const [customerTyping, setCustomerTyping] = useState(false)
+   296→  const customerInputRef = useRef<HTMLInputElement>(null)
+   297→  const customerDropdownRef = useRef<HTMLDivElement>(null)
+   298→  const customerWrapperRef = useRef<HTMLDivElement>(null)
+   299→  const [isSavingCustomer, setIsSavingCustomer] = useState(false)
+   300→
+   301→  // Mark needsRecalc when any form field changes (after initial calculation or restore)
+   302→  useEffect(() => {
+   303→    if (justCalculatedRef.current) {
+   304→      justCalculatedRef.current = false
+   305→      return
+   306→    }
+   307→    if (results) {
+   308→      setNeedsRecalc(true)
+   309→    }
+   310→  }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, customerInput])
+   311→
+   312→  const filteredCustomersList = customerTyping
+   313→    ? customers.filter(c => c.name.toLowerCase().includes(customerInput.toLowerCase()))
+   314→    : customers
+   315→
+   316→  // Close dropdown on outside click
+   317→  useEffect(() => {
+   318→    const handleClick = (e: MouseEvent) => {
+   319→      if (customerWrapperRef.current && !customerWrapperRef.current.contains(e.target as Node)) {
+   320→        setCustomerDropdownOpen(false)
+   321→      }
+   322→    }
+   323→    document.addEventListener('mousedown', handleClick)
+   324→    return () => document.removeEventListener('mousedown', handleClick)
+   325→  }, [])
+   326→
+   327→  // Sync customerInput when customers load or restore
+   328→  useEffect(() => {
+   329→    if (selectedCustomerId) {
+   330→      const c = customers.find(cu => cu.id === selectedCustomerId)
+   331→      if (c) setCustomerInput(c.name)
+   332→    }
+   333→  }, [customers])
+   334→
+   335→  const handleCustomerSelect = (customer: any) => {
+   336→    setSelectedCustomerId(customer.id)
+   337→    setCustomerInput(customer.name)
+   338→    setCustomerTyping(false)
+   339→    setCustomerDropdownOpen(false)
+   340→  }
+   341→
+   342→  const handleCustomerInputChange = (value: string) => {
+   343→    setCustomerInput(value)
+   344→    setCustomerTyping(true)
+   345→    // If user clears input, deselect
+   346→    if (!value.trim()) {
+   347→      setSelectedCustomerId('')
+   348→    } else {
+   349→      // If matches an existing customer exactly, select it
+   350→      const exactMatch = customers.find(c => c.name.toLowerCase() === value.trim().toLowerCase())
+   351→      if (exactMatch) {
+   352→        setSelectedCustomerId(exactMatch.id)
+   353→      } else {
+   354→        setSelectedCustomerId('')
+   355→      }
+   356→    }
+   357→    setCustomerDropdownOpen(true)
+   358→  }
+   359→
+   360→  const handleCustomerInputFocus = () => {
+   361→    setCustomerTyping(false)
+   362→    setCustomerDropdownOpen(true)
+   363→  }
+   364→
+   365→  const handleCustomerInputBlur = () => {
+   366→    setTimeout(() => {
+   367→      setCustomerDropdownOpen(false)
+   368→      // Auto-save new customer if not empty and not matching existing
+   369→      const trimmed = customerInput.trim()
+   370→      if (!trimmed) return
+   371→      const match = customers.find(c => c.name.toLowerCase() === trimmed.toLowerCase())
+   372→      if (match) {
+   373→        setSelectedCustomerId(match.id)
+   374→        setCustomerInput(match.name)
+   375→        return
+   376→      }
+   377→      // No match - save new customer
+   378→      if (isSavingCustomer) return
+   379→      saveNewCustomer(trimmed)
+   380→    }, 200)
+   381→  }
+   382→
+   383→  const saveNewCustomer = async (name: string) => {
+   384→    setIsSavingCustomer(true)
+   385→    try {
+   386→      const res = await fetcher('/api/customers', {
+   387→        method: 'POST',
+   388→        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+   389→        body: JSON.stringify({ name: name.trim(), companyName: '', address: '', phone: '', email: '' })
+   390→      })
+   391→      if (res.ok) {
+   392→        const newCustomer = await res.json()
+   393→        setCustomers(prev => [newCustomer, ...prev])
+   394→        setSelectedCustomerId(newCustomer.id)
+   395→        setCustomerInput(newCustomer.name)
+   396→        toast.success(`Customer "${name}" berhasil ditambahkan!`)
+   397→        notifyDataChange('customers')
+   398→      } else {
+   399→        const errData = await res.json().catch(() => null)
+   400→        console.error('Save customer error:', res.status, errData)
+   401→        toast.error(errData?.error || `Gagal menambahkan customer baru (${res.status})`)
+   402→      }
+   403→    } catch (err) {
+   404→      console.error('Save customer exception:', err)
+   405→      toast.error('Gagal menambahkan customer baru')
+   406→    }
+   407→    setIsSavingCustomer(false)
+   408→  }
+   409→
+   410→  const handleAddNewCustomerClick = (e: React.MouseEvent) => {
+   411→    e.preventDefault()
+   412→    const trimmed = customerInput.trim()
+   413→    if (!trimmed) return
+   414→    const match = customers.find(c => c.name.toLowerCase() === trimmed.toLowerCase())
+   415→    if (match) {
+   416→      setSelectedCustomerId(match.id)
+   417→      setCustomerInput(match.name)
+   418→      setCustomerDropdownOpen(false)
+   419→      return
+   420→    }
+   421→    setCustomerDropdownOpen(false)
+   422→    saveNewCustomer(trimmed)
+   423→  }
+   424→
+   425→  useEffect(() => {
+   426→    if (selectedPaper && !isRestoringRef.current) {
+   427→      requestAnimationFrame(() => {
+   428→        setGrammage(selectedPaper.grammage.toString())
+   429→        setPricePerSheet(Math.round(selectedPaper.pricePerRim / 500).toString())
+   430→        setPaperWidth(selectedPaper.width.toString())
+   431→        setPaperHeight(selectedPaper.height.toString())
+   432→        setIsCustomPaper(false)
+   433→      })
+   434→    }
+   435→  }, [selectedPaper])
+   436→
+   437→  const handlePaperChange = (value: string) => {
+   438→    setRestoredPaperName(null)
+   439→    if (value === 'custom') {
+   440→      setSelectedPaperId('custom')
+   441→      setIsCustomPaper(true)
+   442→      setPaperWidth('')
+   443→      setPaperHeight('')
+   444→      setGrammage('')
+   445→      setPricePerSheet('')
+   446→    } else {
+   447→      setSelectedPaperId(value)
+   448→      setIsCustomPaper(false)
+   449→    }
+   450→  }
+   451→
+   452→  const handleCalculateCuts = async () => {
+   453→    setNeedsRecalc(false)
+   454→    justCalculatedRef.current = true
+   455→    setIsCalculating(true)
+   456→    await new Promise(resolve => setTimeout(resolve, 50))
+   457→
+   458→    const pw = parseFloat(paperWidth)
+   459→    const ph = parseFloat(paperHeight)
+   460→    const cw = parseFloat(cutWidth)
+   461→    const ch = parseFloat(cutHeight)
+   462→    const qty = parseInt(computedQuantity || quantity) || 0
+   463→    const setelan = parseInt(setelanKertas) || 0
+   464→    const price = parseFloat(pricePerSheet) || 0
+   465→    const totalQty = qty + setelan
+   466→
+   467→    if (!pw || !ph || !cw || !ch) {
+   468→      toast.error('Mohon lengkapi semua ukuran!')
+   469→      setIsCalculating(false)
+   470→      return
+   471→    }
+   472→    if (cw > pw || ch > ph) {
+   473→      toast.error('Ukuran potongan lebih besar dari ukuran kertas!')
+   474→      setIsCalculating(false)
+   475→      return
+   476→    }
+   477→
+   478→    const { calculateCuts } = await import('@/lib/cutting-engine')
+   479→    const result = calculateCuts({
+   480→      paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+   481→      quantity: totalQty, pricePerSheet: price, optimizationMode,
+   482→      customerName: selectedCustomer?.name || '',
+   483→      paperMaterial: selectedPaper?.name || restoredPaperName || '',
+   484→      grammage: selectedPaper?.grammage || 0,
+   485→    })
+   486→
+   487→    setResults(result)
+   488→    localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(result))
+   489→    setIsCalculating(false)
+   490→    toast.success('Perhitungan selesai!')
+   491→  }
+   492→
+   493→  const handleReset = () => {
+   494→    if (!confirm('Reset semua data yang sudah diisi?')) return
+   495→    setPaperWidth('')
+   496→    setPaperHeight('')
+   497→    setCutWidth('')
+   498→    setCutHeight('')
+   499→    setSelectedCustomerId('')
+   500→    setSelectedPaperId('')
+   501→    setGrammage('')
+   502→    setPricePerSheet('')
+   503→    setQuantity('')
+   504→    setJumlahPesanan('')
+   505→    setBerapaMata('')
+   506→    setSetelanKertas('')
+   507→    setPrintName('')
+   508→    setIsCustomPaper(false)
+   509→    setRestoredPaperName(null)
+   510→    setResults(null)
+   511→    setOptimizationMode('maximal')
+   512→    setCustomerInput('')
+   513→    setRestoredRiwayatId(null)
+   514→    setNeedsRecalc(false)
+   515→    restoreDoneRef.current = false
+   516→    localStorage.removeItem(STORAGE_KEY())
+   517→    localStorage.removeItem(STORAGE_RESULTS_KEY())
+   518→    toast.success('Data berhasil direset')
+   519→  }
+   520→
+   521→  // === Riwayat functions ===
+   522→  const fetchRiwayat = async () => {
+   523→    try {
+   524→      const res = await fetcher('/api/riwayat-potong-kertas', { headers: getAuthHeaders() })
+   525→      if (res.ok) {
+   526→        const data = await res.json()
+   527→        setRiwayatList(Array.isArray(data) ? data : [])
+   528→      }
+   529→    } catch {}
+   530→  }
+   531→
+   532→  const handleBackupRiwayat = async () => {
+   533→    setBackupLoading('backup')
+   534→    try {
+   535→      const res = await authFetch(`/api/database/backup-master?table=riwayat_potong_kertas`)
+   536→      if (!res.ok) {
+   537→        let errMsg = 'Gagal backup data riwayat potong kertas'
+   538→        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+   539→        toast.error(errMsg)
+   540→        return
+   541→      }
+   542→      const blob = await res.blob()
+   543→      if (blob.size === 0) {
+   544→        toast.error('Backup kosong — tidak ada data')
+   545→        return
+   546→      }
+   547→      const url = URL.createObjectURL(blob)
+   548→      const a = document.createElement('a')
+   549→      a.href = url
+   550→      const disposition = res.headers.get('Content-Disposition')
+   551→      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+   552→      a.download = match ? match[1] : `backup-riwayat-potong-kertas-${Date.now()}.xlsx`
+   553→      document.body.appendChild(a)
+   554→      a.click()
+   555→      document.body.removeChild(a)
+   556→      URL.revokeObjectURL(url)
+   557→      toast.success('Backup berhasil diunduh')
+   558→    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data riwayat potong kertas') }
+   559→    setBackupLoading(null)
+   560→  }
+   561→
+   562→  const handleRestoreRiwayat = async () => {
+   563→    const input = document.createElement('input')
+   564→    input.type = 'file'
+   565→    input.accept = '.xlsx'
+   566→    input.onchange = async (e) => {
+   567→      const file = (e.target as HTMLInputElement).files?.[0]
+   568→      if (!file) return
+   569→      if (!confirm('Data riwayat potong kertas yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+   570→      setBackupLoading('restore')
+   571→      try {
+   572→        const fd = new FormData()
+   573→        fd.append('file', file)
+   574→        fd.append('table', 'riwayat_potong_kertas')
+   575→        const res = await authFetch('/api/database/restore-master', {
+   576→          method: 'POST',
+   577→          body: fd,
+   578→        })
+   579→        const data = await res.json()
+   580→        if (res.ok && data.success) {
+   581→          toast.success(`Restore berhasil (${data.count} data)`)
+   582→          fetchRiwayat()
+   583→          notifyDataChange('riwayat-potong-kertas')
+   584→        } else {
+   585→          toast.error(data.error || 'Gagal restore data riwayat potong kertas')
+   586→        }
+   587→      } catch { toast.error('File backup tidak valid') }
+   588→      setBackupLoading(null)
+   589→    }
+   590→    input.click()
+   591→  }
+   592→
+   593→  const buildPayload = () => ({
+   594→    namaCustomer: selectedCustomer?.name || '-',
+   595→    resultData: results ? JSON.stringify(results) : '',
+   596→    namaCetakan: printName || '-',
+   597→    paperName: selectedPaper?.name || restoredPaperName || 'Custom',
+   598→    paperId: selectedPaper?.id || '',
+   599→    grammage: grammage || '0',
+   600→    paperWidth: paperWidth || '0',
+   601→    paperHeight: paperHeight || '0',
+   602→    cutWidth: cutWidth || '0',
+   603→    cutHeight: cutHeight || '0',
+   604→    quantity: quantity || '0',
+   605→    setelanKertas: setelanKertas || '0',
+   606→    sheetsNeeded: results?.sheetsNeeded?.toString() || '0',
+   607→    totalPrice: results?.totalPrice || 0,
+   608→    pricePerSheet: parseFloat(pricePerSheet) || 0,
+   609→    efficiency: results?.efficiency || 0,
+   610→    strategy: results?.strategy || '',
+   611→    jumlahPesanan: jumlahPesanan || '',
+   612→    berapaMata: berapaMata || '',
+   613→  })
+   614→
+   615→  const resetFormForRiwayat = () => {
+   616→    setRestoredRiwayatId(null)
+   617→    setNeedsRecalc(false)
+   618→    restoreDoneRef.current = false
+   619→    setPaperWidth('')
+   620→    setPaperHeight('')
+   621→    setCutWidth('')
+   622→    setCutHeight('')
+   623→    setSelectedCustomerId('')
+   624→    setSelectedPaperId('')
+   625→    setGrammage('')
+   626→    setPricePerSheet('')
+   627→    setQuantity('')
+   628→    setJumlahPesanan('')
+   629→    setBerapaMata('')
+   630→    setSetelanKertas('')
+   631→    setPrintName('')
+   632→    setIsCustomPaper(false)
+   633→    setRestoredPaperName(null)
+   634→    setResults(null)
+   635→    setOptimizationMode('maximal')
+   636→    setCustomerInput('')
+   637→    setExtraCosts([])
+   638→    localStorage.removeItem(STORAGE_KEY())
+   639→    localStorage.removeItem(STORAGE_RESULTS_KEY())
+   640→  }
+   641→
+   642→  const isDataSameAsAnyRiwayat = () => {
+   643→    if (riwayatList.length === 0) return false
+   644→    return riwayatList.some(r =>
+   645→      (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
+   646→      (r.namaCetakan || '-') === (printName || '-') &&
+   647→      (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
+   648→      r.paperWidth === (paperWidth || '0') &&
+   649→      r.paperHeight === (paperHeight || '0') &&
+   650→      r.cutWidth === (cutWidth || '0') &&
+   651→      r.cutHeight === (cutHeight || '0') &&
+   652→      r.quantity === (quantity || '0') &&
+   653→      r.totalPrice === (results?.totalPrice || 0) &&
+   654→      (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
+   655→      (r.berapaMata || '') === (berapaMata || '')
+   656→    )
+   657→  }
+   658→
+   659→  const handleSaveRiwayat = async () => {
+   660→    if (!results) {
+   661→      toast.error('Hitung potongan terlebih dahulu!')
+   662→      return
+   663→    }
+   664→    if (isDataSameAsAnyRiwayat()) {
+   665→      toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' })
+   666→      return
+   667→    }
+   668→    setSavingRiwayat(true)
+   669→    try {
+   670→      const res = await fetcher('/api/riwayat-potong-kertas', {
+   671→        method: 'POST',
+   672→        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+   673→        body: JSON.stringify(buildPayload())
+   674→      })
+   675→      if (res.ok) {
+   676→        toast.success('Riwayat berhasil disimpan!')
+   677→        notifyDataChange('riwayat-potong-kertas')
+   678→        fetchRiwayat()
+   679→        fetchNextNumber()
+   680→        resetFormForRiwayat()
+   681→      } else {
+   682→        const errData = await res.json().catch(() => null)
+   683→        console.error('Save riwayat error:', res.status, errData)
+   684→        toast.error(errData?.error || `Gagal menyimpan riwayat (${res.status})`)
+   685→      }
+   686→    } catch (err) {
+   687→      console.error('Save riwayat exception:', err)
+   688→      toast.error('Gagal menyimpan riwayat')
+   689→    }
+   690→    setSavingRiwayat(false)
+   691→  }
+   692→
+   693→  const handlePO = async () => {
+   694→    if (!results) {
+   695→      toast.error('Hitung potongan terlebih dahulu!')
+   696→      return
+   697→    }
+   698→    if (isDataSameAsAnyRiwayat()) {
+   699→      // Cari riwayat yang sama untuk mendapatkan ID-nya
+   700→      const existing = riwayatList.find(r =>
+   701→        (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
+   702→        (r.namaCetakan || '-') === (printName || '-') &&
+   703→        (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
+   704→        r.paperWidth === (paperWidth || '0') &&
+   705→        r.paperHeight === (paperHeight || '0') &&
+   706→        r.cutWidth === (cutWidth || '0') &&
+   707→        r.cutHeight === (cutHeight || '0') &&
+   708→        r.quantity === (quantity || '0') &&
+   709→        r.totalPrice === (results?.totalPrice || 0) &&
+   710→        (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
+   711→        (r.berapaMata || '') === (berapaMata || '')
+   712→      )
+   713→      if (existing) {
+   714→        toast('Data sudah ada di riwayat, langsung ke Purchase Order.', { description: 'Data yang sama tidak disimpan ulang.' })
+   715→        router.push(`/purchase-order?riwayatId=${existing.id}`)
+   716→      } else {
+   717→        // isDataSameAsAnyRiwayat returned true but find didn't match — save a new riwayat
+   718→        setSavingRiwayat(true)
+   719→        try {
+   720→          const res = await fetcher('/api/riwayat-potong-kertas', {
+   721→            method: 'POST',
+   722→            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+   723→            body: JSON.stringify(buildPayload())
+   724→          })
+   725→          if (res.ok) {
+   726→            const saved = await res.json()
+   727→            notifyDataChange('riwayat-potong-kertas')
+   728→            fetchRiwayat()
+   729→            router.push(`/purchase-order?riwayatId=${saved.id}`)
+   730→          } else {
+   731→            toast.error('Gagal menyimpan data riwayat')
+   732→          }
+   733→        } catch {
+   734→          toast.error('Gagal menyimpan data riwayat')
+   735→        }
+   736→        setSavingRiwayat(false)
+   737→      }
+   738→      return
+   739→    }
+   740→    setSavingRiwayat(true)
+   741→    try {
+   742→      // Simpan ke riwayat potong kertas dulu
+   743→      const res = await fetcher('/api/riwayat-potong-kertas', {
+   744→        method: 'POST',
+   745→        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+   746→        body: JSON.stringify(buildPayload())
+   747→      })
+   748→      if (res.ok) {
+   749→        const saved = await res.json()
+   750→        notifyDataChange('riwayat-potong-kertas')
+   751→        fetchRiwayat()
+   752→        // Navigasi ke halaman PO dengan riwayatId
+   753→        router.push(`/purchase-order?riwayatId=${saved.id}`)
+   754→      } else {
+   755→        toast.error('Gagal menyimpan data riwayat')
+   756→      }
+   757→    } catch {
+   758→      toast.error('Gagal menyimpan data riwayat')
+   759→    }
+   760→    setSavingRiwayat(false)
+   761→  }
+   762→
+   763→  const handleUpdateRiwayat = async () => {
+   764→    if (!restoredRiwayatId) {
+   765→      toast.error('Tidak ada data yang di-restore')
+   766→      return
+   767→    }
+   768→    if (!results) {
+   769→      toast.error('Hitung potongan terlebih dahulu!')
+   770→      return
+   771→    }
+   772→    setSavingRiwayat(true)
+   773→    try {
+   774→      const res = await fetcher(`/api/riwayat-potong-kertas/${restoredRiwayatId}`, {
+   775→        method: 'PUT',
+   776→        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+   777→        body: JSON.stringify(buildPayload())
+   778→      })
+   779→      if (res.ok) {
+   780→        toast.success('Riwayat berhasil diupdate!')
+   781→        notifyDataChange('riwayat-potong-kertas')
+   782→        fetchRiwayat()
+   783→        resetFormForRiwayat()
+   784→      } else {
+   785→        toast.error('Gagal mengupdate riwayat')
+   786→      }
+   787→    } catch {
+   788→      toast.error('Gagal mengupdate riwayat')
+   789→    }
+   790→    setSavingRiwayat(false)
+   791→  }
+   792→
+   793→  const handlePreviewRiwayat = async (r: any) => {
+   794→    let resultData: CuttingResult | null = null
+   795→
+   796→    // Try resultData from riwayat first
+   797→    if (r.resultData) {
+   798→      try {
+   799→        resultData = JSON.parse(r.resultData)
+   800→      } catch {}
+   801→    }
+   802→
+   803→    // If no resultData, calculate from riwayat values
+   804→    if (!resultData) {
+   805→      const pw = parseFloat(r.paperWidth)
+   806→      const ph = parseFloat(r.paperHeight)
+   807→      const cw = parseFloat(r.cutWidth)
+   808→      const ch = parseFloat(r.cutHeight)
+   809→      const qty = parseInt(r.quantity) || 0
+   810→      const setelan = parseInt(r.setelanKertas) || 0
+   811→      const price = parseFloat(r.pricePerSheet) || 0
+   812→
+   813→      if (pw && ph && cw && ch) {
+   814→        try {
+   815→          const { calculateCuts } = await import('@/lib/cutting-engine')
+   816→          resultData = calculateCuts({
+   817→            paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+   818→            quantity: qty + setelan, pricePerSheet: price, optimizationMode,
+   819→            customerName: r.namaCustomer || '',
+   820→            paperMaterial: r.paperName || '',
+   821→            grammage: parseFloat(r.grammage) || 0,
+   822→          })
+   823→        } catch {}
+   824→      }
+   825→    }
+   826→
+   827→    if (resultData) {
+   828→      setPreviewRiwayatData(resultData)
+   829→      setPreviewRiwayatInfo({
+   830→        customer: (r.namaCustomer && r.namaCustomer !== '-') ? r.namaCustomer : '-',
+   831→        paper: r.paperName || 'Custom',
+   832→        jumlahPesanan: r.jumlahPesanan || '',
+   833→        berapaMata: r.berapaMata || '',
+   834→        setelanKertas: r.setelanKertas || '',
+   835→      })
+   836→      setPreviewOpen(true)
+   837→    } else {
+   838→      toast.error('Data tidak cukup untuk preview')
+   839→    }
+   840→  }
+   841→
+   842→  const handleRestore = async (r: any) => {
+   843→    // Set flag to prevent selectedPaper useEffect from overriding restored values
+   844→    isRestoringRef.current = true
+   845→    setRestoredRiwayatId(r.id)
+   846→    setPrintName(r.namaCetakan || '')
+   847→    setGrammage(r.grammage || '')
+   848→    setPaperWidth(r.paperWidth || '')
+   849→    setPaperHeight(r.paperHeight || '')
+   850→    setCutWidth(r.cutWidth || '')
+   851→    setCutHeight(r.cutHeight || '')
+   852→    setQuantity(r.quantity || '')
+   853→    setSetelanKertas(r.setelanKertas || '')
+   854→    setPricePerSheet(r.pricePerSheet?.toString() || '')
+   855→    setJumlahPesanan(r.jumlahPesanan || '')
+   856→    setBerapaMata(r.berapaMata || '')
+   857→
+   858→    // Set paper selection
+   859→    let restoredPaper = null
+   860→    if (r.paperId && papers.find(p => p.id === r.paperId)) {
+   861→      setSelectedPaperId(r.paperId)
+   862→      setIsCustomPaper(false)
+   863→      restoredPaper = papers.find(p => p.id === r.paperId)
+   864→      setRestoredPaperName(null)
+   865→    } else {
+   866→      setSelectedPaperId('custom')
+   867→      setIsCustomPaper(true)
+   868→      setRestoredPaperName(r.paperName || null)
+   869→    }
+   870→
+   871→    // Match customer by name
+   872→    let restoredCustomer = null
+   873→    if (r.namaCustomer && r.namaCustomer !== '-') {
+   874→      const match = customers.find(c => c.name === r.namaCustomer)
+   875→      if (match) {
+   876→        setSelectedCustomerId(match.id)
+   877→        setCustomerInput(match.name)
+   878→        restoredCustomer = match
+   879→      } else {
+   880→        setSelectedCustomerId('')
+   881→        setCustomerInput(r.namaCustomer)
+   882→      }
+   883→    } else {
+   884→      setSelectedCustomerId('')
+   885→      setCustomerInput('')
+   886→    }
+   887→
+   888→    // Auto-calculate cuts with restored values
+   889→    const pw = parseFloat(r.paperWidth)
+   890→    const ph = parseFloat(r.paperHeight)
+   891→    const cw = parseFloat(r.cutWidth)
+   892→    const ch = parseFloat(r.cutHeight)
+   893→    const qty = parseInt(r.quantity) || 0
+   894→    const setelan = parseInt(r.setelanKertas) || 0
+   895→    const price = parseFloat(r.pricePerSheet) || 0
+   896→    const totalQty = qty + setelan
+   897→
+   898→    if (pw && ph && cw && ch && cw <= pw && ch <= ph) {
+   899→      try {
+   900→        const { calculateCuts } = await import('@/lib/cutting-engine')
+   901→        const result = calculateCuts({
+   902→          paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+   903→          quantity: totalQty, pricePerSheet: price, optimizationMode,
+   904→          customerName: restoredCustomer?.name || '',
+   905→          paperMaterial: restoredPaper?.name || '',
+   906→          grammage: parseFloat(r.grammage) || 0,
+   907→        })
+   908→        setResults(result)
+   909→        localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(result))
+   910→      } catch {
+   911→        setResults(null)
+   912→      }
+   913→    } else if (r.resultData) {
+   914→      // Fallback: if can't calculate, use saved resultData
+   915→      try {
+   916→        const parsedResults = JSON.parse(r.resultData)
+   917→        setResults(parsedResults)
+   918→        localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(parsedResults))
+   919→      } catch {
+   920→        setResults(null)
+   921→      }
+   922→    } else {
+   923→      setResults(null)
+   924→    }
+   925→
+   926→    // Reset flag after a frame to allow normal useEffect behavior again
+   927→    requestAnimationFrame(() => {
+   928→      requestAnimationFrame(() => {
+   929→        isRestoringRef.current = false
+   930→        restoreDoneRef.current = true
+   931→      })
+   932→    })
+   933→
+   934→    setActiveTab('editor')
+   935→    toast.success('Data berhasil di-restore dari riwayat!')
+   936→    window.scrollTo({ top: 0, behavior: 'smooth' })
+   937→  }
+   938→
+   939→  const handleDeleteRiwayat = async (id: string) => {
+   940→    if (!confirm('Beneran mau dihapus nih?')) return
+   941→    try {
+   942→      const res = await fetcher(`/api/riwayat-potong-kertas/${id}`, {
+   943→        method: 'DELETE',
+   944→        headers: getAuthHeaders()
+   945→      })
+   946→      if (res.ok) {
+   947→        toast.success('Riwayat berhasil dihapus')
+   948→        notifyDataChange('riwayat-potong-kertas')
+   949→        if (restoredRiwayatId === id) setRestoredRiwayatId(null)
+   950→        fetchRiwayat()
+   951→      } else {
+   952→        toast.error('Gagal menghapus riwayat')
+   953→      }
+   954→    } catch {
+   955→      toast.error('Gagal menghapus riwayat')
+   956→    }
+   957→  }
+   958→
+   959→  // Build SVG diagram HTML for print/PDF/WhatsApp
+   960→  const buildDiagramHtml = useCallback((overrideResult?: CuttingResult) => {
+   961→    const r = overrideResult || results
+   962→    if (!r) return ''
+   963→    const scale = 5.94
+   964→    const pw = r.paperWidth
+   965→    const ph = r.paperHeight
+   966→    const svgW = pw * scale
+   967→    const svgH = ph * scale
+   968→
+   969→    const gradients = [
+   970→      { id: 'pg1', c1: '#dbeafe', c2: '#bfdbfe' },
+   971→      { id: 'pg2', c1: '#d1fae5', c2: '#a7f3d0' },
+   972→      { id: 'pg3', c1: '#fef3c7', c2: '#fde68a' },
+   973→      { id: 'pg4', c1: '#fecaca', c2: '#fca5a5' },
+   974→      { id: 'pg5', c1: '#e9d5ff', c2: '#d8b4fe' },
+   975→    ]
+   976→    const strokeColors = ['#93c5fd', '#6ee7b7', '#fcd34d', '#fca5a5', '#c4b5fd']
+   977→
+   978→    let defsInner = gradients.map(g =>
+   979→      `<linearGradient id="${g.id}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${g.c1}"/><stop offset="100%" stop-color="${g.c2}"/></linearGradient>`
+   980→    ).join('')
+   981→
+   982→    let wasteRects = ''
+   983→    r.blocks.forEach((block: any, bi: number) => {
+   984→      if (block.wasteWidth > 0.01) {
+   985→        wasteRects += `<rect x="${(block.x + block.usedWidth) * scale}" y="${block.y * scale}" width="${block.wasteWidth * scale}" height="${block.usedHeight * scale}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" rx="1"/>`
+   986→        if (block.wasteHeight > 0.01) {
+   987→          wasteRects += `<rect x="${(block.x + block.usedWidth) * scale}" y="${(block.y + block.usedHeight) * scale}" width="${block.wasteWidth * scale}" height="${block.wasteHeight * scale}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" rx="1"/>`
+   988→        }
+   989→      }
+   990→      if (block.wasteHeight > 0.01) {
+   991→        wasteRects += `<rect x="${block.x * scale}" y="${(block.y + block.usedHeight) * scale}" width="${block.usedWidth * scale}" height="${block.wasteHeight * scale}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" rx="1"/>`
+   992→      }
+   993→    })
+   994→
+   995→    let cutLines = ''
+   996→    if (r.blocks.length > 1 && r.cutPosition !== undefined) {
+   997→      cutLines += `<line x1="${r.cutPosition * scale}" y1="0" x2="${r.cutPosition * scale}" y2="${svgH}" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.8"/>`
+   998→    }
+   999→    if (r.blocks.length > 1 && r.cutPositionY !== undefined) {
+  1000→      cutLines += `<line x1="0" y1="${r.cutPositionY * scale}" x2="${svgW}" y2="${r.cutPositionY * scale}" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.8"/>`
+  1001→    }
+  1002→
+  1003→    let pieceGroups = ''
+  1004→    r.blocks.forEach((block: any, bi: number) => {
+  1005→      const bx = block.x * scale
+  1006→      const by = block.y * scale
+  1007→      const pieceW = block.pieceWidth * scale
+  1008→      const pieceH = block.pieceHeight * scale
+  1009→      const gId = gradients[bi % gradients.length].id
+  1010→      const sCol = strokeColors[bi % strokeColors.length]
+  1011→      let num = 1
+  1012→      for (let i = 0; i < block.horizontal; i++) {
+  1013→        for (let j = 0; j < block.vertical; j++) {
+  1014→          const cx = bx + i * pieceW + pieceW / 2
+  1015→          const cy = by + j * pieceH + pieceH / 2
+  1016→          const cr = Math.max(4, Math.min(pieceW, pieceH) / 4)
+  1017→          pieceGroups += `<g><rect x="${bx + i * pieceW + 1}" y="${by + j * pieceH + 1}" width="${pieceW - 3}" height="${pieceH - 3}" fill="url(#${gId})" stroke="${sCol}" stroke-width="1.5"/><circle cx="${cx}" cy="${cy}" r="${cr}" fill="white" opacity="0.9"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="500" fill="#64748b">${num++}</text></g>`
+  1018→        }
+  1019→      }
+  1020→    })
+  1021→
+  1022→    return `<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet" style="display:block;max-width:100%;max-height:130mm;border:1px solid #cbd5e1;border-radius:2px;background:linear-gradient(to bottom right,#fff,#f8fafc);"><defs>${defsInner}</defs><rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#f1f5f9" opacity="0.3"/><rect x="0" y="0" width="${svgW}" height="${svgH}" fill="none" stroke="#94a3b8" stroke-width="4" rx="2"/>${cutLines}${wasteRects}${pieceGroups}</svg>`
+  1023→  }, [results])
+  1024→
+  1025→  // Build the full print/PDF body HTML
+  1026→  const buildFullPrintHtml = useCallback((overrideResult?: CuttingResult, overrideCustomer?: string, overridePaper?: string, overrideJumlahPesanan?: string, overrideBerapaMata?: string, overrideSetelanKertas?: string) => {
+  1027→    const r = overrideResult || results
+  1028→    if (!r) return ''
+  1029→    const svgDiagram = buildDiagramHtml(r)
+  1030→
+  1031→    const stepsHtml = r.steps.map((step: string, idx: number) =>
+  1032→      `<div style="display:flex;align-items:flex-start;gap:5px;padding:3px 0;">
+  1033→        <div style="flex-shrink:0;width:17px;height:17px;background:#2563eb;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${idx + 1}</div>
+  1034→        <span style="font-size:10px;color:#475569;padding-top:1px;line-height:1.4;">${step}</span>
+  1035→      </div>`
+  1036→    ).join('')
+  1037→
+  1038→    const blockColors = [
+  1039→      { bg: '#eff6ff', border: '#bfdbfe', badgeBg: '#dbeafe', badgeText: '#1d4ed8', name: '#1e40af', detail: '#2563eb' },
+  1040→      { bg: '#ecfdf5', border: '#a7f3d0', badgeBg: '#d1fae5', badgeText: '#047857', name: '#065f46', detail: '#059669' },
+  1041→      { bg: '#fffbeb', border: '#fde68a', badgeBg: '#fef3c7', badgeText: '#b45309', name: '#92400e', detail: '#d97706' },
+  1042→      { bg: '#fff1f2', border: '#fca5a5', badgeBg: '#fecaca', badgeText: '#b91c1c', name: '#991b1b', detail: '#dc2626' },
+  1043→      { bg: '#faf5ff', border: '#d8b4fe', badgeBg: '#e9d5ff', badgeText: '#7e22ce', name: '#6b21a8', detail: '#9333ea' },
+  1044→    ]
+  1045→
+  1046→    const blocksHtml = r.blocks.map((block: any, idx: number) => {
+  1047→      const c = blockColors[idx % 5]
+  1048→      return `<div style="border:1px solid ${c.border};background:${c.bg};border-radius:5px;padding:4px 6px;margin-bottom:3px;">
+  1049→        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px;">
+  1050→          <span style="font-size:10px;font-weight:700;color:${c.name};">${block.name}</span>
+  1051→          <span style="padding:1px 6px;background:${c.badgeBg};color:${c.badgeText};border-radius:10px;font-size:8px;font-weight:600;">${block.pieces} pcs</span>
+  1052→        </div>
+  1053→        <div style="display:flex;gap:10px;font-size:9px;color:${c.detail};">
+  1054→          <span>Ukuran: <b>${block.width.toFixed(1)}×${block.height.toFixed(1)}</b></span>
+  1055→          <span>Layout: <b>${block.horizontal}×${block.vertical}${block.rotated ? ' (90°)' : ''}</b></span>
+  1056→        </div>
+  1057→      </div>`
+  1058→    }).join('')
+  1059→
+  1060→    const infoDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+  1061→    const customerLabel = overrideCustomer || selectedCustomer?.name || printName || '-'
+  1062→    const paperLabel = overridePaper || selectedPaper?.name || restoredPaperName || 'Custom'
+  1063→    const jpLabel = overrideJumlahPesanan || jumlahPesanan || '-'
+  1064→    const bmLabel = overrideBerapaMata || berapaMata || '-'
+  1065→    const skLabel = overrideSetelanKertas || setelanKertas || '0'
+  1066→
+  1067→    return `<!DOCTYPE html>
+  1068→<html><head><meta charset="utf-8"><title>Potong Kertas</title>
+  1069→<style>
+  1070→  *{margin:0;padding:0;box-sizing:border-box;}
+  1071→  @page{size:A4;margin:5mm;}
+  1072→  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#1e293b;width:210mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  1073→  .page{width:100%;padding:2mm 3mm;}
+  1074→  @media print{body{width:210mm;}.page{padding:0;}}
+  1075→</style>
+  1076→</head><body>
+  1077→<div class="page">
+  1078→
+  1079→  <!-- HEADER -->
+  1080→  <div style="text-align:center;margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px solid #e2e8f0;">
+  1081→    <div style="font-size:14pt;font-weight:700;color:#0f172a;">Potong Kertas</div>
+  1082→    <div style="font-size:9pt;color:#64748b;margin-top:1mm;">${customerLabel} · ${paperLabel} · ${infoDate}</div>
+  1083→  </div>
+  1084→
+  1085→  <!-- INFO GRID -->
+  1086→  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm;margin-bottom:3mm;">
+  1087→    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:4px;padding:2.5mm 3mm;">
+  1088→      <div style="font-size:7.5pt;color:#0284c7;font-weight:500;">Jumlah Pesanan</div>
+  1089→      <div style="font-size:13pt;font-weight:700;color:#0369a1;">${jpLabel}</div>
+  1090→    </div>
+  1091→    <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:4px;padding:2.5mm 3mm;">
+  1092→      <div style="font-size:7.5pt;color:#7c3aed;font-weight:500;">Cetak Berapa Mata</div>
+  1093→      <div style="font-size:13pt;font-weight:700;color:#6d28d9;">${bmLabel}</div>
+  1094→    </div>
+  1095→    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:2.5mm 3mm;">
+  1096→      <div style="font-size:7.5pt;color:#2563eb;font-weight:500;">Jumlah Cetakan</div>
+  1097→      <div style="font-size:13pt;font-weight:700;color:#1d4ed8;">${r.quantity} <span style="font-size:8pt;font-weight:400;">lembar</span></div>
+  1098→    </div>
+  1099→    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:2.5mm 3mm;">
+  1100→      <div style="font-size:7.5pt;color:#d97706;font-weight:500;">Insit Kertas</div>
+  1101→      <div style="font-size:13pt;font-weight:700;color:#b45309;">${skLabel}</div>
+  1102→    </div>
+  1103→    <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:4px;padding:2.5mm 3mm;">
+  1104→      <div style="font-size:7.5pt;color:#7e22ce;font-weight:500;">Potongan / Lembar</div>
+  1105→      <div style="font-size:13pt;font-weight:700;color:#6d28d9;">${r.totalPieces} <span style="font-size:8pt;font-weight:400;">lembar</span></div>
+  1106→    </div>
+  1107→    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:4px;padding:2.5mm 3mm;">
+  1108→      <div style="font-size:7.5pt;color:#059669;font-weight:500;">Lembar Kertas</div>
+  1109→      <div style="font-size:13pt;font-weight:700;color:#047857;">${r.sheetsNeeded} <span style="font-size:8pt;font-weight:400;">lembar</span></div>
+  1110→    </div>
+  1111→    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;padding:2.5mm 3mm;">
+  1112→      <div style="font-size:7.5pt;color:#ea580c;font-weight:500;">Total Harga Kertas</div>
+  1113→      <div style="font-size:12pt;font-weight:700;color:#c2410c;">Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}</div>
+  1114→    </div>
+  1115→    <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:4px;padding:2.5mm 3mm;">
+  1116→      <div style="font-size:7.5pt;color:#e11d48;font-weight:500;">Harga / Lembar</div>
+  1117→      <div style="font-size:13pt;font-weight:700;color:#be123c;">Rp ${Math.round(r.pricePerSheet || 0).toLocaleString('id-ID')}</div>
+  1118→    </div>
+  1119→    <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:4px;padding:2.5mm 3mm;">
+  1120→      <div style="font-size:7.5pt;color:#0d9488;font-weight:500;">Efisiensi Bahan</div>
+  1121→      <div style="font-size:13pt;font-weight:700;color:#0f766e;">${Math.round(r.efficiency * 10) / 10}%</div>
+  1122→    </div>
+  1123→  </div>
+  1124→
+  1125→  <!-- STRATEGY -->
+  1126→  <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;padding:2mm 3mm;margin-bottom:3mm;text-align:center;">
+  1127→    <span style="font-size:7.5pt;font-weight:700;color:#3730a3;">Strategi Optimasi: </span>
+  1128→    <span style="font-size:10pt;font-weight:700;color:#4338ca;">${r.strategy}</span>
+  1129→  </div>
+  1130→
+  1131→  <!-- DIAGRAM -->
+  1132→  <div style="text-align:center;margin-bottom:3mm;">
+  1133→    ${svgDiagram}
+  1134→  </div>
+  1135→
+  1136→  <!-- STEPS + BLOCKS side by side -->
+  1137→  <div style="display:flex;gap:4mm;align-items:flex-start;">
+  1138→    <div style="flex:1;min-width:0;">
+  1139→      <div style="font-size:9pt;font-weight:700;color:#334155;margin-bottom:1.5mm;">Cara Potong:</div>
+  1140→      ${stepsHtml}
+  1141→    </div>
+  1142→    <div style="flex:1;min-width:0;">
+  1143→      <div style="font-size:9pt;font-weight:700;color:#334155;margin-bottom:1.5mm;">Detail per Blok:</div>
+  1144→      ${blocksHtml}
+  1145→    </div>
+  1146→  </div>
+  1147→
+  1148→</div>
+  1149→</body></html>`
+  1150→  }, [results, selectedCustomer, selectedPaper, restoredPaperName, printName, jumlahPesanan, berapaMata, setelanKertas, buildDiagramHtml])
+  1151→
+  1152→  const handlePrint = () => {
+  1153→    const activeResults = previewRiwayatData || results
+  1154→    if (!activeResults) return
+  1155→    const isPreview = !!previewRiwayatData
+  1156→    const html = buildFullPrintHtml(
+  1157→      activeResults,
+  1158→      isPreview ? previewRiwayatInfo.customer : undefined,
+  1159→      isPreview ? previewRiwayatInfo.paper : undefined,
+  1160→      isPreview ? previewRiwayatInfo.jumlahPesanan : undefined,
+  1161→      isPreview ? previewRiwayatInfo.berapaMata : undefined,
+  1162→      isPreview ? previewRiwayatInfo.setelanKertas : undefined,
+  1163→    )
+  1164→    if (!html) return
+  1165→    const printWindow = window.open('', '_blank')
+  1166→    if (!printWindow) {
+  1167→      toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+  1168→      return
+  1169→    }
+  1170→    printWindow.document.write(html)
+  1171→    printWindow.document.close()
+  1172→    printWindow.onload = () => {
+  1173→      printWindow.print()
+  1174→    }
+  1175→  }
+  1176→
+  1177→  const handlePdf = async () => {
+  1178→    const activeResults = previewRiwayatData || results
+  1179→    if (!activeResults) return
+  1180→
+  1181→    setIsGeneratingPdf(true)
+  1182→    try {
+  1183→      const { jsPDF } = await import('jspdf')
+  1184→      // A4 portrait: 210mm x 297mm
+  1185→      const pdf = new jsPDF('p', 'mm', 'a4')
+  1186→      const pdfW = pdf.internal.pageSize.getWidth() // 210
+  1187→      const pdfH = pdf.internal.pageSize.getHeight() // 297
+  1188→      const margin = 8
+  1189→      const contentW = pdfW - margin * 2
+  1190→      const contentH = pdfH - margin * 2
+  1191→
+  1192→      // Render HTML to canvas via hidden iframe at A4 pixel dimensions
+  1193→      const a4PxW = 794 // ~210mm at 96dpi
+  1194→      const a4PxH = 1123 // ~297mm at 96dpi
+  1195→      const iframe = document.createElement('iframe')
+  1196→      iframe.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${a4PxW}px;height:${a4PxH}px;border:none;`
+  1197→      document.body.appendChild(iframe)
+  1198→      const iframeDoc = iframe.contentDocument!
+  1199→      iframeDoc.open()
+  1200→      const isPreview = !!previewRiwayatData
+  1201→      iframeDoc.write(buildFullPrintHtml(
+  1202→        activeResults,
+  1203→        isPreview ? previewRiwayatInfo.customer : undefined,
+  1204→        isPreview ? previewRiwayatInfo.paper : undefined,
+  1205→        isPreview ? previewRiwayatInfo.jumlahPesanan : undefined,
+  1206→        isPreview ? previewRiwayatInfo.berapaMata : undefined,
+  1207→        isPreview ? previewRiwayatInfo.setelanKertas : undefined,
+  1208→      ))
+  1209→      iframeDoc.close()
+  1210→
+  1211→      await new Promise(resolve => setTimeout(resolve, 600))
+  1212→
+  1213→      const { toCanvas } = await import('html-to-image')
+  1214→      const canvas = await toCanvas(iframeDoc.body, {
+  1215→        backgroundColor: '#ffffff',
+  1216→        pixelRatio: 3,
+  1217→        width: a4PxW,
+  1218→        height: iframeDoc.body.scrollHeight,
+  1219→        canvasWidth: a4PxW * 3,
+  1220→        canvasHeight: iframeDoc.body.scrollHeight * 3,
+  1221→      })
+  1222→
+  1223→      document.body.removeChild(iframe)
+  1224→
+  1225→      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+  1226→      const imgW = contentW
+  1227→      const imgH = (canvas.height * imgW) / canvas.width
+  1228→
+  1229→      // Scale to fit A4 portrait in 1 page
+  1230→      if (imgH <= contentH) {
+  1231→        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH)
+  1232→      } else {
+  1233→        const scaledW = (contentH * imgW) / imgH
+  1234→        const offsetX = margin + (contentW - scaledW) / 2
+  1235→        pdf.addImage(imgData, 'JPEG', offsetX, margin, scaledW, contentH)
+  1236→      }
+  1237→
+  1238→      // Generate PDF blob
+  1239→      const pdfBlob = pdf.output('blob')
+  1240→      const fileName = `potong-kertas-${(selectedCustomer?.name || printName || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`
+  1241→
+  1242→      // Build WhatsApp text message
+  1243→      const r = activeResults
+  1244→      const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
+  1245→      const gramLabel = grammage ? `${grammage} gsm` : '-'
+  1246→      let msg = `*Potong Kertas - www.darrellsoft.com*\n\n`
+  1247→      msg += `Nama Bahan: ${paperLabel}\n`
+  1248→      msg += `Gramatur: ${gramLabel}\n`
+  1249→      msg += `Ukuran Kertas: ${r.paperWidth} × ${r.paperHeight} cm\n`
+  1250→      msg += `Ukuran Potong: ${r.cutWidth} × ${r.cutHeight} cm\n`
+  1251→      msg += `Kertas yg dibeli: ${r.sheetsNeeded} lembar\n`
+  1252→      msg += `Potongan Jadi: ${r.totalPieces}\n`
+  1253→      msg += `Harga Kertas: Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}\n`
+  1254→      msg += `Terima Kasih.`
+  1255→
+  1256→      // Try Web Share API (mobile) to share PDF file directly to WhatsApp
+  1257→      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
+  1258→      if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+  1259→        try {
+  1260→          await navigator.share({
+  1261→            text: msg,
+  1262→            files: [pdfFile],
+  1263→          })
+  1264→          toast.success('PDF berhasil dibagikan!')
+  1265→          return
+  1266→        } catch (err: any) {
+  1267→          // User cancelled share - don't show error
+  1268→          if (err?.name === 'AbortError') return
+  1269→          // Fallback if share fails
+  1270→          console.warn('Web Share API failed, falling back:', err)
+  1271→        }
+  1272→      }
+  1273→
+  1274→      // Desktop fallback: download PDF + open WhatsApp with text
+  1275→      pdf.save(fileName)
+  1276→      toast.success('PDF diunduh! Membuka WhatsApp...')
+  1277→
+  1278→      // Open WhatsApp with text message
+  1279→      const encoded = encodeURIComponent(msg)
+  1280→      openWhatsApp(encoded, { waWindowRef })
+  1281→    } catch (err) {
+  1282→      console.error('PDF generation error:', err)
+  1283→      toast.error('Gagal menghasilkan PDF')
+  1284→    } finally {
+  1285→      setIsGeneratingPdf(false)
+  1286→    }
+  1287→  }
+  1288→
+  1289→  const handleShareWhatsApp = () => {
+  1290→    const activeResults = previewRiwayatData || results
+  1291→    if (!activeResults) return
+  1292→
+  1293→    const r = activeResults
+  1294→    const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
+  1295→    const gramLabel = grammage ? `${grammage} gsm` : '-'
+  1296→
+  1297→    let msg = `*Potong Kertas - www.darrellsoft.com*\n\n`
+  1298→    msg += `Nama Bahan: ${paperLabel}\n`
+  1299→    msg += `Gramatur: ${gramLabel}\n`
+  1300→    msg += `Ukuran Kertas: ${r.paperWidth} × ${r.paperHeight} cm\n`
+  1301→    msg += `Ukuran Potong: ${r.cutWidth} × ${r.cutHeight} cm\n`
+  1302→    msg += `Kertas yg dibeli: ${r.sheetsNeeded} lembar\n`
+  1303→    msg += `Potongan Jadi: ${r.totalPieces}\n`
+  1304→    msg += `Harga Kertas: Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}\n`
+  1305→    msg += `Terima Kasih.`
+  1306→
+  1307→    const encoded = encodeURIComponent(msg)
+  1308→
+  1309→    openWhatsApp(encoded, { waWindowRef })
+  1310→    toast.success('Membuka WhatsApp...')
+  1311→  }
+  1312→
+  1313→  // Riwayat table component
+  1314→  const RiwayatTable = ({ items }: { items: any[] }) => (
+  1315→    <div className="overflow-x-auto">
+  1316→      <table className="w-full text-[13px] min-w-[700px]">
+  1317→        <thead>
+  1318→          <tr className="border-b border-slate-200 bg-slate-50/80">
+  1319→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. PK</th>
+  1320→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+  1321→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+  1322→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Nama Barang</th>
+  1323→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Kertas</th>
+  1324→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Kertas</th>
+  1325→            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Potong</th>
+  1326→            <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
+  1327→            <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+  1328→            <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+  1329→          </tr>
+  1330→        </thead>
+  1331→        <tbody>
+  1332→          {items.map((r, idx) => {
+  1333→            return (
+  1334→              <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
+  1335→                <td className="py-3 px-3 text-teal-700 font-semibold whitespace-nowrap">{r.nomorUrut || '-'}</td>
+  1336→                <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
+  1337→                <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">
+  1338→                  {r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}
+  1339→                </td>
+  1340→                <td className="py-3 px-3 text-slate-600 max-w-[100px] truncate">
+  1341→                  {r.namaCetakan || '-'}
+  1342→                </td>
+  1343→                <td className="py-3 px-3 text-slate-600 max-w-[90px] truncate hidden md:table-cell">
+  1344→                  {r.paperName || '-'}
+  1345→                </td>
+  1346→                <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+  1347→                  {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
+  1348→                </td>
+  1349→                <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
+  1350→                  {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
+  1351→                </td>
+  1352→                <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
+  1353→                  {parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}
+  1354→                </td>
+  1355→                <td className="py-3 px-3 text-rose-700 font-bold text-right whitespace-nowrap">
+  1356→                  Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}
+  1357→                </td>
+  1358→                <td className="py-3 px-3 text-center">
+  1359→                  <div className="flex items-center justify-center gap-1">
+  1360→                    <button
+  1361→                      onClick={() => handlePreviewRiwayat(r)}
+  1362→                      className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors"
+  1363→                      title="Preview"
+  1364→                    >
+  1365→                      <Eye className="w-3.5 h-3.5" />
+  1366→                    </button>
+  1367→                    <button
+  1368→                      onClick={() => handleRestore(r)}
+  1369→                      className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
+  1370→                      title="Restore"
+  1371→                    >
+  1372→                      <RotateCcw className="w-3.5 h-3.5" />
+  1373→                    </button>
+  1374→                    <button
+  1375→                      onClick={() => handleDeleteRiwayat(r.id)}
+  1376→                      className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
+  1377→                      title="Hapus"
+  1378→                    >
+  1379→                      <Trash2 className="w-3.5 h-3.5" />
+  1380→                    </button>
+  1381→                  </div>
+  1382→                </td>
+  1383→              </tr>
+  1384→            )
+  1385→          })}
+  1386→        </tbody>
+  1387→      </table>
+  1388→    </div>
+  1389→  )
+  1390→
+  1391→  return (
+  1392→    <DashboardLayout
+  1393→      title={t('potong_kertas')}
+  1394→      subtitle={t('subtitle_potong_kertas')}
+  1395→    >
+  1396→      {/* Tab Navigation */}
+  1397→      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+  1398→        <button
+  1399→          onClick={() => setActiveTab('editor')}
+  1400→          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+  1401→            activeTab === 'editor'
+  1402→              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+  1403→              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+  1404→          }`}
+  1405→        >
+  1406→          Editor
+  1407→        </button>
+  1408→        <button
+  1409→          onClick={() => setActiveTab('riwayat')}
+  1410→          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+  1411→            activeTab === 'riwayat'
+  1412→              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+  1413→              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+  1414→          }`}
+  1415→        >
+  1416→          Riwayat
+  1417→          {riwayatList.length > 0 && (
+  1418→            <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'riwayat' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{riwayatList.length}</span>
+  1419→          )}
+  1420→        </button>
+  1421→      </div>
+  1422→
+  1423→      {/* Editor Tab Content */}
+  1424→      {activeTab === 'editor' && (
+  1425→      <>
+  1426→      {/* === SINGLE PAGE LAYOUT: Form left, Results right === */}
+  1427→      <div className="flex flex-col lg:flex-row lg:min-h-[calc(100vh-8rem)] gap-3 lg:min-h-0">
+  1428→
+  1429→        {/* ===== LEFT: FORM ===== */}
+  1430→        <div className="lg:w-[386px] xl:w-[416px] flex-shrink-0 flex flex-col gap-1.5">
+  1431→          {/* No Potong Kertas */}
+  1432→          {nextPotongKertasNumber && (
+  1433→            <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
+  1434→              <span className="text-[11px] font-semibold text-teal-600 uppercase tracking-wider whitespace-nowrap">No. Potong Kertas :</span>
+  1435→              <span className="text-sm font-bold text-teal-800">{nextPotongKertasNumber}</span>
+  1436→            </div>
+  1437→          )}
+  1438→          {/* Info Cetak */}
+  1439→          <div className="bg-card rounded-xl border border-slate-200 p-2.5">
+  1440→            <div className="space-y-1.5">
+  1441→              <div className="space-y-1.5">
+  1442→                <div className="relative">
+  1443→                  <label className={lbl}>{t('nama_customer')}</label>
+  1444→                  <div ref={customerWrapperRef} className="relative">
+  1445→                    <input
+  1446→                      ref={customerInputRef}
+  1447→                      type="text"
+  1448→                      placeholder={t('pilih_customer') + ' / ketik nama baru...'}
+  1449→                      value={customerInput}
+  1450→                      onChange={(e) => handleCustomerInputChange(e.target.value)}
+  1451→                      onFocus={handleCustomerInputFocus}
+  1452→                      onBlur={handleCustomerInputBlur}
+  1453→                      className={inp + ' pr-9' + (isSavingCustomer ? ' opacity-60' : '')}
+  1454→                    />
+  1455→                    {/* Dropdown chevron icon - clickable */}
+  1456→                    {!isSavingCustomer && (
+  1457→                      <button
+  1458→                        type="button"
+  1459→                        tabIndex={-1}
+  1460→                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+  1461→                        onMouseDown={(e) => { e.preventDefault(); setCustomerTyping(false); setCustomerDropdownOpen(!customerDropdownOpen); }}
+  1462→                      >
+  1463→                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+  1464→                      </button>
+  1465→                    )}
+  1466→                    {isSavingCustomer && (
+  1467→                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+  1468→                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+  1469→                      </div>
+  1470→                    )}
+  1471→                    {/* Dropdown list */}
+  1472→                    {customerDropdownOpen && (
+  1473→                      <div ref={customerDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+  1474→                        {/* Existing customers */}
+  1475→                        {filteredCustomersList.length > 0 && (
+  1476→                          <div>
+  1477→                            <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100">Master Customer</div>
+  1478→                            {filteredCustomersList.map((c) => (
+  1479→                              <button
+  1480→                                key={c.id}
+  1481→                                type="button"
+  1482→                                onMouseDown={(e) => { e.preventDefault(); handleCustomerSelect(c) }}
+  1483→                                className={`w-full text-left px-3 py-2 text-sm transition-colors truncate ${selectedCustomerId === c.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+  1484→                              >
+  1485→                                {c.name}
+  1486→                              </button>
+  1487→                            ))}
+  1488→                          </div>
+  1489→                        )}
+  1490→                        {/* Add new customer option */}
+  1491→                        {customerInput.trim() && !customers.find(c => c.name.toLowerCase() === customerInput.trim().toLowerCase()) && (
+  1492→                          <button
+  1493→                            type="button"
+  1494→                            onMouseDown={handleAddNewCustomerClick}
+  1495→                            className="w-full text-left px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors border-t border-slate-100 flex items-center gap-2"
+  1496→                          >
+  1497→                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+  1498→                            Tambah "<span className="truncate max-w-[140px]">{customerInput.trim()}</span>" sebagai customer baru
+  1499→                          </button>
+  1500→                        )}
+  1501→                        {/* No results */}
+  1502→                        {filteredCustomersList.length === 0 && !customerInput.trim() && (
+  1503→                          <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada customer</div>
+  1504→                        )}
+  1505→                      </div>
+  1506→                    )}
+  1507→                  </div>
+  1508→                </div>
+  1509→                <div>
+  1510→                  <label className={lbl}>{t('nama_cetakan')}</label>
+  1511→                  <input type="text" placeholder="Nama cetakan" value={printName} onChange={(e) => setPrintName(e.target.value)} className={inp} />
+  1512→                </div>
+  1513→              </div>
+  1514→              <div>
+  1515→                <label className={lbl}>{t('nama_bahan_kertas')}</label>
+  1516→                <Select value={selectedPaperId} onValueChange={handlePaperChange}>
+  1517→                  <SelectTrigger className="w-full h-9 text-sm">
+  1518→                    <SelectValue placeholder={t('pilih_kertas')}>
+  1519→                      {selectedPaperId === 'custom' && restoredPaperName
+  1520→                        ? <span className="text-amber-700">{restoredPaperName}</span>
+  1521→                        : selectedPaperId === 'custom'
+  1522→                          ? t('custom_input_manual')
+  1523→                          : selectedPaper?.name || t('pilih_kertas')
+  1524→                      }
+  1525→                    </SelectValue>
+  1526→                  </SelectTrigger>
+  1527→                  <SelectContent>
+  1528→                    <SelectItem value="custom">
+  1529→                      <div className="flex items-center gap-1.5">
+  1530→                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+  1531→                        <span className="text-[14px]">{t('custom_input_manual')}</span>
+  1532→                      </div>
+  1533→                    </SelectItem>
+  1534→                    {papers.map((p) => (<SelectItem key={p.id} value={p.id}><span className="text-[14px]">{p.name} ({p.width}×{p.height}, {p.grammage}gsm)</span></SelectItem>))}
+  1535→                  </SelectContent>
+  1536→                </Select>
+  1537→                {isCustomPaper && restoredPaperName && (
+  1538→                  <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
+  1539→                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+  1540→                    Bahan tidak ditemukan di master data
+  1541→                  </p>
+  1542→                )}
+  1543→              </div>
+  1544→              <div className="grid grid-cols-2 gap-2">
+  1545→                <div>
+  1546→                  <label className={lbl}>{t('gramatur')}</label>
+  1547→                  <input type="number" step="1" min="0" placeholder="150" value={grammage} onChange={(e) => setGrammage(e.target.value)} className={inp} />
+  1548→                </div>
+  1549→                <div>
+  1550→                  <label className={lbl}>{t('harga_per_lembar')}</label>
+  1551→                  <input type="number" step="0.01" min="0" placeholder="0" value={pricePerSheet} onChange={(e) => setPricePerSheet(e.target.value)} className={inp} />
+  1552→                </div>
+  1553→              </div>
+  1554→              <div className="grid grid-cols-3 gap-2">
+  1555→                <div>
+  1556→                  <label className={lbl}>Jumlah Pesanan</label>
+  1557→                  <input type="number" step="1" min="0" placeholder="0" value={jumlahPesanan} onChange={(e) => setJumlahPesanan(e.target.value)} className={inp} />
+  1558→                </div>
+  1559→                <div>
+  1560→                  <label className={lbl}><span className="md:hidden">Cetak Brp Mata</span><span className="hidden md:inline">Cetak Berapa Mata</span></label>
+  1561→                  <input type="number" step="1" min="0" placeholder="0" value={berapaMata} onChange={(e) => setBerapaMata(e.target.value)} className={inp} />
+  1562→                </div>
+  1563→                <div>
+  1564→                  <label className={lbl}>{t('jumlah_cetakan')}</label>
+  1565→                  <input type="number" step="1" min="0" placeholder="Auto" value={computedQuantity || quantity} onChange={(e) => setQuantity(e.target.value)} className={computedQuantity ? inpDisabled : inp} readOnly={!!computedQuantity} />
+  1566→                </div>
+  1567→              </div>
+  1568→              <div className="grid grid-cols-2 gap-2">
+  1569→                <div>
+  1570→                  <label className={lbl}>Insit Kertas</label>
+  1571→                  <input type="number" step="1" min="0" placeholder="0" value={setelanKertas} onChange={(e) => setSetelanKertas(e.target.value)} className={inp} />
+  1572→                </div>
+  1573→                <div>
+  1574→                  <label className={lbl}>{t('mode_optimasi')}</label>
+  1575→                  <Select value={optimizationMode} onValueChange={(v: any) => setOptimizationMode(v)}>
+  1576→                    <SelectTrigger className="w-full h-9 text-sm"><SelectValue /></SelectTrigger>
+  1577→                    <SelectContent>
+  1578→                      <SelectItem value="fast"><span className="text-[11px]">Cepat (Greedy)</span></SelectItem>
+  1579→                      <SelectItem value="maximal"><span className="text-[11px]">Maksimal (Brute Force)</span></SelectItem>
+  1580→                    </SelectContent>
+  1581→                  </Select>
+  1582→                </div>
+  1583→              </div>
+  1584→            </div>
+  1585→          </div>
+  1586→
+  1587→          {/* Ukuran */}
+  1588→          <div className="bg-card rounded-xl border border-slate-200 p-2.5">
+  1589→            <p className="text-xs font-semibold text-slate-700 mb-2">Ukuran</p>
+  1590→            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+  1591→              <div>
+  1592→                <label className={lbl}>{t('lebar_kertas')}</label>
+  1593→                <input type="number" step="0.1" placeholder="W" value={paperWidth} onChange={(e) => setPaperWidth(e.target.value)} disabled={!isCustomPaper}
+  1594→                  className={!isCustomPaper ? inpDisabled : inp} />
+  1595→              </div>
+  1596→              <div>
+  1597→                <label className={lbl}>{t('tinggi_kertas')}</label>
+  1598→                <input type="number" step="0.1" placeholder="H" value={paperHeight} onChange={(e) => setPaperHeight(e.target.value)} disabled={!isCustomPaper}
+  1599→                  className={!isCustomPaper ? inpDisabled : inp} />
+  1600→              </div>
+  1601→              <div>
+  1602→                <label className={lbl}>{t('lebar_potongan')}</label>
+  1603→                <input type="number" step="0.1" placeholder="W" value={cutWidth} onChange={(e) => setCutWidth(e.target.value)} className={inp} />
+  1604→              </div>
+  1605→              <div>
+  1606→                <label className={lbl}>{t('tinggi_potongan')}</label>
+  1607→                <input type="number" step="0.1" placeholder="H" value={cutHeight} onChange={(e) => setCutHeight(e.target.value)} className={inp} />
+  1608→              </div>
+  1609→            </div>
+  1610→
+  1611→          </div>
+  1612→
+  1613→          {/* Action Buttons */}
+  1614→          <div className="flex flex-col gap-2">
+  1615→            <div className="grid grid-cols-3 gap-2">
+  1616→              <button onClick={handleCalculateCuts} disabled={isCalculating || !(parseFloat(paperWidth) > 0) || !(parseFloat(paperHeight) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
+  1617→                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
+  1618→                {isCalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+  1619→                {t('hitung_potongan')}
+  1620→              </button>
+  1621→              <button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!results || savingRiwayat || needsRecalc}
+  1622→                className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
+  1623→                {restoredRiwayatId && <RefreshCw className={`w-3 h-3 ${savingRiwayat ? 'animate-spin' : ''}`} />}
+  1624→                {restoredRiwayatId ? (savingRiwayat ? 'Updating...' : 'Update Riwayat') : (savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat')}
+  1625→              </button>
+  1626→              <button onClick={handlePO} disabled={!results || savingRiwayat || needsRecalc}
+  1627→                className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
+  1628→                <FileText className="w-3.5 h-3.5" />
+  1629→                PO
+  1630→              </button>
+  1631→            </div>
+  1632→            <div className="grid grid-cols-4 gap-2">
+  1633→              <button onClick={() => { if (!results) { toast.error('Hitung potongan terlebih dahulu!'); return; } setPreviewOpen(true) }} disabled={!results || needsRecalc}
+  1634→                className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('preview')}>
+  1635→                {t('preview')}
+  1636→              </button>
+  1637→              <button onClick={handlePrint} disabled={!results || needsRecalc}
+  1638→                className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('cetak')}>
+  1639→                <Printer className="w-3.5 h-3.5" />
+  1640→                {t('cetak')}
+  1641→              </button>
+  1642→              <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
+  1643→                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
+  1644→                <Share2 className="w-3.5 h-3.5" />
+  1645→                <span className="lg:hidden xl:inline">WhatsApp</span>
+  1646→                <span className="hidden lg:inline xl:hidden">WA</span>
+  1647→              </button>
+  1648→              <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
+  1649→                className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
+  1650→                <RotateCcw className="w-3 h-3" />
+  1651→                <span className="hidden xl:inline">{t('reset')}</span>
+  1652→              </button>
+  1653→            </div>
+  1654→          </div>
+  1655→
+  1656→          {/* Link to Hitung Cetakan */}
+  1657→          <button
+  1658→            onClick={() => {
+  1659→              if (!results) {
+  1660→                toast.error('Hitung potongan terlebih dahulu!')
+  1661→                return
+  1662→              }
+  1663→              // Navigasi langsung ke hitung cetakan
+  1664→              const params = new URLSearchParams()
+  1665→              if (selectedCustomer?.name) params.set('customerName', selectedCustomer.name)
+  1666→              if (printName) params.set('printName', printName)
+  1667→              if (selectedCustomerId) params.set('customerId', selectedCustomerId)
+  1668→              if (paperWidth) params.set('paperLength', paperWidth)
+  1669→              if (paperHeight) params.set('paperWidth', paperHeight)
+  1670→              const effectiveQuantity = computedQuantity || quantity
+  1671→              if (effectiveQuantity) params.set('quantity', effectiveQuantity)
+  1672→              if (jumlahPesanan) params.set('jumlahPesanan', jumlahPesanan)
+  1673→              if (berapaMata) params.set('berapaMata', berapaMata)
+  1674→              if (selectedPaperId && selectedPaperId !== 'custom') params.set('paperId', selectedPaperId)
+  1675→              if (selectedPaper?.name) params.set('paperName', selectedPaper.name)
+  1676→              if (grammage) params.set('grammage', grammage)
+  1677→              if (pricePerSheet) params.set('pricePerSheet', pricePerSheet)
+  1678→              if (cutWidth) params.set('cutWidth', cutWidth)
+  1679→              if (cutHeight) params.set('cutHeight', cutHeight)
+  1680→              if (results?.totalPrice) params.set('totalPaperPrice', results.totalPrice.toString())
+  1681→              if (results?.sheetsNeeded) params.set('sheetsNeeded', results.sheetsNeeded.toString())
+  1682→              if (results?.totalPieces) params.set('totalPieces', results.totalPieces.toString())
+  1683→              if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
+  1684→              params.set('fromPotongKertas', '1')
+  1685→              params.set('reset', '1')
+  1686→              router.push(`/hitung-cetakan?${params.toString()}`)
+  1687→              // Simpan riwayat di background (non-blocking)
+  1688→              if (results && !isDataSameAsAnyRiwayat()) {
+  1689→                fetcher('/api/riwayat-potong-kertas', {
+  1690→                  method: 'POST',
+  1691→                  headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  1692→                  body: JSON.stringify(buildPayload())
+  1693→                }).then(res => { if (res.ok) fetchRiwayat() }).catch(() => {})
+  1694→              }
+  1695→            }}
+  1696→            disabled={!results || needsRecalc}
+  1697→            style={{
+  1698→              background: (results && !needsRecalc) ? 'linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b)' : undefined,
+  1699→            }}
+  1700→            className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-amber-400 cursor-pointer transition-colors">
+  1701→            <Calculator className="w-3.5 h-3.5" />
+  1702→            Hitung Cetakan Lengkap
+  1703→            <ArrowRight className="w-3 h-3" />
+  1704→          </button>
+  1705→        </div>
+  1706→
+  1707→        {/* ===== RIGHT: RESULTS ===== */}
+  1708→        <div className="flex-1 bg-card rounded-xl border border-slate-200 p-4 flex flex-col lg:min-h-0 lg:min-h-[calc(100vh-8rem+2cm)]">
+  1709→          {results ? (
+  1710→            <div className="flex-1 flex flex-col gap-1.5 lg:min-h-0 lg:overflow-hidden">
+  1711→              {/* Stats Grid - mobile 2col, desktop 3col/5col */}
+  1712→              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2 flex-shrink-0">
+  1713→                <div className="bg-blue-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1714→                  <p className="text-[10px] text-blue-600 font-medium leading-tight">Diperlukan</p>
+  1715→                  <p className="text-lg lg:text-lg font-bold text-blue-700 leading-tight">{computedQuantity || quantity || '0'}</p>
+  1716→                  <p className="text-[10px] text-blue-500">lembar</p>
+  1717→                </div>
+  1718→                <div className="bg-sky-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1719→                  <p className="text-[10px] text-sky-600 font-medium leading-tight">Insit Kertas</p>
+  1720→                  <p className="text-lg lg:text-lg font-bold text-sky-700 leading-tight">{setelanKertas || '0'}</p>
+  1721→                  <p className="text-[10px] text-sky-500">lembar</p>
+  1722→                </div>
+  1723→                <div className="bg-purple-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1724→                  <p className="text-[10px] text-purple-600 font-medium leading-tight">Potongan/Lembar</p>
+  1725→                  <p className="text-lg lg:text-lg font-bold text-purple-700 leading-tight">{results.totalPieces}</p>
+  1726→                  <p className="text-[10px] text-purple-500">lembar</p>
+  1727→                </div>
+  1728→                <div className="bg-emerald-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1729→                  <p className="text-[10px] text-emerald-600 font-medium leading-tight">Kertas Yg Dibeli</p>
+  1730→                  <p className="text-lg lg:text-lg font-bold text-emerald-700 leading-tight">{results.sheetsNeeded}</p>
+  1731→                  <p className="text-[10px] text-emerald-500">lembar</p>
+  1732→                </div>
+  1733→                <div className="bg-amber-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1734→                  <p className="text-[10px] text-amber-600 font-medium leading-tight">Harga / Lembar</p>
+  1735→                  <p className="text-sm lg:text-sm font-bold text-amber-700 leading-tight">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+  1736→                </div>
+  1737→                <div className="bg-rose-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1738→                  <p className="text-[10px] text-rose-600 font-medium leading-tight">Harga/Lembar Setelah Dipotong</p>
+  1739→                  <p className="text-sm lg:text-sm font-bold text-rose-700 leading-tight">Rp {results.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / results.totalPieces).toLocaleString('id-ID') : '0'}</p>
+  1740→                </div>
+  1741→                <div className="bg-cyan-50 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1742→                  <p className="text-[10px] text-cyan-600 font-medium leading-tight">Berat Kertas</p>
+  1743→                  <p className="text-sm lg:text-sm font-bold text-cyan-700 leading-tight">{(() => {
+  1744→                    const g = parseFloat(grammage) || 0
+  1745→                    const w = parseFloat(paperWidth) || 0
+  1746→                    const h = parseFloat(paperHeight) || 0
+  1747→                    const sheets = results.sheetsNeeded || 0
+  1748→                    if (g > 0 && w > 0 && h > 0 && sheets > 0) {
+  1749→                      const totalGrams = (w * h * g * sheets) / 10000
+  1750→                      return totalGrams >= 1000 ? `${(totalGrams / 1000).toFixed(2)} kg` : `${Math.round(totalGrams)} g`
+  1751→                    }
+  1752→                    return '0'
+  1753→                  })()}</p>
+  1754→                </div>
+  1755→                <div className="bg-orange-50 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-7">
+  1756→                  <p className="text-[10px] text-orange-600 font-medium leading-tight">Total Harga</p>
+  1757→                  <p className="text-xl lg:text-xl font-bold text-orange-700 leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
+  1758→                </div>
+  1759→              </div>
+  1760→
+  1761→              {/* Strategy */}
+  1762→              <div className="bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 flex-shrink-0" style={{ transform: 'scale(1.05)', transformOrigin: 'left center' }}>
+  1763→                <span className="text-[10px] font-bold text-indigo-800">Strategi: </span>
+  1764→                <span className="text-[10px] text-indigo-700 font-medium">{results.strategy}</span>
+  1765→              </div>
+  1766→
+  1767→              {/* Diagram + Steps side by side */}
+  1768→              <div className="flex-1 flex flex-col lg:flex-row gap-3 lg:min-h-0 lg:overflow-auto">
+  1769→                {/* Diagram */}
+  1770→                <div className="flex-1 flex items-center justify-center min-w-0 min-h-0 p-1" style={{ transform: 'scale(0.917)', transformOrigin: 'center center' }}>
+  1771→                  <CuttingDiagram results={results} />
+  1772→                </div>
+  1773→
+  1774→                {/* Steps + Block Details */}
+  1775→                <div className="lg:w-[192px] xl:w-[211px] flex-shrink-0 flex flex-col gap-1 lg:min-h-0 lg:overflow-y-auto hide-scrollbar">
+  1776→                  {/* Steps */}
+  1777→                  <div>
+  1778→                    <p className="text-[11px] font-bold text-slate-700 mb-1">Cara Potong:</p>
+  1779→                    <div className="space-y-1">
+  1780→                      {results.steps.map((step, idx) => (
+  1781→                        <div key={idx} className="flex items-start gap-1.5">
+  1782→                          <div className="flex-shrink-0 w-4 h-4 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold mt-0.5">{idx + 1}</div>
+  1783→                          <p className="text-[10px] text-slate-600 leading-snug">{step}</p>
+  1784→                        </div>
+  1785→                      ))}
+  1786→                    </div>
+  1787→                  </div>
+  1788→
+  1789→                  {/* Block Details - compact */}
+  1790→                  <div>
+  1791→                    <p className="text-[11px] font-bold text-slate-700 mb-1">Detail Blok:</p>
+  1792→                    <div className="space-y-1">
+  1793→                      {results.blocks.map((block: any, idx: number) => {
+  1794→                        const bgColors = ['bg-blue-50', 'bg-emerald-50', 'bg-amber-50', 'bg-red-50', 'bg-violet-50']
+  1795→                        const borderColors = ['border-blue-200', 'border-emerald-200', 'border-amber-200', 'border-red-200', 'border-violet-200']
+  1796→                        const badgeBg = ['bg-blue-100', 'bg-emerald-100', 'bg-amber-100', 'bg-red-100', 'bg-violet-100']
+  1797→                        const badgeText = ['text-blue-700', 'text-emerald-700', 'text-amber-700', 'text-red-700', 'text-violet-700']
+  1798→                        const nameColors = ['text-blue-800', 'text-emerald-800', 'text-amber-800', 'text-red-800', 'text-violet-800']
+  1799→                        const detailColors = ['text-blue-600', 'text-emerald-600', 'text-amber-600', 'text-red-600', 'text-violet-600']
+  1800→                        const ci = idx % 5
+  1801→                        return (
+  1802→                          <div key={idx} className={`border ${borderColors[ci]} ${bgColors[ci]} rounded-md p-1.5`}>
+  1803→                            <div className="flex items-center justify-between mb-0">
+  1804→                              <span className={`text-[10px] font-bold ${nameColors[ci]}`}>{block.name}</span>
+  1805→                              <span className={`px-1 py-0 ${badgeBg[ci]} ${badgeText[ci]} rounded-full text-[8px] font-semibold`}>{block.pieces} pcs</span>
+  1806→                            </div>
+  1807→                            <div className={`grid grid-cols-2 gap-x-1 gap-y-0 text-[9px] ${detailColors[ci]}`}>
+  1808→                              <div><span className="opacity-70">Ukuran: </span><span className="font-bold">{block.width.toFixed(1)}×{block.height.toFixed(1)}</span></div>
+  1809→                              <div><span className="opacity-70">Layout: </span><span className="font-bold">{block.horizontal}×{block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
+  1810→                            </div>
+  1811→                          </div>
+  1812→                        )
+  1813→                      })}
+  1814→                    </div>
+  1815→                  </div>
+  1816→                </div>
+  1817→              </div>
+  1818→            </div>
+  1819→          ) : (
+  1820→            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+  1821→              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+  1822→                <Calculator className="w-8 h-8 text-slate-300" />
+  1823→              </div>
+  1824→              <div className="text-center">
+  1825→                <p className="text-sm font-medium text-slate-400">Belum ada hasil</p>
+  1826→                <p className="text-xs text-slate-300 mt-0.5">Masukkan ukuran dan klik &quot;Hitung&quot;</p>
+  1827→              </div>
+  1828→            </div>
+  1829→          )}
+  1830→        </div>
+  1831→      </div>
+  1832→
+  1833→      </>
+  1834→      )}
+  1835→
+  1836→      {/* Riwayat Tab Content */}
+  1837→      {activeTab === 'riwayat' && (
+  1838→        <div className="bg-card rounded-xl border border-slate-200 p-4">
+  1839→          <div className="flex items-center justify-between gap-2 mb-3">
+  1840→            <div className="flex items-center gap-2">
+  1841→              <History className="w-3.5 h-3.5 text-amber-600" />
+  1842→              <h2 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
+  1843→              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
+  1844→            </div>
+  1845→            <div className="flex items-center gap-1.5">
+  1846→              <Button
+  1847→                onClick={handleBackupRiwayat}
+  1848→                variant="outline"
+  1849→                size="sm"
+  1850→                disabled={backupLoading === 'backup'}
+  1851→                className="h-7 gap-1.5 text-xs"
+  1852→              >
+  1853→                {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
+  1854→                Backup
+  1855→              </Button>
+  1856→              <Button
+  1857→                onClick={handleRestoreRiwayat}
+  1858→                variant="outline"
+  1859→                size="sm"
+  1860→                disabled={backupLoading === 'restore'}
+  1861→                className="h-7 gap-1.5 text-xs"
+  1862→              >
+  1863→                {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+  1864→                Restore
+  1865→              </Button>
+  1866→            </div>
+  1867→          </div>
+  1868→          {riwayatList.length > 0 ? (
+  1869→            <RiwayatTable items={riwayatList} />
+  1870→          ) : (
+  1871→            <p className="text-xs text-slate-400 py-8 text-center">Belum ada riwayat potong kertas</p>
+  1872→          )}
+  1873→        </div>
+  1874→      )}
+  1875→
+  1876→      {/* ===== PREVIEW DIALOG ===== */}
+  1877→      {previewOpen && (
+  1878→        <PreviewDialog
+  1879→          onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
+  1880→          title="Preview Potong Kertas"
+  1881→        >
+  1882→          {/* Preview Content (rendered for print & PDF capture) */}
+  1883→          <div ref={previewRef} className="p-2 sm:p-4 bg-white">
+  1884→            {/* Header */}
+  1885→            <div className="text-center mb-3 pb-2 border-b-2 border-slate-200">
+  1886→              <h1 className="text-base sm:text-lg font-bold text-slate-900">Preview Potong Kertas</h1>
+  1887→              <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
+  1888→                {(previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-'))} · {previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')} · {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+  1889→              </p>
+  1890→            </div>
+  1891→
+  1892→            {/* Info Grid */}
+  1893→            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3">
+  1894→              <div className="bg-sky-50 border border-sky-100 rounded-lg p-2 sm:p-3">
+  1895→                <p className="text-[9px] sm:text-[10px] text-sky-600 font-medium">Jumlah Pesanan</p>
+  1896→                <p className="text-base sm:text-xl font-bold text-sky-700">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
+  1897→              </div>
+  1898→              <div className="bg-violet-50 border border-violet-100 rounded-lg p-2 sm:p-3">
+  1899→                <p className="text-[9px] sm:text-[10px] text-violet-600 font-medium"><span className="sm:hidden">Cetak Brp Mata</span><span className="hidden sm:inline">Cetak Berapa Mata</span></p>
+  1900→                <p className="text-base sm:text-xl font-bold text-violet-700">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
+  1901→              </div>
+  1902→              <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 sm:p-3">
+  1903→                <p className="text-[9px] sm:text-[10px] text-blue-600 font-medium">Jumlah Cetakan</p>
+  1904→                <p className="text-base sm:text-xl font-bold text-blue-700">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+  1905→              </div>
+  1906→              <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 sm:p-3">
+  1907→                <p className="text-[9px] sm:text-[10px] text-amber-600 font-medium">Insit Kertas</p>
+  1908→                <p className="text-base sm:text-xl font-bold text-amber-700">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
+  1909→              </div>
+  1910→              <div className="bg-purple-50 border border-purple-100 rounded-lg p-2 sm:p-3">
+  1911→                <p className="text-[9px] sm:text-[10px] text-purple-600 font-medium">Potongan / Lembar</p>
+  1912→                <p className="text-base sm:text-xl font-bold text-purple-700">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+  1913→              </div>
+  1914→              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 sm:p-3">
+  1915→                <p className="text-[9px] sm:text-[10px] text-emerald-600 font-medium">Lembar Kertas</p>
+  1916→                <p className="text-base sm:text-xl font-bold text-emerald-700">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+  1917→              </div>
+  1918→              <div className="bg-orange-50 border border-orange-100 rounded-lg p-2 sm:p-3">
+  1919→                <p className="text-[9px] sm:text-[10px] text-orange-600 font-medium">Total Harga Kertas</p>
+  1920→                <p className="text-lg sm:text-[24px] font-bold text-orange-700">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
+  1921→              </div>
+  1922→              <div className="bg-rose-50 border border-rose-100 rounded-lg p-2 sm:p-3">
+  1923→                <p className="text-[9px] sm:text-[10px] text-rose-600 font-medium">Harga / Lembar</p>
+  1924→                <p className="text-base sm:text-xl font-bold text-rose-700">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+  1925→              </div>
+  1926→              <div className="bg-teal-50 border border-teal-100 rounded-lg p-2 sm:p-3">
+  1927→                <p className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Harga/Lembar Setelah Dipotong</p>
+  1928→                <p className="text-base sm:text-xl font-bold text-teal-700">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+  1929→              </div>
+  1930→            </div>
+  1931→
+  1932→            {/* Strategy */}
+  1933→            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 mb-3">
+  1934→              <p className="text-[8px] sm:text-[10px] text-indigo-600 font-medium text-center">Strategi Optimasi</p>
+  1935→              <p className="text-[11px] sm:text-sm font-bold text-indigo-700 text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
+  1936→            </div>
+  1937→
+  1938→            {/* Diagram */}
+  1939→            {(previewRiwayatData || results) && (
+  1940→              <div className="mb-3 w-full">
+  1941→                <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
+  1942→                  <CuttingDiagram results={previewRiwayatData || results!} maxHeight="50vh" />
+  1943→                </div>
+  1944→              </div>
+  1945→            )}
+  1946→
+  1947→            {/* Steps */}
+  1948→            {(previewRiwayatData || results) && (
+  1949→              <div className="mb-3">
+  1950→                <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Cara Potong:</h3>
+  1951→                <div className="space-y-1 sm:space-y-1.5">
+  1952→                  {(previewRiwayatData || results)!.steps.map((step, idx) => (
+  1953→                    <div key={idx} className="flex items-start gap-1.5 sm:gap-2">
+  1954→                      <div className="flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold">{idx + 1}</div>
+  1955→                      <p className="text-[10px] sm:text-[11px] text-slate-600 pt-0.5">{step}</p>
+  1956→                    </div>
+  1957→                  ))}
+  1958→                </div>
+  1959→              </div>
+  1960→            )}
+  1961→
+  1962→            {/* Block Details */}
+  1963→            {(previewRiwayatData || results) && (
+  1964→              <div className="mb-2">
+  1965→                <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Detail per Blok:</h3>
+  1966→                <div className="space-y-1.5 sm:space-y-2">
+  1967→                  {(previewRiwayatData || results)!.blocks.map((block: any, idx: number) => (
+  1968→                    <div key={idx} className="border border-slate-200 rounded-lg p-2 sm:p-3">
+  1969→                      <div className="flex items-center justify-between mb-1">
+  1970→                        <span className="text-[11px] sm:text-xs font-bold text-slate-800">{block.name}</span>
+  1971→                        <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] sm:text-[10px] font-semibold">{block.pieces} lembar</span>
+  1972→                      </div>
+  1973→                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] sm:text-[10px]">
+  1974→                        <div><span className="text-slate-500">Ukuran:</span> <span className="font-medium">{block.width.toFixed(1)} × {block.height.toFixed(1)} cm</span></div>
+  1975→                        <div><span className="text-slate-500">Layout:</span> <span className="font-medium">{block.horizontal} × {block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
+  1976→                      </div>
+  1977→                    </div>
+  1978→                  ))}
+  1979→                </div>
+  1980→              </div>
+  1981→            )}
+  1982→          </div>
+  1983→
+  1984→          {/* Action buttons at bottom of dialog */}
+  1985→          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex flex-wrap gap-1.5 sm:gap-2">
+  1986→            <button onClick={handlePrint}
+  1987→              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+  1988→              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
+  1989→            </button>
+  1990→            <button onClick={handlePdf} disabled={isGeneratingPdf}
+  1991→              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+  1992→              {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> PDF → WA</>}
+  1993→            </button>
+  1994→          </div>
+  1995→        </PreviewDialog>
+  1996→      )}
+  1997→    </DashboardLayout>
+  1998→  )
+  1999→}
+  2000→
+
+[showing lines 1-2000 of 2008; use offset=2001 with limit to continue reading]
