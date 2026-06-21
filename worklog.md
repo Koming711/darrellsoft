@@ -1855,3 +1855,23 @@ Stage Summary:
 - File: public/kantong-kebab.jpg (replaced, no code changes needed — src path unchanged)
 - Backup: kantong-kebab.jpg.bak (original with logos/branding)
 - Consistent with logo-free image style used for other grid images (dus-ayam-geprek, hampers, etc.)
+---
+Task ID: 47
+Agent: Main
+Task: gambar hampers yang ada di sebelah dus kue diganti dengan gambar upload (WhatsApp Image 2026-06-21 at 09.50.23.jpeg)
+
+Work Log:
+- User uploaded "WhatsApp Image 2026-06-21 at 09.50.23.jpeg" (234259 bytes) to /home/z/my-project/upload/
+- Analyzed uploaded image with VLM: festive Eid/Lebaran hampers gift box with cream-colored rigid box, white lid with geometric pattern + brown border, dark blue satin ribbon bow, clear plastic trays with cookies (orange-yellow cylindrical cookies + beige swirled cookies), Eid greeting card, "Selamat Hari Raya Idul Fitri" text on lid and trays, on wooden table background
+- This is the user's actual product photo (not AI-generated) — used as-is per user request
+- Backed up previous AI-generated hampers image (Task 42 version) to public/hampers.jpg.bak.task46
+- Copied uploaded image to public/hampers.jpg (replaced file, no code changes needed — src path /hampers.jpg unchanged)
+- Verified via agent-browser + VLM: new hampers image visible in top row, second position (next to Dus Kue) showing festive gift box with cookies, ribbon, and card — matches user's uploaded product photo
+
+Stage Summary:
+- Hampers image (next to Dus Kue, top row second position) replaced with user's uploaded actual product photo
+- New image: Eid/Lebaran hampers gift box with cookies inside, blue ribbon, festive greeting text
+- File: public/hampers.jpg (replaced, 234259 bytes, no code changes needed)
+- Backups: hampers.jpg.bak (original original with logo from pre-Task 42), hampers.jpg.bak.task46 (Task 42 AI-generated logo-free version)
+- Note: This is the user's real product photo, so it intentionally contains "Selamat Hari Raya Idul Fitri" text (unlike AI-generated logo-free placeholders)
+- Distinct from hampers-lebaran.jpg (Task 45, green gift boxes) which is in bottom row
