@@ -3302,3 +3302,69 @@ Stage Summary:
 
 Files Modified:
 - src/app/invoice/page.tsx (and app/invoice/page.tsx) — PelunasanTab: all colored boxes -> white bg + slate-200 border
+
+---
+Task ID: 88
+Agent: Main
+Task: Dihalaman invoice, tab riwayat - buat semua kotak warna putih
+
+Work Log:
+- Read src/app/invoice/page.tsx (1333 lines) and located InvoiceRiwayatTab component (lines 184-808)
+- Identified all colored boxes in the Riwayat tab (main view + Pelunasan dialog):
+  * Main outer container: bg-card rounded-2xl (line 492)
+  * Header bar: bg-slate-50/60 (line 494)
+  * Search bar: bg-white/50 (line 512)
+  * DP section header: bg-violet-50/60 border-violet-100 (line 529)
+  * Table header rows: bg-slate-50/80 (lines 569, 661) - 2 instances
+  * Pelunasan section header: bg-amber-50/60 border-amber-100 border-t-slate-200 (line 616)
+  * Pelunasan dialog info box: bg-slate-50 (line 735)
+  * Pelunasan dialog "Sudah Lunas" green box p-2.5 (line 747)
+  * Pelunasan dialog "Sudah Lunas" green box p-3 (line 762)
+  * Pelunasan dialog "Tanpa DP" blue box (line 766)
+- Applied MultiEdit (9 edits) to src/app/invoice/page.tsx:
+  * Main container: bg-card -> bg-white dark:bg-zinc-900, added dark:border-zinc-700
+  * Header bar: bg-slate-50/60 -> bg-white dark:bg-zinc-900, added dark:border-zinc-700
+  * Search bar: bg-white/50 border-slate-100 -> bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700
+  * DP section header: bg-violet-50/60 border-violet-100 -> bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700
+  * Pelunasan section header: bg-amber-50/60 border-amber-100 -> bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 (kept border-t-slate-200)
+  * Table headers (2x via replace_all): bg-slate-50/80 -> bg-white dark:bg-zinc-900, added dark:border-zinc-700
+  * Dialog info box: bg-slate-50 -> bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700
+  * Dialog "Sudah Lunas" p-2.5: bg-green-50 -> bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 (kept green icon/text as status indicator)
+  * Dialog "Sudah Lunas" p-3: bg-green-50 -> bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700
+  * Dialog "Tanpa DP": bg-blue-50 -> bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 (kept blue icon/text)
+- Left intentionally colored (status indicators, not content boxes):
+  * Count badges (bg-slate-100, bg-violet-100, bg-amber-100) - small pills
+  * Status pills in tables (bg-green-100, bg-red-100) - Lunas/Belum status
+  * Action icon buttons (bg-emerald-50, bg-red-50, bg-blue-50, bg-amber-50) - CTA action buttons
+  * Row hover backgrounds (hover:bg-violet-50/30, hover:bg-amber-50/30) - interaction feedback
+  * Alternating row stripes (bg-slate-50/50) - zebra striping
+  * Section header text colors (text-violet-700, text-amber-700) - text, not boxes
+  * Icons inside section headers - kept colored
+- Synced src/app/invoice/page.tsx -> app/invoice/page.tsx (dual-root mirror)
+- Page compiles: HTTP 200
+- Verified via agent-browser (after admin/268899 login, navigated to /invoice, clicked Riwayat tab):
+  * Main container: bg rgb(255,255,255) white + border slate-200 (lab 91.7,-1,-4.8) ✓
+  * Header bar: bg rgb(255,255,255) + border slate-200 ✓
+  * Search bar: bg rgb(255,255,255) + border slate-200 ✓
+  * DP section header: bg rgb(255,255,255) + border slate-200 ✓
+  * Pelunasan section header: bg rgb(255,255,255) + border slate-200 ✓
+  * Pelunasan dialog info box: bg rgb(255,255,255) + border slate-200 ✓
+  * Pelunasan dialog "Sudah Lunas" green box (toggled switch to show): bg rgb(255,255,255) + border slate-200 ✓
+- Dark mode verified earlier: all boxes show lab(8.3, 0.6, -2.2) = zinc-900 ✓
+- Screenshots saved:
+  * /tmp/invoice-riwayat-white.png (dark mode, full riwayat tab)
+  * /tmp/invoice-riwayat-white-light.png (light mode, full riwayat tab)
+  * /tmp/invoice-riwayat-pelunasan-dialog-white.png (light mode, pelunasan dialog with toggle on)
+
+Stage Summary:
+- All content boxes on invoice "Riwayat" tab now have white background (dark: zinc-900) with light gray (slate-200) borders
+- Main container, header bar, search bar, DP section divider, Pelunasan section divider all converted from colored (slate/violet/amber) to white
+- 2 table headers (DP and Pelunasan tables) converted from slate-50/80 to white
+- Pelunasan dialog (opened from Riwayat tab): info box, "Sudah Lunas" green boxes, and "Tanpa DP" blue box all converted to white
+- Section header text/icon colors, count badges, status pills, action buttons, row hover feedback, and zebra stripes PRESERVED (intentionally left colored)
+- Dark mode variants added consistently (dark:bg-zinc-900 dark:border-zinc-700)
+- Dual-root sync completed
+- Page compiles and serves HTTP 200, all 7 main boxes + 2 dialog boxes verified white via computed styles
+
+Files Modified:
+- src/app/invoice/page.tsx (and app/invoice/page.tsx) — InvoiceRiwayatTab: all colored boxes -> white bg + slate-200 border (main container, header, search bar, DP/Pelunasan section dividers, 2 table headers, Pelunasan dialog info box + 2 green status boxes + 1 blue info box)

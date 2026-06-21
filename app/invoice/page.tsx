@@ -489,9 +489,9 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
 
   return (
     <>
-      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-violet-600" />
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice</h2>
@@ -509,7 +509,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
 
         {/* Search */}
         {invoiceHistory.length > 0 && (
-          <div className="px-4 py-2 border-b border-slate-100 bg-white/50">
+          <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari no. invoice, customer, barang..." className="w-full h-8 pl-8 pr-8 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder:text-slate-400" />
@@ -526,7 +526,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             {/* === INVOICE DP Section === */}
             {dpInvoices.length > 0 && (
               <div>
-                <div className="px-4 py-2 bg-violet-50/60 border-b border-violet-100">
+                <div className="px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700">
                   <p className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5" />
                     Invoice DP <span className="text-[10px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{dpInvoices.length}</span>
@@ -566,7 +566,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-[13px] min-w-[1000px]">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/80">
+                      <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
@@ -613,7 +613,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             {/* === INVOICE PELUNASAN Section === */}
             {pelunasanInvoices.length > 0 && (
               <div>
-                <div className="px-4 py-2 bg-amber-50/60 border-b border-amber-100 border-t border-t-slate-200">
+                <div className="px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700 border-t border-t-slate-200 dark:border-t-zinc-700">
                   <p className="text-xs font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
                     <Wallet className="w-3.5 h-3.5" />
                     Invoice Pelunasan <span className="text-[10px] font-medium text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">{pelunasanInvoices.length}</span>
@@ -658,7 +658,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-[13px] min-w-[900px]">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/80">
+                      <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. Invoice DP</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
@@ -732,7 +732,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             const isLunas = info.isPelunasan ? info.lunas : (hasDP ? info.lunas : (info.lunas || info.sisa <= 0))
             return (
               <div className="space-y-5 pt-1">
-                <div className="rounded-xl bg-slate-50 p-4 space-y-2">
+                <div className="rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-4 space-y-2">
                   <div className="flex justify-between text-xs"><span className="text-slate-500">No. Invoice</span><span className="font-semibold text-amber-800">{pelunasanDialogItem.nomor}</span></div>
                   {info.referensiInvoiceNomor && <div className="flex justify-between text-xs"><span className="text-slate-500">Ref. Invoice DP</span><span className="font-medium text-violet-600">{info.referensiInvoiceNomor}</span></div>}
                   <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-medium text-slate-700">{pelunasanDialogItem.pihakKedua || '-'}</span></div>
@@ -744,7 +744,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                     </>)}
                   </div>
                   {isLunas && info.tanggalPelunasan && (
-                    <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2 mt-1"><CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-green-800">Sudah Lunas</p><p className="text-[10px] text-green-600">Dibayar pada {new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+                    <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-2.5 flex items-center gap-2 mt-1"><CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-green-800">Sudah Lunas</p><p className="text-[10px] text-green-600">Dibayar pada {new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
                   )}
                 </div>
                 <div><Label className="text-sm font-medium text-slate-700">Tanggal Jatuh Tempo</Label><Input type="date" value={jatuhTempoDate} onChange={(e) => setJatuhTempoDate(e.target.value)} className="mt-1.5" /></div>
@@ -759,11 +759,11 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                     </div>
                     {pelunasanToggle && (<>
                       <div><Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label><Input type="date" value={pelunasanDate} onChange={(e) => setPelunasanDate(e.target.value)} className="mt-1" /></div>
-                      <div className="rounded-lg bg-green-50 p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /><div><p className="text-sm font-semibold text-green-800">Sudah Lunas</p><p className="text-xs text-green-600">Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</p></div></div>
+                      <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /><div><p className="text-sm font-semibold text-green-800">Sudah Lunas</p><p className="text-xs text-green-600">Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</p></div></div>
                     </>)}
                   </div>
                 )}
-                {!hasDP && (<div className="rounded-lg bg-blue-50 p-3 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-blue-800">Invoice Tanpa DP</p><p className="text-[10px] text-blue-600">Invoice ini tidak memiliki down payment. Atur tanggal jatuh tempo jika diperlukan.</p></div></div>)}
+                {!hasDP && (<div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-blue-800">Invoice Tanpa DP</p><p className="text-[10px] text-blue-600">Invoice ini tidak memiliki down payment. Atur tanggal jatuh tempo jika diperlukan.</p></div></div>)}
               </div>
             )
           })()}
@@ -1017,7 +1017,7 @@ function PelunasanTab() {
               <div className="hidden sm:block overflow-y-auto max-h-[60vh]">
                 <table className="w-full text-[13px]">
                   <thead className="sticky top-0 z-10">
-                    <tr className="border-b border-slate-200 bg-slate-50/80">
+                    <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                       <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
                       <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. DP</th>
                       <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
