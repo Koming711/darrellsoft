@@ -1836,3 +1836,22 @@ Stage Summary:
 - File: public/hampers-lebaran.jpg (149894 bytes)
 - No compilation errors; dev server running clean
 - Dual-root sync completed (src/app/page.tsx and app/page.tsx both updated)
+---
+Task ID: 46
+Agent: Main
+Task: gambar kantong kebab diganti gambar kantong kebab tapi ada kebab keluar sedikit di kantongnya
+
+Work Log:
+- Analyzed current kantong-kebab.jpg with VLM: found it showed 4 kebab bags with heavy branding/logos (Dechen Packaging, Kebaba, TASTY DONER KEBAB, CHAWARMA, etc.) — inconsistent with logo-free requirement
+- Generated new image with z-ai image CLI: "Professional product photography of a brown kraft paper kebab bag (kantong kebab) standing upright, with a delicious kebab wrap (doner kebab in flatbread with vegetables and meat visible) sticking out slightly from the top opening of the bag... completely blank bag exterior with no printing, no text, no labels, no branding, no logo, no watermark"
+- Verified new image with VLM: "brown paper bag with a kebab wrap sticking out of the top. The wrap is filled with visible ingredients: pieces of cooked meat, fresh green lettuce, and red bell pepper slices, all wrapped in a textured, light-brown tortilla. The exterior of the brown paper bag is blank—there is no text, logo, or branding visible"
+- Backed up old image to kantong-kebab.jpg.bak (547491 bytes with logos)
+- Converted new PNG to JPG using ffmpeg and replaced public/kantong-kebab.jpg (547491 bytes → 90499 bytes)
+- Verified via agent-browser + VLM: new kantong-kebab image visible in top row, third position showing brown paper bag with kebab wrap sticking out of the top
+
+Stage Summary:
+- Kantong kebab image replaced with logo-free version showing a kebab wrap sticking out of the bag opening (exactly as requested)
+- New image shows: brown kraft paper bag (blank, no branding) + kebab wrap with meat, lettuce, bell pepper visible coming out of the top
+- File: public/kantong-kebab.jpg (replaced, no code changes needed — src path unchanged)
+- Backup: kantong-kebab.jpg.bak (original with logos/branding)
+- Consistent with logo-free image style used for other grid images (dus-ayam-geprek, hampers, etc.)
