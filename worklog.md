@@ -2848,3 +2848,48 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx) — navbar logo + mobile controls section
+
+---
+Task ID: 77
+Agent: Main
+Task: Ubah toggle bahasa jadi dropdown, ganti bendera AS dengan bendera Inggris (UK)
+
+Work Log:
+- Rewrote src/components/language-toggle.tsx from scratch:
+  - BEFORE: 2 separate flag buttons side-by-side (Indonesia + US)
+  - AFTER: 1 trigger button showing active flag + dropdown menu on click
+- Created reusable SVG flag components inside the file:
+  - `IndonesiaFlag` — red over white (unchanged)
+  - `UkFlag` — Union Jack (replaced US flag): blue #012169 background, white+red diagonals (St Andrew + St Patrick), white cross + red cross (St George)
+- Dropdown implementation:
+  - Trigger button: rounded-md, bg-muted/50 hover:bg-muted, shows active flag icon
+  - aria-label: "Change language. Current: {activeLabel}" (dynamic)
+  - aria-haspopup="menu", aria-expanded={open}
+  - Menu: absolute right-0 mt-2 w-44, border + bg-popover + shadow-lg + z-50
+  - 2 menu items with role="menuitem": Indonesia + English (UK), each with flag icon + label + ✓ on active
+  - Active item: bg-accent text-accent-foreground font-semibold
+  - Outside-click closes (mousedown listener)
+  - Escape key closes (keydown listener)
+- Compact prop preserved (for mobile): h-8 w-8 mobile, h-9 w-9 desktop
+- Synced to dual-root mirror components/language-toggle.tsx
+- Verified via agent-browser:
+  - Mobile (375px): no overlap with "darrellsoft.com" text, 44px gap ✓
+  - Click trigger → dropdown opens with 2 items: "Indonesia ✓", "English (UK)" ✓
+  - Click "English (UK)" → trigger aria-label becomes "Current: English", nav links switch to English (e.g., "Features") ✓
+  - Trigger flag SVG verified as UK Union Jack: has #012169 blue, #c8102e red cross, NO US stars (text elements), NO #1e3a8a navy ✓
+  - Desktop (1280px): dropdown works in desktop nav too ✓
+  - Switch back to Indonesia → "Indonesia ✓" active ✓
+- Screenshots saved: /tmp/lang-dropdown-open.png, /tmp/lang-uk-active.png, /tmp/lang-dropdown-desktop.png
+- No lint/compilation errors in dev.log
+
+Stage Summary:
+- Language toggle converted from 2 flag buttons → single dropdown trigger + menu
+- US flag (stars + stripes) replaced with UK Union Jack flag
+- Active language shown on trigger via flag icon; dropdown marks active with ✓
+- Full keyboard + outside-click + Escape support for accessibility
+- Compact mode preserved for mobile navbar
+- Mobile overlap with "darrellsoft.com" remains fixed (44px gap)
+- Dual-root sync completed
+
+Files Modified:
+- src/components/language-toggle.tsx (and components/language-toggle.tsx) — full rewrite
