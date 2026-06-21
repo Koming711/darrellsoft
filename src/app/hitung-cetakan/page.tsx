@@ -1771,8 +1771,8 @@ function HitungCetakanPage() {
             {/* No. Hitung Cetakan */}
             {nextHitungCetakanNumber && (
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
-                <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">No. Hitung Cetakan</p>
-                <p className="text-sm font-bold text-black dark:text-white">{nextHitungCetakanNumber}</p>
+                <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
+                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
               </div>
             )}
             <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
