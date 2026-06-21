@@ -1761,3 +1761,32 @@ Stage Summary:
 - Single code file modified: src/app/page.tsx (+ synced to root app/page.tsx).
 - Single image file replaced: /public/hampers.jpg (new content, same path).
 - Dev server running healthy on port 3000. Local only — NOT deployed to production.
+
+---
+Task ID: 43
+Agent: Main
+Task: Replace dus-ayam-geprek image with a logo-free version
+
+Work Log:
+- User requested: "tambahkan dus ayam geprek." (add dus ayam geprek)
+- The dus-ayam-geprek.jpg image already exists in /public and is already referenced in the landing page image grid (src/app/page.tsx line 322). So "tambahkan" here means: provide a proper logo-free image for the dus ayam geprek item (consistent with Task 42 where dus-makanan was removed for having a logo and hampers was replaced with a logo-free version).
+- Analyzed the current image with VLM (z-ai vision):
+  - /public/dus-ayam-geprek.jpg (original): Had "Sedaap" brand name (top left), "Tasty" large text, "Bakmi Ayam Geprek Matah Daging Ayam Asli" text, and "SAMBAL MATAH" badge. Main subject was actually an instant noodle box, not a food packaging box. Colors: orange, red, black, yellow, green, brown, white.
+- Generated new image with z-ai image CLI (2 attempts):
+  - Attempt 1 prompt: "Professional product photography of a kraft brown paper food box for geprek chicken (dus ayam geprek), takeout container with a clear window on top..." — VLM detected some white text/icon on the box (YES).
+  - Attempt 2 prompt (stronger): "Blank kraft brown paper food takeout box on white background, the box is completely blank with no printing, no text, no labels, no branding, no window, just a plain brown cardboard box for food packaging, studio product photography, centered, minimalist, clean white seamless background, soft shadows, high quality" — VLM: "NO. The box is plain brown kraft paper with no visible logos, text, or labels. The main subject is a plain brown cardboard takeout food container." ✓
+  - VLM detailed description: "Rectangular, brown kraft paper takeout container with fold-over lid, tab-and-slot closure, uniform light brown kraft paper color, matte textured finish, immediately recognizable as a food takeout container."
+- Converted PNG → JPG (PIL, quality=92) to preserve filename /public/dus-ayam-geprek.jpg (no code change needed).
+- Backed up original to /public/dus-ayam-geprek.jpg.bak before overwriting.
+- Final VLM verification on /public/dus-ayam-geprek.jpg: "NO [logo/text]. The main subject is a plain brown cardboard takeout food container." ✓
+- No code changes needed (image src path unchanged). No dual-root sync needed.
+- E2E browser verification (agent-browser):
+  - Opened / → dismissed version dialog → hid PWA overlay
+  - Checked dus-ayam-geprek images on page: count=2 (mobile + desktop grid), both `loaded: true`, naturalWidth=1024, naturalHeight=1024, alt="Dus Ayam Geprek" ✓
+  - HTTP: /dus-ayam-geprek.jpg → 200, 83086 bytes, image/jpeg ✓
+  - Console: zero errors
+
+Stage Summary:
+- dus-ayam-geprek image REPLACED with a new AI-generated blank kraft paper food takeout box (no logo, no text, no watermark, no brand name). The new image is a proper food packaging container (rectangular kraft box with fold-over lid) — more appropriate for "dus ayam geprek" than the original which was an instant noodle product box.
+- Same filename /public/dus-ayam-geprek.jpg so no code change needed. Original backed up to /public/dus-ayam-geprek.jpg.bak.
+- Dev server running healthy on port 3000. Local only — NOT deployed to production.
