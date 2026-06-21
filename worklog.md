@@ -3495,3 +3495,36 @@ Stage Summary:
 
 Files Modified:
 - src/app/potong-kertas/page.tsx (and app/potong-kertas/page.tsx) — "Total Harga" box: label color slate-600 -> blue-600, value color black -> blue-700 (full blue text for "Total Harga Rp ...")
+
+---
+Task ID: 91
+Agent: Main
+Task: Dihalaman potong kertas - ganti jadi warna biru logo & tombol hitung potongan
+
+Work Log:
+- Read src/app/potong-kertas/page.tsx and located the "Hitung Potongan" button (line 1616-1620) and "Hitung Cetakan Lengkap" button (line 1696-1704)
+- "Hitung Potongan" button was already blue: bg-blue-600 hover:bg-blue-700 (no change needed)
+- "Hitung Cetakan Lengkap" button (with Calculator logo icon) was amber:
+  * inline style: linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b) (amber-500, amber-400, amber-500)
+  * className: border-amber-400
+- Applied Edit to change "Hitung Cetakan Lengkap" button from amber to blue:
+  * inline style gradient: #f59e0b, #fbbf24, #f59e0b -> #2563eb, #3b82f6, #2563eb (blue-600, blue-500, blue-600)
+  * className border: border-amber-400 -> border-blue-500
+- Synced src/app/potong-kertas/page.tsx -> app/potong-kertas/page.tsx (dual-root mirror)
+- Page compiles: HTTP 200
+- Verified via agent-browser (light mode, after clicking Hitung Potongan to enable the button):
+  * "Hitung Potongan" button: bg lab(44.06, 29.03, -86.04) = blue-600 ✓ (already blue)
+  * "Hitung Cetakan Lengkap" button: bgImage linear-gradient(135deg, rgb(37,99,235), rgb(59,130,246), rgb(37,99,235)) = blue gradient ✓ (changed from amber)
+  * Border: lab(54.17, 13.34, -74.68) = blue-500 ✓
+- Screenshot saved: /tmp/potong-kertas-hitung-buttons-blue.png
+
+Stage Summary:
+- Both "Hitung" buttons on potong-kertas page are now blue:
+  * "Hitung Potongan" button: bg-blue-600 (was already blue, no change needed)
+  * "Hitung Cetakan Lengkap" button (with Calculator logo icon): changed from amber gradient to blue gradient (#2563eb, #3b82f6, #2563eb), border changed from amber-400 to blue-500
+- When disabled, both buttons show bg-slate-200 (gray) as before
+- Dual-root sync completed
+- Page compiles and serves HTTP 200, both buttons verified blue via computed styles when enabled
+
+Files Modified:
+- src/app/potong-kertas/page.tsx (and app/potong-kertas/page.tsx) — "Hitung Cetakan Lengkap" button: amber gradient -> blue gradient, border-amber-400 -> border-blue-500 (the "Hitung Potongan" button was already blue, no change)

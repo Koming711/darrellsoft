@@ -1695,9 +1695,9 @@ function CalculatorPage() {
             }}
             disabled={!results || needsRecalc}
             style={{
-              background: (results && !needsRecalc) ? 'linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b)' : undefined,
+              background: (results && !needsRecalc) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
             }}
-            className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-amber-400 cursor-pointer transition-colors">
+            className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-blue-500 cursor-pointer transition-colors">
             <Calculator className="w-3.5 h-3.5" />
             Hitung Cetakan Lengkap
             <ArrowRight className="w-3 h-3" />
