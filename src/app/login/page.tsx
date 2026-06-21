@@ -314,6 +314,13 @@ function LoginContent() {
           sessionId: data.sessionId,
         })
 
+        // Tandai bahwa user baru ini wajib mengisi Data Perusahaan.
+        // Flag persisten ini dipantau oleh CompanyDataPopup di DashboardLayout —
+        // popup "Lengkapi Data Perusahaan" akan muncul di /pembukaan (dan halaman
+        // dashboard lainnya) sampai user mengisi & menyimpan data perusahaan.
+        // Sama dengan flow checkout (role demo).
+        localStorage.setItem('companyDataRequired', 'true')
+
         if (data.permissions) {
           const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
           allPerms[data.role] = data.permissions
