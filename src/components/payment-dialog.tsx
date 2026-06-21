@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { setAuthUser } from '@/lib/auth';
 import {
   X,
   ChevronRight,
@@ -173,15 +174,18 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         // Jika backend membuat CalonPembeli + session, gunakan data itu langsung (tanpa panggil login lagi)
         if (data.demoRegister && data.user) {
           const u = data.user;
-          // Set localStorage auth (auto-login)
+          // Set localStorage auth (auto-login) — use setAuthUser so AuthProvider
+          // re-reads storage via the dispatched 'auth-change' event (and again on
+          // the upcoming route change to /pembukaan). Without this the beranda
+          // greeting would fall back to "Halo, Pengguna".
           try {
-            localStorage.setItem('auth', JSON.stringify({
+            setAuthUser({
               id: u.id,
               username: u.username,
               name: u.name,
               role: u.role,
               sessionId: u.sessionId,
-            }));
+            });
             if (u.permissions) {
               const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {};
               allPerms[u.role] = u.permissions;
@@ -309,14 +313,15 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         const loginData = await loginRes.json();
 
         if (loginRes.ok && loginData.id) {
-          // Save auth to localStorage
-          localStorage.setItem('auth', JSON.stringify({
+          // Save auth to localStorage (setAuthUser dispatches 'auth-change' so
+          // AuthProvider picks it up immediately, no full reload needed).
+          setAuthUser({
             id: loginData.id,
             username: loginData.username,
             name: loginData.name,
             role: loginData.role,
             sessionId: loginData.sessionId,
-          }));
+          });
 
           // Store permissions
           if (loginData.permissions) {
