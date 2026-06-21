@@ -2275,3 +2275,34 @@ Stage Summary:
 - All 10 section badges on the landing page are now uniformly styled
 - Dual-root sync completed
 - No compilation errors
+
+---
+Task ID: 63
+Agent: Main
+Task: extract file tar, buat dark mode seperti file ERP tersebut (theme toggle Moon/Sun di navbar)
+
+Work Log:
+- Extracted /home/z/my-project/upload/workspace-94156156-893e-4b86-af92-76db625f41a0(1).tar → /tmp/workspace-extract/
+- Analyzed extracted ERP project: src/app/page.tsx, src/app/layout.tsx, src/app/globals.css, src/components/erp/header.tsx
+- Key finding: ERP uses next-themes with `attribute="class"`, `.dark` CSS class with oklch colors, and a theme toggle button (Moon/Sun icons) in the header via `useTheme()` hook
+- My project already had: NextThemesProvider (attribute="class", defaultTheme="light"), .dark CSS class with color variables, and `dark:` prefix classes throughout the landing page
+- Missing piece: no theme toggle button on the landing page for users to switch between light/dark
+- Created /home/z/my-project/src/components/theme-toggle.tsx — reusable ThemeToggle component using next-themes useTheme() hook, Moon icon in light mode, Sun icon in dark mode, with mount guard to avoid hydration mismatch
+- Added ThemeToggle to landing page navbar (src/app/page.tsx):
+  - Desktop nav: added ThemeToggle between nav links and Login button
+  - Mobile nav: wrapped ThemeToggle + Login button in a flex container (replaced standalone mobile Login button)
+- Synced changes to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser:
+  - Desktop (1280px): toggle visible at x=1027, 36x36px; clicking toggles htmlClass light→dark, bodyBg rgb(255,255,255)→rgb(0,0,0), navBg→dark, icon Moon→Sun, h1Color→light ✓
+  - Mobile (375px): 2 toggles in DOM (desktop hidden, mobile visible at x=234, 36x36px); clicking mobile toggle switches dark→light ✓
+- Verified via VLM screenshot: "cohesive, professional dark theme with dark (near-black) background and light (white/gray) text, creating strong contrast for readability"
+- No new lint errors introduced (pre-existing errors in other files unchanged)
+
+Stage Summary:
+- Dark mode now fully functional on landing page with a theme toggle button (Moon/Sun) in the navbar, matching the ERP file's pattern
+- ThemeToggle component created at src/components/theme-toggle.tsx (reusable, hydration-safe)
+- Toggle added to both desktop and mobile navbar layouts
+- Dark mode uses existing .dark CSS variables + dark: prefix classes already present throughout the landing page
+- Theme persists across navigation via next-themes localStorage
+- Dual-root sync completed
+- No compilation errors
