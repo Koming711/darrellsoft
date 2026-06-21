@@ -2106,3 +2106,42 @@ Stage Summary:
 - H2 section headings below badges NOT changed (only the eyebrow labels per user request)
 - Dual-root sync completed
 - No compilation errors
+---
+Task ID: 57
+Agent: Main
+Task: dikecilin 2pt dari sekarang (label-label section landing page)
+
+Work Log:
+- Previous sizes (Task 56): 28px (3 badges) and 24px (6 badges)
+- User requested reduction of 2pt: 2pt ≈ 2.67px
+- 28px badges → ~25.3px → set to 26px (rounded; Sistem Hitung uses text-[25px] md:text-[26px])
+- 24px badges → ~21.3px → set to 21px
+- Updated all 9 badges via MultiEdit:
+  - Sistem Hitung Cepat Percetakan: text-2xl md:text-[28px] → text-[25px] md:text-[26px]
+  - Penawaran Terbatas: text-[28px] → text-[26px]
+  - Fitur Unggulan: text-2xl → text-[21px]
+  - Kenapa Darrell Soft?: text-2xl → text-[21px]
+  - Kenapa Harus Berlangganan?: text-2xl → text-[21px]
+  - Kesempatan Emas: text-[28px] → text-[26px]
+  - Cara Kerja: text-2xl → text-[21px]
+  - Harga: text-2xl → text-[21px]
+  - Testimoni: text-2xl → text-[21px]
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser eval — all 9 badges reduced by ~2pt:
+  - Sistem Hitung Cepat Percetakan: 28px → 26px ✓
+  - Penawaran Terbatas: 28px → 26px ✓
+  - Fitur Unggulan: 24px → 21px ✓
+  - Kenapa Darrell Soft?: 24px → 21px ✓
+  - Kenapa Harus Berlangganan?: 24px → 21px ✓
+  - Kesempatan Emas: 28px → 26px ✓
+  - Cara Kerja: 24px → 21px ✓
+  - Harga: 24px → 21px ✓
+  - Testimoni: 24px → 21px ✓
+
+Stage Summary:
+- All 9 section eyebrow badges on landing page reduced by ~2pt from Task 56 sizes
+- Final sizes: 26px (3 badges that were 28px) and 21px (6 badges that were 24px)
+- Used Tailwind arbitrary values (text-[26px], text-[21px]) for precise sizing
+- Padding and icons unchanged from Task 56
+- Dual-root sync completed
+- No compilation errors
