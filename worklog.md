@@ -2201,3 +2201,32 @@ Stage Summary:
 - Padding/icons unchanged from previous tasks
 - Dual-root sync completed
 - No compilation errors
+---
+Task ID: 60
+Agent: Main
+Task: di tampilan mobile dirubah jadi 18px (semua badge section landing page)
+
+Work Log:
+- Previous (Task 59): all badges uniform text-[22px] at all breakpoints
+- User requested mobile view to use 18px (keep desktop 22px)
+- Updated all 9 badges via MultiEdit: text-[22px] → text-[18px] md:text-[22px]
+  - Sistem Hitung Cepat Percetakan: text-[22px] → text-[18px] md:text-[22px]
+  - Penawaran Terbatas: text-[22px] → text-[18px] md:text-[22px]
+  - Fitur Unggulan: text-[22px] → text-[18px] md:text-[22px]
+  - Kenapa Darrell Soft?: text-[22px] → text-[18px] md:text-[22px]
+  - Kenapa Harus Berlangganan?: text-[22px] → text-[18px] md:text-[22px]
+  - Kesempatan Emas: text-[22px] → text-[18px] md:text-[22px]
+  - Cara Kerja: text-[22px] → text-[18px] md:text-[22px]
+  - Harga: text-[22px] → text-[18px] md:text-[22px]
+  - Testimoni: text-[22px] → text-[18px] md:text-[22px]
+- Tailwind responsive behavior: 18px applies below 768px (mobile), 22px applies at 768px+ (desktop/tablet)
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified file has 9 instances of "text-[18px] md:text-[22px]"
+- Verified via agent-browser at desktop viewport (1280px): all badges render at 22px ✓
+
+Stage Summary:
+- All 9 section eyebrow badges now responsive: 18px on mobile (<768px), 22px on desktop (≥768px)
+- Mobile-first approach: text-[18px] is the base, md:text-[22px] overrides at md breakpoint
+- Desktop sizes unchanged from Task 59 (22px)
+- Dual-root sync completed
+- No compilation errors
