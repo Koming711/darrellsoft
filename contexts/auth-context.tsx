@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { User, getAuthUser, clearAuthUser } from '@/lib/auth'
 
 interface AuthContextType {
@@ -15,18 +16,41 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const pathname = usePathname()
 
-  // Load user from localStorage on mount
+  // Re-read auth from localStorage on mount AND on every route change.
+  // This is critical because AuthProvider lives at the root layout and only
+  // mounts once for the whole SPA. Without re-reading on pathname change,
+  // a user that logs in (or auto-logs-in via checkout payment) on one page
+  // would still see `user === null` on the next page until a full reload.
   useEffect(() => {
     try {
       const authUser = getAuthUser()
-      if (authUser) {
-        setUser(authUser)
-      }
+      setUser(authUser)
     } catch (error) {
       console.error('Error loading auth user:', error)
+      setUser(null)
     } finally {
       setIsLoading(false)
+    }
+  }, [pathname])
+
+  // Listen for same-tab auth changes (dispatched by setAuthUser/clearAuthUser)
+  // and cross-tab changes (native 'storage' event).
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const authUser = getAuthUser()
+        setUser(authUser)
+      } catch (error) {
+        console.error('Error loading auth user:', error)
+      }
+    }
+    window.addEventListener('auth-change', handler)
+    window.addEventListener('storage', handler)
+    return () => {
+      window.removeEventListener('auth-change', handler)
+      window.removeEventListener('storage', handler)
     }
   }, [])
 

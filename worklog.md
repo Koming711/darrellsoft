@@ -1581,3 +1581,64 @@ Stage Summary:
 - All files synced to dual-root (src/ + root).
 - Dev server running healthy on port 3000 (daemon PID 6229, next-server PID 6256).
 - Local only — NOT deployed to production (www.darrellsoft.com unchanged). Production mode (real Midtrans) still uses the original payment flow.
+
+---
+Task ID: 41b
+Agent: Main
+Task: Fix beranda greeting showing "Halo, Pengguna" instead of actual username after checkout demo registration + company data save
+
+Work Log:
+- User reported: "apabila sudah diisi data perusahaan dipopupnya dan data disimpan, maka muncul halaman beranda, tapi bukan halo, pengguna, tapi halo nama username. fix it"
+- Investigated the greeting logic in src/app/pembukaan/page.tsx:
+  - Line 490: `const displayName = user?.name || user?.username || 'Pengguna'` — logic is correct (prefers name, then username, falls back to 'Pengguna')
+  - Line 698: `<p>Halo, {displayName}</p>` — renders the greeting
+  - Line 403: `const { user } = useAuth()` — gets user from AuthProvider context
+- Found ROOT CAUSE: src/contexts/auth-context.tsx's `AuthProvider` (mounted at root layout) only read localStorage ONCE on mount via `useEffect(() => { ... }, [])`. Since AuthProvider lives at the root layout and never re-mounts during client-side navigation:
+  1. User on /checkout (not logged in) → AuthProvider mounts with `user = null`
+  2. User pays → payment-dialog sets `localStorage.setItem('auth', ...)` with username+name
+  3. Page navigates to /pembukaan → AuthProvider does NOT re-read localStorage (useEffect already ran, empty dep array)
+  4. `user` stays `null` → `displayName` falls back to 'Pengguna' → greeting shows "Halo, Pengguna"
+- Applied fix across 5 files:
+  1. src/lib/auth.ts:
+     - Added `AUTH_CHANGE_EVENT = 'auth-change'` constant
+     - Added `notifyAuthChange()` helper that dispatches `window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))`
+     - `setAuthUser()`: now calls `notifyAuthChange()` after `localStorage.setItem`
+     - `clearAuthUser()`: now calls `notifyAuthChange()` after `localStorage.removeItem`
+     - Made `password` optional in `User` interface (was required but never persisted to localStorage — pre-existing type inconsistency)
+     - Added `sessionId?: string` to `User` interface (was being stored but not in the type)
+  2. src/contexts/auth-context.tsx:
+     - Added `usePathname()` from next/navigation
+     - Changed auth-loading `useEffect` deps from `[]` to `[pathname]` — re-reads `getAuthUser()` on EVERY route change. This is the key fix: when user navigates from /checkout to /pembukaan, AuthProvider picks up the newly-written localStorage auth.
+     - Added second `useEffect` that listens for `auth-change` event (same-tab, dispatched by setAuthUser/clearAuthUser) AND `storage` event (cross-tab) — re-reads `getAuthUser()` when either fires, for immediate reactivity without waiting for navigation.
+  3. src/components/payment-dialog.tsx:
+     - Added `import { setAuthUser } from '@/lib/auth'`
+     - Replaced 2 direct `localStorage.setItem('auth', JSON.stringify({...}))` calls (MOCK MODE branch line 178, performAutoLogin fallback line 313) with `setAuthUser({...})` — now dispatches auth-change event so AuthProvider updates immediately.
+  4. src/components/inline-login.tsx:
+     - Added `import { setAuthUser } from '@/lib/auth'`
+     - Replaced 2 direct `localStorage.setItem('auth', ...)` calls (handleLogin line 56, handleRegister line 140) with `setAuthUser({...})`
+  5. src/app/login/page.tsx:
+     - Changed `import { getAuthUser }` → `import { getAuthUser, setAuthUser }`
+     - Replaced 2 direct `localStorage.setItem('auth', ...)` calls (login line 112, register auto-login line 309) with `setAuthUser({...})`
+- Synced ALL 5 modified files to dual-root structure (src/ → root lib/, contexts/, components/, app/login/) — verified IDENTICAL via diff.
+- Lint: all 5 modified files pass ESLint with zero errors (pre-existing errors in upload/page(3).tsx and websocket/frontend.tsx are unrelated).
+- E2E browser verification (agent-browser, full flow):
+  1. Cleared localStorage + sessionStorage, opened /checkout?plan=bulanan
+  2. Dismissed "Versi Baru!" dialog, force-hid PWA install overlay
+  3. Step 1: Basic (Rp 128.000) pre-selected → clicked Lanjutkan
+  4. Step 2: filled all 6 fields (username=verify1782001234, password=TestPass123, confirm, name="Verify Test User", email, phone) → clicked Lanjutkan
+  5. Step 3: "Konfirmasi & Bayar" → clicked "Bayar Sekarang"
+  6. PaymentDialog opened with all payment methods → clicked "Transfer BCA" → button changed to "Bayar dengan Transfer BCA" → clicked
+  7. Mock processing (3s) → auto-login (console: "[PaymentDialog] Demo register + auto-login successful for verify1782001234") → redirected to /pembukaan
+  8. **PRE-SAVE GREETING CHECK**: `greeting: "Halo, Verify Test User"` ✓ (NOT "Halo, Pengguna"!), `bodyHasPengguna: false` ✓, `authUser: {username, name, role:'demo'}` ✓
+  9. Company popup appeared ("Lengkapi Data Perusahaan PENTING") → filled all 8 fields (nama, alamat, telepon, email, NPWP, bank name, bank account, bank holder) → clicked "Simpan Data Perusahaan"
+  10. Popup closed, company data saved to settings API
+  11. **POST-SAVE GREETING CHECK**: `greeting: "Halo, Verify Test User"` ✓ (STILL shows the username, not "Pengguna"!), `popupStillOpen: false` ✓, `companySaved: true` ✓
+  12. Console: zero errors (only normal HMR/SW/Fast Refresh logs + the auto-login success log)
+  13. Page errors: empty ✓
+
+Stage Summary:
+- Root cause: AuthProvider at root layout only read localStorage once on mount; after checkout auto-login wrote localStorage and navigated to /pembukaan, the `user` state stayed null → greeting fell back to "Halo, Pengguna".
+- Fix: Made AuthProvider reactive to (a) route changes via `usePathname()` dependency, (b) same-tab auth writes via custom `auth-change` event dispatched by `setAuthUser`/`clearAuthUser`, and (c) cross-tab writes via native `storage` event. Updated all 6 direct `localStorage.setItem('auth', ...)` call sites (payment-dialog ×2, inline-login ×2, login/page ×2) to use `setAuthUser()` so they dispatch the event.
+- Verified end-to-end: after checkout payment → redirect to /pembukaan → greeting shows "Halo, [user name]" immediately. After filling + saving company data popup → greeting STILL shows "Halo, [user name]" (not "Pengguna"). Zero errors.
+- All files synced to dual-root (src/ + root). Dev server running healthy on port 3000.
+- Local only — NOT deployed to production (www.darrellsoft.com unchanged).

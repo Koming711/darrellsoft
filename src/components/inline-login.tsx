@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Key, Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
+import { setAuthUser } from '@/lib/auth'
 
 
 export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
@@ -53,13 +54,13 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
         return
       }
 
-      localStorage.setItem('auth', JSON.stringify({
+      setAuthUser({
         id: data.id,
         username: data.username,
         name: data.name,
         role: data.role,
         sessionId: data.sessionId,
-      }))
+      })
 
       if (data.permissions) {
         const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
@@ -137,13 +138,13 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
         return
       }
 
-      localStorage.setItem('auth', JSON.stringify({
+      setAuthUser({
         id: data.id,
         username: data.username,
         name: data.name,
         role: data.role,
         sessionId: data.sessionId,
-      }))
+      })
 
       if (data.permissions) {
         const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getAuthUser } from '@/lib/auth'
+import { getAuthUser, setAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
 import { toast } from 'sonner'
 import { applyThemeAfterLogin } from '@/contexts/theme-context'
@@ -109,13 +109,13 @@ function LoginContent() {
       }
 
       // Save to localStorage (include sessionId for multi-device check)
-      localStorage.setItem('auth', JSON.stringify({
+      setAuthUser({
         id: data.id,
         username: data.username,
         name: data.name,
         role: data.role,
         sessionId: data.sessionId,
-      }))
+      })
 
       // Store permissions in localStorage
       if (data.permissions) {
@@ -306,13 +306,13 @@ function LoginContent() {
         // Notify other tabs (e.g., admin's pengguna page) about the new calon pembeli
         notifyDataChange('calon-pembeli')
         toast.success('Pendaftaran berhasil! Selamat datang, ' + (data.name || data.username) + '!', { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 4000 })
-        localStorage.setItem('auth', JSON.stringify({
+        setAuthUser({
           id: data.id,
           username: data.username,
           name: data.name,
           role: data.role,
           sessionId: data.sessionId,
-        }))
+        })
 
         if (data.permissions) {
           const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
