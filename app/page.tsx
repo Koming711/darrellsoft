@@ -968,9 +968,9 @@ export default function Home() {
       <nav className="sticky top-0 z-50 w-full bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-100 dark:border-white/10">
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <img src="/logo-ds.png" alt="Logo" className="w-9 h-9 rounded-xl object-contain shadow-none" />
-            <span className="text-[16px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300" style={{ fontWeight: 900 }}>
+          <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
+            <img src="/logo-ds.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-xl object-contain shadow-none shrink-0" />
+            <span className="hidden min-[360px]:inline text-[13px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300 whitespace-nowrap" style={{ fontWeight: 900 }}>
               darrellsoft.com
             </span>
           </div>
@@ -989,10 +989,10 @@ export default function Home() {
           </div>
 
           {/* Mobile: Masuk button + theme toggle + language toggle instead of hamburger */}
-          <div className="md:hidden flex items-center gap-1.5">
+          <div className="md:hidden flex items-center gap-1 shrink-0">
             <LanguageToggle compact />
             <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
-            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-3 py-1.5 h-8">
+            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-2.5 py-1.5 h-8 whitespace-nowrap">
               Login <ChevronRight className="ml-1 w-3 h-3" />
             </Button>
           </div>

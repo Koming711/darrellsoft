@@ -2813,3 +2813,38 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx)
+
+---
+Task ID: 76
+Agent: Main
+Task: Fix mobile landing navbar — "darrellsoft.com" text overlapped by Indonesia flag
+
+Work Log:
+- Reproduced issue on 375px mobile: "darrellsoft.com" text right edge at 184.69px, Indonesia flag started at 160.13px → ~24px overlap
+- Root cause: navbar content total width exceeded available mobile width; justify-between couldn't prevent overlap
+- Inspected right-side items on 375px: LanguageToggle (70px) + ThemeToggle (36px) + Login button (83px) = ~189px
+- Applied fixes to src/app/page.tsx navbar (lines 970-998):
+  1. Logo container: added `min-w-0`, gap `gap-2 md:gap-2.5` (was gap-2.5)
+  2. Logo image: `w-8 h-8 md:w-9 md:h-9` (was w-9 h-9) + `shrink-0`
+  3. "darrellsoft.com" text: `hidden min-[360px]:inline text-[13px] md:text-[22px]` (was text-[16px] md:text-[22px]) + `whitespace-nowrap`
+     - Hidden below 360px (only logo shows on tiny screens like iPhone SE 320px)
+     - Visible at 360px+ with smaller 13px font
+  4. Mobile right-side container: `gap-1 shrink-0` (was gap-1.5)
+  5. Login button: `px-2.5` (was px-3) + `whitespace-nowrap`
+- Synced to dual-root mirror app/page.tsx
+- Verified via agent-browser at 3 viewports:
+  - 320px: text hidden (display:none), only logo shows, no overlap, clean
+  - 375px: "darrellsoft.com" fully visible, text ends at 156px, flag starts at 164px, 8px gap, no overlap
+  - 768px (tablet): 22px font (md: breakpoint), display block, normal desktop layout
+- Screenshots saved: /tmp/mobile-navbar-320-v2.png, /tmp/mobile-navbar-375-v2.png
+- No lint/compilation errors in dev.log
+
+Stage Summary:
+- Mobile navbar overlap fully resolved
+- "darrellsoft.com" no longer covered by Indonesia flag on any mobile width
+- Responsive strategy: hide brand text below 360px (logo-only), show 13px text at 360-767px, show 22px text at 768px+
+- Right-side controls (language flags, theme toggle, login) also tightened for better fit
+- Dual-root sync completed
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx) — navbar logo + mobile controls section
