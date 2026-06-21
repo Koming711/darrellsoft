@@ -2230,3 +2230,29 @@ Stage Summary:
 - Desktop sizes unchanged from Task 59 (22px)
 - Dual-root sync completed
 - No compilation errors
+
+---
+Task ID: 61
+Agent: Main
+Task: di tampilan desktop dan mobile font label section landing page dibuat bold
+
+Work Log:
+- Previous state (Task 60): all 9 badges had `text-[18px] md:text-[22px]` but inconsistent font weights:
+  - Sistem Hitung Cepat Percetakan: font-semibold (600)
+  - Penawaran Terbatas: font-bold (700) ✓
+  - Fitur Unggulan, Kenapa Darrell Soft?, Kenapa Harus Berlangganan?, Cara Kerja, Harga, Testimoni: no font weight (400 default)
+  - Kesempatan Emas: font-bold (700) ✓
+- Updated all 9 badges to `font-bold` via MultiEdit (7 edits):
+  - Sistem Hitung Cepat Percetakan: font-semibold → font-bold
+  - 6 badges with no font weight: added `font-bold` after `text-[18px] md:text-[22px]`
+  - Penawaran Terbatas and Kesempatan Emas already bold (unchanged)
+- Synced change to dual-root: copied src/app/page.tsx → app/page.tsx
+- Verified via agent-browser eval at desktop viewport (1280px): all 9 badges render at fontSize 22px, fontWeight 700 ✓
+- Verified via agent-browser eval at mobile viewport (375px): all 9 badges render at fontSize 18px, fontWeight 700 ✓
+
+Stage Summary:
+- All 9 section eyebrow badges on landing page now uniformly bold (font-weight 700) on both desktop and mobile
+- Badge list: Sistem Hitung Cepat Percetakan, Penawaran Terbatas, Fitur Unggulan, Kenapa Darrell Soft?, Kenapa Harus Berlangganan?, Kesempatan Emas, Cara Kerja, Harga, Testimoni
+- Font sizes unchanged from Task 60 (18px mobile / 22px desktop)
+- Dual-root sync completed
+- No compilation errors
