@@ -2783,3 +2783,33 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx)
+
+---
+Task ID: 75
+Agent: Main
+Task: Kecilkan font hero H1 lagi 3px (fifth reduction)
+
+Work Log:
+- Previous state (Task 74): hero H1 was 34.67px / 46.67px / 58.67px (mobile/tablet/desktop)
+- User requested another 3px reduction
+- New sizes: 31.67px (mobile) / 43.67px (tablet) / 55.67px (desktop)
+- Updated src/app/page.tsx line 1025: text-[31.67px] md:text-[43.67px] lg:text-[55.67px]
+- Synced to dual-root mirror app/page.tsx
+- Verified via agent-browser at 3 viewports:
+  - Mobile (375px): 31.67px (was 34.67px) — exactly 3px smaller
+  - Tablet (768px): 43.67px (was 46.67px) — exactly 3px smaller
+  - Desktop (1280px): 55.67px (was 58.67px) — exactly 3px smaller
+- Screenshot saved: /tmp/hero-h1-reduced-15px.png
+- No lint errors, no compilation errors in dev.log
+
+Stage Summary:
+- Hero H1 font reduced by exactly 3px across all 3 breakpoints (fifth time)
+- Cumulative reduction since original (text-5xl/6xl/7xl = 48/60/72px):
+  - Mobile: 48px → 31.67px (total -16.33px)
+  - Tablet: 60px → 43.67px (total -16.33px)
+  - Desktop: 72px → 55.67px (total -16.33px)
+- All other styling preserved (fontWeight 900, blue/red gradient, leading-[1.1])
+- Dual-root sync completed
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx)
