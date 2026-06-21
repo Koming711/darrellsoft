@@ -1249,7 +1249,7 @@ export default function Home() {
       <Section className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
-            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4">
+            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
               FAQ
             </Badge>
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
