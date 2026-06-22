@@ -3827,3 +3827,92 @@ Stage Summary:
 Files Deployed (all changes from Tasks 98-100):
 - src/app/page.tsx (and app/page.tsx mirror) — H1 font, image alignment, CTA button sizing
 
+
+---
+Task ID: 102
+Agent: Main
+Task: Tambahkan Asisten AI Darrellsoft (floating chat widget dengan LLM)
+
+Work Log:
+- Invoked LLM skill to understand z-ai-web-dev-sdk chat completions API
+- Explored project structure: src/app (40 API routes), src/components/ui (shadcn), src/lib/i18n.ts, src/app/layout.tsx
+- Confirmed dual-root pattern: src/app + app/ mirrored, but components/lib/contexts shared via @/ alias → src/*
+- Confirmed z-ai-web-dev-sdk@0.0.18 already installed
+
+- Step 1: Added 13 AI assistant translation keys to src/lib/i18n.ts (both id + en sections):
+  * ai_assistant_title, _subtitle, _placeholder, _welcome, _send, _thinking, _clear, _close, _error
+  * ai_assistant_suggestion_1..4 (quick question chips: dus makanan, ongkos cetak, potong kertas, invoice)
+
+- Step 2: Created API route src/app/api/ai-assistant/route.ts:
+  * POST handler using z-ai-web-dev-sdk (ZAI.create() → chat.completions.create)
+  * Comprehensive SYSTEM_PROMPT in Indonesian covering all Darrellsoft features:
+    - Fitur: Hitung Total Biaya, Potong Kertas, Hitung Cetakan, Harga Kertas, Ongkos Cetak, Finishing, Biaya Produksi, Invoice, Surat Jalan, Pembelian, Riwayat
+    - Master data: Customer, Toko/Pemasok, Harga Kertas, Finishing, Ongkos Cetak
+    - Konsep bisnis: Dus Makanan, Dus Kue, Hampers, plat cetak, finishing
+  * Reuses single ZAI instance across requests (warm invocations)
+  * Input validation: message required, max 1000 chars, history limited to last 10 messages
+  * thinking: { type: 'disabled' } for fast standard completions
+  * GET endpoint returns service status JSON
+  * Error handling with proper HTTP status codes (400, 500, 502)
+
+- Step 3: Created floating chat widget src/components/ai-assistant.tsx:
+  * Floating Action Button (FAB) bottom-right with gradient (blue-600 → sky-400)
+  * Pulse ring animation + Sparkles icon
+  * Tooltip on hover (desktop)
+  * FAB position: 84px bottom on mobile (clears bottom nav), 24px on desktop
+  * Chat panel: full-screen-ish on mobile (inset-2, h-85vh, max-h-640px), 400x600px on desktop
+  * Header: gradient bar with title, subtitle (online indicator), clear + close buttons
+  * Messages area: auto-scroll, custom scrollbar, user/assistant bubbles with avatars (User/Bot icons)
+  * User bubbles: blue-600 right-aligned; Assistant bubbles: white/dark left-aligned
+  * Simple markdown renderer: **bold** + line breaks
+  * Typing indicator: 3 bouncing dots
+  * Suggestion chips: 4 quick questions shown only when ≤1 message (fresh chat)
+  * Input area: auto-resizing textarea (max 120px), Enter to send (Shift+Enter newline), char counter
+  * Mobile backdrop overlay (md:hidden)
+  * sessionStorage persistence of conversation
+  * Escape key to close
+  * Framer Motion animations (spring transitions)
+  * Dark mode support throughout
+
+- Step 4: Mounted AIAssistant in src/app/layout.tsx (inside LanguageProvider so it has access to translations)
+
+- Step 5: Mirrored to app/ root (dual-root pattern):
+  * Copied route.ts → app/api/ai-assistant/route.ts (identical)
+  * Applied same 2 edits to app/layout.tsx (import + usage)
+  * Verified with diff: both roots identical
+
+- Step 6: Lint check — no errors in new files (pre-existing errors in websocket/frontend.tsx & upload/page(3).tsx unchanged)
+
+- Step 7: Verified dev server:
+  * GET /api/ai-assistant → 200 {"name":"Darrellsoft AI Assistant","status":"online"...}
+  * POST /api/ai-assistant with "Bagaimana cara hitung dus makanan?" → 200, AI returned detailed 5-step guide in Indonesian (~5s response time)
+  * POST /api/ai-assistant with "Cara buat invoice?" → 200, helpful response
+
+- Step 8: Verified with agent-browser:
+  * Desktop (1280x800): FAB at bottom-right (64x64px, 24px from edges) ✅
+  * Clicked FAB → chat panel opens (400x600px, bottom-right positioned) ✅
+  * Typed "Apa itu potong kertas di Darrellsoft?" → sent → AI responded with detailed explanation ✅
+  * Mobile (390x844): FAB visible, chat panel opens (374x640px, 8px margins, doesn't cover full screen) ✅
+  * Mobile: typed "Cara buat invoice?" → AI responded correctly ✅
+  * Fresh load: 4 suggestion chips visible ("Bagaimana cara hitung dus makanan?", "Cara hitung ongkos cetak", "Apa itu potong kertas?", "Cara buat invoice") ✅
+  * No runtime errors, no console errors (only pre-existing framer-motion cosmetic warning)
+  * Dev log: POST /api/ai-assistant 200 in 5.5s and 4.7s (normal LLM latency)
+
+Stage Summary:
+- Asisten AI Darrellsoft berhasil ditambahkan dan berfungsi penuh
+- Floating chat widget dengan LLM (z-ai-web-dev-sdk) terintegrasi di backend
+- AI memahami konteks Darrellsoft (percetakan, dus makanan, dus kue, hampers, invoice, dll)
+- Bilingual support (Indonesian default + English) via i18n
+- Responsive: mobile (full-width panel) + desktop (400px side panel)
+- Conversation persisted in sessionStorage
+- Suggestion chips untuk quick start
+- Perubahan LOCAL ONLY (belum di-deploy ke www.darrellsoft.com)
+
+Files Created/Modified:
+- src/lib/i18n.ts — added 13 AI assistant translation keys (id + en)
+- src/app/api/ai-assistant/route.ts — NEW API route with LLM integration
+- src/components/ai-assistant.tsx — NEW floating chat widget component
+- src/app/layout.tsx — mounted <AIAssistant /> in LanguageProvider
+- app/api/ai-assistant/route.ts — mirror (identical to src/)
+- app/layout.tsx — mirror (identical to src/)
+
