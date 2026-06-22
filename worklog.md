@@ -3647,3 +3647,45 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx) — hero Badge: responsive padding/font/icon sizes for mobile centering (px-4 py-2 text-[13px] sm:px-6 sm:text-[18px] md:px-8 md:py-3 md:text-[22px], icon w-4 sm:w-6 md:w-8, added whitespace-nowrap + shrink-0 + px-2 on wrapper)
+
+---
+Task ID: 97
+Agent: Main
+Task: Fix judul "Sistem Hitung Cepat Percetakan" dan gambar tidak center di halaman landing (mobile) — deploy ke live site
+
+Work Log:
+- Investigated issue: user reported badge "Sistem Hitung Cepat Percetakan" and images not centered on mobile landing page
+- Checked LOCAL dev server (has task 96 fix): badge at left=63, right=327 (63px margins) → ✅ CENTERED
+- Checked LIVE site (www.darrellsoft.com): badge at left=5, right=385 (5px margins, 380px wide = 97% viewport) → ❌ NOT CENTERED (old code)
+- Root cause: task 96 fix (responsive badge sizing) was NEVER DEPLOYED to production. Live site still had old code (px-8 py-3 text-[18px])
+- Also measured image positions on both local and live:
+  * Mobile image panel: left=16, right=374 (16/16 margins) → centered ✓
+  * Printing machine image: left=30, right=360 (30/30 margins within panel) → centered ✓
+  * 3-column food grid: IMG0(30-132), IMG1(144-246), IMG2(258-360) → symmetric, centered as group ✓
+  * Images were already centered — the "not center" perception was due to the badge touching screen edges
+- Re-linked Vercel project (link lost during task 95 workspace restore): `vercel link --project darrellsoft --token <TOKEN>`
+- Deployed to production: `vercel deploy --prod --yes --token <TOKEN>`
+  * Build completed in 38s on Vercel (sin1)
+  * Production URL: https://darrellsoft-o9p3imfye-koming711s-projects.vercel.app
+  * Aliased to: https://www.darrellsoft.com
+- Verified live site after deploy:
+  * Badge: left=63, right=327, margins=63/63, fontSize=13px → ✅ CENTERED (was 5/5)
+  * Mobile panel: 16/16 margins → centered ✓
+  * Printing image: 30/30 margins → centered ✓
+  * Grid images: symmetric (30/258, 144/144, 258/30) → centered ✓
+- Confirmed new code serving on live: `px-4 py-2 sm:px-6` present in HTML response
+- Screenshot saved: /tmp/live-mobile-after-deploy.png
+
+Stage Summary:
+- Badge "Sistem Hitung Cepat Percetakan" now properly centered on live site (www.darrellsoft.com) on mobile
+  * Before: 380px wide, 5px margins (touching screen edges, looked "not center")
+  * After: 265px wide, 63px margins (properly centered with breathing room)
+- Images (panel, printing machine, food grid) were already centered — no change needed
+- Responsive scaling: mobile (13px font, px-4, icon w-4) → sm (18px, px-6, w-6) → md (22px, px-8, w-8)
+- Deploy successful: build 38s, all routes compiled, HTTP 200
+- Vercel project re-linked (.vercel/ recreated)
+
+Files Modified:
+- No code changes (task 96 fix already in place locally)
+- .vercel/project.json recreated (Vercel project link)
+- Production deployment: darrellsoft-o9p3imfye-koming711s-projects.vercel.app → www.darrellsoft.com
