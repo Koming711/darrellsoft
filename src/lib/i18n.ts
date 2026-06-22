@@ -524,6 +524,21 @@ export const translations = {
 
     // Copyright
     copyright: 'Manajemen Percetakan',
+
+    // AI Assistant
+    ai_assistant_title: 'Asisten AI Darrellsoft',
+    ai_assistant_subtitle: 'Asisten cerdas untuk percetakan Anda',
+    ai_assistant_placeholder: 'Tulis pertanyaan Anda...',
+    ai_assistant_welcome: 'Halo! Saya Asisten AI Darrellsoft. Saya bisa membantu Anda soal cara menghitung cetakan, dus makanan, dus kue, hampers, potong kertas, sampai invoice dan surat jalan. Apa yang ingin Anda tanyakan?',
+    ai_assistant_send: 'Kirim',
+    ai_assistant_thinking: 'Sedang mengetik...',
+    ai_assistant_clear: 'Hapus percakapan',
+    ai_assistant_close: 'Tutup',
+    ai_assistant_error: 'Maaf, terjadi kesalahan. Silakan coba lagi.',
+    ai_assistant_suggestion_1: 'Bagaimana cara hitung dus makanan?',
+    ai_assistant_suggestion_2: 'Cara hitung ongkos cetak',
+    ai_assistant_suggestion_3: 'Apa itu potong kertas?',
+    ai_assistant_suggestion_4: 'Cara buat invoice',
   },
   en: {
     // Common
@@ -1050,6 +1065,21 @@ export const translations = {
 
     // Copyright
     copyright: 'Print Management',
+
+    // AI Assistant
+    ai_assistant_title: 'Darrellsoft AI Assistant',
+    ai_assistant_subtitle: 'Smart assistant for your printing business',
+    ai_assistant_placeholder: 'Type your question...',
+    ai_assistant_welcome: 'Hello! I am the Darrellsoft AI Assistant. I can help you with how to calculate printing, food boxes, cake boxes, hampers, paper cutting, invoices, and delivery notes. What would you like to ask?',
+    ai_assistant_send: 'Send',
+    ai_assistant_thinking: 'Typing...',
+    ai_assistant_clear: 'Clear conversation',
+    ai_assistant_close: 'Close',
+    ai_assistant_error: 'Sorry, an error occurred. Please try again.',
+    ai_assistant_suggestion_1: 'How to calculate food boxes?',
+    ai_assistant_suggestion_2: 'How to calculate print cost',
+    ai_assistant_suggestion_3: 'What is paper cutting?',
+    ai_assistant_suggestion_4: 'How to create an invoice',
   },
 } as const
 
