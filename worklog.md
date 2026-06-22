@@ -3752,3 +3752,39 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx) — heroImagePanel inner div: added `-ml-3 sm:-ml-4 md:ml-0` to align images with text on mobile
+
+---
+Task ID: 100
+Agent: Main
+Task: Kecilin tombol "Langganan Sekarang" dan "Lihat Paket Harga" (TANPA DEPLOY)
+
+Work Log:
+- Located hero CTA buttons in src/app/page.tsx lines 1073-1087
+- Both buttons had: size="lg", text-base (16px), py-6 px-8 (24px y, 32px x padding) → ~60px height
+- Applied smaller sizing to both buttons:
+  * Removed `size="lg"` (use default)
+  * Font: text-base (16px) → text-sm (14px)
+  * Padding: py-6 px-8 → py-3 px-5 (12px y, 20px x)
+  * Gap between buttons: gap-3 → gap-2.5
+  * Primary button icon: w-5 h-5 → w-4 h-4
+- Synced identical edit to mirror file app/page.tsx
+- Verified via agent-browser:
+  * Mobile (390px): both buttons now 36px height, 14px font (was ~60px, 16px) → ✅ smaller
+  * Desktop (1280px): CTA1 now 308px width, 36px height, 14px font → ✅ smaller, consistent
+  * Both buttons render correctly with new compact size
+- User context: previous instruction was "jangan deploy, lanjutkan" — these changes are LOCAL ONLY
+- Screenshot saved: /tmp/cta-buttons-smaller.png
+- Dev server HTTP 200, no errors
+
+Stage Summary:
+- Hero CTA buttons "Langganan Sekarang" and "Lihat Paket Harga" are now smaller and more compact
+  * Before: ~60px height, 16px font, large padding (py-6 px-8)
+  * After: 36px height, 14px font, compact padding (py-3 px-5)
+- Applied consistently on both mobile and desktop
+- Icon on primary button also reduced (w-5 h-5 → w-4 h-4)
+- Change is LOCAL ONLY — NOT deployed to production (per ongoing instruction)
+- Dual-root sync completed
+- Dev server compiles and serves HTTP 200
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx) — hero CTA buttons: removed size="lg", text-base→text-sm, py-6 px-8→py-3 px-5, gap-3→gap-2.5, icon w-5 h-5→w-4 h-4
