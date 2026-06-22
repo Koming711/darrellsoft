@@ -112,6 +112,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
     t('ai_assistant_suggestion_2'),
     t('ai_assistant_suggestion_3'),
     t('ai_assistant_suggestion_4'),
+    t('ai_assistant_suggestion_5'),
   ]
 
   const sendMessage = useCallback(async (text: string) => {
