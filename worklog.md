@@ -3788,3 +3788,42 @@ Stage Summary:
 
 Files Modified:
 - src/app/page.tsx (and app/page.tsx) — hero CTA buttons: removed size="lg", text-base→text-sm, py-6 px-8→py-3 px-5, gap-3→gap-2.5, icon w-5 h-5→w-4 h-4
+
+---
+Task ID: 101
+Agent: Main
+Task: Deploy semua perubahan local ke www.darrellsoft.com (Vercel production)
+
+Work Log:
+- Verified local changes pending deploy (Tasks 98, 99, 100):
+  * Task 98: H1 hero font +2px on mobile (text-[33.67px])
+  * Task 99: Hero images left-aligned with text on mobile (-ml-3 sm:-ml-4 md:ml-0)
+  * Task 100: CTA buttons smaller (text-sm py-3 px-5, removed size="lg", py-6 px-8)
+- Confirmed Vercel CLI available via npx (v54.14.5)
+- Confirmed Vercel project config exists: projectName=darrellsoft, projectId=prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB
+- Verified package.json build script handles schema swap automatically:
+  `node scripts/prepare-build.js && npx prisma generate && npx next build && node scripts/revert-schema.js`
+- Ran deployment: `npx vercel deploy --prod --yes --token <TOKEN>`
+- Vercel build completed in ~45s (Build Completed in /vercel/output [45s])
+- Deployment completed, aliased to https://www.darrellsoft.com
+- Verified live site:
+  * HTTP/2 200 from https://www.darrellsoft.com (server: Vercel)
+  * Page contains "Jangan jadi penonton", "Langganan Sekarang", "Lihat Paket Harga"
+  * CTA button classes confirmed: `text-sm font-bold py-3 px-5` (smaller, NEW) ✅
+  * OLD large button classes (py-6, size="lg") NOT present ✅
+- Local schema untouched (still sqlite) — Vercel builds in its own environment
+- Dev server still running local on port 3000
+
+Stage Summary:
+- Production deployment SUCCESS: https://www.darrellsoft.com (HTTP 200)
+- Vercel deployment URL: https://darrellsoft-539ecdai2-koming711s-projects.vercel.app
+- All 3 pending local changes now LIVE on production:
+  1. H1 hero text +2px on mobile (31.67px → 33.67px)
+  2. Hero images left-aligned flush with "Tidak ada alasan..." text on mobile
+  3. CTA buttons "Langganan Sekarang" & "Lihat Paket Harga" smaller (text-sm, py-3 px-5)
+- Vercel build script automatically handled sqlite→postgresql schema swap during build
+- Local dev environment unchanged (SQLite, port 3000)
+
+Files Deployed (all changes from Tasks 98-100):
+- src/app/page.tsx (and app/page.tsx mirror) — H1 font, image alignment, CTA button sizing
+
