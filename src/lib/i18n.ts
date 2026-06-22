@@ -539,6 +539,7 @@ export const translations = {
     ai_assistant_suggestion_2: 'Cara hitung ongkos cetak',
     ai_assistant_suggestion_3: 'Apa itu potong kertas?',
     ai_assistant_suggestion_4: 'Cara buat invoice',
+    ai_assistant_suggestion_5: 'Bagaimana cara isi potong kertas?',
   },
   en: {
     // Common
@@ -1080,6 +1081,7 @@ export const translations = {
     ai_assistant_suggestion_2: 'How to calculate print cost',
     ai_assistant_suggestion_3: 'What is paper cutting?',
     ai_assistant_suggestion_4: 'How to create an invoice',
+    ai_assistant_suggestion_5: 'How to fill in paper cutting?',
   },
 } as const
 
