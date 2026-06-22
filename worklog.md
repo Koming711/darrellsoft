@@ -3611,3 +3611,39 @@ Files Modified:
 - node_modules/ preserved (untouched)
 - .next/ removed (fresh build)
 - .daemon.pid refreshed by daemon.cjs
+
+---
+Task ID: 96
+Agent: Main
+Task: Fix tampilan mobile di halaman landing - judul "Sistem Hitung Cepat Percetakan" posisi kurang tengah
+
+Work Log:
+- Identified the title as the hero badge "Sistem Hitung Cepat Percetakan" in src/app/page.tsx (line 1019) — Badge component with Zap icon
+- Analyzed mobile rendering via agent-browser (viewport 390x844):
+  * BEFORE: Badge width=380px on 390px viewport → only 5px margins on each side (97% of viewport width)
+  * Badge nearly touched screen edges, making it look "not centered enough" despite technically being centered (5px both sides)
+  * Root cause: px-8 padding (32px each side) + text-[18px] font + w-7 icon were too large for mobile, forcing badge to expand to near-full-width
+- Applied responsive fix to src/app/page.tsx (line 1018-1022):
+  * Outer wrapper: added `px-2` to flex container for minimum side breathing room
+  * Badge padding: `px-8 py-3` → `px-4 py-2 sm:px-6 md:px-8 md:py-3` (smaller on mobile, scales up at sm/md)
+  * Badge font: `text-[18px] md:text-[22px]` → `text-[13px] sm:text-[18px] md:text-[22px]` (smaller on mobile, scales up)
+  * Added `whitespace-nowrap` to prevent text wrapping
+  * Icon: `w-7 h-7 md:w-8 md:h-8 mr-3` → `w-4 h-4 sm:w-6 sm:h-6 md:w-8 md:h-8 mr-2 md:mr-3 shrink-0` (smaller on mobile, shrink-0 to prevent icon squish)
+- Synced identical edit to mirror file app/page.tsx
+- Verified via agent-browser across 3 breakpoints:
+  * Mobile (390px): badge width=265px, margins=63px/63px, font=13px, padding=16px → ✅ centered with proper breathing room
+  * Tablet sm (640px): badge width=360px, margins=140px/140px, font=18px → ✅ centered
+  * Desktop (1280px): badge width=444px, margins=418px/418px, font=22px → ✅ centered (unchanged from before)
+- No errors in dev.log
+- Screenshots saved: /tmp/landing-mobile-after.png, /tmp/landing-mobile-hero-after.png
+
+Stage Summary:
+- Hero badge "Sistem Hitung Cepat Percetakan" on landing page is now properly centered on mobile with adequate side margins (63px each side, was 5px)
+- Responsive scaling implemented: mobile (13px font, px-4 padding, w-4 icon) → sm (18px, px-6, w-6) → md (22px, px-8, w-8)
+- Badge no longer touches screen edges on mobile — looks visually centered and balanced
+- Desktop and tablet views preserved (no regression)
+- Dual-root sync completed (src + app mirror)
+- Page compiles, serves HTTP 200, no errors
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx) — hero Badge: responsive padding/font/icon sizes for mobile centering (px-4 py-2 text-[13px] sm:px-6 sm:text-[18px] md:px-8 md:py-3 md:text-[22px], icon w-4 sm:w-6 md:w-8, added whitespace-nowrap + shrink-0 + px-2 on wrapper)

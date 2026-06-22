@@ -1015,9 +1015,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-6 pb-16 md:pb-24">
           {/* Section title — centered, close to the Darrellsoft navbar banner */}
           <FadeIn direction="down" delay={0.05}>
-            <div className="flex justify-center mb-4 md:mb-6">
-              <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-8 py-3 text-[18px] md:text-[22px] font-bold">
-                <Zap className="w-7 h-7 md:w-8 md:h-8 mr-3" /> {t.hero_badge}
+            <div className="flex justify-center mb-4 md:mb-6 px-2">
+              <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-4 py-2 sm:px-6 md:px-8 md:py-3 text-[13px] sm:text-[18px] md:text-[22px] font-bold whitespace-nowrap">
+                <Zap className="w-4 h-4 sm:w-6 sm:h-6 md:w-8 md:h-8 mr-2 md:mr-3 shrink-0" /> {t.hero_badge}
               </Badge>
             </div>
           </FadeIn>
