@@ -3689,3 +3689,29 @@ Files Modified:
 - No code changes (task 96 fix already in place locally)
 - .vercel/project.json recreated (Vercel project link)
 - Production deployment: darrellsoft-o9p3imfye-koming711s-projects.vercel.app → www.darrellsoft.com
+
+---
+Task ID: 98
+Agent: Main
+Task: Besarin tulisan H1 hero "Jangan jadi penonton saja!!!..." 2px di tampilan mobile saja (TANPA DEPLOY)
+
+Work Log:
+- Located H1 hero text in src/app/page.tsx line 1029: `text-[31.67px] md:text-[43.67px] lg:text-[55.67px]`
+- Applied edit: mobile base size 31.67px → 33.67px (+2px), md: and lg: breakpoints UNCHANGED (desktop/tablet stay 43.67px/55.67px)
+- Synced identical edit to mirror file app/page.tsx
+- Verified via agent-browser (mobile viewport 390x844):
+  * H1 font size: 33.67px ✅ (was 31.67px, +2px as requested)
+  * H1 text: "Jangan jadi penonton saja!!!. Sekarang sudah bisa mulai bisnis cetak..."
+  * Width: 358px (still fits within mobile viewport with 16px margins)
+- User instructed: JANGAN DEPLOY — perubahan hanya di local, tidak di-deploy ke www.darrellsoft.com
+- Dev server running, HTTP 200, no errors
+
+Stage Summary:
+- H1 hero font size increased by 2px on mobile ONLY (31.67px → 33.67px)
+- Desktop (md:) and large (lg:) breakpoints unchanged (43.67px / 55.67px)
+- Change is LOCAL ONLY — NOT deployed to production (per user instruction)
+- Dual-root sync completed (src + app mirror)
+- Dev server compiles and serves HTTP 200
+
+Files Modified:
+- src/app/page.tsx (and app/page.tsx) — H1 hero: text-[31.67px] → text-[33.67px] (mobile base size only, +2px)
