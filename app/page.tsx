@@ -1069,19 +1069,17 @@ export default function Home() {
                 </div>
 
                 {/* Hero CTA — Primary */}
-                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <div className="flex flex-col sm:flex-row gap-2.5 mt-6">
                   <Button
-                    size="lg"
                     onClick={() => goToLogin('register')}
-                    className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-base font-bold py-6 px-8"
+                    className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-sm font-bold py-3 px-5"
                   >
-                    {t.hero_cta1} <ArrowRight className="ml-2 w-5 h-5" />
+                    {t.hero_cta1} <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
                   <Button
-                    size="lg"
                     variant="outline"
                     onClick={() => document.getElementById('harga')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="ripple-btn border-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold transition-all duration-300 text-base py-6 px-8"
+                    className="ripple-btn border-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold transition-all duration-300 text-sm py-3 px-5"
                   >
                     {t.hero_cta2}
                   </Button>
