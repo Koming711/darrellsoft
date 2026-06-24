@@ -45,9 +45,6 @@ interface DialogFormProps {
 export function DialogForm({ open, onOpenChange, title, description, fields, initialData, onSave, contactPicker }: DialogFormProps) {
   const [formData, setFormData] = useState<Record<string, string | number>>({})
   const [isSaving, setIsSaving] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isPickingContact, setIsPickingContact] = useState(false)
   const [contactPickerSupported, setContactPickerSupported] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -121,7 +118,6 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
         setFormData(initialData)
       } else {
         setFormData({})
-        setPosition({ x: 0, y: 0 })
       }
     })
   }, [initialData, open])
@@ -137,59 +133,11 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
     }
   }
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target instanceof HTMLElement && contentRef.current?.contains(e.target)) {
-      const inputElements = contentRef.current.querySelectorAll('input, button, select, textarea')
-      const isInput = Array.from(inputElements).some(el => el.contains(e.target as Node))
-      
-      if (!isInput) {
-        setIsDragging(true)
-        setDragOffset({
-          x: e.clientX - position.x,
-          y: e.clientY - position.y
-        })
-      }
-    }
-  }
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging) {
-      setPosition({
-        x: e.clientX - dragOffset.x,
-        y: e.clientY - dragOffset.y
-      })
-    }
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-    } else {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isDragging, dragOffset])
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         ref={contentRef}
         className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto"
-        style={{
-          transform: `translate(${position.x}px, ${position.y}px)`,
-          transition: isDragging ? 'none' : 'transform 0.2s ease-out'
-        }}
-        onMouseDown={handleMouseDown}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -231,7 +179,6 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
                   value={formData[field.name] || ''}
                   onChange={(e) => setFormData({ ...formData, [field.name]: field.type === 'number' ? parseFloat(e.target.value) || '' : e.target.value })}
                   className="sm:col-span-3 cursor-text"
-                  onMouseDown={(e) => e.stopPropagation()}
                   disabled={isSaving}
                 />
               </div>
