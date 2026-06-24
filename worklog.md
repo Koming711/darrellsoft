@@ -4259,3 +4259,134 @@ Files Modified:
 - src/lib/i18n.ts — added 29 rekap_* translation keys (id + en)
 - src/components/sidebar-desktop.tsx — added BarChart3 import + menu item after riwayat_penjualan
 - src/components/sidebar.tsx — added BarChart3 import + menu item after riwayat_penjualan
+
+---
+Task ID: 108
+Agent: Main
+Task: Buat halaman Rekap Biaya (bahan kertas, cetak, finishing, ongkos lem, ongkos lem borongan, bikin piso) — TANPA DEPLOY
+
+Work Log:
+- Explored prisma schema: RiwayatCetakan model menyimpan semua 6 komponen biaya yang diminta:
+  * totalPaperPrice → Biaya Bahan Kertas
+  * ongkosCetak + ongkosCetak2 + hargaPlat + hargaPlat2 → Biaya Cetak (2 mesin possible)
+  * finishingCost → Biaya Finishing
+  * glueCost → Biaya Ongkos Lem (per cm)
+  * glueBorongan → Biaya Ongkos Lem Borongan (flat rate)
+  * otherCost (default label "Biaya Bikin Piso" — confirmed via grep di hitung-cetakan/page.tsx:216) → Biaya Bikin Piso
+
+- Step 1: Tambah 19 translation keys (id + en) di src/lib/i18n.ts:
+  * rekap_biaya, subtitle_rekap_biaya
+  * rekap_biaya_bahan_kertas, rekap_biaya_cetak, rekap_biaya_finishing
+  * rekap_biaya_ongkos_lem, rekap_biaya_ongkos_lem_borongan, rekap_biaya_bikin_piso
+  * rekap_biaya_total_biaya, rekap_biaya_jumlah_cetakan, rekap_biaya_tidak_ada_data
+  * rekap_biaya_cari, rekap_biaya_no_urut, rekap_biaya_nama_cetakan, rekap_biaya_nama_customer
+  * rekap_biaya_grand_total, rekap_biaya_subtotal, rekap_biaya_quantity, rekap_biaya_rincian
+
+- Step 2: Buat API endpoint src/app/api/rekap-biaya/route.ts:
+  * GET /api/rekap-biaya?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+  * Query RiwayatCetakan where per-user filter + date filter (createdAt), take: 5000
+  * Map tiap record ke RekapBiayaItem dengan 6 komponen biaya:
+    - biayaBahanKertas = totalPaperPrice
+    - biayaCetak = ongkosCetak + ongkosCetak2 + hargaPlat + hargaPlat2
+    - biayaFinishing = finishingCost
+    - biayaOngkosLem = glueCost
+    - biayaOngkosLemBorongan = glueBorongan
+    - biayaBikinPiso = otherCost (label dari otherCostLabel, default "Biaya Bikin Piso")
+  * grandTotal: sum semua 6 komponen + totalCetakan + totalBiaya
+
+- Step 3: Buat halaman src/app/rekap-biaya/page.tsx:
+  * DashboardLayout dengan title="Rekap Biaya" subtitle="Rekap biaya bahan kertas, cetak, finishing, lem & piso"
+  * 6 summary cards (grid 2/3/6 cols responsive):
+    1. Biaya Bahan Kertas (blue/Layers icon)
+    2. Biaya Cetak (emerald/Printer icon)
+    3. Biaya Finishing (violet/Paintbrush icon)
+    4. Biaya Ongkos Lem (cyan/Droplets icon)
+    5. Biaya Ongkos Lem Borongan (teal/Droplet icon)
+    6. Biaya Bikin Piso (amber/Scissors icon)
+  * Grand total banner: gradient blue-to-violet, menampilkan Total Keseluruhan Biaya + Jumlah Cetakan
+  * Filter bar: search + sort dropdown + 4 date filter buttons + Export Excel + Cetak
+  * Custom date dialog (modal)
+  * 3 layout responsive:
+    - Desktop (lg+): tabel 13 kolom lengkap (expand, No.Urut, Tanggal, Cetakan, Customer, Qty, 6 biaya, Total) + tfoot grand total + expandable sub-detail dengan 6 cost chips
+    - Tablet (sm-lg): tabel 6 kolom (expand, Cetakan+Customer, Bahan Kertas, Cetak, Finishing, Total) + expandable sub-detail dengan 3 remaining cost chips
+    - Mobile (<sm): card layout per cetakan dengan 3 cost chips (Bahan Kertas, Cetak, Finishing) + expandable 3 remaining (Ongkos Lem, Borongan, Piso) + grand total card
+  * Sort options: terbaru (default), terlama, total_desc, total_asc, nama_asc
+  * Export Excel: CSV (semicolon, UTF-8 BOM) dengan semua kolom + grand total row
+  * Print: window.print() dengan print:hidden pada filter bar
+  * Empty state + loading skeleton
+  * Dark mode support
+
+- Step 4: Tambah menu item ke sidebar:
+  * src/components/sidebar-desktop.tsx: import PieChart; tambah menu {titleKey:'rekap_biaya', href:'/rekap-biaya', icon:PieChart, featureId:'biaya', section:'biaya'} SETELAH Biaya
+  * src/components/sidebar.tsx (mobile): same — PieChart + menu item setelah Biaya
+  * Menggunakan PieChart (bukan BarChart3 yang sudah dipakai rekap_penjualan) untuk diferensiasi visual
+  * featureId 'biaya' (sama dengan halaman Biaya) — permission mengikuti
+
+- Step 5: Mirror ke app/ directory:
+  * cp src/app/api/rekap-biaya/route.ts → app/api/rekap-biaya/route.ts (verified identical)
+  * cp src/app/rekap-biaya/page.tsx → app/rekap-biaya/page.tsx (verified identical)
+
+- Step 6: Lint check — TIDAK ada error baru di file yang diubah (rekap-biaya/page.tsx, rekap-biaya/route.ts, sidebar-desktop.tsx, sidebar.tsx, i18n.ts). Pre-existing errors tetap tidak berubah.
+
+- Step 7: Verifikasi dengan agent-browser:
+  * Desktop (1280x800): Login superadmin → /rekap-biaya
+    - Page loaded 200 OK, API /api/rekap-biaya?startDate=2026-06-01&endDate=2026-06-24 returned 200 ✅
+    - Awalnya empty (superadmin tidak punya RiwayatCetakan data — strict per-user isolation, sesuai pattern dashboard)
+    - Created 3 test records untuk superadmin (Kartu Nama Premium, Brosur A5, Dus Makanan) dengan 6 komponen biaya berbeda-beda
+    - Reload → 6 summary cards tampil dengan nilai benar:
+      • Biaya Bahan Kertas: Rp3.000.000 ✅ (1.25M + 0.85M + 0.9M)
+      • Biaya Cetak: Rp1.625.000 ✅ (525K + 700K + 400K)
+      • Biaya Finishing: Rp650.000 ✅ (300K + 150K + 200K)
+      • Biaya Ongkos Lem: Rp125.000 ✅ (50K + 0 + 75K)
+      • Biaya Ongkos Lem Borongan: Rp500.000 ✅ (0 + 500K + 0)
+      • Biaya Bikin Piso: Rp550.000 ✅ (200K + 0 + 350K)
+      • Total Keseluruhan: Rp6.450.000 ✅ (sum all 6)
+    - Grand total banner menampilkan Rp6.450.000 + Jumlah Cetakan: 3 ✅
+    - Tabel desktop 13 kolom tampil dengan 3 rows + tfoot grand total ✅
+    - Click row → expand sub-detail dengan 6 cost chips + info Kertas & Customer ✅
+    - Export Excel & Cetak buttons enabled (sebelumnya disabled saat empty) ✅
+    - Sidebar menu "Rekap Biaya" (PieChart icon) tampil SETELAH "Biaya" di section BIAYA ✅
+  * Mobile (390x844): reload
+    - Card layout per cetakan tampil (3 cards) ✅
+    - Tiap card: icon, nama cetakan, customer+tanggal, total, qty, 3 chips (Bahan Kertas, Cetak, Finishing) ✅
+    - Click card → expand 3 remaining chips (Ongkos Lem, Borongan, Piso) + info Kertas & No.Urut ✅
+    - Search "Brosur" → hanya Brosur A5 tampil ✅
+    - Grand total card di bawah dengan 6 cost totals + Total Biaya ✅
+  * Dev log: GET /rekap-biaya 200, GET /api/rekap-biaya 200 — TIDAK ada error
+  * Cleanup: deleted 3 test records, verified remaining superadmin records = 0 ✅
+  * Screenshots: /tmp/rekap-biaya-desktop.png
+
+Stage Summary:
+- Halaman "Rekap Biaya" berhasil dibuat di /rekap-biaya
+- Menampilkan 6 komponen biaya per cetakan (dari RiwayatCetakan):
+  1. Biaya Bahan Kertas (totalPaperPrice)
+  2. Biaya Cetak (ongkosCetak + ongkosCetak2 + hargaPlat + hargaPlat2)
+  3. Biaya Finishing (finishingCost)
+  4. Biaya Ongkos Lem (glueCost)
+  5. Biaya Ongkos Lem Borongan (glueBorongan)
+  6. Biaya Bikin Piso (otherCost, default label "Biaya Bikin Piso")
+- 6 summary cards dengan total per komponen biaya
+- Grand total banner (gradient) dengan Total Keseluruhan Biaya + Jumlah Cetakan
+- 3 layout responsive: desktop tabel 13 kolom, tablet tabel 6 kolom, mobile cards
+- Expandable rows/cards: klik untuk lihat rincian 6 cost chips + info kertas/customer
+- Filter periode: Hari Ini / Minggu Ini / Bulan Ini / Custom (date range)
+- Search by cetakan/customer/nomor/kertas
+- Sort: Terbaru / Terlama / Total Biaya (Tertinggi/Terendah) / Nama (A-Z)
+- Export Excel (CSV UTF-8 BOM, semicolon separator)
+- Print (window.print dengan print:hidden pada filter bar)
+- Grand total row di tabel desktop/tablet, grand total card di mobile
+- Dark mode support
+- Menu sidebar "Rekap Biaya" (PieChart icon) di section BIAYA, setelah "Biaya"
+- Permission: featureId 'biaya' (sama dengan halaman Biaya)
+- Perubahan LOCAL ONLY (TIDAK di-deploy — per instruksi user)
+
+Files Created:
+- src/app/api/rekap-biaya/route.ts (NEW)
+- src/app/rekap-biaya/page.tsx (NEW)
+- app/api/rekap-biaya/route.ts (mirror)
+- app/rekap-biaya/page.tsx (mirror)
+
+Files Modified:
+- src/lib/i18n.ts — added 19 rekap_biaya_* translation keys (id + en)
+- src/components/sidebar-desktop.tsx — added PieChart import + menu item after Biaya
+- src/components/sidebar.tsx — added PieChart import + menu item after Biaya
