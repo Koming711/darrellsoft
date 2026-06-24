@@ -29,7 +29,6 @@ import {
   UserCog,
   Banknote,
   BarChart3,
-  PieChart,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -116,13 +115,6 @@ const menuItems = [
     titleKey: 'biaya' as TranslationKey,
     href: '/biaya',
     icon: Banknote,
-    featureId: 'biaya',
-    section: 'biaya',
-  },
-  {
-    titleKey: 'rekap_biaya' as TranslationKey,
-    href: '/rekap-biaya',
-    icon: PieChart,
     featureId: 'biaya',
     section: 'biaya',
   },
