@@ -4390,3 +4390,34 @@ Files Modified:
 - src/lib/i18n.ts — added 19 rekap_biaya_* translation keys (id + en)
 - src/components/sidebar-desktop.tsx — added PieChart import + menu item after Biaya
 - src/components/sidebar.tsx — added PieChart import + menu item after Biaya
+
+---
+Task ID: 108-CANCEL
+Agent: Main
+Task: Cancel perintah terakhir (Task ID 108 — Buat halaman Rekap Biaya)
+
+Work Log:
+- User meminta untuk membatalkan task terakhir (pembuatan halaman Rekap Biaya)
+- Menghapus 4 file yang dibuat di Task 108:
+  * /home/z/my-project/src/app/rekap-biaya/page.tsx (NEW, deleted)
+  * /home/z/my-project/src/app/api/rekap-biaya/route.ts (NEW, deleted)
+  * /home/z/my-project/app/rekap-biaya/page.tsx (mirror, deleted)
+  * /home/z/my-project/app/api/rekap-biaya/route.ts (mirror, deleted)
+- Meng-revert perubahan di src/lib/i18n.ts:
+  * Menghapus 19 translation keys (id + en): rekap_biaya, subtitle_rekap_biaya, rekap_biaya_bahan_kertas, rekap_biaya_cetak, rekap_biaya_finishing, rekap_biaya_ongkos_lem, rekap_biaya_ongkos_lem_borongan, rekap_biaya_bikin_piso, rekap_biaya_total_biaya, rekap_biaya_jumlah_cetakan, rekap_biaya_tidak_ada_data, rekap_biaya_cari, rekap_biaya_no_urut, rekap_biaya_nama_cetakan, rekap_biaya_nama_customer, rekap_biaya_grand_total, rekap_biaya_subtotal, rekap_biaya_quantity, rekap_biaya_rincian
+- Meng-revert perubahan di src/components/sidebar-desktop.tsx:
+  * Menghapus import PieChart dari lucide-react
+  * Menghapus menu item {titleKey:'rekap_biaya', href:'/rekap-biaya', icon:PieChart, featureId:'biaya', section:'biaya'}
+- Meng-revert perubahan di src/components/sidebar.tsx:
+  * Menghapus import PieChart dari lucide-react
+  * Menghapus menu item yang sama
+- Verifikasi: grep untuk "rekap_biaya" atau "rekap-biaya" di src/ dan app/ → no matches (hanya tersisa di worklog.md sebagai catatan historis)
+- Dev server: kompilasi sukses, GET /rekap-biaya sekarang mengembalikan 404 (route terhapus)
+- Lint: tidak ada error baru di file yang di-edit (sidebar-desktop.tsx, sidebar.tsx, i18n.ts). Pre-existing errors di upload/, websocket/, language-context.tsx tetap tidak berubah.
+
+Stage Summary:
+- Task ID 108 (Rekap Biaya page) berhasil dibatalkan/di-rollback sepenuhnya
+- Codebase kembali ke state sebelum Task 108 dijalankan
+- Tidak ada dampak pada Task 107 (Rekap Penjualan per Customer) yang masih aktif
+- Sidebar kembali menampilkan: Biaya → hitung_finishing (tanpa Rekap Biaya di antaranya)
+- Tidak ada deploy (sesuai instruksi user)
