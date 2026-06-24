@@ -33,6 +33,7 @@ import {
   ScrollText,
   UserCog,
   Banknote,
+  BarChart3,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -96,6 +97,13 @@ const menuItems = [
     titleKey: 'riwayat_penjualan' as TranslationKey,
     href: '/riwayat-penjualan',
     icon: TrendingUp,
+    featureId: 'invoice',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'rekap_penjualan' as TranslationKey,
+    href: '/rekap-penjualan',
+    icon: BarChart3,
     featureId: 'invoice',
     section: 'dokumen',
   },
