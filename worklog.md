@@ -4096,3 +4096,55 @@ Files Modified:
 - src/components/dialog-form.tsx — removed all drag state/handlers/style/onMouseDown
 - src/components/ui/dialog.tsx — removed DragContext, drag logic from DialogContent/DialogHeader/DialogTitle, GripHorizontal icon
 
+
+---
+Task ID: 106
+Agent: Main
+Task: Fix sidebar menu scroll reset — klik menu tidak boleh membuat sidebar scroll ke atas (TANPA DEPLOY)
+
+Work Log:
+- Investigated: searched sidebar.tsx & sidebar-desktop.tsx for scrollTo/scrollIntoView/scrollTop calls — none found
+- Root cause identified: Next.js App Router resets scroll to top on navigation by default, and the Sidebar component is re-rendered (re-mounted) on each route change, so the <nav> element's scrollTop resets to 0
+- Reproduced with agent-browser (desktop 1280x800, login superadmin → /pembukaan):
+  * Scrolled sidebar nav to scrollTop=300 (scrollHeight=1048, clientHeight=645, canScroll=true)
+  * Clicked visible menu "/purchase-order"
+  * After navigation: scrollTop reset 300 → 0 (reset=true) ❌ BUG CONFIRMED
+
+- Fix applied in src/components/dialog-form.tsx... wait, src/components/sidebar-desktop.tsx:
+  * Added module-level variable `let savedSidebarScroll = 0` — survives component re-mounts across navigations (persists in module scope, not component state)
+  * Added `const navRef = useRef<HTMLElement>(null)` + attached to <nav ref={navRef}>
+  * Added `const isRestoringRef = useRef(false)` — guard flag to ignore scroll events we trigger ourselves during restore (so the transient scrollTop=0 from Next.js scroll-reset doesn't overwrite savedSidebarScroll)
+  * Restore useEffect (deps: [pathname]):
+    - On route change, if savedSidebarScroll > 0, schedule 6 requestAnimationFrame restores + 3 setTimeout restores (50ms, 150ms, 300ms)
+    - Each restore only applies if nav.scrollHeight >= savedSidebarScroll (waits for async menu rendering to grow the container)
+    - Sets isRestoringRef=true before setting scrollTop, releases on next frame
+    - Cancels all pending restores on cleanup
+  * Track useEffect (deps: []):
+    - Adds 'scroll' event listener on nav (passive)
+    - On scroll: if isRestoringRef.current is true, skip (don't overwrite saved value); else savedSidebarScroll = nav.scrollTop
+    - Removes listener on cleanup
+
+- Key insight: the multi-frame retry (6 rAF + 3 timeouts) wins the race against:
+  1. Next.js' scroll-reset (runs after our effect)
+  2. Async menu items rendering (scrollHeight grows over frames)
+  3. The isRestoringRef guard prevents the scroll-reset's transient scrollTop=0 from being captured as the "saved" position
+
+- Lint check: no errors in sidebar-desktop.tsx
+
+- Verified with agent-browser (4 test scenarios):
+  * Test 1: scroll to 300 → click /purchase-order → after nav scrollTop=300 (preserved=true) ✅
+  * Test 2: from /purchase-order (scroll 300) → click /surat-jalan → scrollTop=300 (preserved=true) ✅
+  * Test 3: scroll to 500 (max ~403) → click /biaya → scrollTop=403 (preserved=true) ✅
+  * Test 4: manual scroll still works — user can scroll sidebar to 100 freely (canStillScroll=true) ✅
+  * No console errors, no dev log errors
+
+Stage Summary:
+- Sidebar scroll position sekarang DIPERTAHANKAN saat klik menu (tidak balik ke atas lagi)
+- Mekanisme: module-level cache savedSidebarScroll + restore useEffect dengan multi-frame retry + isRestoringRef guard
+- Berlaku hanya di sidebar desktop (mobile pakai bottom nav, bukan scrollable sidebar)
+- Manual scroll tetap berfungsi normal (user masih bisa scroll sidebar ke atas/bawah)
+- Perubahan LOCAL ONLY (TIDAK di-deploy — per instruksi user)
+
+Files Modified:
+- src/components/sidebar-desktop.tsx — added savedSidebarScroll module var, navRef, isRestoringRef, restore+track useEffects, ref on <nav>
+

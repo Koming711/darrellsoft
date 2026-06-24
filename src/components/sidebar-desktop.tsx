@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calculator,
@@ -38,6 +39,11 @@ import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
 // ===== Theme tokens — DS logo blue background =====
 const SIDEBAR_BG = '#1e40af'
 const SIDEBAR_BORDER = 'rgba(255,255,255,0.12)'
+
+// Module-level cache for sidebar scroll position.
+// Survives component re-mounts across route navigations so the sidebar
+// doesn't jump back to the top when a menu item is clicked.
+let savedSidebarScroll = 0
 
 // Menu items with their feature IDs for permission checking
 const menuItems = [
@@ -219,6 +225,66 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
   const router = useRouter()
   const { t } = useLanguage()
   const { collapsed, toggle } = useSidebarCollapse()
+  const navRef = useRef<HTMLElement>(null)
+
+  // Flag: while we are programmatically restoring scroll, ignore scroll
+  // events so they don't overwrite the saved position with the transient 0
+  // that Next.js' scroll-reset produces right after navigation.
+  const isRestoringRef = useRef(false)
+
+  // Restore sidebar scroll position on mount / route change.
+  // Without this, clicking a menu item re-mounts the <nav> with scrollTop=0,
+  // making the sidebar jump back to the top (Next.js resets scroll on nav).
+  useEffect(() => {
+    if (!navRef.current || savedSidebarScroll <= 0) return
+
+    let cancelled = false
+    const restore = () => {
+      if (cancelled) return
+      const nav = navRef.current
+      if (!nav) return
+      // Only restore once the nav is tall enough to hold the saved offset
+      // (menu items may render async and grow the scrollHeight).
+      if (nav.scrollHeight >= savedSidebarScroll) {
+        isRestoringRef.current = true
+        nav.scrollTop = savedSidebarScroll
+        // Release the guard on the next frame so subsequent user scrolls are tracked again
+        requestAnimationFrame(() => { isRestoringRef.current = false })
+      }
+    }
+    // Schedule restores across several frames to win the race against
+    // browser/Next.js scroll reset and async menu rendering.
+    const rafs: number[] = []
+    for (let i = 0; i < 6; i++) {
+      rafs.push(requestAnimationFrame(restore))
+    }
+    const t1 = window.setTimeout(restore, 50)
+    const t2 = window.setTimeout(restore, 150)
+    const t3 = window.setTimeout(restore, 300)
+
+    return () => {
+      cancelled = true
+      isRestoringRef.current = false
+      rafs.forEach((r) => cancelAnimationFrame(r))
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearTimeout(t3)
+    }
+  }, [pathname])
+
+  // Continuously track scroll position so it's always up-to-date when a
+  // navigation happens (navigations can occur between scroll events).
+  // Ignore scroll events that we triggered ourselves during restore.
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const handleScroll = () => {
+      if (isRestoringRef.current) return
+      savedSidebarScroll = nav.scrollTop
+    }
+    nav.addEventListener('scroll', handleScroll, { passive: true })
+    return () => nav.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const isActive = (href: string) => {
     if (href === '/potong-kertas') {
@@ -294,7 +360,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
       </div>
 
       {/* ===== Navigation ===== */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 hide-scrollbar">
+      <nav ref={navRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 hide-scrollbar">
         {sectionOrder.map((section) => {
           const sectionItems = menuWithAccess.filter((item) => item.section === section.key)
           if (sectionItems.length === 0) return null
