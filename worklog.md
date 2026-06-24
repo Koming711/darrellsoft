@@ -4148,3 +4148,114 @@ Stage Summary:
 Files Modified:
 - src/components/sidebar-desktop.tsx — added savedSidebarScroll module var, navRef, isRestoringRef, restore+track useEffects, ref on <nav>
 
+
+---
+Task ID: 107
+Agent: Main
+Task: Buat halaman Rekap Penjualan per Customer (TANPA DEPLOY)
+
+Work Log:
+- Explored existing riwayat-penjualan page, /api/history endpoint, Invoice & DocumentHistory prisma models, sidebar-desktop.tsx & sidebar.tsx, i18n.ts, permission-defaults.ts, server-auth.ts
+- Memutuskan menggunakan /api/history?docType=invoice sebagai sumber data (konsisten dengan riwayat-penjualan yang sudah ada, dan dataJson berisi info rich: client.nama, items, ppn, dp, lunas, tanggalJatuhTempo, tanggalPelunasan)
+
+- Step 1: Tambah 29 translation keys (id + en) di src/lib/i18n.ts:
+  * rekap_penjualan, subtitle_rekap_penjualan
+  * rekap_total_customer, rekap_total_transaksi, rekap_total_nilai, rekap_total_sisa, rekap_total_dp
+  * rekap_jumlah_transaksi, rekap_nilai_penjualan, rekap_sisa_piutang
+  * rekap_lunas, rekap_belum_lunas, rekap_transaksi_terakhir
+  * rekap_tidak_ada_customer, rekap_tidak_ada_invoice
+  * rekap_cari_customer, rekap_urutkan
+  * rekap_sort_nilai_desc, rekap_sort_jumlah_desc, rekap_sort_nama_asc, rekap_sort_terbaru
+  * rekap_tampilkan_detail, rekap_sembunyikan_detail
+  * rekap_export_excel, rekap_cetak
+  * rekap_no_invoice, rekap_tanggal, rekap_nilai, rekap_status, rekap_grand_total
+
+- Step 2: Buat API endpoint src/app/api/rekap-penjualan/route.ts:
+  * GET /api/rekap-penjualan?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+  * Query DocumentHistory where docType='invoice' + per-user filter + date filter (createdAt)
+  * take: 5000 (cukup untuk recap period yang panjang, beda dari /api/history yang take:100)
+  * Parse dataJson tiap row: namaCustomer, totalHarga, dp, sisa, lunas, tanggalJatuhTempo
+  * Aggregate per customer (case-insensitive key, preserve original casing)
+  * Tiap customer: totalInvoices, totalNilai, totalDP, totalSisa (0 jika lunas), totalLunas, totalBelumLunas, lastTransactionAt, lastTransactionTanggal, invoices[]
+  * Response: { success, periode, customers[], grandTotal{} }
+
+- Step 3: Buat halaman src/app/rekap-penjualan/page.tsx:
+  * DashboardLayout dengan title="Rekap Penjualan" subtitle="Rekap penjualan per customer"
+  * 4 summary cards: Total Customer (blue/Users), Total Transaksi (emerald/Receipt), Total Nilai Penjualan (violet/TrendingUp), Total Sisa Piutang (amber/Wallet)
+  * Filter bar: search input + sort dropdown (Select shadcn) + 4 date filter buttons (Hari Ini / Minggu Ini / Bulan Ini / Custom) + Export Excel + Cetak buttons
+  * Custom date dialog (modal) dengan 2 date inputs (Tanggal Mulai, Tanggal Akhir) + Terapkan button
+  * Desktop: tabel dengan kolom [expand-icon, Customer, Jumlah Transaksi, Lunas, Total DP, Nilai Penjualan, Sisa Piutang, Transaksi Terakhir] + tfoot dengan TOTAL KESELURUHAN
+  * Mobile: card layout per customer dengan avatar initial, nama, jumlah transaksi, last date, nilai, sisa; chips Lunas/Belum Lunas/DP; expandable invoice list (max-h-80 overflow-y-auto)
+  * Customer row expandable (click) → sub-tabel invoice dengan kolom [No. Invoice, Tanggal, Nama Barang, Total DP, Nilai, Status]
+  * Sort options: nilai_desc (default), jumlah_desc, nama_asc, terbaru
+  * Export Excel: generate CSV (semicolon-separated, UTF-8 BOM) dengan semua customer + grand total row, download sebagai Rekap_Penjualan_Per_Customer_YYYY-MM-DD.csv
+  * Print: window.print() (dengan print:hidden pada filter bar)
+  * Empty state: icon Users + "Belum ada data customer" + "Belum ada transaksi penjualan pada periode ini"
+  * Loading state: 5 skeleton cards
+  * Dark mode support (dark: classes)
+
+- Step 4: Tambah menu item ke sidebar:
+  * src/components/sidebar-desktop.tsx: tambah import BarChart3 dari lucide-react; tambah menu item {titleKey:'rekap_penjualan', href:'/rekap-penjualan', icon:BarChart3, featureId:'invoice', section:'dokumen'} SETELAH riwayat_penjualan
+  * src/components/sidebar.tsx (mobile): same — import BarChart3 + menu item setelah riwayat_penjualan
+  * featureId 'invoice' (sama dengan riwayat_penjualan) — jadi permission mengikuti invoice
+
+- Step 5: Mirror ke app/ directory:
+  * cp src/app/api/rekap-penjualan/route.ts → app/api/rekap-penjualan/route.ts (verified identical)
+  * cp src/app/rekap-penjualan/page.tsx → app/rekap-penjualan/page.tsx (verified identical)
+  * sidebar-desktop.tsx, sidebar.tsx, i18n.ts shared via @/ alias (tidak perlu mirror)
+
+- Step 6: Lint check — TIDAK ada error baru di file yang diubah (rekap-penjualan/page.tsx, rekap-penjualan/route.ts, sidebar-desktop.tsx, sidebar.tsx, i18n.ts). Pre-existing errors di upload/, websocket/, language-context.tsx tetap tidak berubah.
+
+- Step 7: Verifikasi dengan agent-browser:
+  * Desktop (1280x800): Login superadmin → /rekap-penjualan
+    - Page loaded 200 OK, API /api/rekap-penjualan?startDate=2026-06-01&endDate=2026-06-24 returned 200 ✅
+    - Title "Rekap Penjualan" tampil ✅
+    - 4 summary cards tampil ✅
+    - Search box, sort dropdown (default "Nilai Penjualan (Tertinggi)"), 4 filter buttons, Export Excel, Cetak buttons tampil ✅
+    - Tabel desktop dengan 8 kolom tampil ✅
+    - 2 customer tampil:
+      • T Test Customer: 1 transaksi, Lunas=0, DP=Rp250.000.000, Nilai=Rp500.000.000, Sisa=Rp250.000.000, Last=07 Jun 2026 ✅
+      • T Test Customer 2: 1 transaksi, Lunas=0, DP=Rp300.000, Nilai=Rp1.000.000, Sisa=Rp700.000, Last=13 Jun 2026 ✅
+    - TOTAL KESELURUHAN row: 2 transaksi, 0 lunas, Rp250.300.000 DP, Rp501.000.000 Nilai, Rp250.700.000 Sisa ✅
+    - Click customer row → expand sub-tabel invoice: No. Invoice=INV/06/26/0001, Tanggal=07 Jun 2026, Nama Barang=Cetak Kartu Nama, DP=Rp250.000.000, Nilai=Rp500.000.000, Status=Belum Lunas ✅
+    - Filter "Hari Ini" → empty state "Belum ada data customer" + "Belum ada transaksi penjualan pada periode ini" ✅ (tidak ada invoice hari ini 2026-06-24)
+    - Filter "Bulan Ini" → data kembali tampil ✅
+    - Sidebar menu "Rekap Penjualan" tampil SETELAH "Riwayat Penjualan" di section DOKUMEN ✅
+  * Mobile (390x844): Login superadmin → /rekap-penjualan
+    - Card layout per customer (bukan tabel) ✅
+    - Tiap card: avatar initial (T), nama customer, "1 Jumlah Transaksi • 07 Jun 2026", nilai Rp500.000.000, sisa Rp250.000.000 ✅
+    - Chips: Lunas: 0, Belum Lunas: 1, Total DP ✅
+    - Click card → expand invoice list (max-h-80 scrollable), tampil INV/06/26/0002 ✅
+    - Search "Customer 2" → hanya T Test Customer 2 tampil (T Test Customer 1 terfilter) ✅
+    - Bottom nav (Beranda, Potong, Cetakan, Invoice, H.Kertas, Lainnya) tetap tampil ✅
+  * Dev log: GET /rekap-penjualan 200, GET /api/rekap-penjualan?... 200 — TIDAK ada error
+  * Screenshots: /tmp/rekap-penjualan-desktop.png, /tmp/rekap-penjualan-desktop-final.png
+
+Stage Summary:
+- Halaman "Rekap Penjualan per Customer" berhasil dibuat di /rekap-penjualan
+- Meng-aggregate semua invoice penjualan per customer (berdasarkan data /api/history?docType=invoice)
+- Menampilkan: jumlah transaksi, total nilai penjualan, total DP, sisa piutang, jumlah lunas/belum lunas, transaksi terakhir per customer
+- Expandable: klik customer → lihat detail semua invoice customer tersebut (No. Invoice, Tanggal, Nama Barang, DP, Nilai, Status)
+- Filter periode: Hari Ini / Minggu Ini / Bulan Ini / Custom (date range)
+- Search customer by name
+- Sort: Nilai Penjualan (Tertinggi) / Jumlah Transaksi (Terbanyak) / Nama Customer (A-Z) / Transaksi Terbaru
+- Export Excel (CSV dengan BOM UTF-8, semicolon separator untuk locale ID, bisa dibuka langsung di Excel)
+- Print (window.print dengan print:hidden pada filter bar)
+- Summary cards: Total Customer, Total Transaksi, Total Nilai Penjualan, Total Sisa Piutang
+- Grand total row di bawah tabel (desktop) / card (mobile)
+- Responsive: desktop tabel, mobile cards
+- Dark mode support
+- Menu sidebar "Rekap Penjualan" (icon BarChart3) di section DOKUMEN, setelah "Riwayat Penjualan"
+- Permission: mengikuti featureId 'invoice' (sama dengan Riwayat Penjualan)
+- Perubahan LOCAL ONLY (TIDAK di-deploy — per instruksi user)
+
+Files Created:
+- src/app/api/rekap-penjualan/route.ts (NEW)
+- src/app/rekap-penjualan/page.tsx (NEW)
+- app/api/rekap-penjualan/route.ts (mirror)
+- app/rekap-penjualan/page.tsx (mirror)
+
+Files Modified:
+- src/lib/i18n.ts — added 29 rekap_* translation keys (id + en)
+- src/components/sidebar-desktop.tsx — added BarChart3 import + menu item after riwayat_penjualan
+- src/components/sidebar.tsx — added BarChart3 import + menu item after riwayat_penjualan
