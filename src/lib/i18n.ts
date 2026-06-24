@@ -540,6 +540,14 @@ export const translations = {
     ai_assistant_suggestion_3: 'Apa itu potong kertas?',
     ai_assistant_suggestion_4: 'Cara buat invoice',
     ai_assistant_suggestion_5: 'Bagaimana cara isi potong kertas?',
+
+    // Contact Picker (mobile - pick from phone contacts)
+    contact_picker_button: 'Pilih dari Kontak',
+    contact_picker_hint: 'Ambil otomatis nama, telp & email dari kontak HP',
+    contact_picker_unsupported: 'Browser tidak mendukung pemilihan kontak. Silakan isi manual.',
+    contact_picker_error: 'Gagal mengambil kontak. Silakan coba lagi atau isi manual.',
+    contact_picker_success: 'Data kontak berhasil dimuat',
+    contact_picker_cancelled: 'Pemilihan kontak dibatalkan',
   },
   en: {
     // Common
@@ -1082,6 +1090,14 @@ export const translations = {
     ai_assistant_suggestion_3: 'What is paper cutting?',
     ai_assistant_suggestion_4: 'How to create an invoice',
     ai_assistant_suggestion_5: 'How to fill in paper cutting?',
+
+    // Contact Picker (mobile - pick from phone contacts)
+    contact_picker_button: 'Pick from Contacts',
+    contact_picker_hint: 'Auto-fill name, phone & email from your phone contacts',
+    contact_picker_unsupported: 'Browser does not support contact picking. Please fill in manually.',
+    contact_picker_error: 'Failed to pick contact. Please try again or fill in manually.',
+    contact_picker_success: 'Contact data loaded successfully',
+    contact_picker_cancelled: 'Contact picking cancelled',
   },
 } as const
 
