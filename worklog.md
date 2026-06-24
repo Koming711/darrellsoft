@@ -3950,3 +3950,84 @@ Files Modified:
 - src/lib/i18n.ts — added ai_assistant_suggestion_5 (id + en)
 - src/components/ai-assistant.tsx — added t('ai_assistant_suggestion_5') to suggestions array
 
+
+---
+Task ID: 104
+Agent: Main
+Task: Tambah fitur "Pilih dari Kontak" di form Tambah Customer Baru (mobile - Contact Picker API)
+
+Work Log:
+- Explored master-customer/page.tsx: uses generic <DialogForm> component with fields: name, companyName, address, phone, email
+- Read dialog-form.tsx (156 lines): generic reusable form dialog, no mobile-specific features
+- Confirmed DialogForm is shared by many master pages → must add contactPicker as OPTIONAL prop (opt-in) so other forms unaffected
+
+- Step 1: Added 6 Contact Picker translation keys to src/lib/i18n.ts (id + en):
+  * contact_picker_button: 'Pilih dari Kontak' / 'Pick from Contacts'
+  * contact_picker_hint: 'Ambil otomatis nama, telp & email dari kontak HP'
+  * contact_picker_unsupported, _error, _success, _cancelled
+
+- Step 2: Created src/types/contacts.d.ts — TypeScript declarations for Contact Picker API:
+  * interface ContactAddress, Contact, ContactsSelectOptions, ContactsManager
+  * Extended Navigator interface with optional `contacts?: ContactsManager`
+  * (tsconfig includes **/*.ts so auto-picked up)
+
+- Step 3: Updated src/components/dialog-form.tsx:
+  * Added optional `contactPicker?: { nameField?, telField?, emailField? }` prop to interface
+  * Added state: isPickingContact, contactPickerSupported
+  * Added useEffect to detect API support: checks 'contacts' in navigator && typeof navigator.contacts?.select === 'function'
+  * Added handlePickContact async function:
+    - Calls navigator.contacts.select(['name','tel','email'], {multiple:false})
+    - Maps contact.name[0]→nameField, contact.tel[0]→telField, contact.email[0]→emailField
+    - Updates formData with selected contact data
+    - Graceful error handling: cancellation (toast.info), errors (toast.error), unsupported (toast.error)
+  * Added "Pilih dari Kontak" button in form (shown ONLY when contactPicker prop set AND API supported):
+    - Blue outline button with Contact icon + hint text with Smartphone icon
+    - Loading state with spinner during picker open
+    - Positioned above form fields
+  * Imported: Contact as ContactIcon, Smartphone from lucide-react; toast from sonner
+  * NOTE: Button auto-hides on desktop browsers (no Contact Picker API) = graceful fallback
+
+- Step 4: Enabled contactPicker in src/app/master-customer/page.tsx:
+  * Passed contactPicker={{ nameField:'name', telField:'phone', emailField:'email' }} ONLY when !editingCustomer (add-new mode, not edit mode)
+  * Edit mode: contactPicker=undefined → button hidden (correct, editing existing customer doesn't need contact picker)
+
+- Step 5: Mirrored to app/ root: cp src/app/master-customer/page.tsx → app/master-customer/page.tsx (verified identical)
+  * dialog-form.tsx & i18n.ts & contacts.d.ts are shared via @/ alias (→ src/*), no mirror needed
+
+- Step 6: Lint check — no errors in dialog-form.tsx, master-customer/page.tsx, or contacts.d.ts (pre-existing errors in hitung-finishing/page.tsx & others unchanged)
+
+- Step 7: Verified with agent-browser (mobile viewport 390x844):
+  * Logged in as superadmin (username: superadmin, password: 268899)
+  * Navigated to /master-customer — page loaded with customer list ✅
+  * Clicked "Tambah" → dialog "Tambah Customer Baru" opened with 5 fields (Nama, Perusahaan, Alamat, Nomor Telp, Email) ✅
+  * Verified Contact Picker button HIDDEN on desktop Chromium (navigator.contacts undefined) → graceful fallback works ✅
+  * MOCKED navigator.contacts.select() to simulate mobile browser API support
+  * Reopened dialog → "Pilih dari Kontak" button now VISIBLE (blue outline) ✅
+  * Clicked button → mock contact returned {name:['Budi Santoso'], tel:['081234567890'], email:['budi@majujaya.co.id']}
+  * Verified form auto-filled:
+    - name = "Budi Santoso" ✅
+    - phone = "081234567890" ✅
+    - email = "budi@majujaya.co.id" ✅
+    - companyName, address = empty (correct, not from contact) ✅
+  * Verified Edit mode: clicked Edit on existing customer → dialog title "Edit Customer", contactPicker button HIDDEN ✅ (only for new customers)
+  * No JS errors in console (only pre-existing hydration warnings from theme toggle, unrelated)
+  * Screenshots: /tmp/master-customer-page.png, /tmp/add-customer-dialog.png, /tmp/contact-picker-filled.png, /tmp/edit-customer-no-picker.png
+
+Stage Summary:
+- Fitur "Pilih dari Kontak" berhasil ditambahkan di form Tambah Customer Baru
+- Menggunakan Contact Picker API browser (navigator.contacts.select)
+- Mobile-only: button otomatis muncul di Android Chrome & Safari iOS 14.5+ (browser yang support API)
+- Desktop: button otomatis tersembunyi (graceful fallback) — user isi manual seperti sekarang
+- Hanya muncul di mode "Tambah Customer Baru" (tidak di mode Edit)
+- Auto-fill: Nama Customer, Nomor Telp, Email dari kontak HP yang dipilih user
+- User tetap bisa edit field lain (Perusahaan, Alamat) sebelum simpan
+- Perubahan LOCAL ONLY (TIDAK di-deploy — per instruksi user "jangan deploy dulu")
+- Untuk test di HP asli: buka www.darrellsoft.com di Android Chrome/Safari iOS setelah deploy
+
+Files Created/Modified:
+- src/types/contacts.d.ts — NEW TypeScript declarations for Contact Picker API
+- src/lib/i18n.ts — added 6 contact_picker_* translation keys (id + en)
+- src/components/dialog-form.tsx — added optional contactPicker prop + button + handler
+- src/app/master-customer/page.tsx — enabled contactPicker for add-new mode
+- app/master-customer/page.tsx — mirror (identical to src/)
+

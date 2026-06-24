@@ -487,6 +487,12 @@ export default function MasterCustomerPage() {
           phone: editingCustomer.phone || '',
           email: editingCustomer.email || ''
         } : undefined}
+        // Enable "Pick from Contacts" button only when adding a new customer (mobile only, auto-detected)
+        contactPicker={!editingCustomer ? {
+          nameField: 'name',
+          telField: 'phone',
+          emailField: 'email'
+        } : undefined}
         onSave={handleSave}
       />
     </DashboardLayout>
