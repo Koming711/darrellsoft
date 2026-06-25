@@ -4508,3 +4508,70 @@ Stage Summary:
 Files Modified:
 - src/app/administrasi/hak-akses/page.tsx (handleAddRole: +1 line setDialogOpen(false))
 - app/administrasi/hak-akses/page.tsx (mirror, identical)
+
+---
+Task ID: 111
+Agent: Main
+Task: Fix 2 bug di halaman Hak Akses: (1) mengetik di input selalu delay/tidak realtime, (2) role yang ditambah hilang lagi setelah refresh
+
+Work Log:
+
+== Root Cause Analysis ==
+
+Bug 1 (mengetik delay):
+- Halaman HakAksesPage adalah satu komponen besar dengan banyak state: roles, editRoles, newRoleName, demoDays, demoMessage, singleDevice, autoLogoutMin, logoutWarningSec, waApiKey, waApiUrl, dialogOpen, deleteDialogOpen, dll.
+- Matriks permission (100+ CheckboxCell: ~20 features × 5-8 roles) ada di komponen yang sama.
+- Setiap keystroke di input apapun (newRoleName, demoDays, waApiKey) → setState → seluruh HakAksesPage re-render → matriks 100+ checkboxes ikut re-render → delay terasa.
+- CheckboxCell sudah di-memo, TAPI onChange={() => toggleSimplePermission(role.id, feature.id)} adalah inline arrow function (baru setiap render), jadi memo tidak efektif.
+- roleFeatureMaps & getFeature juga di-recompute setiap render parent.
+
+Bug 2 (role hilang setelah refresh):
+- handleAddRole hanya update state lokal (setEditRoles, setRoles) — TIDAK persist ke DB.
+- User harus klik "Simpan" untuk persist custom_roles ke DB.
+- Jika user tambah role lalu refresh tanpa klik Simpan → role hilang.
+- Fix sebelumnya (Task 109) sudah benar untuk handleSave (persist custom_roles saat Simpan), tapi belum cover case "tambah role tanpa Simpan".
+
+== Fix Implementation ==
+
+Fix 1 (performance — mengetik delay):
+- Extract matriks permission ke komponen terpisah `PermissionMatrix` dengan `React.memo`.
+- Props: roles, isEditing, onToggleSimple, onToggleSub, onToggleGroupAllAll, onToggleGroupAll, onDeleteRole, t
+- Pindahkan roleFeatureMaps & getFeature ke dalam PermissionMatrix (local state, recomputed hanya saat roles berubah).
+- Hapus roleFeatureMaps & getFeature dari parent (tidak terpakai lagi).
+- Karena callback (toggleSimplePermission dll) sudah stabil (useCallback deps []) dan t stabil (useCallback di language-context), React.memo efektif — matriks TIDAK re-render saat parent state non-matriks berubah.
+- Hasil: ketik di input (newRoleName, demoDays, waApiKey) → parent re-render TAPI matriks TIDAK re-render → ~27ms/char (acceptable, below human lag perception ~100ms).
+
+Fix 2 (role hilang setelah refresh):
+- Tambah helper function `persistCustomRoles(roles: Role[])` di luar komponen — POST custom_roles metadata ke DB (fire-and-forget).
+- Modifikasi handleAddRole: compute nextRoles = [...roles, newRole], set state, lalu `void persistCustomRoles(nextRoles)` — auto-persist SAAT tambah role, tanpa perlu klik Simpan.
+- Modifikasi confirmDeleteRole: compute nextRoles = roles.filter(...), set state, lalu `void persistCustomRoles(nextRoles)` — auto-persist deletion SAAT hapus role.
+- Tetap pertahankan logic GET-then-POST untuk role_permissions cleanup di confirmDeleteRole.
+- Import TranslationKey dari '@/lib/i18n' (dipakai di PermissionMatrixProps.t type).
+
+== Verifikasi ==
+
+- Kompilasi sukses (GET /administrasi/hak-akses 200, tidak ada error)
+- Test performance: ketik 15 chars di input nama role = 415ms total (~27ms/char) — acceptable, sebelum fix pasti lebih lambat karena matriks re-render setiap keystroke
+- Test role persist:
+  * Tambah role "Supervisor Test" → DB custom_roles langsung berisi metadata ✅ (tanpa klik Simpan)
+  * Reload page (TANPA Simpan) → role "Supervisor Test" MASIH ADA di tabel ✅
+  * Delete role → DB custom_roles = [] ✅ (auto-persist deletion)
+  * Reload → role tidak muncul lagi ✅
+- Dev log: tidak ada error, semua request 200 OK
+
+Stage Summary:
+- Bug "mengetik delay" FIXED: matriks permission di-memo dengan React.memo, tidak re-render saat ketik di input lain
+- Bug "role hilang setelah refresh" FIXED: auto-persist custom_roles saat handleAddRole & confirmDeleteRole (tidak perlu tunggu klik Simpan)
+- UX improvement: role yang ditambah langsung persist ke DB, user tidak kehilangan work jika refresh tanpa sengaja
+- Permissions tetap perlu klik Simpan (mode edit dengan tombol Simpan/Batal) — ini by design karena permissions bisa banyak di-toggle sekaligus
+
+Files Modified:
+- src/app/administrasi/hak-akses/page.tsx:
+  * +import TranslationKey
+  * +helper persistCustomRoles (di luar komponen)
+  * +komponen PermissionMatrix (React.memo, di luar HakAksesPage)
+  * -roleFeatureMaps & getFeature dari parent (dipindah ke PermissionMatrix)
+  * handleAddRole: +auto-persist custom_roles
+  * confirmDeleteRole: +auto-persist custom_roles (fire-and-forget), simplify logic
+  * Render: ganti inline <table> matriks dengan <PermissionMatrix ... />
+- app/administrasi/hak-akses/page.tsx (mirror, identical)

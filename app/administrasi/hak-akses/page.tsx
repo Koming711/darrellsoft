@@ -14,6 +14,7 @@ import { getAuthUser } from '@/lib/auth'
 import { saveAllPermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { useLanguage } from '@/contexts/language-context'
+import { TranslationKey } from '@/lib/i18n'
 import { SIMPLE_FEATURES as SHARED_SIMPLE_FEATURES, GROUP_FEATURES as SHARED_GROUP_FEATURES, buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults'
 
 interface SubPermission {
@@ -95,6 +96,152 @@ const CheckboxCell = memo(function CheckboxCell({ checked, onChange, disabled }:
         disabled={disabled}
         className="h-5 w-5 rounded border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 data-[state=checked]:text-white"
       />
+    </div>
+  )
+})
+
+// ===== Helper: persist custom_roles metadata to DB (fire-and-forget) =====
+// Ensures custom roles survive page reload even before user clicks "Simpan".
+async function persistCustomRoles(roles: Role[]) {
+  try {
+    const customRolesMeta = roles
+      .filter(r => !DEFAULT_ROLES.find(dr => dr.id === r.id))
+      .map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
+    await authFetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(customRolesMeta) }),
+    })
+  } catch (err) {
+    console.error('Failed to persist custom_roles:', err)
+  }
+}
+
+// ===== OPTIMIZED: Memoized PermissionMatrix — does NOT re-render when =====
+// unrelated parent state (newRoleName, demoDays, waApiKey, etc.) changes.
+// Only re-renders when roles/isEditing change or when toggling permissions.
+interface PermissionMatrixProps {
+  roles: Role[]
+  isEditing: boolean
+  onToggleSimple: (roleId: string, featureId: string) => void
+  onToggleSub: (roleId: string, featureId: string, subId: string) => void
+  onToggleGroupAllAll: (featureId: string) => void
+  onToggleGroupAll: (roleId: string, featureId: string) => void
+  onDeleteRole: (roleId: string) => void
+  t: (key: TranslationKey) => string
+}
+
+const PermissionMatrix = memo(function PermissionMatrix({
+  roles, isEditing,
+  onToggleSimple, onToggleSub, onToggleGroupAllAll, onToggleGroupAll, onDeleteRole,
+  t,
+}: PermissionMatrixProps) {
+  // Pre-compute feature maps for O(1) lookups — local to matrix, recomputed only when roles change
+  const roleFeatureMaps = useMemo(() => {
+    return roles.map(role => {
+      const map = new Map<string, FeaturePermission>()
+      for (const f of role.features) map.set(f.featureId, f)
+      return { roleId: role.id, map }
+    })
+  }, [roles])
+
+  const getFeature = useCallback((roleId: string, featureId: string): FeaturePermission | undefined => {
+    const entry = roleFeatureMaps.find(r => r.roleId === roleId)
+    return entry?.map.get(featureId)
+  }, [roleFeatureMaps])
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[700px]">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-200">
+            <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 min-w-[220px] sticky left-0 bg-slate-50 z-10">Fitur</th>
+            {roles.map((role) => (
+              <th key={role.id} className="px-4 py-3 text-center min-w-[110px]">
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${getRoleColor(role.id)}`}>{role.name}</span>
+                  {isEditing && role.id !== 'superadmin' && role.id !== 'admin' && !role.isSystem && (
+                    <button type="button" onClick={() => onDeleteRole(role.id)} className="text-[10px] text-red-400 hover:text-red-600">{t('hapus')}</button>
+                  )}
+                  {role.id === 'superadmin' && <span className="text-[10px] text-red-500 font-medium">Tidak dapat diubah</span>}
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {SIMPLE_FEATURES.map((feature) => (
+            <tr key={feature.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+              <td className="px-4 py-3 sticky left-0 bg-card z-10"><span className="text-sm font-medium text-slate-800">{feature.name}</span></td>
+              {roles.map((role) => {
+                const fp = getFeature(role.id, feature.id)
+                return (
+                  <td key={role.id} className="px-4 py-3">
+                    <CheckboxCell
+                      checked={fp?.allowed || false}
+                      onChange={() => onToggleSimple(role.id, feature.id)}
+                      disabled={!isEditing || role.id === 'superadmin'}
+                    />
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+          {GROUP_FEATURES.map((group) => (
+            <React.Fragment key={group.id}>
+              {/* Group Header Row */}
+              <tr className="border-b border-slate-200 bg-slate-100/80">
+                <td className="px-4 py-2.5 sticky left-0 bg-slate-100/80 z-10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{group.name}</span>
+                    {isEditing && (
+                      <button type="button" onClick={() => onToggleGroupAllAll(group.id)} className="text-[10px] font-medium text-slate-400 hover:text-slate-700">Semua Role</button>
+                    )}
+                  </div>
+                </td>
+                {roles.map((role) => {
+                  const fp = getFeature(role.id, group.id)
+                  const allCount = fp?.subPermissions?.length || 0
+                  const allowedCount = fp?.subPermissions?.filter(s => s.allowed).length || 0
+                  return (
+                    <td key={role.id} className="px-4 py-2.5">
+                      <div className="flex items-center justify-center gap-2">
+                        {isEditing && role.id !== 'superadmin' && (
+                          <button type="button" onClick={() => onToggleGroupAll(role.id, group.id)} className="text-[10px] font-medium text-slate-400 hover:text-slate-700 underline underline-offset-2">Semua</button>
+                        )}
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${allowedCount === allCount && allCount > 0 ? 'bg-emerald-100 text-emerald-700' : allowedCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
+                          {allowedCount}/{allCount}
+                        </span>
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+              {/* Sub-permission rows (always visible) */}
+              {group.subPermissions.map((sp) => (
+                <tr key={sp.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                  <td className="px-4 py-2.5 pl-8 sticky left-0 bg-card z-10">
+                    <span className="text-sm text-slate-600">{sp.name}</span>
+                  </td>
+                  {roles.map((role) => {
+                    const fp = getFeature(role.id, group.id)
+                    const sub = fp?.subPermissions?.find(s => s.id === sp.id)
+                    return (
+                      <td key={role.id} className="px-4 py-2.5">
+                        <CheckboxCell
+                          checked={sub?.allowed || false}
+                          onChange={() => onToggleSub(role.id, group.id, sp.id)}
+                          disabled={!isEditing || role.id === 'superadmin'}
+                        />
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 })
@@ -235,21 +382,8 @@ export default function HakAksesPage() {
   // === DERIVED STATE: display roles based on editing mode ===
   const displayRoles = isEditing ? editRoles : roles
 
-  // ===== OPTIMIZED: Pre-compute feature maps for O(1) lookups =====
-  const roleFeatureMaps = useMemo(() => {
-    return displayRoles.map(role => {
-      const map = new Map<string, FeaturePermission>()
-      for (const f of role.features) {
-        map.set(f.featureId, f)
-      }
-      return { roleId: role.id, map }
-    })
-  }, [displayRoles])
-
-  const getFeature = useCallback((roleId: string, featureId: string): FeaturePermission | undefined => {
-    const entry = roleFeatureMaps.find(r => r.roleId === roleId)
-    return entry?.map.get(featureId)
-  }, [roleFeatureMaps])
+  // NOTE: roleFeatureMaps & getFeature moved into <PermissionMatrix> (memoized).
+  // Parent no longer recomputes them on every keystroke in unrelated inputs.
 
   // === ROLE HANDLERS ===
   const handleEditToggle = useCallback(() => {
@@ -323,12 +457,17 @@ export default function HakAksesPage() {
       id: Date.now().toString(), name: newRoleName.trim(),
       color: 'bg-slate-100 text-slate-700', features: buildDefaultFeatures('new'),
     }
+    // Compute the new full roles list so we can persist custom_roles metadata immediately
+    const nextRoles = [...roles, newRole]
     setEditRoles(prev => [...prev, newRole])
-    setRoles(prev => [...prev, newRole])
+    setRoles(nextRoles)
     setNewRoleName('')
     setDialogOpen(false)
     toast.success('Role baru ditambahkan')
-  }, [newRoleName])
+    // Auto-persist custom_roles to DB so the role survives page reload
+    // even before the user clicks "Simpan" on the permission matrix.
+    void persistCustomRoles(nextRoles)
+  }, [newRoleName, roles])
 
   const handleDeleteRole = useCallback((roleId: string) => {
     if (roleId === 'superadmin' || roleId === 'admin') { toast.error('Role sistem tidak dapat dihapus'); return }
@@ -342,10 +481,17 @@ export default function HakAksesPage() {
   const confirmDeleteRole = useCallback(async () => {
     if (!roleToDelete) return
     const roleId = roleToDelete.id
-    setRoles(prev => prev.filter(r => r.id !== roleId))
+    // Compute next roles list (after deletion) for immediate persist
+    const nextRoles = roles.filter(r => r.id !== roleId)
+    setRoles(nextRoles)
     setEditRoles(prev => prev.filter(r => r.id !== roleId))
 
-    // Clean up permissions + custom role metadata in database
+    // Immediately persist custom_roles metadata from the in-memory list
+    // (fire-and-forget) so deletion survives reload even if the GET-then-POST
+    // block below races with another settings write.
+    void persistCustomRoles(nextRoles)
+
+    // Clean up permissions in database (role_permissions)
     try {
       const res = await authFetch('/api/settings')
       const data = await res.json()
@@ -360,26 +506,13 @@ export default function HakAksesPage() {
             body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
           })
         }
-        // Also remove role metadata from custom_roles so it doesn't reappear on reload
-        const rolesEntry = data.find((s: any) => s.key === 'custom_roles')
-        if (rolesEntry?.value) {
-          try {
-            const rolesMeta = JSON.parse(rolesEntry.value)
-            const filtered = Array.isArray(rolesMeta) ? rolesMeta.filter((r: any) => r.id !== roleId) : []
-            await authFetch('/api/settings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(filtered) })
-            })
-          } catch {}
-        }
       }
     } catch {}
 
     setDeleteDialogOpen(false)
     setRoleToDelete(null)
     toast.success(`Role "${roleToDelete.name}" berhasil dihapus`)
-  }, [roleToDelete])
+  }, [roleToDelete, roles])
 
   // ===== OPTIMIZED: Stable callbacks with useCallback =====
   const toggleSimplePermission = useCallback((roleId: string, featureId: string) => {
@@ -549,99 +682,18 @@ export default function HakAksesPage() {
           </div>
         </div>
 
-        {/* Permissions Matrix — renders immediately with defaults, updates when API data loads */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 min-w-[220px] sticky left-0 bg-slate-50 z-10">Fitur</th>
-                {displayRoles.map((role) => (
-                  <th key={role.id} className="px-4 py-3 text-center min-w-[110px]">
-                    <div className="flex flex-col items-center gap-1.5">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${getRoleColor(role.id)}`}>{role.name}</span>
-                      {isEditing && role.id !== 'superadmin' && role.id !== 'admin' && !role.isSystem && (
-                        <button type="button" onClick={() => handleDeleteRole(role.id)} className="text-[10px] text-red-400 hover:text-red-600">{t('hapus')}</button>
-                      )}
-                      {role.id === 'superadmin' && <span className="text-[10px] text-red-500 font-medium">Tidak dapat diubah</span>}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {SIMPLE_FEATURES.map((feature) => (
-                <tr key={feature.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 sticky left-0 bg-card z-10"><span className="text-sm font-medium text-slate-800">{feature.name}</span></td>
-                  {displayRoles.map((role) => {
-                    const fp = getFeature(role.id, feature.id)
-                    return (
-                      <td key={role.id} className="px-4 py-3">
-                        <CheckboxCell
-                          checked={fp?.allowed || false}
-                          onChange={() => toggleSimplePermission(role.id, feature.id)}
-                          disabled={!isEditing || role.id === 'superadmin'}
-                        />
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-              {GROUP_FEATURES.map((group) => (
-                <React.Fragment key={group.id}>
-                  {/* Group Header Row */}
-                  <tr className="border-b border-slate-200 bg-slate-100/80">
-                    <td className="px-4 py-2.5 sticky left-0 bg-slate-100/80 z-10">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{group.name}</span>
-                        {isEditing && (
-                          <button type="button" onClick={() => toggleGroupAllAll(group.id)} className="text-[10px] font-medium text-slate-400 hover:text-slate-700">Semua Role</button>
-                        )}
-                      </div>
-                    </td>
-                    {displayRoles.map((role) => {
-                      const fp = getFeature(role.id, group.id)
-                      const allCount = fp?.subPermissions?.length || 0
-                      const allowedCount = fp?.subPermissions?.filter(s => s.allowed).length || 0
-                      return (
-                        <td key={role.id} className="px-4 py-2.5">
-                          <div className="flex items-center justify-center gap-2">
-                            {isEditing && role.id !== 'superadmin' && (
-                              <button type="button" onClick={() => toggleGroupAll(role.id, group.id)} className="text-[10px] font-medium text-slate-400 hover:text-slate-700 underline underline-offset-2">Semua</button>
-                            )}
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${allowedCount === allCount && allCount > 0 ? 'bg-emerald-100 text-emerald-700' : allowedCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
-                              {allowedCount}/{allCount}
-                            </span>
-                          </div>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                  {/* Sub-permission rows (always visible) */}
-                  {group.subPermissions.map((sp) => (
-                    <tr key={sp.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="px-4 py-2.5 pl-8 sticky left-0 bg-card z-10">
-                        <span className="text-sm text-slate-600">{sp.name}</span>
-                      </td>
-                      {displayRoles.map((role) => {
-                        const fp = getFeature(role.id, group.id)
-                        const sub = fp?.subPermissions?.find(s => s.id === sp.id)
-                        return (
-                          <td key={role.id} className="px-4 py-2.5">
-                            <CheckboxCell
-                              checked={sub?.allowed || false}
-                              onChange={() => toggleSubPermission(role.id, group.id, sp.id)}
-                              disabled={!isEditing || role.id === 'superadmin'}
-                            />
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Permissions Matrix — memoized so it does NOT re-render on every keystroke
+            in unrelated inputs (newRoleName, demoDays, waApiKey, etc.) */}
+        <PermissionMatrix
+          roles={displayRoles}
+          isEditing={isEditing}
+          onToggleSimple={toggleSimplePermission}
+          onToggleSub={toggleSubPermission}
+          onToggleGroupAllAll={toggleGroupAllAll}
+          onToggleGroupAll={toggleGroupAll}
+          onDeleteRole={handleDeleteRole}
+          t={t}
+        />
       </div>
 
       {/* ==================== SECTION 3 & 4: AKUN DEMO + KEAMANAN ==================== */}
