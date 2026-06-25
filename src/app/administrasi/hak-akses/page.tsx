@@ -140,6 +140,8 @@ export default function HakAksesPage() {
         const res = await authFetch('/api/settings')
         const data = await res.json()
         if (cancelled) return
+        let customPerms: any = null
+        let customRolesMeta: Array<{ id: string; name: string; color: string; isSystem?: boolean }> | null = null
         if (Array.isArray(data)) {
           for (const s of data) {
             if (s.key === 'demo_days') setDemoDays(s.value)
@@ -151,42 +153,60 @@ export default function HakAksesPage() {
             if (s.key === 'wa_api_key') setWaApiKey(s.value)
             if (s.key === 'wa_api_url') setWaApiUrl(s.value)
 
-            // Load custom role permissions from database
+            // Collect custom role permissions (applied after loop to avoid race with custom_roles)
             if (s.key === 'role_permissions' && s.value) {
-              try {
-                const customPerms = JSON.parse(s.value)
-                // Use functional update to get latest state
-                setRoles(prevRoles => {
-                  const loadedRoles = prevRoles.map(role => {
-                    const custom = customPerms[role.id]
-                    if (!custom) return role
-                    return {
-                      ...role,
-                      features: role.features.map(f => {
-                        const customFeature = custom.features?.[f.featureId]
-                        const customSubs = custom.subPermissions?.[f.featureId]
-                        if (customFeature === undefined && !customSubs) return f
-                        return {
-                          ...f,
-                          allowed: customFeature !== undefined ? customFeature : f.allowed,
-                          subPermissions: f.subPermissions?.map(sp => {
-                            const customSub = customSubs?.[sp.id]
-                            if (customSub === undefined) return sp
-                            return { ...sp, allowed: customSub }
-                          }) || f.subPermissions,
-                        }
-                      }),
-                    }
-                  })
-                  // Also update editRoles with the loaded data
-                  setEditRoles(JSON.parse(JSON.stringify(loadedRoles)))
-                  return loadedRoles
-                })
-              } catch (e) {
-                console.error('Failed to parse role_permissions:', e)
-              }
+              try { customPerms = JSON.parse(s.value) } catch (e) { console.error('Failed to parse role_permissions:', e) }
+            }
+            // Collect custom role metadata (id/name/color) — needed to rehydrate custom roles
+            if (s.key === 'custom_roles' && s.value) {
+              try { customRolesMeta = JSON.parse(s.value) } catch (e) { console.error('Failed to parse custom_roles:', e) }
             }
           }
+        }
+        if (cancelled) return
+
+        // Helper: apply custom permissions to a features array
+        const applyPerms = (features: FeaturePermission[], custom: any): FeaturePermission[] =>
+          features.map(f => {
+            const customFeature = custom?.features?.[f.featureId]
+            const customSubs = custom?.subPermissions?.[f.featureId]
+            if (customFeature === undefined && !customSubs) return f
+            return {
+              ...f,
+              allowed: customFeature !== undefined ? customFeature : f.allowed,
+              subPermissions: f.subPermissions?.map(sp => {
+                const customSub = customSubs?.[sp.id]
+                if (customSub === undefined) return sp
+                return { ...sp, allowed: customSub }
+              }) || f.subPermissions,
+            }
+          })
+
+        // Build final roles list: DEFAULT_ROLES (with custom perms applied) + custom roles from DB
+        if (customPerms || customRolesMeta) {
+          let loadedRoles: Role[] = DEFAULT_ROLES.map(role => {
+            if (!customPerms || !customPerms[role.id]) return role
+            return { ...role, features: applyPerms(role.features, customPerms[role.id]) }
+          })
+
+          // Append custom roles from DB (rehydrate name/color, build default features, then apply perms)
+          if (Array.isArray(customRolesMeta)) {
+            for (const cr of customRolesMeta) {
+              if (loadedRoles.find(r => r.id === cr.id)) continue // defensive: skip duplicates
+              const baseFeatures = buildDefaultFeatures('new')
+              const features = customPerms?.[cr.id] ? applyPerms(baseFeatures, customPerms[cr.id]) : baseFeatures
+              loadedRoles.push({
+                id: cr.id,
+                name: cr.name,
+                color: cr.color || 'bg-slate-100 text-slate-700',
+                isSystem: cr.isSystem || false,
+                features,
+              })
+            }
+          }
+
+          setRoles(loadedRoles)
+          setEditRoles(JSON.parse(JSON.stringify(loadedRoles)))
         }
       } catch (err) {
         console.error('Failed to load settings:', err)
@@ -276,6 +296,16 @@ export default function HakAksesPage() {
         toast.error(`Gagal menyimpan: ${errData.error || 'Server error'}`)
         return
       }
+
+      // Also persist custom role metadata (id/name/color) so custom roles survive page reload
+      const customRolesMeta = cleanedRoles
+        .filter(r => !DEFAULT_ROLES.find(dr => dr.id === r.id))
+        .map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
+      await authFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(customRolesMeta) })
+      })
     } catch (err) {
       toast.error('Gagal menyimpan ke database')
       return
@@ -314,7 +344,7 @@ export default function HakAksesPage() {
     setRoles(prev => prev.filter(r => r.id !== roleId))
     setEditRoles(prev => prev.filter(r => r.id !== roleId))
 
-    // Clean up permissions in database
+    // Clean up permissions + custom role metadata in database
     try {
       const res = await authFetch('/api/settings')
       const data = await res.json()
@@ -328,6 +358,19 @@ export default function HakAksesPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
           })
+        }
+        // Also remove role metadata from custom_roles so it doesn't reappear on reload
+        const rolesEntry = data.find((s: any) => s.key === 'custom_roles')
+        if (rolesEntry?.value) {
+          try {
+            const rolesMeta = JSON.parse(rolesEntry.value)
+            const filtered = Array.isArray(rolesMeta) ? rolesMeta.filter((r: any) => r.id !== roleId) : []
+            await authFetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(filtered) })
+            })
+          } catch {}
         }
       }
     } catch {}

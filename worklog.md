@@ -4421,3 +4421,60 @@ Stage Summary:
 - Tidak ada dampak pada Task 107 (Rekap Penjualan per Customer) yang masih aktif
 - Sidebar kembali menampilkan: Biaya → hitung_finishing (tanpa Rekap Biaya di antaranya)
 - Tidak ada deploy (sesuai instruksi user)
+
+---
+Task ID: 109
+Agent: Main
+Task: Fix bug halaman Hak Akses — role yang sudah ditambah selalu hilang lagi setelah reload
+
+Work Log:
+- Analisis kode src/app/administrasi/hak-akses/page.tsx, ditemukan 3 root cause:
+  1. handleAddRole (line 290-300): hanya update state lokal (roles, editRoles) — tidak simpan ke DB
+  2. handleSave (line 241-288): simpan `role_permissions` ke DB, tapi HANYA berisi `{ features, subPermissions }` per role.id. Metadata role (name, color, isSystem) TIDAK PERNAH disimpan.
+  3. useEffect load (line 136-198): `setRoles(prevRoles => prevRoles.map(role => {...}))` — hanya memetakan DEFAULT_ROLES (superadmin, admin, manager, demo, user). Role custom tidak ada di DEFAULT_ROLES, jadi tidak dimuat kembali.
+- Bukti dari DB: role_permissions sudah berisi entry dengan ID `1780928023257` (timestamp-based, dari Date.now().toString()), tapi karena metadata tidak pernah disimpan, role tersebut hilang dari UI setelah reload padahal permissions-nya masih ada di DB.
+
+- Step 1: Refactor useEffect load settings:
+  * Kumpulkan `customPerms` (dari key `role_permissions`) dan `customRolesMeta` (dari key `custom_roles` — KEY BARU) selama loop, lalu apply setelah loop selesai (menghindari race condition antar urutan key).
+  * Helper `applyPerms(features, custom)` untuk apply custom permissions ke features array.
+  * Build `loadedRoles`: DEFAULT_ROLES (dengan custom perms applied) + custom roles dari DB (rehydrate name/color, build default features via `buildDefaultFeatures('new')`, apply perms).
+  * Defensif: skip custom role jika ID sudah ada di DEFAULT_ROLES (anti-duplikat).
+
+- Step 2: Update handleSave:
+  * Setelah simpan `role_permissions`, simpan juga `custom_roles` (array of {id, name, color, isSystem}) untuk role yang BUKAN default (tidak ada di DEFAULT_ROLES).
+  * POST ke /api/settings dengan key `custom_roles`.
+
+- Step 3: Update confirmDeleteRole:
+  * Selain hapus dari `role_permissions`, juga hapus role metadata dari `custom_roles` agar tidak muncul lagi setelah reload.
+  * GET /api/settings → parse `custom_roles` → filter out roleId → POST kembali.
+
+- Step 4: Mirror fix ke app/administrasi/hak-akses/page.tsx (verified identical via md5sum).
+
+- Step 5: Verifikasi end-to-end dengan agent-browser:
+  * Login sebagai superadmin (superadmin / 268899)
+  * Navigasi ke /administrasi/hak-akses — 5 role default tampil (Super Admin, Admin, Manager, Demo, User)
+  * Klik Edit → Klik "Tambah Role" → Isi "Test E2E Role" → Klik Tambah → Role baru muncul sebagai kolom baru di tabel
+  * Klik Simpan → keluar edit mode, role tetap tampil
+  * Cek DB: `custom_roles` = `[{"id":"1782354154756","name":"Test E2E Role","color":"bg-slate-100 text-slate-700","isSystem":false}]` ✅
+  * Cek DB: `role_permissions` sekarang berisi 6 role IDs (5 default + 1782354154756) ✅
+  * RELOAD page → **role "Test E2E Role" MASIH ADA** di tabel ✅ (SEBELUM FIX: role akan hilang)
+  * Klik Hapus role (4th delete button, untuk Test E2E Role) → Konfirmasi Hapus
+  * Toast "Role Test E2E Role berhasil dihapus" muncul
+  * Cek DB: `custom_roles` = `[]` (kosong, metadata terhapus) ✅
+  * Cek DB: `role_permissions` hanya 5 default roles (permissions terhapus) ✅
+  * RELOAD page → hanya 5 kolom role default, "Test E2E Role" tidak muncul lagi ✅
+  * Dev log: semua request 200 OK, tidak ada error
+
+Stage Summary:
+- Bug "role yang sudah ditambah selalu hilang lagi" FIXED
+- Root cause: metadata role custom (name/color) tidak pernah disimpan ke database — hanya permission yang disimpan. Saat reload, hanya DEFAULT_ROLES yang dimuat, role custom hilang.
+- Fix: tambah key baru `custom_roles` di DB untuk menyimpan metadata role custom (id, name, color, isSystem).
+  * Saat Save: simpan `custom_roles` bersama `role_permissions`
+  * Saat Load: gabungkan DEFAULT_ROLES + custom roles dari DB, apply permissions
+  * Saat Delete: hapus dari kedua `custom_roles` dan `role_permissions`
+- End-to-end test lulus: add → save → reload (persist) → delete → reload (cleanup) ✅
+- Catatan terkait (di luar scope bug ini, TIDAK di-fix): halaman Pengguna (administrasi/pengguna) menggunakan ROLE_OPTIONS hardcode `['superadmin', 'admin', 'manager', 'owner', 'demo', 'user']` — role custom tidak bisa di-assign ke user baru dari halaman pengguna. Ini bug terpisah, perlu fix terpisah jika user ingin assign role custom ke pengguna.
+
+Files Modified:
+- src/app/administrasi/hak-akses/page.tsx (useEffect load, handleSave, confirmDeleteRole)
+- app/administrasi/hak-akses/page.tsx (mirror, identical)
