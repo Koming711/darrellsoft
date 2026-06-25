@@ -326,6 +326,7 @@ export default function HakAksesPage() {
     setEditRoles(prev => [...prev, newRole])
     setRoles(prev => [...prev, newRole])
     setNewRoleName('')
+    setDialogOpen(false)
     toast.success('Role baru ditambahkan')
   }, [newRoleName])
 

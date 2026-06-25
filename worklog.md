@@ -4478,3 +4478,33 @@ Stage Summary:
 Files Modified:
 - src/app/administrasi/hak-akses/page.tsx (useEffect load, handleSave, confirmDeleteRole)
 - app/administrasi/hak-akses/page.tsx (mirror, identical)
+
+---
+Task ID: 110
+Agent: Main
+Task: Fix popup "Tambah Role Baru" tidak close setelah klik Tambah di halaman Hak Akses
+
+Work Log:
+- Analisis handleAddRole di src/app/administrasi/hak-akses/page.tsx (line 320-331)
+- Root cause: handleAddRole tidak memanggil setDialogOpen(false) setelah role ditambahkan, jadi dialog tetap terbuka meskipun role sudah berhasil ditambah ke state.
+- Fix: tambahkan setDialogOpen(false) sebelum toast.success('Role baru ditambahkan')
+- Mirror fix ke app/administrasi/hak-akses/page.tsx (verified identical via md5sum)
+
+- Verifikasi dengan agent-browser:
+  * Login superadmin → /administrasi/hak-akses
+  * Klik Edit → Klik "Tambah Role" → dialog terbuka (heading "Tambah Role Baru", textbox "Nama Role *", tombol Batal/Tambah)
+  * Isi "Test Close Dialog" → Klik Tambah
+  * **Dialog otomatis tertutup** ✅ (tidak ada lagi heading "Tambah Role Baru" / textbox / tombol Batal/Tambah)
+  * Role "Test Close Dialog" berhasil ditambahkan ke tabel (columnheader baru tampil) ✅
+  * Masih dalam mode Edit (tombol Simpan/Batal tampil)
+  * Save → Delete test role → cleanup selesai
+  * Dev log: tidak ada error
+
+Stage Summary:
+- Popup "Tambah Role Baru" sekarang otomatis close setelah klik Tambah
+- 1 baris perubahan: setDialogOpen(false) di handleAddRole
+- Test cleanup: test role dihapus, DB kembali ke 5 role default
+
+Files Modified:
+- src/app/administrasi/hak-akses/page.tsx (handleAddRole: +1 line setDialogOpen(false))
+- app/administrasi/hak-akses/page.tsx (mirror, identical)
