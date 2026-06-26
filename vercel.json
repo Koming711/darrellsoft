@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "node scripts/prepare-build.js && npx prisma generate && npx next build",
+  "buildCommand": "node scripts/prepare-build.js && rm -rf node_modules/.prisma && npx prisma generate && npx next build",
   "installCommand": "bun install",
   "regions": ["sin1"],
   "headers": [
