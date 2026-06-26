@@ -7,7 +7,10 @@ import { seedUserData } from '@/lib/auto-seed';
 import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults';
 
 const FAKE_KEY = 'SB-Mid-server-FAKE_TEST_KEY_12345';
-const isFakeKey = process.env.MIDTRANS_SERVER_KEY === FAKE_KEY;
+// Mock mode aktif jika key MIDTRANS belum dikonfigurasi ATAU memakai fake key.
+// Saat mock mode: akun CalonPembeli demo dibuat langsung tanpa pembayaran real,
+// user auto-login, dan diarahkan ke popup "Lengkapi Data Perusahaan".
+const isFakeKey = !process.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY === FAKE_KEY;
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,7 +64,35 @@ export async function POST(request: NextRequest) {
           where: { OR: [{ email: customerEmail }, { username: metaUname }] },
         });
 
-        if (!existingCalon && !existingPengguna && metaUname && metaPwd) {
+        if (existingCalon || existingPengguna) {
+          // Username atau email sudah dipakai → blok checkout.
+          // Bedakan pesan berdasarkan penyebab agar frontend bisa menampilkan
+          // popup "Nama Username sudah ada" yang spesifik (sama seperti halaman daftar akun).
+          const usernameTaken =
+            (existingCalon && existingCalon.username === metaUname) ||
+            (existingPengguna && existingPengguna.username === metaUname);
+
+          if (usernameTaken) {
+            return NextResponse.json(
+              {
+                success: false,
+                code: 'USERNAME_EXISTS',
+                message: 'Nama Username sudah ada. silahkan gunakan username lain.',
+              },
+              { status: 409 }
+            );
+          }
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'EMAIL_EXISTS',
+              message: 'Email sudah terdaftar. Silakan gunakan email lain.',
+            },
+            { status: 409 }
+          );
+        }
+
+        if (metaUname && metaPwd) {
           // Ambil masa aktif demo dari settings (default 7 hari)
           const demoDaysSetting = await db.setting.findUnique({ where: { key: 'demo_days' } });
           const demoDays = parseInt(demoDaysSetting?.value || '7', 10) || 7;

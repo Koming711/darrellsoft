@@ -4846,3 +4846,120 @@ Files Modified:
 - src/lib/i18n.ts (+username_sudah_ada, +username_sudah_ada_title, ID+EN)
 - src/app/login/page.tsx (useRef import, usernameExistsOpen state, regUsernameRef, handleRegister USERNAME_EXISTS branch, ref on input, popup dialog UI)
 - app/login/page.tsx (mirror, md5 match)
+
+---
+Task ID: 115
+Agent: Main
+Task: Di halaman checkout juga, apabila username sudah ada yang pakai maka muncul popup "Nama Username sudah ada. silahkan gunakan username lain." (sama seperti halaman daftar akun).
+
+Work Log:
+
+== Root Cause Analysis ==
+
+Checkout flow (src/app/checkout/page.tsx):
+- Step 0: pilih paket
+- Step 1: isi data (nama, email, HP, username, password, konfirmasi)
+- Step 2: review + bayar (PaymentDialog)
+
+Sebelumnya, TIDAK ada pengecekan ketersediaan username di checkout. Username hanya divalidasi "minimal 3 karakter". Akibatnya:
+- User bisa masuk ke step 2 (pembayaran) dengan username yang sudah dipakai orang lain.
+- Di mock mode (MIDTRANS_SERVER_KEY = fake key), create-transaction diam-diam skip pembuatan akun dan fallback ke mock token tanpa user data → PaymentDialog mencoba auto-login yang bisa gagal atau (lebih buruk) login ke akun orang lain jika password cocok.
+- Di production mode, Midtrans notification handler akan gagal membuat akun setelah pembayaran.
+
+== Solusi (3 lapis defense-in-depth) ==
+
+Lapis 1 — Pre-check di handleNext step 1 (PRIMARY, works in ALL modes):
+- Sebelum lanjut ke step 2 (pembayaran), cek ketersediaan username via GET /api/check-username.
+- Jika tidak available → tampilkan popup, JANGAN lanjut ke step 2.
+- Jika available → lanjut ke step 2 seperti biasa.
+- Jika network error → tidak blok (biarkan backend create-transaction yang menangani).
+
+Lapis 2 — Backend create-transaction mock mode (SAFETY NET for mock mode):
+- Sebelumnya: jika username/email exists → silent fallback ke mock token (bug!).
+- Sekarang: return { success: false, code: 'USERNAME_EXISTS', message: '...' } dengan status 409.
+- Bedakan USERNAME_EXISTS vs EMAIL_EXISTS.
+
+Lapis 3 — PaymentDialog onUsernameExists callback (handles safety net):
+- Ketika create-transaction return code:'USERNAME_EXISTS', PaymentDialog panggil onUsernameExists().
+- Checkout page: tutup payment dialog, kembali ke step 1, tampilkan popup.
+
+== Files Modified ==
+
+1. src/app/api/check-username/route.ts (NEW) + mirror app/api/check-username/route.ts
+   - GET /api/check-username?username=xxx
+   - Returns { available: boolean, reason?: string, code?: string }
+   - Cek CalonPembeli + Pengguna (dengan orphan cleanup logic sama seperti /api/register)
+   - code values: 'USERNAME_EMPTY' | 'USERNAME_TOO_SHORT' | 'USERNAME_EXISTS' | 'SERVER_ERROR'
+
+2. src/app/api/midtrans/create-transaction/route.ts (UPDATE) + mirror
+   - Mock mode: jika existingCalon || existingPengguna → return error 409 dengan code.
+   - Bedakan: usernameTaken → code:'USERNAME_EXISTS'; else → code:'EMAIL_EXISTS'.
+   - Sebelum: silent fallback { success: true, mock: true, demoRegister: false } (bug).
+   - Setelah: { success: false, code: 'USERNAME_EXISTS', message: '...' } (409).
+   - Fallback mock token (tanpa credentials) tetap dipertahankan untuk kasus !metaUname || !metaPwd.
+
+3. src/components/payment-dialog.tsx (UPDATE)
+   - Tambah prop `onUsernameExists?: () => void` di PaymentDialogProps.
+   - Destructure di komponen: `export default function PaymentDialog({ ..., onUsernameExists })`.
+   - Di handleMethodSelect: `if (!data.success) { if (data.code === 'USERNAME_EXISTS' && onUsernameExists) { setLoading(false); onUsernameExists(); return; } throw new Error(...) }`.
+   - Deps array useCallback: tambah `onUsernameExists`.
+
+4. src/app/checkout/page.tsx (UPDATE) + mirror app/checkout/page.tsx
+   - Import: tambah `useRef` dari react, `X` dari lucide-react.
+   - State baru: `usernameExistsOpen`, `usernameRef`.
+   - handleNext step 1: setelah validasi lokal + sebelum save localStorage, panggil `/api/check-username`. Jika !available → setLoading(false) + setUsernameExistsOpen(true) + return.
+   - Input username: tambah `ref={usernameRef}`.
+   - Button "Lanjutkan": tambah `disabled={loading}` + spinner "Mengecek..." saat loading.
+   - PaymentDialog: tambah prop `onUsernameExists={() => { setShowPaymentPopup(false); setStep(1); setUsernameExistsOpen(true); }}`.
+   - Popup dialog UI (z-[60], dark theme matching checkout: bg-[#1f1f1f], border red-500/30, AlertCircle red-500, button bg-red-500):
+     - Title (h3): "Nama Username Sudah Ada"
+     - Body (p): "Nama Username sudah ada. silahkan gunakan username lain."
+     - Buttons: "Ok" (bg-red-500) + "X" (close)
+     - onClick OK/X: setUsernameExistsOpen(false) + usernameRef.current?.focus() + select()
+
+== Verifikasi (agent-browser E2E) ==
+
+Test 1 — Username sudah dipakai (superadmin):
+1. Buka /checkout, pilih paket "Basic" (Langganan Bulanan).
+2. Step 1: isi form dengan username "superadmin" (sudah dipakai).
+   - Nama: "Test Checkout", Email: checkout-test-unique@example.com, HP: 081234567890
+   - Username: superadmin, Password: password123, Konfirmasi: password123
+   - (Isi via native value setter + dispatch input event agar React controlled input update.)
+3. Klik "Lanjutkan".
+4. Hasil: POPUP muncul dengan:
+   - Title: "Nama Username Sudah Ada"
+   - Body: "Nama Username sudah ada. silahkan gunakan username lain."
+   - Buttons: ["", "Ok"] (X + OK)
+   - Screenshot: /tmp/checkout-username-popup.png
+5. Step TIDAK lanjut ke step 2 (tetap di step 1). ✅
+6. Klik "Ok":
+   - Popup tertutup (CLOSED_OK)
+   - Fokus pindah ke input username (placeholder "Masukkan username") ✅
+
+Test 2 — Username tersedia (happy path):
+1. Ganti username ke "freshcheckoutuser<timestamp>" (tersedia).
+2. Klik "Lanjutkan".
+3. Hasil: TIDAK ada popup, step lanjut ke step 2 (Konfirmasi & Bayar).
+   - inputs: 0 (form step 1 hilang)
+   - hasPaymentBtn: true (tombol bayar muncul)
+   - Body: "Konfirmasi & Bayar" ✅
+
+Test 3 — API direct (curl):
+- GET /api/check-username?username=superadmin → {"available":false,"reason":"pengguna_exists","code":"USERNAME_EXISTS"} ✅
+- GET /api/check-username?username=freshuser12345 → {"available":true} ✅
+
+Lint: file yang dimodifikasi TIDAK menambah error baru. Error pre-existing di checkout/page.tsx:115 (Calling setState synchronously within an effect) sudah ada sebelum perubahan (useEffect resume logic).
+
+Stage Summary:
+- Di halaman checkout, jika username sudah dipakai → popup "Nama Username sudah ada. silahkan gunakan username lain." muncul (sama seperti halaman daftar akun). ✅
+- Popup muncul SEBELUM user masuk ke flow pembayaran (pre-check di step 1 → step 2). ✅
+- Safety net: backend create-transaction (mock mode) juga return code:USERNAME_EXISTS; PaymentDialog handle via onUsernameExists callback. ✅
+- Happy path: username tersedia → user bisa lanjut ke step 2 (pembayaran) seperti biasa. ✅
+- Popup OK/X: tutup popup + fokus + select teks di field username. ✅
+- Endpoint baru /api/check-username reusable (bisa dipakai di halaman lain jika perlu).
+
+Files Modified:
+- src/app/api/check-username/route.ts (NEW) + app/api/check-username/route.ts (mirror)
+- src/app/api/midtrans/create-transaction/route.ts (UPDATE: mock-mode username/email conflict → 409 with code) + app/api/midtrans/create-transaction/route.ts (mirror)
+- src/components/payment-dialog.tsx (UPDATE: +onUsernameExists prop, +code detection)
+- src/app/checkout/page.tsx (UPDATE: +useRef, +popup state, +pre-check in handleNext, +ref on input, +loading on button, +onUsernameExists callback, +popup UI) + app/checkout/page.tsx (mirror)
