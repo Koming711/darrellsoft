@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser, setAuthUser } from '@/lib/auth'
@@ -63,6 +63,10 @@ function LoginContent() {
   const [demoPopupOpen, setDemoPopupOpen] = useState(false)
   const [demoPopupMsg, setDemoPopupMsg] = useState('')
   const [demoRemaining, setDemoRemaining] = useState<number | null>(null)
+
+  // Username-already-exists popup state
+  const [usernameExistsOpen, setUsernameExistsOpen] = useState(false)
+  const regUsernameRef = useRef<HTMLInputElement>(null)
 
   const router = useRouter()
   const { t } = useLanguage()
@@ -299,6 +303,12 @@ function LoginContent() {
       const data = await res.json()
 
       if (!res.ok) {
+        // Username sudah dipakai → tampilkan popup khusus (bukan inline error)
+        if (data.code === 'USERNAME_EXISTS') {
+          setRegError('')
+          setUsernameExistsOpen(true)
+          return
+        }
         setRegError(data.error || t('pendaftaran_gagal'))
         return
       }
@@ -616,6 +626,7 @@ function LoginContent() {
                   <div className="relative">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
+                      ref={regUsernameRef}
                       type="text"
                       placeholder="Buat username"
                       required
@@ -947,6 +958,39 @@ function LoginContent() {
               className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
             >
               {t('masuk_ke_halaman_utama')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== USERNAME ALREADY EXISTS POPUP DIALOG ===== */}
+      {usernameExistsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-card rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-foreground">{t('username_sudah_ada_title')}</h3>
+              </div>
+              <button
+                onClick={() => { setUsernameExistsOpen(false); regUsernameRef.current?.focus() }}
+                className="text-muted-foreground hover:text-foreground transition-colors -mt-1 -mr-1 p-1"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
+              <p className="text-sm text-foreground leading-relaxed">{t('username_sudah_ada')}</p>
+            </div>
+            <button
+              onClick={() => { setUsernameExistsOpen(false); regUsernameRef.current?.focus(); regUsernameRef.current?.select() }}
+              className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
+              autoFocus
+            >
+              {t('ok')}
             </button>
           </div>
         </div>

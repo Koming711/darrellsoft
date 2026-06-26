@@ -4759,3 +4759,90 @@ Files Modified:
 - src/lib/i18n.ts (+pro_feature_locked key, ID + EN)
 - src/components/sidebar.tsx (toast import, onClick guard, PRO badge)
 - src/components/sidebar-desktop.tsx (toast import, onClick guard, PRO badge collapsed+expanded variants)
+
+---
+Task ID: 114
+Agent: Main
+Task: Saat daftar akun, jika username sudah dipakai, munculkan popup "Nama Username sudah ada. silahkan gunakan username lain." (bukan inline error biasa).
+
+Work Log:
+
+== Backend ==
+
+File: src/app/api/register/route.ts (+ mirror app/api/register/route.ts)
+
+Sebelumnya, semua kasus "username sudah dipakai" mengembalikan:
+  { "error": "Username sudah digunakan" } (status 409)
+
+Diubah menjadi (3 lokasi: existingCalon, existingUser non-orphan, existingUser admin):
+  { "error": "Nama Username sudah ada. silahkan gunakan username lain.", "code": "USERNAME_EXISTS" } (status 409)
+
+Penambahan field `code: "USERNAME_EXISTS"` memungkinkan frontend mendeteksi kasus spesifik ini secara andal (tidak bergantung pada pencocokan teks pesan). Pesan email-taken ("Email sudah terdaftar") tetap tidak berubah.
+
+== i18n ==
+
+File: src/lib/i18n.ts (hanya di src/, karena @/* -> ./src/*)
+
+Ditambahkan 2 key baru (ID + EN):
+- username_sudah_ada_title:
+  * ID: 'Nama Username Sudah Ada'
+  * EN: 'Username Already Exists'
+- username_sudah_ada:
+  * ID: 'Nama Username sudah ada. silahkan gunakan username lain.'
+  * EN: 'Username already exists. Please use a different username.'
+
+== Frontend ==
+
+File: src/app/login/page.tsx (+ mirror app/login/page.tsx)
+
+1. Import: tambah `useRef` dari react.
+2. State baru:
+   - `const [usernameExistsOpen, setUsernameExistsOpen] = useState(false)`
+   - `const regUsernameRef = useRef<HTMLInputElement>(null)`
+3. handleRegister: di branch `if (!res.ok)`, sebelum `setRegError(...)`:
+   ```js
+   if (data.code === 'USERNAME_EXISTS') {
+     setRegError('')
+     setUsernameExistsOpen(true)
+     return
+   }
+   ```
+   → Kasus username-taken TIDAK menampilkan inline error; melainkan popup.
+4. Input username: tambah `ref={regUsernameRef}` agar bisa di-focus setelah popup ditutup.
+5. Popup dialog baru (merah, AlertCircle icon, title + pesan + tombol "Ok" + tombol X):
+   - onClick OK / X: `setUsernameExistsOpen(false); regUsernameRef.current?.focus(); regUsernameRef.current?.select()`
+   - Style: border red, bg red-50/red-950, button bg-red-500 — konsisten dengan dialog warning lainnya.
+   - autoFocus pada tombol OK.
+
+== Verifikasi (agent-browser) ==
+
+1. Buka /login?tab=register (setelah clear localStorage + cookies).
+2. Isi form: nama "Test Duplikat", HP 081234567890, email dup-test-unique@example.com, username "superadmin" (sudah ada), password password123, konfirmasi password123.
+3. Klik tombol submit "Daftar Akun".
+4. Hasil: popup muncul dengan:
+   - Title (h3): "Nama Username Sudah Ada"
+   - Body (p): "Nama Username sudah ada. silahkan gunakan username lain."
+   - Buttons: ["", "Ok"] (X + OK)
+   - Screenshot: /tmp/username-exists-popup.png
+5. Klik tombol "Ok" (bg-red-500):
+   - Popup tertutup (CLOSED_OK)
+   - Fokus pindah ke input username (placeholder "Buat username")
+   - Tidak ada inline error yang tersisa (NONE)
+6. API direct test (curl POST /api/register dengan username "superadmin"):
+   - Response: {"error":"Nama Username sudah ada. silahkan gunakan username lain.","code":"USERNAME_EXISTS"} (status 409)
+
+Lint: file yang dimodifikasi (login/page.tsx, api/register/route.ts, i18n.ts) TIDAK menambah error baru. Error yang ada di file lain adalah pre-existing React Compiler warnings.
+
+Stage Summary:
+- Saat daftar akun dengan username yang sudah dipakai → popup muncul dengan pesan persis "Nama Username sudah ada. silahkan gunakan username lain." (bukan inline error merah biasa).
+- Popup memiliki judul "Nama Username Sudah Ada", ikon AlertCircle (merah), tombol "Ok" dan tombol "X".
+- Klik "Ok" / "X" menutup popup dan langsung fokus + select teks di field username agar user mudah ganti.
+- Backend mengembalikan code "USERNAME_EXISTS" untuk deteksi andal di frontend.
+- Backward compatible: kasus error lain (email terdaftar, format invalid, dll) tetap menggunakan inline error seperti sebelumnya.
+
+Files Modified:
+- src/app/api/register/route.ts (3 username-taken responses: +code USERNAME_EXISTS, pesan diganti)
+- app/api/register/route.ts (mirror, md5 match)
+- src/lib/i18n.ts (+username_sudah_ada, +username_sudah_ada_title, ID+EN)
+- src/app/login/page.tsx (useRef import, usernameExistsOpen state, regUsernameRef, handleRegister USERNAME_EXISTS branch, ref on input, popup dialog UI)
+- app/login/page.tsx (mirror, md5 match)
