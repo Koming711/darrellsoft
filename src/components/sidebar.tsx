@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './theme-toggle'
 import { LanguageToggle } from './language-toggle'
+import { toast } from 'sonner'
 import {
   Calculator,
   Scissors,
@@ -326,7 +327,12 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               )}
               <Link
                 href={item.href}
-                onClick={() => {
+                onClick={(e) => {
+                  if (item.isPro) {
+                    e.preventDefault()
+                    toast.error(t('pro_feature_locked'))
+                    return
+                  }
                   startNavigation()
                   window.dispatchEvent(new CustomEvent('navigation-start'))
                   if (onToggle) onToggle()
@@ -334,7 +340,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
                 title={t(item.titleKey)}
                 className={cn(
                   'flex items-center justify-center w-full py-2.5 rounded-lg transition-colors relative',
-                  item.isPro ? 'opacity-60' : '',
+                  item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                   isActive(item.href)
                     ? 'sidebar-active'
                     : 'hover:bg-white/10'
@@ -343,7 +349,9 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 {item.isPro && (
-                  <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="absolute top-0 right-0 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">
+                    PRO
+                  </span>
                 )}
               </Link>
             </div>
