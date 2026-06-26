@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/server-auth'
+import { requireAuth, getServerUser } from '@/lib/server-auth'
 import { db } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
@@ -7,6 +7,11 @@ export async function POST(request: NextRequest) {
     // Any authenticated user can upload logo
     const authErr = requireAuth(request)
     if (authErr) return authErr
+
+    const user = getServerUser(request)
+    if (!user?.id) {
+      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
+    }
 
     const formData = await request.formData()
     const file = formData.get('logo') as File | null
@@ -30,11 +35,11 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes)
     const base64 = `data:${file.type};base64,${buffer.toString('base64')}`
 
-    // Save to settings
-    await db.setting.upsert({
-      where: { key: 'company_logo' },
+    // Save to USER-specific settings (multi-tenant: each user has their own logo)
+    await db.userSetting.upsert({
+      where: { userId_key: { userId: user.id, key: 'company_logo' } },
       update: { value: base64 },
-      create: { key: 'company_logo', value: base64 }
+      create: { userId: user.id, key: 'company_logo', value: base64 },
     })
 
     return NextResponse.json({ success: true, logo: base64 })

@@ -143,6 +143,24 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Per-user settings for multi-tenant isolation.
+// System/global defaults live in `Setting` (key @unique, no user).
+// User-specific overrides live here. Reads merge: UserSetting > Setting (fallback).
+// System keys (role_permissions, custom_roles, session_*, demo_*, single_device*,
+// auto_logout_min, logout_warning_sec, auto_backup_days, master_cleared_*,
+// last_auto_backup_*, branding_default_v3) stay GLOBAL in `Setting`.
+model UserSetting {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
 model RiwayatCetakan {
   id                 String   @id @default(cuid())
   nomorUrut          String   @default("")  @unique

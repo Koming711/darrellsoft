@@ -4575,3 +4575,109 @@ Files Modified:
   * confirmDeleteRole: +auto-persist custom_roles (fire-and-forget), simplify logic
   * Render: ganti inline <table> matriks dengan <PermissionMatrix ... />
 - app/administrasi/hak-akses/page.tsx (mirror, identical)
+
+---
+Task ID: 112
+Agent: Main
+Task: Fix multi-user company data isolation on Pengaturan page — changing one user's company data was affecting all users. Also ensure registration success shows company data popup scoped to that account only.
+
+Work Log:
+
+== Root Cause Analysis ==
+
+Bug 1 (company data shared across users):
+- `Setting` model had only `key @unique` with NO userId column.
+- `/api/settings` GET/POST operated purely by `key` — all settings were GLOBAL.
+- When User A saved company_name, it overwrote the global row → User B saw User A's company data.
+- `/api/upload-logo` also wrote to global `Setting` → logo shared across all users.
+- The system is multi-user (each Pengguna/CalonPembeli has own userId via cookies), but settings were not scoped per user.
+
+Bug 2 (registration popup scoping):
+- Registration flow already set `localStorage.companyDataRequired='true'` after /api/register success.
+- CompanyDataPopup already mounted in DashboardLayout and triggers on that flag.
+- Popup already saves via `/api/settings` POST.
+- So the popup mechanism was correct — the only bug was that saves went to GLOBAL settings (Bug 1). Fixing Bug 1 automatically fixes Bug 2.
+
+== Fix Strategy (Option C: new UserSetting model, keep Setting as global defaults) ==
+
+Chose this over modifying `Setting` schema because:
+- 30+ existing `db.setting.findUnique({where:{key}})` calls across login/register/verify-session/auto-seed/etc. would all break if `key` alone stopped being unique.
+- A new `UserSetting` table is additive and zero-disruption to existing code.
+
+== Implementation ==
+
+1. Schema (prisma/schema.prisma):
+   - Added new `UserSetting` model: { id, userId, key, value, createdAt, updatedAt, @@unique([userId, key]), @@index([userId]) }
+   - `Setting` model unchanged (still `key @unique`) — serves as global defaults + system keys.
+   - Manually created the UserSetting table via raw SQL (prisma db push failed to detect the change due to SQLite shadow-DB quirk).
+   - Regenerated Prisma client — `db.userSetting` accessor confirmed working.
+
+2. Shared helper (src/lib/settings-shared.ts):
+   - `SYSTEM_SETTING_KEYS` set: role_permissions, custom_roles, demo_days, demo_message, single_device, single_device_message, auto_logout_min, logout_warning_sec, auto_backup_days, branding_default_v3, appName, currency.
+   - `SYSTEM_SETTING_KEY_PREFIXES` array: session_, last_auto_backup_, master_cleared_.
+   - `isSystemSettingKey(key)` → true if key is global/system, false if per-user.
+
+3. /api/settings route (src/app/api/settings/route.ts):
+   - GET ?key=X:
+     * System key OR unauthenticated → read from global Setting (key @unique).
+     * Per-user key → read UserSetting(userId, key) FIRST; if not found, fall back to global Setting(key) as default.
+   - GET (all):
+     * Merge: global Setting (defaults+system) ∪ UserSetting(userId) overrides. User-specific wins.
+   - POST {key, value}:
+     * System key → upsert global Setting (key @unique).
+     * Per-user key → upsert UserSetting(userId, key) via composite `userId_key` unique.
+     * Returns same shape {id,key,value,createdAt,updatedAt} for client compatibility.
+
+4. /api/upload-logo route (src/app/api/upload-logo/route.ts):
+   - Now reads user via getServerUser(request).
+   - Writes logo to `UserSetting(userId, 'company_logo')` instead of global Setting.
+   - Each user's logo is now isolated.
+
+5. Mirror to app/ directory:
+   - Copied src/app/api/settings/route.ts → app/api/settings/route.ts (md5 match).
+   - Copied src/app/api/upload-logo/route.ts → app/api/upload-logo/route.ts (md5 match).
+   - Copied src/lib/settings-shared.ts → app/lib/settings-shared.ts (md5 match).
+
+== Verification ==
+
+API-level isolation tests (via curl with real session cookies):
+- Superadmin reads company_name → "admin" (global default, fallback) ✓
+- Superadmin writes "PT Superadmin Corp" → creates UserSetting(user-superadmin, company_name) ✓
+- Global Setting company_name remains "admin" (unchanged) ✓
+- New user "testmulti" registers → reads company_name → "admin" (global default, NOT superadmin's) ✓
+- testmulti writes "PT Test Multi" → creates own UserSetting ✓
+- Superadmin re-reads → still "PT Superadmin Corp" (NOT testmulti's) ✓
+- DB confirms 3 separate UserSetting rows, each isolated ✓
+
+Registration → popup flow (via agent-browser):
+- Opened /login?tab=register, filled form, submitted.
+- After /api/register success: localStorage.companyDataRequired='true' set ✓
+- Demo popup appeared, clicked "Ok" → redirected to /pembukaan ✓
+- CompanyDataPopup "Lengkapi Data Perusahaan" appeared automatically ✓
+- Filled form (PT Browser Test Corp, address, phone, email) → clicked "Simpan Data Perusahaan" ✓
+- Popup closed, companyDataRequired cleared, companyPopupFilled='true' set ✓
+- DB confirmed: browsertest's company data saved to UserSetting(browsertest.id) — NOT to global Setting ✓
+- Navigated to /administrasi/pengaturan → settings page loaded browsertest's own data ("PT Browser Test Corp") ✓
+
+Bidirectional isolation final test:
+- Superadmin changed company_name to "PT Superadmin Baru" → only affects superadmin ✓
+- browsertest re-reads → still sees "PT Browser Test Corp" (own data, unaffected) ✓
+- Global default "admin" unchanged ✓
+
+Lint: modified files (settings/route.ts, upload-logo/route.ts, settings-shared.ts) pass eslint cleanly (no new errors). Pre-existing errors in unrelated files (websocket/frontend.tsx) not touched.
+
+Stage Summary:
+- Multi-user company data isolation FIXED: each user's company data (name, logo, address, phone, email, bank, npwp) stored in separate UserSetting rows keyed by userId.
+- Registration popup FIXED: CompanyDataPopup still appears after registration, but saves now go to the new user's own UserSetting — data is scoped to that account only.
+- Zero-disruption approach: existing `db.setting` reads in login/register/verify-session/auto-seed still work (global defaults preserved). Only `/api/settings` and `/api/upload-logo` were updated to route per-user writes to UserSetting.
+- Backward compat: global Setting rows serve as read-only defaults via fallback (so existing superadmin data still visible until they save their own override).
+
+Files Modified:
+- prisma/schema.prisma (+UserSetting model)
+- src/lib/settings-shared.ts (NEW — system key detection)
+- src/app/api/settings/route.ts (per-user scoping with fallback)
+- src/app/api/upload-logo/route.ts (per-user logo save)
+- app/lib/settings-shared.ts (mirror)
+- app/app/api/settings/route.ts (mirror)
+- app/app/api/upload-logo/route.ts (mirror)
+- db/custom.db (UserSetting table created via raw SQL)
