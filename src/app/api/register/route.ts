@@ -42,7 +42,10 @@ export async function POST(request: NextRequest) {
     // Cek username sudah digunakan di calon pembeli atau pengguna
     const existingCalon = await db.calonPembeli.findFirst({ where: { username } })
     if (existingCalon) {
-      return NextResponse.json({ error: 'Username sudah digunakan' }, { status: 409 })
+      return NextResponse.json(
+        { error: 'Nama Username sudah ada. silahkan gunakan username lain.', code: 'USERNAME_EXISTS' },
+        { status: 409 }
+      )
     }
 
     const existingUser = await db.pengguna.findUnique({ where: { username } })
@@ -60,10 +63,16 @@ export async function POST(request: NextRequest) {
           // Orphaned record - auto cleanup then allow registration
           await db.pengguna.delete({ where: { id: existingUser.id } })
         } else {
-          return NextResponse.json({ error: 'Username sudah digunakan' }, { status: 409 })
+          return NextResponse.json(
+            { error: 'Nama Username sudah ada. silahkan gunakan username lain.', code: 'USERNAME_EXISTS' },
+            { status: 409 }
+          )
         }
       } else {
-        return NextResponse.json({ error: 'Username sudah digunakan' }, { status: 409 })
+        return NextResponse.json(
+          { error: 'Nama Username sudah ada. silahkan gunakan username lain.', code: 'USERNAME_EXISTS' },
+          { status: 409 }
+        )
       }
     }
 
