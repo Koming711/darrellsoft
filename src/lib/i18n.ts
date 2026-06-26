@@ -422,6 +422,7 @@ export const translations = {
     fitur_belum_diaktifkan_prefix: 'Fitur ',
     fitur_belum_diaktifkan_suffix: ' belum diaktifkan untuk akun Anda.',
     hubungi_admin: 'Hubungi administrator untuk mendapatkan akses.',
+    pro_feature_locked: 'Fitur PRO — hubungi admin untuk mengaktifkan',
 
     // Login page (extra)
     tidak_terhubung_server: 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
@@ -1002,6 +1003,7 @@ export const translations = {
     fitur_belum_diaktifkan_prefix: 'Feature ',
     fitur_belum_diaktifkan_suffix: ' is not enabled for your account.',
     hubungi_admin: 'Contact administrator to get access.',
+    pro_feature_locked: 'PRO feature — contact admin to enable',
 
     // Login page (extra)
     tidak_terhubung_server: 'Cannot connect to server. Check your internet connection.',

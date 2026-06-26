@@ -35,6 +35,7 @@ import { hasFeatureAccess } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
+import { toast } from 'sonner'
 import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
 
 // ===== Theme tokens — DS logo blue background =====
@@ -397,7 +398,12 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        onClick={() => {
+                        onClick={(e) => {
+                          if (item.isPro) {
+                            e.preventDefault()
+                            toast.error(t('pro_feature_locked'))
+                            return
+                          }
                           startNavigation()
                           window.dispatchEvent(new CustomEvent('navigation-start'))
                         }}
@@ -406,7 +412,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                           // w-fit → box wraps tight to icon+text only
                           'flex w-fit items-center rounded-lg text-sm transition-colors relative',
                           collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2',
-                          item.isPro ? 'opacity-60' : '',
+                          item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                           active
                             ? 'bg-white/15 font-medium text-white'
                             : 'text-blue-100 hover:bg-white/10 hover:text-white'
@@ -424,10 +430,14 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                         {item.isPro && (
                           <span
                             className={cn(
-                              'absolute rounded-full bg-amber-400',
-                              collapsed ? 'top-1 right-1 h-1.5 w-1.5' : 'top-1.5 right-1.5 h-1.5 w-1.5'
+                              'text-white font-black bg-amber-500 shadow',
+                              collapsed
+                                ? 'absolute top-0 right-0 text-[8px] leading-none px-1 py-0.5 rounded-sm'
+                                : 'text-[9px] leading-none px-1.5 py-0.5 rounded ml-auto'
                             )}
-                          />
+                          >
+                            PRO
+                          </span>
                         )}
                       </Link>
                     </li>

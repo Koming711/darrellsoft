@@ -4681,3 +4681,81 @@ Files Modified:
 - app/app/api/settings/route.ts (mirror)
 - app/app/api/upload-logo/route.ts (mirror)
 - db/custom.db (UserSetting table created via raw SQL)
+
+---
+Task ID: 113
+Agent: Main
+Task: On hak akses page, features that are not checked should show "PRO" text (currently only an orange dot appears). Replace the orange dot with "PRO" text. And PRO features cannot be accessed.
+
+Work Log:
+
+== Root Cause Analysis ==
+
+- On the hak akses page, admin unchecks features for a role (e.g. demo role).
+- In the sidebar, those unchecked features appear with an orange dot (amber-500/amber-400, 1.5x1.5px) — barely visible.
+- Clicking a PRO item still navigates to the page (then the noAccess lock screen shows).
+- User wants: (1) replace the orange dot with visible "PRO" text, (2) prevent navigation when clicking PRO items.
+
+== Files with orange dot ==
+
+1. src/components/sidebar.tsx (mobile sidebar) — line ~346:
+   `<span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500"></span>`
+
+2. src/components/sidebar-desktop.tsx (desktop sidebar) — lines ~424-430:
+   `<span className="absolute rounded-full bg-amber-400 ..." />`
+
+== Fix Implementation ==
+
+1. i18n (src/lib/i18n.ts):
+   - Added new key `pro_feature_locked`:
+     * ID: 'Fitur PRO — hubungi admin untuk mengaktifkan'
+     * EN: 'PRO feature — contact admin to enable'
+
+2. Mobile sidebar (src/components/sidebar.tsx):
+   - Added `import { toast } from 'sonner'`
+   - Link onClick: added guard `if (item.isPro) { e.preventDefault(); toast.error(t('pro_feature_locked')); return }` — blocks navigation, shows toast.
+   - Link className: added `cursor-not-allowed` when isPro.
+   - Replaced orange dot span with PRO text badge:
+     `<span className="absolute top-0 right-0 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">PRO</span>`
+
+3. Desktop sidebar (src/components/sidebar-desktop.tsx):
+   - Added `import { toast } from 'sonner'`
+   - Link onClick: added same guard (preventDefault + toast + return).
+   - Link className: added `cursor-not-allowed` when isPro.
+   - Replaced orange dot with PRO text badge, with collapsed/expanded variants:
+     * Collapsed (icon-only): `absolute top-0 right-0 text-[8px] leading-none px-1 py-0.5 rounded-sm` (corner badge)
+     * Expanded (with labels): `text-[9px] leading-none px-1.5 py-0.5 rounded ml-auto` (inline badge after label)
+   - Badge color: `bg-amber-500 text-white font-black shadow` — highly visible.
+
+4. No app/ mirror needed: tsconfig `@/*` resolves to `./src/*`, so components and lib are only in src/. The app/ directory only mirrors src/app/ (pages + API routes).
+
+== Verification (agent-browser) ==
+
+Registered demo user "protest" (role=demo, limited features: dashboard, pembukaan, potong-kertas, hitung-cetakan, hitung-finishing, hitung-ongkos-cetak, hitung-harga-kertas).
+
+Expanded desktop sidebar:
+- 7 "PRO" text badges visible (amber background, white text) next to: Invoice, Surat Jalan, Purchase Order, Riwayat Pembelian, Riwayat Penjualan, Rekap Penjualan, Biaya ✅
+- No more orange dots ✅
+
+Collapsed desktop sidebar:
+- 7 "PRO" corner badges visible at top-right of each icon ✅
+
+Click-lock test:
+- Clicked "Invoice" (PRO item) → URL stayed on /pembukaan (navigation blocked) ✅
+- Toast appeared: "Fitur PRO — hubungi admin untuk mengaktifkan" ✅
+- `[data-sonner-toast]` count=1, text matched ✅
+
+Lint: sidebar.tsx, sidebar-desktop.tsx, i18n.ts all pass eslint cleanly.
+Dev server: no compile errors, all routes 200 OK.
+Test user cleaned up (protest deleted from DB).
+
+Stage Summary:
+- Orange dot → "PRO" text badge in BOTH mobile and desktop sidebars ✅
+- PRO items are NOT accessible: clicking shows toast "Fitur PRO — hubungi admin untuk mengaktifkan" and does NOT navigate ✅
+- The existing noAccess lock screen in dashboard-layout.tsx remains as fallback (for direct URL access).
+- Badge is highly visible: amber-500 bg, white text, font-black, with shadow.
+
+Files Modified:
+- src/lib/i18n.ts (+pro_feature_locked key, ID + EN)
+- src/components/sidebar.tsx (toast import, onClick guard, PRO badge)
+- src/components/sidebar-desktop.tsx (toast import, onClick guard, PRO badge collapsed+expanded variants)
