@@ -4963,3 +4963,63 @@ Files Modified:
 - src/app/api/midtrans/create-transaction/route.ts (UPDATE: mock-mode username/email conflict → 409 with code) + app/api/midtrans/create-transaction/route.ts (mirror)
 - src/components/payment-dialog.tsx (UPDATE: +onUsernameExists prop, +code detection)
 - src/app/checkout/page.tsx (UPDATE: +useRef, +popup state, +pre-check in handleNext, +ref on input, +loading on button, +onUsernameExists callback, +popup UI) + app/checkout/page.tsx (mirror)
+
+---
+Task ID: 117
+Agent: Main
+Task: Deploy ke www.darrellsoft.com menggunakan Vercel token.
+
+Work Log:
+
+== Pre-deploy verification ==
+
+1. Verifikasi token Vercel: `vercel whoami --token TOKEN` → user: `koming711`.
+2. List projects: `vercel project ls` → project `darrellsoft` sudah ada (updated 5d ago, Node 24.x, production URL: https://www.darrellsoft.com).
+3. Link local project ke Vercel project: `vercel link --project darrellsoft --token TOKEN --yes` → sukses, `.vercel/` dir + `.env.local` dibuat.
+4. Cek env vars di Vercel project — semua sudah dikonfigurasi:
+   - `DATABASE_URL` (Production + Development) — PostgreSQL/Supabase
+   - `MIDTRANS_SERVER_KEY` (Production) — real Midtrans key
+   - `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY`, `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION`, `MIDTRANS_IS_PRODUCTION`
+   - `NEXT_PUBLIC_BASE_URL`
+
+== Deployment ==
+
+Command: `npx vercel deploy --prod --token TOKEN --yes`
+
+Build process (remote di Vercel build server):
+1. `bun install` — install dependencies
+2. `postinstall` → `prisma generate` (sqlite, dari schema lokal yang di-upload)
+3. `buildCommand` (vercel.json): `node scripts/prepare-build.js && npx prisma generate && npx next build`
+   - prepare-build.js: swap schema.prisma sqlite → postgresql + transform DATABASE_URL ke Supabase pooler
+   - prisma generate: regenerate client untuk postgresql
+   - next build: build Next.js (semua route compiled, 45+ API routes + 25+ pages)
+4. Build completed in 59s
+5. Deploy outputs → serverless functions created
+6. Aliased to https://www.darrellsoft.com
+
+Total time: ~2 menit (Ready in 2m)
+
+== Post-deploy verification ==
+
+Live checks (curl https://www.darrellsoft.com):
+- `/` → HTTP 200 (158KB, 1.8s) — homepage renders, title: "Darrell Soft - Kalkulator Hitung Cetakan"
+- `/api/health` → HTTP 200, `{"status":"healthy","environment":"production"}` — DB connection OK
+- `/login` → HTTP 200 — login page renders
+- `/checkout` → HTTP 200 — checkout page renders
+
+Local environment TIDAK terdampak:
+- `prisma/schema.prisma` masih `provider = "sqlite"` (Vercel build berjalan remote, file lokal tidak di-swap)
+- Local dev server (port 3000) tetap running dan healthy (HTTP 200)
+- `.env` lokal tetap `DATABASE_URL=file:.../custom.db` (SQLite)
+
+Stage Summary:
+- Deployment ke www.darrellsoft.com BERHASIL. ✅
+- Build: 59s, total deploy time ~2 menit.
+- Semua env vars (DATABASE_URL PostgreSQL, MIDTRANS keys) sudah ada di Vercel project — tidak perlu set manual.
+- Production mode: MIDTRANS_SERVER_KEY ter-set → app berjalan di REAL Midtrans mode (bukan mock). Checkout payment → real Midtrans Snap popup.
+- Local dev environment tetap utuh: SQLite schema, dev server running di port 3000.
+- Recent changes (Task 114, 115, 116/117) sudah ikut ter-deploy: popup username exists, checkout auto-login + company data popup, per-user company data isolation.
+
+Production URLs:
+- Main: https://www.darrellsoft.com
+- Vercel alias: https://darrellsoft-2hebbefop-koming711s-projects.vercel.app
