@@ -5023,3 +5023,128 @@ Stage Summary:
 Production URLs:
 - Main: https://www.darrellsoft.com
 - Vercel alias: https://darrellsoft-2hebbefop-koming711s-projects.vercel.app
+
+---
+Task ID: 118
+Agent: Main
+Task: Di halaman Pengaturan tab Data Perusahaan, di online (production) setelah diisi data perusahaan lalu di-refresh, data kembali kosong. Tapi di local tidak. Check + fix + deploy.
+
+Work Log:
+
+== Root Cause Analysis ==
+
+Gejala:
+- Local (SQLite): isi data perusahaan → refresh → data tetap ada ✅
+- Production (PostgreSQL/Supabase): isi data perusahaan → refresh → data hilang ❌
+
+Investigasi:
+1. Cek production `/api/settings?key=company_name` dengan X-User-Id header → HTTP 500 "Failed to fetch settings"
+2. Cek production `/api/settings?key=demo_days` (system key, tabel Setting) → HTTP 200 OK
+3. Tambah error detail ke route: `detail: "Cannot read properties of undefined (reading 'findUnique')"`
+   → Artinya: `db.userSetting` adalah `undefined` di deployed Prisma client.
+
+Dua masalah ditemukan:
+
+=== Masalah 1: UserSetting table tidak ada di production PostgreSQL ===
+
+- Task 112 menambahkan model UserSetting ke schema.prisma.
+- Local: tabel dibuat manual via raw SQL (karena prisma db push gagal deteksi schema change).
+- Production: tabel UserSetting TIDAK PERNAH dibuat karena:
+  - Vercel build hanya menjalankan `prisma generate` (bukan `prisma db push`).
+  - deploy.sh baris `prisma db push` di-comment out.
+  - Jadi production PostgreSQL punya tabel `Setting` tapi TIDAK `UserSetting`.
+
+Fix: Buat tabel UserSetting di production Supabase via pooler URL (IPv4):
+```sql
+CREATE TABLE IF NOT EXISTS "UserSetting" (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL DEFAULT '',
+  "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "UserSetting_userId_key_key" UNIQUE ("userId", key)
+);
+CREATE INDEX IF NOT EXISTS "UserSetting_userId_idx" ON "UserSetting"("userId");
+```
+Verifikasi: tables now = [{Setting}, {UserSetting}] ✅
+
+=== Masalah 2: Root schema.prisma tidak memiliki model UserSetting ===
+
+Ditemukan DUA file schema.prisma di project:
+- `prisma/schema.prisma` (12924 bytes) — PUNYA model UserSetting (line 152)
+- `schema.prisma` (root, 12136 bytes) — TIDAK PUNYA model UserSetting (line 138: Setting → RiwayatCetakan)
+
+Prisma CLI default load dari `schema.prisma` (root) — bukan `prisma/schema.prisma`!
+Bukta: `npx prisma generate` output: "Prisma schema loaded from schema.prisma"
+
+Akibatnya:
+- Vercel build menjalankan `prisma generate` dengan root schema.prisma (TANPA UserSetting).
+- Deployed Prisma client tidak kenal `db.userSetting` → `undefined` → TypeError.
+- Local sebelumnya "berfungsi" karena prisma client lokal di-regenerate dengan prisma/schema.prisma
+  saat Task 112 (atau ada cache lama yang kebetulan punya UserSetting).
+
+Fix: Sync root schema.prisma dengan prisma/schema.prisma:
+```
+cp prisma/schema.prisma schema.prisma
+```
+Verifikasi: `diff schema.prisma prisma/schema.prisma` → IDENTICAL ✅
+`grep -c "model UserSetting" schema.prisma` → 1 ✅
+
+=== Masalah 3 (minor): vercel.json buildCommand cache ===
+
+Tambah `rm -rf node_modules/.prisma` sebelum `prisma generate` di buildCommand
+untuk memastikan Prisma client selalu di-regenerate dari schema terbaru (defense in depth):
+```json
+"buildCommand": "node scripts/prepare-build.js && rm -rf node_modules/.prisma && npx prisma generate && npx next build"
+```
+
+== Deployment ==
+
+3 deploy iterations (semua via `npx vercel deploy --prod --token TOKEN --yes --force`):
+1. Deploy dengan error detail → dapat root cause TypeError message.
+2. Deploy dengan `rm -rf node_modules/.prisma` → masih gagal (karena schema root belum di-fix).
+3. Deploy setelah sync schema.prisma → SUKSES.
+
+Build: ~58s per deploy. Total 3 deploy × 2 menit.
+
+== Verifikasi Production ==
+
+API tests (curl https://www.darrellsoft.com):
+- GET /api/settings?key=company_name (per-user) → HTTP 200 {"key":"company_name","value":"Rajabowl"} ✅
+  (sebelumnya: HTTP 500 "Cannot read properties of undefined")
+- POST /api/settings {key:company_name, value:"Test Company Prod 123"} → HTTP 200, UserSetting row created ✅
+- GET /api/settings?key=company_name (same user) → HTTP 200, value="Test Company Prod 123" ✅
+- GET /api/settings?key=company_name (DIFFERENT user) → HTTP 200, value="Rajabowl" (global default, NOT test data) ✅
+  → Per-user isolation confirmed working on production.
+
+E2E test (agent-browser on www.darrellsoft.com):
+1. Login as superadmin (username: superadmin, password: 268899) → redirect to /pembukaan ✅
+2. Navigate to /administrasi/pengaturan → click "Data Perusahaan" tab ✅
+3. Company name field shows "Rajabowl" (global default, loaded correctly) ✅
+4. Change company name to "TEST PROD PERSIST 1782493639826" → click "Simpan" ✅
+5. Toast: "Pengaturan berhasil disimpan!" ✅
+6. **REFRESH page** (open /administrasi/pengaturan again) → click "Data Perusahaan" tab ✅
+7. Company name field shows "TEST PROD PERSIST 1782493639826" (PERSISTED after refresh!) ✅
+8. Screenshot: /tmp/prod-persists-after-refresh.png
+9. Restored company name back to "Rajabowl" + saved ✅
+
+Local environment intact:
+- prisma/schema.prisma: provider = "sqlite" ✅
+- schema.prisma (root): provider = "sqlite" ✅ (Vercel build swaps to postgresql remotely, local stays sqlite)
+- diff schema.prisma prisma/schema.prisma → IDENTICAL ✅
+- Local dev server (port 3000) still healthy: HTTP 200 ✅
+
+Stage Summary:
+- Bug "data perusahaan hilang setelah refresh di online" FIXED. ✅
+- Root cause: UserSetting table missing di production PostgreSQL + root schema.prisma missing UserSetting model.
+- Fix: (1) Created UserSetting table in production Supabase. (2) Synced root schema.prisma with prisma/schema.prisma. (3) Added rm -rf .prisma to buildCommand for fresh client generation.
+- Per-user company data isolation confirmed working on production (User A's data ≠ User B's data). ✅
+- Data persists after refresh on production. ✅
+- Deployed to https://www.darrellsoft.com (3 deploys during debugging, final deploy successful).
+
+Files Modified:
+- schema.prisma (root) — synced with prisma/schema.prisma (added UserSetting model + all other recent schema changes)
+- vercel.json — buildCommand: added `rm -rf node_modules/.prisma` before prisma generate
+- src/app/api/settings/route.ts + app/api/settings/route.ts (mirror) — added error detail to 500 responses for easier debugging
+- Production DB: UserSetting table created via raw SQL (Supabase pooler)
