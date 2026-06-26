@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -21,6 +21,7 @@ import {
   EyeOff,
   AtSign,
   KeyRound,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,6 +98,10 @@ function CheckoutContent() {
   const [isResume, setIsResume] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
 
+  // Username-already-exists popup state
+  const [usernameExistsOpen, setUsernameExistsOpen] = useState(false);
+  const usernameRef = useRef<HTMLInputElement>(null);
+
   const plan = PLANS[selectedPlan];
 
   // Resume dari WhatsApp link + auto-fill dari auth
@@ -146,6 +151,23 @@ function CheckoutContent() {
       if (!password) { setError('Password harus diisi'); return; }
       if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
       if (password !== confirmPassword) { setError('Konfirmasi password tidak cocok'); return; }
+
+      // Cek ketersediaan username ke backend sebelum lanjut ke pembayaran.
+      // Jika sudah dipakai → tampilkan popup (sama seperti halaman daftar akun).
+      setLoading(true);
+      try {
+        const checkRes = await fetch(`/api/check-username?username=${encodeURIComponent(username.trim())}`);
+        const checkData = await checkRes.json();
+        if (!checkData.available) {
+          setLoading(false);
+          setUsernameExistsOpen(true);
+          return;
+        }
+      } catch {
+        // Jika cek gagal (mis. network error), jangan blok — biarkan backend
+        // create-transaction yang menangani saat pembayaran (defense in depth).
+      }
+      setLoading(false);
 
       // Simpan data ke localStorage untuk resume nanti
       const checkoutData = {
@@ -343,6 +365,7 @@ function CheckoutContent() {
                           <AtSign className="w-3.5 h-3.5 inline mr-1.5" />Username
                         </Label>
                         <Input
+                          ref={usernameRef}
                           type="text"
                           placeholder="Masukkan username"
                           value={username}
@@ -471,9 +494,10 @@ function CheckoutContent() {
                   </Button>
                   <Button
                     onClick={handleNext}
-                    className="flex-[2] py-3.5 bg-[#e50914] hover:bg-[#f40612] text-white font-bold text-base rounded-xl transition-all duration-300"
+                    disabled={loading}
+                    className="flex-[2] py-3.5 bg-[#e50914] hover:bg-[#f40612] text-white font-bold text-base rounded-xl transition-all duration-300 disabled:opacity-60"
                   >
-                    Lanjutkan <ChevronRight className="w-4 h-4 ml-1" />
+                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mengecek...</> : <>Lanjutkan <ChevronRight className="w-4 h-4 ml-1" /></>}
                   </Button>
                 </div>
 
@@ -587,6 +611,11 @@ function CheckoutContent() {
           open={showPaymentPopup}
           onClose={() => setShowPaymentPopup(false)}
           onSuccess={() => { setShowPaymentPopup(false); router.push('/pembukaan?fill_company=1'); }}
+          onUsernameExists={() => {
+            setShowPaymentPopup(false);
+            setStep(1);
+            setUsernameExistsOpen(true);
+          }}
           pkg={{
             type: plan.id,
             name: plan.name,
@@ -602,6 +631,39 @@ function CheckoutContent() {
             password: password,
           }}
         />
+      )}
+
+      {/* ===== USERNAME ALREADY EXISTS POPUP DIALOG ===== */}
+      {usernameExistsOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-[#1f1f1f] rounded-2xl shadow-2xl border border-red-500/30 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white">Nama Username Sudah Ada</h3>
+              </div>
+              <button
+                onClick={() => { setUsernameExistsOpen(false); usernameRef.current?.focus(); }}
+                className="text-gray-500 hover:text-white transition-colors -mt-1 -mr-1 p-1"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="bg-red-500/10 border border-red-500/25 rounded-xl p-4 mb-5">
+              <p className="text-sm text-gray-200 leading-relaxed">Nama Username sudah ada. silahkan gunakan username lain.</p>
+            </div>
+            <button
+              onClick={() => { setUsernameExistsOpen(false); usernameRef.current?.focus(); usernameRef.current?.select(); }}
+              className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
+              autoFocus
+            >
+              Ok
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

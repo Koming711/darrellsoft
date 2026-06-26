@@ -35,6 +35,7 @@ interface PaymentDialogProps {
   customerData?: { name: string; email: string; phone: string; username?: string; password?: string; secondUsername?: string };
   onSuccess?: () => void;
   onAutoLogin?: (data: { id: string; username: string; name: string; role: string; sessionId: string; permissions?: Record<string, unknown> }) => void;
+  onUsernameExists?: () => void;
 }
 
 function formatRupiah(n: number) {
@@ -75,7 +76,7 @@ const CATEGORIES = [
 ];
 
 /* ─── komponen utama ─── */
-export default function PaymentDialog({ open, onClose, pkg, customerData, onSuccess, onAutoLogin }: PaymentDialogProps) {
+export default function PaymentDialog({ open, onClose, pkg, customerData, onSuccess, onAutoLogin, onUsernameExists }: PaymentDialogProps) {
   const [step, setStep] = useState<DialogStep>('method');
   const [selectedMethod, setSelectedMethod] = useState('');
   const [loading, setLoading] = useState(false);
@@ -159,7 +160,15 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Gagal membuat transaksi');
+      if (!data.success) {
+        // Username sudah dipakai → tutup payment dialog, biarkan parent menampilkan popup.
+        if (data.code === 'USERNAME_EXISTS' && onUsernameExists) {
+          setLoading(false);
+          onUsernameExists();
+          return;
+        }
+        throw new Error(data.message || 'Gagal membuat transaksi');
+      }
 
       setOrderId(data.orderId);
       setSnapToken(data.token);
@@ -211,6 +220,15 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
             });
           }
           console.log('[PaymentDialog] Demo register + auto-login successful for', u.username);
+          // Tandai user baru wajib isi Data Perusahaan (sama dengan flow daftar akun
+          // di halaman login). Flag persisten ini dipantau oleh CompanyDataPopup di
+          // DashboardLayout — popup "Lengkapi Data Perusahaan" akan muncul sampai
+          // user mengisi & menyimpan. Defense-in-depth: walau redirect pakai
+          // ?fill_company=1, flag localStorage memastikan popup tetap muncul meski
+          // query param hilang saat navigate.
+          try {
+            localStorage.setItem('companyDataRequired', 'true');
+          } catch {}
         }
 
         // Simulasi delay 3 detik lalu auto success & redirect ke beranda
@@ -262,6 +280,11 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
             // Auto-login with retry (webhook may need a moment to create accounts)
             await performAutoLogin(true);
 
+            // Tandai user baru wajib isi Data Perusahaan (sama dengan flow daftar akun).
+            try {
+              localStorage.setItem('companyDataRequired', 'true');
+            } catch {}
+
             // Show brief success then auto-redirect to beranda
             setStep('result'); setResult('success');
             setResultMessage('Pembayaran berhasil! Mengalihkan ke beranda...');
@@ -295,7 +318,7 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
       setResult('error');
       setLoading(false);
     }
-  }, [selectedMethod, pkg, customerData]);
+  }, [selectedMethod, pkg, customerData, onUsernameExists]);
 
   const performAutoLogin = async (withRetry = false) => {
     const uname = customerData?.username || '';
