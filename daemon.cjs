@@ -1,19 +1,16 @@
 /**
  * daemon.cjs - Persistent process manager for DokuPro dev server
- *
+ * 
  * Automatically starts and keeps the Next.js dev server running.
  * If the server crashes, it will be restarted after a short delay.
- *
- * 🔒 PROTECTED: This file is self-healing. If deleted, the running daemon
- *    will automatically recreate it. The source code is embedded in memory.
- *
+ * 
  * Usage:
  *   node daemon.cjs          # Start daemon in foreground (with auto-restart)
  *   node daemon.cjs start    # Start daemon in background (detached)
  *   node daemon.cjs stop     # Stop the daemon
- *   node daemon.cjs status   # Check daemon & server status
+ *   node daemon.cjs status   # Check daemon status
  *   node daemon.cjs restart  # Restart the daemon
- *   node daemon.cjs log      # Show recent log entries
+ *   node daemon.cjs log      # Show recent log
  */
 
 const { spawn, execSync } = require('child_process');
@@ -23,16 +20,9 @@ const path = require('path');
 const PROJECT_DIR = __dirname;
 const PID_FILE = path.join(PROJECT_DIR, '.daemon.pid');
 const LOG_FILE = path.join(PROJECT_DIR, '.daemon.log');
-const SELF_FILE = __filename;
 const MAX_RESTARTS = 10;
 const RESTART_DELAY = 3000;
 const PORT = 3000;
-
-// 🔒 Embed own source code in memory for self-healing
-let SELF_SOURCE = '';
-try {
-  SELF_SOURCE = fs.readFileSync(SELF_FILE, 'utf8');
-} catch {}
 
 function log(msg) {
   const ts = new Date().toISOString();
@@ -76,23 +66,6 @@ function killPortProcess(port) {
   } catch {}
 }
 
-// 🔒 Self-healing: restore daemon.cjs if deleted
-function selfHeal() {
-  try {
-    if (!fs.existsSync(SELF_FILE)) {
-      log('🔒 SELF-HEAL: daemon.cjs was deleted! Restoring...');
-      if (SELF_SOURCE) {
-        fs.writeFileSync(SELF_FILE, SELF_SOURCE, 'utf8');
-        log('🔒 SELF-HEAL: daemon.cjs restored successfully');
-      } else {
-        log('🔒 SELF-HEAL: No embedded source available, cannot restore');
-      }
-    }
-  } catch (err) {
-    log(`🔒 SELF-HEAL error: ${err.message}`);
-  }
-}
-
 function stopDaemon() {
   const pid = readPid();
   if (pid && isProcessRunning(pid)) {
@@ -126,7 +99,7 @@ function runServer() {
 
   function spawnServer() {
     const now = Date.now();
-
+    
     if (now - lastRestartTime < RESTART_DELAY * 2) {
       restartCount++;
     } else {
@@ -198,16 +171,12 @@ function runServer() {
   process.on('SIGINT', cleanup);
   process.on('SIGHUP', cleanup);
 
+  // Double-fork: detach from parent so we survive shell session death
   // Write PID file
   writePid(process.pid);
   log(`Daemon started (PID: ${process.pid})`);
 
   spawnServer();
-
-  // 🔒 Self-healing watchdog: check every 5 seconds if daemon.cjs still exists
-  setInterval(() => {
-    selfHeal();
-  }, 5000);
 
   // Keep alive - prevent process from exiting
   setInterval(() => {
@@ -224,7 +193,7 @@ function showStatus() {
     console.log('❌ Daemon is NOT running');
     removePid();
   }
-
+  
   // Check port
   try {
     const result = execSync(`lsof -i :${PORT} -t 2>/dev/null || echo ""`, { encoding: 'utf8' }).trim();
@@ -236,15 +205,6 @@ function showStatus() {
   } catch {
     console.log(`❓ Cannot check port ${PORT}`);
   }
-
-  // Check if daemon.cjs exists
-  try {
-    if (fs.existsSync(SELF_FILE)) {
-      console.log(`🔒 daemon.cjs EXISTS (${fs.statSync(SELF_FILE).size} bytes)`);
-    } else {
-      console.log('⚠️ daemon.cjs IS MISSING! Will be auto-restored by running daemon.');
-    }
-  } catch {}
 
   // Show last 10 log lines
   try {
@@ -269,7 +229,7 @@ function showLog() {
 const command = process.argv[2] || 'foreground';
 
 switch (command) {
-  case 'foreground': {
+  case 'foreground':
     // Check if already running
     const existingPid = readPid();
     if (existingPid && isProcessRunning(existingPid)) {
@@ -279,8 +239,7 @@ switch (command) {
     removePid();
     runServer();
     break;
-  }
-
+    
   case 'start': {
     // Start in background (detached)
     const existingPid2 = readPid();
@@ -289,7 +248,7 @@ switch (command) {
       process.exit(0);
     }
     stopDaemon();
-
+    
     const child = spawn(process.execPath, [__filename, 'foreground'], {
       cwd: PROJECT_DIR,
       detached: true,
@@ -297,7 +256,7 @@ switch (command) {
       env: { ...process.env },
     });
     child.unref();
-
+    
     // Wait a moment and verify
     setTimeout(() => {
       const pid = readPid();
@@ -310,12 +269,12 @@ switch (command) {
     }, 2000);
     break;
   }
-
+    
   case 'stop':
     stopDaemon();
     console.log('Daemon stopped.');
     break;
-
+    
   case 'status':
     showStatus();
     break;
@@ -323,8 +282,8 @@ switch (command) {
   case 'log':
     showLog();
     break;
-
-  case 'restart': {
+    
+  case 'restart':
     stopDaemon();
     try { execSync('sleep 2', { stdio: 'ignore' }); } catch {}
     const restartChild = spawn(process.execPath, [__filename, 'foreground'], {
@@ -343,23 +302,7 @@ switch (command) {
       }
     }, 3000);
     break;
-  }
-
-  case 'protect': {
-    // 🔒 Restore daemon.cjs if it was deleted (manual trigger)
-    if (!fs.existsSync(SELF_FILE)) {
-      if (SELF_SOURCE) {
-        fs.writeFileSync(SELF_FILE, SELF_SOURCE, 'utf8');
-        console.log('🔒 daemon.cjs restored from embedded source.');
-      } else {
-        console.log('❌ No embedded source available. Cannot restore.');
-      }
-    } else {
-      console.log('🔒 daemon.cjs already exists. No action needed.');
-    }
-    break;
-  }
-
+    
   default:
     console.log(`
 DokuPro Daemon - Persistent dev server manager
@@ -371,10 +314,6 @@ Usage:
   node daemon.cjs status     Check daemon & server status
   node daemon.cjs restart    Restart the daemon
   node daemon.cjs log        Show recent log entries
-  node daemon.cjs protect    Manually restore daemon.cjs if deleted
-
-🔒 This file is self-healing: if deleted while daemon is running,
-   it will be automatically recreated within 5 seconds.
 `);
     break;
 }
