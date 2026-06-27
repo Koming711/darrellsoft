@@ -517,7 +517,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="fixed z-[60] right-4 md:right-6 touch-none select-none"
+            className="fixed z-[9999] right-4 md:right-6 touch-none select-none"
             style={{
               bottom: fabBottom,
               x: dragX,
@@ -565,7 +565,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setOpen(false)}
-              className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-[10000] bg-black/30 backdrop-blur-sm md:hidden"
             />
 
             <motion.div
@@ -573,7 +573,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-              className="fixed z-[70] flex flex-col bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden
+              className="fixed z-[10001] flex flex-col bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden
                 inset-2 bottom-2 top-auto h-[85vh] max-h-[640px]
                 md:inset-auto md:bottom-6 md:right-6 md:w-[400px] md:h-[600px] md:max-h-[75vh]"
             >
