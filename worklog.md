@@ -5879,3 +5879,27 @@ Stage Summary:
 - Clicking "Tulis pertanyaan lain..." opens the chat with the input focused for free-text typing
 - Popup uses z-[10001] so it sits above the install prompt dialog (z-[10000])
 - Lint passes for the modified file
+
+---
+Task ID: AI-DELETE
+Agent: Main
+Task: Delete the AI assistant feature entirely
+
+Work Log:
+- Removed `<AIAssistant />` usage and its import from src/app/layout.tsx
+- Deleted src/components/ai-assistant.tsx (the floating button + chat panel + question popup component)
+- Deleted src/app/api/ai-assistant/route.ts (the SSE streaming endpoint using z-ai-web-dev-sdk)
+- Removed all ai_assistant_* i18n keys (18 keys each for id + en) from src/lib/i18n.ts:
+  title, subtitle, placeholder, welcome, send, thinking, clear, close, error, suggestion_1..5, popup_title, popup_subtitle, popup_custom
+- Also cleaned stale duplicate root-level files (project uses src/ per tsconfig @/* -> ./src/*):
+  - Removed AIAssistant import/usage from app/layout.tsx
+  - Deleted app/api/ai-assistant/route.ts
+  - Deleted components/ai-assistant.tsx
+- Verified via agent-browser: AI assistant FAB no longer present on the page (ariaLabelMatch:false, fabExists:false)
+- Console clean, no runtime errors, page loads normally
+- Lint passes for modified files (src/app/layout.tsx, src/lib/i18n.ts)
+
+Stage Summary:
+- AI assistant feature completely removed: floating button, chat panel, question popup, API endpoint, and all translations
+- No remaining references in source code (only historical mentions in worklog.md and cached tool-results)
+- Page still loads and works correctly without it
