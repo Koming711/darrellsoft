@@ -398,17 +398,24 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     return pathname.startsWith(href)
   }
 
-  // Check which bottom nav items are accessible
+  // Check which bottom nav items are accessible (bottom bar: hide locked items entirely,
+  // since the bar only has space for accessible shortcuts)
   const visibleItems = bottomNavItems.filter(item => {
     if (!role || role === 'superadmin') return true
     return hasFeatureAccess(role, item.featureId)
   })
 
-  // All menu items accessible by role
-  const allMenuItems = menuItems.filter(item => {
-    if (!role || role === 'superadmin') return true
-    return hasFeatureAccess(role, item.featureId)
-  })
+  // All menu items for the "Lainnya" popup — mirror desktop sidebar behavior:
+  // - hak-akses & pengguna: HIDDEN if not allowed
+  // - other features: show with PRO badge if not allowed (visible but locked)
+  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']
+  const allMenuItems = menuItems
+    .map(item => {
+      if (!role || role === 'superadmin') return { ...item, isPro: false }
+      const accessible = hasFeatureAccess(role, item.featureId)
+      return { ...item, isPro: !accessible }
+    })
+    .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
 
   // Group menu items by section
   const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
@@ -467,13 +474,19 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                         <Link
                           key={item.href}
                           href={item.href}
-                          onClick={() => {
+                          onClick={(e) => {
+                            if (item.isPro) {
+                              e.preventDefault()
+                              toast.error(t('pro_feature_locked'))
+                              return
+                            }
                             startNavigation()
                             window.dispatchEvent(new CustomEvent('navigation-start'))
                             setShowPopup(false)
                           }}
                           className={cn(
-                            'flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors',
+                            'flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors relative',
+                            item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                             active
                               ? 'bg-white/20 text-white'
                               : 'text-white hover:bg-white/15'
@@ -483,6 +496,11 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                           <span className={cn('text-xs leading-tight text-center', active ? 'font-bold' : 'font-medium')}>
                             {t(item.titleKey)}
                           </span>
+                          {item.isPro && (
+                            <span className="absolute top-1 right-1 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">
+                              PRO
+                            </span>
+                          )}
                         </Link>
                       )
                     })}

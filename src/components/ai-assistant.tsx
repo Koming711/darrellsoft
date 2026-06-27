@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import { Sparkles, X, Send, Trash2, Bot, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useLanguage } from '@/contexts/language-context'
 import { toast } from 'sonner'
@@ -17,7 +16,7 @@ interface Message {
 }
 
 interface AIAssistantProps {
-  /** Bottom offset in px, to clear the mobile bottom nav when needed. Default: 80 (mobile) / 24 (desktop). */
+  /** Bottom offset in px, to clear the mobile bottom nav when needed. Default: 84 (mobile) / 24 (desktop). */
   bottomOffset?: number
 }
 
@@ -43,6 +42,22 @@ function renderContent(text: string) {
   })
 }
 
+interface DragState {
+  pointerId: number
+  startClientX: number
+  startClientY: number
+  startOffsetX: number
+  startOffsetY: number
+  moved: boolean
+  defaultLeft: number
+  defaultTop: number
+  buttonSize: number
+}
+
+const FAB_STORAGE_KEY = 'ai_fab_offset'
+const DRAG_THRESHOLD = 5 // px — pointer must move more than this to count as a drag (not a tap)
+const VIEWPORT_MARGIN = 8 // px — keep button at least this far from viewport edges
+
 export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
@@ -52,6 +67,63 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fetchedWelcomeRef = useRef(false)
+
+  // FAB bottom offset — hydration-safe.
+  // Stable initial value (24) matches SSR + initial client render.
+  // Updated AFTER mount to clear mobile bottom nav (84) on small screens.
+  const [fabBottom, setFabBottom] = useState<number>(24)
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Drag offset via Framer Motion motion values — hydration-safe.
+  // Start at 0 on both server & client; updated client-only after mount / during drag.
+  // Framer Motion composes `x`/`y` with `scale` (from animate) into a single transform — no conflict.
+  const dragX = useMotionValue(0)
+  const dragY = useMotionValue(0)
+
+  const dragRef = useRef<DragState | null>(null)
+  const wasDragRef = useRef(false)
+  const fabRef = useRef<HTMLDivElement>(null)
+
+  // After mount: set mobile/desktop offset + restore saved drag position
+  useEffect(() => {
+    if (bottomOffset !== undefined) {
+      setFabBottom(bottomOffset)
+    } else {
+      setFabBottom(window.innerWidth < 768 ? 84 : 24)
+    }
+    try {
+      const saved = localStorage.getItem(FAB_STORAGE_KEY)
+      if (saved) {
+        const offset = JSON.parse(saved)
+        if (typeof offset.x === 'number' && typeof offset.y === 'number') {
+          dragX.set(offset.x)
+          dragY.set(offset.y)
+        }
+      }
+    } catch {}
+  }, [bottomOffset, dragX, dragY])
+
+  // Re-clamp position on viewport resize (saved position might now be out of bounds)
+  useEffect(() => {
+    const handleResize = () => {
+      const el = fabRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const currentX = dragX.get()
+      const currentY = dragY.get()
+      const defaultLeft = rect.left - currentX
+      const defaultTop = rect.top - currentY
+      const buttonSize = rect.width
+      const minX = VIEWPORT_MARGIN - defaultLeft
+      const maxX = window.innerWidth - defaultLeft - buttonSize - VIEWPORT_MARGIN
+      const minY = VIEWPORT_MARGIN - defaultTop
+      const maxY = window.innerHeight - defaultTop - buttonSize - VIEWPORT_MARGIN
+      dragX.set(Math.min(Math.max(currentX, minX), maxX))
+      dragY.set(Math.min(Math.max(currentY, minY), maxY))
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [dragX, dragY])
 
   // Load persisted conversation from sessionStorage
   useEffect(() => {
@@ -164,29 +236,120 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
     } catch {}
   }
 
-  // Compute bottom position: clear mobile bottom nav (~64px) on small screens
-  const fabBottom = bottomOffset ?? (typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 24)
+  // -------------------- Drag handlers --------------------
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const el = fabRef.current
+    if (!el) return
+    // Only respond to primary mouse button; touch & pen always start drag
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const rect = el.getBoundingClientRect()
+    const currentX = dragX.get()
+    const currentY = dragY.get()
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startOffsetX: currentX,
+      startOffsetY: currentY,
+      moved: false,
+      defaultLeft: rect.left - currentX,
+      defaultTop: rect.top - currentY,
+      buttonSize: rect.width,
+    }
+    try {
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    } catch {}
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const ds = dragRef.current
+    if (!ds || ds.pointerId !== e.pointerId) return
+    const dx = e.clientX - ds.startClientX
+    const dy = e.clientY - ds.startClientY
+    if (!ds.moved && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+      ds.moved = true
+      setIsDragging(true)
+    }
+    if (!ds.moved) return
+    const minX = VIEWPORT_MARGIN - ds.defaultLeft
+    const maxX = window.innerWidth - ds.defaultLeft - ds.buttonSize - VIEWPORT_MARGIN
+    const minY = VIEWPORT_MARGIN - ds.defaultTop
+    const maxY = window.innerHeight - ds.defaultTop - ds.buttonSize - VIEWPORT_MARGIN
+    const newX = Math.min(Math.max(ds.startOffsetX + dx, minX), maxX)
+    const newY = Math.min(Math.max(ds.startOffsetY + dy, minY), maxY)
+    dragX.set(newX)
+    dragY.set(newY)
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    const ds = dragRef.current
+    if (!ds) return
+    wasDragRef.current = ds.moved
+    dragRef.current = null
+    try {
+      ;(e.currentTarget as HTMLElement).releasePointerCapture(ds.pointerId)
+    } catch {}
+    if (ds.moved) {
+      setIsDragging(false)
+      try {
+        localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify({ x: dragX.get(), y: dragY.get() }))
+      } catch {}
+    }
+  }
+
+  const handleClick = () => {
+    // If the last pointer interaction was a drag (not a tap), don't open the chat.
+    if (wasDragRef.current) {
+      wasDragRef.current = false
+      return
+    }
+    setOpen(true)
+  }
+
+  // Reset position (double-click / context menu action)
+  const handleDoubleClick = () => {
+    dragX.set(0)
+    dragY.set(0)
+    try {
+      localStorage.removeItem(FAB_STORAGE_KEY)
+    } catch {}
+    toast.success('Posisi icon AI direset')
+  }
 
   return (
     <>
-      {/* Floating Action Button (FAB) */}
+      {/* Floating Action Button (FAB) — draggable */}
       <AnimatePresence>
         {!open && (
           <motion.div
+            ref={fabRef}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="fixed z-[60] right-4 md:right-6"
-            style={{ bottom: fabBottom }}
+            className="fixed z-[60] right-4 md:right-6 touch-none select-none"
+            style={{
+              bottom: fabBottom,
+              x: dragX,
+              y: dragY,
+              cursor: isDragging ? 'grabbing' : 'grab',
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onDoubleClick={handleDoubleClick}
           >
             <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setOpen(true)}
+                    onClick={handleClick}
                     aria-label={t('ai_assistant_title')}
-                    className="group relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-xl shadow-blue-600/30 hover:shadow-2xl hover:shadow-blue-600/40 transition-all duration-300 hover:scale-105 active:scale-95"
+                    className={`group relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-xl shadow-blue-600/30 hover:shadow-2xl hover:shadow-blue-600/40 transition-all duration-300 hover:scale-105 active:scale-95 ${
+                      isDragging ? 'ring-4 ring-blue-400/50 scale-105 shadow-2xl' : ''
+                    }`}
                   >
                     {/* Pulse ring */}
                     <span className="absolute inset-0 rounded-full bg-blue-500/40 animate-ping [animation-duration:2s]" />
@@ -195,6 +358,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="mr-2">
                   <p className="text-xs font-medium">{t('ai_assistant_title')}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Geser untuk memindahkan · Double-klik untuk reset</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

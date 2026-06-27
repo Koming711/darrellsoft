@@ -5025,152 +5025,447 @@ Production URLs:
 - Vercel alias: https://darrellsoft-2hebbefop-koming711s-projects.vercel.app
 
 ---
-Task ID: 118
+Task ID: 4
 Agent: Main
-Task: Di halaman Pengaturan tab Data Perusahaan, di online (production) setelah diisi data perusahaan lalu di-refresh, data kembali kosong. Tapi di local tidak. Check + fix + deploy.
+Task: Extract tar backup (workspace-67f99cb9 (53).tar.001/.002), replace ALL project content with extracted content, but preserve the "Gabungkan 2 Invoice jadi 1" (merge invoices) feature from Task 3
 
 Work Log:
-
-== Root Cause Analysis ==
-
-Gejala:
-- Local (SQLite): isi data perusahaan → refresh → data tetap ada ✅
-- Production (PostgreSQL/Supabase): isi data perusahaan → refresh → data hilang ❌
-
-Investigasi:
-1. Cek production `/api/settings?key=company_name` dengan X-User-Id header → HTTP 500 "Failed to fetch settings"
-2. Cek production `/api/settings?key=demo_days` (system key, tabel Setting) → HTTP 200 OK
-3. Tambah error detail ke route: `detail: "Cannot read properties of undefined (reading 'findUnique')"`
-   → Artinya: `db.userSetting` adalah `undefined` di deployed Prisma client.
-
-Dua masalah ditemukan:
-
-=== Masalah 1: UserSetting table tidak ada di production PostgreSQL ===
-
-- Task 112 menambahkan model UserSetting ke schema.prisma.
-- Local: tabel dibuat manual via raw SQL (karena prisma db push gagal deteksi schema change).
-- Production: tabel UserSetting TIDAK PERNAH dibuat karena:
-  - Vercel build hanya menjalankan `prisma generate` (bukan `prisma db push`).
-  - deploy.sh baris `prisma db push` di-comment out.
-  - Jadi production PostgreSQL punya tabel `Setting` tapi TIDAK `UserSetting`.
-
-Fix: Buat tabel UserSetting di production Supabase via pooler URL (IPv4):
-```sql
-CREATE TABLE IF NOT EXISTS "UserSetting" (
-  id TEXT PRIMARY KEY,
-  "userId" TEXT NOT NULL,
-  key TEXT NOT NULL,
-  value TEXT NOT NULL DEFAULT '',
-  "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "UserSetting_userId_key_key" UNIQUE ("userId", key)
-);
-CREATE INDEX IF NOT EXISTS "UserSetting_userId_idx" ON "UserSetting"("userId");
-```
-Verifikasi: tables now = [{Setting}, {UserSetting}] ✅
-
-=== Masalah 2: Root schema.prisma tidak memiliki model UserSetting ===
-
-Ditemukan DUA file schema.prisma di project:
-- `prisma/schema.prisma` (12924 bytes) — PUNYA model UserSetting (line 152)
-- `schema.prisma` (root, 12136 bytes) — TIDAK PUNYA model UserSetting (line 138: Setting → RiwayatCetakan)
-
-Prisma CLI default load dari `schema.prisma` (root) — bukan `prisma/schema.prisma`!
-Bukta: `npx prisma generate` output: "Prisma schema loaded from schema.prisma"
-
-Akibatnya:
-- Vercel build menjalankan `prisma generate` dengan root schema.prisma (TANPA UserSetting).
-- Deployed Prisma client tidak kenal `db.userSetting` → `undefined` → TypeError.
-- Local sebelumnya "berfungsi" karena prisma client lokal di-regenerate dengan prisma/schema.prisma
-  saat Task 112 (atau ada cache lama yang kebetulan punya UserSetting).
-
-Fix: Sync root schema.prisma dengan prisma/schema.prisma:
-```
-cp prisma/schema.prisma schema.prisma
-```
-Verifikasi: `diff schema.prisma prisma/schema.prisma` → IDENTICAL ✅
-`grep -c "model UserSetting" schema.prisma` → 1 ✅
-
-=== Masalah 3 (minor): vercel.json buildCommand cache ===
-
-Tambah `rm -rf node_modules/.prisma` sebelum `prisma generate` di buildCommand
-untuk memastikan Prisma client selalu di-regenerate dari schema terbaru (defense in depth):
-```json
-"buildCommand": "node scripts/prepare-build.js && rm -rf node_modules/.prisma && npx prisma generate && npx next build"
-```
-
-== Deployment ==
-
-3 deploy iterations (semua via `npx vercel deploy --prod --token TOKEN --yes --force`):
-1. Deploy dengan error detail → dapat root cause TypeError message.
-2. Deploy dengan `rm -rf node_modules/.prisma` → masih gagal (karena schema root belum di-fix).
-3. Deploy setelah sync schema.prisma → SUKSES.
-
-Build: ~58s per deploy. Total 3 deploy × 2 menit.
-
-== Verifikasi Production ==
-
-API tests (curl https://www.darrellsoft.com):
-- GET /api/settings?key=company_name (per-user) → HTTP 200 {"key":"company_name","value":"Rajabowl"} ✅
-  (sebelumnya: HTTP 500 "Cannot read properties of undefined")
-- POST /api/settings {key:company_name, value:"Test Company Prod 123"} → HTTP 200, UserSetting row created ✅
-- GET /api/settings?key=company_name (same user) → HTTP 200, value="Test Company Prod 123" ✅
-- GET /api/settings?key=company_name (DIFFERENT user) → HTTP 200, value="Rajabowl" (global default, NOT test data) ✅
-  → Per-user isolation confirmed working on production.
-
-E2E test (agent-browser on www.darrellsoft.com):
-1. Login as superadmin (username: superadmin, password: 268899) → redirect to /pembukaan ✅
-2. Navigate to /administrasi/pengaturan → click "Data Perusahaan" tab ✅
-3. Company name field shows "Rajabowl" (global default, loaded correctly) ✅
-4. Change company name to "TEST PROD PERSIST 1782493639826" → click "Simpan" ✅
-5. Toast: "Pengaturan berhasil disimpan!" ✅
-6. **REFRESH page** (open /administrasi/pengaturan again) → click "Data Perusahaan" tab ✅
-7. Company name field shows "TEST PROD PERSIST 1782493639826" (PERSISTED after refresh!) ✅
-8. Screenshot: /tmp/prod-persists-after-refresh.png
-9. Restored company name back to "Rajabowl" + saved ✅
-
-Local environment intact:
-- prisma/schema.prisma: provider = "sqlite" ✅
-- schema.prisma (root): provider = "sqlite" ✅ (Vercel build swaps to postgresql remotely, local stays sqlite)
-- diff schema.prisma prisma/schema.prisma → IDENTICAL ✅
-- Local dev server (port 3000) still healthy: HTTP 200 ✅
+- Backed up current invoice merge implementation (src/app/invoice/page.tsx + app/invoice/page.tsx, 98603 bytes each) to /tmp/_merge_backup/ before replacement
+- Combined split tar parts: cat "workspace-67f99cb9 (53).tar.001" "workspace-67f99cb9 (53).tar.002" → combined.tar (78.8MB, 8782 entries)
+- Inspected tar contents: full workspace backup including .git/, src/ (251 entries), app/ (122 entries), prisma/, config files, database files (custom.db, db/custom.db), .env, worklog.md, daemon.cjs, etc.
+- Verified tar's invoice page does NOT have merge feature (77823 bytes, 0 "merge"/"gabung" keywords) — confirmed need to re-apply
+- Stopped daemon + dev server (killed lingering next-server PID 1079, postcss PID 1107, telemetry PID 29948)
+- Performed full content replacement via rsync: `rsync -a --delete --exclude='node_modules/' --exclude='upload/' --exclude='_extract_temp/' full/ ./` — replaced ALL project files with tar's versions (including .git/, .env, database, worklog, scripts, source code)
+- Deleted stale .next/ build cache
+- Re-applied merge feature: copied /tmp/_merge_backup versions over the replaced invoice pages (src/app/invoice/page.tsx + app/invoice/page.tsx → 98603 bytes each, with full merge state/logic/UI/dialog)
+- Verified merge feature dependencies exist in replaced codebase: shadcn Checkbox + RadioGroup components present, lucide-react Combine + Layers icons available, /api/history PUT/DELETE endpoints present, InvoiceData type present
+- Restarted dev server — compiled successfully (GET /invoice 200, compile 1453ms)
+- Discovered CRITICAL bug: /api/settings?key=npwp & key=ppn returned 500 — "Cannot read properties of undefined (reading 'findUnique')" on db.userSetting
+  * Root cause: tar contained a STALE root-level schema.prisma (408 lines, missing UserSetting model) that Prisma auto-discovers BEFORE prisma/schema.prisma (426 lines, HAS UserSetting model)
+  * Prisma config: "Prisma schema loaded from schema.prisma" (root) — not prisma/schema.prisma
+  * Fix: synced root schema.prisma ← prisma/schema.prisma (copied the 426-line version with UserSetting model to root)
+  * Regenerated Prisma client: `rm -rf node_modules/.prisma/client && npx prisma generate` → db.userSetting now type:object ✅
+  * Restarted dev server → /api/settings?key=npwp 200, key=ppn 200 ✅
+- Verified via agent-browser (full end-to-end test):
+  * Login as superadmin (username: superadmin, password: 268899) → Beranda page loaded ✅
+  * Navigate to /invoice → Riwayat tab → "RIWAYAT INVOICE" heading + "Gabungkan" button visible ✅
+  * Clicked "Gabungkan" → merge mode activated (checkboxes appeared, "Gabungkan (0)" disabled, "Batal" button) ✅
+  * Selected 2 invoices (INV/06/26/0001 + INV/06/26/0002) → "Gabungkan (2)" enabled ✅
+  * Clicked "Gabungkan (2)" → merge dialog opened: primary invoice radio selector, combined items preview table, delete-others checkbox, "Gabungkan Sekarang" button ✅
+  * Clicked "Gabungkan Sekarang" → toast "2 invoice berhasil digabung menjadi 1" ✅
+  * Verified merged result: INV/06/26/0001 with combined items (Cetak Kartu Nama 1000qty + Test Item 1qty = 1001 qty), total Rp501.000.000, DP 49.9%, sisa Rp251.001.000 ✅
+  * Refreshed → "Riwayat 2" badge (down from 4: 2 DP + 2 PEL → 1 merged DP + 1 PEL, orphan PEL child of deleted invoice cleaned up) ✅
+  * Created 2nd test invoice → "Gabungkan" button reappeared (requires >=2 DP invoices) ✅
+  * Cleaned up test invoice after verification ✅
+- Lint check: no new errors in invoice pages (pre-existing errors only in upload/ and websocket/ files)
 
 Stage Summary:
-- Bug "data perusahaan hilang setelah refresh di online" FIXED. ✅
-- Root cause: UserSetting table missing di production PostgreSQL + root schema.prisma missing UserSetting model.
-- Fix: (1) Created UserSetting table in production Supabase. (2) Synced root schema.prisma with prisma/schema.prisma. (3) Added rm -rf .prisma to buildCommand for fresh client generation.
-- Per-user company data isolation confirmed working on production (User A's data ≠ User B's data). ✅
-- Data persists after refresh on production. ✅
-- Deployed to https://www.darrellsoft.com (3 deploys during debugging, final deploy successful).
-
-Files Modified:
-- schema.prisma (root) — synced with prisma/schema.prisma (added UserSetting model + all other recent schema changes)
-- vercel.json — buildCommand: added `rm -rf node_modules/.prisma` before prisma generate
-- src/app/api/settings/route.ts + app/api/settings/route.ts (mirror) — added error detail to 500 responses for easier debugging
-- Production DB: UserSetting table created via raw SQL (Supabase pooler)
+- ALL project content successfully replaced with tar backup (workspace-67f99cb9 (53).tar.001/.002)
+- "Gabungkan 2 Invoice jadi 1" merge feature FULLY PRESERVED and verified working end-to-end
+- Fixed critical post-replacement bug: synced root schema.prisma ← prisma/schema.prisma so Prisma client recognizes UserSetting model (per-user company data isolation). Without this fix, /api/settings returned 500 and Pengaturan → Data Perusahaan would lose data on refresh.
+- Dev server running cleanly on port 3000, all API endpoints returning 200
+- Files modified after replacement:
+  * src/app/invoice/page.tsx — restored merge feature (98603 bytes, from backup)
+  * app/invoice/page.tsx — restored merge feature (98603 bytes, from backup)
+  * schema.prisma (root) — synced from prisma/schema.prisma (added UserSetting model, 426 lines)
+- Database: tar's db/custom.db restored (contains superadmin + Test Customer invoice data)
+- Merge feature rules confirmed working: primary keeps nomor/tanggal/customer; items combined; DP amount preserved; DP% auto-recalculated; PEL child synced; other invoices + orphan PEL children deleted
 
 ---
-Task ID: 12
+Task ID: 5
 Agent: Main
-Task: Fix "konten tidak muncul" — local dev server was down
+Task: Fix mobile view so the "Pro" (premium/Langganan Tahunan) pricing card appears — on mobile, only top 2 cards were visible, premium cards were hidden below fold in cramped 2-column grid
 
 Work Log:
-- Checked production site www.darrellsoft.com — verified all content renders correctly:
-  * Homepage: 22 images loaded, full text (Fitur, Harga, Testimoni, hero section) ✅
-  * /pembukaan: sidebar + header + menu all visible ✅
-  * /hitung-cetakan: calculator with all fields (Nama Customer, Nama Barang, etc.) ✅
-  * Login as "aming" works, redirects to /pembukaan ✅
-  * No broken images, no console errors ✅
-- Checked local dev server: daemon NOT running, port 3000 FREE
-  * `node daemon.cjs status` → "❌ Daemon is NOT running"
-  * curl http://localhost:3000/ → HTTP 000 (connection refused)
-  * This was the cause of "konten tidak muncul" — user was viewing the local Preview Panel which showed a blank screen because no server was running
-- Fix: `node daemon.cjs start` → daemon started (PID 1605), Ready in 813ms
-- Verified local homepage renders: 37KB body, 22 images loaded, all text present ✅
-- No console errors
+- Investigated pricing section in src/app/page.tsx (HARGA section, lines 1574-1689): 4 PricingCards (Bulanan Ekonomis, Langganan Bulanan, Langganan Tahunan [popular/"Pro"], Lifetime) in a `grid grid-cols-2 md:grid-cols-4` grid
+- Used agent-browser with TRUE mobile viewport (`agent-browser set viewport 390 844` → window.innerWidth confirmed 390px) to diagnose
+- Found root cause: on 390px mobile, `grid-cols-2` rendered 2 columns of only 173px each. Cards were extremely cramped (173px wide × 629-703px tall). The bottom row (Langganan Tahunan "Pro" + Lifetime at top:10644) was below the fold — user only saw the top 2 economy plans and the premium "Pro" (Langganan Tahunan, the popular blue-gradient card with "Hemat Banget!" badge) was hidden
+- Fix: changed grid from `grid-cols-2 md:grid-cols-4` → `grid-cols-1 sm:grid-cols-2 md:grid-cols-4` (and gap from `gap-3` → `gap-4` for better mobile spacing)
+  * Mobile (<640px): 1 column — all 4 cards full-width (358px), stacked vertically, fully readable
+  * Tablet (640-768px): 2 columns (296px each)
+  * Desktop (768px+): 4 columns (276px each) — unchanged
+- Applied to both src/app/page.tsx (line 1591) and app/page.tsx (line 1591) — dual-directory mirror
+- Verified via agent-browser:
+  * Mobile 390px: grid-template-columns = "358px" (1 column), all 4 cards full-width stacked ✅
+    - Card 0 (Bulanan Ekonomis): 358×493, top:10003 ✅
+    - Card 1 (Langganan Bulanan): 358×493, top:10512 ✅
+    - Card 2 (Langganan Tahunan / "Pro"): 358×535, top:11021 ✅ NOW VISIBLE & READABLE
+    - Card 3 (Lifetime): 358×517, top:11572 ✅
+    - All 4 headings confirmed present: "Bulanan Ekonomis", "Langganan Bulanan", "Langganan Tahunan", "Tanpa Langganan"
+  * Tablet 640px: grid-template-columns = "296px 296px" (2 columns) ✅
+  * Desktop 1280px: grid-template-columns = "276px 276px 276px 276px" (4 columns, unchanged) ✅
+- No dev log errors, no lint errors in page.tsx files
 
 Stage Summary:
-- ROOT CAUSE: Local dev server (daemon.cjs) had stopped — port 3000 was free, so the Preview Panel showed nothing
-- Production site (www.darrellsoft.com) was always fine — all content renders correctly there
-- FIX: Restarted daemon → dev server running on port 3000, content visible in Preview Panel
-- Both local and production verified working
+- Fixed: "Pro" (Langganan Tahunan) pricing card now appears on mobile
+- Root cause: 2-column grid on 390px mobile made cards too narrow (173px) and pushed premium cards below the fold
+- Solution: responsive grid `grid-cols-1 sm:grid-cols-2 md:grid-cols-4` — 1 column on mobile, 2 on tablet, 4 on desktop
+- All 4 pricing plans now fully visible and readable on mobile, stacked vertically with full-width cards
+- Files modified: src/app/page.tsx (line 1591), app/page.tsx (line 1591)
+
+---
+Task ID: 5-CANCEL
+Agent: Main
+Task: Cancel perintah terakhir (Task ID 5 — Fix mobile display so "Pro" pricing card appears)
+
+Work Log:
+- User meminta untuk membatalkan task terakhir (perubahan grid pricing di landing page)
+- Meng-revert perubahan di src/app/page.tsx (line 1591):
+  * `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-4 max-w-6xl mx-auto`
+  * → kembali ke `grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 max-w-6xl mx-auto`
+- Meng-revert perubahan di app/page.tsx (line 1591): same reversion (dual-directory mirror)
+- Verifikasi: kedua file kembali ke state sebelum Task 5
+- Dev server: kompilasi sukses (✓ Compiled in 261ms), GET / 200 OK
+
+Stage Summary:
+- Task ID 5 (mobile pricing grid change) berhasil dibatalkan/di-rollback sepenuhnya
+- Codebase kembali ke state sebelum Task 5 (grid pricing tetap `grid-cols-2 md:grid-cols-4` seperti versi tar backup)
+- Tidak ada dampak pada Task 4 (extract tar + re-apply invoice merge feature) yang masih aktif
+
+---
+Task ID: 6
+Agent: Main
+Task: Fix mobile "Lainnya" (More) menu — PRO badges not showing on locked features like in desktop sidebar
+
+Work Log:
+- Investigated sidebar components: src/components/sidebar-desktop.tsx (desktop) vs src/components/sidebar.tsx (mobile)
+- Found root cause in MobileBottomNav component (src/components/sidebar.tsx):
+  * `allMenuItems` used `menuItems.filter(...)` which COMPLETELY REMOVED locked items from the "Lainnya" popup
+  * Desktop sidebar instead uses `.map(...)` to mark items with `isPro: true` + `.filter()` only hides hak-akses & pengguna when denied — all other locked features stay visible with PRO badge
+  * Mobile popup Link had no onClick lock prevention, no PRO badge, no dim styling
+- Fix applied to MobileBottomNav (src/components/sidebar.tsx, lines ~407-506):
+  1. Replaced `allMenuItems` filter logic with desktop-mirrored map+filter:
+     - `.map()` adds `isPro: !accessible` flag (false for superadmin/none role)
+     - `.filter()` only hides `HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']` when denied; all other locked features remain visible
+  2. Updated popup Link onClick: if `item.isPro`, `e.preventDefault()` + `toast.error(t('pro_feature_locked'))` + return (no navigation)
+  3. Added `relative` to Link className + `opacity-60 cursor-not-allowed` when isPro (dimmed locked items)
+  4. Added amber PRO badge: `<span className="absolute top-1 right-1 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">PRO</span>`
+- Verified `toast` already imported from 'sonner' (line 9); `menuItems` type supports `isPro` via spread (same pattern as desktop Sidebar component)
+- Components only exist in src/components/ (not mirrored to app/) — no dual-directory sync needed
+- Tested via agent-browser (mobile viewport 390×844):
+  * Logged in as "aming" (role: user, password: 268899)
+  * Opened "Lainnya" popup → confirmed PRO badge appears on "Biaya" (the one feature locked for this user's stored permissions: biaya=false)
+  * Other features (invoice, surat-jalan, purchase-order, master-*) show no PRO badge because stored permissions grant access (invoice=true, etc.)
+  * Clicked "Biaya" (PRO locked) → toast "Fitur PRO — hubungi admin untuk mengaktifkan" appeared ✅
+  * Navigation prevented — URL stayed at /pembukaan (did NOT go to /biaya) ✅
+  * hak-akses & pengguna correctly HIDDEN (not in popup at all) ✅
+- Verified desktop sidebar (1280×800) still shows PRO badge correctly (1 badge for "Biaya") — desktop component untouched, no regression
+- No dev log errors, no lint errors in sidebar.tsx
+
+Stage Summary:
+- FIXED: Mobile "Lainnya" popup now shows PRO badges on locked features, matching desktop sidebar behavior
+- Root cause: mobile used `filter()` to remove locked items entirely; desktop used `map()+filter()` to keep them visible with PRO badge
+- Locked items in mobile popup now: dimmed (opacity-60), show amber "PRO" badge (top-right), click shows toast "Fitur PRO — hubungi admin untuk mengaktifkan" and prevents navigation
+- hak-akses & pengguna remain HIDDEN when denied (consistent with desktop)
+- Files modified: src/components/sidebar.tsx (MobileBottomNav component, ~lines 407-506)
+- Desktop sidebar (sidebar-desktop.tsx) untouched — no regression
+
+---
+Task ID: 6-CANCEL
+Agent: Main
+Task: Cancel perintah terakhir (Task ID 6 — Fix mobile "Lainnya" menu to show PRO badges)
+
+Work Log:
+- User meminta untuk membatalkan task terakhir (perubahan MobileBottomNav PRO badge di sidebar.tsx)
+- Meng-revert perubahan di src/components/sidebar.tsx (MobileBottomNav component):
+  * `allMenuItems` logic: kembali dari `map()+filter()` (dengan isPro flag + HIDDEN_WHEN_DENIED) → `filter()` sederhana yang menghapus item terkunci sepenuhnya (state asli)
+  * Popup Link onClick: kembali dari lock-prevention (e.preventDefault + toast) → navigasi langsung tanpa cek isPro
+  * Popup Link className: hapus `relative`, `opacity-60 cursor-not-allowed` (kembali ke state asli)
+  * Hapus amber PRO badge `<span>` dari popup items
+- Verifikasi: grep untuk `isPro|PRO|opacity-60|pro_feature_locked` di section 405-490 → kosong (fully reverted)
+- Dev server: kompilasi sukses, GET / 200 OK, tidak ada error
+
+Stage Summary:
+- Task ID 6 (mobile sidebar PRO badge fix) berhasil dibatalkan/di-rollback sepenuhnya
+- MobileBottomNav kembali ke state sebelum Task 6 (locked items tetap disembunyikan dari popup, tanpa PRO badge)
+- Desktop sidebar (sidebar-desktop.tsx) tidak terdampak (tidak diubah di Task 6)
+- Tidak ada dampak pada Task 4 (extract tar + invoice merge feature) yang masih aktif
+
+---
+Task ID: 7
+Agent: Main
+Task: Fix React hydration error in AIAssistant component — "server rendered HTML didn't match client properties" on motion.div style (bottom/opacity/transform)
+
+Work Log:
+- Investigated hydration error from user's console output:
+  * Error: "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties"
+  * Location: src/components/ai-assistant.tsx:175 (motion.div for Floating Action Button)
+  * Mismatch: `style={{ bottom: 84 (client) vs "24px" (server), opacity: 0 vs "0", transform: "scale(0)" }}`
+- Found root cause at line 168:
+  ```js
+  const fabBottom = bottomOffset ?? (typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 24)
+  ```
+  * SSR (Node, no `window`): `typeof window !== 'undefined'` = false → expression = false → fabBottom = false → `style={{ bottom: false }}` (omitted/undefined)
+  * Client (mobile): fabBottom = 84 (number) → `style={{ bottom: 84 }}` → React renders as "84px"
+  * Client (desktop): fabBottom = 24 (number) → `style={{ bottom: 24 }}` → React renders as "24px"
+  * Server vs client produce DIFFERENT values → hydration mismatch
+- Fix applied to src/components/ai-assistant.tsx:
+  1. Replaced inline `const fabBottom = ...` computation with React state:
+     ```js
+     const [fabBottom, setFabBottom] = useState<number>(bottomOffset ?? 24)
+     ```
+     — stable default (24) matches SSR + initial client render (no hydration error)
+  2. Added `useEffect` to compute correct value AFTER mount (client-only):
+     ```js
+     useEffect(() => {
+       if (bottomOffset !== undefined) {
+         setFabBottom(bottomOffset)
+       } else {
+         setFabBottom(window.innerWidth < 768 ? 84 : 24)
+       }
+     }, [bottomOffset])
+     ```
+  3. Removed the old inline computation comment + line
+- Verified `typeof window` no longer appears in the file (grep = NONE)
+- Component only exists in src/components/ (no app/components mirror) — single file fix
+- Tested via agent-browser:
+  * Desktop (1280px): fresh reload → console showed NO hydration errors (only normal logs: Fast Refresh, React DevTools, HMR, SW registered) ✅
+  * Mobile (390px): fresh reload → console showed NO hydration errors ✅
+  * Dev log: no hydration errors ✅
+  * FAB `bottom` value correct after mount: mobile = "84px" (clears bottom nav), desktop = "24px" (standard) ✅
+- Lint: no errors in ai-assistant.tsx
+
+Stage Summary:
+- FIXED: React hydration error in AIAssistant FAB (Floating Action Button)
+- Root cause: `typeof window !== 'undefined'` check computed different `fabBottom` values on server (false/omitted) vs client (84 or 24 as number)
+- Solution: useState (stable default 24) + useEffect (update to correct value after mount) — standard SSR-safe pattern
+- No more "server-rendered HTML didn't match client properties" console error
+- FAB still positions correctly: 84px bottom on mobile (clears bottom nav), 24px on desktop
+- Files modified: src/components/ai-assistant.tsx (lines 46-66: added useState+useEffect for fabBottom; removed old line 168 inline computation)
+
+---
+Task ID: 8
+Agent: Main
+Task: Make AI assistant icon (FAB) draggable — user can drag it around the screen
+
+Work Log:
+- Read existing src/components/ai-assistant.tsx (had hydration fix from Task 7 already applied)
+- Rewrote src/components/ai-assistant.tsx to add drag functionality:
+  * Added `useMotionValue` from framer-motion for dragX/dragY — hydration-safe (start at 0 on server & client, Framer Motion composes x/y with scale into single transform, no conflict with entrance animation)
+  * Added pointer event handlers (pointerDown/Move/Up/Cancel) on the FAB wrapper motion.div
+  * Drag threshold of 5px — pointer must move more than this to count as a drag (distinguishes tap from drag)
+  * Viewport clamping with 8px margin — button stays fully on screen, can't be dragged off-screen
+  * Position persisted to localStorage (`ai_fab_offset` key) on drag end
+  * Position restored from localStorage on mount (useEffect, client-only — hydration-safe)
+  * Re-clamps position on window resize (saved position might be out of bounds after resize)
+  * `touch-none select-none` CSS classes for proper touch drag behavior (prevents scroll interference)
+  * Cursor changes: `grab` on hover, `grabbing` during drag
+  * Visual feedback during drag: ring-4 ring-blue-400/50, scale-105, shadow-2xl
+  * Click vs drag: `wasDragRef` tracks if last pointer interaction was a drag; if so, click is suppressed (chat doesn't open)
+  * Double-click resets position to default (0,0) and clears localStorage — with toast notification
+  * Tooltip updated: "Geser untuk memindahkan · Double-klik untuk reset"
+  * Keyboard accessible: button onClick still fires for keyboard (Enter/Space) since wasDragRef is false without pointer interaction
+
+- Tested via agent-browser (desktop 1280x800 + mobile 390x844):
+  * Desktop: FAB found at default position (1192, 489), cursor: grab ✅
+  * Desktop drag: simulated pointer drag -150x/-100y → FAB moved to (1042, 389), transform: translateX(-150px) translateY(-100px) ✅
+  * Position saved to localStorage: {"x":-150,"y":-100} ✅
+  * Click (no movement): chat panel opened correctly (not treated as drag) ✅
+  * Page reload: position restored from localStorage (1042, 389) ✅
+  * Double-click: position reset to default (1192, 489), localStorage cleared ✅
+  * Mobile (390x844): FAB at bottom: 84px (clears mobile bottom nav) ✅
+  * Mobile touch drag: moved -160x/-200y → FAB repositioned, saved to localStorage ✅
+  * Viewport clamping: extreme drag (2000px right/down) → FAB clamped to stay within viewport (8px margin from edges) ✅
+  * No hydration errors in console ✅
+  * No runtime errors in dev log ✅
+
+Stage Summary:
+- AI assistant icon (FAB) is now fully draggable on both desktop (mouse) and mobile (touch)
+- Position persists across page reloads via localStorage
+- Double-click resets to default position
+- Click/tap still opens chat (drag vs tap distinguished by 5px threshold)
+- Button constrained to viewport (can't drag off-screen)
+- Hydration-safe: motion values start at 0 on both server & client, position loaded only after mount
+- No console errors, no hydration errors
+- Files modified: src/components/ai-assistant.tsx (added drag logic, motion values, pointer handlers, double-click reset, viewport clamping, localStorage persistence)
+
+---
+Task ID: 9
+Agent: Main
+Task: Fix mobile "Lainnya" (More) menu — PRO features were hidden, should show with PRO badge like desktop sidebar
+
+Work Log:
+- Read src/components/sidebar.tsx — found MobileBottomNav component
+- Root cause (same as cancelled Task 6): `allMenuItems` used `filter()` to remove locked items entirely:
+  ```js
+  const allMenuItems = menuItems.filter(item => {
+    if (!role || role === 'superadmin') return true
+    return hasFeatureAccess(role, item.featureId)
+  })
+  ```
+  This hid all PRO-locked features from the mobile "Lainnya" popup, unlike the desktop sidebar which uses map()+filter() to show them with PRO badges.
+- Fix applied to MobileBottomNav in src/components/sidebar.tsx:
+  1. Changed `allMenuItems` computation to mirror desktop sidebar:
+     ```js
+     const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']
+     const allMenuItems = menuItems
+       .map(item => {
+         if (!role || role === 'superadmin') return { ...item, isPro: false }
+         const accessible = hasFeatureAccess(role, item.featureId)
+         return { ...item, isPro: !accessible }
+       })
+       .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
+     ```
+     — shows PRO items with badge (except hak-akses & pengguna which stay hidden)
+  2. Updated popup Link rendering:
+     - Added `relative` to className (for badge positioning)
+     - Added `item.isPro ? 'opacity-60 cursor-not-allowed' : ''` styling
+     - Added onClick lock prevention: `e.preventDefault()` + `toast.error(t('pro_feature_locked'))`
+     - Added PRO badge: `<span className="absolute top-1 right-1 ... bg-amber-500 text-white">PRO</span>`
+- Verified `pro_feature_locked` translation exists (id: "Fitur PRO — hubungi admin untuk mengaktifkan", en: "PRO feature — contact admin to enable")
+- Verified `hasFeatureAccess` function exists in /lib/permissions.ts
+
+- Tested via agent-browser (mobile 390x844, logged in as "aming" role:user, password:268899):
+  * Logged in successfully → redirected to /pembukaan ✅
+  * Clicked "Lainnya" button → popup opened ✅
+  * Found PRO badges in popup: 2 items with amber "PRO" badge ✅
+  * "Biaya" item shows PRO badge (href="/biaya", isPro=true, hasProBadge=true) ✅
+  * Clicked PRO-locked "Biaya" → toast appeared: "Fitur PRO — hubungi admin untuk mengaktifkan" ✅
+  * Navigation prevented: still on /pembukaan after click ✅
+  * Non-locked items still navigate normally ✅
+  * No console errors ✅
+  * No dev log errors ✅
+- Verified desktop sidebar (1280x800): still shows 2 PRO badges — no regression ✅
+- Lint: no errors in sidebar.tsx (pre-existing errors in other files unchanged)
+
+Stage Summary:
+- FIXED: Mobile "Lainnya" menu now shows PRO-locked features with amber PRO badge (same as desktop sidebar)
+- Clicking a PRO-locked item shows toast "Fitur PRO — hubungi admin untuk mengaktifkan" and prevents navigation
+- hak-akses & pengguna remain hidden when denied (not shown with badge) — consistent with desktop
+- Desktop sidebar unchanged (no regression)
+- Files modified: src/components/sidebar.tsx (MobileBottomNav: allMenuItems computation + popup Link rendering with PRO badge + onClick lock)
+
+---
+Task ID: 10
+Agent: Main
+Task: Fix "gabungan invoice hilang" — invoice merge (Gabungkan) button not visible
+
+Work Log:
+- Investigated src/app/invoice/page.tsx and app/invoice/page.tsx for merge feature
+- Initial grep showed corrupted declarations (`const ergeMode` instead of `const [mergeMode`) — FALSE ALARM: raw byte check (od -c) confirmed file is correct (`const [mergeMode`); the grep/terminal display was hiding `[m` characters (terminal interprets `[m` as ANSI escape sequence artifact)
+- Merge feature code is fully intact (5 useState declarations, mergedPreview useMemo, openMergeDialog, handleMerge, merge dialog with RadioGroup for primary selection, delete-others checkbox)
+- Root cause of "hilang": merge button condition was `dpInvoices.length >= 2 && !mergeMode`
+  * Button was COMPLETELY HIDDEN when user had fewer than 2 invoices
+  * User "aming" has only 1 invoice (verified via /api/history?docType=invoice → count: 1)
+  * User couldn't see the feature existed → reported it as "hilang" (gone)
+- Fix applied to both src/app/invoice/page.tsx and app/invoice/page.tsx (line 689-700):
+  * Changed condition from `dpInvoices.length >= 2 && !mergeMode` to just `!mergeMode`
+  * Added `disabled={dpInvoices.length < 2}` to the Button
+  * Added `title` tooltip: when disabled shows "Butuh minimal 2 invoice untuk digabungkan (saat ini: N)", when enabled shows "Gabungkan 2 atau lebih invoice menjadi 1"
+  * Button is now ALWAYS VISIBLE but disabled when insufficient invoices
+
+- Tested via agent-browser (desktop 1280x800 + mobile 390x844, logged in as "aming"):
+  * Desktop: navigated to /invoice → Riwayat tab → "Gabungkan" button visible ✅
+    - Button disabled (1 invoice < 2 required) ✅
+    - Tooltip: "Butuh minimal 2 invoice untuk digabungkan (saat ini: 1)" ✅
+    - Backup and Restore buttons still present alongside ✅
+  * Mobile (390x844): same result — "Gabungkan" button visible and disabled with tooltip ✅
+  * No console errors ✅
+  * No compile errors in dev log ✅
+  * No lint errors in invoice/page.tsx ✅
+  * When user has 2+ invoices, button will auto-enable and clicking enters merge mode (existing logic unchanged)
+
+Stage Summary:
+- FIXED: "Gabungkan" (invoice merge) button now always visible in Riwayat Invoice header
+- When < 2 invoices: button is disabled with tooltip "Butuh minimal 2 invoice untuk digabungkan (saat ini: N)"
+- When >= 2 invoices: button is enabled, clicking enters merge mode (select invoices → choose primary → merge)
+- Merge feature code was never deleted — only the visibility condition was too strict (hid button entirely)
+- User can now always see the feature exists, even before having enough invoices
+- Files modified: src/app/invoice/page.tsx, app/invoice/page.tsx (merge button condition + disabled state + tooltip)
+
+---
+Task ID: 11
+Agent: Main
+Task: Deploy to www.darrellsoft.com (Vercel production)
+
+Work Log:
+- Verified build preparation:
+  * scripts/prepare-build.js exists — swaps prisma schema provider sqlite → postgresql + transforms Supabase direct URL to pooler URL for IPv4
+  * scripts/revert-schema.js exists — reverts schema back to sqlite for local dev
+  * Vercel project "darrellsoft" (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) already configured:
+    - Build Command: `node scripts/prepare-build.js && npx prisma generate && npx next build`
+    - Install Command: `bun install`
+    - Node.js Version: 24.x
+    - Framework Preset: Next.js
+  * All env vars set on Vercel (production target): DATABASE_URL (encrypted, Supabase PostgreSQL), MIDTRANS_SERVER_KEY, MIDTRANS_IS_PRODUCTION, NEXT_PUBLIC_MIDTRANS_CLIENT_KEY, NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION, NEXT_PUBLIC_BASE_URL
+- Installed Vercel CLI globally (`bun add -g vercel` → v54.18.0)
+- Verified token: `vercel whoami --token` → authenticated as koming711s-projects
+- First deploy attempt created a stray "my-project" project (no local link existed) — deployed successfully but to wrong project URL (my-project-alpha-orpin-60.vercel.app)
+- Fixed: `vercel link --yes --project darrellsoft --token` → linked local codebase to existing darrellsoft project (created .vercel/project.json with projectId + orgId)
+- Second deploy: `vercel deploy --prod --yes --token` → SUCCESS
+  * Build: 45s on Vercel (Next.js build with all routes)
+  * Deployment URL: darrellsoft-ogc88ggp6-koming711s-projects.vercel.app
+  * Aliased to: https://www.darrellsoft.com ✅
+  * Ready in 1m
+- Cleaned up stray "my-project" project (was already auto-removed)
+
+- Production verification (agent-browser, mobile 390x844):
+  * https://www.darrellsoft.com/ → HTTP 200, title "Darrell Soft - Kalkulator Hitung Cetakan" ✅
+  * Login as "aming" → redirected to /pembukaan ✅ (production DB auth works)
+  * /invoice → Riwayat tab → "Gabungkan" button VISIBLE and ENABLED ✅
+    - Tooltip: "Gabungkan 2 atau lebih invoice menjadi 1"
+    - disabled: false (aming has 2+ invoices in production DB)
+    - Confirms Task 10 fix (merge button always visible) is live
+  * AI FAB present with cursor: grab ✅ (Task 8 drag feature live)
+  * Mobile "Lainnya" popup → 2 PRO badges visible ✅ (Task 9 fix live)
+  * No console errors on production ✅
+  * Response time: 49ms (fast)
+
+Stage Summary:
+- DEPLOYED: https://www.darrellsoft.com (Vercel production, darrellsoft project)
+- Deployment: darrellsoft-ogc88ggp6-koming711s-projects.vercel.app (aliased to www.darrellsoft.com)
+- All recent fixes verified live on production:
+  * Task 8: AI icon draggable (cursor: grab) ✅
+  * Task 9: Mobile "Lainnya" PRO badges (2 badges visible) ✅
+  * Task 10: Invoice "Gabungkan" button always visible (enabled for aming with 2+ invoices) ✅
+- Production auth + database (Supabase PostgreSQL) working correctly
+- Build command: `node scripts/prepare-build.js && npx prisma generate && npx next build` (sqlite→postgresql swap for production)
+- Local dev unchanged: schema.prisma reverted to sqlite, daemon running on port 3000
+
+---
+Task ID: 13
+Agent: Main
+Task: Extract tar backup (workspace-67f99cb9 (54).tar.001/.002) and replace ALL project content
+
+Work Log:
+- Verified both tar parts exist in /home/z/my-project/upload/:
+  * workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (54).tar.001 — 40M
+  * workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (54).tar.002 — 38M
+- Combined with `cat .001 .002 > combined.tar` → 78M total
+- Inspected tar contents: full project (src/, app/, prisma/, scripts/, package.json, .env, etc.)
+  * No node_modules in tar (good — preserve local)
+  * No upload/ in tar (good — preserve local user files)
+  * No .vercel/ in tar (need to preserve local deployment link)
+  * Loose git internal files at root (HEAD, COMMIT_EDITMSG, ORIG_HEAD, config, description, index, packed-refs) — excluded from copy (git internals misplaced at root)
+- Both prisma schemas in sync: prisma/schema.prisma (426 lines) = schema.prisma (426 lines), both have UserSetting model (2 matches each)
+- Stopped dev server: `node daemon.cjs stop` + killed stale next-server processes
+- Replaced project content via rsync:
+  ```
+  rsync -a --delete \
+    --exclude='node_modules/' --exclude='upload/' --exclude='.vercel/' \
+    --exclude='.git/' --exclude='.daemon.pid' --exclude='.daemon.log' \
+    --exclude='dev.log' --exclude='.env.local' \
+    --exclude='HEAD' --exclude='COMMIT_EDITMSG' --exclude='ORIG_HEAD' \
+    --exclude='config' --exclude='description' --exclude='index' --exclude='packed-refs' \
+    /tmp/_extract54/ /home/z/my-project/
+  ```
+- Regenerated Prisma client: `rm -rf node_modules/.prisma/client && npx prisma generate`
+  * Verified: db.userSetting type = object, query OK ✅
+- .vercel/ dir was lost during rsync (hidden dir exclude didn't work with --delete)
+  * Recreated manually: .vercel/project.json with projectId=prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, orgId=team_QBdS4SJeRhBe19sMKMlDvqsj, projectName=darrellsoft
+- Started dev server: `node daemon.cjs start`
+  * Seed-admin ran: "Pengguna preserved" + "Settings synced" ✅
+  * API calls returning 200 ✅
+- Verified via agent-browser:
+  * Homepage: 37KB body, 22 images loaded, all text present (Fitur, Harga, Testimoni, hero) ✅
+  * No console errors ✅
+  * No hydration errors ✅
+- Cleaned up temp files (/tmp/_extract54, /tmp/combined54.tar)
+
+Stage Summary:
+- ALL project content replaced with tar backup (54) content
+- Preserved: node_modules/, upload/, .git/, runtime files (.daemon.pid/log, dev.log)
+- Recreated: .vercel/project.json (Vercel deployment link for darrellsoft project)
+- Prisma client regenerated, db.userSetting works
+- Dev server running on port 3000, homepage renders correctly
+- Schemas already in sync (both 426 lines, both sqlite, both have UserSetting)
