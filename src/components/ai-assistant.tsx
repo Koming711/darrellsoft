@@ -68,6 +68,7 @@ function dragThresholdFor(pointerType: string) {
 export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
+  const [showQuestionPopup, setShowQuestionPopup] = useState(false)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false) // waiting for first token / request in flight
   const [streaming, setStreaming] = useState(false) // actively receiving tokens
@@ -197,13 +198,16 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
 
   // Escape to close
   useEffect(() => {
-    if (!open) return
+    if (!open && !showQuestionPopup) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        if (open) setOpen(false)
+        else if (showQuestionPopup) setShowQuestionPopup(false)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open])
+  }, [open, showQuestionPopup])
 
   const suggestions = [
     t('ai_assistant_suggestion_1'),
@@ -493,7 +497,27 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
       e.stopPropagation()
       return
     }
+    setShowQuestionPopup(true)
+  }
+
+  // Handle a question being picked from the popup.
+  // Opens the chat panel and auto-sends the selected question.
+  const handlePickQuestion = (question: string) => {
+    setShowQuestionPopup(false)
     setOpen(true)
+    // Defer sendMessage so the chat panel mounts before we start streaming.
+    setTimeout(() => {
+      sendMessage(question)
+    }, 50)
+  }
+
+  // Handle "type your own question" — opens the chat panel and focuses the input.
+  const handleCustomQuestion = () => {
+    setShowQuestionPopup(false)
+    setOpen(true)
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 100)
   }
 
   // Reset position (double-click / context menu action)
@@ -552,6 +576,90 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
               </Tooltip>
             </TooltipProvider>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Question Popup — shown when the FAB is clicked, before opening the chat */}
+      <AnimatePresence>
+        {showQuestionPopup && !open && (
+          <>
+            {/* Backdrop — click outside to dismiss */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowQuestionPopup(false)}
+              className="fixed inset-0 z-[10000] bg-black/30 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+              className="fixed z-[10001] flex flex-col bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden
+                inset-x-3 bottom-3 top-auto max-h-[80vh]
+                md:inset-auto md:bottom-24 md:right-6 md:w-[380px] md:max-h-[70vh]"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-sky-500 text-white shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-white/20 shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm truncate">{t('ai_assistant_popup_title')}</h3>
+                    <p className="text-[11px] text-white/80 truncate">
+                      {t('ai_assistant_subtitle')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowQuestionPopup(false)}
+                  aria-label={t('ai_assistant_close')}
+                  className="p-1.5 rounded-lg hover:bg-white/20 transition-colors shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body — question list */}
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-slate-50 dark:bg-slate-950/50
+                [scrollbar-width:thin] [scrollbar-color:rgb(148_163_184_0.5)_transparent]
+                [&::-webkit-scrollbar]:w-1.5
+                [&::-webkit-scrollbar-thumb]:rounded-full
+                [&::-webkit-scrollbar-thumb]:bg-slate-300/70
+                dark:[&::-webkit-scrollbar-thumb]:bg-slate-700"
+              >
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 px-1">
+                  {t('ai_assistant_popup_subtitle')}
+                </p>
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handlePickQuestion(s)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left text-[13px] text-slate-700 dark:text-slate-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors group"
+                  >
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-100 to-sky-100 dark:from-blue-900/40 dark:to-sky-900/40 text-blue-600 dark:text-sky-300 shrink-0 group-hover:from-blue-600 group-hover:to-sky-400 group-hover:text-white transition-colors">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="flex-1 leading-snug">{s}</span>
+                  </button>
+                ))}
+
+                {/* Custom question option */}
+                <button
+                  onClick={handleCustomQuestion}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-dashed border-blue-400 dark:border-blue-500 text-left text-[13px] text-blue-600 dark:text-sky-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors group mt-1"
+                >
+                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-sky-300 shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <Send className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="flex-1 font-medium">{t('ai_assistant_popup_custom')}</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

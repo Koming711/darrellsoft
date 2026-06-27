@@ -5845,3 +5845,37 @@ Stage Summary:
 - AI assistant button now works: click Kirim sends message and AI streams a response
 - The model used is GLM-4-plus (Zhipu AI), NOT Qwen - the Z.AI SDK does not support Qwen models
 - User informed that Qwen cannot be used because the SDK/backend only serves GLM
+
+---
+Task ID: AI-POPUP
+Agent: Main
+Task: Add a question popup that appears when the AI logo is clicked
+
+Work Log:
+- Added new i18n keys for the question popup (id + en) in src/lib/i18n.ts:
+  - ai_assistant_popup_title: "Pilih Pertanyaan" / "Choose a Question"
+  - ai_assistant_popup_subtitle: instruction text
+  - ai_assistant_popup_custom: "Tulis pertanyaan lain..." / "Type another question..."
+- Added `showQuestionPopup` state to AIAssistant component
+- Modified FAB `handleClick` to set `showQuestionPopup(true)` instead of `open(true)` — so clicking the AI logo now shows the question popup first, not the chat panel
+- Added `handlePickQuestion(question)`: closes popup, opens chat, defers sendMessage by 50ms so the chat panel mounts before streaming starts
+- Added `handleCustomQuestion()`: closes popup, opens chat, focuses the textarea after 100ms
+- Updated Escape-key handler to also close the question popup
+- Implemented the question popup UI (between FAB and chat panel):
+  - Backdrop (click outside to dismiss) at z-[10000]
+  - Popup card at z-[10001] with header, list of 5 suggestion questions, and a "Tulis pertanyaan lain..." option
+  - Each question button has a Sparkles icon and hover effect (blue gradient on icon)
+  - Custom question option has a dashed border and Send icon
+  - Responsive: full-width on mobile (inset-x-3 bottom-3), 380px fixed on desktop (md:bottom-24 md:right-6)
+- Verified in browser via agent-browser:
+  - Click AI logo -> question popup appears with 5 questions + custom option
+  - Click "Bagaimana cara hitung dus makanan?" -> chat opens, AI streams a 7-step answer about calculating food boxes
+  - Click "Tulis pertanyaan lain..." -> chat opens with textarea focused (ready to type)
+  - Escape key and backdrop click dismiss the popup
+
+Stage Summary:
+- Clicking the AI logo now shows a "Pilih Pertanyaan" popup with 5 common questions + a custom question option
+- Clicking a question auto-sends it to the AI and opens the chat with the streaming response
+- Clicking "Tulis pertanyaan lain..." opens the chat with the input focused for free-text typing
+- Popup uses z-[10001] so it sits above the install prompt dialog (z-[10000])
+- Lint passes for the modified file
