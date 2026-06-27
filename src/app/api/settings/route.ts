@@ -88,8 +88,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
   } catch (error) {
     console.error('Error fetching settings:', error)
-    const msg = error instanceof Error ? error.message : String(error)
-    return NextResponse.json({ error: 'Failed to fetch settings', detail: msg.slice(0, 300) }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
   }
 }
 
@@ -143,7 +142,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error saving setting:', error)
-    const msg = error instanceof Error ? error.message : String(error)
-    return NextResponse.json({ error: 'Failed to save setting', detail: msg.slice(0, 300) }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to save setting' }, { status: 500 })
   }
 }

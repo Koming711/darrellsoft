@@ -29,6 +29,8 @@ import {
   AlertTriangle,
   CalendarClock,
   Banknote,
+  Combine,
+  Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,6 +44,8 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
@@ -206,6 +210,14 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [pelunasanDate, setPelunasanDate] = useState('')
   const [jatuhTempoDate, setJatuhTempoDate] = useState('')
   const [pelunasanHistory, setPelunasanHistory] = useState<HistoryEntry[]>([])
+
+  // Merge invoice state
+  const [mergeMode, setMergeMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
+  const [mergePrimaryId, setMergePrimaryId] = useState<string>('')
+  const [mergeDeleteOthers, setMergeDeleteOthers] = useState(true)
+  const [mergeLoading, setMergeLoading] = useState(false)
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -487,6 +499,182 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     return result
   }, [dpInvoices, cetakanList])
 
+  // ============================================================
+  // Merge invoice logic
+  // ============================================================
+  const selectedInvoices = useMemo(() => dpInvoices.filter(e => selectedIds.has(e.id)), [dpInvoices, selectedIds])
+
+  // Build a merged preview from selected invoices + chosen primary
+  const mergedPreview = useMemo(() => {
+    if (selectedInvoices.length < 2 || !mergePrimaryId) return null
+    const primary = selectedInvoices.find(e => e.id === mergePrimaryId)
+    if (!primary) return null
+    const primaryData = parseInvoiceData(primary)
+    // Calculate primary's original DP amount (already paid) — keep it FIXED after merge
+    const primaryInfo = parseDocInfo(primary)
+    const originalDpAmount = primaryInfo.dp > 0 ? primaryInfo.dp : 0
+    const originalDpPercent = primaryInfo.dpPercent
+
+    // Combine items: primary first, then append items from others (with new ids)
+    const allItems = [...primaryData.items]
+    const otherInvoices: HistoryEntry[] = []
+    for (const inv of selectedInvoices) {
+      if (inv.id === mergePrimaryId) continue
+      otherInvoices.push(inv)
+      const data = parseInvoiceData(inv)
+      for (const it of data.items) {
+        allItems.push({ ...it, id: `${it.id || 'item'}-${inv.id}` })
+      }
+    }
+    const subtotal = allItems.reduce((s, it) => s + (it.qty || 0) * (it.harga || 0), 0)
+    const ppn = primaryData.ppn || 0
+    const newTotal = subtotal + (subtotal * ppn / 100)
+    // Keep DP amount fixed; recalculate percentage so the already-paid amount stays the same
+    let newDpPercent = 0
+    let newDpAmount = 0
+    let newSisa = newTotal
+    if (originalDpAmount > 0 && newTotal > 0) {
+      newDpAmount = originalDpAmount
+      newDpPercent = Math.round((originalDpAmount / newTotal) * 10000) / 100 // 2 decimals
+      newSisa = newTotal - originalDpAmount
+    }
+    // Detect customer mismatch
+    const customers = new Set<string>()
+    for (const inv of selectedInvoices) {
+      const d = parseInvoiceData(inv)
+      if (d.client?.nama) customers.add(d.client.nama.trim().toLowerCase())
+    }
+    const customerMismatch = customers.size > 1
+
+    // Check if primary has a PEL child (referencing primary's nomor)
+    const pelChild = pelunasanHistory.find(p => {
+      const pInfo = parseDocInfo(p)
+      return pInfo.referensiInvoiceNomor === primary.nomor
+    })
+    const hasPelChild = !!pelChild
+    const pelChildLunas = pelChild ? parseDocInfo(pelChild).lunas : false
+
+    return {
+      primary, primaryData, otherInvoices, allItems,
+      subtotal, ppn, newTotal, newDpPercent, newDpAmount, newSisa,
+      originalDpAmount, originalDpPercent,
+      customerMismatch, pelChild, hasPelChild, pelChildLunas,
+    }
+  }, [selectedInvoices, mergePrimaryId, pelunasanHistory])
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const openMergeDialog = () => {
+    if (selectedInvoices.length < 2) {
+      toast.error('Pilih minimal 2 invoice untuk digabung')
+      return
+    }
+    // Default primary = earliest by tanggal (or first in list)
+    const sorted = [...selectedInvoices].sort((a, b) => (a.tanggal || '').localeCompare(b.tanggal || ''))
+    setMergePrimaryId(sorted[0].id)
+    setMergeDeleteOthers(true)
+    setMergeDialogOpen(true)
+  }
+
+  const handleMerge = async () => {
+    if (!mergedPreview) return
+    const { primary, primaryData, allItems, ppn, newTotal, newDpPercent, newDpAmount, otherInvoices, pelChild, hasPelChild, pelChildLunas } = mergedPreview
+    setMergeLoading(true)
+    try {
+      // Build merged InvoiceData — keep primary's metadata, replace items, adjust DP
+      const merged: Record<string, unknown> = {
+        ...primaryData,
+        items: allItems,
+        ppn,
+        dp: newDpPercent,
+      }
+      if (newDpAmount > 0) {
+        merged.dpAmount = newDpAmount
+        merged.originalTotal = newTotal
+      } else {
+        delete merged.dpAmount
+        delete merged.originalTotal
+      }
+      // Always re-derive sisa by clearing stale statusPembayaran
+      delete merged.statusPembayaran
+      const newDataJson = JSON.stringify(merged)
+
+      // 1. Update primary invoice (PUT)
+      const putRes = await fetcher(`/api/history/${primary.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ dataJson: newDataJson, total: String(Math.round(newTotal)) }),
+      })
+      if (!putRes.ok) throw new Error('Gagal memperbarui invoice utama')
+
+      // 2. If primary has a PEL child and it is NOT yet lunas, sync its items + totals
+      if (hasPelChild && pelChild && !pelChildLunas) {
+        try {
+          const pelParsed = JSON.parse(pelChild.dataJson)
+          pelParsed.items = allItems
+          pelParsed.ppn = ppn
+          pelParsed.originalTotal = newTotal
+          if (newDpAmount > 0) {
+            pelParsed.dp = newDpPercent
+            pelParsed.dpAmount = newDpAmount
+          }
+          delete pelParsed.statusPembayaran
+          await fetcher(`/api/history/${pelChild.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ dataJson: JSON.stringify(pelParsed), total: String(Math.round(newTotal)) }),
+          })
+        } catch (e) {
+          console.error('Failed to sync PEL child:', e)
+        }
+      }
+
+      // 3. Delete other (non-primary) invoices if option is checked
+      //    Also delete their PEL children to avoid orphaned pelunasan entries
+      if (mergeDeleteOthers) {
+        for (const inv of otherInvoices) {
+          // Find and delete PEL children referencing this invoice (by nomor)
+          const childPelList = pelunasanHistory.filter(p => {
+            const pInfo = parseDocInfo(p)
+            return pInfo.referensiInvoiceNomor === inv.nomor
+          })
+          for (const childPel of childPelList) {
+            try {
+              await fetcher(`/api/history/${childPel.id}`, { method: 'DELETE', headers: getAuthHeaders() })
+            } catch (e) {
+              console.error('Failed to delete orphaned PEL child:', childPel.id, e)
+            }
+          }
+          // Delete the DP invoice itself
+          try {
+            await fetcher(`/api/history/${inv.id}`, { method: 'DELETE', headers: getAuthHeaders() })
+          } catch (e) {
+            console.error('Failed to delete merged invoice:', inv.id, e)
+          }
+        }
+      }
+
+      toast.success(`${selectedInvoices.length} invoice berhasil digabung menjadi 1`)
+      setMergeDialogOpen(false)
+      setMergeMode(false)
+      setSelectedIds(new Set())
+      fetchHistory()
+      notifyDataChange('invoice')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal menggabungkan invoice')
+    } finally {
+      setMergeLoading(false)
+    }
+  }
+
   return (
     <>
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden">
@@ -498,14 +686,46 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{allHistory.length} data</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-7 gap-1.5 text-xs">
+            {!mergeMode && (
+              <Button 
+                onClick={() => { setMergeMode(true); setSelectedIds(new Set()) }} 
+                variant="outline" 
+                size="sm" 
+                disabled={dpInvoices.length < 2}
+                title={dpInvoices.length < 2 ? `Butuh minimal 2 invoice untuk digabungkan (saat ini: ${dpInvoices.length})` : 'Gabungkan 2 atau lebih invoice menjadi 1'}
+                className="h-7 gap-1.5 text-xs"
+              >
+                <Combine className="w-3.5 h-3.5" /> Gabungkan
+              </Button>
+            )}
+            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup' || mergeMode} className="h-7 gap-1.5 text-xs">
               {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />} Backup
             </Button>
-            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-7 gap-1.5 text-xs">
+            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore' || mergeMode} className="h-7 gap-1.5 text-xs">
               {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Restore
             </Button>
           </div>
         </div>
+
+        {/* Merge mode action bar */}
+        {mergeMode && (
+          <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <Layers className="w-4 h-4 text-violet-600 shrink-0" />
+              <span className="text-xs font-semibold text-violet-800 dark:text-violet-200 truncate">
+                Mode Gabung: {selectedIds.size} invoice dipilih
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button onClick={() => { setMergeMode(false); setSelectedIds(new Set()) }} variant="outline" size="sm" className="h-7 text-xs">
+                Batal
+              </Button>
+              <Button onClick={openMergeDialog} size="sm" disabled={selectedIds.size < 2} className="h-7 gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white">
+                <Combine className="w-3.5 h-3.5" /> Gabungkan ({selectedIds.size})
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         {invoiceHistory.length > 0 && (
@@ -537,10 +757,14 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                   {dpInvoices.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
                     const uc = invoiceUangCapek.get(entry.id) ?? 0
+                    const isSelected = selectedIds.has(entry.id)
                     return (
-                      <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                      <div key={entry.id} className={`px-4 py-3 transition-colors cursor-pointer ${isSelected ? 'bg-violet-50 dark:bg-violet-950/30' : 'hover:bg-violet-50/30 active:bg-violet-100/40'}`} onClick={() => mergeMode ? toggleSelect(entry.id) : (setPreviewItem(entry), setPreviewOpen(true))}>
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="min-w-0 flex items-center gap-2">
+                            {mergeMode && (
+                              <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entry.id)} onClick={(e) => e.stopPropagation()} className="shrink-0 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600" />
+                            )}
                             <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
                           </div>
                           <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
@@ -553,10 +777,12 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
                             {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Uang Capek: {formatRupiah(uc)}</p>}
                           </div>
-                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
+                          {!mergeMode && (
+                            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
@@ -567,6 +793,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                   <table className="w-full text-[13px] min-w-[1000px]">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                        {mergeMode && <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap w-10">Pilih</th>}
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
@@ -576,15 +803,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
-                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+                        {!mergeMode && <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {dpInvoices.slice(0, 100).map((entry, idx) => {
                         const info = parseDocInfo(entry)
                         const uc = invoiceUangCapek.get(entry.id) ?? 0
+                        const isSelected = selectedIds.has(entry.id)
                         return (
-                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                          <tr key={entry.id} className={`border-b border-slate-50 transition-colors ${isSelected ? 'bg-violet-50 dark:bg-violet-950/30' : (idx % 2 === 1 ? 'bg-slate-50/50' : '')} ${mergeMode ? 'cursor-pointer hover:bg-violet-50/50' : 'hover:bg-violet-50/30'}`} onClick={() => mergeMode && toggleSelect(entry.id)}>
+                            {mergeMode && (
+                              <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entry.id)} className="data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600" />
+                              </td>
+                            )}
                             <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
                             <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
                             <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
@@ -594,13 +827,15 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
                             <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
                             <td className={`py-3 px-3 text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</td>
-                            <td className="py-3 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                              </div>
-                            </td>
+                            {!mergeMode && (
+                              <td className="py-3 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </td>
+                            )}
                           </tr>
                         )
                       })}
@@ -770,6 +1005,131 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" size="sm" onClick={() => setPelunasanDialogOpen(false)} disabled={pelunasanUpdating}>Batal</Button>
             <Button size="sm" onClick={() => { handleStatusChange({ tanggalJatuhTempo: jatuhTempoDate, lunas: pelunasanToggle, tanggalPelunasan: pelunasanToggle ? pelunasanDate : '' }) }} disabled={pelunasanUpdating}>{pelunasanUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Merge Dialog */}
+      <Dialog open={mergeDialogOpen} onOpenChange={(open) => { if (!open && !mergeLoading) setMergeDialogOpen(false) }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Combine className="w-5 h-5 text-violet-600" /> Gabungkan Invoice</DialogTitle>
+            <DialogDescription>Pilih invoice utama. Item dari invoice lain akan digabungkan ke invoice utama.</DialogDescription>
+          </DialogHeader>
+          {mergedPreview && (() => {
+            const { otherInvoices, allItems, subtotal, ppn, newTotal, newDpPercent, newSisa, originalDpAmount, customerMismatch, hasPelChild, pelChildLunas } = mergedPreview
+            return (
+              <div className="space-y-4 pt-1">
+                {/* Customer mismatch warning */}
+                {customerMismatch && (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">Customer berbeda</p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300">Invoice yang dipilih memiliki customer berbeda. Data customer akan mengikuti invoice utama.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary invoice selector */}
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2 block">Invoice Utama (nomor &amp; customer akan dipertahankan)</Label>
+                  <RadioGroup value={mergePrimaryId} onValueChange={setMergePrimaryId} className="space-y-2">
+                    {selectedInvoices.map((inv) => {
+                      const info = parseDocInfo(inv)
+                      return (
+                        <label key={inv.id} htmlFor={`merge-primary-${inv.id}`} className={cn('flex items-center gap-3 rounded-lg border p-2.5 cursor-pointer transition-colors', inv.id === mergePrimaryId ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30' : 'border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800')}>
+                          <RadioGroupItem value={inv.id} id={`merge-primary-${inv.id}`} className="data-[state=checked]:border-violet-600 data-[state=checked]:text-violet-600" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-violet-700 font-semibold text-xs truncate">{inv.nomor || '-'}</p>
+                              {info.dpPercent > 0 && <span className="text-[9px] font-bold text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded-full shrink-0">DP {info.dpPercent}%</span>}
+                            </div>
+                            <p className="text-slate-500 text-[11px] truncate">{inv.pihakKedua || '-'} &middot; {info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'} &middot; {allItems.length > 0 && inv.id === mergePrimaryId ? `${allItems.length} item (gabungan)` : `${info.totalQty > 0 ? info.totalQty : 0} qty`}</p>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </RadioGroup>
+                </div>
+
+                {/* Combined items preview */}
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-700 overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700">
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-violet-600" />
+                      Item Gabungan ({allItems.length})
+                    </p>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="sticky top-0 bg-white dark:bg-zinc-900">
+                        <tr className="border-b border-slate-100 dark:border-zinc-700">
+                          <th className="text-left py-1.5 px-2 text-slate-500 font-semibold">Deskripsi</th>
+                          <th className="text-right py-1.5 px-2 text-slate-500 font-semibold w-12">Qty</th>
+                          <th className="text-right py-1.5 px-2 text-slate-500 font-semibold w-20">Harga</th>
+                          <th className="text-right py-1.5 px-2 text-slate-500 font-semibold w-24">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allItems.map((it, i) => (
+                          <tr key={i} className="border-b border-slate-50 dark:border-zinc-800">
+                            <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300 max-w-[200px] truncate">{it.deskripsi || '-'}</td>
+                            <td className="py-1.5 px-2 text-slate-600 text-right whitespace-nowrap">{it.qty}</td>
+                            <td className="py-1.5 px-2 text-slate-600 text-right whitespace-nowrap">{formatRupiah(it.harga)}</td>
+                            <td className="py-1.5 px-2 text-slate-700 text-right whitespace-nowrap font-medium">{formatRupiah(it.qty * it.harga)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-3 space-y-1.5">
+                  <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-700 dark:text-slate-200">{formatRupiah(subtotal)}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500">PPN ({ppn}%)</span><span className="font-medium text-slate-700 dark:text-slate-200">{formatRupiah(subtotal * ppn / 100)}</span></div>
+                  <div className="flex justify-between text-sm pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="font-semibold text-slate-700 dark:text-slate-200">Total Baru</span><span className="font-bold text-emerald-700">{formatRupiah(newTotal)}</span></div>
+                  {originalDpAmount > 0 && (
+                    <>
+                      <div className="flex justify-between text-xs"><span className="text-slate-500">DP sudah dibayar (tetap)</span><span className="font-medium text-violet-700">{formatRupiah(originalDpAmount)}</span></div>
+                      <div className="flex justify-between text-xs"><span className="text-slate-500">DP % baru</span><span className="font-medium text-violet-600">{newDpPercent}%</span></div>
+                      <div className="flex justify-between text-sm pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="font-semibold text-slate-700 dark:text-slate-200">Sisa Pembayaran</span><span className="font-bold text-red-600">{formatRupiah(newSisa)}</span></div>
+                    </>
+                  )}
+                </div>
+
+                {/* PEL child notice */}
+                {hasPelChild && (
+                  <div className={`rounded-lg border p-3 flex items-start gap-2 ${pelChildLunas ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'}`}>
+                    {pelChildLunas ? <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />}
+                    <div>
+                      <p className={`text-xs font-semibold ${pelChildLunas ? 'text-blue-800 dark:text-blue-200' : 'text-amber-800 dark:text-amber-200'}`}>{pelChildLunas ? 'Invoice pelunasan sudah lunas' : 'Invoice pelunasan ditemukan'}</p>
+                      <p className={`text-[11px] ${pelChildLunas ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                        {pelChildLunas
+                          ? 'Invoice pelunasan terkait sudah ditandai lunas dan tidak akan diubah.'
+                          : 'Invoice pelunasan terkait akan ikut diperbarui (item & total disesuaikan dengan hasil gabungan).'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delete option */}
+                <label htmlFor="merge-delete-others" className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800">
+                  <Checkbox id="merge-delete-others" checked={mergeDeleteOthers} onCheckedChange={(v) => setMergeDeleteOthers(!!v)} className="data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Hapus {otherInvoices.length} invoice lain setelah digabung</p>
+                    <p className="text-[11px] text-slate-500">Invoice utama tetap dipertahankan. {otherInvoices.map(i => i.nomor).join(', ')}</p>
+                  </div>
+                </label>
+              </div>
+            )
+          })()}
+          <div className="flex justify-end gap-2 mt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setMergeDialogOpen(false)} disabled={mergeLoading}>Batal</Button>
+            <Button size="sm" onClick={handleMerge} disabled={mergeLoading || !mergedPreview} className="bg-violet-600 hover:bg-violet-700 text-white">
+              {mergeLoading ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Menggabungkan...</> : <><Combine className="w-4 h-4 mr-1.5" /> Gabungkan Sekarang</>}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
