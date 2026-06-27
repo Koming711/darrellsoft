@@ -3,6 +3,7 @@ import ZAI from 'z-ai-web-dev-sdk'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // allow up to 60s for AI responses
 
 // Reuse a single ZAI instance across requests (warm invocations)
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
@@ -87,6 +88,23 @@ function sseError(message: string): string {
   return `data: ${JSON.stringify({ error: message })}\n\n`
 }
 
+/**
+ * Extract text content from a ZAI chat completion response (non-streaming JSON).
+ * Handles OpenAI-style {choices:[{message:{content}}]} and plain {content} shapes.
+ */
+function extractContentFromJSON(json: any): string | null {
+  if (!json) return null
+  // OpenAI-style
+  const choiceContent = json?.choices?.[0]?.message?.content
+  if (typeof choiceContent === 'string' && choiceContent.length > 0) return choiceContent
+  // Plain content
+  if (typeof json?.content === 'string' && json.content.length > 0) return json.content
+  // Delta content (some non-streaming responses still use delta)
+  const deltaContent = json?.choices?.[0]?.delta?.content
+  if (typeof deltaContent === 'string' && deltaContent.length > 0) return deltaContent
+  return null
+}
+
 export async function POST(request: NextRequest) {
   let body: any
   try {
@@ -132,34 +150,98 @@ export async function POST(request: NextRequest) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const safeEnqueue = (chunk: string) => {
+        try {
+          controller.enqueue(encoder.encode(chunk))
+        } catch {
+          // controller may already be closed (e.g. client disconnected)
+        }
+      }
+      const safeClose = () => {
+        try {
+          controller.close()
+        } catch {
+          // already closed — ignore
+        }
+      }
+
       let zai: Awaited<ReturnType<typeof ZAI.create>>
       try {
         zai = await getZAI()
       } catch (err) {
         console.error('[AI Assistant] ZAI init error:', err)
-        controller.enqueue(encoder.encode(sseError('Layanan AI sedang tidak tersedia. Silakan coba lagi.')))
-        controller.close()
+        safeEnqueue(sseError('Layanan AI sedang tidak tersedia. Silakan coba lagi.'))
+        safeClose()
         return
       }
 
+      // Try streaming first; fall back to non-streaming if the SDK returns JSON.
       let responseStream: ReadableStream<Uint8Array> | null = null
+      let jsonFallback: any = null
+
       try {
-        responseStream = (await zai.chat.completions.create({
+        const result: any = await zai.chat.completions.create({
           messages,
           stream: true,
           thinking: { type: 'disabled' },
-        })) as ReadableStream<Uint8Array>
+        })
+
+        if (result && typeof result.getReader === 'function') {
+          // It's a ReadableStream — use streaming path
+          responseStream = result as ReadableStream<Uint8Array>
+        } else if (result && typeof result === 'object') {
+          // SDK returned a JSON object instead of a stream (content-type wasn't event-stream)
+          // Fall back to non-streaming parsing
+          jsonFallback = result
+        } else {
+          safeEnqueue(sseError('AI tidak mengembalikan respons yang valid.'))
+          safeClose()
+          return
+        }
       } catch (err) {
         console.error('[AI Assistant] create error:', err)
         const msg = err instanceof Error ? err.message : 'Unknown error'
-        controller.enqueue(encoder.encode(sseError(`Gagal memanggil AI: ${msg}`)))
-        controller.close()
+
+        // If streaming failed, try a non-streaming request as fallback
+        try {
+          const fallbackResult: any = await zai.chat.completions.create({
+            messages,
+            thinking: { type: 'disabled' },
+            // no stream: true
+          })
+          if (fallbackResult && typeof fallbackResult === 'object' && !fallbackResult.getReader) {
+            jsonFallback = fallbackResult
+          } else {
+            safeEnqueue(sseError(`Gagal memanggil AI: ${msg}`))
+            safeClose()
+            return
+          }
+        } catch (fallbackErr) {
+          console.error('[AI Assistant] fallback create error:', fallbackErr)
+          const fmsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error'
+          safeEnqueue(sseError(`Gagal memanggil AI: ${fmsg}`))
+          safeClose()
+          return
+        }
+      }
+
+      // Non-streaming JSON fallback — send the entire content as one chunk
+      if (jsonFallback) {
+        const content = extractContentFromJSON(jsonFallback)
+        if (content) {
+          safeEnqueue(sseChunk(content))
+          safeEnqueue(sseDone())
+        } else {
+          console.error('[AI Assistant] JSON fallback had no content:', JSON.stringify(jsonFallback).slice(0, 500))
+          safeEnqueue(sseError('AI tidak memberikan respons. Silakan coba lagi.'))
+        }
+        safeClose()
         return
       }
 
       if (!responseStream) {
-        controller.enqueue(encoder.encode(sseError('AI tidak mengembalikan stream respons.')))
-        controller.close()
+        safeEnqueue(sseError('AI tidak mengembalikan stream respons.'))
+        safeClose()
         return
       }
 
@@ -188,26 +270,38 @@ export async function POST(request: NextRequest) {
               const payload = line.slice(5).trim()
               if (!payload) continue
               if (payload === '[DONE]') {
-                controller.enqueue(encoder.encode(sseDone()))
+                safeEnqueue(sseDone())
+                safeClose()
                 return
               }
               try {
                 const json = JSON.parse(payload)
+                // If the upstream sent an error, forward it
+                if (json?.error) {
+                  const errMsg = typeof json.error === 'string' ? json.error : JSON.stringify(json.error)
+                  if (!receivedAny) {
+                    safeEnqueue(sseError(errMsg))
+                    safeClose()
+                    return
+                  }
+                  continue
+                }
                 // OpenAI-style: choices[0].delta.content
                 const delta: string | undefined =
                   json?.choices?.[0]?.delta?.content ??
                   json?.choices?.[0]?.message?.content ??
                   json?.delta?.content ??
+                  json?.delta ??
                   json?.content
                 if (typeof delta === 'string' && delta.length > 0) {
                   receivedAny = true
-                  controller.enqueue(encoder.encode(sseChunk(delta)))
+                  safeEnqueue(sseChunk(delta))
                 }
               } catch {
                 // If it's not JSON, but we're in plain-text stream mode, treat as raw text
                 if (!payload.startsWith('{') && !payload.startsWith('[')) {
                   receivedAny = true
-                  controller.enqueue(encoder.encode(sseChunk(payload)))
+                  safeEnqueue(sseChunk(payload))
                 }
               }
             }
@@ -222,44 +316,38 @@ export async function POST(request: NextRequest) {
             if (!payload || payload === '[DONE]') continue
             try {
               const json = JSON.parse(payload)
+              if (json?.error) continue
               const delta: string | undefined =
                 json?.choices?.[0]?.delta?.content ??
                 json?.choices?.[0]?.message?.content ??
                 json?.delta?.content ??
+                json?.delta ??
                 json?.content
               if (typeof delta === 'string' && delta.length > 0) {
                 receivedAny = true
-                controller.enqueue(encoder.encode(sseChunk(delta)))
+                safeEnqueue(sseChunk(delta))
               }
             } catch {}
           }
         }
 
         if (!receivedAny) {
-          controller.enqueue(
-            encoder.encode(sseError('AI tidak memberikan respons. Silakan coba lagi.'))
-          )
+          safeEnqueue(sseError('AI tidak memberikan respons. Silakan coba lagi.'))
         } else {
-          controller.enqueue(encoder.encode(sseDone()))
+          safeEnqueue(sseDone())
         }
       } catch (err) {
         console.error('[AI Assistant] stream read error:', err)
-        try {
-          if (!receivedAny) {
-            controller.enqueue(
-              encoder.encode(sseError('Terjadi kesalahan saat membaca respons AI.'))
-            )
-          } else {
-            controller.enqueue(encoder.encode(sseDone()))
-          }
-        } catch {}
+        if (!receivedAny) {
+          safeEnqueue(sseError('Terjadi kesalahan saat membaca respons AI.'))
+        } else {
+          safeEnqueue(sseDone())
+        }
       } finally {
         try {
           reader.releaseLock()
         } catch {}
-        try {
-          controller.close()
-        } catch {}
+        safeClose()
       }
     },
     cancel() {
