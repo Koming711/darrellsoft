@@ -5148,3 +5148,29 @@ Files Modified:
 - vercel.json — buildCommand: added `rm -rf node_modules/.prisma` before prisma generate
 - src/app/api/settings/route.ts + app/api/settings/route.ts (mirror) — added error detail to 500 responses for easier debugging
 - Production DB: UserSetting table created via raw SQL (Supabase pooler)
+
+---
+Task ID: 12
+Agent: Main
+Task: Fix "konten tidak muncul" — local dev server was down
+
+Work Log:
+- Checked production site www.darrellsoft.com — verified all content renders correctly:
+  * Homepage: 22 images loaded, full text (Fitur, Harga, Testimoni, hero section) ✅
+  * /pembukaan: sidebar + header + menu all visible ✅
+  * /hitung-cetakan: calculator with all fields (Nama Customer, Nama Barang, etc.) ✅
+  * Login as "aming" works, redirects to /pembukaan ✅
+  * No broken images, no console errors ✅
+- Checked local dev server: daemon NOT running, port 3000 FREE
+  * `node daemon.cjs status` → "❌ Daemon is NOT running"
+  * curl http://localhost:3000/ → HTTP 000 (connection refused)
+  * This was the cause of "konten tidak muncul" — user was viewing the local Preview Panel which showed a blank screen because no server was running
+- Fix: `node daemon.cjs start` → daemon started (PID 1605), Ready in 813ms
+- Verified local homepage renders: 37KB body, 22 images loaded, all text present ✅
+- No console errors
+
+Stage Summary:
+- ROOT CAUSE: Local dev server (daemon.cjs) had stopped — port 3000 was free, so the Preview Panel showed nothing
+- Production site (www.darrellsoft.com) was always fine — all content renders correctly there
+- FIX: Restarted daemon → dev server running on port 3000, content visible in Preview Panel
+- Both local and production verified working
