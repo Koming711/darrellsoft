@@ -5469,3 +5469,57 @@ Stage Summary:
 - Prisma client regenerated, db.userSetting works
 - Dev server running on port 3000, homepage renders correctly
 - Schemas already in sync (both 426 lines, both sqlite, both have UserSetting)
+
+---
+Task ID: 14
+Agent: Main
+Task: Fix mobile bottom nav — Invoice (PRO) was not appearing in the bottom menu bar
+
+Work Log:
+- Investigated src/components/sidebar.tsx MobileBottomNav component
+- Root cause: `visibleItems` used `filter()` to remove locked items entirely:
+  ```js
+  const visibleItems = bottomNavItems.filter(item => {
+    if (!role || role === 'superadmin') return true
+    return hasFeatureAccess(role, item.featureId)
+  })
+  ```
+  For role 'user', `invoice` is a PRO feature (in PRO_FEATURE_IDS = ['invoice','surat-jalan','purchase-order']) → filtered out → Invoice disappeared from bottom bar
+- Confirmed via /src/lib/permission-defaults.ts: 'user' role allowed = ['dashboard','pembukaan','potong-kertas','hitung-cetakan','hitung-finishing','hitung-ongkos-cetak','hitung-harga-kertas'] — invoice NOT included
+
+- Fix applied to MobileBottomNav in src/components/sidebar.tsx:
+  1. Changed `visibleItems` from `filter()` to `map()` with isPro flag (mirrors desktop sidebar & "Lainnya" popup approach):
+     ```js
+     const visibleItems = bottomNavItems.map(item => {
+       if (!role || role === 'superadmin') return { ...item, isPro: false }
+       const accessible = hasFeatureAccess(role, item.featureId)
+       return { ...item, isPro: !accessible }
+     })
+     ```
+  2. Updated bottom bar Link rendering:
+     - Added `relative` to className (for badge positioning)
+     - Added `item.isPro ? 'opacity-70' : ''` styling
+     - Added onClick lock prevention: `e.preventDefault()` + `toast.error(t('pro_feature_locked'))`
+     - Added PRO badge: `<span className="absolute top-0.5 right-1 ... bg-amber-500 text-white">PRO</span>`
+
+- Additional fix: DB had stale `role_permissions` setting (from previous hak-akses page testing) with `invoice: true` for 'user' role, overriding defaults
+  * Deleted `role_permissions` setting from DB so defaults apply (invoice=PRO for 'user')
+  * Cleared localStorage permissions so fresh defaults load
+
+- Tested via agent-browser (mobile 390x844, logged in as "aming" role:user):
+  * Bottom nav now shows ALL 6 items: Beranda, Potong, Cetakan, Invoice(PRO), H.Kertas(PRO), Lainnya ✅
+  * Invoice has amber PRO badge ✅
+  * H.Kertas has amber PRO badge ✅ (master-harga-kertas not in 'user' allowed list)
+  * Clicked Invoice PRO → toast "Fitur PRO — hubungi admin untuk mengaktifkan" ✅
+  * Navigation prevented: stayed on /pembukaan ✅
+  * No console errors ✅
+  * No lint errors in sidebar.tsx ✅
+
+Stage Summary:
+- FIXED: Mobile bottom nav now shows Invoice with amber PRO badge (was hidden entirely when locked)
+- All 5 bottomNavItems always visible; locked ones show PRO badge + prevent navigation with toast
+- Clicking PRO item → toast "Fitur PRO — hubungi admin untuk mengaktifkan" + stays on current page
+- Reset stale DB role_permissions setting so defaults apply (invoice=PRO for 'user' role)
+- Consistent with desktop sidebar & "Lainnya" popup PRO badge behavior
+- Files modified: src/components/sidebar.tsx (MobileBottomNav: visibleItems map+isPro, bottom bar Link with PRO badge + onClick lock)
+- DB change: deleted role_permissions setting (was overriding defaults with invoice=true for 'user')

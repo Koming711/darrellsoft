@@ -398,11 +398,13 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     return pathname.startsWith(href)
   }
 
-  // Check which bottom nav items are accessible (bottom bar: hide locked items entirely,
-  // since the bar only has space for accessible shortcuts)
-  const visibleItems = bottomNavItems.filter(item => {
-    if (!role || role === 'superadmin') return true
-    return hasFeatureAccess(role, item.featureId)
+  // Bottom nav items — show all, but mark locked ones with PRO badge.
+  // Locked items appear in the bar (visible) but clicking shows a toast instead of navigating.
+  // This mirrors the desktop sidebar & "Lainnya" popup behavior so PRO features are discoverable.
+  const visibleItems = bottomNavItems.map(item => {
+    if (!role || role === 'superadmin') return { ...item, isPro: false }
+    const accessible = hasFeatureAccess(role, item.featureId)
+    return { ...item, isPro: !accessible }
   })
 
   // All menu items for the "Lainnya" popup — mirror desktop sidebar behavior:
@@ -540,12 +542,18 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => {
+                onClick={(e) => {
+                  if (item.isPro) {
+                    e.preventDefault()
+                    toast.error(t('pro_feature_locked'))
+                    return
+                  }
                   startNavigation()
                   window.dispatchEvent(new CustomEvent('navigation-start'))
                 }}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full transition-colors',
+                  'relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full transition-colors',
+                  item.isPro ? 'opacity-70' : '',
                   active
                     ? 'text-white'
                     : 'text-blue-200/70'
@@ -555,6 +563,11 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                 <span className={cn('text-[10px] leading-tight truncate w-full text-center px-0.5', active ? 'font-bold' : 'font-medium')}>
                   {t(item.shortTitleKey)}
                 </span>
+                {item.isPro && (
+                  <span className="absolute top-0.5 right-1 text-[7px] font-black leading-none px-0.5 py-0.5 rounded-sm bg-amber-500 text-white shadow">
+                    PRO
+                  </span>
+                )}
               </Link>
             )
           })}

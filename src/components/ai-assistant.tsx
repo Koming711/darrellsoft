@@ -62,8 +62,10 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false) // waiting for first token / request in flight
+  const [streaming, setStreaming] = useState(false) // actively receiving tokens
   const [messages, setMessages] = useState<Message[]>([])
+  const streamingMsgIdRef = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fetchedWelcomeRef = useRef(false)
@@ -196,31 +198,148 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
       .filter((m) => !(m.role === 'assistant' && m.id === messages[0]?.id)) // exclude welcome if it's first
       .map((m) => ({ role: m.role, content: m.content }))
 
-    setMessages((prev) => [...prev, userMsg])
+    // Insert user message + an empty assistant placeholder that we'll fill as tokens stream in.
+    const aiMsgId = genId()
+    streamingMsgIdRef.current = aiMsgId
+    setMessages((prev) => [
+      ...prev,
+      userMsg,
+      { id: aiMsgId, role: 'assistant', content: '' },
+    ])
     setInput('')
     setLoading(true)
+    setStreaming(false)
+
+    // Safety: if no first token arrives within 25s, show a gentle nudge (but keep waiting).
+    let firstTokenTimer: ReturnType<typeof setTimeout> | null = null
+    let firstTokenReceived = false
 
     try {
       const res = await fetch('/api/ai-assistant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify({ message: trimmed, history }),
       })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || t('ai_assistant_error'))
+
+      // Non-streaming error response (JSON)
+      const contentType = res.headers.get('content-type') || ''
+      if (!res.ok || !contentType.includes('text/event-stream')) {
+        let errMsg = t('ai_assistant_error')
+        try {
+          const data = await res.json()
+          if (data?.error) errMsg = data.error
+        } catch {}
+        throw new Error(errMsg)
       }
-      const aiMsg: Message = { id: genId(), role: 'assistant', content: data.response }
-      setMessages((prev) => [...prev, aiMsg])
+
+      if (!res.body) {
+        throw new Error(t('ai_assistant_error'))
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let accumulated = ''
+
+      const flushEvents = (eventsChunk: string) => {
+        const events = eventsChunk.split('\n\n')
+        const leftover = events.pop() || ''
+        for (const evt of events) {
+          const trimmedEvt = evt.trim()
+          if (!trimmedEvt) continue
+          for (const line of trimmedEvt.split('\n')) {
+            if (!line.startsWith('data:')) continue
+            const payload = line.slice(5).trim()
+            if (!payload) continue
+            if (payload === '[DONE]') return 'done' as const
+            try {
+              const json = JSON.parse(payload)
+              if (json?.error) {
+                throw new Error(String(json.error))
+              }
+              const delta: string | undefined =
+                json?.delta ?? json?.choices?.[0]?.delta?.content ?? json?.content
+              if (typeof delta === 'string' && delta.length > 0) {
+                if (!firstTokenReceived) {
+                  firstTokenReceived = true
+                  setStreaming(true)
+                  setLoading(false)
+                  if (firstTokenTimer) {
+                    clearTimeout(firstTokenTimer)
+                    firstTokenTimer = null
+                  }
+                }
+                accumulated += delta
+                const snapshot = accumulated
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === aiMsgId ? { ...m, content: snapshot } : m))
+                )
+              }
+            } catch {
+              // ignore unparseable keepalive lines
+            }
+          }
+        }
+        return leftover
+      }
+
+      firstTokenTimer = setTimeout(() => {
+        if (!firstTokenReceived && streamingMsgIdRef.current === aiMsgId) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? { ...m, content: 'Sedang berpikir… mohon tunggu sebentar.' }
+                : m
+            )
+          )
+        }
+      }, 25000)
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const result = flushEvents(buffer)
+        if (result === 'done') {
+          buffer = ''
+          break
+        }
+        buffer = result
+      }
+      // Flush trailing
+      if (buffer.trim()) {
+        flushEvents(buffer + '\n\n')
+      }
+
+      if (!firstTokenReceived) {
+        // No tokens ever arrived — replace placeholder with an error message
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId
+              ? { ...m, content: t('ai_assistant_error') }
+              : m
+          )
+        )
+        toast.error(t('ai_assistant_error'))
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : t('ai_assistant_error')
       toast.error(errorMsg)
-      setMessages((prev) => [
-        ...prev,
-        { id: genId(), role: 'assistant', content: t('ai_assistant_error') },
-      ])
+      setMessages((prev) => {
+        // If the placeholder is still empty, replace it; otherwise append a new error msg.
+        const placeholder = prev.find((m) => m.id === aiMsgId)
+        if (placeholder && placeholder.content === '') {
+          return prev.map((m) =>
+            m.id === aiMsgId ? { ...m, content: errorMsg } : m
+          )
+        }
+        return [...prev, { id: genId(), role: 'assistant', content: errorMsg }]
+      })
     } finally {
+      if (firstTokenTimer) clearTimeout(firstTokenTimer)
+      streamingMsgIdRef.current = null
       setLoading(false)
+      setStreaming(false)
     }
   }, [loading, messages, t])
 
@@ -230,6 +349,9 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   }
 
   const handleClear = () => {
+    streamingMsgIdRef.current = null
+    setLoading(false)
+    setStreaming(false)
     setMessages([{ id: genId(), role: 'assistant', content: t('ai_assistant_welcome') }])
     try {
       sessionStorage.removeItem('ai_assistant_messages')
@@ -439,53 +561,59 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
                   [&::-webkit-scrollbar-thumb]:bg-slate-300/70
                   dark:[&::-webkit-scrollbar-thumb]:bg-slate-700"
               >
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-                  >
+                {messages.map((msg) => {
+                  const isStreamingMsg =
+                    msg.role === 'assistant' &&
+                    streamingMsgIdRef.current === msg.id &&
+                    (loading || streaming)
+                  const showDots = isStreamingMsg && msg.content === '' && loading
+                  const showCursor = isStreamingMsg && msg.content !== '' && streaming
+                  return (
                     <div
-                      className={`flex items-center justify-center w-7 h-7 rounded-full shrink-0 ${
-                        msg.role === 'user'
-                          ? 'bg-slate-200 dark:bg-slate-700'
-                          : 'bg-gradient-to-br from-blue-600 to-sky-400 text-white'
-                      }`}
+                      key={msg.id}
+                      className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                     >
-                      {msg.role === 'user' ? (
-                        <User className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
-                      ) : (
-                        <Bot className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div
-                      className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-[13px] ${
-                        msg.role === 'user'
-                          ? 'bg-blue-600 text-white rounded-tr-md'
-                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-md shadow-sm'
-                      }`}
-                    >
-                      <div className="space-y-1">{renderContent(msg.content)}</div>
-                    </div>
-                  </div>
-                ))}
-
-                {loading && (
-                  <div className="flex gap-2.5 flex-row">
-                    <div className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 bg-gradient-to-br from-blue-600 to-sky-400 text-white">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                    <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" />
+                      <div
+                        className={`flex items-center justify-center w-7 h-7 rounded-full shrink-0 ${
+                          msg.role === 'user'
+                            ? 'bg-slate-200 dark:bg-slate-700'
+                            : 'bg-gradient-to-br from-blue-600 to-sky-400 text-white'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                          <User className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                        ) : (
+                          <Bot className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div
+                        className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-[13px] ${
+                          msg.role === 'user'
+                            ? 'bg-blue-600 text-white rounded-tr-md'
+                            : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-md shadow-sm'
+                        }`}
+                      >
+                        {showDots ? (
+                          <div className="flex items-center gap-1 py-0.5">
+                            <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
+                            <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
+                            <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" />
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {renderContent(msg.content)}
+                            {showCursor && (
+                              <span className="inline-block w-1.5 h-3.5 align-text-bottom ml-0.5 bg-blue-500 dark:bg-sky-400 animate-pulse rounded-sm" />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })}
 
-                {/* Suggestion chips - only show when few messages */}
-                {messages.length <= 1 && !loading && (
+                {/* Suggestion chips - only show when idle and few messages */}
+                {messages.length <= 1 && !loading && !streaming && (
                   <div className="pt-2 space-y-2">
                     <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 px-1">
                       Saran pertanyaan:
@@ -522,7 +650,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
                       }
                     }}
                     placeholder={t('ai_assistant_placeholder')}
-                    disabled={loading}
+                    disabled={loading || streaming}
                     rows={1}
                     maxLength={1000}
                     className="flex-1 resize-none min-h-[40px] max-h-[120px] text-[13px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus-visible:ring-blue-500/30 rounded-xl"
@@ -530,7 +658,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={loading || !input.trim()}
+                    disabled={loading || streaming || !input.trim()}
                     aria-label={t('ai_assistant_send')}
                     className="shrink-0 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 h-10 w-10"
                   >

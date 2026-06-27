@@ -1,14 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // Reuse a single ZAI instance across requests (warm invocations)
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
+let zaiCreatePromise: Promise<Awaited<ReturnType<typeof ZAI.create>>> | null = null
+
 async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create()
+  if (zaiInstance) return zaiInstance
+  if (!zaiCreatePromise) {
+    zaiCreatePromise = ZAI.create().then((instance) => {
+      zaiInstance = instance
+      return instance
+    }).catch((err) => {
+      zaiCreatePromise = null
+      throw err
+    })
   }
-  return zaiInstance
+  return zaiCreatePromise
 }
+
+// Pre-warm the ZAI instance on module load so the first user request is fast.
+void getZAI().catch((err) => {
+  console.error('[AI Assistant] Pre-warm failed:', err)
+})
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -40,7 +57,7 @@ MASTER DATA:
 - Master Finishing
 - Master Ongkos Cetak
 
-KONTEP BISNIS PERCETAKAN:
+KONSEP BISNIS PERCETAKAN:
 - Dus Makanan: kotak kemasan untuk makanan, biasanya dari karton box/kraft
 - Dus Kue: kotak kemasan untuk kue
 - Hampers: paket kado berisi makanan/barang, butuh dus khusus
@@ -58,70 +75,206 @@ ATURAN JAWABAN:
 - Gunakan formatting singkat (bullet point atau langkah bernomor) untuk jawaban yang panjang
 - Maksimal 4-5 paragraf atau setara, jangan terlalu panjang`
 
+function sseChunk(text: string): string {
+  return `data: ${JSON.stringify({ delta: text })}\n\n`
+}
+
+function sseDone(): string {
+  return `data: [DONE]\n\n`
+}
+
+function sseError(message: string): string {
+  return `data: ${JSON.stringify({ error: message })}\n\n`
+}
+
 export async function POST(request: NextRequest) {
+  let body: any
   try {
-    const body = await request.json()
-    const { message, history = [] }: { message?: string; history?: ChatMessage[] } = body
+    body = await request.json()
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Body permintaan tidak valid' },
+      { status: 400 }
+    )
+  }
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Pesan tidak boleh kosong' },
-        { status: 400 }
-      )
-    }
+  const { message, history = [] }: { message?: string; history?: ChatMessage[] } = body
 
-    // Limit message length to prevent abuse
-    if (message.length > 1000) {
-      return NextResponse.json(
-        { success: false, error: 'Pesan terlalu panjang (maksimal 1000 karakter)' },
-        { status: 400 }
-      )
-    }
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    return NextResponse.json(
+      { success: false, error: 'Pesan tidak boleh kosong' },
+      { status: 400 }
+    )
+  }
 
-    // Limit history to last 10 messages to control token usage
-    const trimmedHistory = history.slice(-10).filter(
+  if (message.length > 1000) {
+    return NextResponse.json(
+      { success: false, error: 'Pesan terlalu panjang (maksimal 1000 karakter)' },
+      { status: 400 }
+    )
+  }
+
+  // Limit history to last 10 messages to control token usage
+  const trimmedHistory = (Array.isArray(history) ? history : [])
+    .slice(-10)
+    .filter(
       (m) => m && typeof m.content === 'string' && (m.role === 'user' || m.role === 'assistant')
     )
 
-    // Build messages array: system prompt as first assistant message, then history, then new user message
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: SYSTEM_PROMPT },
-      ...trimmedHistory,
-      { role: 'user', content: message },
-    ]
+  // Build messages array: system prompt as first assistant message, then history, then new user message
+  const messages: ChatMessage[] = [
+    { role: 'assistant', content: SYSTEM_PROMPT },
+    ...trimmedHistory,
+    { role: 'user', content: message },
+  ]
 
-    const zai = await getZAI()
+  const encoder = new TextEncoder()
 
-    const completion = await zai.chat.completions.create({
-      messages,
-      thinking: { type: 'disabled' },
-    })
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let zai: Awaited<ReturnType<typeof ZAI.create>>
+      try {
+        zai = await getZAI()
+      } catch (err) {
+        console.error('[AI Assistant] ZAI init error:', err)
+        controller.enqueue(encoder.encode(sseError('Layanan AI sedang tidak tersedia. Silakan coba lagi.')))
+        controller.close()
+        return
+      }
 
-    const aiResponse = completion.choices[0]?.message?.content
+      let responseStream: ReadableStream<Uint8Array> | null = null
+      try {
+        responseStream = (await zai.chat.completions.create({
+          messages,
+          stream: true,
+          thinking: { type: 'disabled' },
+        })) as ReadableStream<Uint8Array>
+      } catch (err) {
+        console.error('[AI Assistant] create error:', err)
+        const msg = err instanceof Error ? err.message : 'Unknown error'
+        controller.enqueue(encoder.encode(sseError(`Gagal memanggil AI: ${msg}`)))
+        controller.close()
+        return
+      }
 
-    if (!aiResponse || aiResponse.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'AI tidak memberikan respons. Silakan coba lagi.' },
-        { status: 502 }
-      )
-    }
+      if (!responseStream) {
+        controller.enqueue(encoder.encode(sseError('AI tidak mengembalikan stream respons.')))
+        controller.close()
+        return
+      }
 
-    return NextResponse.json({
-      success: true,
-      response: aiResponse.trim(),
-    })
-  } catch (error) {
-    console.error('[AI Assistant] Error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Terjadi kesalahan saat memproses permintaan. Silakan coba lagi.',
-        debug: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      },
-      { status: 500 }
-    )
-  }
+      const reader = responseStream.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let receivedAny = false
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          // SSE events are separated by \n\n
+          const events = buffer.split('\n\n')
+          // Keep the last (possibly incomplete) chunk in the buffer
+          buffer = events.pop() || ''
+
+          for (const evt of events) {
+            const trimmed = evt.trim()
+            if (!trimmed) continue
+            // Each event may have multiple lines; we only care about "data:" lines
+            for (const line of trimmed.split('\n')) {
+              if (!line.startsWith('data:')) continue
+              const payload = line.slice(5).trim()
+              if (!payload) continue
+              if (payload === '[DONE]') {
+                controller.enqueue(encoder.encode(sseDone()))
+                return
+              }
+              try {
+                const json = JSON.parse(payload)
+                // OpenAI-style: choices[0].delta.content
+                const delta: string | undefined =
+                  json?.choices?.[0]?.delta?.content ??
+                  json?.choices?.[0]?.message?.content ??
+                  json?.delta?.content ??
+                  json?.content
+                if (typeof delta === 'string' && delta.length > 0) {
+                  receivedAny = true
+                  controller.enqueue(encoder.encode(sseChunk(delta)))
+                }
+              } catch {
+                // If it's not JSON, but we're in plain-text stream mode, treat as raw text
+                if (!payload.startsWith('{') && !payload.startsWith('[')) {
+                  receivedAny = true
+                  controller.enqueue(encoder.encode(sseChunk(payload)))
+                }
+              }
+            }
+          }
+        }
+
+        // Flush any remaining buffer content
+        if (buffer.trim()) {
+          for (const line of buffer.split('\n')) {
+            if (!line.startsWith('data:')) continue
+            const payload = line.slice(5).trim()
+            if (!payload || payload === '[DONE]') continue
+            try {
+              const json = JSON.parse(payload)
+              const delta: string | undefined =
+                json?.choices?.[0]?.delta?.content ??
+                json?.choices?.[0]?.message?.content ??
+                json?.delta?.content ??
+                json?.content
+              if (typeof delta === 'string' && delta.length > 0) {
+                receivedAny = true
+                controller.enqueue(encoder.encode(sseChunk(delta)))
+              }
+            } catch {}
+          }
+        }
+
+        if (!receivedAny) {
+          controller.enqueue(
+            encoder.encode(sseError('AI tidak memberikan respons. Silakan coba lagi.'))
+          )
+        } else {
+          controller.enqueue(encoder.encode(sseDone()))
+        }
+      } catch (err) {
+        console.error('[AI Assistant] stream read error:', err)
+        try {
+          if (!receivedAny) {
+            controller.enqueue(
+              encoder.encode(sseError('Terjadi kesalahan saat membaca respons AI.'))
+            )
+          } else {
+            controller.enqueue(encoder.encode(sseDone()))
+          }
+        } catch {}
+      } finally {
+        try {
+          reader.releaseLock()
+        } catch {}
+        try {
+          controller.close()
+        } catch {}
+      }
+    },
+    cancel() {
+      // Client disconnected — nothing to clean up here, the reader will be GC'd
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // disable proxy buffering (nginx/etc.)
+    },
+  })
 }
 
 export async function GET() {
