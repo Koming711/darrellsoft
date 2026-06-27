@@ -5818,3 +5818,30 @@ Stage Summary:
 - Added flex-wrap as safety net for very narrow screens
 - Files modified (6 total): src/app/invoice/page.tsx, src/app/surat-jalan/page.tsx, src/app/purchase-order/page.tsx + root app/ duplicates synced
 - Verified end-to-end via browser automation on both mobile and desktop viewports
+
+---
+Task ID: AI-FIX-ZINDEX
+Agent: Main
+Task: Fix AI Assistant send button being unclickable (covered by Install prompt dialog)
+
+Work Log:
+- Investigated user report "assisten ai tetap tidak bisa" (AI assistant still doesn't work) and request to use Qwen AI
+- Tested the /api/ai-assistant endpoint via curl: confirmed the API WORKS and streams responses correctly
+- Used agent-browser to test the actual UI: found the AI panel opens and textbox works, but the "Kirim" (Send) button click was intercepted
+- Diagnosed root cause: The "Install Darrell Soft" PWA prompt dialog (z-[10000] in install-prompt.tsx) appears after 5.5s and covers the AI assistant panel (which was only z-[70])
+- Raised z-index in src/components/ai-assistant.tsx:
+  - Chat panel: z-[70] -> z-[10001] (above install dialog z-[10000])
+  - Floating Action Button: z-[60] -> z-[9999] (above install FAB z-[9998])
+  - Mobile backdrop: z-[60] -> z-[10000]
+- Verified via agent-browser: Send button now clickable, AI responds with streamed text
+
+Investigation on Qwen AI request:
+- Tested z-ai-web-dev-sdk with model: 'qwen-plus', 'qwen-turbo', 'qwen-max', 'qwen-flash', 'qwen2.5-72b-instruct'
+- ALL requests return model: "glm-4-plus" in the response - the API endpoint (https://internal-api.z.ai/v1) IGNORES the model parameter
+- The Z.AI SDK in this environment ONLY provides the GLM model (Zhipu AI / 智谱AI), Qwen is NOT available
+- This is a backend/SDK limitation, not something that can be changed from the application code
+
+Stage Summary:
+- AI assistant button now works: click Kirim sends message and AI streams a response
+- The model used is GLM-4-plus (Zhipu AI), NOT Qwen - the Z.AI SDK does not support Qwen models
+- User informed that Qwen cannot be used because the SDK/backend only serves GLM
