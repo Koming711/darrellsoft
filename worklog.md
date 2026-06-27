@@ -5903,3 +5903,33 @@ Stage Summary:
 - AI assistant feature completely removed: floating button, chat panel, question popup, API endpoint, and all translations
 - No remaining references in source code (only historical mentions in worklog.md and cached tool-results)
 - Page still loads and works correctly without it
+
+---
+Task ID: DEPLOY
+Agent: Main
+Task: Deploy to www.darrellsoft.com via Vercel
+
+Work Log:
+- Installed Vercel CLI v54.18.0 globally (npm install -g vercel)
+- Verified token works (user: koming711)
+- Confirmed project already linked: projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, projectName "darrellsoft", orgId team_QBdS4SJeRhBe19sMKMlDvqsj
+- Verified environment variables configured on Vercel: DATABASE_URL, MIDTRANS keys, NEXT_PUBLIC_BASE_URL, etc.
+- Ran `vercel --prod --yes --token <token>`
+- Build process:
+  - bun install completed (994 packages)
+  - scripts/prepare-build.js swapped Prisma provider sqlite -> postgresql
+  - DATABASE_URL transformed to Supabase pooler (port 6543, ap-southeast-1)
+  - prisma generate succeeded (Prisma Client v6.19.2)
+  - Next.js 16.1.3 Turbopack build: Compiled successfully in 32.5s
+  - 101 static pages generated (920.9ms)
+  - Build Completed in 45s
+- Deployment aliased to https://www.darrellsoft.com
+- Verified live: HTTP/2 200, title "Darrell Soft - Kalkulator Hitung Cetakan"
+- Confirmed AI assistant fully removed from production (0 matches for asisten.ai/ai.assistant/AIAssistant in HTML)
+
+Stage Summary:
+- Production deployment successful at https://www.darrellsoft.com
+- Build ID: AmqNUFLowynqMxgs5wQdftq2GNKp
+- All routes deployed: 101 static pages + API serverless functions
+- AI assistant feature confirmed absent from production
+- Vercel deployment URL: https://darrellsoft-eeyinjqpg-koming711s-projects.vercel.app (alias: www.darrellsoft.com)
