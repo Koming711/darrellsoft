@@ -345,13 +345,13 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     <>
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-violet-600" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Purchase Order</h2>
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{poHistory.length} data</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+          <div className="flex items-center gap-2 min-w-0">
+            <History className="w-4 h-4 text-violet-600 shrink-0" />
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide truncate">Riwayat Purchase Order</h2>
+            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">{poHistory.length} data</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               onClick={handleBackup}
               variant="outline"
