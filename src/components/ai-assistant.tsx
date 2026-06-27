@@ -55,8 +55,15 @@ interface DragState {
 }
 
 const FAB_STORAGE_KEY = 'ai_fab_offset'
-const DRAG_THRESHOLD = 5 // px — pointer must move more than this to count as a drag (not a tap)
+// Pointer must move MORE than this (net displacement) to count as a drag, not a tap.
+// Higher threshold for touch because fingers naturally jitter more than a mouse.
+const DRAG_THRESHOLD_MOUSE = 6
+const DRAG_THRESHOLD_TOUCH = 14
 const VIEWPORT_MARGIN = 8 // px — keep button at least this far from viewport edges
+
+function dragThresholdFor(pointerType: string) {
+  return pointerType === 'mouse' ? DRAG_THRESHOLD_MOUSE : DRAG_THRESHOLD_TOUCH
+}
 
 export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const { t } = useLanguage()
@@ -86,7 +93,7 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const wasDragRef = useRef(false)
   const fabRef = useRef<HTMLDivElement>(null)
 
-  // After mount: set mobile/desktop offset + restore saved drag position
+  // After mount: set mobile/desktop offset + restore saved drag position (clamped to viewport)
   useEffect(() => {
     if (bottomOffset !== undefined) {
       setFabBottom(bottomOffset)
@@ -98,8 +105,25 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
       if (saved) {
         const offset = JSON.parse(saved)
         if (typeof offset.x === 'number' && typeof offset.y === 'number') {
-          dragX.set(offset.x)
-          dragY.set(offset.y)
+          // Clamp saved position so the FAB is always reachable.
+          // Default position is right-4 (16px) + bottom fabBottom, button is ~56-64px.
+          const btnSize = window.innerWidth < 768 ? 56 : 64
+          const defaultLeft = window.innerWidth - 16 - btnSize
+          const defaultTop = window.innerHeight - (window.innerWidth < 768 ? 84 : 24) - btnSize
+          const minX = VIEWPORT_MARGIN - defaultLeft
+          const maxX = window.innerWidth - defaultLeft - btnSize - VIEWPORT_MARGIN
+          const minY = VIEWPORT_MARGIN - defaultTop
+          const maxY = window.innerHeight - defaultTop - btnSize - VIEWPORT_MARGIN
+          const clampedX = Math.min(Math.max(offset.x, minX), maxX)
+          const clampedY = Math.min(Math.max(offset.y, minY), maxY)
+          dragX.set(clampedX)
+          dragY.set(clampedY)
+          // If the saved position was out of bounds, persist the clamped version.
+          if (clampedX !== offset.x || clampedY !== offset.y) {
+            try {
+              localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify({ x: clampedX, y: clampedY }))
+            } catch {}
+          }
         }
       }
     } catch {}
@@ -420,7 +444,8 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
     if (!ds || ds.pointerId !== e.pointerId) return
     const dx = e.clientX - ds.startClientX
     const dy = e.clientY - ds.startClientY
-    if (!ds.moved && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+    const threshold = dragThresholdFor(e.pointerType)
+    if (!ds.moved && (Math.abs(dx) > threshold || Math.abs(dy) > threshold)) {
       ds.moved = true
       setIsDragging(true)
     }
@@ -438,23 +463,34 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
   const handlePointerUp = (e: React.PointerEvent) => {
     const ds = dragRef.current
     if (!ds) return
-    wasDragRef.current = ds.moved
+    // Compute NET displacement from pointerdown to pointerup.
+    // Only treat as drag if the pointer moved beyond the threshold overall —
+    // intermediate jitter that returned close to the start position is still a tap.
+    const netDx = Math.abs(e.clientX - ds.startClientX)
+    const netDy = Math.abs(e.clientY - ds.startClientY)
+    const threshold = dragThresholdFor(e.pointerType)
+    const wasRealDrag = ds.moved && (netDx > threshold || netDy > threshold)
+    wasDragRef.current = wasRealDrag
     dragRef.current = null
     try {
       ;(e.currentTarget as HTMLElement).releasePointerCapture(ds.pointerId)
     } catch {}
     if (ds.moved) {
       setIsDragging(false)
-      try {
-        localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify({ x: dragX.get(), y: dragY.get() }))
-      } catch {}
+      if (wasRealDrag) {
+        try {
+          localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify({ x: dragX.get(), y: dragY.get() }))
+        } catch {}
+      }
     }
   }
 
-  const handleClick = () => {
-    // If the last pointer interaction was a drag (not a tap), don't open the chat.
+  const handleClick = (e: React.MouseEvent) => {
+    // If the last pointer interaction was a real drag (not a tap), don't open the chat.
     if (wasDragRef.current) {
       wasDragRef.current = false
+      e.preventDefault()
+      e.stopPropagation()
       return
     }
     setOpen(true)
