@@ -241,6 +241,8 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
       let buffer = ''
       let accumulated = ''
 
+      let backendError: string | null = null
+
       const flushEvents = (eventsChunk: string) => {
         const events = eventsChunk.split('\n\n')
         const leftover = events.pop() || ''
@@ -252,14 +254,13 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
             const payload = line.slice(5).trim()
             if (!payload) continue
             if (payload === '[DONE]') return 'done' as const
+            // Try JSON parse first; if it fails, treat payload as raw text delta
+            let json: any = null
             try {
-              const json = JSON.parse(payload)
-              if (json?.error) {
-                throw new Error(String(json.error))
-              }
-              const delta: string | undefined =
-                json?.delta ?? json?.choices?.[0]?.delta?.content ?? json?.content
-              if (typeof delta === 'string' && delta.length > 0) {
+              json = JSON.parse(payload)
+            } catch {
+              // Plain-text delta (not JSON) — stream as raw text
+              if (payload.length > 0) {
                 if (!firstTokenReceived) {
                   firstTokenReceived = true
                   setStreaming(true)
@@ -269,14 +270,39 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
                     firstTokenTimer = null
                   }
                 }
-                accumulated += delta
+                accumulated += payload
                 const snapshot = accumulated
                 setMessages((prev) =>
                   prev.map((m) => (m.id === aiMsgId ? { ...m, content: snapshot } : m))
                 )
               }
-            } catch {
-              // ignore unparseable keepalive lines
+              continue
+            }
+            // Backend sent an error event — capture it (don't throw inside try/catch)
+            if (json?.error) {
+              backendError = typeof json.error === 'string' ? json.error : JSON.stringify(json.error)
+              return 'error' as const
+            }
+            const delta: string | undefined =
+              json?.delta ??
+              json?.choices?.[0]?.delta?.content ??
+              json?.choices?.[0]?.message?.content ??
+              json?.content
+            if (typeof delta === 'string' && delta.length > 0) {
+              if (!firstTokenReceived) {
+                firstTokenReceived = true
+                setStreaming(true)
+                setLoading(false)
+                if (firstTokenTimer) {
+                  clearTimeout(firstTokenTimer)
+                  firstTokenTimer = null
+                }
+              }
+              accumulated += delta
+              const snapshot = accumulated
+              setMessages((prev) =>
+                prev.map((m) => (m.id === aiMsgId ? { ...m, content: snapshot } : m))
+              )
             }
           }
         }
@@ -300,15 +326,20 @@ export function AIAssistant({ bottomOffset }: AIAssistantProps) {
         if (done) break
         buffer += decoder.decode(value, { stream: true })
         const result = flushEvents(buffer)
-        if (result === 'done') {
+        if (result === 'done' || result === 'error') {
           buffer = ''
           break
         }
         buffer = result
       }
       // Flush trailing
-      if (buffer.trim()) {
+      if (buffer.trim() && backendError === null) {
         flushEvents(buffer + '\n\n')
+      }
+
+      // Surface backend error to the user
+      if (backendError) {
+        throw new Error(backendError)
       }
 
       if (!firstTokenReceived) {
