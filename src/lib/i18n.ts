@@ -573,6 +573,9 @@ export const translations = {
     ai_assistant_suggestion_3: 'Apa itu potong kertas?',
     ai_assistant_suggestion_4: 'Cara buat invoice',
     ai_assistant_suggestion_5: 'Bagaimana cara isi potong kertas?',
+    ai_assistant_popup_title: 'Pilih Pertanyaan',
+    ai_assistant_popup_subtitle: 'Klik salah satu pertanyaan umum di bawah, atau tulis pertanyaan Anda sendiri.',
+    ai_assistant_popup_custom: 'Tulis pertanyaan lain...',
 
     // Contact Picker (mobile - pick from phone contacts)
     contact_picker_button: 'Pilih dari Kontak',
@@ -1156,6 +1159,9 @@ export const translations = {
     ai_assistant_suggestion_3: 'What is paper cutting?',
     ai_assistant_suggestion_4: 'How to create an invoice',
     ai_assistant_suggestion_5: 'How to fill in paper cutting?',
+    ai_assistant_popup_title: 'Choose a Question',
+    ai_assistant_popup_subtitle: 'Click one of the common questions below, or type your own question.',
+    ai_assistant_popup_custom: 'Type another question...',
 
     // Contact Picker (mobile - pick from phone contacts)
     contact_picker_button: 'Pick from Contacts',
