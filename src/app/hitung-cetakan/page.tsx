@@ -202,6 +202,13 @@ function HitungCetakanPage() {
   })
 
   const [totalPaperPrice, setTotalPaperPrice] = useState<number>(0)
+  // Derived paper price: always computed from current pricePerSheet × quantity.
+  // totalPaperPrice state is only set via localStorage/URL/riwayat restore, so on
+  // fresh form entry it stays 0 and grand total never exceeds 0 (even with paper
+  // cost present). This derived value is the source of truth for all calculations
+  // and displays, so grand total > 0 whenever paper + quantity are filled —
+  // even when ongkos cetak is empty (so all action buttons activate).
+  const paperPriceValue = (parseFloat(formData.pricePerSheet) || 0) * (parseInt(formData.quantity) || 0)
   const [calculatedPrintingCost, setCalculatedPrintingCost] = useState<number>(0)
   const [calculatedPrintingCost2, setCalculatedPrintingCost2] = useState<number>(0)
   const [calculatedCost, setCalculatedCost] = useState<number>(0)
@@ -1413,8 +1420,8 @@ function HitungCetakanPage() {
   }
 
   const handleInvoice = async () => {
-    if (!isFormValid || !hasGrandTotal) {
-      toast.error('Lengkapi data dan hitung terlebih dahulu!')
+    if (!hasGrandTotal) {
+      toast.error('Hitung terlebih dahulu sampai total muncul!')
       return
     }
     // Check if data already exists in riwayat
@@ -2157,10 +2164,10 @@ function HitungCetakanPage() {
               </div>
               <div className="lg:hidden px-3 pb-3 flex flex-col sm:flex-row gap-2">
                 <Button onClick={handleCheck} className="flex-1 h-10 text-sm bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-4 h-4 mr-1.5" /> Cek</Button>
-                <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-sm">{restoredRiwayatId ? <><RefreshCw className={`w-4 h-4 mr-1.5 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update Riwayat'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat'}</Button>
-                <Button onClick={handleInvoice} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="flex-1 h-10 text-sm bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-4 h-4 mr-1.5" /> Invoice</Button>
-                <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-10 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-4 h-4 mr-1.5" /> Preview</Button>
-                <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="flex-1 h-10 text-sm bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp</Button>
+                <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!hasGrandTotal || savingRiwayat} className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-sm">{restoredRiwayatId ? <><RefreshCw className={`w-4 h-4 mr-1.5 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update Riwayat'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat'}</Button>
+                <Button onClick={handleInvoice} disabled={!hasGrandTotal || savingRiwayat} className="flex-1 h-10 text-sm bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-4 h-4 mr-1.5" /> Invoice</Button>
+                <Button onClick={handlePreview} disabled={!hasGrandTotal} className="flex-1 h-10 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-4 h-4 mr-1.5" /> Preview</Button>
+                <Button onClick={handleWhatsApp} disabled={!hasGrandTotal} className="flex-1 h-10 text-sm bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp</Button>
                 <Button onClick={resetForm} variant="outline" className="flex-1 h-10 text-sm"><RotateCcw className="w-4 h-4 mr-1.5" /> Reset</Button>
               </div>
               </div>{/* end mobile-only wrapper */}
@@ -2444,10 +2451,10 @@ function HitungCetakanPage() {
               <div className="px-2.5 pb-2 flex flex-col gap-1.5">
                 <Button onClick={handleCheck} className="w-full h-8 text-[11px] font-semibold bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-3.5 h-3.5 mr-1" /> Cek Kelengkapan</Button>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="h-8 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[11px] font-semibold">{restoredRiwayatId ? <><RefreshCw className={`w-3.5 h-3.5 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
-                  <Button onClick={handleInvoice} disabled={!isFormValid || !hasGrandTotal || savingRiwayat} className="h-8 text-[11px] font-semibold bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Invoice</Button>
-                  <Button onClick={handlePreview} disabled={!isFormValid || !hasGrandTotal} className="h-8 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3.5 h-3.5 mr-1" /> Preview</Button>
-                  <Button onClick={handleWhatsApp} disabled={!isFormValid || !hasGrandTotal} className="h-8 text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp</Button>
+                  <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!hasGrandTotal || savingRiwayat} className="h-8 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[11px] font-semibold">{restoredRiwayatId ? <><RefreshCw className={`w-3.5 h-3.5 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
+                  <Button onClick={handleInvoice} disabled={!hasGrandTotal || savingRiwayat} className="h-8 text-[11px] font-semibold bg-orange-600 hover:bg-orange-700 text-white disabled:bg-slate-400"><FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Invoice</Button>
+                  <Button onClick={handlePreview} disabled={!hasGrandTotal} className="h-8 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3.5 h-3.5 mr-1" /> Preview</Button>
+                  <Button onClick={handleWhatsApp} disabled={!hasGrandTotal} className="h-8 text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp</Button>
                 </div>
                 <Button onClick={resetForm} variant="outline" className="w-full h-8 text-[11px] font-semibold"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Form</Button>
               </div>
