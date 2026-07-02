@@ -5657,3 +5657,36 @@ Stage Summary:
 - Build command: node scripts/prepare-build.js && npx prisma generate && npx next build (sqlite→postgresql swap for production)
 - Production auth + database (Supabase PostgreSQL) working correctly
 - ⚠️ NOTE: This deployment does NOT include the recent paper price fix (setelanKertas / computedSheetsNeeded). Total harga kertas mismatch between potong-kertas and hitung-cetakan may reappear. User can request re-application of the fix if needed.
+
+---
+Task ID: FIX-BUTTONS-ACTIVE-WHEN-TOTAL-FILLED
+Agent: Main
+Task: On hitung cetakan page, all buttons must be active when total is filled (even without ongkos cetak)
+
+Work Log:
+- Investigated src/app/hitung-cetakan/page.tsx (2875 lines)
+- Found root cause #1: `isFormValid` required `formData.machineId` (ongkos cetak machine) AND `formData.warna` — this disabled all action buttons when ongkos cetak was not selected
+- Found root cause #2: `totalPaperPrice` state was NEVER calculated dynamically from `pricePerSheet × quantity` during fresh form entry — only set via localStorage/URL/riwayat restore. So grand total stayed 0, making `hasGrandTotal = false` and keeping buttons disabled.
+- Found root cause #3: A stale root `app/` directory was overriding `src/app/` — Next.js was serving the OLD `app/hitung-cetakan/page.tsx` (without my edits) instead of `src/app/hitung-cetakan/page.tsx`. Removed the entire stale `app/` directory (121 files; only unique file was `app/lib/settings-shared.ts` which src already has at `src/lib/settings-shared.ts`).
+
+Fixes applied to src/app/hitung-cetakan/page.tsx:
+1. Added derived value `paperPriceValue = (parseFloat(formData.pricePerSheet) || 0) * (parseInt(formData.quantity) || 0)` (line 211) — always computes on every render, source of truth for all calculations/displays, independent of state timing
+2. Replaced `totalPaperPrice` state with `paperPriceValue` in: summarySubTotal, buildRiwayatPayload subTotal, buildRiwayatPayload payload field, handlePreview totalCost + previewData.totalPaperPrice, ValueBox "Total Harga Kertas" display, and 2 summary "Kertas" displays (mobile + desktop)
+3. Removed `!isFormValid ||` from all 8 button disabled conditions (4 desktop + 4 mobile for Simpan/Invoice/Preview/WhatsApp), keeping only `!hasGrandTotal`
+4. Updated handleInvoice guard: `if (!isFormValid || !hasGrandTotal)` → `if (!hasGrandTotal)` with clearer error message
+5. Removed stale root `app/` directory that was overriding `src/app/`
+
+Verification (via agent-browser, logged in as aming):
+- Selected paper "art karton (260 gsm)", quantity=100, dimensions 65×100/20×20, NO ongkos cetak
+- "Total Harga Kertas" = "Rp 278.900" (paper price calculated dynamically) ✅
+- "Sub Total" = "Rp 278.900" ✅
+- All 4 buttons (Simpan, Invoice, Preview, WhatsApp) ACTIVE — is-enabled returns true for all ✅
+- After Reset Form (empty): all 4 buttons [disabled] ✅ (correct behavior when total=0)
+- No lint errors in hitung-cetakan page
+
+Stage Summary:
+- All action buttons (Simpan, Invoice, Preview, WhatsApp) now activate whenever total harga is filled (> 0), regardless of whether ongkos cetak is filled
+- Paper price is always calculated dynamically (pricePerSheet × quantity), so grand total > 0 even without ongkos cetak
+- Removed stale `app/` directory that was overriding `src/app/` (recurring issue)
+- Dev server restarted after app/ removal (was throwing ENOENT errors watching deleted dir)
+- Ready for deployment (user said "jangan deploy dulu" — waiting for user confirmation)
