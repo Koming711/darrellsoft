@@ -5690,3 +5690,34 @@ Stage Summary:
 - Removed stale `app/` directory that was overriding `src/app/` (recurring issue)
 - Dev server restarted after app/ removal (was throwing ENOENT errors watching deleted dir)
 - Ready for deployment (user said "jangan deploy dulu" — waiting for user confirmation)
+
+---
+Task ID: paper-price-match
+Agent: Main
+Task: Fix total harga kertas mismatch between hitung-cetakan and potong-kertas pages — hitung-cetakan should show the same paper price as potong-kertas
+
+Work Log:
+- Analyzed root cause: hitung-cetakan computed paper price as `pricePerSheet × quantity` (simple multiplication), while potong-kertas uses the cutting engine (`calculateCuts`) with `totalQty = quantity + setelanKertas` to compute `sheetsNeeded × pricePerSheet`. The two calculations diverged because hitung-cetakan ignored both the cutting optimization (totalPieces per sheet) and setelanKertas.
+- Added `setelanKertas` column to RiwayatCetakan model in BOTH `prisma/schema.prisma` and root `schema.prisma` (TEXT NOT NULL DEFAULT ''). `prisma db push` failed due to a SQLite index-rebuild error, so added the column manually via `bun:sqlite` ALTER TABLE, then ran `prisma generate`.
+- Updated API routes `src/app/api/riwayat-cetakan/route.ts` (POST) and `src/app/api/riwayat-cetakan/[id]/route.ts` (PUT) to persist `setelanKertas`.
+- Updated `src/app/potong-kertas/page.tsx` to pass `setelanKertas` via URL param when navigating to hitung-cetakan (line ~1674: `if (setelanKertas) params.set('setelanKertas', setelanKertas)`).
+- Updated `src/app/hitung-cetakan/page.tsx`:
+  - Imported `useMemo` and `calculateCuts` from `@/lib/cutting-engine`.
+  - Added `setelanKertas: string` to FormData interface and initial state.
+  - Replaced the old `paperPriceValue = pricePerSheet × quantity` with a `useMemo` (`computedPaper`) that calls `calculateCuts({ paperWidth: formData.paperLength, paperHeight: formData.paperWidth, cutWidth, cutHeight, quantity: qty+setelan, pricePerSheet, optimizationMode: 'maximal' })` — identical to potong-kertas — and uses `result.totalPrice` (= sheetsNeeded × pricePerSheet). Falls back to `price × qty` when dimensions are missing so buttons still activate.
+  - Read `setelanKertas` URL param and populate into formData.
+  - Added `setelanKertas` to both reset functions (resetForm, resetFormForRiwayat).
+  - Added `setelanKertas` to riwayat restore (handleRestoreRiwayat) and riwayat save payload (buildRiwayatPayload).
+  - Added new UI inputs in the Harga Bahan section: "Insit Kertas" (number input bound to formData.setelanKertas) and "Harga/Lembar" (number input bound to formData.pricePerSheet, editable — previously was auto-only).
+- Verified via agent-browser (logged in as admin): navigated to hitung-cetakan with simulated URL params from potong-kertas (paper 31.5×47, cut 9×12, qty=1000, setelanKertas=50, pricePerSheet=230). Page showed Total Harga Kertas = Rp 20.240.
+- Confirmed via direct `calculateCuts` call that potong-kertas produces the identical result: totalPieces=12, sheetsNeeded=88, totalPrice=Rp 20.240.
+- Tested live reactivity: changed Insit Kertas from 50→0, price updated to Rp 19.320 (totalQty=1000, sheetsNeeded=84, 84×230=19.320). Changed back to 50, price returned to Rp 20.240.
+- Confirmed all action buttons (Simpan, Invoice, Preview, WhatsApp, Reset) remain active when total is filled.
+- Lint: no errors in any modified file.
+
+Stage Summary:
+- Total harga kertas now matches exactly between potong-kertas and hitung-cetakan because both pages use the same `calculateCuts()` cutting-engine function with `totalQty = quantity + setelanKertas`.
+- setelanKertas is now a first-class field in hitung-cetakan: editable in the UI, passed via URL from potong-kertas, persisted in riwayat (schema + API + save/restore), and included in localStorage.
+- The `totalPaperPrice` URL param potong-kertas sends is no longer the source of truth — hitung-cetakan recomputes the paper price live via the cutting engine, so any stale/zero value in the URL is ignored.
+- New "Harga/Lembar" input lets users override the auto-computed pricePerSheet (previously auto-set only from paper selection, not editable).
+- Files changed: prisma/schema.prisma, schema.prisma, src/app/api/riwayat-cetakan/route.ts, src/app/api/riwayat-cetakan/[id]/route.ts, src/app/potong-kertas/page.tsx, src/app/hitung-cetakan/page.tsx.

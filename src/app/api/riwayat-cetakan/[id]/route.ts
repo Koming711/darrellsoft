@@ -36,6 +36,7 @@ export async function PUT(
         quantity: body.quantity ?? item.quantity,
         jumlahPesanan: body.jumlahPesanan ?? item.jumlahPesanan,
         berapaMata: body.berapaMata ?? item.berapaMata,
+        setelanKertas: body.setelanKertas ?? item.setelanKertas,
         warna: body.warna ?? item.warna,
         warnaKhusus: body.warnaKhusus ?? item.warnaKhusus,
         machineName: body.machineName ?? item.machineName,

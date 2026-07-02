@@ -176,6 +176,7 @@ model RiwayatCetakan {
   quantity           String
   jumlahPesanan      String   @default("")
   berapaMata         String   @default("")
+  setelanKertas      String   @default("")
   warna              String
   warnaKhusus        String
   machineName        String

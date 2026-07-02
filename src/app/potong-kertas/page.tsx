@@ -1671,6 +1671,7 @@ function CalculatorPage() {
               if (effectiveQuantity) params.set('quantity', effectiveQuantity)
               if (jumlahPesanan) params.set('jumlahPesanan', jumlahPesanan)
               if (berapaMata) params.set('berapaMata', berapaMata)
+              if (setelanKertas) params.set('setelanKertas', setelanKertas)
               if (selectedPaperId && selectedPaperId !== 'custom') params.set('paperId', selectedPaperId)
               if (selectedPaper?.name) params.set('paperName', selectedPaper.name)
               if (grammage) params.set('grammage', grammage)
