@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→
+     3→declare global {
+     4→  interface Window {
+     5→    __restorePaperName?: string
+     6→    __restoreMachineName?: string
+     7→    __restoreMachineName2?: string
+     8→    __restoreFinishingNames?: string
+     9→    __restorePricePerSheet?: string
+    10→  }
+    11→}
+    12→
+    13→import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload } from 'lucide-react'
+    14→import { useState, useEffect, Suspense, useRef } from 'react'
+    15→import { useSearchParams, useRouter } from 'next/navigation'
+    16→import { DashboardLayout } from '@/components/dashboard-layout'
+    17→import { getAuthHeaders } from '@/lib/auth'
+    18→import { fetcher } from '@/lib/fetcher'
+    19→import { Button } from '@/components/ui/button'
+    20→import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+    21→import { toast } from 'sonner'
+    22→import { useLanguage } from '@/contexts/language-context'
+    23→import { notifyDataChange } from '@/lib/data-sync'
+    24→import { authFetch } from '@/lib/auth-fetch'
+    25→import { openWhatsApp } from '@/lib/whatsapp-business'
+    26→import { useDataChange } from '@/hooks/use-data-change'
+    27→
+    28→interface Paper {
+    29→  id: string
+    30→  name: string
+    31→  grammage: number
+    32→  width: number
+    33→  height: number
+    34→  pricePerRim: number
+    35→}
+    36→
+    37→interface PrintingCost {
+    38→  id: string
+    39→  machineName: string
+    40→  grammage: number
+    41→  printAreaWidth: number
+    42→  printAreaHeight: number
+    43→  pricePerColor: number
+    44→  specialColorPrice: number
+    45→  minimumPrintQuantity: number
+    46→  priceAboveMinimumPerSheet: number
+    47→  platePricePerSheet: number
+    48→}
+    49→
+    50→interface Finishing {
+    51→  id: string
+    52→  name: string
+    53→  minimumSheets: number
+    54→  minimumPrice: number
+    55→  additionalPrice: number
+    56→  pricePerCm: number
+    57→}
+    58→
+    59→interface Customer {
+    60→  id: string
+    61→  name: string
+    62→}
+    63→
+    64→interface PrintCalculation {
+    65→  id: string
+    66→  printName: string
+    67→  paperLength: string
+    68→  paperWidth: string
+    69→  cutWidth: string
+    70→  cutHeight: string
+    71→  quantity: string
+    72→  jumlahPesanan: string
+    73→  berapaMata: string
+    74→  warna: string
+    75→  warnaKhusus: string
+    76→  paperId: string
+    77→  paperName: string
+    78→  machineId: string
+    79→  machineName: string
+    80→  printingCost: number
+    81→  finishingId: string
+    82→  finishingName: string
+    83→  packingCost: string
+    84→  shippingCost: string
+    85→  pricePerSheet: string
+    86→  hargaPlat: string
+    87→  totalPrice: number
+    88→  customerName: string
+    89→  machineId2: string
+    90→  machineName2: string
+    91→  warna2: string
+    92→  warnaKhusus2: string
+    93→  hargaPlat2: string
+    94→  glueLengthCm: string
+    95→  glueCostPerCm: string
+    96→  glueBoronganPerSheet: string
+    97→  biayaLain1: string
+    98→  biayaLain2: string
+    99→  totalPaperPrice: number
+   100→  calculatedPrintingCost: number
+   101→  calculatedPrintingCost2: number
+   102→  calculatedFinishingCost: number
+   103→  calculatedGlueCost: number
+   104→  calculatedGlueBoronganSheet: number
+   105→  finishingBreakdown: { name: string; cost: number }[]
+   106→  profitPercent?: number
+   107→  biayaLain1Label?: string
+   108→  biayaLain2Label?: string
+   109→}
+   110→
+   111→const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors lg:py-1.5'
+   112→const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
+   113→const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
+   114→
+   115→// Preview Dialog Component (centered, scrollable)
+   116→function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+   117→  return (
+   118→    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+   119→      <div className="absolute inset-0 bg-black/50" />
+   120→      <div onClick={(e) => e.stopPropagation()}
+   121→        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+   122→        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
+   123→          <div className="flex items-center gap-2">
+   124→            <div className="flex gap-1">
+   125→              <div className="w-2.5 h-2.5 rounded-full bg-red-400 cursor-pointer" onClick={onClose} />
+   126→              <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+   127→              <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+   128→            </div>
+   129→            <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-2">{title}</span>
+   130→          </div>
+   131→          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+   132→            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+   133→          </button>
+   134→        </div>
+   135→        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch">
+   136→          {children}
+   137→        </div>
+   138→      </div>
+   139→    </div>
+   140→  )
+   141→}
+   142→
+   143→export default function HitungCetakanPageWrapper() {
+   144→  return (
+   145→    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>}>
+   146→      <HitungCetakanPage />
+   147→    </Suspense>
+   148→  )
+   149→}
+   150→
+   151→// Form storage keys (per-user scoped)
+   152→function userKey(base: string): string {
+   153→  try {
+   154→    const a = JSON.parse(localStorage.getItem('auth') || '{}')
+   155→    if (a.id) return `${base}_${a.id}`
+   156→  } catch {}
+   157→  return base
+   158→}
+   159→const FORM_STORAGE_KEY = () => userKey('hitung-cetakan-form-data')
+   160→const FORM_STORAGE_VERSION_KEY = () => userKey('hitung-cetakan-form-data-version')
+   161→const FORM_STORAGE_VERSION = 'v5'
+   162→
+   163→function HitungCetakanPage() {
+   164→  const { t } = useLanguage()
+   165→  const router = useRouter()
+   166→  const searchParams = useSearchParams()
+   167→  const [customers, setCustomers] = useState<Customer[]>([])
+   168→  const [papers, setPapers] = useState<Paper[]>([])
+   169→  const [printingCosts, setPrintingCosts] = useState<PrintingCost[]>([])
+   170→  const [finishings, setFinishings] = useState<Finishing[]>([])
+   171→  const [hydrated, setHydrated] = useState(false)
+   172→
+   173→  const [selectedFinishings, setSelectedFinishings] = useState<string[]>([])
+   174→
+   175→  const [formData, setFormData] = useState({
+   176→    customerName: '',
+   177→    printName: '',
+   178→    paperLength: '',
+   179→    paperWidth: '',
+   180→    cutWidth: '',
+   181→    cutHeight: '',
+   182→    quantity: '',
+   183→    jumlahPesanan: '',
+   184→    berapaMata: '',
+   185→    warna: '',
+   186→    warnaKhusus: '',
+   187→    hargaPlat: '',
+   188→    paperId: '',
+   189→    machineId: '',
+   190→    packingCost: '',
+   191→    shippingCost: '',
+   192→    pricePerSheet: '',
+   193→    glueLengthCm: '',
+   194→    glueCostPerCm: '',
+   195→    glueBoronganPerSheet: '',
+   196→    biayaLain1: '',
+   197→    biayaLain2: '',
+   198→    machineId2: '',
+   199→    warna2: '',
+   200→    warnaKhusus2: '',
+   201→    hargaPlat2: ''
+   202→  })
+   203→
+   204→  const [totalPaperPrice, setTotalPaperPrice] = useState<number>(0)
+   205→  // Derived paper price: always computed from current pricePerSheet × quantity.
+   206→  // The state above is only for restore/save compatibility; this derived value
+   207→  // is the source of truth for all calculations and displays, so that the paper
+   208→  // cost is correct even on fresh form entry (and even when ongkos cetak is empty).
+   209→  const paperPriceValue = (parseFloat(formData.pricePerSheet) || 0) * (parseInt(formData.quantity) || 0)
+   210→  const [calculatedPrintingCost, setCalculatedPrintingCost] = useState<number>(0)
+   211→  const [calculatedPrintingCost2, setCalculatedPrintingCost2] = useState<number>(0)
+   212→  const [calculatedCost, setCalculatedCost] = useState<number>(0)
+   213→  const [isFinishingMin, setIsFinishingMin] = useState<boolean>(false)
+   214→  const [calculatedFinishingCost, setCalculatedFinishingCost] = useState<number>(0)
+   215→  const [calculatedPaperCost, setCalculatedPaperCost] = useState<number>(0)
+   216→  const [calculatedGlueCost, setCalculatedGlueCost] = useState<number>(0)
+   217→  const [calculatedGlueBoronganSheet, setCalculatedGlueBoronganSheet] = useState<number>(0)
+   218→  const [prefilled, setPrefilled] = useState(false)
+   219→  const [profitPercent, setProfitPercent] = useState<number>(0)
+   220→  const [profitInput, setProfitInput] = useState<string>('')
+   221→  const [biayaLain1Label, setBiayaLain1Label] = useState('Biaya Bikin Piso')
+   222→  const [biayaLain2Label, setBiayaLain2Label] = useState('Biaya')
+   223→
+   224→
+   225→
+   226→  // Riwayat hitung cetakan (full list)
+   227→  const [savingRiwayat, setSavingRiwayat] = useState(false)
+   228→  const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
+   229→  const [riwayatCetakanList, setRiwayatCetakanList] = useState<any[]>([])
+   230→  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+   231→  const [nextHitungCetakanNumber, setNextHitungCetakanNumber] = useState('')
+   232→  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
+   233→  const fetchRiwayatCetakan = async () => {
+   234→    try {
+   235→      const res = await fetcher('/api/riwayat-cetakan', { headers: getAuthHeaders() })
+   236→      if (res.ok) {
+   237→        const data = await res.json()
+   238→        setRiwayatCetakanList((Array.isArray(data) ? data : []).filter((r: any) => r.type === 'hitung_cetakan'))
+   239→      }
+   240→    } catch {}
+   241→  }
+   242→
+   243→  const fetchNextNumber = () => {
+   244→    fetcher('/api/riwayat-cetakan?preview=next-number', { headers: getAuthHeaders() })
+   245→      .then(res => { if (!res.ok) return null; return res.json() })
+   246→      .then(data => { if (data?.nextNumber) setNextHitungCetakanNumber(data.nextNumber) })
+   247→      .catch(() => {})
+   248→  }
+   249→
+   250→  const handleBackup = async () => {
+   251→    setBackupLoading('backup')
+   252→    try {
+   253→      const res = await authFetch(`/api/database/backup-master?table=riwayat_cetakan`)
+   254→      if (!res.ok) {
+   255→        let errMsg = 'Gagal backup data riwayat hitung cetakan'
+   256→        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+   257→        toast.error(errMsg)
+   258→        return
+   259→      }
+   260→      const blob = await res.blob()
+   261→      if (blob.size === 0) {
+   262→        toast.error('Backup kosong — tidak ada data')
+   263→        return
+   264→      }
+   265→      const url = URL.createObjectURL(blob)
+   266→      const a = document.createElement('a')
+   267→      a.href = url
+   268→      const disposition = res.headers.get('Content-Disposition')
+   269→      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+   270→      a.download = match ? match[1] : `backup-riwayat-cetakan-${Date.now()}.xlsx`
+   271→      document.body.appendChild(a)
+   272→      a.click()
+   273→      document.body.removeChild(a)
+   274→      URL.revokeObjectURL(url)
+   275→      toast.success('Backup berhasil diunduh')
+   276→    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data riwayat hitung cetakan') }
+   277→    setBackupLoading(null)
+   278→  }
+   279→
+   280→  const handleRestore = async () => {
+   281→    const input = document.createElement('input')
+   282→    input.type = 'file'
+   283→    input.accept = '.xlsx'
+   284→    input.onchange = async (e) => {
+   285→      const file = (e.target as HTMLInputElement).files?.[0]
+   286→      if (!file) return
+   287→      if (!confirm('Data riwayat hitung cetakan yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+   288→      setBackupLoading('restore')
+   289→      try {
+   290→        const fd = new FormData()
+   291→        fd.append('file', file)
+   292→        fd.append('table', 'riwayat_cetakan')
+   293→        const res = await authFetch('/api/database/restore-master', {
+   294→          method: 'POST',
+   295→          body: fd,
+   296→        })
+   297→        const data = await res.json()
+   298→        if (res.ok && data.success) {
+   299→          toast.success(`Restore berhasil (${data.count} data)`)
+   300→          fetchRiwayatCetakan()
+   301→          notifyDataChange('riwayat-cetakan')
+   302→        } else {
+   303→          toast.error(data.error || 'Gagal restore data riwayat hitung cetakan')
+   304→        }
+   305→      } catch { toast.error('File backup tidak valid') }
+   306→      setBackupLoading(null)
+   307→    }
+   308→    input.click()
+   309→  }
+   310→
+   311→  const [previewOpen, setPreviewOpen] = useState(false)
+   312→  const [previewCalc, setPreviewCalc] = useState<PrintCalculation | null>(null)
+   313→  const previewRef = useRef<HTMLDivElement>(null)
+   314→  const waWindowRef = useRef<Window | null>(null)
+   315→  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+   316→
+   317→  // === localStorage persistence ===
+   318→  const loadFromStorage = () => {
+   319→    if (typeof window === 'undefined') return null
+   320→    try {
+   321→      const savedVersion = localStorage.getItem(FORM_STORAGE_VERSION_KEY())
+   322→      if (savedVersion && savedVersion !== FORM_STORAGE_VERSION) {
+   323→        localStorage.removeItem(FORM_STORAGE_KEY())
+   324→        localStorage.setItem(FORM_STORAGE_VERSION_KEY(), FORM_STORAGE_VERSION)
+   325→      }
+   326→      const raw = localStorage.getItem(FORM_STORAGE_KEY())
+   327→      return raw ? JSON.parse(raw) : null
+   328→    } catch { return null }
+   329→  }
+   330→
+   331→  const saveToStorage = (data: { formData: typeof formData; selectedFinishings: string[]; totalPaperPrice: number }) => {
+   332→    if (typeof window === 'undefined') return
+   333→    try { localStorage.setItem(FORM_STORAGE_KEY(), JSON.stringify(data)) } catch {}
+   334→  }
+   335→
+   336→  const clearStorage = () => {
+   337→    if (typeof window === 'undefined') return
+   338→    try { localStorage.removeItem(FORM_STORAGE_KEY()) } catch {}
+   339→  }
+   340→
+   341→  // Load saved form data on mount
+   342→  useEffect(() => {
+   343→    // If navigating with reset flag (from Potong Kertas), skip localStorage restore
+   344→    const params = new URLSearchParams(window.location.search)
+   345→    const shouldReset = params.get('reset') === '1' || params.get('fromPotongKertas') === '1'
+   346→    if (!shouldReset) {
+   347→      const saved = loadFromStorage()
+   348→      if (saved) {
+   349→        if (saved.formData) setFormData(saved.formData)
+   350→        if (saved.selectedFinishings) setSelectedFinishings(saved.selectedFinishings)
+   351→        if (saved.totalPaperPrice) setTotalPaperPrice(saved.totalPaperPrice)
+   352→      }
+   353→    } else {
+   354→      clearStorage()
+   355→    }
+   356→    setHydrated(true)
+   357→  }, [])
+   358→
+   359→  // Save to localStorage on every change (after hydration)
+   360→  useEffect(() => {
+   361→    if (!hydrated) return
+   362→    saveToStorage({ formData, selectedFinishings, totalPaperPrice })
+   363→  }, [formData, selectedFinishings, totalPaperPrice, hydrated])
+   364→
+   365→  const handleAddFinishing = (finishingId: string) => {
+   366→    if (finishingId && !selectedFinishings.includes(finishingId)) {
+   367→      setSelectedFinishings([...selectedFinishings, finishingId])
+   368→      toast.success('Finishing berhasil ditambahkan')
+   369→    } else if (selectedFinishings.includes(finishingId)) {
+   370→      toast.error('Finishing ini sudah ditambahkan')
+   371→    }
+   372→  }
+   373→
+   374→  const handleRemoveFinishing = (finishingId: string) => {
+   375→    setSelectedFinishings(selectedFinishings.filter(id => id !== finishingId))
+   376→    toast.success('Finishing berhasil dihapus')
+   377→  }
+   378→
+   379→  const getFinishingCost = (finishing: Finishing): { cost: number; isMin: boolean; breakdown: string } => {
+   380→    const qty = parseInt(formData.quantity) || 0
+   381→    const cw = parseFloat(formData.cutWidth) || 0
+   382→    const ch = parseFloat(formData.cutHeight) || 0
+   383→
+   384→    const minSheets = finishing.minimumSheets
+   385→    const minPrice = finishing.minimumPrice
+   386→    const hargaLebih = finishing.additionalPrice
+   387→    const hargaPerCm = finishing.pricePerCm
+   388→    const isPond = finishing.name.toLowerCase().includes('pond')
+   389→
+   390→    if (qty <= 0) {
+   391→      return { cost: minPrice, isMin: true, breakdown: `Harga minimum: Rp ${Math.round(minPrice).toLocaleString('id-ID')}` }
+   392→    }
+   393→
+   394→    if (isPond) {
+   395→      if (qty <= minSheets) {
+   396→        return {
+   397→          cost: minPrice,
+   398→          isMin: true,
+   399→          breakdown: `Qty ${qty} ≤ minim ${minSheets} → Harga minimum: Rp ${Math.round(minPrice).toLocaleString('id-ID')}`
+   400→        }
+   401→      }
+   402→      const selisih = qty - minSheets
+   403→      const tambahan = selisih * hargaLebih
+   404→      const total = minPrice + tambahan
+   405→      return {
+   406→        cost: total,
+   407→        isMin: false,
+   408→        breakdown: `Harga minimum Rp ${Math.round(minPrice).toLocaleString('id-ID')} + ((${qty} - ${minSheets}) × Rp ${Math.round(hargaLebih).toLocaleString('id-ID')}) = Rp ${Math.round(total).toLocaleString('id-ID')}`
+   409→      }
+   410→    }
+   411→
+   412→    let part1 = 0
+   413→    let part1Text = ''
+   414→    if (qty > minSheets && hargaLebih > 0) {
+   415→      const selisih = qty - minSheets
+   416→      part1 = selisih * hargaLebih
+   417→      part1Text = `(${qty} - ${minSheets}) × Rp ${Math.round(hargaLebih).toLocaleString('id-ID')} = Rp ${Math.round(part1).toLocaleString('id-ID')}`
+   418→    }
+   419→
+   420→    let part2 = 0
+   421→    let part2Text = ''
+   422→    if (cw > 0 && ch > 0 && hargaPerCm > 0) {
+   423→      const areaCost = cw * ch * hargaPerCm
+   424→      part2 = areaCost * qty
+   425→      part2Text = `(${cw} × ${ch}) × Rp ${Math.round(hargaPerCm).toLocaleString('id-ID')} × ${qty} = Rp ${Math.round(part2).toLocaleString('id-ID')}`
+   426→    }
+   427→
+   428→    const total = part1 + part2
+   429→
+   430→    if (total <= minPrice) {
+   431→      const parts = [part1Text, part2Text].filter(Boolean)
+   432→      const calcText = parts.length > 0 ? `${parts.join(' + ')} = Rp ${Math.round(total).toLocaleString('id-ID')} ≤ Rp ${Math.round(minPrice).toLocaleString('id-ID')}` : ''
+   433→      return {
+   434→        cost: minPrice,
+   435→        isMin: true,
+   436→        breakdown: calcText ? `${calcText} → Harga minimum: Rp ${Math.round(minPrice).toLocaleString('id-ID')}` : `Harga minimum: Rp ${Math.round(minPrice).toLocaleString('id-ID')}`
+   437→      }
+   438→    }
+   439→
+   440→    const parts = [part1Text, part2Text].filter(Boolean)
+   441→    const breakdown = parts.join(' + ') + ` = Rp ${Math.round(total).toLocaleString('id-ID')}`
+   442→
+   443→    return { cost: total, isMin: false, breakdown }
+   444→  }
+   445→
+   446→  // Flag untuk restore dari riwayat atau potong kertas
+   447→  const [isRestoring, setIsRestoring] = useState(false)
+   448→
+   449→  // Restore dari URL params (riwayat / potong kertas)
+   450→  useEffect(() => {
+   451→    const restored = searchParams.get('restoredFromRiwayat')
+   452→    const fromPotong = searchParams.get('fromPotongKertas')
+   453→    if (!restored && !fromPotong) return
+   454→    setIsRestoring(true)
+   455→
+   456→    // Clear localStorage agar data lama tidak override
+   457→    clearStorage()
+   458→
+   459→    const printName = searchParams.get('printName')
+   460→    const customerNameParam = searchParams.get('customerName')
+   461→    const paperNameParam = searchParams.get('paperName')
+   462→    const paperIdParam = searchParams.get('paperId')
+   463→    const grammageParam = searchParams.get('grammage')
+   464→    const paperLength = searchParams.get('paperLength')
+   465→    const paperWidthParam = searchParams.get('paperWidth')
+   466→    const cutWidthParam = searchParams.get('cutWidth')
+   467→    const cutHeightParam = searchParams.get('cutHeight')
+   468→    const quantityParam = searchParams.get('quantity')
+   469→    const pricePerSheetParam = searchParams.get('pricePerSheet')
+   470→    const totalPaperPriceParam = searchParams.get('totalPaperPrice')
+   471→    const warnaParam = searchParams.get('warna')
+   472→    const warnaKhususParam = searchParams.get('warnaKhusus')
+   473→    const hargaPlatParam = searchParams.get('hargaPlat')
+   474→    const machineNameParam = searchParams.get('machineName')
+   475→    const machineName2Param = searchParams.get('machineName2')
+   476→    const finishingNamesParam = searchParams.get('finishingNames')
+   477→    const packingCostParam = searchParams.get('packingCost')
+   478→    const shippingCostParam = searchParams.get('shippingCost')
+   479→    const glueCostParam = searchParams.get('glueCost')
+   480→    const glueBoronganParam = searchParams.get('glueBorongan')
+   481→    const otherCostParam = searchParams.get('otherCost')
+   482→    const profitPercentParam = searchParams.get('profitPercent')
+   483→
+   484→    if (totalPaperPriceParam) setTotalPaperPrice(parseFloat(totalPaperPriceParam) || 0)
+   485→    if (profitPercentParam) { const pp = parseFloat(profitPercentParam) || 0; setProfitPercent(pp); setProfitInput(pp === 0 ? '' : pp.toString()) }
+   486→
+   487→    setFormData(prev => ({
+   488→      ...prev,
+   489→      customerName: customerNameParam || '',
+   490→      printName: printName || '',
+   491→      paperLength: paperLength || '',
+   492→      paperWidth: paperWidthParam || '',
+   493→      cutWidth: cutWidthParam || '',
+   494→      cutHeight: cutHeightParam || '',
+   495→      quantity: quantityParam || '',
+   496→      jumlahPesanan: searchParams.get('jumlahPesanan') || '',
+   497→      berapaMata: searchParams.get('berapaMata') || '',
+   498→      warna: warnaParam || '',
+   499→      warnaKhusus: warnaKhususParam || '',
+   500→      hargaPlat: hargaPlatParam || '',
+   501→      paperId: paperIdParam || '',
+   502→      pricePerSheet: pricePerSheetParam || '',
+   503→      packingCost: packingCostParam || '',
+   504→      shippingCost: shippingCostParam || '',
+   505→      biayaLain1: otherCostParam ? (parseFloat(otherCostParam) > 0 ? otherCostParam : '') : '',
+   506→      biayaLain2: '',
+   507→      glueLengthCm: glueCostParam ? '1' : '',
+   508→      glueCostPerCm: glueCostParam ? glueCostParam : '',
+   509→      glueBoronganPerSheet: glueBoronganParam || '',
+   510→    }))
+   511→
+   512→    // Simpan nama untuk matching setelah data fetch selesai
+   513→    if (paperNameParam) window.__restorePaperName = paperNameParam
+   514→    if (machineNameParam) window.__restoreMachineName = machineNameParam
+   515→    if (machineName2Param) window.__restoreMachineName2 = machineName2Param
+   516→    if (finishingNamesParam && finishingNamesParam !== '-') window.__restoreFinishingNames = finishingNamesParam
+   517→    if (pricePerSheetParam) window.__restorePricePerSheet = pricePerSheetParam
+   518→
+   519→    setPrefilled(true)
+   520→    // Bersihkan URL params setelah dibaca
+   521→    window.history.replaceState({}, '', '/hitung-cetakan')
+   522→    toast.success('Data berhasil di-restore dari riwayat!')
+   523→  }, [searchParams])
+   524→
+   525→  const fetchCustomers = async () => {
+   526→    try {
+   527→      const response = await fetcher('/api/customers', { headers: getAuthHeaders() })
+   528→      const data = await response.json()
+   529→      if (Array.isArray(data)) setCustomers(data)
+   530→    } catch (error) {
+   531→      console.error('Error fetching customers:', error)
+   532→    }
+   533→  }
+   534→
+   535→  const fetchPapers = async () => {
+   536→    try {
+   537→      const response = await fetcher('/api/papers', { headers: getAuthHeaders() })
+   538→      const data = await response.json()
+   539→      if (Array.isArray(data)) setPapers(data)
+   540→    } catch (error) {
+   541→      console.error('Error fetching papers:', error)
+   542→    }
+   543→  }
+   544→
+   545→  const fetchPrintingCosts = async () => {
+   546→    try {
+   547→      const response = await fetcher('/api/printing-costs', { headers: getAuthHeaders() })
+   548→      const data = await response.json()
+   549→      if (Array.isArray(data)) setPrintingCosts(data)
+   550→    } catch (error) {
+   551→      console.error('Error fetching printing costs:', error)
+   552→    }
+   553→  }
+   554→
+   555→  const fetchFinishings = async () => {
+   556→    try {
+   557→      const response = await fetcher('/api/finishings', { headers: getAuthHeaders() })
+   558→      const data = await response.json()
+   559→      if (Array.isArray(data)) setFinishings(data)
+   560→    } catch (error) {
+   561→      console.error('Error fetching finishings:', error)
+   562→    }
+   563→  }
+   564→
+   565→  // Matching restore data setelah fetch selesai
+   566→  useEffect(() => {
+   567→    if (!isRestoring) return
+   568→    if (papers.length === 0 && printingCosts.length === 0 && finishings.length === 0) return
+   569→
+   570→    if (window.__restorePaperName && papers.length > 0) {
+   571→      const paper = papers.find(p => p.name === window.__restorePaperName)
+   572→      if (paper) {
+   573→        // Jika pricePerSheet dari riwayat ada, gunakan itu (bukan hitung ulang dari harga kertas saat ini)
+   574→        const restoredPPS = window.__restorePricePerSheet
+   575→        setFormData(prev => ({
+   576→          ...prev,
+   577→          paperId: paper.id,
+   578→          pricePerSheet: restoredPPS || prev.pricePerSheet || Math.round(paper.pricePerRim / 500).toString()
+   579→        }))
+   580→      }
+   581→    }
+   582→    if (window.__restoreMachineName && printingCosts.length > 0) {
+   583→      const machine = printingCosts.find(m => m.machineName === window.__restoreMachineName)
+   584→      if (machine) {
+   585→        setFormData(prev => ({ ...prev, machineId: machine.id }))
+   586→      }
+   587→    }
+   588→    if (window.__restoreMachineName2 && printingCosts.length > 0) {
+   589→      const machine2 = printingCosts.find(m => m.machineName === window.__restoreMachineName2)
+   590→      if (machine2) {
+   591→        setFormData(prev => ({ ...prev, machineId2: machine2.id }))
+   592→      }
+   593→    }
+   594→    if (window.__restoreFinishingNames && finishings.length > 0) {
+   595→      const names = window.__restoreFinishingNames.split(',').map(n => n.trim()).filter(Boolean)
+   596→      // Deduplicate: hanya ambil 1 finishing per nama (hindari duplikat di DB)
+   597→      const matchedIds: string[] = []
+   598→      const seenNames = new Set<string>()
+   599→      for (const name of names) {
+   600→        if (seenNames.has(name)) continue
+   601→        seenNames.add(name)
+   602→        const found = finishings.find(f => f.name === name)
+   603→        if (found) matchedIds.push(found.id)
+   604→      }
+   605→      if (matchedIds.length > 0) setSelectedFinishings(matchedIds)
+   606→    }
+   607→
+   608→    // Bersihkan
+   609→    delete window.__restorePaperName
+   610→    delete window.__restoreMachineName
+   611→    delete window.__restoreMachineName2
+   612→    delete window.__restoreFinishingNames
+   613→    delete window.__restorePricePerSheet
+   614→    setIsRestoring(false)
+   615→  }, [isRestoring, papers, printingCosts, finishings])
+   616→
+   617→  const fetchProfitSetting = () => {
+   618→    fetcher('/api/settings?key=profit', { headers: getAuthHeaders() })
+   619→      .then(res => res.json())
+   620→      .then(data => {
+   621→        if (data.value !== null && data.value !== undefined && !searchParams.get('restoredFromRiwayat')) {
+   622→          const parsed = parseFloat(data.value)
+   623→          const val = isNaN(parsed) ? 0 : parsed
+   624→          setProfitPercent(val)
+   625→          setProfitInput(val === 0 ? '' : val.toString())
+   626→        }
+   627→      })
+   628→      .catch(() => {})
+   629→  }
+   630→
+   631→  // Save profit percent to backend so Settings page stays in sync
+   632→  const handleProfitChange = (newVal: number) => {
+   633→    setProfitPercent(newVal)
+   634→    setProfitInput(newVal === 0 ? '' : newVal.toString())
+   635→    // Debounced save to backend
+   636→    if (newVal >= 0) {
+   637→      fetcher('/api/settings', {
+   638→        method: 'POST',
+   639→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+   640→        body: JSON.stringify({ key: 'profit', value: newVal.toString() }),
+   641→      }).then(() => {
+   642→        notifyDataChange('settings')
+   643→      }).catch(() => {})
+   644→    }
+   645→  }
+   646→
+   647→  useEffect(() => {
+   648→    fetchCustomers()
+   649→    fetchPapers()
+   650→    fetchPrintingCosts()
+   651→    fetchFinishings()
+   652→    fetchRiwayatCetakan()
+   653→    fetchNextNumber()
+   654→    // Jangan override profitPercent saat restore
+   655→    fetchProfitSetting()
+   656→  }, [])
+   657→
+   658→  useDataChange(['papers', 'printing-costs', 'finishings', 'customers', 'settings'], (entity) => {
+   659→    if (entity === 'papers') fetchPapers()
+   660→    if (entity === 'printing-costs') fetchPrintingCosts()
+   661→    if (entity === 'finishings') fetchFinishings()
+   662→    if (entity === 'customers') fetchCustomers()
+   663→    if (entity === 'settings') fetchProfitSetting()
+   664→  })
+   665→
+   666→  const selectedPaper = papers.find(p => p.id === formData.paperId)
+   667→  const selectedMachine = printingCosts.find(m => m.id === formData.machineId)
+   668→  const selectedMachine2 = printingCosts.find(m => m.id === formData.machineId2)
+   669→  const selectedFinishingItems = selectedFinishings.map(id => finishings.find(f => f.id === id)).filter(Boolean) as Finishing[]
+   670→
+   671→  useEffect(() => {
+   672→    if (selectedMachine && !formData.hargaPlat) {
+   673→      setFormData(prev => ({ ...prev, hargaPlat: selectedMachine.platePricePerSheet?.toString() || '' }))
+   674→    }
+   675→  }, [selectedMachine])
+   676→
+   677→  useEffect(() => {
+   678→    if (selectedMachine2 && !formData.hargaPlat2) {
+   679→      setFormData(prev => ({ ...prev, hargaPlat2: selectedMachine2.platePricePerSheet?.toString() || '' }))
+   680→    }
+   681→  }, [selectedMachine2])
+   682→
+   683→  useEffect(() => {
+   684→    if (selectedPaper && !formData.pricePerSheet) {
+   685→      setFormData(prev => ({ ...prev, pricePerSheet: Math.round(selectedPaper.pricePerRim / 500).toString() }))
+   686→    }
+   687→  }, [selectedPaper])
+   688→
+   689→  useEffect(() => {
+   690→    const qty = parseInt(formData.quantity) || 0
+   691→    const warna = parseInt(formData.warna) || 0
+   692→    const warnaKhusus = parseInt(formData.warnaKhusus) || 0
+   693→    const hargaPlat = parseFloat(formData.hargaPlat) || 0
+   694→
+   695→    // Calculate paper price dynamically: pricePerSheet × quantity
+   696→    // (previously only set via restore, so fresh form entry showed Rp 0)
+   697→    const priceSheet = parseFloat(formData.pricePerSheet) || 0
+   698→    setTotalPaperPrice(priceSheet > 0 && qty > 0 ? priceSheet * qty : 0)
+   699→
+   700→    if (selectedMachine && qty > 0 && warna > 0) {
+   701→      const minimum = selectedMachine.minimumPrintQuantity
+   702→      let ongkos = 0
+   703→      ongkos += (selectedMachine.pricePerColor * warna) + (selectedMachine.specialColorPrice * warnaKhusus)
+   704→      if (qty > minimum) {
+   705→        ongkos += (qty - minimum) * selectedMachine.priceAboveMinimumPerSheet
+   706→      }
+   707→      ongkos += hargaPlat * (warna + warnaKhusus)
+   708→      setCalculatedPrintingCost(ongkos)
+   709→    } else {
+   710→      setCalculatedPrintingCost(0)
+   711→    }
+   712→
+   713→    if (selectedFinishingItems.length > 0) {
+   714→      let totalFinCost = 0
+   715→      let anyMin = false
+   716→      selectedFinishingItems.forEach(fin => {
+   717→        const result = getFinishingCost(fin)
+   718→        totalFinCost += result.cost
+   719→        if (result.isMin) anyMin = true
+   720→      })
+   721→      setCalculatedFinishingCost(totalFinCost)
+   722→      setIsFinishingMin(anyMin)
+   723→    } else {
+   724→      setCalculatedFinishingCost(0)
+   725→      setIsFinishingMin(false)
+   726→    }
+   727→
+   728→    // Ongkos Cetak 2
+   729→    const warna2 = parseInt(formData.warna2) || 0
+   730→    const warnaKhusus2 = parseInt(formData.warnaKhusus2) || 0
+   731→    const hargaPlat2 = parseFloat(formData.hargaPlat2) || 0
+   732→
+   733→    if (selectedMachine2 && qty > 0 && warna2 > 0) {
+   734→      const minimum2 = selectedMachine2.minimumPrintQuantity
+   735→      let ongkos2 = 0
+   736→      ongkos2 += (selectedMachine2.pricePerColor * warna2) + (selectedMachine2.specialColorPrice * warnaKhusus2)
+   737→      if (qty > minimum2) {
+   738→        ongkos2 += (qty - minimum2) * selectedMachine2.priceAboveMinimumPerSheet
+   739→      }
+   740→      ongkos2 += hargaPlat2 * (warna2 + warnaKhusus2)
+   741→      setCalculatedPrintingCost2(ongkos2)
+   742→    } else {
+   743→      setCalculatedPrintingCost2(0)
+   744→    }
+   745→
+   746→    // Ongkos Lem: (cm × harga/cm) × jumlahPesanan
+   747→    const cmLem = parseFloat(formData.glueLengthCm) || 0
+   748→    const hargaPerCmLem = parseFloat(formData.glueCostPerCm) || 0
+   749→    const jumlahPesananLem = parseInt(formData.jumlahPesanan) || 0
+   750→    if (cmLem > 0 && hargaPerCmLem > 0 && jumlahPesananLem > 0) {
+   751→      setCalculatedGlueCost(cmLem * hargaPerCmLem * jumlahPesananLem)
+   752→    } else {
+   753→      setCalculatedGlueCost(0)
+   754→    }
+   755→
+   756→    const boronganPerSheet = parseFloat(formData.glueBoronganPerSheet) || 0
+   757→    const jumlahPesanan = parseInt(formData.jumlahPesanan) || 0
+   758→    if (boronganPerSheet > 0 && jumlahPesanan > 0) {
+   759→      setCalculatedGlueBoronganSheet(boronganPerSheet * jumlahPesanan)
+   760→    } else {
+   761→      setCalculatedGlueBoronganSheet(0)
+   762→    }
+   763→
+   764→    setCalculatedCost(calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost)
+   765→  }, [selectedMachine, selectedMachine2, selectedFinishingItems, formData.quantity, formData.jumlahPesanan, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.cutWidth, formData.cutHeight, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, formData.pricePerSheet, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost])
+   766→
+   767→  const buildPrintHtml = (calc: PrintCalculation) => {
+   768→    const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`
+   769→    const fmtQ = (s: string) => parseInt(s || '0').toLocaleString('id-ID')
+   770→    const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+   771→
+   772→    const paperPrice = calc.totalPaperPrice || ((parseFloat(calc.pricePerSheet) || 0) * (parseInt(calc.quantity) || 0))
+   773→    const biayaLain1 = parseFloat(calc.biayaLain1) || 0
+   774→    const biayaLain2 = parseFloat(calc.biayaLain2) || 0
+   775→    const packing = parseFloat(calc.packingCost) || 0
+   776→    const shipping = parseFloat(calc.shippingCost) || 0
+   777→    const glueCost = calc.calculatedGlueCost || 0
+   778→    const glueBorongan = calc.calculatedGlueBoronganSheet || 0
+   779→    const subTotal = paperPrice + (calc.calculatedPrintingCost || 0) + (calc.calculatedPrintingCost2 || 0) + (calc.calculatedFinishingCost || 0) + packing + shipping + biayaLain1 + biayaLain2 + glueCost + glueBorongan
+   780→    const profitAmt = subTotal * (profitPercent / 100)
+   781→    const grandTotal = subTotal + profitAmt
+   782→
+   783→    let sections = ''
+   784→
+   785→    // === INFORMASI CETAKAN ===
+   786→    const warnaText = `${calc.warna || 0} warna${calc.warnaKhusus && parseInt(calc.warnaKhusus) > 0 ? ` + ${calc.warnaKhusus} khusus` : ''}`
+   787→    const ukuranText = calc.cutWidth && calc.cutHeight ? `${calc.cutWidth} × ${calc.cutHeight} cm` : (calc.paperLength && calc.paperWidth ? `${calc.paperLength} × ${calc.paperWidth} cm` : '-')
+   788→
+   789→    sections += `
+   790→    <div class="section">
+   791→      <div class="section-header">
+   792→        <div class="section-icon blue">ℹ</div>
+   793→        <span>Informasi Cetakan</span>
+   794→      </div>
+   795→      <div class="info-grid">
+   796→        <div class="info-card blue">
+   797→          <div class="info-label">Nama Customer</div>
+   798→          <div class="info-value">${calc.customerName || '-'}</div>
+   799→        </div>
+   800→        <div class="info-card indigo">
+   801→          <div class="info-label">Nama Barang</div>
+   802→          <div class="info-value">${calc.printName || '-'}</div>
+   803→        </div>
+   804→        <div class="info-card purple">
+   805→          <div class="info-label">Jumlah Cetakan</div>
+   806→          <div class="info-value">${fmtQ(calc.quantity)} <small>lembar</small></div>
+   807→        </div>
+   808→        <div class="info-card slate">
+   809→          <div class="info-label">Ukuran Potongan</div>
+   810→          <div class="info-value">${ukuranText}</div>
+   811→        </div>
+   812→        <div class="info-card slate">
+   813→          <div class="info-label">Warna Cetak</div>
+   814→          <div class="info-value">${warnaText}</div>
+   815→        </div>
+   816→        <div class="info-card slate">
+   817→          <div class="info-label">Mesin</div>
+   818→          <div class="info-value">${calc.machineName || '-'}</div>
+   819→        </div>
+   820→      </div>
+   821→    </div>`
+   822→
+   823→    // === HARGA BAHAN KERTAS ===
+   824→    if (paperPrice > 0) {
+   825→      sections += `
+   826→    <div class="section">
+   827→      <div class="section-header">
+   828→        <div class="section-icon teal">📄</div>
+   829→        <span>Harga Bahan Kertas</span>
+   830→      </div>
+   831→      <div class="cost-card teal">
+   832→        <span class="cost-label">${calc.paperName || '-'}</span>
+   833→        <span class="cost-value teal">${rp(paperPrice)}</span>
+   834→      </div>
+   835→    </div>`
+   836→    }
+   837→
+   838→    // === ONGKOS CETAK ===
+   839→    if (calc.calculatedPrintingCost > 0) {
+   840→      sections += `
+   841→    <div class="section">
+   842→      <div class="section-header">
+   843→        <div class="section-icon blue">🔢</div>
+   844→        <span>Ongkos Cetak</span>
+   845→      </div>
+   846→      <div class="cost-card blue">
+   847→        <span class="cost-label">Total Ongkos Cetak</span>
+   848→        <span class="cost-value blue">${rp(calc.calculatedPrintingCost)}</span>
+   849→      </div>
+   850→    </div>`
+   851→    }
+   852→
+   853→    // === ONGKOS CETAK 2 ===
+   854→    if (calc.calculatedPrintingCost2 > 0) {
+   855→      sections += `
+   856→    <div class="section">
+   857→      <div class="section-header">
+   858→        <div class="section-icon fuchsia">🔢</div>
+   859→        <span>Ongkos Cetak 2</span>
+   860→      </div>
+   861→      <div class="cost-card fuchsia">
+   862→        <span class="cost-label">Total Ongkos Cetak 2</span>
+   863→        <span class="cost-value fuchsia">${rp(calc.calculatedPrintingCost2)}</span>
+   864→      </div>
+   865→    </div>`
+   866→    }
+   867→
+   868→    // === FINISHING ===
+   869→    if (calc.finishingBreakdown && calc.finishingBreakdown.length > 0) {
+   870→      const finRows = calc.finishingBreakdown.map(fb =>
+   871→        `<div class="fin-row"><span>${fb.name}</span><span class="fin-price">${rp(fb.cost)}</span></div>`
+   872→      ).join('')
+   873→      sections += `
+   874→    <div class="section">
+   875→      <div class="section-header">
+   876→        <div class="section-icon rose">✂</div>
+   877→        <span>Finishing</span>
+   878→      </div>
+   879→      <div class="fin-card">
+   880→        ${finRows}
+   881→        <div class="fin-total">
+   882→          <span>Total Finishing</span>
+   883→          <span class="fin-total-price">${rp(calc.calculatedFinishingCost)}</span>
+   884→        </div>
+   885→      </div>
+   886→    </div>`
+   887→    } else if (calc.finishingName && calc.calculatedFinishingCost > 0) {
+   888→      sections += `
+   889→    <div class="section">
+   890→      <div class="section-header">
+   891→        <div class="section-icon rose">✂</div>
+   892→        <span>Finishing</span>
+   893→      </div>
+   894→      <div class="cost-card rose">
+   895→        <span class="cost-label">${calc.finishingName}</span>
+   896→        <span class="cost-value rose">${rp(calc.calculatedFinishingCost)}</span>
+   897→      </div>
+   898→    </div>`
+   899→    }
+   900→
+   901→    // === BIAYA TAMBAHAN ===
+   902→    const extras = [
+   903→      { name: 'Ongkos Packing', val: packing },
+   904→      { name: 'Ongkos Kirim', val: shipping },
+   905→      { name: 'Ongkos Lem', val: glueCost },
+   906→      { name: 'Lem Borongan', val: glueBorongan },
+   907→    ]
+   908→    if (biayaLain1 > 0) extras.push({ name: calc.biayaLain1Label || 'Biaya Bikin Piso', val: biayaLain1 })
+   909→    if (biayaLain2 > 0) extras.push({ name: calc.biayaLain2Label || 'Biaya', val: biayaLain2 })
+   910→    const filteredExtras = extras.filter(e => e.val > 0)
+   911→    if (filteredExtras.length > 0) {
+   912→      const extraRows = filteredExtras.map(e =>
+   913→        `<div class="extra-item"><div class="extra-icon">💰</div><div class="extra-text"><div class="extra-label">${e.name}</div><div class="extra-price">${rp(e.val)}</div></div></div>`
+   914→      ).join('')
+   915→      sections += `
+   916→    <div class="section">
+   917→      <div class="section-header">
+   918→        <div class="section-icon amber">💰</div>
+   919→        <span>Biaya Tambahan</span>
+   920→      </div>
+   921→      <div class="extra-grid">${extraRows}</div>
+   922→    </div>`
+   923→    }
+   924→
+   925→    // === UANG CAPEK ===
+   926→    if (profitPercent > 0 && profitAmt > 0) {
+   927→      sections += `
+   928→    <div class="section">
+   929→      <div class="section-header">
+   930→        <div class="section-icon orange">%</div>
+   931→        <span>Uang Capek</span>
+   932→      </div>
+   933→      <div class="cost-card orange">
+   934→        <span class="cost-label">Uang Capek (${profitPercent}%)</span>
+   935→        <span class="cost-value orange">${rp(Math.round(profitAmt))}</span>
+   936→      </div>
+   937→    </div>`
+   938→    }
+   939→
+   940→    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${calc.printName}</title>
+   941→      <style>
+   942→        @page { size: A4 portrait; margin: 12mm 15mm; }
+   943→        * { margin: 0; padding: 0; box-sizing: border-box; }
+   944→        body {
+   945→          font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+   946→          color: #1e293b;
+   947→          font-size: 11px;
+   948→          line-height: 1.4;
+   949→          width: 210mm;
+   950→          min-height: 297mm;
+   951→        }
+   952→        @media print {
+   953→          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+   954→          .page { page-break-after: avoid; }
+   955→        }
+   956→        .page {
+   957→          padding: 0;
+   958→        }
+   959→        .header {
+   960→          text-align: center;
+   961→          padding-bottom: 10px;
+   962→          border-bottom: 2px solid #e2e8f0;
+   963→          margin-bottom: 10px;
+   964→        }
+   965→        .header h1 {
+   966→          font-size: 18px;
+   967→          font-weight: 800;
+   968→          color: #0f172a;
+   969→          letter-spacing: -0.3px;
+   970→        }
+   971→        .header p {
+   972→          font-size: 10px;
+   973→          color: #64748b;
+   974→          margin-top: 3px;
+   975→        }
+   976→        .section {
+   977→          margin-bottom: 8px;
+   978→        }
+   979→        .section-header {
+   980→          display: flex;
+   981→          align-items: center;
+   982→          gap: 6px;
+   983→          margin-bottom: 5px;
+   984→        }
+   985→        .section-header span {
+   986→          font-size: 11px;
+   987→          font-weight: 700;
+   988→          color: #334155;
+   989→          text-transform: uppercase;
+   990→          letter-spacing: 0.5px;
+   991→        }
+   992→        .section-icon {
+   993→          width: 20px;
+   994→          height: 20px;
+   995→          border-radius: 5px;
+   996→          display: flex;
+   997→          align-items: center;
+   998→          justify-content: center;
+   999→          font-size: 10px;
+  1000→          font-weight: 700;
+  1001→        }
+  1002→        .section-icon.blue { background: #dbeafe; color: #2563eb; }
+  1003→        .section-icon.teal { background: #ccfbf1; color: #0d9488; }
+  1004→        .section-icon.fuchsia { background: #fae8ff; color: #c026d3; }
+  1005→        .section-icon.rose { background: #ffe4e6; color: #e11d48; }
+  1006→        .section-icon.amber { background: #fef3c7; color: #d97706; }
+  1007→        .section-icon.orange { background: #ffedd5; color: #ea580c; }
+  1008→        .info-grid {
+  1009→          display: grid;
+  1010→          grid-template-columns: 1fr 1fr 1fr;
+  1011→          gap: 4px;
+  1012→        }
+  1013→        .info-card {
+  1014→          border-radius: 6px;
+  1015→          padding: 6px 8px;
+  1016→        }
+  1017→        .info-card.blue { background: #eff6ff; border: 1px solid #bfdbfe; }
+  1018→        .info-card.indigo { background: #eef2ff; border: 1px solid #c7d2fe; }
+  1019→        .info-card.purple { background: #faf5ff; border: 1px solid #e9d5ff; }
+  1020→        .info-card.slate { background: #f8fafc; border: 1px solid #e2e8f0; }
+  1021→        .info-label {
+  1022→          font-size: 8px;
+  1023→          font-weight: 500;
+  1024→          color: #64748b;
+  1025→          margin-bottom: 1px;
+  1026→        }
+  1027→        .info-card.blue .info-label { color: #3b82f6; }
+  1028→        .info-card.indigo .info-label { color: #6366f1; }
+  1029→        .info-card.purple .info-label { color: #a855f7; }
+  1030→        .info-value {
+  1031→          font-size: 12px;
+  1032→          font-weight: 700;
+  1033→          color: #334155;
+  1034→        }
+  1035→        .info-card.blue .info-value { color: #1e40af; }
+  1036→        .info-card.indigo .info-value { color: #3730a3; }
+  1037→        .info-card.purple .info-value { color: #7e22ce; }
+  1038→        .info-value small {
+  1039→          font-size: 9px;
+  1040→          font-weight: 400;
+  1041→          color: #a855f7;
+  1042→        }
+  1043→        .cost-card {
+  1044→          border-radius: 6px;
+  1045→          padding: 8px 10px;
+  1046→          display: flex;
+  1047→          align-items: center;
+  1048→          justify-content: space-between;
+  1049→        }
+  1050→        .cost-card.teal { background: #f0fdfa; border: 1px solid #99f6e4; }
+  1051→        .cost-card.blue { background: #eff6ff; border: 1px solid #bfdbfe; }
+  1052→        .cost-card.fuchsia { background: #fdf4ff; border: 1px solid #f0abfc; }
+  1053→        .cost-card.rose { background: #fff1f2; border: 1px solid #fecdd3; }
+  1054→        .cost-card.orange { background: #fff7ed; border: 1px solid #fed7aa; }
+  1055→        .cost-label {
+  1056→          font-size: 12px;
+  1057→          font-weight: 700;
+  1058→          color: #334155;
+  1059→        }
+  1060→        .cost-card.teal .cost-label { color: #115e59; }
+  1061→        .cost-card.blue .cost-label { color: #1e40af; }
+  1062→        .cost-card.fuchsia .cost-label { color: #a21caf; }
+  1063→        .cost-card.rose .cost-label { color: #9f1239; }
+  1064→        .cost-card.orange .cost-label { color: #ea580c; }
+  1065→        .cost-value {
+  1066→          font-size: 15px;
+  1067→          font-weight: 800;
+  1068→        }
+  1069→        .cost-value.teal { color: #0f766e; }
+  1070→        .cost-value.blue { color: #1d4ed8; }
+  1071→        .cost-value.fuchsia { color: #c026d3; }
+  1072→        .cost-value.rose { color: #be123c; }
+  1073→        .cost-value.orange { color: #c2410c; }
+  1074→        .fin-card {
+  1075→          background: #fff1f2;
+  1076→          border: 1px solid #fecdd3;
+  1077→          border-radius: 6px;
+  1078→          padding: 8px 10px;
+  1079→        }
+  1080→        .fin-row {
+  1081→          display: flex;
+  1082→          justify-content: space-between;
+  1083→          padding: 2px 0;
+  1084→          font-size: 11px;
+  1085→          color: #9f1239;
+  1086→        }
+  1087→        .fin-price {
+  1088→          font-weight: 700;
+  1089→          color: #be123c;
+  1090→        }
+  1091→        .fin-total {
+  1092→          border-top: 1px solid #fecdd3;
+  1093→          margin-top: 4px;
+  1094→          padding-top: 5px;
+  1095→          display: flex;
+  1096→          justify-content: space-between;
+  1097→        }
+  1098→        .fin-total span:first-child {
+  1099→          font-size: 10px;
+  1100→          font-weight: 700;
+  1101→          color: #e11d48;
+  1102→          text-transform: uppercase;
+  1103→        }
+  1104→        .fin-total-price {
+  1105→          font-size: 13px;
+  1106→          font-weight: 800;
+  1107→          color: #be123c;
+  1108→        }
+  1109→        .extra-grid {
+  1110→          background: #fffbeb;
+  1111→          border: 1px solid #fde68a;
+  1112→          border-radius: 6px;
+  1113→          padding: 8px 10px;
+  1114→          display: grid;
+  1115→          grid-template-columns: 1fr 1fr;
+  1116→          gap: 6px;
+  1117→        }
+  1118→        .extra-item {
+  1119→          display: flex;
+  1120→          align-items: center;
+  1121→          gap: 6px;
+  1122→        }
+  1123→        .extra-icon {
+  1124→          font-size: 14px;
+  1125→        }
+  1126→        .extra-label {
+  1127→          font-size: 9px;
+  1128→          color: #b45309;
+  1129→        }
+  1130→        .extra-price {
+  1131→          font-size: 12px;
+  1132→          font-weight: 700;
+  1133→          color: #92400e;
+  1134→        }
+  1135→        .grand-total {
+  1136→          background: #0f172a;
+  1137→          color: white;
+  1138→          border-radius: 10px;
+  1139→          padding: 14px 16px;
+  1140→          display: flex;
+  1141→          justify-content: space-between;
+  1142→          align-items: center;
+  1143→          margin-top: 6px;
+  1144→        }
+  1145→        .grand-total-label {
+  1146→          font-size: 11px;
+  1147→          color: #94a3b8;
+  1148→        }
+  1149→        .grand-total-value {
+  1150→          font-size: 24px;
+  1151→          font-weight: 800;
+  1152→          color: #34d399;
+  1153→        }
+  1154→        .grand-total-detail {
+  1155→          text-align: right;
+  1156→          font-size: 9px;
+  1157→          color: #94a3b8;
+  1158→          line-height: 1.7;
+  1159→        }
+  1160→      </style>
+  1161→    </head><body>
+  1162→      <div class="page">
+  1163→        <div class="header">
+  1164→          <h1>Rincian Harga Cetakan</h1>
+  1165→          <p>${calc.printName} · ${now}</p>
+  1166→        </div>
+  1167→        ${sections}
+  1168→        <div class="grand-total">
+  1169→          <div>
+  1170→            <div class="grand-total-label">Grand Total</div>
+  1171→            <div class="grand-total-value">${rp(Math.round(grandTotal))}</div>
+  1172→          </div>
+  1173→          <div class="grand-total-detail">
+  1174→            <div>Sub Total: ${rp(Math.round(subTotal))}</div>
+  1175→            ${profitAmt > 0 ? `<div>Uang Capek: ${rp(Math.round(profitAmt))}</div>` : ''}
+  1176→          </div>
+  1177→        </div>
+  1178→      </div>
+  1179→    </body></html>`
+  1180→  }
+  1181→
+  1182→  const handlePrint = () => {
+  1183→    if (!previewCalc) { toast.error('Preview tidak tersedia'); return }
+  1184→    const pw = window.open('', '_blank')
+  1185→    if (!pw) { toast.error('Popup diblokir'); return }
+  1186→    pw.document.write(buildPrintHtml(previewCalc))
+  1187→    pw.document.close()
+  1188→    pw.onload = () => setTimeout(() => pw.print(), 200)
+  1189→  }
+  1190→
+  1191→  const handlePdf = async () => {
+  1192→    if (!previewCalc) return
+  1193→    setIsGeneratingPdf(true)
+  1194→    try {
+  1195→      const { jsPDF } = await import('jspdf')
+  1196→      // A4 portrait: 210mm x 297mm
+  1197→      const pdf = new jsPDF('p', 'mm', 'a4')
+  1198→      const pdfW = pdf.internal.pageSize.getWidth() // 210
+  1199→      const pdfH = pdf.internal.pageSize.getHeight() // 297
+  1200→      const margin = 8
+  1201→      const contentW = pdfW - margin * 2
+  1202→      const contentH = pdfH - margin * 2
+  1203→
+  1204→      // Render HTML to canvas via hidden iframe at A4 pixel dimensions
+  1205→      const a4PxW = 794 // ~210mm at 96dpi
+  1206→      const a4PxH = 1123 // ~297mm at 96dpi
+  1207→      const iframe = document.createElement('iframe')
+  1208→      iframe.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${a4PxW}px;height:${a4PxH}px;border:none;`
+  1209→      document.body.appendChild(iframe)
+  1210→      const iframeDoc = iframe.contentDocument!
+  1211→      iframeDoc.open()
+  1212→      iframeDoc.write(buildPrintHtml(previewCalc))
+  1213→      iframeDoc.close()
+  1214→
+  1215→      await new Promise(resolve => setTimeout(resolve, 600))
+  1216→
+  1217→      const { toCanvas } = await import('html-to-image')
+  1218→      const canvas = await toCanvas(iframeDoc.body, {
+  1219→        backgroundColor: '#ffffff',
+  1220→        pixelRatio: 3,
+  1221→        width: a4PxW,
+  1222→        height: iframeDoc.body.scrollHeight,
+  1223→        canvasWidth: a4PxW * 3,
+  1224→        canvasHeight: iframeDoc.body.scrollHeight * 3,
+  1225→      })
+  1226→
+  1227→      document.body.removeChild(iframe)
+  1228→
+  1229→      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+  1230→      const imgW = contentW
+  1231→      const imgH = (canvas.height * imgW) / canvas.width
+  1232→
+  1233→      // Scale to fit A4 portrait in 1 page
+  1234→      if (imgH <= contentH) {
+  1235→        const offsetX = margin + (contentW - imgW) / 2
+  1236→        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH)
+  1237→      } else {
+  1238→        const scaledW = (contentH * imgW) / imgH
+  1239→        const offsetX = margin + (contentW - scaledW) / 2
+  1240→        pdf.addImage(imgData, 'JPEG', offsetX, margin, scaledW, contentH)
+  1241→      }
+  1242→
+  1243→      pdf.save(`rincian-${previewCalc.printName}-${Date.now()}.pdf`)
+  1244→      toast.success('PDF berhasil diunduh!')
+  1245→    } catch (e) {
+  1246→      console.error('PDF error:', e)
+  1247→      toast.error('Gagal menghasilkan PDF')
+  1248→    }
+  1249→    finally { setIsGeneratingPdf(false) }
+  1250→  }
+  1251→
+  1252→  const handlePreview = () => {
+  1253→    if (!formData.printName || !formData.quantity) {
+  1254→      toast.error('Lengkapi Nama Barang dan Jumlah terlebih dahulu')
+  1255→      return
+  1256→    }
+  1257→    const packing = parseFloat(formData.packingCost) || 0
+  1258→    const shipping = parseFloat(formData.shippingCost) || 0
+  1259→    const priceSheet = parseFloat(formData.pricePerSheet) || 0
+  1260→    const qty = parseInt(formData.quantity) || 0
+  1261→    const biayaLain1Val = parseFloat(formData.biayaLain1) || 0
+  1262→    const biayaLain2Val = parseFloat(formData.biayaLain2) || 0
+  1263→    const totalCost = calculatedCost + packing + shipping + calculatedGlueCost + calculatedGlueBoronganSheet + biayaLain1Val + biayaLain2Val + (priceSheet * qty)
+  1264→    const previewData: PrintCalculation = {
+  1265→      id: 'preview',
+  1266→      printName: formData.printName, paperLength: formData.paperLength, paperWidth: formData.paperWidth,
+  1267→      cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
+  1268→      quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
+  1269→      hargaPlat: formData.hargaPlat, paperId: formData.paperId, paperName: selectedPaper?.name || 'Custom',
+  1270→      machineId: formData.machineId, machineName: selectedMachine?.machineName || '-',
+  1271→      printingCost: calculatedCost, finishingId: selectedFinishings.join(','),
+  1272→      finishingName: selectedFinishingItems.map(f => f.name).join(', '),
+  1273→      packingCost: formData.packingCost, shippingCost: formData.shippingCost,
+  1274→      pricePerSheet: formData.pricePerSheet, totalPrice: totalCost,
+  1275→      customerName: formData.customerName,
+  1276→      machineId2: formData.machineId2, machineName2: selectedMachine2?.machineName || '',
+  1277→      warna2: formData.warna2, warnaKhusus2: formData.warnaKhusus2, hargaPlat2: formData.hargaPlat2,
+  1278→      glueLengthCm: formData.glueLengthCm, glueCostPerCm: formData.glueCostPerCm, glueBoronganPerSheet: formData.glueBoronganPerSheet,
+  1279→      biayaLain1: formData.biayaLain1, biayaLain2: formData.biayaLain2,
+  1280→      totalPaperPrice, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost,
+  1281→      calculatedGlueCost, calculatedGlueBoronganSheet,
+  1282→      finishingBreakdown: selectedFinishingItems.map(fin => { const { cost } = getFinishingCost(fin); return { name: fin.name, cost } }),
+  1283→      profitPercent, biayaLain1Label, biayaLain2Label
+  1284→    }
+  1285→    setPreviewCalc(previewData)
+  1286→    setPreviewOpen(true)
+  1287→  }
+  1288→
+  1289→  const handleWhatsApp = () => {
+  1290→    if (!formData.printName || !formData.quantity) {
+  1291→      toast.error('Lengkapi Nama Barang dan Jumlah terlebih dahulu')
+  1292→      return
+  1293→    }
+  1294→    const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`
+  1295→    const qty = parseInt(formData.quantity) || 0
+  1296→
+  1297→    let msg = `*Rincian Harga Cetakan - www.darrellsoft.com*\n\n`
+  1298→    msg += `Nama Customer: ${formData.customerName || '-'}\n`
+  1299→    msg += `Nama Barang: ${formData.printName}\n`
+  1300→    msg += `Jumlah Pesanan: ${summaryJumlahPesanan.toLocaleString('id-ID')} lbr\n`
+  1301→    msg += `Kertas: ${selectedPaper?.name || '-'} ${selectedPaper?.grammage ? `(${selectedPaper.grammage} gsm)` : ''}\n`
+  1302→    if (selectedFinishingItems.length > 0) {
+  1303→      msg += `Finishing:\n`
+  1304→      selectedFinishingItems.forEach(fin => {
+  1305→        const { cost } = getFinishingCost(fin)
+  1306→        if (cost > 0) msg += `${fin.name}\n`
+  1307→      })
+  1308→    }
+  1309→    msg += `\n*Grand Total: ${rp(summaryGrandTotal)}*\n`
+  1310→    if (summaryJumlahPesanan > 0) msg += `Harga/Pcs: ${rp(summaryGrandTotal / summaryJumlahPesanan)}\n`
+  1311→    msg += `\nTerima kasih`
+  1312→
+  1313→    const encoded = encodeURIComponent(msg)
+  1314→
+  1315→    openWhatsApp(encoded, { waWindowRef })
+  1316→    toast.success('Membuka WhatsApp...')
+  1317→  }
+  1318→
+  1319→  const resetForm = () => {
+  1320→    clearStorage()
+  1321→    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+  1322→    setSelectedFinishings([])
+  1323→    setCalculatedCost(0)
+  1324→    setCalculatedGlueCost(0)
+  1325→    setCalculatedGlueBoronganSheet(0)
+  1326→    setCalculatedPrintingCost2(0)
+  1327→    setTotalPaperPrice(0)
+  1328→    toast.success('Form berhasil direset')
+  1329→  }
+  1330→
+  1331→  const buildRiwayatPayload = () => {
+  1332→    const packing = parseFloat(formData.packingCost) || 0
+  1333→    const shipping = parseFloat(formData.shippingCost) || 0
+  1334→    const biayaLain1Val = parseFloat(formData.biayaLain1) || 0
+  1335→    const biayaLain2Val = parseFloat(formData.biayaLain2) || 0
+  1336→    const glueTotal = calculatedGlueCost + calculatedGlueBoronganSheet
+  1337→    const subTotal = paperPriceValue + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + packing + shipping + biayaLain1Val + biayaLain2Val + glueTotal
+  1338→    const profitAmount = subTotal * (profitPercent / 100)
+  1339→    const grandTotal = subTotal + profitAmount
+  1340→    return {
+  1341→      type: 'hitung_cetakan',
+  1342→      printName: formData.printName, customerName: formData.customerName, paperName: selectedPaper?.name || '',
+  1343→      paperGrammage: selectedPaper?.grammage?.toString() || '0',
+  1344→      paperLength: formData.paperLength, paperWidth: formData.paperWidth,
+  1345→      cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
+  1346→      quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
+  1347→      machineName: selectedMachine?.machineName || '',
+  1348→      hargaPlat: parseFloat(formData.hargaPlat) || 0,
+  1349→      ongkosCetak: calculatedPrintingCost,
+  1350→      ongkosCetakDetail: selectedMachine ? `(Rp ${Math.round(selectedMachine.pricePerColor).toLocaleString('id-ID')} × ${formData.warna || 0} warna)${parseInt(formData.warnaKhusus || '0') > 0 ? ` + (Rp ${Math.round(selectedMachine.specialColorPrice).toLocaleString('id-ID')} × ${formData.warnaKhusus} khusus)` : ''}${parseInt(formData.quantity) > selectedMachine.minimumPrintQuantity ? ` + (${formData.quantity} - ${selectedMachine.minimumPrintQuantity}) × Rp ${Math.round(selectedMachine.priceAboveMinimumPerSheet).toLocaleString('id-ID')}` : ''} + Rp ${Math.round(selectedMachine.platePricePerSheet).toLocaleString('id-ID')} × ${parseInt(formData.warna || '0') + parseInt(formData.warnaKhusus || '0')} plat` : '',
+  1351→      machineName2: selectedMachine2?.machineName || '',
+  1352→      warna2: formData.warna2,
+  1353→      warnaKhusus2: formData.warnaKhusus2,
+  1354→      hargaPlat2: parseFloat(formData.hargaPlat2) || 0,
+  1355→      ongkosCetak2: calculatedPrintingCost2,
+  1356→      ongkosCetak2Detail: selectedMachine2 ? `(Rp ${Math.round(selectedMachine2.pricePerColor).toLocaleString('id-ID')} × ${formData.warna2 || 0} warna)${parseInt(formData.warnaKhusus2 || '0') > 0 ? ` + (Rp ${Math.round(selectedMachine2.specialColorPrice).toLocaleString('id-ID')} × ${formData.warnaKhusus2} khusus)` : ''}${parseInt(formData.quantity) > selectedMachine2.minimumPrintQuantity ? ` + (${formData.quantity} - ${formData.minimumPrintQuantity2 || selectedMachine2.minimumPrintQuantity}) × Rp ${Math.round(selectedMachine2.priceAboveMinimumPerSheet).toLocaleString('id-ID')}` : ''} + Rp ${Math.round(selectedMachine2.platePricePerSheet).toLocaleString('id-ID')} × ${parseInt(formData.warna2 || '0') + parseInt(formData.warnaKhusus2 || '0')} plat` : '',
+  1357→      totalPaperPrice: paperPriceValue,
+  1358→      pricePerSheet: parseFloat(formData.pricePerSheet) || 0,
+  1359→      finishingNames: selectedFinishingItems.map(f => f.name).join(', '),
+  1360→      finishingBreakdown: selectedFinishingItems.map(f => { const r = getFinishingCost(f); return `${f.name}: ${r.breakdown} = Rp ${Math.round(r.cost).toLocaleString('id-ID')}` }).join(' | '),
+  1361→      finishingCost: calculatedFinishingCost, packingCost: packing, shippingCost: shipping,
+  1362→      otherCost: biayaLain1Val, otherCost2: biayaLain2Val,
+  1363→      otherCostLabel: biayaLain1Label, otherCostLabel2: biayaLain2Label,
+  1364→      glueCost: calculatedGlueCost, glueBorongan: calculatedGlueBoronganSheet,
+  1365→      glueLengthCm: formData.glueLengthCm, glueCostPerCm: formData.glueCostPerCm,
+  1366→      subTotal, profitPercent, profitAmount, grandTotal
+  1367→    }
+  1368→  }
+  1369→
+  1370→  const resetFormForRiwayat = () => {
+  1371→    setRestoredRiwayatId(null)
+  1372→    clearStorage()
+  1373→    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+  1374→    setSelectedFinishings([])
+  1375→    setCalculatedCost(0)
+  1376→    setCalculatedGlueCost(0)
+  1377→    setCalculatedGlueBoronganSheet(0)
+  1378→    setCalculatedPrintingCost2(0)
+  1379→    setTotalPaperPrice(0)
+  1380→  }
+  1381→
+  1382→  const isDataSameAsAnyRiwayat = () => {
+  1383→    if (riwayatCetakanList.length === 0) return false
+  1384→    const payload = buildRiwayatPayload()
+  1385→    return riwayatCetakanList.some(r =>
+  1386→      (r.printName || '') === (payload.printName || '') &&
+  1387→      (r.customerName || '') === (payload.customerName || '') &&
+  1388→      (r.paperName || '') === (payload.paperName || '') &&
+  1389→      (r.paperLength || '') === (payload.paperLength || '') &&
+  1390→      (r.paperWidth || '') === (payload.paperWidth || '') &&
+  1391→      (r.cutWidth || '') === (payload.cutWidth || '') &&
+  1392→      (r.cutHeight || '') === (payload.cutHeight || '') &&
+  1393→      (r.quantity || '') === (payload.quantity || '') &&
+  1394→      (r.jumlahPesanan || '') === (payload.jumlahPesanan || '') &&
+  1395→      (r.berapaMata || '') === (payload.berapaMata || '') &&
+  1396→      (r.machineName || '') === (payload.machineName || '') &&
+  1397→      (r.warna || '') === (payload.warna || '') &&
+  1398→      r.grandTotal === payload.grandTotal
+  1399→    )
+  1400→  }
+  1401→
+  1402→  const handleSaveRiwayat = async () => {
+  1403→    if (isDataSameAsAnyRiwayat()) {
+  1404→      toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' })
+  1405→      return
+  1406→    }
+  1407→    setSavingRiwayat(true)
+  1408→    try {
+  1409→      const res = await fetcher('/api/riwayat-cetakan', {
+  1410→        method: 'POST',
+  1411→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+  1412→        body: JSON.stringify(buildRiwayatPayload())
+  1413→      })
+  1414→      if (res.ok) {
+  1415→        toast.success('Riwayat hitung cetakan berhasil disimpan!')
+  1416→        notifyDataChange('riwayat-cetakan')
+  1417→        fetchRiwayatCetakan()
+  1418→        fetchNextNumber()
+  1419→        resetFormForRiwayat()
+  1420→      } else { toast.error('Gagal menyimpan riwayat') }
+  1421→    } catch { toast.error('Gagal menyimpan riwayat') }
+  1422→    setSavingRiwayat(false)
+  1423→  }
+  1424→
+  1425→  const handleInvoice = async () => {
+  1426→    if (!isFormValid || !hasGrandTotal) {
+  1427→      toast.error('Lengkapi data dan hitung terlebih dahulu!')
+  1428→      return
+  1429→    }
+  1430→    // Check if data already exists in riwayat
+  1431→    if (isDataSameAsAnyRiwayat()) {
+  1432→      const payload = buildRiwayatPayload()
+  1433→      const existing = riwayatCetakanList.find(r =>
+  1434→        (r.printName || '') === (payload.printName || '') &&
+  1435→        (r.customerName || '') === (payload.customerName || '') &&
+  1436→        (r.paperName || '') === (payload.paperName || '') &&
+  1437→        (r.paperLength || '') === (payload.paperLength || '') &&
+  1438→        (r.paperWidth || '') === (payload.paperWidth || '') &&
+  1439→        (r.cutWidth || '') === (payload.cutWidth || '') &&
+  1440→        (r.cutHeight || '') === (payload.cutHeight || '') &&
+  1441→        (r.quantity || '') === (payload.quantity || '') &&
+  1442→        (r.jumlahPesanan || '') === (payload.jumlahPesanan || '') &&
+  1443→        (r.berapaMata || '') === (payload.berapaMata || '') &&
+  1444→        (r.machineName || '') === (payload.machineName || '') &&
+  1445→        (r.warna || '') === (payload.warna || '') &&
+  1446→        r.grandTotal === payload.grandTotal
+  1447→      )
+  1448→      if (existing) {
+  1449→        toast('Data sudah ada di riwayat, langsung ke Invoice.', { description: 'Data yang sama tidak disimpan ulang.' })
+  1450→        resetFormForRiwayat()
+  1451→        router.push(`/invoice?riwayatId=${existing.id}`)
+  1452→      }
+  1453→      return
+  1454→    }
+  1455→    setSavingRiwayat(true)
+  1456→    try {
+  1457→      // Simpan ke riwayat cetakan dulu
+  1458→      const res = await fetcher('/api/riwayat-cetakan', {
+  1459→        method: 'POST',
+  1460→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+  1461→        body: JSON.stringify(buildRiwayatPayload())
+  1462→      })
+  1463→      if (res.ok) {
+  1464→        const saved = await res.json()
+  1465→        notifyDataChange('riwayat-cetakan')
+  1466→        fetchRiwayatCetakan()
+  1467→        toast.success('Data tersimpan di riwayat!')
+  1468→        resetFormForRiwayat()
+  1469→        // Navigasi ke halaman invoice dengan riwayatId
+  1470→        router.push(`/invoice?riwayatId=${saved.id}`)
+  1471→      } else {
+  1472→        toast.error('Gagal menyimpan data riwayat')
+  1473→      }
+  1474→    } catch {
+  1475→      toast.error('Gagal menyimpan data riwayat')
+  1476→    }
+  1477→    setSavingRiwayat(false)
+  1478→  }
+  1479→
+  1480→  const handleUpdateRiwayat = async () => {
+  1481→    if (!restoredRiwayatId) { toast.error('Tidak ada data yang di-restore'); return }
+  1482→    setSavingRiwayat(true)
+  1483→    try {
+  1484→      const res = await fetcher(`/api/riwayat-cetakan/${restoredRiwayatId}`, {
+  1485→        method: 'PUT',
+  1486→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+  1487→        body: JSON.stringify(buildRiwayatPayload())
+  1488→      })
+  1489→      if (res.ok) {
+  1490→        toast.success('Riwayat berhasil diupdate!')
+  1491→        notifyDataChange('riwayat-cetakan')
+  1492→        fetchRiwayatCetakan()
+  1493→        resetFormForRiwayat()
+  1494→      } else { toast.error('Gagal mengupdate riwayat') }
+  1495→    } catch { toast.error('Gagal mengupdate riwayat') }
+  1496→    setSavingRiwayat(false)
+  1497→  }
+  1498→
+  1499→  const handleRestoreRiwayat = (r: any) => {
+  1500→    setRestoredRiwayatId(r.id)
+  1501→    setActiveTab('editor')
+  1502→    const rQty = parseInt(r.quantity) || 0
+  1503→    // Restore ongkos lem input asli dari DB jika ada, jika tidak fallback dari total
+  1504→    const rJumlahPesanan = parseInt(r.jumlahPesanan) || rQty
+  1505→    const restoredGlueLengthCm = r.glueLengthCm || (r.glueCost ? '1' : '')
+  1506→    const restoredGlueCostPerCm = r.glueCostPerCm || (r.glueCost && rJumlahPesanan > 0 ? (r.glueCost / rJumlahPesanan).toString() : '')
+  1507→    // glueBorongan di DB menyimpan total (harga/lembar × jumlahPesanan), jadi bagi kembali untuk dapat harga/lembar asli
+  1508→    const restoredBoronganPerSheet = r.glueBorongan && rJumlahPesanan > 0 ? Math.round(r.glueBorongan / rJumlahPesanan).toString() : ''
+  1509→    const restoredForm = {
+  1510→      customerName: r.customerName || '',
+  1511→      printName: r.printName || '',
+  1512→      paperLength: r.paperLength || '',
+  1513→      paperWidth: r.paperWidth || '',
+  1514→      cutWidth: r.cutWidth || '',
+  1515→      cutHeight: r.cutHeight || '',
+  1516→      quantity: r.quantity || '',
+  1517→      jumlahPesanan: r.jumlahPesanan || '',
+  1518→      berapaMata: r.berapaMata || '',
+  1519→      warna: r.warna || '',
+  1520→      warnaKhusus: r.warnaKhusus || '',
+  1521→      hargaPlat: r.hargaPlat?.toString() || '',
+  1522→      paperId: '',
+  1523→      machineId: '',
+  1524→      packingCost: r.packingCost?.toString() || '',
+  1525→      shippingCost: r.shippingCost?.toString() || '',
+  1526→      pricePerSheet: r.pricePerSheet?.toString() || '',
+  1527→      glueLengthCm: restoredGlueLengthCm,
+  1528→      glueCostPerCm: restoredGlueCostPerCm,
+  1529→      glueBoronganPerSheet: restoredBoronganPerSheet,
+  1530→      biayaLain1: r.otherCost?.toString() || '',
+  1531→      biayaLain2: r.otherCost2?.toString() || '',
+  1532→      machineId2: '',
+  1533→      warna2: r.warna2 || '',
+  1534→      warnaKhusus2: r.warnaKhusus2 || '',
+  1535→      hargaPlat2: r.hargaPlat2?.toString() || ''
+  1536→    }
+  1537→    setFormData(restoredForm)
+  1538→    if (r.totalPaperPrice) setTotalPaperPrice(r.totalPaperPrice)
+  1539→    if (r.profitPercent) { setProfitPercent(r.profitPercent); setProfitInput(r.profitPercent === 0 ? '' : r.profitPercent.toString()) }
+  1540→    if (r.otherCostLabel) setBiayaLain1Label(r.otherCostLabel)
+  1541→    if (r.otherCostLabel2) setBiayaLain2Label(r.otherCostLabel2)
+  1542→    // Restore calculated glue values
+  1543→    if (r.glueCost) setCalculatedGlueCost(r.glueCost)
+  1544→    if (r.glueBorongan) setCalculatedGlueBoronganSheet(r.glueBorongan)
+  1545→    // Restore calculated printing/finishing costs
+  1546→    if (r.ongkosCetak) setCalculatedPrintingCost(r.ongkosCetak)
+  1547→    if (r.ongkosCetak2) setCalculatedPrintingCost2(r.ongkosCetak2)
+  1548→    if (r.finishingCost) setCalculatedFinishingCost(r.finishingCost)
+  1549→    saveToStorage({ formData: restoredForm, selectedFinishings: [], totalPaperPrice: r.totalPaperPrice || 0 })
+  1550→
+  1551→    // Match paper, machine, finishing after data loaded
+  1552→    setIsRestoring(true)
+  1553→    if (r.paperName) window.__restorePaperName = r.paperName
+  1554→    if (r.pricePerSheet) window.__restorePricePerSheet = r.pricePerSheet?.toString()
+  1555→    if (r.machineName) window.__restoreMachineName = r.machineName
+  1556→    if (r.machineName2) window.__restoreMachineName2 = r.machineName2
+  1557→    if (r.finishingNames && r.finishingNames !== '-') window.__restoreFinishingNames = r.finishingNames
+  1558→
+  1559→    toast.success('Data berhasil di-restore dari riwayat!')
+  1560→    window.scrollTo({ top: 0, behavior: 'smooth' })
+  1561→  }
+  1562→
+  1563→  const handleDeleteRiwayat = async (id: string) => {
+  1564→    if (!confirm('Beneran mau dihapus nih?')) return
+  1565→    try {
+  1566→      const res = await fetcher(`/api/riwayat-cetakan/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+  1567→      if (res.ok) {
+  1568→        toast.success('Riwayat berhasil dihapus')
+  1569→        notifyDataChange('riwayat-cetakan')
+  1570→        if (restoredRiwayatId === id) setRestoredRiwayatId(null)
+  1571→        fetchRiwayatCetakan()
+  1572→      } else { toast.error('Gagal menghapus riwayat') }
+  1573→    } catch { toast.error('Gagal menghapus riwayat') }
+  1574→  }
+  1575→
+  1576→  const handlePreviewRiwayat = (r: any) => {
+  1577→    const qty = parseInt(r.quantity) || 0
+  1578→    const hargaPerLembar = (parseInt(r.jumlahPesanan) || qty) > 0 ? (r.grandTotal || 0) / (parseInt(r.jumlahPesanan) || qty) : 0
+  1579→    const previewData: PrintCalculation = {
+  1580→      id: 'riwayat-preview',
+  1581→      printName: r.printName || '-',
+  1582→      paperLength: r.paperLength || '',
+  1583→      paperWidth: r.paperWidth || '',
+  1584→      cutWidth: r.cutWidth || '',
+  1585→      cutHeight: r.cutHeight || '',
+  1586→      quantity: r.quantity || '',
+  1587→      warna: r.warna || '',
+  1588→      warnaKhusus: r.warnaKhusus || '',
+  1589→      paperId: '',
+  1590→      paperName: r.paperName || '-',
+  1591→      machineId: '',
+  1592→      machineName: r.machineName || '-',
+  1593→      printingCost: r.ongkosCetak || 0,
+  1594→      finishingId: '',
+  1595→      finishingName: r.finishingNames || '',
+  1596→      packingCost: r.packingCost?.toString() || '0',
+  1597→      shippingCost: r.shippingCost?.toString() || '0',
+  1598→      pricePerSheet: r.pricePerSheet?.toString() || '0',
+  1599→      hargaPlat: r.hargaPlat?.toString() || '0',
+  1600→      totalPrice: r.grandTotal || 0,
+  1601→      customerName: r.customerName || '',
+  1602→      machineId2: '',
+  1603→      machineName2: r.machineName2 || '',
+  1604→      warna2: r.warna2 || '',
+  1605→      warnaKhusus2: r.warnaKhusus2 || '',
+  1606→      hargaPlat2: r.hargaPlat2?.toString() || '0',
+  1607→      glueLengthCm: '',
+  1608→      glueCostPerCm: '',
+  1609→      glueBoronganPerSheet: r.glueBorongan && (parseInt(r.jumlahPesanan) || qty) > 0 ? Math.round(r.glueBorongan / (parseInt(r.jumlahPesanan) || qty)).toString() : '0',
+  1610→      biayaLain1: r.otherCost?.toString() || '0',
+  1611→      biayaLain2: r.otherCost2?.toString() || '0',
+  1612→      totalPaperPrice: r.totalPaperPrice || 0,
+  1613→      calculatedPrintingCost: r.ongkosCetak || 0,
+  1614→      calculatedPrintingCost2: r.ongkosCetak2 || 0,
+  1615→      calculatedFinishingCost: r.finishingCost || 0,
+  1616→      calculatedGlueCost: r.glueCost || 0,
+  1617→      calculatedGlueBoronganSheet: r.glueBorongan || 0,
+  1618→      finishingBreakdown: r.finishingBreakdown ? r.finishingBreakdown.split(' | ').map(s => {
+  1619→        const firstColonIdx = s.indexOf(': ')
+  1620→        const name = firstColonIdx > -1 ? s.substring(0, firstColonIdx) : s
+  1621→        const lastEqRp = s.lastIndexOf('= Rp ')
+  1622→        const costStr = lastEqRp > -1 ? s.substring(lastEqRp + 5) : '0'
+  1623→        const cost = parseFloat(costStr.replace(/[^\d-]/g, '')) || 0
+  1624→        return { name, cost }
+  1625→      }) : [],
+  1626→      profitPercent: r.profitPercent || 0,
+  1627→      biayaLain1Label: r.otherCostLabel || 'Biaya Bikin Piso',
+  1628→      biayaLain2Label: r.otherCostLabel2 || 'Biaya'
+  1629→    }
+  1630→    setPreviewCalc(previewData)
+  1631→    setPreviewOpen(true)
+  1632→  }
+  1633→
+  1634→  // Summary values
+  1635→  const summaryPacking = parseFloat(formData.packingCost) || 0
+  1636→  const summaryShipping = parseFloat(formData.shippingCost) || 0
+  1637→  const summaryBiayaLain1 = parseFloat(formData.biayaLain1) || 0
+  1638→  const summaryBiayaLain2 = parseFloat(formData.biayaLain2) || 0
+  1639→  const summaryGlueTotal = calculatedGlueCost + calculatedGlueBoronganSheet
+  1640→  const summarySubTotal = paperPriceValue + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + summaryPacking + summaryShipping + summaryBiayaLain1 + summaryBiayaLain2 + summaryGlueTotal
+  1641→  const summaryProfitAmount = summarySubTotal * (profitPercent / 100)
+  1642→  const summaryGrandTotal = summarySubTotal + summaryProfitAmount
+  1643→  const summaryQuantity = parseInt(formData.quantity) || 0
+  1644→  const summaryJumlahPesanan = parseInt(formData.jumlahPesanan) || 0
+  1645→  const summaryHargaPerlembar = summaryJumlahPesanan > 0 ? summaryGrandTotal / summaryJumlahPesanan : 0
+  1646→
+  1647→  // Form validation: require essential fields before buttons can be used.
+  1648→  // Ongkos cetak (machineId + warna) is OPTIONAL — user can save with only paper + finishing + other costs.
+  1649→  const isFormValid = !!(
+  1650→    formData.printName.trim() &&
+  1651→    formData.paperId &&
+  1652→    formData.quantity &&
+  1653→    parseInt(formData.quantity) > 0 &&
+  1654→    (formData.cutWidth || formData.paperLength) &&
+  1655→    (formData.cutHeight || formData.paperWidth) &&
+  1656→    // warna only required when a printing machine is selected
+  1657→    (!formData.machineId || (formData.warna && parseInt(formData.warna) > 0))
+  1658→  )
+  1659→
+  1660→  // Grand total is 0 = no calculation yet
+  1661→  const hasGrandTotal = summaryGrandTotal > 0
+  1662→
+  1663→  // Check popup state
+  1664→  const [checkOpen, setCheckOpen] = useState(false)
+  1665→
+  1666→  const checkItems = [
+  1667→    { label: 'Ongkos Cetak', filled: calculatedPrintingCost > 0 },
+  1668→    { label: 'Ongkos Cetak 2', filled: !!formData.machineId2 },
+  1669→    { label: 'Finishing', filled: selectedFinishingItems.length > 0 },
+  1670→    { label: 'Ongkos Lem', filled: calculatedGlueCost > 0 },
+  1671→    { label: 'Ongkos Lem Borongan', filled: calculatedGlueBoronganSheet > 0 },
+  1672→    { label: 'Biaya Tambahan', filled: !!(formData.packingCost || formData.shippingCost || formData.biayaLain1 || formData.biayaLain2) },
+  1673→    { label: 'Total Harga', filled: hasGrandTotal },
+  1674→  ]
+  1675→
+  1676→  const filledCount = checkItems.filter(i => i.filled).length
+  1677→
+  1678→  const handleCheck = () => {
+  1679→    setCheckOpen(true)
+  1680→  }
+  1681→
+  1682→  // Plat total helper
+  1683→  const platTotal = (() => {
+  1684→    const warna = parseInt(formData.warna) || 0
+  1685→    const wk = parseInt(formData.warnaKhusus) || 0
+  1686→    const plat = selectedMachine?.platePricePerSheet || 0
+  1687→    return plat * (warna + wk)
+  1688→  })()
+  1689→
+  1690→  // Plat total helper 2
+  1691→  const platTotal2 = (() => {
+  1692→    const warna2 = parseInt(formData.warna2) || 0
+  1693→    const wk2 = parseInt(formData.warnaKhusus2) || 0
+  1694→    const plat2 = selectedMachine2?.platePricePerSheet || 0
+  1695→    return plat2 * (warna2 + wk2)
+  1696→  })()
+  1697→
+  1698→  // Section header component
+  1699→  const SectionHeader = ({ icon, label, badge }: { icon: React.ReactNode; label: React.ReactNode; badge?: number }) => (
+  1700→    <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-100 bg-slate-50/60">
+  1701→      <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center">{icon}</div>
+  1702→      <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-wide flex-1 min-w-0">{label}</h2>
+  1703→      {badge !== undefined && badge > 0 && (
+  1704→        <span className="text-[11px] font-semibold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded-full">{badge}</span>
+  1705→      )}
+  1706→    </div>
+  1707→  )
+  1708→
+  1709→  // Display value box
+  1710→  const ValueBox = ({ label, value, gradient }: { label: string; value: string; gradient: string }) => (
+  1711→    <div className="w-full h-[28px] flex items-center justify-between px-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg">
+  1712→      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">{label}</span>
+  1713→      <span className="text-[14px] font-bold text-black dark:text-white">{value}</span>
+  1714→    </div>
+  1715→  )
+  1716→
+  1717→  const fmtNum = (n: number) => Math.round(n).toLocaleString('id-ID')
+  1718→  const formatRp = (n: number) => `Rp ${fmtNum(n)}`
+  1719→
+  1720→  // Preview summary values - derived from previewCalc for consistent display
+  1721→  const pvCalc = previewCalc
+  1722→  const pvCustomerName = pvCalc?.customerName || formData.customerName || '-'
+  1723→  const pvPrintName = pvCalc?.printName || '-'
+  1724→  const pvCutWidth = pvCalc?.cutWidth || ''
+  1725→  const pvCutHeight = pvCalc?.cutHeight || ''
+  1726→  const pvQuantity = parseInt(pvCalc?.quantity || '0') || 0
+  1727→  const pvPaperPrice = pvCalc?.totalPaperPrice || ((parseFloat(pvCalc?.pricePerSheet || '0') || 0) * pvQuantity)
+  1728→  const pvPrintingCost = pvCalc?.calculatedPrintingCost ?? calculatedPrintingCost
+  1729→  const pvPrintingCost2 = pvCalc?.calculatedPrintingCost2 ?? calculatedPrintingCost2
+  1730→  const pvFinishingCost = pvCalc?.calculatedFinishingCost ?? calculatedFinishingCost
+  1731→  const pvGlueCost = pvCalc?.calculatedGlueCost ?? calculatedGlueCost
+  1732→  const pvGlueBorongan = pvCalc?.calculatedGlueBoronganSheet ?? calculatedGlueBoronganSheet
+  1733→  const pvPacking = parseFloat(pvCalc?.packingCost || '0') || 0
+  1734→  const pvShipping = parseFloat(pvCalc?.shippingCost || '0') || 0
+  1735→  const pvBiayaLain1 = parseFloat(pvCalc?.biayaLain1 || '0') || 0
+  1736→  const pvBiayaLain2 = parseFloat(pvCalc?.biayaLain2 || '0') || 0
+  1737→  const pvBiayaLain1Label = pvCalc?.biayaLain1Label || biayaLain1Label
+  1738→  const pvBiayaLain2Label = pvCalc?.biayaLain2Label || biayaLain2Label
+  1739→  const pvProfitPercent = pvCalc?.profitPercent ?? profitPercent
+  1740→  const pvGlueTotal = pvGlueCost + pvGlueBorongan
+  1741→  const pvSubTotal = pvPaperPrice + pvPrintingCost + pvPrintingCost2 + pvFinishingCost + pvPacking + pvShipping + pvBiayaLain1 + pvBiayaLain2 + pvGlueTotal
+  1742→  const pvProfitAmount = pvSubTotal * (pvProfitPercent / 100)
+  1743→  const pvGrandTotal = pvSubTotal + pvProfitAmount
+  1744→
+  1745→  return (
+  1746→    <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
+  1747→      {/* Tab Navigation */}
+  1748→      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+  1749→        <button
+  1750→          onClick={() => setActiveTab('editor')}
+  1751→          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+  1752→            activeTab === 'editor'
+  1753→              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+  1754→              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+  1755→          }`}
+  1756→        >
+  1757→          Editor
+  1758→        </button>
+  1759→        <button
+  1760→          onClick={() => setActiveTab('riwayat')}
+  1761→          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
+  1762→            activeTab === 'riwayat'
+  1763→              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+  1764→              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+  1765→          }`}
+  1766→        >
+  1767→          Riwayat
+  1768→          {riwayatCetakanList.length > 0 && (
+  1769→            <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'riwayat' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{riwayatCetakanList.length}</span>
+  1770→          )}
+  1771→        </button>
+  1772→      </div>
+  1773→
+  1774→      {/* Editor Tab Content */}
+  1775→      {activeTab === 'editor' && (
+  1776→      <div>
+  1777→        <div className="lg:grid lg:grid-cols-4 lg:gap-3">
+  1778→
+  1779→          {/* ========== COLUMN 1: INFO & HARGA ========== */}
+  1780→          <div className="flex-1 min-w-0">
+  1781→            {/* No. Hitung Cetakan */}
+  1782→            {nextHitungCetakanNumber && (
+  1783→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
+  1784→                <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
+  1785→                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
+  1786→              </div>
+  1787→            )}
+  1788→            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+  1789→
+  1790→              {/* Section 1: Informasi Cetakan */}
+  1791→              <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50/60">
+  1792→                <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center"><Users className="w-3.5 h-3.5 text-blue-600" /></div>
+  1793→                <h2 className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">Informasi Cetakan</h2>
+  1794→              </div>
+  1795→              <div className="px-4 py-3">
+  1796→                <div className="space-y-2">
+  1797→                  <div>
+  1798→                    <label className={labelClass}>{t('nama_customer')} <span className="text-red-500">*</span></label>
+  1799→                    <div className="relative">
+  1800→                      <UserSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+  1801→                      <input
+  1802→                        type="text"
+  1803→                        list="customer-list"
+  1804→                        placeholder={t('pilih_customer') + ' / ketik manual'}
+  1805→                        value={formData.customerName}
+  1806→                        onChange={(e) => {
+  1807→                          const val = e.target.value
+  1808→                          setFormData({ ...formData, customerName: val })
+  1809→                          const match = customers.find((c) => c.name.toLowerCase() === val.toLowerCase())
+  1810→                          if (match) {
+  1811→                            setFormData(prev => ({ ...prev, customerName: match.name }))
+  1812→                          }
+  1813→                        }}
+  1814→                        className={`${inputClass} pl-9`}
+  1815→                      />
+  1816→                      <datalist id="customer-list">
+  1817→                        {customers.map((c) => (
+  1818→                          <option key={c.id} value={c.name} />
+  1819→                        ))}
+  1820→                      </datalist>
+  1821→                    </div>
+  1822→                  </div>
+  1823→                  <div>
+  1824→                    <label className={labelClass}>{t('nama_cetakan')} <span className="text-red-500">*</span></label>
+  1825→                    <input type="text" placeholder="Nama barang" value={formData.printName} onChange={(e) => setFormData({ ...formData, printName: e.target.value })} className={inputClass} />
+  1826→                  </div>
+  1827→                  <div className="grid grid-cols-3 gap-1.5">
+  1828→                    <div>
+  1829→                      <label className={labelClass}>Jumlah Pesanan</label>
+  1830→                      <input type="number" step="1" min="0" placeholder="0" value={formData.jumlahPesanan} onChange={(e) => {
+  1831→                        const val = e.target.value
+  1832→                        const bm = parseInt(formData.berapaMata) || 0
+  1833→                        const jp = parseInt(val) || 0
+  1834→                        setFormData(prev => ({
+  1835→                          ...prev,
+  1836→                          jumlahPesanan: val,
+  1837→                          quantity: (jp > 0 && bm > 0) ? Math.ceil(jp / bm).toString() : prev.quantity
+  1838→                        }))
+  1839→                      }} className={inputClass} />
+  1840→                    </div>
+  1841→                    <div>
+  1842→                      <label className={labelClass}><span className="md:hidden">Cetak Brp Mata</span><span className="hidden md:inline">Cetak Berapa Mata</span></label>
+  1843→                      <input type="number" step="1" min="0" placeholder="0" value={formData.berapaMata} onChange={(e) => {
+  1844→                        const val = e.target.value
+  1845→                        const jp = parseInt(formData.jumlahPesanan) || 0
+  1846→                        const bm = parseInt(val) || 0
+  1847→                        setFormData(prev => ({
+  1848→                          ...prev,
+  1849→                          berapaMata: val,
+  1850→                          quantity: (jp > 0 && bm > 0) ? Math.ceil(jp / bm).toString() : prev.quantity
+  1851→                        }))
+  1852→                      }} className={inputClass} />
+  1853→                    </div>
+  1854→                    <div>
+  1855→                      <label className={labelClass}>Jumlah Cetakan <span className="text-red-500">*</span></label>
+  1856→                      <input type="number" placeholder="Auto" value={formData.quantity} className={`${inputClass} bg-slate-100 cursor-not-allowed`} readOnly />
+  1857→                    </div>
+  1858→                  </div>
+  1859→                </div>
+  1860→              </div>
+  1861→
+  1862→              {/* Section 2: Harga Bahan */}
+  1863→              <SectionHeader icon={<FileText className="w-3.5 h-3.5 text-teal-600" />} label={t('harga_bahan')} />
+  1864→              <div className="px-3 py-2 lg:px-3 lg:py-2">
+  1865→                <div className="space-y-1.5">
+  1866→                  <div>
+  1867→                    <label className={labelClass}>Nama Bahan <span className="text-red-500">*</span></label>
+  1868→                    <select value={formData.paperId} onChange={(e) => setFormData({ ...formData, paperId: e.target.value })} className={selectClass}>
+  1869→                      <option value="">Pilih bahan kertas</option>
+  1870→                      {papers.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.grammage} gsm)</option>)}
+  1871→                    </select>
+  1872→                  </div>
+  1873→                  <div>
+  1874→                    <label className={labelClass}>Uk. Bahan (P×L cm)</label>
+  1875→                    <div className="flex gap-1.5 items-center">
+  1876→                      <input type="number" step="0.1" placeholder="P" value={formData.paperLength} onChange={(e) => setFormData({ ...formData, paperLength: e.target.value })} className={inputClass} />
+  1877→                      <span className="text-slate-400 text-xs">×</span>
+  1878→                      <input type="number" step="0.1" placeholder="L" value={formData.paperWidth} onChange={(e) => setFormData({ ...formData, paperWidth: e.target.value })} className={inputClass} />
+  1879→                    </div>
+  1880→                  </div>
+  1881→                  <div>
+  1882→                    <label className={labelClass}>Uk. Potong (P×L cm)</label>
+  1883→                    <div className="flex gap-1.5 items-center">
+  1884→                      <input type="number" step="0.1" placeholder="P" value={formData.cutWidth} onChange={(e) => setFormData({ ...formData, cutWidth: e.target.value })} className={inputClass} />
+  1885→                      <span className="text-slate-400 text-xs">×</span>
+  1886→                      <input type="number" step="0.1" placeholder="L" value={formData.cutHeight} onChange={(e) => setFormData({ ...formData, cutHeight: e.target.value })} className={inputClass} />
+  1887→                    </div>
+  1888→                  </div>
+  1889→                  <div>
+  1890→                    <label className={labelClass}>Total Harga Kertas</label>
+  1891→                    <ValueBox label={t('kertas')} value={paperPriceValue > 0 ? `Rp ${Math.round(paperPriceValue).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200" />
+  1892→                  </div>
+  1893→                </div>
+  1894→              </div>
+  1895→
+  1896→              {/* Mobile-only: Ongkos Cetak + Ongkos Cetak 2 (desktop has its own column) */}
+  1897→              <div className="lg:hidden">
+  1898→              {/* Section 3: Ongkos Cetak */}
+  1899→              <SectionHeader icon={<Calculator className="w-3.5 h-3.5 text-purple-600" />} label={t('ongkos_cetak_label')} />
+  1900→              <div className="px-3 py-3 lg:p-4">
+  1901→                <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
+  1902→                  <div>
+  1903→                    <label className={labelClass}>{t('nama_mesin')} <span className="text-red-500">*</span></label>
+  1904→                    <select value={formData.machineId} onChange={(e) => setFormData({ ...formData, machineId: e.target.value })} className={selectClass}>
+  1905→                      <option value="">Pilih mesin</option>
+  1906→                      {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
+  1907→                    </select>
+  1908→                  </div>
+  1909→                  <div>
+  1910→                    <label className={labelClass}>Warna <span className="text-red-500">*</span></label>
+  1911→                    <div className="relative">
+  1912→                      <Palette className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+  1913→                      <input type="number" min="1" placeholder="4" value={formData.warna} onChange={(e) => setFormData({ ...formData, warna: e.target.value })} className={`${inputClass} pl-9`} />
+  1914→                    </div>
+  1915→                  </div>
+  1916→                  <div>
+  1917→                    <label className={labelClass}>Warna Khusus</label>
+  1918→                    <div className="relative">
+  1919→                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-500">★</span>
+  1920→                      <input type="number" min="0" placeholder="0" value={formData.warnaKhusus} onChange={(e) => setFormData({ ...formData, warnaKhusus: e.target.value })} className={`${inputClass} pl-9`} />
+  1921→                    </div>
+  1922→                  </div>
+  1923→                  <div>
+  1924→                    <label className={labelClass}>{t('harga_plat')}</label>
+  1925→                    <ValueBox label="Plat" value={platTotal > 0 ? `Rp ${Math.round(platTotal).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200" />
+  1926→                  </div>
+  1927→                  <div className="col-span-2">
+  1928→                    <label className={labelClass}>Total Ongkos</label>
+  1929→                    <ValueBox label={t('ongkos_cetak_label')} value={calculatedPrintingCost > 0 ? `Rp ${Math.round(calculatedPrintingCost).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200" />
+  1930→                  </div>
+  1931→              </div>
+  1932→              </div>
+  1933→
+  1934→              {/* Section 4: Ongkos Cetak 2 */}
+  1935→              <SectionHeader icon={<Calculator className="w-3.5 h-3.5 text-fuchsia-600" />} label="Ongkos Cetak 2" />
+  1936→              <div className="px-3 py-3 lg:p-4">
+  1937→                <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
+  1938→                  <div>
+  1939→                    <label className={labelClass}>{t('nama_mesin')}</label>
+  1940→                    <select value={formData.machineId2} onChange={(e) => setFormData({ ...formData, machineId2: e.target.value })} className={selectClass}>
+  1941→                      <option value="">Pilih mesin</option>
+  1942→                      {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
+  1943→                    </select>
+  1944→                  </div>
+  1945→                  <div>
+  1946→                    <label className={labelClass}>Warna</label>
+  1947→                    <div className="relative">
+  1948→                      <Palette className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+  1949→                      <input type="number" min="1" placeholder="4" value={formData.warna2} onChange={(e) => setFormData({ ...formData, warna2: e.target.value })} className={`${inputClass} pl-9`} />
+  1950→                    </div>
+  1951→                  </div>
+  1952→                  <div>
+  1953→                    <label className={labelClass}>Warna Khusus</label>
+  1954→                    <div className="relative">
+  1955→                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-500">★</span>
+  1956→                      <input type="number" min="0" placeholder="0" value={formData.warnaKhusus2} onChange={(e) => setFormData({ ...formData, warnaKhusus2: e.target.value })} className={`${inputClass} pl-9`} />
+  1957→                    </div>
+  1958→                  </div>
+  1959→                  <div>
+  1960→                    <label className={labelClass}>{t('harga_plat')}</label>
+  1961→                    <ValueBox label="Plat 2" value={platTotal2 > 0 ? `Rp ${Math.round(platTotal2).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-fuchsia-50 to-pink-50 border-fuchsia-200" />
+  1962→                  </div>
+  1963→                  <div className="col-span-2">
+  1964→                    <label className={labelClass}>Total Ongkos 2</label>
+  1965→                    <ValueBox label="Ongkos Cetak 2" value={calculatedPrintingCost2 > 0 ? `Rp ${Math.round(calculatedPrintingCost2).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-fuchsia-50 to-violet-50 border-fuchsia-200" />
+  1966→                  </div>
+  1967→              </div>
+  1968→              </div>
+  1969→              </div>{/* end mobile-only ongkos cetak */}
+  1970→
+  1971→              {/* Mobile-only: Finishing, Ongkos Lem, Ongkos Lem Borongan, Biaya Tambahan, Summary, Buttons */}
+  1972→              <div className="lg:hidden">
+  1973→              {/* Mobile Finishing */}
+  1974→              <div>
+  1975→                <SectionHeader icon={<Layers className="w-3.5 h-3.5 text-rose-600" />} label={t('finishing_label')} badge={selectedFinishingItems.length} />
+  1976→                <div className="px-3 py-3">
+  1977→                  <div className="flex gap-2">
+  1978→                    <div className="flex-1">
+  1979→                      <select id="finishing-select" className={selectClass} defaultValue="">
+  1980→                        <option value="">-- Pilih finishing --</option>
+  1981→                        {finishings.filter(f => !selectedFinishings.includes(f.id)).map((f) => (
+  1982→                          <option key={f.id} value={f.id}>{f.name}</option>
+  1983→                        ))}
+  1984→                      </select>
+  1985→                    </div>
+  1986→                    <Button onClick={() => {
+  1987→                      const s = document.getElementById('finishing-select') as HTMLSelectElement
+  1988→                      if (s && s.value) { handleAddFinishing(s.value); s.value = '' }
+  1989→                      else toast.error('Pilih finishing terlebih dahulu')
+  1990→                    }} className="h-[34px] px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs" size="sm">
+  1991→                      <Plus className="w-3.5 h-3.5 mr-1" /> Tambah
+  1992→                    </Button>
+  1993→                  </div>
+  1994→                  {selectedFinishingItems.length > 0 && (
+  1995→                    <div className="mt-3 space-y-2.5">
+  1996→                      {selectedFinishingItems.map((fin) => {
+  1997→                        const finCost = getFinishingCost(fin)
+  1998→                        return (
+  1999→                          <div key={fin.id} className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg">
+  2000→                            <div className="w-8 h-8 rounded bg-slate-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0"><Layers className="w-4 h-4 text-slate-600 dark:text-slate-400" /></div>
+
+[showing lines 1-2000 of 2878; use offset=2001 with limit to continue reading]
