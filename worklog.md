@@ -5721,3 +5721,27 @@ Stage Summary:
 - The `totalPaperPrice` URL param potong-kertas sends is no longer the source of truth — hitung-cetakan recomputes the paper price live via the cutting engine, so any stale/zero value in the URL is ignored.
 - New "Harga/Lembar" input lets users override the auto-computed pricePerSheet (previously auto-set only from paper selection, not editable).
 - Files changed: prisma/schema.prisma, schema.prisma, src/app/api/riwayat-cetakan/route.ts, src/app/api/riwayat-cetakan/[id]/route.ts, src/app/potong-kertas/page.tsx, src/app/hitung-cetakan/page.tsx.
+
+---
+Task ID: riwayat-save-fix
+Agent: Main
+Task: Fix "Gagal menyimpan riwayat" error on hitung cetakan page after setelanKertas was added
+
+Work Log:
+- Reproduced the error via agent-browser: clicking "Simpan" on hitung-cetakan returned HTTP 500 from POST /api/riwayat-cetakan.
+- Added temporary verbose error logging to the API route to capture the actual Prisma error message.
+- Direct API test (with auth cookie) revealed the root cause:
+  Prisma error: "Unknown argument `setelanKertas`. Available options are marked with ?."
+- Root cause analysis: The Prisma Client was regenerated successfully (schema.prisma, index.d.ts, and .prisma/client/schema.prisma all had setelanKertas), BUT the running Next.js dev server (PID 9700, started at 14:57) was started BEFORE the Prisma client was regenerated. Turbopack bundles the Prisma client at server startup and does NOT hot-reload the native query engine binary when schema changes. So the running server was using a stale Prisma client that didn't know about the setelanKertas field.
+- Fix: Killed the stale next dev server process (PID 9700 + child 9713). The daemon.cjs auto-restarted a fresh dev server which loaded the newly-regenerated Prisma client.
+- Verified via direct API call: POST /api/riwayat-cetakan now returns 201 Created with setelanKertas:"50" persisted correctly.
+- Verified via agent-browser (logged in as admin): navigated to hitung-cetakan with test data, clicked Simpan → toast "Riwayat hitung cetakan berhasil disimpan!" appeared, POST returned 201, riwayat list refreshed.
+- Reverted the temporary verbose error logging in the API route (back to clean error message).
+- Cleaned up test rows from the database.
+- Lint: no errors.
+
+Stage Summary:
+- "Gagal menyimpan riwayat" was caused by a stale Prisma client in the long-running dev server. The schema and generated client code were correct, but the server needed a full restart to load the new native query engine.
+- Fix was purely operational (restart dev server), no code changes needed beyond reverting temporary debug logging.
+- The setelanKertas field now saves and persists correctly via the API.
+- Lesson: After running `prisma generate` (or `prisma db push`), always restart the Next.js dev server so the new Prisma client binary is loaded. Turbopack hot-reload does NOT reload native node modules.
