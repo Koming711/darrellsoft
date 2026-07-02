@@ -11,7 +11,7 @@ declare global {
 }
 
 import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload } from 'lucide-react'
-import { useState, useEffect, Suspense, useRef } from 'react'
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { getAuthHeaders } from '@/lib/auth'
@@ -24,6 +24,7 @@ import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
+import { calculateCuts } from '@/lib/cutting-engine'
 
 interface Paper {
   id: string
@@ -71,6 +72,7 @@ interface PrintCalculation {
   quantity: string
   jumlahPesanan: string
   berapaMata: string
+  setelanKertas: string
   warna: string
   warnaKhusus: string
   paperId: string
@@ -182,6 +184,7 @@ function HitungCetakanPage() {
     quantity: '',
     jumlahPesanan: '',
     berapaMata: '',
+    setelanKertas: '',
     warna: '',
     warnaKhusus: '',
     hargaPlat: '',
@@ -202,13 +205,35 @@ function HitungCetakanPage() {
   })
 
   const [totalPaperPrice, setTotalPaperPrice] = useState<number>(0)
-  // Derived paper price: always computed from current pricePerSheet × quantity.
-  // totalPaperPrice state is only set via localStorage/URL/riwayat restore, so on
-  // fresh form entry it stays 0 and grand total never exceeds 0 (even with paper
-  // cost present). This derived value is the source of truth for all calculations
-  // and displays, so grand total > 0 whenever paper + quantity are filled —
-  // even when ongkos cetak is empty (so all action buttons activate).
-  const paperPriceValue = (parseFloat(formData.pricePerSheet) || 0) * (parseInt(formData.quantity) || 0)
+  // Derived paper price computed via the SAME cutting engine used by potong-kertas,
+  // so the total harga kertas matches exactly between the two pages.
+  // Logic: totalQty = quantity + setelanKertas; sheetsNeeded = ceil(totalQty / totalPieces);
+  // paperPriceValue = sheetsNeeded × pricePerSheet.
+  // Falls back to pricePerSheet × quantity when paper/cut dimensions are missing
+  // (so the grand total still becomes > 0 and all action buttons activate).
+  const computedPaper = useMemo(() => {
+    const pw = parseFloat(formData.paperLength) || 0
+    const ph = parseFloat(formData.paperWidth) || 0
+    const cw = parseFloat(formData.cutWidth) || 0
+    const ch = parseFloat(formData.cutHeight) || 0
+    const qty = parseInt(formData.quantity) || 0
+    const setelan = parseInt(formData.setelanKertas) || 0
+    const price = parseFloat(formData.pricePerSheet) || 0
+    const totalQty = qty + setelan
+    if (pw > 0 && ph > 0 && cw > 0 && ch > 0 && totalQty > 0 && price > 0) {
+      try {
+        const result = calculateCuts({
+          paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+          quantity: totalQty, pricePerSheet: price, optimizationMode: 'maximal',
+          customerName: '', paperMaterial: '', grammage: 0,
+        })
+        return { sheetsNeeded: result.sheetsNeeded, totalPrice: result.totalPrice }
+      } catch { /* fall through to simple calc */ }
+    }
+    // Fallback: simple price × quantity (keeps buttons active even without dims)
+    return { sheetsNeeded: 0, totalPrice: price * qty }
+  }, [formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.quantity, formData.setelanKertas, formData.pricePerSheet])
+  const paperPriceValue = computedPaper.totalPrice
   const [calculatedPrintingCost, setCalculatedPrintingCost] = useState<number>(0)
   const [calculatedPrintingCost2, setCalculatedPrintingCost2] = useState<number>(0)
   const [calculatedCost, setCalculatedCost] = useState<number>(0)
@@ -468,6 +493,7 @@ function HitungCetakanPage() {
     const cutWidthParam = searchParams.get('cutWidth')
     const cutHeightParam = searchParams.get('cutHeight')
     const quantityParam = searchParams.get('quantity')
+    const setelanKertasParam = searchParams.get('setelanKertas')
     const pricePerSheetParam = searchParams.get('pricePerSheet')
     const totalPaperPriceParam = searchParams.get('totalPaperPrice')
     const warnaParam = searchParams.get('warna')
@@ -497,6 +523,7 @@ function HitungCetakanPage() {
       quantity: quantityParam || '',
       jumlahPesanan: searchParams.get('jumlahPesanan') || '',
       berapaMata: searchParams.get('berapaMata') || '',
+      setelanKertas: setelanKertasParam || '',
       warna: warnaParam || '',
       warnaKhusus: warnaKhususParam || '',
       hargaPlat: hargaPlatParam || '',
@@ -1315,7 +1342,7 @@ function HitungCetakanPage() {
 
   const resetForm = () => {
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1340,7 +1367,7 @@ function HitungCetakanPage() {
       paperGrammage: selectedPaper?.grammage?.toString() || '0',
       paperLength: formData.paperLength, paperWidth: formData.paperWidth,
       cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
-      quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
+      quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, setelanKertas: formData.setelanKertas, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
       machineName: selectedMachine?.machineName || '',
       hargaPlat: parseFloat(formData.hargaPlat) || 0,
       ongkosCetak: calculatedPrintingCost,
@@ -1367,7 +1394,7 @@ function HitungCetakanPage() {
   const resetFormForRiwayat = () => {
     setRestoredRiwayatId(null)
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1513,6 +1540,7 @@ function HitungCetakanPage() {
       quantity: r.quantity || '',
       jumlahPesanan: r.jumlahPesanan || '',
       berapaMata: r.berapaMata || '',
+      setelanKertas: r.setelanKertas || '',
       warna: r.warna || '',
       warnaKhusus: r.warnaKhusus || '',
       hargaPlat: r.hargaPlat?.toString() || '',
@@ -1881,6 +1909,19 @@ function HitungCetakanPage() {
                       <input type="number" step="0.1" placeholder="P" value={formData.cutWidth} onChange={(e) => setFormData({ ...formData, cutWidth: e.target.value })} className={inputClass} />
                       <span className="text-slate-400 text-xs">×</span>
                       <input type="number" step="0.1" placeholder="L" value={formData.cutHeight} onChange={(e) => setFormData({ ...formData, cutHeight: e.target.value })} className={inputClass} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div>
+                      <label className={labelClass}>Insit Kertas</label>
+                      <input type="number" step="1" min="0" placeholder="0" value={formData.setelanKertas} onChange={(e) => setFormData({ ...formData, setelanKertas: e.target.value })} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Harga/Lembar</label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span>
+                        <input type="number" step="0.01" min="0" placeholder="0" value={formData.pricePerSheet} onChange={(e) => setFormData({ ...formData, pricePerSheet: e.target.value })} className={`${inputClass} pl-9`} />
+                      </div>
                     </div>
                   </div>
                   <div>

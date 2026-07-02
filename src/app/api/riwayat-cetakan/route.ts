@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
         quantity: body.quantity || '',
         jumlahPesanan: body.jumlahPesanan || '',
         berapaMata: body.berapaMata || '',
+        setelanKertas: body.setelanKertas || '',
         warna: body.warna || '',
         warnaKhusus: body.warnaKhusus || '',
         machineName: body.machineName || '',
