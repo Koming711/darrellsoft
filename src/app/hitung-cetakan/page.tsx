@@ -1257,7 +1257,7 @@ function HitungCetakanPage() {
     const qty = parseInt(formData.quantity) || 0
     const biayaLain1Val = parseFloat(formData.biayaLain1) || 0
     const biayaLain2Val = parseFloat(formData.biayaLain2) || 0
-    const totalCost = calculatedCost + packing + shipping + calculatedGlueCost + calculatedGlueBoronganSheet + biayaLain1Val + biayaLain2Val + (priceSheet * qty)
+    const totalCost = calculatedCost + packing + shipping + calculatedGlueCost + calculatedGlueBoronganSheet + biayaLain1Val + biayaLain2Val + paperPriceValue
     const previewData: PrintCalculation = {
       id: 'preview',
       printName: formData.printName, paperLength: formData.paperLength, paperWidth: formData.paperWidth,
@@ -1274,7 +1274,7 @@ function HitungCetakanPage() {
       warna2: formData.warna2, warnaKhusus2: formData.warnaKhusus2, hargaPlat2: formData.hargaPlat2,
       glueLengthCm: formData.glueLengthCm, glueCostPerCm: formData.glueCostPerCm, glueBoronganPerSheet: formData.glueBoronganPerSheet,
       biayaLain1: formData.biayaLain1, biayaLain2: formData.biayaLain2,
-      totalPaperPrice, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost,
+      totalPaperPrice: paperPriceValue, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost,
       calculatedGlueCost, calculatedGlueBoronganSheet,
       finishingBreakdown: selectedFinishingItems.map(fin => { const { cost } = getFinishingCost(fin); return { name: fin.name, cost } }),
       profitPercent, biayaLain1Label, biayaLain2Label
@@ -1331,7 +1331,7 @@ function HitungCetakanPage() {
     const biayaLain1Val = parseFloat(formData.biayaLain1) || 0
     const biayaLain2Val = parseFloat(formData.biayaLain2) || 0
     const glueTotal = calculatedGlueCost + calculatedGlueBoronganSheet
-    const subTotal = totalPaperPrice + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + packing + shipping + biayaLain1Val + biayaLain2Val + glueTotal
+    const subTotal = paperPriceValue + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + packing + shipping + biayaLain1Val + biayaLain2Val + glueTotal
     const profitAmount = subTotal * (profitPercent / 100)
     const grandTotal = subTotal + profitAmount
     return {
@@ -1351,7 +1351,7 @@ function HitungCetakanPage() {
       hargaPlat2: parseFloat(formData.hargaPlat2) || 0,
       ongkosCetak2: calculatedPrintingCost2,
       ongkosCetak2Detail: selectedMachine2 ? `(Rp ${Math.round(selectedMachine2.pricePerColor).toLocaleString('id-ID')} × ${formData.warna2 || 0} warna)${parseInt(formData.warnaKhusus2 || '0') > 0 ? ` + (Rp ${Math.round(selectedMachine2.specialColorPrice).toLocaleString('id-ID')} × ${formData.warnaKhusus2} khusus)` : ''}${parseInt(formData.quantity) > selectedMachine2.minimumPrintQuantity ? ` + (${formData.quantity} - ${formData.minimumPrintQuantity2 || selectedMachine2.minimumPrintQuantity}) × Rp ${Math.round(selectedMachine2.priceAboveMinimumPerSheet).toLocaleString('id-ID')}` : ''} + Rp ${Math.round(selectedMachine2.platePricePerSheet).toLocaleString('id-ID')} × ${parseInt(formData.warna2 || '0') + parseInt(formData.warnaKhusus2 || '0')} plat` : '',
-      totalPaperPrice,
+      totalPaperPrice: paperPriceValue,
       pricePerSheet: parseFloat(formData.pricePerSheet) || 0,
       finishingNames: selectedFinishingItems.map(f => f.name).join(', '),
       finishingBreakdown: selectedFinishingItems.map(f => { const r = getFinishingCost(f); return `${f.name}: ${r.breakdown} = Rp ${Math.round(r.cost).toLocaleString('id-ID')}` }).join(' | '),
@@ -1634,7 +1634,7 @@ function HitungCetakanPage() {
   const summaryBiayaLain1 = parseFloat(formData.biayaLain1) || 0
   const summaryBiayaLain2 = parseFloat(formData.biayaLain2) || 0
   const summaryGlueTotal = calculatedGlueCost + calculatedGlueBoronganSheet
-  const summarySubTotal = totalPaperPrice + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + summaryPacking + summaryShipping + summaryBiayaLain1 + summaryBiayaLain2 + summaryGlueTotal
+  const summarySubTotal = paperPriceValue + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + summaryPacking + summaryShipping + summaryBiayaLain1 + summaryBiayaLain2 + summaryGlueTotal
   const summaryProfitAmount = summarySubTotal * (profitPercent / 100)
   const summaryGrandTotal = summarySubTotal + summaryProfitAmount
   const summaryQuantity = parseInt(formData.quantity) || 0
@@ -1885,7 +1885,7 @@ function HitungCetakanPage() {
                   </div>
                   <div>
                     <label className={labelClass}>Total Harga Kertas</label>
-                    <ValueBox label={t('kertas')} value={totalPaperPrice > 0 ? `Rp ${Math.round(totalPaperPrice).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200" />
+                    <ValueBox label={t('kertas')} value={paperPriceValue > 0 ? `Rp ${Math.round(paperPriceValue).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200" />
                   </div>
                 </div>
               </div>
@@ -2150,7 +2150,7 @@ function HitungCetakanPage() {
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-1 space-y-0.5">
-                  <div className="flex justify-between text-xs"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{paperPriceValue > 0 ? formatRp(paperPriceValue) : '-'}</span></div>
                   {calculatedPrintingCost > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Ongkos Cetak</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
                   {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">Ongkos Cetak 2</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
                   {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-xs"><span className="text-slate-800">{fin.name}</span><span className="text-slate-800 font-medium">{formatRp(cost)}</span></div> : null })}
@@ -2436,7 +2436,7 @@ function HitungCetakanPage() {
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-0.5 space-y-0.5">
-                  <div className="flex justify-between text-[11px]"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{totalPaperPrice > 0 ? formatRp(totalPaperPrice) : '-'}</span></div>
+                  <div className="flex justify-between text-[11px]"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{paperPriceValue > 0 ? formatRp(paperPriceValue) : '-'}</span></div>
                   {calculatedPrintingCost > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Ongkos Cetak</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost)}</span></div>}
                   {calculatedPrintingCost2 > 0 && <div className="flex justify-between text-[11px]"><span className="text-slate-800">Ongkos Cetak 2</span><span className="text-slate-800 font-medium">{formatRp(calculatedPrintingCost2)}</span></div>}
                   {selectedFinishingItems.map((fin) => { const { cost } = getFinishingCost(fin); return cost > 0 ? <div key={fin.id} className="flex justify-between text-[11px]"><span className="text-slate-800">{fin.name}</span><span className="text-slate-800 font-medium">{formatRp(cost)}</span></div> : null })}
