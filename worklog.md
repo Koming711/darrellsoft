@@ -5745,3 +5745,32 @@ Stage Summary:
 - Fix was purely operational (restart dev server), no code changes needed beyond reverting temporary debug logging.
 - The setelanKertas field now saves and persists correctly via the API.
 - Lesson: After running `prisma generate` (or `prisma db push`), always restart the Next.js dev server so the new Prisma client binary is loaded. Turbopack hot-reload does NOT reload native node modules.
+
+---
+Task ID: content-not-appearing
+Agent: Main
+Task: Fix "content tidak muncul" (content not appearing) — pages were blank
+
+Work Log:
+- Checked server status: `curl http://localhost:3000/` returned 000 (connection refused). No `next dev` or `next-server` processes running. The daemon process (PID 9700 from previous session) and its log file were gone.
+- Root cause: When I killed the dev server earlier (to reload the new Prisma client with setelanKertas), the daemon.cjs was also killed and did not auto-restart. The sandbox environment kills background processes when the parent shell session ends, so the nohup'd daemon was also terminated.
+- Restarted the dev server with full detachment using `setsid` + subshell to ensure it survives shell session termination:
+  `(setsid bash -c 'NODE_OPTIONS="--max-old-space-size=4096" ./node_modules/.bin/next dev -p 3000 > .daemon.log 2>&1' &)`
+- Waited for compilation (~5s), verified server responded with 200 on all routes: /, /hitung-cetakan, /potong-kertas, /pembukaan.
+- Verified via agent-browser (logged in as admin) that hitung-cetakan page renders ALL content sections:
+  - INFORMASI CETAKAN: OK
+  - HARGA BAHAN: OK (with new Insit Kertas + Harga/Lembar inputs)
+  - Total Harga Kertas: Rp 20.240 (correctly computed via cutting engine)
+  - ONGKOS CETAK: OK
+  - Sub Total: Rp 20.240
+  - Total: Rp 30.360
+  - Harga Per Pcs: Rp 30
+  - All action buttons present: Simpan, Invoice, Preview, WhatsApp, Reset Form
+- Confirmed Simpan button still works: POST /api/riwayat-cetakan → 201 Created.
+- Cleaned up test data from database.
+
+Stage Summary:
+- "Content tidak muncul" was caused by the dev server being down (crashed after the previous restart for Prisma client reload, and the daemon didn't survive).
+- Fix: restarted `next dev` directly with `setsid` for persistence. Server is now stable (PID 1566/1578) and all pages render correctly.
+- No code changes were needed — this was purely a server uptime issue.
+- All hitung-cetakan content sections render properly, including the new Insit Kertas field and the correctly-computed Total Harga Kertas (Rp 20.240 matching potong-kertas).
