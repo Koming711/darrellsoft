@@ -6008,3 +6008,34 @@ Stage Summary:
 - Page now displays all purchase history data immediately when opened.
 - Files changed: src/app/riwayat-pembelian/page.tsx
 - NOTE: Not yet deployed to production — awaiting user confirmation.
+
+---
+Task ID: deploy-rekap-riwayat-fixes
+Agent: Main
+Task: Deploy Rekap Penjualan, Riwayat Penjualan, and Riwayat Pembelian fixes to www.darrellsoft.com
+
+Work Log:
+- Verified all 3 changed files contain the 'all' filter option and default useState<FilterType>('all'):
+  - src/app/rekap-penjualan/page.tsx
+  - src/app/riwayat-penjualan/page.tsx
+  - src/app/riwayat-pembelian/page.tsx
+- Git working tree clean (changes already committed).
+- Deployed with: `vercel --prod --yes --token <token> --scope koming711s-projects`
+  - Build: prepare-build.js (swap SQLite→PostgreSQL) + prisma generate + next build
+  - Build completed in 46s, deployment ready in 1m
+  - Aliased to https://www.darrellsoft.com
+
+Production verification (agent-browser on https://www.darrellsoft.com):
+- All routes return HTTP 200: /, /rekap-penjualan, /riwayat-penjualan, /riwayat-pembelian
+- Logged in as admin successfully
+- All 3 fixed pages verified:
+  1. /rekap-penjualan: "Semua" filter active by default, all 5 filter buttons present (Semua/Hari Ini/Minggu Ini/Bulan Ini/Custom), page renders with summary cards (Total Customer 0, Total Transaksi 0 — correct for empty production DB), empty state "Belum ada data customer" displays properly
+  2. /riwayat-penjualan: "Semua" filter active by default, all 5 filter buttons present
+  3. /riwayat-pembelian: "Semua" filter active by default, all 5 filter buttons present
+- Production DB is currently empty (0 records) — empty states are correct behavior. Once data is added, "Semua" filter will show all records immediately.
+
+Stage Summary:
+- Deployment successful — https://www.darrellsoft.com is live with all 3 page fixes.
+- All 3 pages now default to "Semua" (All) filter instead of "Bulan Ini" (This Month), so users see all their data immediately.
+- Production database is currently empty — empty states render correctly. When users input data, it will appear on these pages with the "Semua" filter.
+- No build errors, no runtime errors on production.
