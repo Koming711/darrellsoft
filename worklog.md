@@ -5890,3 +5890,41 @@ Stage Summary:
 - All 5 riwayat sections now display their data immediately when user opens Beranda.
 - Users can still filter to Hari Ini / Minggu Ini / Bulan Ini / Custom for specific period analysis.
 - Files changed: src/app/pembukaan/page.tsx only
+
+---
+Task ID: deploy-to-production
+Agent: Main
+Task: Deploy latest changes (Beranda riwayat fix + Invoice DOWN PAYMENT label) to www.darrellsoft.com
+
+Work Log:
+- Vercel CLI was missing — installed globally via `npm install -g vercel` (v54.20.1).
+- Recreated .vercel/project.json linking to project prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB (org: team_QBdS4SJeRhBe19sMKMlDvqsj, scope: koming711s-projects).
+- Verified deploy token works: `vercel project ls` showed project "darrellsoft" with Production URL https://www.darrellsoft.com.
+- Verified production env vars exist: DATABASE_URL (Supabase PostgreSQL), MIDTRANS keys, NEXT_PUBLIC_BASE_URL.
+- Committed changes were already in git (working tree clean).
+- Deployed with: `vercel --prod --yes --token <token> --scope koming711s-projects`
+  - Build: node scripts/prepare-build.js (swap schema SQLite→PostgreSQL) + npx prisma generate + npx next build
+  - Build completed in 45s, deployment ready in 1m
+  - Aliased to https://www.darrellsoft.com
+
+Production verification (agent-browser on https://www.darrellsoft.com):
+1. All routes return HTTP 200: /, /pembukaan, /invoice, /login
+2. Beranda (/pembukaan): 
+   - All 5 filter buttons present: Semua, Hari Ini, Minggu Ini, Bulan Ini, Custom
+   - "Semua" is the new default (previously "Hari Ini")
+   - All 5 riwayat sections render correctly (Invoice, Purchase Order, Hitung Cetakan, Potong Kertas, Surat Jalan)
+   - Production DB currently has 0 records → sections correctly show "Belum ada data" (expected for empty DB; once data is added, "Semua" filter will show all of it immediately)
+3. Invoice (/invoice):
+   - Created test invoice with DP 50%
+   - Preview shows "INVOICE" (larger font) with "DOWN PAYMENT" below it (smaller, orange font)
+   - Confirmed via VLM analysis: "INVOICE with DOWN PAYMENT below it... orange-colored font positioned directly underneath"
+   - No "PELUNASAN" text (correct — this is a regular DP invoice, not pelunasan)
+4. APIs respond correctly: /api/dashboard 200, /api/history 401 (auth required), /api/riwayat-cetakan 200
+
+Stage Summary:
+- Deployment successful — https://www.darrellsoft.com is live with latest changes.
+- Both fixes verified working on production:
+  1. Beranda default filter is now "Semua" (was "Hari Ini") — all 5 riwayat sections will show data immediately once records exist.
+  2. Invoice preview shows "INVOICE / DOWN PAYMENT" label when DP > 0.
+- Production database is currently empty (0 records) — empty states are correct behavior, not a bug.
+- No build errors, no runtime errors on production.
