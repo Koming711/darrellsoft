@@ -75,7 +75,7 @@ interface RecapResponse {
 }
 
 // ===== Date filter helpers (same scheme as riwayat-penjualan) =====
-type FilterType = 'today' | 'week' | 'month' | 'custom'
+type FilterType = 'all' | 'today' | 'week' | 'month' | 'custom'
 
 function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date): { startDate: string; endDate: string } {
   const today = new Date()
@@ -86,6 +86,10 @@ function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date
     return `${y}-${m}-${day}`
   }
   switch (filter) {
+    case 'all': {
+      // Wide range so the API returns all records
+      return { startDate: '2000-01-01', endDate: '2099-12-31' }
+    }
     case 'today':
       return { startDate: fmt(today), endDate: fmt(today) }
     case 'week': {
@@ -134,7 +138,7 @@ export default function RekapPenjualanPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Date filter
-  const [filterType, setFilterType] = useState<FilterType>('month')
+  const [filterType, setFilterType] = useState<FilterType>('all')
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
   const [showCustomDialog, setShowCustomDialog] = useState(false)
@@ -225,6 +229,7 @@ export default function RekapPenjualanPage() {
   const grandTotal = data?.grandTotal
 
   const filterButtons: { type: FilterType; label: string }[] = [
+    { type: 'all', label: t('semua') },
     { type: 'today', label: t('today') },
     { type: 'week', label: t('this_week') },
     { type: 'month', label: t('this_month') },

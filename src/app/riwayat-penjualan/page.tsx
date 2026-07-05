@@ -51,7 +51,7 @@ interface HistoryEntry {
 }
 
 // --- Date filter ---
-type FilterType = 'today' | 'week' | 'month' | 'custom'
+type FilterType = 'all' | 'today' | 'week' | 'month' | 'custom'
 
 function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date): { startDate: string; endDate: string } {
   const today = new Date()
@@ -62,6 +62,10 @@ function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date
     return `${y}-${m}-${day}`
   }
   switch (filter) {
+    case 'all': {
+      // Wide range so the API returns all records
+      return { startDate: '2000-01-01', endDate: '2099-12-31' }
+    }
     case 'today': return { startDate: fmt(today), endDate: fmt(today) }
     case 'week': {
       const s = new Date(today)
@@ -222,7 +226,7 @@ export default function RiwayatPenjualanPage() {
   const [searchTerm, setSearchTerm] = useState('')
 
   // Date filter
-  const [filterType, setFilterType] = useState<FilterType>('month')
+  const [filterType, setFilterType] = useState<FilterType>('all')
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
 
@@ -454,6 +458,7 @@ export default function RiwayatPenjualanPage() {
   })
 
   const filterButtons: { type: FilterType; label: string }[] = [
+    { type: 'all', label: 'Semua' },
     { type: 'today', label: 'Hari Ini' },
     { type: 'week', label: 'Minggu Ini' },
     { type: 'month', label: 'Bulan Ini' },

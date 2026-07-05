@@ -5928,3 +5928,49 @@ Stage Summary:
   2. Invoice preview shows "INVOICE / DOWN PAYMENT" label when DP > 0.
 - Production database is currently empty (0 records) — empty states are correct behavior, not a bug.
 - No build errors, no runtime errors on production.
+
+---
+Task ID: fix-rekap-riwayat-penjualan
+Agent: Main
+Task: Fix rekap penjualan and riwayat penjualan pages (data not appearing)
+
+Work Log:
+- Investigated both pages: src/app/rekap-penjualan/page.tsx and src/app/riwayat-penjualan/page.tsx
+- Found the SAME root cause as the Beranda page fix (Task ID: beranda-riwayat-not-appearing):
+  - FilterType was 'today' | 'week' | 'month' | 'custom' (no 'all' option)
+  - Default filterType was 'month' — existing data was created in June 2026, but "this month" (July) excluded it → pages showed empty/limited data
+- Confirmed data exists via dev log: /api/rekap-penjualan and /api/history?docType=invoice return HTTP 200
+
+Fix applied to BOTH pages (identical pattern to Beranda fix):
+1. src/app/rekap-penjualan/page.tsx:
+   - Added 'all' to FilterType union type
+   - Added 'all' case to getFilterDates() → returns {startDate:'2000-01-01', endDate:'2099-12-31'}
+   - Changed default useState<FilterType> from 'month' to 'all'
+   - Added { type: 'all', label: t('semua') } as FIRST option in filterButtons array
+2. src/app/riwayat-penjualan/page.tsx:
+   - Same 4 changes (filterButtons used hardcoded 'Semua' label instead of t('semua') since the existing buttons used hardcoded Indonesian strings)
+- handleFilterChange() in both pages already handles non-custom types generically (setFilterType), so 'all' works without changes.
+- Lint: both files pass cleanly.
+
+Verification (agent-browser, logged in as admin):
+- Rekap Penjualan (/rekap-penjualan):
+  - "Semua" filter active by default (blue highlighted)
+  - All 5 filter buttons present: Semua, Hari Ini, Minggu Ini, Bulan Ini, Custom
+  - Summary shows: Total Customer 3, Total Transaksi 3, Total Nilai Penjualan Rp 14.020.000, Total Sisa Piutang Rp 11.920.000
+  - Data table shows 3 customer rows (Budi Susanto, Siti Rohana, Jaya) — 0 empty states
+  - Confirmed via VLM analysis
+- Riwayat Penjualan (/riwayat-penjualan):
+  - "Semua" filter active by default
+  - All 5 filter buttons present
+  - Summary cards: Total Penjualan 3, Nilai Penjualan Rp 14.020.000, Total DP Rp 2.100.000, Belum Lunas Rp 11.920.000, Lunas 0
+  - Data table shows 3 invoice history rows — 0 empty states
+  - Confirmed via VLM analysis
+- Filter switching works on both pages: clicking "Hari Ini" → 0 rows (correct, no data today); clicking "Semua" → all 3 rows return
+
+Stage Summary:
+- ROOT CAUSE: Both pages defaulted to "Bulan Ini" (this month) filter, which excluded existing data from June 2026.
+- FIX: Added "Semua" (All) filter option and made it the default on both pages, using wide date range (2000-2099).
+- Both pages now display all sales/recap data immediately when opened.
+- Users can still filter to Hari Ini / Minggu Ini / Bulan Ini / Custom for specific period analysis.
+- Files changed: src/app/rekap-penjualan/page.tsx, src/app/riwayat-penjualan/page.tsx
+- NOTE: Not yet deployed to production — awaiting user confirmation.
