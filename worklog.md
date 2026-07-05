@@ -5974,3 +5974,37 @@ Stage Summary:
 - Users can still filter to Hari Ini / Minggu Ini / Bulan Ini / Custom for specific period analysis.
 - Files changed: src/app/rekap-penjualan/page.tsx, src/app/riwayat-penjualan/page.tsx
 - NOTE: Not yet deployed to production — awaiting user confirmation.
+
+---
+Task ID: fix-riwayat-pembelian
+Agent: Main
+Task: Fix riwayat pembelian page (data not appearing)
+
+Work Log:
+- Investigated src/app/riwayat-pembelian/page.tsx — found the SAME root cause as previous page fixes (Beranda, Rekap Penjualan, Riwayat Penjualan):
+  - FilterType was 'today' | 'week' | 'month' | 'custom' (no 'all' option)
+  - Default filterType was 'month' — existing purchase order data was created in June 2026, but "this month" (July) excluded it → page showed empty data
+- The page fetches from /api/history?docType=purchase-order with date range from getFilterDates(); wide range already verified to return data (1 purchase order).
+
+Fix applied (src/app/riwayat-pembelian/page.tsx) — identical pattern to previous fixes:
+1. Added 'all' to FilterType union type
+2. Added 'all' case to getFilterDates() → returns {startDate:'2000-01-01', endDate:'2099-12-31'}
+3. Changed default useState<FilterType> from 'month' to 'all'
+4. Added { type: 'all', label: 'Semua' } as FIRST option in filterButtons array
+- handleFilterChange() already handles non-custom types generically (setFilterType), so 'all' works without changes.
+- Lint: passes cleanly.
+
+Verification (agent-browser, logged in as admin):
+- "Semua" filter active by default (blue highlighted)
+- All 5 filter buttons present: Semua, Hari Ini, Minggu Ini, Bulan Ini, Custom
+- Summary cards: Total Pembelian 1, Nilai Pembelian Rp 582.390, Jatuh Tempo 0
+- Data table shows 1 purchase order row — 0 empty states
+- Confirmed via VLM analysis
+- Filter switching works: "Hari Ini" → 0 rows (correct, no data today); "Semua" → 1 row returns
+
+Stage Summary:
+- ROOT CAUSE: Default date filter was "Bulan Ini" (this month), which excluded existing purchase order data from June 2026.
+- FIX: Added "Semua" (All) filter option and made it the default, using wide date range (2000-2099).
+- Page now displays all purchase history data immediately when opened.
+- Files changed: src/app/riwayat-pembelian/page.tsx
+- NOTE: Not yet deployed to production — awaiting user confirmation.
