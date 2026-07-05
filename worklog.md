@@ -5774,3 +5774,49 @@ Stage Summary:
 - Fix: restarted `next dev` directly with `setsid` for persistence. Server is now stable (PID 1566/1578) and all pages render correctly.
 - No code changes were needed — this was purely a server uptime issue.
 - All hitung-cetakan content sections render properly, including the new Insit Kertas field and the correctly-computed Total Harga Kertas (Rp 20.240 matching potong-kertas).
+
+---
+Task ID: fix-deployed-content-missing
+Agent: main
+Task: Fix "conten tidak muncul" on deployed site (www.darrellsoft.com)
+
+Work Log:
+- Investigated deployed site (www.darrellsoft.com) with agent-browser
+- Checked all routes: all returned HTTP 200 (server-side rendering OK)
+- Checked API endpoints and found the root cause:
+  - /api/riwayat-cetakan → HTTP 500 ("Failed to fetch riwayat")
+  - All other APIs returned HTTP 200
+- Root cause: Production Supabase PostgreSQL database was missing the `setelanKertas` column in the `RiwayatCetakan` table
+  - This column was added to Prisma schema locally (SQLite) in previous session
+  - The column was never pushed to the production database
+  - When the API tried to query `setelanKertas`, PostgreSQL returned "column does not exist" → Prisma threw error → API returned 500
+  - This caused the hitung-cetakan Riwayat tab content to not appear
+
+Fix applied:
+1. Swapped schema to PostgreSQL: `node scripts/prepare-build.js`
+2. Generated Prisma Client for PostgreSQL: `DATABASE_URL=... npx prisma generate`
+3. Added missing column directly via SQL (faster than full `prisma db push`):
+   ```sql
+   ALTER TABLE "RiwayatCetakan" ADD COLUMN "setelanKertas" TEXT NOT NULL DEFAULT ''
+   ```
+   - Used Prisma `$executeRaw` with Supabase pooler connection (port 6543)
+   - RiwayatPotongKertas already had the column (no action needed)
+4. Reverted schema to SQLite: `node scripts/revert-schema.js`
+5. Regenerated Prisma Client for SQLite: `npx prisma generate`
+6. Restarted local dev server (killed leftover processes on port 3000 first)
+
+Verification:
+- /api/riwayat-cetakan → HTTP 200 ✓ (was 500)
+- All other APIs → HTTP 200 ✓
+- hitung-cetakan page content renders on deployed site ✓
+- Riwayat tab shows "RIWAYAT HITUNG CETAKAN" with "0 data" ✓
+- No console errors on deployed site ✓
+- Local dev server running (HTTP 200) ✓
+
+Stage Summary:
+- ROOT CAUSE: Production database missing `setelanKertas` column in RiwayatCetakan table
+- FIX: Added column via SQL ALTER TABLE to production Supabase PostgreSQL
+- All APIs now return HTTP 200 on deployed site
+- Content appears correctly on www.darrellsoft.com
+- No redeployment needed (only database schema was out of sync)
+- Local dev still uses SQLite (schema reverted, Prisma Client regenerated)
