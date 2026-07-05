@@ -145,7 +145,7 @@ interface DashboardData {
 }
 
 // --- Date filter types ---
-type FilterType = 'today' | 'week' | 'month' | 'custom'
+type FilterType = 'all' | 'today' | 'week' | 'month' | 'custom'
 
 function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date): { startDate: string; endDate: string } {
   const today = new Date()
@@ -157,6 +157,10 @@ function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date
   }
 
   switch (filter) {
+    case 'all': {
+      // Wide range so both dashboard & history APIs return all records
+      return { startDate: '2000-01-01', endDate: '2099-12-31' }
+    }
     case 'today': {
       return { startDate: formatDate(today), endDate: formatDate(today) }
     }
@@ -183,6 +187,7 @@ function getFilterDates(filter: FilterType, customStart?: Date, customEnd?: Date
 
 function getFilterLabel(filter: FilterType, lang: 'id' | 'en' = 'id'): string {
   const map: Record<FilterType, { id: string; en: string }> = {
+    all: { id: 'Semua', en: 'All' },
     today: { id: 'Hari Ini', en: 'Today' },
     week: { id: 'Minggu Ini', en: 'This Week' },
     month: { id: 'Bulan Ini', en: 'This Month' },
@@ -488,7 +493,7 @@ export default function PembukaanPage() {
   })
 
   // Date filter state
-  const [filterType, setFilterType] = useState<FilterType>('today')
+  const [filterType, setFilterType] = useState<FilterType>('all')
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
   const [showCustomDialog, setShowCustomDialog] = useState(false)
@@ -718,6 +723,7 @@ export default function PembukaanPage() {
   const recent = data?.recent
 
   const filterButtons: { type: FilterType; label: string }[] = [
+    { type: 'all', label: t('semua') },
     { type: 'today', label: t('today') },
     { type: 'week', label: t('this_week') },
     { type: 'month', label: t('this_month') },
