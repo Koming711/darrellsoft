@@ -837,6 +837,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   // ---- HEADER (with Jatuh Tempo in header area, matching print) ----
   y = drawDocHeader(pdf, {
     pageW, m, y, company: data.company, title: 'INVOICE',
+    subtitle: data.type === 'invoice' && dpPercent > 0 ? 'DOWN PAYMENT' : undefined,
     jatuhTempo: data.tanggalJatuhTempo || undefined,
   })
 
