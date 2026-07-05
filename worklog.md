@@ -5846,3 +5846,47 @@ Stage Summary:
 - Pelunasan invoices still show "PELUNASAN" label (unchanged).
 - Normal invoices without DP still show just "INVOICE" (unchanged).
 - Files changed: src/components/dokupro/invoice-preview.tsx, src/lib/generate-pdf.ts
+
+---
+Task ID: beranda-riwayat-not-appearing
+Agent: Main
+Task: Fix riwayat sections (Invoice, Purchase Order, Hitung Cetakan, Potong Kertas, Surat Jalan) not appearing on Beranda page
+
+Work Log:
+- Investigated /pembukaan (Beranda) page — found all 5 riwayat sections DO render but showed "Belum ada data" empty state.
+- Tested APIs directly with curl (admin auth):
+  - All APIs return HTTP 200 (dashboard, history, riwayat-cetakan, riwayat-potong-kertas)
+  - With default "today" filter: all return 0 records
+  - With wide date range (2000-2099): dashboard returns cetakan=3, potongKertas=2, invoice=3, suratJalan=1, purchaseOrder=1
+- Root cause: Default filterType was 'today'. Existing data was created on previous days (June 2026), but today is July 5, 2026. So "today" filter excluded ALL existing data → all 5 sections showed empty state.
+- The "today" stat cards (todaySales, todayOrderCount, todayUangCapek) are computed independently in the dashboard API using a fixed `todayStart` — NOT affected by the date filter. So changing the default filter is safe.
+
+Fix applied (src/app/pembukaan/page.tsx):
+1. Added 'all' to FilterType union type
+2. Added 'all' case to getFilterDates() — returns wide range {startDate:'2000-01-01', endDate:'2099-12-31'} so both dashboard & history APIs return all records (no API changes needed)
+3. Added 'all' entry to getFilterLabel() map
+4. Changed default useState<FilterType> from 'today' to 'all'
+5. Added "Semua" (t('semua')) button as FIRST option in filterButtons array
+- The 'semua' translation key already existed in i18n.ts (id:'Semua', en:'All')
+- handleFilterChange() already handles non-custom types generically (just setFilterType), so 'all' works without changes.
+
+Verification (agent-browser, logged in as admin):
+- "Semua" filter is active by default (blue highlighted button)
+- All 5 riwayat sections now show data tables with actual rows:
+  - Riwayat Invoice: 3 entries
+  - Riwayat Purchase Order: 1 entry
+  - Riwayat Hitung Cetakan: 3 entries
+  - Riwayat Potong Kertas: 2 entries
+  - Riwayat Surat Jalan: 1 entry
+- 0 empty states, 10 table rows total
+- Confirmed via VLM analysis
+- Filter switching works: clicking "Hari Ini" → 0 rows + empty states (correct, no data today); clicking "Semua" → all data returns
+- Lint: passes cleanly
+- Dev server log confirms APIs called with wide range: GET /api/dashboard?startDate=2000-01-01&endDate=2099-12-31 200
+
+Stage Summary:
+- ROOT CAUSE: Default date filter was "today", which excluded all existing data (created on previous days). Sections rendered but showed "Belum ada data".
+- FIX: Added "Semua" (All) filter option and made it the default. Uses wide date range (2000-2099) so both dashboard & history APIs return all records without needing API changes.
+- All 5 riwayat sections now display their data immediately when user opens Beranda.
+- Users can still filter to Hari Ini / Minggu Ini / Bulan Ini / Custom for specific period analysis.
+- Files changed: src/app/pembukaan/page.tsx only
