@@ -95,9 +95,18 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
 
         {/* Invoice title */}
         <div style={{ textAlign: 'right' }}>
-          <h2 style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
-          {showPelunasanLabel && (
-            <p style={{ fontSize: '8pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>PELUNASAN</p>
+          {showPelunasanLabel ? (
+            <>
+              <h2 style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
+              <p style={{ fontSize: '8pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>PELUNASAN</p>
+            </>
+          ) : dpPercent > 0 ? (
+            <>
+              <h2 style={{ fontSize: '11pt', fontWeight: 'bold', margin: 0, color: '#000', lineHeight: 1.2 }}>INVOICE</h2>
+              <p style={{ fontSize: '8.5pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>DOWN PAYMENT</p>
+            </>
+          ) : (
+            <h2 style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
           )}
 
           {data.lunas && (

@@ -5820,3 +5820,29 @@ Stage Summary:
 - Content appears correctly on www.darrellsoft.com
 - No redeployment needed (only database schema was out of sync)
 - Local dev still uses SQLite (schema reverted, Prisma Client regenerated)
+
+---
+Task ID: invoice-dp-label
+Agent: Main
+Task: Show "Invoice DOWN PAYMENT" label on invoice when DP is used
+
+Work Log:
+- Reviewed current state of src/components/dokupro/invoice-preview.tsx — found the previous DP label changes were NOT present (file only had showPelunasanLabel conditional, no DP conditional).
+- Implemented 3-way conditional in InvoicePreview header title area:
+  1. showPelunasanLabel=true → "INVOICE" + "PELUNASAN" subtitle (existing pelunasan behavior preserved)
+  2. dpPercent > 0 (and not pelunasan) → "INVOICE" + "DOWN PAYMENT" subtitle (NEW, orange #b45309, letterSpacing 1.5px)
+  3. else → just "INVOICE" (normal invoices without DP)
+- Updated src/lib/generate-pdf.ts generateInvoicePdf(): added `subtitle: data.type === 'invoice' && dpPercent > 0 ? 'DOWN PAYMENT' : undefined` to drawDocHeader() call, so the PDF export also shows "DOWN PAYMENT" subtitle. Used data.type check to avoid showing DP label on pelunasan-type invoices.
+- Lint: both changed files pass cleanly (no new errors).
+- Verified via agent-browser (logged in as admin on /invoice):
+  - Set item "Test Produk DP" with harga 100000, DP 50%
+  - Invoice preview on right side renders "INVOICE" (larger font) with "DOWN PAYMENT" below it (smaller, orange-colored font)
+  - Confirmed via VLM analysis of screenshot: "top-right header shows INVOICE in larger font, with DOWN PAYMENT displayed below it in smaller orange-colored font"
+- Dev server running stable (HTTP 200), no runtime errors.
+
+Stage Summary:
+- On-screen invoice preview now shows "INVOICE / DOWN PAYMENT" when DP > 0 (and not a pelunasan invoice).
+- PDF export (generateInvoicePdf) also shows "DOWN PAYMENT" subtitle via drawDocHeader subtitle param.
+- Pelunasan invoices still show "PELUNASAN" label (unchanged).
+- Normal invoices without DP still show just "INVOICE" (unchanged).
+- Files changed: src/components/dokupro/invoice-preview.tsx, src/lib/generate-pdf.ts
