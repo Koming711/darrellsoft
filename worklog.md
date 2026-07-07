@@ -6084,3 +6084,36 @@ Stage Summary:
 - Files changed: src/components/dashboard-layout.tsx (2 occurrences of main className updated).
 - Content now fits to desktop viewport with exactly 1cm left/right spacing as requested.
 - NOTE: Not yet deployed to production — awaiting user confirmation.
+
+---
+Task ID: fit-to-desktop-fix
+Agent: Main
+Task: Fix "masih belum fit to desktop" (still not fit to desktop) — user reported the 1cm padding change didn't fix the issue.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (1cm padding was already added to dashboard-layout.tsx in task fit-to-desktop-1cm).
+- Used agent-browser to inspect the actual rendered page at http://localhost:3000/pembukaan (logged in as admin).
+- Verified the 1cm padding WAS correctly applied: main element paddingLeft=37.7953px, paddingRight=37.7953px (= exactly 10mm = 1cm). Content fills from sidebar (x=208) to viewport edge (x=1280), with cards from x=246 to x=1242 (1cm padding inside).
+- ROOT CAUSE FOUND: The **InstallPrompt** component (src/components/install-prompt.tsx) was auto-showing a full-screen blocking overlay after 5.5 seconds. The overlay used `fixed inset-0 z-[10000]` with a child `absolute inset-0 bg-black/60 backdrop-blur-sm` — a 60% black dark overlay covering the ENTIRE page. This made the page look dark/broken/"not fit to desktop" even though the underlying layout was correct.
+  - The install prompt showed "Install Darrell Soft" dialog with a dark backdrop.
+  - Verified via pixel analysis: content background was RGB(101,101,101) = gray (light bg darkened by 60% black overlay) instead of expected RGB(248,250,252) = #f8fafc.
+  - The overlay had z-index 10000, covering everything including the sidebar and content.
+- Fix applied to src/components/install-prompt.tsx:
+  - Changed the auto-show behavior: instead of `setShowPrompt(true)` (which shows the full-screen overlay), changed to `setDismissed(true)` (which shows only the small floating FAB button in bottom-right corner).
+  - The full-screen overlay dialog is still available — users can click the FAB to see it — but it no longer auto-blocks the page view.
+  - Comment added explaining the rationale.
+- Verified the fix:
+  - Hard reloaded /pembukaan with cleared sessionStorage.
+  - After 8 seconds (past the 5.5s timer): hasFullScreenOverlay=false, hasFab=true ✓
+  - Content background now renders correctly: RGB(248,250,252) = #f8fafc (light) ✓
+  - 1cm padding still correctly applied: paddingLeft=37.7953px, paddingRight=37.7953px ✓
+  - Verified on /rekap-penjualan: same correct layout, no blocking overlay ✓
+  - All routes return HTTP 200, no errors in dev log.
+- Lint: `npx eslint src/components/install-prompt.tsx` — no errors.
+
+Stage Summary:
+- ROOT CAUSE: The InstallPrompt component auto-showed a full-screen dark overlay (bg-black/60 backdrop-blur-sm, z-index 10000) after 5.5 seconds, covering the entire page and making it look "not fit to desktop" even though the 1cm padding layout was correct.
+- FIX: Changed InstallPrompt to NOT auto-show the blocking overlay. After 5.5s, it now just sets `dismissed=true` which shows only the small floating FAB button (bottom-right corner). The full install dialog is still available via the FAB click.
+- RESULT: The desktop content now properly "fits to desktop" — light background visible, content fills width from sidebar to viewport edge, with exactly 1cm (10mm = 37.7953px) padding on left and right as requested.
+- Files changed: src/components/install-prompt.tsx (1 line: setShowPrompt(true) → setDismissed(true) + comment).
+- NOTE: Not yet deployed to production — awaiting user confirmation.

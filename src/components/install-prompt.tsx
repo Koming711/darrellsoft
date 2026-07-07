@@ -162,10 +162,12 @@ export function InstallPrompt() {
       pollCount++
     }, 500)
 
-    // Wait for splash screen to finish (3.5s) + 2 more seconds
+    // Don't auto-show the full-screen install prompt overlay (it blocks the page view).
+    // Instead, just mark as dismissed so only the floating FAB button shows.
+    // Users can click the FAB to see the install dialog if they want.
     const showTimer = setTimeout(() => {
       if (sessionStorage.getItem('install_dismissed') === '1') return
-      setShowPrompt(true)
+      setDismissed(true)
     }, 5500)
 
     return () => {
