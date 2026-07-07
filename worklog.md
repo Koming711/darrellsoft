@@ -6050,3 +6050,37 @@ Stage Summary:
 - Dev server running stable (HTTP 200), all APIs working, all pages rendering.
 - Only issue: prisma db push failed on non-critical index redefinition (SQLite limitation) — does not affect functionality.
 - Production deployment config (.vercel/project.json) recreated and ready for future deploys.
+
+---
+Task ID: fit-to-desktop-1cm
+Agent: Main
+Task: Change desktop content display to "fit to desktop" with 1cm left/right spacing ("rubah tampilan konten desktop jadi fit to desktop. kasih jarak sebelah kiri dan kanan 1 cm")
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (extract-replace-tar, invoice DP label, all-filter fixes were all completed previously).
+- Examined src/app/layout.tsx (root layout — body uses font-sans antialiased bg-background text-foreground, no width constraint).
+- Examined src/app/globals.css (no global max-width on body/main; only print styles and dark-mode overrides).
+- Located the shared desktop layout wrapper in src/components/dashboard-layout.tsx:
+  - Line 503 (noAccess branch) and Line 555 (main render) both used `<main className="p-4 pb-20 lg:p-8 lg:pb-8">`.
+  - The `lg:p-8` gave 32px (~8.5mm) padding on all sides for desktop — less than the 1cm (10mm) the user requested.
+- Changed both `<main>` elements:
+  - FROM: `p-4 pb-20 lg:p-8 lg:pb-8`
+  - TO: `p-4 pb-20 lg:px-[10mm] lg:py-8 lg:pb-8`
+  - This applies 10mm (=1cm, =37.7953px at 96 DPI) padding on left/right for desktop (lg breakpoint and up), while keeping the existing 32px top/bottom padding. Mobile (p-4) is unchanged.
+- Lint: `npx eslint src/components/dashboard-layout.tsx` — no errors.
+- Dev server compiled successfully ("✓ Compiled in 458ms"), no errors in .daemon.log.
+- Verified via agent-browser (logged in as admin):
+  - /pembukaan (Beranda): main paddingLeft=37.7953px, paddingRight=37.7953px, viewportWidth=1280 ✓
+  - /rekap-penjualan: main paddingLeft=37.7953px, paddingRight=37.7953px ✓
+  - /riwayat-penjualan: main paddingLeft=37.7953px, paddingRight=37.7953px ✓
+  - All routes return HTTP 200 in .daemon.log
+  - No console errors
+- All DashboardLayout-based pages inherit the change automatically since it's a shared component.
+
+Stage Summary:
+- ROOT CAUSE: Desktop content had `lg:p-8` (32px ≈ 8.5mm) padding, which was less than the user's requested 1cm (10mm) spacing.
+- FIX: Changed main content element to use `lg:px-[10mm]` (Tailwind arbitrary value = 10mm = 1cm = 37.7953px) for left/right padding on desktop. Kept `lg:py-8 lg:pb-8` for top/bottom and `p-4 pb-20` for mobile (untouched).
+- Verified the padding is EXACTLY 1cm (37.7953px) on multiple pages via agent-browser DOM measurement.
+- Files changed: src/components/dashboard-layout.tsx (2 occurrences of main className updated).
+- Content now fits to desktop viewport with exactly 1cm left/right spacing as requested.
+- NOTE: Not yet deployed to production — awaiting user confirmation.
