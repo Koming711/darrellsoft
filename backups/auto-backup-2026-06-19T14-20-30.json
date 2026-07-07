@@ -1,0 +1,24 @@
+{
+  "version": "2.0",
+  "type": "auto-backup",
+  "timestamp": "2026-06-19T14:20:30.052Z",
+  "userId": "cmqkyxo5u000aq527c4og5qjb",
+  "database": {
+    "Customer": [],
+    "Paper": [],
+    "PrintingCost": [],
+    "Finishing": [],
+    "TokoPemasok": [],
+    "Invoice": [],
+    "SuratJalan": [],
+    "PurchaseOrder": [],
+    "DocumentHistory": [],
+    "RiwayatCetakan": [],
+    "RiwayatFinishing": [],
+    "RiwayatOngkosCetak": [],
+    "RiwayatHargaKertas": [],
+    "RiwayatPotongKertas": [],
+    "CalonPembeli": [],
+    "Pembeli": []
+  }
+}

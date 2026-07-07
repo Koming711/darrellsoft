@@ -1,0 +1,260 @@
+{
+  "version": "2.0",
+  "type": "auto-backup",
+  "timestamp": "2026-06-21T09:48:13.800Z",
+  "userId": "cmqnlsspa0095sxts7qx3as6u",
+  "database": {
+    "Customer": [
+      {
+        "id": "cmqnlsspm009jsxtss7afuhbl",
+        "name": "Siti Rohana",
+        "companyName": "CV. Berkah jaya",
+        "address": "Jl. Gatot Subroto No. 12, Jakarta",
+        "phone": "082345678901",
+        "email": "siti@berkahabadi.com",
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.410Z",
+        "updatedAt": "2026-06-21T09:48:08.410Z"
+      },
+      {
+        "id": "cmqnlsspl009isxts4jgplqhz",
+        "name": "Budi Susanto",
+        "companyName": "PT. Maju berkah",
+        "address": "Jl. Raya Industri No. 45, Surabaya",
+        "phone": "081234567890",
+        "email": "",
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.410Z",
+        "updatedAt": "2026-06-21T09:48:08.410Z"
+      },
+      {
+        "id": "cmqnlsspn009lsxtshl8suzh2",
+        "name": "jaya",
+        "companyName": "mobiletech",
+        "address": "",
+        "phone": "",
+        "email": "",
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.411Z",
+        "updatedAt": "2026-06-21T09:48:08.411Z"
+      },
+      {
+        "id": "cmqnlsspn009nsxtsbxj6cyt8",
+        "name": "Lunggan",
+        "companyName": "skewer",
+        "address": "",
+        "phone": "",
+        "email": "",
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.412Z",
+        "updatedAt": "2026-06-21T09:48:08.412Z"
+      },
+      {
+        "id": "cmqnlsspm009ksxtsl64hg9mp",
+        "name": "Jaya Wijaya",
+        "companyName": "UD. Sumber Berkat",
+        "address": "Jl. Diponegoro No. 78, Bandung",
+        "phone": "083456789012",
+        "email": "ahmad@sumberrejeki.co.id",
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.411Z",
+        "updatedAt": "2026-06-21T09:48:08.411Z"
+      }
+    ],
+    "Paper": [
+      {
+        "id": "cmqnlsspg0096sxtseh6i723w",
+        "name": "ivory",
+        "grammage": 210,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1356233,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.404Z",
+        "updatedAt": "2026-06-21T09:48:08.404Z"
+      },
+      {
+        "id": "cmqnlsspg009asxtsfsb65by4",
+        "name": "ivory",
+        "grammage": 210,
+        "width": 65,
+        "height": 100,
+        "pricePerRim": 1078350,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.405Z",
+        "updatedAt": "2026-06-21T09:48:08.405Z"
+      },
+      {
+        "id": "cmqnlssph009bsxtsuklw4q1t",
+        "name": "art karton",
+        "grammage": 260,
+        "width": 65,
+        "height": 100,
+        "pricePerRim": 1394250,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.406Z",
+        "updatedAt": "2026-06-21T09:48:08.406Z"
+      },
+      {
+        "id": "cmqnlsspj009dsxtsxzqybu4o",
+        "name": "art karton",
+        "grammage": 260,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1903031,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.408Z",
+        "updatedAt": "2026-06-21T09:48:08.408Z"
+      },
+      {
+        "id": "cmqnlsspg0098sxts312hg1hh",
+        "name": "duplex",
+        "grammage": 270,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1765000,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.405Z",
+        "updatedAt": "2026-06-21T09:48:08.405Z"
+      },
+      {
+        "id": "cmqnlsspg0097sxts9dt6r3vh",
+        "name": "ivory",
+        "grammage": 300,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1937475,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.404Z",
+        "updatedAt": "2026-06-21T09:48:08.404Z"
+      },
+      {
+        "id": "cmqnlsspg0099sxtsjrj98sse",
+        "name": "duplek",
+        "grammage": 270,
+        "width": 90,
+        "height": 120,
+        "pricePerRim": 2210000,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.405Z",
+        "updatedAt": "2026-06-21T09:48:08.405Z"
+      }
+    ],
+    "PrintingCost": [
+      {
+        "id": "cmqnlssph009csxts1rwix12a",
+        "machineName": "sm52",
+        "grammage": 0,
+        "printAreaWidth": 52,
+        "printAreaHeight": 37,
+        "pricePerColor": 62500,
+        "specialColorPrice": 80000,
+        "minimumPrintQuantity": 1000,
+        "priceAboveMinimumPerSheet": 60,
+        "platePricePerSheet": 18000,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.406Z",
+        "updatedAt": "2026-06-21T09:48:08.406Z"
+      },
+      {
+        "id": "cmqnlsspj009esxtse3n6sg2x",
+        "machineName": "sm74",
+        "grammage": 0,
+        "printAreaWidth": 74,
+        "printAreaHeight": 52,
+        "pricePerColor": 130000,
+        "specialColorPrice": 160000,
+        "minimumPrintQuantity": 1000,
+        "priceAboveMinimumPerSheet": 120,
+        "platePricePerSheet": 36000,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.408Z",
+        "updatedAt": "2026-06-21T09:48:08.408Z"
+      },
+      {
+        "id": "cmqnlsspk009fsxtsvv5nrksu",
+        "machineName": "oliver 58",
+        "grammage": 150,
+        "printAreaWidth": 58,
+        "printAreaHeight": 44,
+        "pricePerColor": 100000,
+        "specialColorPrice": 150000,
+        "minimumPrintQuantity": 1000,
+        "priceAboveMinimumPerSheet": 70,
+        "platePricePerSheet": 20000,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.408Z",
+        "updatedAt": "2026-06-21T09:48:08.408Z"
+      }
+    ],
+    "Finishing": [
+      {
+        "id": "cmqnlsspk009gsxts20rmyxkl",
+        "name": "laminating glossy",
+        "minimumSheets": 0,
+        "minimumPrice": 150000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.16,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.409Z",
+        "updatedAt": "2026-06-21T09:48:08.409Z"
+      },
+      {
+        "id": "cmqnlsspl009hsxts7ykbhjtc",
+        "name": "spot uv",
+        "minimumSheets": 0,
+        "minimumPrice": 400000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.25,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.409Z",
+        "updatedAt": "2026-06-21T09:48:08.409Z"
+      },
+      {
+        "id": "cmqnlsspn009msxts61x8falh",
+        "name": "jahit kawat 2 mata",
+        "minimumSheets": 0,
+        "minimumPrice": 100000,
+        "additionalPrice": 120,
+        "pricePerCm": 0,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.411Z",
+        "updatedAt": "2026-06-21T09:48:08.411Z"
+      },
+      {
+        "id": "cmqnlsspo009psxtsp9kypqc5",
+        "name": "pond",
+        "minimumSheets": 1000,
+        "minimumPrice": 75000,
+        "additionalPrice": 40,
+        "pricePerCm": 0,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.412Z",
+        "updatedAt": "2026-06-21T09:48:08.412Z"
+      },
+      {
+        "id": "cmqnlsspo009osxts12rww57q",
+        "name": "laminating doff",
+        "minimumSheets": 0,
+        "minimumPrice": 180000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.18,
+        "userId": "cmqnlsspa0095sxts7qx3as6u",
+        "createdAt": "2026-06-21T09:48:08.412Z",
+        "updatedAt": "2026-06-21T09:48:08.412Z"
+      }
+    ],
+    "TokoPemasok": [],
+    "Invoice": [],
+    "SuratJalan": [],
+    "PurchaseOrder": [],
+    "DocumentHistory": [],
+    "RiwayatCetakan": [],
+    "RiwayatFinishing": [],
+    "RiwayatOngkosCetak": [],
+    "RiwayatHargaKertas": [],
+    "RiwayatPotongKertas": [],
+    "CalonPembeli": [],
+    "Pembeli": []
+  }
+}
