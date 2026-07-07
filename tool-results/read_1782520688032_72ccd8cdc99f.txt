@@ -1,0 +1,652 @@
+     1→   182→// InvoiceRiwayatTab — all invoice history
+     2→   183→// ============================================================
+     3→   184→function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
+     4→   185→  const { user } = useAuth()
+     5→   186→  const setInvoice = useDokuproStore((s) => s.setInvoice)
+     6→   187→  const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId)
+     7→   188→  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
+     8→   189→  const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
+     9→   190→  const [loading, setLoading] = useState(true)
+    10→   191→  const [searchQuery, setSearchQuery] = useState('')
+    11→   192→  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+    12→   193→  const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
+    13→   194→  const [previewOpen, setPreviewOpen] = useState(false)
+    14→   195→  const [previewScale, setPreviewScale] = useState(1)
+    15→   196→  const [previewDims, setPreviewDims] = useState<{ w: number; h: number } | null>(null)
+    16→   197→  const previewWrapperRef = useRef<HTMLDivElement>(null)
+    17→   198→  const [sendingPdf, setSendingPdf] = useState(false)
+    18→   199→  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+    19→   200→
+    20→   201→  // Pelunasan dialog state
+    21→   202→  const [pelunasanDialogOpen, setPelunasanDialogOpen] = useState(false)
+    22→   203→  const [pelunasanDialogItem, setPelunasanDialogItem] = useState<HistoryEntry | null>(null)
+    23→   204→  const [pelunasanUpdating, setPelunasanUpdating] = useState(false)
+    24→   205→  const [pelunasanToggle, setPelunasanToggle] = useState(false)
+    25→   206→  const [pelunasanDate, setPelunasanDate] = useState('')
+    26→   207→  const [jatuhTempoDate, setJatuhTempoDate] = useState('')
+    27→   208→  const [pelunasanHistory, setPelunasanHistory] = useState<HistoryEntry[]>([])
+    28→   209→
+    29→   210→  const fetchHistory = useCallback(async () => {
+    30→   211→    try {
+    31→   212→      setLoading(true)
+    32→   213→      const headers = getAuthHeaders()
+    33→   214→      // Fetch both invoice and invoice-pelunasan
+    34→   215→      const [invRes, pelRes] = await Promise.all([
+    35→   216→        fetch('/api/history?docType=invoice', { headers }),
+    36→   217→        fetch('/api/history?docType=invoice-pelunasan', { headers }),
+    37→   218→      ])
+    38→   219→      const invData = invRes.ok ? (await invRes.json()).data || [] : []
+    39→   220→      const pelData = pelRes.ok ? (await pelRes.json()).data || [] : []
+    40→   221→      setInvoiceHistory(invData)
+    41→   222→      setPelunasanHistory(pelData)
+    42→   223→    } catch (err) {
+    43→   224→      console.error('Failed to fetch invoice history:', err)
+    44→   225→    } finally {
+    45→   226→      setLoading(false)
+    46→   227→    }
+    47→   228→  }, [])
+    48→   229→
+    49→   230→  // Fetch riwayat cetakan for uang capek calculation
+    50→   231→  const fetchCetakan = useCallback(async () => {
+    51→   232→    try {
+    52→   233→      const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() })
+    53→   234→      if (res.ok) {
+    54→   235→        const data = await res.json()
+    55→   236→        const mapped = (Array.isArray(data) ? data : []).map((r: { nomorUrut: string; printName: string; profitAmount: number }) => ({
+    56→   237→          nomorUrut: r.nomorUrut || '',
+    57→   238→          printName: r.printName || '',
+    58→   239→          profitAmount: r.profitAmount || 0,
+    59→   240→        }))
+    60→   241→        setCetakanList(mapped)
+    61→   242→      }
+    62→   243→    } catch {
+    63→   244→      // ignore
+    64→   245→    }
+    65→   246→  }, [])
+    66→   247→
+    67→   248→  // Combined history for search/filter
+    68→   249→  const allHistory = useMemo(() => [...invoiceHistory, ...pelunasanHistory], [invoiceHistory, pelunasanHistory])
+    69→   250→
+    70→   251→  useEffect(() => {
+    71→   252→    fetchHistory()
+    72→   253→    fetchCetakan()
+    73→   254→  }, [fetchHistory, fetchCetakan])
+    74→   255→
+    75→   256→  useEffect(() => {
+    76→   257→    const handler = () => { fetchHistory(); fetchCetakan(); }
+    77→   258→    window.addEventListener('dokupro:history-updated', handler)
+    78→   259→    return () => window.removeEventListener('dokupro:history-updated', handler)
+    79→   260→  }, [fetchHistory, fetchCetakan])
+    80→   261→
+    81→   262→  const invData = useMemo(() => {
+    82→   263→    if (!previewItem) return null
+    83→   264→    return parseInvoiceData(previewItem)
+    84→   265→  }, [previewItem])
+    85→   266→
+    86→   267→  useLayoutEffect(() => {
+    87→   268→    if (!previewOpen) {
+    88→   269→      setPreviewDims(null)
+    89→   270→      setPreviewScale(1)
+    90→   271→      return
+    91→   272→    }
+    92→   273→    const measureAndScale = () => {
+    93→   274→      const el = previewWrapperRef.current
+    94→   275→      if (!el) return
+    95→   276→      // offsetWidth/offsetHeight are NOT affected by CSS transform,
+    96→   277→      // so they give us the natural (unscaled) layout size.
+    97→   278→      const naturalW = el.offsetWidth
+    98→   279→      const naturalH = el.offsetHeight
+    99→   280→      if (naturalW === 0 || naturalH === 0) {
+   100→   281→        // Element not laid out yet — retry on next frame
+   101→   282→        requestAnimationFrame(measureAndScale)
+   102→   283→        return
+   103→   284→      }
+   104→   285→      const vw = window.innerWidth
+   105→   286→      const vh = window.innerHeight
+   106→   287→      // Reserved space: top close-button row (~56px) + bottom action bar (~88px) + padding (32px)
+   107→   288→      const reservedH = 56 + 88 + 32
+   108→   289→      const reservedW = 32
+   109→   290→      const availW = Math.max(120, vw - reservedW)
+   110→   291→      const availH = Math.max(120, vh - reservedH)
+   111→   292→      // Fit entirely within available space; cap at 1.4x for very large screens
+   112→   293→      const scale = Math.min(availW / naturalW, availH / naturalH, 1.4)
+   113→   294→      setPreviewScale(scale)
+   114→   295→      setPreviewDims({ w: naturalW * scale, h: naturalH * scale })
+   115→   296→    }
+   116→   297→    const t = setTimeout(measureAndScale, 50)
+   117→   298→    window.addEventListener('resize', measureAndScale)
+   118→   299→    return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
+   119→   300→  }, [previewOpen, invData])
+   120→   301→
+   121→   302→  const handleDelete = async (id: string) => {
+   122→   303→    try {
+   123→   304→      const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+   124→   305→      if (res.ok) {
+   125→   306→        toast.success('Invoice berhasil dihapus')
+   126→   307→        notifyDataChange('invoice')
+   127→   308→        fetchHistory()
+   128→   309→      } else {
+   129→   310→        toast.error('Gagal menghapus invoice')
+   130→   311→      }
+   131→   312→    } catch {
+   132→   313→      toast.error('Gagal menghapus invoice')
+   133→   314→    }
+   134→   315→    setDeleteConfirmId(null)
+   135→   316→  }
+   136→   317→
+   137→   318→  const handleStatusChange = async (updates: { tanggalJatuhTempo?: string; lunas?: boolean; tanggalPelunasan?: string }) => {
+   138→   319→    if (!pelunasanDialogItem) return
+   139→   320→    setPelunasanUpdating(true)
+   140→   321→    try {
+   141→   322→      const parsed = JSON.parse(pelunasanDialogItem.dataJson)
+   142→   323→      if (updates.tanggalJatuhTempo !== undefined) parsed.tanggalJatuhTempo = updates.tanggalJatuhTempo
+   143→   324→      if (updates.lunas !== undefined) parsed.lunas = updates.lunas
+   144→   325→      if (updates.tanggalPelunasan !== undefined) parsed.tanggalPelunasan = updates.tanggalPelunasan
+   145→   326→      // Always derive dpAmount from originalTotal
+   146→   327→      if (parsed.dp > 0) {
+   147→   328→        const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : (() => {
+   148→   329→          const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
+   149→   330→          return sub + (sub * (parsed.ppn || 0) / 100)
+   150→   331→        })()
+   151→   332→        parsed.dpAmount = originalTotal * (parsed.dp / 100)
+   152→   333→        parsed.originalTotal = originalTotal
+   153→   334→      }
+   154→   335→      delete parsed.statusPembayaran
+   155→   336→      const newDataJson = JSON.stringify(parsed)
+   156→   337→
+   157→   338→      const res = await fetcher(`/api/history/${pelunasanDialogItem.id}`, {
+   158→   339→        method: 'PUT',
+   159→   340→        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+   160→   341→        body: JSON.stringify({ dataJson: newDataJson }),
+   161→   342→      })
+   162→   343→      if (res.ok) {
+   163→   344→        toast.success(updates.lunas ? 'Pelunasan berhasil dicatat' : 'Berhasil diperbarui')
+   164→   345→        setPelunasanDialogOpen(false)
+   165→   346→        fetchHistory()
+   166→   347→        notifyDataChange('invoice')
+   167→   348→      } else {
+   168→   349→        toast.error('Gagal menyimpan perubahan')
+   169→   350→      }
+   170→   351→    } catch {
+   171→   352→      toast.error('Gagal menyimpan perubahan')
+   172→   353→    } finally {
+   173→   354→      setPelunasanUpdating(false)
+   174→   355→    }
+   175→   356→  }
+   176→   357→
+   177→   358→  const openPelunasanDialog = (item: HistoryEntry, e?: React.MouseEvent) => {
+   178→   359→    if (e) e.stopPropagation()
+   179→   360→    const info = parseDocInfo(item)
+   180→   361→    setPelunasanToggle(info.lunas)
+   181→   362→    setPelunasanDate(info.tanggalPelunasan || getTodayStr())
+   182→   363→    setJatuhTempoDate(info.tanggalJatuhTempo || '')
+   183→   364→    setPelunasanDialogItem(item)
+   184→   365→    setPelunasanDialogOpen(true)
+   185→   366→  }
+   186→   367→
+   187→   368→  const handleSendJpg = useCallback(async () => {
+   188→   369→    if (!invData) return
+   189→   370→    setSendingPdf(true)
+   190→   371→    try {
+   191→   372→      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+   192→   373→      if (previewEl) {
+   193→   374→        const blob = await captureElementAsJpg(previewEl)
+   194→   375→        const fileName = `${(invData.nomor || 'draft').replace(/\//g, '-')}.jpg`
+   195→   376→        const phone = invData.client?.kontak || ''
+   196→   377→
+   197→   378→        // No-API sharing: Web Share API first (auto-attaches file),
+   198→   379→        // then fallback to download + WhatsApp Web.
+   199→   380→        const result = await shareJpgToWhatsApp({
+   200→   381→          blob,
+   201→   382→          fileName,
+   202→   383→          documentLabel: `Invoice ${invData.nomor}`,
+   203→   384→          phone,
+   204→   385→        })
+   205→   386→
+   206→   387→        if (result.status === 'shared') {
+   207→   388→          toast.success('Gambar dibagikan ke WhatsApp')
+   208→   389→        } else if (result.status === 'cancelled') {
+   209→   390→          // silent
+   210→   391→        } else if (result.status === 'downloaded') {
+   211→   392→          toast.success(`${fileName} tersimpan ke perangkat`, {
+   212→   393→            description: 'File JPG telah diunduh ke folder Downloads.',
+   213→   394→          })
+   214→   395→        } else {
+   215→   396→          toast.error(result.error || 'Gagal memproses JPG')
+   216→   397→        }
+   217→   398→      } else {
+   218→   399→        toast.error('Preview tidak ditemukan')
+   219→   400→      }
+   220→   401→    } catch (err) {
+   221→   402→      console.error(err)
+   222→   403→      toast.error('Gagal mengirim gambar')
+   223→   404→    } finally {
+   224→   405→      setSendingPdf(false)
+   225→   406→    }
+   226→   407→  }, [invData])
+   227→   408→
+   228→   409→  const handleBackup = async () => {
+   229→   410→    setBackupLoading('backup')
+   230→   411→    try {
+   231→   412→      const res = await authFetch(`/api/database/backup-master?table=invoice_history`)
+   232→   413→      if (!res.ok) {
+   233→   414→        let errMsg = 'Gagal backup data riwayat invoice'
+   234→   415→        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+   235→   416→        toast.error(errMsg)
+   236→   417→        return
+   237→   418→      }
+   238→   419→      const blob = await res.blob()
+   239→   420→      if (blob.size === 0) { toast.error('Backup kosong'); return }
+   240→   421→      const url = URL.createObjectURL(blob)
+   241→   422→      const a = document.createElement('a')
+   242→   423→      a.href = url
+   243→   424→      const disposition = res.headers.get('Content-Disposition')
+   244→   425→      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+   245→   426→      a.download = match ? match[1] : `backup-invoice-history-${Date.now()}.xlsx`
+   246→   427→      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+   247→   428→      URL.revokeObjectURL(url)
+   248→   429→      toast.success('Backup berhasil diunduh')
+   249→   430→    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data') }
+   250→   431→    setBackupLoading(null)
+   251→   432→  }
+   252→   433→
+   253→   434→  const handleRestore = async () => {
+   254→   435→    const input = document.createElement('input')
+   255→   436→    input.type = 'file'; input.accept = '.xlsx'
+   256→   437→    input.onchange = async (e) => {
+   257→   438→      const file = (e.target as HTMLInputElement).files?.[0]
+   258→   439→      if (!file) return
+   259→   440→      if (!confirm('Data riwayat invoice yang ada akan diganti. Lanjutkan?')) return
+   260→   441→      setBackupLoading('restore')
+   261→   442→      try {
+   262→   443→        const fd = new FormData(); fd.append('file', file); fd.append('table', 'invoice_history')
+   263→   444→        const res = await authFetch('/api/database/restore-master', { method: 'POST', body: fd })
+   264→   445→        const data = await res.json()
+   265→   446→        if (res.ok && data.success) {
+   266→   447→          toast.success(`Restore berhasil (${data.count} data)`); fetchHistory(); notifyDataChange('invoice')
+   267→   448→        } else { toast.error(data.error || 'Gagal restore') }
+   268→   449→      } catch { toast.error('File backup tidak valid') }
+   269→   450→      setBackupLoading(null)
+   270→   451→    }
+   271→   452→    input.click()
+   272→   453→  }
+   273→   454→
+   274→   455→  const filteredHistory = useMemo(() => {
+   275→   456→    if (!searchQuery.trim()) return allHistory
+   276→   457→    const q = searchQuery.toLowerCase().trim()
+   277→   458→    return allHistory.filter(entry => {
+   278→   459→      const info = parseDocInfo(entry)
+   279→   460→      return entry.nomor?.toLowerCase().includes(q) || entry.pihakKedua?.toLowerCase().includes(q) || info.namaBarang?.toLowerCase().includes(q) || entry.tanggal?.toLowerCase().includes(q)
+   280→   461→    })
+   281→   462→  }, [allHistory, searchQuery])
+   282→   463→
+   283→   464→  // Separate into DP invoices and Pelunasan invoices
+   284→   465→  const dpInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice'), [filteredHistory])
+   285→   466→  const pelunasanInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice-pelunasan'), [filteredHistory])
+   286→   467→
+   287→   468→  // Calculate uang capek per invoice — use saved value from dataJson, fallback to cetakan lookup
+   288→   469→  const invoiceUangCapek = useMemo(() => {
+   289→   470→    const result = new Map<string, number>()
+   290→   471→    // Build cetakan lookup by both nomorUrut and printName (fallback for older data)
+   291→   472→    const cetakanByRef = new Map<string, number>()
+   292→   473→    for (const c of cetakanList) {
+   293→   474→      if (c.nomorUrut) {
+   294→   475→        cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
+   295→   476→      }
+   296→   477→      if (c.printName && !cetakanByRef.has(c.printName)) {
+   297→   478→        cetakanByRef.set(c.printName, (cetakanByRef.get(c.printName) || 0) + c.profitAmount)
+   298→   479→      }
+   299→   480→    }
+   300→   481→    for (const inv of dpInvoices) {
+   301→   482→      const info = parseDocInfo(inv)
+   302→   483→      // Prefer saved uangCapek from dataJson, fallback to cetakan lookup
+   303→   484→      const uangCapek = info.uangCapek > 0 ? info.uangCapek : (info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0)
+   304→   485→      result.set(inv.id, uangCapek)
+   305→   486→    }
+   306→   487→    return result
+   307→   488→  }, [dpInvoices, cetakanList])
+   308→   489→
+   309→   490→  return (
+   310→   491→    <>
+   311→   492→      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden">
+   312→   493→        {/* Header */}
+   313→   494→        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+   314→   495→          <div className="flex items-center gap-2">
+   315→   496→            <History className="w-4 h-4 text-violet-600" />
+   316→   497→            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Invoice</h2>
+   317→   498→            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{allHistory.length} data</span>
+   318→   499→          </div>
+   319→   500→          <div className="flex items-center gap-1.5">
+   320→   501→            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-7 gap-1.5 text-xs">
+   321→   502→              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />} Backup
+   322→   503→            </Button>
+   323→   504→            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-7 gap-1.5 text-xs">
+   324→   505→              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Restore
+   325→   506→            </Button>
+   326→   507→          </div>
+   327→   508→        </div>
+   328→   509→
+   329→   510→        {/* Search */}
+   330→   511→        {invoiceHistory.length > 0 && (
+   331→   512→          <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+   332→   513→            <div className="relative">
+   333→   514→              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+   334→   515→              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari no. invoice, customer, barang..." className="w-full h-8 pl-8 pr-8 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder:text-slate-400" />
+   335→   516→              {searchQuery && (<button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" /></button>)}
+   336→   517→            </div>
+   337→   518→          </div>
+   338→   519→        )}
+   339→   520→
+   340→   521→        {/* Table / Cards */}
+   341→   522→        {loading ? (
+   342→   523→          <div className="px-4 py-6 text-center"><Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p></div>
+   343→   524→        ) : filteredHistory.length > 0 ? (
+   344→   525→          <>
+   345→   526→            {/* === INVOICE DP Section === */}
+   346→   527→            {dpInvoices.length > 0 && (
+   347→   528→              <div>
+   348→   529→                <div className="px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700">
+   349→   530→                  <p className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
+   350→   531→                    <FileText className="w-3.5 h-3.5" />
+   351→   532→                    Invoice DP <span className="text-[10px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{dpInvoices.length}</span>
+   352→   533→                  </p>
+   353→   534→                </div>
+   354→   535→                {/* Mobile */}
+   355→   536→                <div className="sm:hidden divide-y divide-slate-100">
+   356→   537→                  {dpInvoices.slice(0, 100).map((entry) => {
+   357→   538→                    const info = parseDocInfo(entry)
+   358→   539→                    const uc = invoiceUangCapek.get(entry.id) ?? 0
+   359→   540→                    return (
+   360→   541→                      <div key={entry.id} className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+   361→   542→                        <div className="flex items-start justify-between gap-2 mb-1">
+   362→   543→                          <div className="min-w-0 flex items-center gap-2">
+   363→   544→                            <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+   364→   545→                          </div>
+   365→   546→                          <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+   366→   547→                        </div>
+   367→   548→                        <div className="flex items-center justify-between gap-2">
+   368→   549→                          <div className="min-w-0">
+   369→   550→                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+   370→   551→                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+   371→   552→                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+   372→   553→                            {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
+   373→   554→                            {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Uang Capek: {formatRupiah(uc)}</p>}
+   374→   555→                          </div>
+   375→   556→                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+   376→   557→                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   377→   558→                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   378→   559→                          </div>
+   379→   560→                        </div>
+   380→   561→                      </div>
+   381→   562→                    )
+   382→   563→                  })}
+   383→   564→                </div>
+   384→   565→                {/* Desktop */}
+   385→   566→                <div className="hidden sm:block overflow-x-auto">
+   386→   567→                  <table className="w-full text-[13px] min-w-[1000px]">
+   387→   568→                    <thead>
+   388→   569→                      <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+   389→   570→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+   390→   571→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+   391→   572→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+   392→   573→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
+   393→   574→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
+   394→   575→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
+   395→   576→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
+   396→   577→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
+   397→   578→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
+   398→   579→                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+   399→   580→                      </tr>
+   400→   581→                    </thead>
+   401→   582→                    <tbody>
+   402→   583→                      {dpInvoices.slice(0, 100).map((entry, idx) => {
+   403→   584→                        const info = parseDocInfo(entry)
+   404→   585→                        const uc = invoiceUangCapek.get(entry.id) ?? 0
+   405→   586→                        return (
+   406→   587→                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+   407→   588→                            <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+   408→   589→                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
+   409→   590→                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+   410→   591→                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
+   411→   592→                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
+   412→   593→                            <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
+   413→   594→                            <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
+   414→   595→                            <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
+   415→   596→                            <td className={`py-3 px-3 text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</td>
+   416→   597→                            <td className="py-3 px-3 text-center">
+   417→   598→                              <div className="flex items-center justify-center gap-1">
+   418→   599→                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+   419→   600→                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   420→   601→                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   421→   602→                              </div>
+   422→   603→                            </td>
+   423→   604→                          </tr>
+   424→   605→                        )
+   425→   606→                      })}
+   426→   607→                    </tbody>
+   427→   608→                  </table>
+   428→   609→                </div>
+   429→   610→              </div>
+   430→   611→            )}
+   431→   612→
+   432→   613→            {/* === INVOICE PELUNASAN Section === */}
+   433→   614→            {pelunasanInvoices.length > 0 && (
+   434→   615→              <div>
+   435→   616→                <div className="px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700 border-t border-t-slate-200 dark:border-t-zinc-700">
+   436→   617→                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+   437→   618→                    <Wallet className="w-3.5 h-3.5" />
+   438→   619→                    Invoice Pelunasan <span className="text-[10px] font-medium text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">{pelunasanInvoices.length}</span>
+   439→   620→                  </p>
+   440→   621→                </div>
+   441→   622→                {/* Mobile */}
+   442→   623→                <div className="sm:hidden divide-y divide-slate-100">
+   443→   624→                  {pelunasanInvoices.slice(0, 100).map((entry) => {
+   444→   625→                    const info = parseDocInfo(entry)
+   445→   626→                    const isLunas = info.lunas
+   446→   627→                    return (
+   447→   628→                      <div key={entry.id} className="px-4 py-3 hover:bg-amber-50/30 active:bg-amber-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+   448→   629→                        <div className="flex items-start justify-between gap-2 mb-1">
+   449→   630→                          <div className="min-w-0 flex items-center gap-2">
+   450→   631→                            <p className="text-amber-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+   451→   632→                            <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+   452→   633→                              {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
+   453→   634→                            </button>
+   454→   635→                          </div>
+   455→   636→                          <div className="text-right">
+   456→   637→                            <p className="text-emerald-700 font-semibold text-xs whitespace-nowrap">{formatRupiah(info.totalHarga)}</p>
+   457→   638→                            <p className="text-red-600 font-bold text-sm whitespace-nowrap">{formatRupiah(info.sisa)}</p>
+   458→   639→                          </div>
+   459→   640→                        </div>
+   460→   641→                        <div className="flex items-center justify-between gap-2">
+   461→   642→                          <div className="min-w-0">
+   462→   643→                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+   463→   644→                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
+   464→   645→                            {info.referensiInvoiceNomor && <p className="text-slate-400 text-[11px]">Ref: {info.referensiInvoiceNomor}</p>}
+   465→   646→                          </div>
+   466→   647→                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+   467→   648→                            {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+   468→   649→                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   469→   650→                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   470→   651→                          </div>
+   471→   652→                        </div>
+   472→   653→                      </div>
+   473→   654→                    )
+   474→   655→                  })}
+   475→   656→                </div>
+   476→   657→                {/* Desktop */}
+   477→   658→                <div className="hidden sm:block overflow-x-auto">
+   478→   659→                  <table className="w-full text-[13px] min-w-[900px]">
+   479→   660→                    <thead>
+   480→   661→                      <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+   481→   662→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
+   482→   663→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. Invoice DP</th>
+   483→   664→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
+   484→   665→                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
+   485→   666→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Grand Total</th>
+   486→   667→                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa Pembayaran</th>
+   487→   668→                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
+   488→   669→                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
+   489→   670→                      </tr>
+   490→   671→                    </thead>
+   491→   672→                    <tbody>
+   492→   673→                      {pelunasanInvoices.slice(0, 100).map((entry, idx) => {
+   493→   674→                        const info = parseDocInfo(entry)
+   494→   675→                        const isLunas = info.lunas
+   495→   676→                        return (
+   496→   677→                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-amber-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+   497→   678→                            <td className="py-3 px-3 text-amber-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
+   498→   679→                            <td className="py-3 px-3 text-violet-600 font-medium whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</td>
+   499→   680→                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
+   500→   681→                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
+   501→   682→                            <td className="py-3 px-3 text-emerald-700 font-semibold text-right whitespace-nowrap">{formatRupiah(info.totalHarga)}</td>
+   502→   683→                            <td className="py-3 px-3 text-red-600 font-bold text-right whitespace-nowrap">{formatRupiah(info.sisa)}</td>
+   503→   684→                            <td className="py-3 px-3 text-center">
+   504→   685→                              <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
+   505→   686→                                {isLunas ? <><CheckCircle2 className="w-3 h-3" /> Lunas</> : <><CircleDot className="w-3 h-3" /> Belum</>}
+   506→   687→                              </button>
+   507→   688→                            </td>
+   508→   689→                            <td className="py-3 px-3 text-center">
+   509→   690→                              <div className="flex items-center justify-center gap-1">
+   510→   691→                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+   511→   692→                                {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
+   512→   693→                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+   513→   694→                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+   514→   695→                              </div>
+   515→   696→                            </td>
+   516→   697→                          </tr>
+   517→   698→                        )
+   518→   699→                      })}
+   519→   700→                    </tbody>
+   520→   701→                  </table>
+   521→   702→                </div>
+   522→   703→              </div>
+   523→   704→            )}
+   524→   705→          </>
+   525→   706→        ) : (
+   526→   707→          <div className="px-4 py-6 text-center"><History className="w-8 h-8 mx-auto text-slate-300 mb-2" /><p className="text-xs text-slate-400">Belum ada riwayat invoice</p></div>
+   527→   708→        )}
+   528→   709→      </div>
+   529→   710→
+   530→   711→      {/* Delete Dialog */}
+   531→   712→      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}>
+   532→   713→        <DialogContent className="max-w-sm">
+   533→   714→          <DialogHeader><DialogTitle>Hapus Invoice?</DialogTitle><DialogDescription>Data invoice yang dihapus tidak dapat dikembalikan.</DialogDescription></DialogHeader>
+   534→   715→          <DialogFooter className="gap-2">
+   535→   716→            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)}>Batal</Button>
+   536→   717→            <Button variant="destructive" size="sm" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>Hapus</Button>
+   537→   718→          </DialogFooter>
+   538→   719→        </DialogContent>
+   539→   720→      </Dialog>
+   540→   721→
+   541→   722→      {/* Pelunasan Dialog */}
+   542→   723→      <Dialog open={pelunasanDialogOpen} onOpenChange={setPelunasanDialogOpen}>
+   543→   724→        <DialogContent className="sm:max-w-md">
+   544→   725→          <DialogHeader>
+   545→   726→            <DialogTitle className="flex items-center gap-2"><Wallet className="w-5 h-5 text-amber-600" /> Form Pelunasan</DialogTitle>
+   546→   727→            <DialogDescription>Kelola tanggal jatuh tempo dan pelunasan invoice</DialogDescription>
+   547→   728→          </DialogHeader>
+   548→   729→          {pelunasanDialogItem && (() => {
+   549→   730→            const info = parseDocInfo(pelunasanDialogItem)
+   550→   731→            const hasDP = info.dpPercent > 0 || info.dp > 0
+   551→   732→            const isLunas = info.isPelunasan ? info.lunas : (hasDP ? info.lunas : (info.lunas || info.sisa <= 0))
+   552→   733→            return (
+   553→   734→              <div className="space-y-5 pt-1">
+   554→   735→                <div className="rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-4 space-y-2">
+   555→   736→                  <div className="flex justify-between text-xs"><span className="text-slate-500">No. Invoice</span><span className="font-semibold text-amber-800">{pelunasanDialogItem.nomor}</span></div>
+   556→   737→                  {info.referensiInvoiceNomor && <div className="flex justify-between text-xs"><span className="text-slate-500">Ref. Invoice DP</span><span className="font-medium text-violet-600">{info.referensiInvoiceNomor}</span></div>}
+   557→   738→                  <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-medium text-slate-700">{pelunasanDialogItem.pihakKedua || '-'}</span></div>
+   558→   739→                  <div className="border-t border-slate-200 pt-2 mt-1">
+   559→   740→                    <div className="flex justify-between text-xs"><span className="text-slate-500">Total</span><span className="font-bold text-emerald-700">{formatRupiahShort(info.totalHarga)}</span></div>
+   560→   741→                    {hasDP && (<>
+   561→   742→                      <div className="flex justify-between text-xs mt-1"><span className="text-slate-500">DP ({info.dpPercent}%)</span><span className="font-medium text-violet-700">- {formatRupiahShort(info.dp)}</span></div>
+   562→   743→                      <div className="flex justify-between text-sm mt-1.5 pt-1.5 border-t border-dashed border-slate-200"><span className="font-semibold text-slate-700">Sisa Pembayaran</span><span className={cn('font-bold', info.lunas ? 'text-green-600' : 'text-red-600')}>{formatRupiahShort(info.sisa)}</span></div>
+   563→   744→                    </>)}
+   564→   745→                  </div>
+   565→   746→                  {isLunas && info.tanggalPelunasan && (
+   566→   747→                    <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-2.5 flex items-center gap-2 mt-1"><CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-green-800">Sudah Lunas</p><p className="text-[10px] text-green-600">Dibayar pada {new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+   567→   748→                  )}
+   568→   749→                </div>
+   569→   750→                <div><Label className="text-sm font-medium text-slate-700">Tanggal Jatuh Tempo</Label><Input type="date" value={jatuhTempoDate} onChange={(e) => setJatuhTempoDate(e.target.value)} className="mt-1.5" /></div>
+   570→   751→                {hasDP && (
+   571→   752→                  <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+   572→   753→                    <div className="flex items-center justify-between">
+   573→   754→                      <div className="flex items-center gap-3">
+   574→   755→                        {pelunasanToggle ? (<div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>) : (<div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"><Wallet className="w-5 h-5 text-slate-400" /></div>)}
+   575→   756→                        <div><Label className="text-sm font-semibold text-slate-800">Pelunasan</Label><p className="text-xs text-slate-500">{pelunasanToggle ? `Sisa ${formatRupiahShort(info.sisa)} sudah dibayar` : `Sisa ${formatRupiahShort(info.sisa)} belum dibayar`}</p></div>
+   576→   757→                      </div>
+   577→   758→                      <Switch checked={pelunasanToggle} onCheckedChange={(checked) => { setPelunasanToggle(checked); if (checked && !pelunasanDate) setPelunasanDate(getTodayStr()) }} />
+   578→   759→                    </div>
+   579→   760→                    {pelunasanToggle && (<>
+   580→   761→                      <div><Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label><Input type="date" value={pelunasanDate} onChange={(e) => setPelunasanDate(e.target.value)} className="mt-1" /></div>
+   581→   762→                      <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /><div><p className="text-sm font-semibold text-green-800">Sudah Lunas</p><p className="text-xs text-green-600">Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</p></div></div>
+   582→   763→                    </>)}
+   583→   764→                  </div>
+   584→   765→                )}
+   585→   766→                {!hasDP && (<div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-blue-800">Invoice Tanpa DP</p><p className="text-[10px] text-blue-600">Invoice ini tidak memiliki down payment. Atur tanggal jatuh tempo jika diperlukan.</p></div></div>)}
+   586→   767→              </div>
+   587→   768→            )
+   588→   769→          })()}
+   589→   770→          <div className="flex justify-end gap-2 mt-4">
+   590→   771→            <Button variant="outline" size="sm" onClick={() => setPelunasanDialogOpen(false)} disabled={pelunasanUpdating}>Batal</Button>
+   591→   772→            <Button size="sm" onClick={() => { handleStatusChange({ tanggalJatuhTempo: jatuhTempoDate, lunas: pelunasanToggle, tanggalPelunasan: pelunasanToggle ? pelunasanDate : '' }) }} disabled={pelunasanUpdating}>{pelunasanUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}</Button>
+   592→   773→          </div>
+   593→   774→        </DialogContent>
+   594→   775→      </Dialog>
+   595→   776→
+   596→   777→      {/* Preview Popup */}
+   597→   778→      {previewOpen && invData && (
+   598→   779→        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
+   599→   780→          <div className="flex justify-end p-3 shrink-0">
+   600→   781→            <button onClick={() => setPreviewOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"><X className="w-4 h-4 text-slate-700" /></button>
+   601→   782→          </div>
+   602→   783→          <div className="flex-1 flex items-start justify-center overflow-auto p-4 pb-28 min-h-0">
+   603→   784→            {/* Wrapper with the SCALED dimensions so flex layout reserves the
+   604→   785→                correct visual space and content stays reachable when scrolling. */}
+   605→   786→            <div
+   606→   787→              style={{ width: previewDims?.w, height: previewDims?.h }}
+   607→   788→              className="flex-shrink-0"
+   608→   789→            >
+   609→   790→              <div
+   610→   791→                ref={previewWrapperRef}
+   611→   792→                style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
+   612→   793→              >
+   613→   794→                <div data-invoice-preview>
+   614→   795→                  <InvoicePreview data={invData} showPelunasanLabel={invData.type === 'invoice-pelunasan'} />
+   615→   796→                </div>
+   616→   797→              </div>
+   617→   798→            </div>
+   618→   799→          </div>
+   619→   800→          <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
+   620→   801→            <Button onClick={handleSendJpg} disabled={sendingPdf} size="sm" className="bg-green-600 hover:bg-green-700 text-white">{sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}</Button>
+   621→   802→          </div>
+   622→   803→        </div>
+   623→   804→      )}
+   624→   805→
+   625→   806→    </>
+   626→   807→  )
+   627→   808→}
+   628→   809→
+   629→   810→// ============================================================
+   630→   811→// PelunasanTab — dedicated tab for settlement payments with inline form
+   631→   812→// ============================================================
+   632→   813→function PelunasanTab() {
+   633→   814→  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
+   634→   815→  const [loading, setLoading] = useState(true)
+   635→   816→
+   636→   817→  // Selected invoice for pelunasan form
+   637→   818→  const [selectedItem, setSelectedItem] = useState<HistoryEntry | null>(null)
+   638→   819→  const [pelunasanUpdating, setPelunasanUpdating] = useState(false)
+   639→   820→  const [pelunasanToggle, setPelunasanToggle] = useState(false)
+   640→   821→  const [pelunasanDate, setPelunasanDate] = useState('')
+   641→   822→  const [jatuhTempoDate, setJatuhTempoDate] = useState('')
+   642→   823→  const [caraPembayaran, setCaraPembayaran] = useState('')
+   643→   824→
+   644→   825→  const fetchHistory = useCallback(async () => {
+   645→   826→    try {
+   646→   827→      setLoading(true)
+   647→   828→      const headers = getAuthHeaders()
+   648→   829→      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers })
+   649→   830→      if (res.ok) {
+   650→   831→        const json = await res.json()
+   651→
+   652→[showing lines 182-831 of 1333; use offset=832 with limit to continue reading]

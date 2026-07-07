@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { generateDocNumber } from '@/lib/doc-number'
+
+// GET all purchase orders (per-user isolation)
+export async function GET(request: NextRequest) {
+  try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search') || ''
+    const status = searchParams.get('status') || ''
+
+    const dataFilter = await getDataFilter(user)
+    const where: any = { ...dataFilter }
+    if (status && status !== 'all') where.status = status
+    if (search) {
+      where.OR = [
+        { supplierName: { contains: search } },
+        { poNumber: { contains: search } },
+      ]
+    }
+
+    const purchaseOrders = await db.purchaseOrder.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return NextResponse.json(purchaseOrders)
+  } catch (error) {
+    console.error('GET /api/purchase-order error:', error)
+    return NextResponse.json({ error: 'Failed to fetch purchase orders' }, { status: 500 })
+  }
+}
+
+// POST create purchase order (auto-assign userId from auth)
+export async function POST(request: NextRequest) {
+  try {
+    const user = getServerUser(request)
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+
+    const body = await request.json()
+    const {
+      supplierName,
+      supplierAddress,
+      supplierPhone,
+      orderDate,
+      deliveryDate,
+      items,
+      subtotal,
+      tax,
+      total,
+      notes,
+      status,
+    } = body
+
+    // Generate sequential PO number (never reuses deleted numbers)
+    const dataFilter = await getDataFilter(user)
+    const poNumber = await generateDocNumber('purchaseOrder', 'poNumber', 'PO', dataFilter)
+
+    const purchaseOrder = await db.purchaseOrder.create({
+      data: {
+        poNumber,
+        supplierName: supplierName || '',
+        supplierAddress: supplierAddress || '',
+        supplierPhone: supplierPhone || '',
+        orderDate: orderDate || '',
+        deliveryDate: deliveryDate || '',
+        items: typeof items === 'string' ? items : JSON.stringify(items || []),
+        subtotal: subtotal || 0,
+        tax: tax || 0,
+        total: total || 0,
+        notes: notes || '',
+        status: status || 'draft',
+        userId: user!.id,
+      },
+    })
+
+    return NextResponse.json(purchaseOrder)
+  } catch (error) {
+    console.error('POST /api/purchase-order error:', error)
+    return NextResponse.json({ error: 'Failed to create purchase order' }, { status: 500 })
+  }
+}

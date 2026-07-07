@@ -6117,3 +6117,44 @@ Stage Summary:
 - RESULT: The desktop content now properly "fits to desktop" — light background visible, content fills width from sidebar to viewport edge, with exactly 1cm (10mm = 37.7953px) padding on left and right as requested.
 - Files changed: src/components/install-prompt.tsx (1 line: setShowPrompt(true) → setDismissed(true) + comment).
 - NOTE: Not yet deployed to production — awaiting user confirmation.
+
+---
+Task ID: content-not-appearing-fix
+Agent: Main
+Task: Fix "conten tidak muncul" (content not appearing) — user reported content is not showing.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (install prompt overlay was fixed in task fit-to-desktop-fix).
+- Checked dev server status: discovered the dev server had CRASHED — no next/daemon/node processes running, no .daemon.log or dev.log files present.
+- The server had been running previously (per worklog entries) but died at some point, causing the user to see a blank/connection-refused page ("content not appearing").
+- Attempted multiple restart methods:
+  - `bun run dev` in background — process died when command completed.
+  - `next dev` with setsid — process died after compilation.
+  - Direct foreground run — confirmed server works (returns 200), but background processes kept dying.
+- Solution: Started the daemon process manager (daemon.cjs) which spawns Next.js as a child process and auto-restarts on crash:
+  - Command: `setsid nohup node daemon.cjs start`
+  - Daemon PID: 2224, Next.js PID: 2238
+  - Server ready in 13s, port 3000 in use.
+- Verified server stability:
+  - `/` (landing page): 200 ✓
+  - `/pembukaan` (Beranda): 200 ✓
+  - `/rekap-penjualan`: 200 ✓
+  - `/riwayat-penjualan`: 200 ✓
+  - `/riwayat-pembelian`: 200 ✓
+  - `/invoice`: 200 ✓
+  - All APIs return 200 (or 401 for unauthenticated, expected).
+- Verified content renders via agent-browser (logged in as admin):
+  - Beranda page: main element contains 1681 chars of text, body contains 2214 chars.
+  - Greeting "Selamat Siang" visible at (400, 120) — dark text RGB(29,41,61) on light background.
+  - "Halo, Administrator" visible at (400, 150) — dark text.
+  - Dashboard stats, history sections all present in DOM.
+  - No console errors, no React hydration errors.
+  - No blocking overlays (only the sidebar ASIDE element with z-index 40, which is expected).
+- The daemon will keep the server running and auto-restart if it crashes again.
+
+Stage Summary:
+- ROOT CAUSE: The dev server had crashed and was not running. The user saw a blank/error page because there was no server to serve content.
+- FIX: Restarted the dev server using the daemon process manager (daemon.cjs), which spawns Next.js as a child process and auto-restarts on crash. This ensures the server stays running.
+- RESULT: All pages now serve content correctly (HTTP 200). Beranda page shows greeting, dashboard stats, and history sections. No errors in logs or browser console.
+- The daemon (PID 2224) will keep the server alive and auto-restart if needed.
+- No code changes were needed — this was purely a server restart.
