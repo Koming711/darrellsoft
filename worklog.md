@@ -6366,3 +6366,52 @@ Stage Summary:
 - The bug was a UX display issue: the list view only showed the first item name and total quantity sum, making merged invoices look like they lost items.
 - Fixed by adding item-count badges/indicators in both desktop table and mobile card views, so users can clearly see when an invoice has multiple items (especially after merge).
 - The "4 item (gabungan)" label now appears in the list view (not just the merge dialog), matching user expectations.
+
+---
+Task ID: 8
+Agent: Main
+Task: Extract (58).tar and replace all content with the tar version (full project replacement)
+
+Work Log:
+- Combined split tar parts (49).tar.001 + .002 → workspace-49-combined.tar (71MB) for the previous invoice-system-only replacement task (Task 6/7).
+- For this task: (58).tar is a single 50MB file containing the full project (2103 non-git files).
+- Inspected tar contents: found full project structure (src/, prisma/, public/, components/, lib/, scripts/, websocket/, .zscripts/, package.json, tsconfig.json, next.config.ts, etc.) plus flattened .git internals (HEAD, ORIG_HEAD, COMMIT_EDITMSG, packed-refs, config, refs/, objects/, logs/, branches/, hooks/).
+- Preserved critical local files to /tmp/preserve-58/ before replacement:
+  * .env (local env with DATABASE_URL=file:/home/z/my-project/db/custom.db)
+  * db/ (local SQLite DB with real user data — 593920 bytes custom.db + 233472 bytes custom.db.backup)
+  * .vercel/project.json (Vercel deploy config with projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, orgId team_QBdS4SJeRhBe19sMKMlDvqsj, buildCommand, installCommand)
+  * daemon.cjs (local dev server daemon manager)
+  * .daemon.pid, .daemon.log (daemon state)
+  * worklog.md (473814 bytes — full conversation history)
+  * tool-results/ (tool result cache)
+  * agent-ctx/ (agent context files)
+  * task39b-screenshots/ (old screenshots)
+  * scripts/prepare-build.js (production build prep — converts SQLite schema to PostgreSQL)
+  * keep-alive.sh, run-server.sh, start-dev.sh (local server scripts)
+- Stopped dev server (kill -9 on next dev + next-server PIDs).
+- Extracted (58).tar to /tmp/extracted-58/ excluding .git/ (2103 files extracted).
+- Removed local-specific files from extracted-58/ so they wouldn't overwrite preserved versions: .env, db/, .vercel/, daemon.cjs, .daemon.pid, .daemon.log, worklog.md, tool-results/, agent-ctx/, task39b-screenshots/, node_modules/, .next/, upload/, backups/, keep-alive.sh, run-server.sh, start-dev.sh.
+- Removed old project source dirs: src/, prisma/, public/, components/, lib/, contexts/, stores/, hooks/, types/, examples/, download/, websocket/, scripts/, .zscripts/.
+- Removed old root config files: package.json, package-lock.json, bun.lock, tsconfig.json, next.config.ts, postcss.config.mjs, components.json, tailwind.config.ts, eslint.config.mjs, Caddyfile, README.md, vercel.json, manifest.json, sw.js, robots.txt, logo.svg, seed.ts, seed.js, seed-subscription.ts, seed-production.js, gen_sql.py, revert-schema.js, prepare-build.js, deploy.sh, deploy-vercel.sh, build.sh, dev.sh, start.sh, start-dev.sh, run-server.sh, keep-alive.sh, mini-services-*.sh, schema.prisma, .gitignore, .gitkeep, .vercelignore, *.md, backup-*.json, backup-*.xlsx, auto-backup-*, backup-user-*, pelunasan-print-test.pdf, login_state.png, deployed-invoice.png.
+- Copied all remaining content from /tmp/extracted-58/ to /home/z/my-project/ (cp -rf).
+- Cleaned up flattened .git internals that leaked to project root: HEAD, ORIG_HEAD, COMMIT_EDITMSG, packed-refs, config, refs/, objects/, logs/, branches/, hooks/.
+- Verified preserved files intact: .env (50 bytes, local), db/custom.db (593920 bytes, local), .vercel/project.json (correct projectId/orgId/buildCommand), daemon.cjs (8432 bytes, local), worklog.md (473814 bytes, local).
+- Verified new content present: prisma/schema.prisma (has UserSetting model — current schema), scripts/prepare-build.js (2242 bytes), src/app/page.tsx (97579 bytes), src/app/invoice/page.tsx (98951 bytes), package.json with all scripts (dev, build, db:generate, db:push, deploy, etc.).
+- Ran prisma generate (prisma client v6.19.2 generated successfully, schema uses SQLite provider with env DATABASE_URL).
+- Dev server auto-respawned by daemon (PID 15728), Ready in 15.3s. Initial attempt had ENOENT error for src/app (started during file copy), killed and respawned cleanly.
+- Browser verification via agent-browser:
+  * / → HTTP 200, renders "Darrell Soft - Kalkulator Hitung Cetakan" homepage with full content (Fitur, Kenapa, Langganan, Harga, Testimoni, product cards, etc.)
+  * /login → HTTP 200, renders login form. Dismissed Radix announcement dialog, filled username "admin" + password "268899", submitted via form.requestSubmit(). Successfully redirected to /pembukaan.
+  * /invoice → HTTP 200, renders invoice page with all 4 tabs (Editor, Riwayat2, Pelunasan, Editor Pelunasan), full editor form (No. Invoice, Tanggal, Referensi, Detail Dokumen, Informasi Pembayaran, Kepada YTH, Item, Informasi Tambahan), live A5 preview, action buttons (Reset, Cetak, JPG, Simpan, Surat Jalan). Next invoice number: INV/07/26/0003.
+  * Riwayat tab → shows "RIWAYAT INVOICE / 2 data" with "Gabungkan" (Merge), "Backup", "Restore" buttons. "INVOICE DP" section with 2 existing invoices: INV/07/26/0002 (jaya, brosur, 2.000 qty, Rp1.458.000) and INV/07/26/0001 (jaya, box, 3.000 qty, Rp3.129.000). Local DB data fully preserved.
+  * /pembukaan → HTTP 200, renders beranda.
+- No JavaScript console errors, no server errors, no 5xx responses. All API calls return 200 (401 for /api/settings is expected — requires auth; public-settings is the public endpoint).
+
+Stage Summary:
+- Full project content replaced with (58).tar version (1930 files copied after removing local-specific files from extraction).
+- Local files preserved: .env, db/custom.db (with all existing invoices/users/settings data), .vercel/project.json (deploy token), daemon.cjs, worklog.md, tool-results/, agent-ctx/, task39b-screenshots/, scripts/prepare-build.js, local server scripts.
+- Prisma schema is current (SQLite provider, has UserSetting model, uses env DATABASE_URL pointing to local db/custom.db).
+- Dev server running cleanly on port 3000 (daemon-managed, auto-restart enabled).
+- All routes verified working: /, /login, /pembukaan, /invoice.
+- Login works (admin/268899), invoice page renders with all tabs, Riwayat shows 2 existing invoices with data intact, "Gabungkan" merge button present.
+- No errors, no data loss. Full content replacement successful.
