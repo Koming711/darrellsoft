@@ -100,9 +100,10 @@ function parseDocInfo(entry: HistoryEntry) {
     const referensiInvoiceNomor = parsed.referensiInvoiceNomor || ''
     const isPelunasan = entry.docType === 'invoice-pelunasan'
     const uangCapek = parsed.uangCapek || 0
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek }
+    const itemCount = items.length
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek, itemCount }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0 }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0, itemCount: 0 }
   }
 }
 
@@ -773,7 +774,8 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                           <div className="min-w-0">
                             <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
                             <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}{info.itemCount > 1 ? <span className="text-violet-600 font-semibold"> +{info.itemCount - 1} item lainnya</span> : ''}</p>}
+                            {info.itemCount > 1 && <p className="text-violet-500 font-medium text-[10px] flex items-center gap-1"><Combine className="w-2.5 h-2.5" />{info.itemCount} item (gabungan)</p>}
                             {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
                             {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Uang Capek: {formatRupiah(uc)}</p>}
                           </div>
@@ -821,8 +823,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
                             <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
                             <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
-                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
+                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="truncate">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
+                                {info.itemCount > 1 && (
+                                  <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-violet-700 bg-violet-100 dark:bg-violet-950/50 dark:text-violet-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    <Combine className="w-2.5 h-2.5" />{info.itemCount} item
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">
+                              {info.totalQty > 0 ? (
+                                <span>{info.totalQty.toLocaleString('id-ID')}{info.itemCount > 1 ? <span className="text-slate-400 text-[10px] ml-1">({info.itemCount} item)</span> : ''}</span>
+                              ) : '-'}
+                            </td>
                             <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
                             <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
                             <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
