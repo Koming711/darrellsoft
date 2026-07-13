@@ -6054,3 +6054,56 @@ Stage Summary:
 - Recreated .vercel/project.json for deployment linking.
 - Dev server running stable via daemon (PID 1933, auto-restarts on crash), all pages and APIs return HTTP 200, all content renders correctly.
 - No errors in dev log or browser console.
+
+---
+Task ID: replace-invoice-system-tar55
+Agent: Main
+Task: Extract tar file (55) and replace the invoice combination system (sistem gabungan invoice) with it.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (tar 58 was extracted and replaced all content in task extract-replace-tar-58).
+- Located uploaded tar: /home/z/my-project/upload/workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (55).tar (45MB, dated Jul 13 14:39 — newer than file 58 dated Jul 13 13:51).
+- Examined current invoice system structure:
+  - src/app/invoice/page.tsx (1692 lines) — contains the "gabungan" (merge) feature with mergePrimaryId, mergedPreview, handleMerge logic.
+  - src/app/api/invoices/route.ts, src/app/api/invoices/[id]/route.ts — invoice API.
+  - src/components/dokupro/invoice-preview.tsx, invoice-editor.tsx, invoice-pelunasan-editor.tsx — invoice UI components.
+  - src/lib/generate-pdf.ts, pdf-to-jpg.ts — PDF/JPG generation.
+- Extracted tar (55) to /tmp/tar55-extract/ for comparison.
+- Performed comprehensive comparison of ALL invoice-related files between current project and tar (55):
+  - src/app/invoice/page.tsx → IDENTICAL (1692 lines both)
+  - src/app/api/invoices/route.ts → IDENTICAL
+  - src/app/api/invoices/[id]/route.ts → IDENTICAL
+  - src/components/dokupro/invoice-editor.tsx → IDENTICAL
+  - src/components/dokupro/invoice-pelunasan-editor.tsx → IDENTICAL
+  - src/components/dokupro/invoice-preview.tsx → DIFFERENT
+  - src/lib/generate-pdf.ts → DIFFERENT
+  - src/lib/pdf-to-jpg.ts → IDENTICAL
+- Identified the 2 differences:
+  1. invoice-preview.tsx: Current had 3-way conditional header (PELUNASAN / DOWN PAYMENT / normal). File (55) has 2-way conditional (PELUNASAN / normal) — NO DOWN PAYMENT label.
+  2. generate-pdf.ts: Current had `subtitle: data.type === 'invoice' && dpPercent > 0 ? 'DOWN PAYMENT' : undefined` line. File (55) does NOT have this line.
+- These differences are the "DOWN PAYMENT" label feature that was added in a previous task (per worklog task "dihalaman invoice, apabila pakai dp, maka di invoice di tulis Invoice DOWN PAYMENT"). File (55) predates/reverts this feature.
+- Backed up current versions to /tmp/backup-local/: invoice-preview.current.tsx, generate-pdf.current.ts.
+- Replaced the 2 invoice files with file (55) versions:
+  - cp /tmp/tar55-extract/src/components/dokupro/invoice-preview.tsx → /home/z/my-project/src/components/dokupro/invoice-preview.tsx
+  - cp /tmp/tar55-extract/src/lib/generate-pdf.ts → /home/z/my-project/src/lib/generate-pdf.ts
+- Verified both files now match file (55) (diff -q returns no output = identical).
+- Confirmed "DOWN PAYMENT" text count is 0 in both replaced files (feature removed).
+- Lint: npx eslint on both files — no errors.
+- Dev server was already running (daemon PID 1933). No restart needed — Next.js hot-reloaded the changes.
+- Verified via agent-browser (logged in as admin):
+  - /invoice page: HTTP 200, renders correctly. Main content 836 chars. Shows Editor/Riwayat/Pelunasan tabs, DATA PERUSAHAAN, DETAIL DOKUMEN, INFORMASI PEMBAYARAN, KEPADA YTH sections.
+  - / (homepage): 200 ✓
+  - /pembukaan (Beranda): 200 ✓
+  - /rekap-penjualan: 200 ✓
+- No compile errors in dev log (GET /invoice 200 in 301ms, compile: 84ms).
+- No console errors.
+
+Stage Summary:
+- Extracted tar file (55) and compared all invoice-related files with current project.
+- Found only 2 files that differ: invoice-preview.tsx and generate-pdf.ts.
+- The difference is the "DOWN PAYMENT" label feature (added in a previous task). File (55) does NOT have this feature — it uses the simpler 2-way conditional (PELUNASAN / normal).
+- Replaced both invoice files with file (55) versions, effectively reverting the DOWN PAYMENT label feature as requested by the user.
+- All other invoice files (page.tsx with merge/gabungan logic, API routes, editors, pelunasan editor, pdf-to-jpg) were already identical — no changes needed.
+- Dev server running stable, all pages return HTTP 200, invoice page renders correctly.
+- Files changed: src/components/dokupro/invoice-preview.tsx, src/lib/generate-pdf.ts.
+- NOTE: Not yet deployed to production — awaiting user confirmation.
