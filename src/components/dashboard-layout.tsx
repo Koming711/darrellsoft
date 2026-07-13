@@ -500,7 +500,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         />
         <div className={`${desktopMargin} transition-all duration-300`}>
           <MobileHeader username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
-          <main className="p-4 pb-20 lg:px-[10mm] lg:py-8 lg:pb-8">
+          <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
               <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
                 <Lock className="w-9 h-9 text-amber-500" />
@@ -551,9 +551,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           userProfile={userProfile}
         />
 
-        {/* Main Content — extra bottom padding on mobile for bottom nav + safe area.
-            Desktop uses 1cm (10mm) left/right padding for fit-to-desktop spacing. */}
-        <main className="p-4 pb-20 lg:px-[10mm] lg:py-8 lg:pb-8">
+        {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
+        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
           {children}
         </main>
       </div>
