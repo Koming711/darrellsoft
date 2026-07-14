@@ -35,6 +35,7 @@ import {
   UserCog,
   Banknote,
   BarChart3,
+  FileBarChart,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -107,6 +108,13 @@ const menuItems = [
     icon: BarChart3,
     featureId: 'invoice',
     section: 'dokumen',
+  },
+  {
+    titleKey: 'laporan' as TranslationKey,
+    href: '/laporan',
+    icon: FileBarChart,
+    featureId: 'invoice',
+    section: 'laporan',
   },
   {
     titleKey: 'biaya' as TranslationKey,
@@ -424,6 +432,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     { key: undefined, labelKey: 'section_beranda' as TranslationKey },
     { key: 'hitung_biaya_produksi', labelKey: 'section_total_cost_calc' as TranslationKey },
     { key: 'dokumen', labelKey: 'section_documents' as TranslationKey },
+    { key: 'laporan', labelKey: 'section_laporan' as TranslationKey },
     { key: 'biaya', labelKey: 'section_expenses' as TranslationKey },
     { key: 'biaya_produksi', labelKey: 'section_production_cost' as TranslationKey },
     { key: 'master_cetakan', labelKey: 'section_print_master' as TranslationKey },
