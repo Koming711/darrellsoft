@@ -161,12 +161,6 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
                 <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.referensiInvoiceNomor}</p>
               </>
             )}
-            {data.referensi && (
-              <>
-                <p style={{ fontSize: '7.5pt', color: '#666', margin: '0.5mm 0 0' }}>Ref.</p>
-                <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.referensi}</p>
-              </>
-            )}
           </div>
         </div>
       </div>
