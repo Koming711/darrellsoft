@@ -6451,3 +6451,41 @@ Stage Summary:
 - Build: Next.js 16.1.3 Turbopack, schema swapped sqlite→postgresql for build, DATABASE_URL transformed to Supabase pooler (port 6543, ap-southeast-1) for IPv4.
 - Post-deploy: schema reverted to sqlite, Prisma client regenerated for local SQLite dev. Local DB (db/custom.db) untouched with all existing data.
 - Local dev server continues running on port 3000.
+
+---
+Task ID: 10
+Agent: Main
+Task: Fix "merged invoice only shows 1 item, appears briefly then disappears" bug (re-apply on (58).tar)
+
+Work Log:
+- User reported: "kenapa pada waktu digabungkan hanya muncul 1 item saja. padahal ada 2 item. dan itupun muncul cuma sebentar saja." (When merged, only 1 item shows, even though there are 2, and even that appears only briefly.)
+- Investigated src/app/invoice/page.tsx merge system: handleMerge, mergedPreview useMemo, parseDocInfo, parseInvoiceData, list rendering.
+- Checked API route PUT /api/history/[id]/route.ts — clean, just updates dataJson + total, no item transformation.
+- Checked sync-pelunasan.ts — only syncs PEL child FROM invoice (not reverse), only called from invoice-editor save flow, not from merge.
+- Reproduced via agent-browser: created 2 test invoices (INV/TEST/0001 + INV/TEST/0002, each 1 item), entered merge mode, selected both, opened merge dialog.
+- Merge dialog preview correctly showed "Item Gabungan (2)" with both items (Test Item A + Test Item B).
+- After clicking "Gabungkan Sekarang": DB confirmed merge was correct — INV/TEST/0002 had 2 items (Test Item B + Test Item A), INV/TEST/0001 deleted.
+- ROOT CAUSE IDENTIFIED: UX display issue (same as Task 7, but the fix was lost during Task 8 full-content (58).tar replacement). The list view's "Nama Barang" column only showed the FIRST item's name, and "Qty" column showed the SUM of quantities. No indication that the invoice had multiple items. User perceived "only 1 item" when 2 were actually in the DB. The "appears briefly" was the merge dialog preview (showing 2 items) appearing briefly before the dialog closed and the list (showing only 1 item name) took over.
+- The (58).tar version's parseDocInfo did NOT return itemCount, and the list rendering did NOT have item-count badges.
+- Applied fix to src/app/invoice/page.tsx (re-applied Task 7 fix):
+  * parseDocInfo: added itemCount = items.length to return (both success and catch branches)
+  * Mobile card: added "+N item lainnya" text after first item name (violet-600) when itemCount > 1
+  * Mobile card: added "N item (gabungan)" line with Combine icon (violet-500) when itemCount > 1
+  * Desktop table Nama Barang column: added violet badge "N item" with Combine icon (text-violet-700 bg-violet-100) when itemCount > 1
+  * Desktop table Qty column: added "(N item)" suffix when itemCount > 1
+- Fixed JSX syntax error introduced during edit (missing closing `}` on DP line in mobile card).
+- Verified via agent-browser:
+  * Desktop table: INV/TEST/0002 shows "Test Item B" + violet "2 item" badge, Qty "15 (2 item)"
+  * Mobile card: INV/TEST/0002 shows "Test Item B +1 item lainnya" + "2 item (gabungan)" with Combine icon
+  * Created 2 fresh test invoices (INV/MT/0001 + INV/MT/0002), merged them, monitored list at 1s/2s/3s/5s/8s/12s — INV/MT/0002 with "2 item" badge STABLE throughout, no disappearance.
+  * No console errors, no 5xx responses.
+- Cleaned up test invoices (deleted INV/TEST/0001, INV/TEST/0002, INV/MT/0001, INV/MT/0002 from DB).
+
+Stage Summary:
+- Bug was a UX display issue, NOT data loss. The merge always saved all items correctly to the DB.
+- The (58).tar full replacement (Task 8) overwrote the Task 7 fix (item-count badges). Re-applied the fix.
+- Now the Riwayat list clearly shows when an invoice has multiple items:
+  - Desktop: violet "N item" badge with Combine icon in Nama Barang column + "(N item)" suffix in Qty column
+  - Mobile: "+N-1 item lainnya" after first item name + "N item (gabungan)" line with Combine icon
+- The "appears briefly then disappears" perception was the merge dialog (showing all items) closing and the list (previously showing only first item) taking over. With the badge, users can now see the invoice has multiple items.
+- Merge data integrity confirmed: 2 items persist in DB, list, and stay stable over time (no disappearance at 1s through 12s).
