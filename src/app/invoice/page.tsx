@@ -240,7 +240,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     }
   }, [])
 
-  // Fetch riwayat cetakan for uang capek calculation
+  // Fetch riwayat cetakan for profit calculation
   const fetchCetakan = useCallback(async () => {
     try {
       const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() })
@@ -478,7 +478,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const dpInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice'), [filteredHistory])
   const pelunasanInvoices = useMemo(() => filteredHistory.filter(e => e.docType === 'invoice-pelunasan'), [filteredHistory])
 
-  // Calculate uang capek per invoice — use saved value from dataJson, fallback to cetakan lookup
+  // Calculate profit per invoice — use saved value from dataJson, fallback to cetakan lookup
   const invoiceUangCapek = useMemo(() => {
     const result = new Map<string, number>()
     // Build cetakan lookup by both nomorUrut and printName (fallback for older data)
@@ -777,7 +777,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                             {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}{info.itemCount > 1 && <span className="text-violet-600"> +{info.itemCount - 1} item lainnya</span>}</p>}
                             {info.itemCount > 1 && <p className="text-violet-500 font-medium text-[11px] flex items-center gap-1"><Combine className="w-3 h-3" />{info.itemCount} item (gabungan)</p>}
                             {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
-                            {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Uang Capek: {formatRupiah(uc)}</p>}
+                            {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Profit: {formatRupiah(uc)}</p>}
                           </div>
                           {!mergeMode && (
                             <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -804,7 +804,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
+                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Profit</th>
                         {!mergeMode && <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>}
                       </tr>
                     </thead>

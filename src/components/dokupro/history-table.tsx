@@ -51,7 +51,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   spk: 'SPK',
 };
 
-// Calculate uang capek for each invoice by matching referensi with riwayat cetakan profitAmount
+// Calculate profit for each invoice by matching referensi with riwayat cetakan profitAmount
 function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { printName: string; profitAmount: number }[]): Map<string, number> {
   const result = new Map<string, number>();
 
@@ -63,7 +63,7 @@ function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { printNam
     }
   }
 
-  // Calculate uang capek per invoice
+  // Calculate profit per invoice
   for (const inv of invoices) {
     try {
       const parsed = JSON.parse(inv.dataJson);
@@ -95,7 +95,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
     }
   }, [docType]);
 
-  // Fetch riwayat cetakan for uang capek calculation (only when docType is invoice)
+  // Fetch riwayat cetakan for profit calculation (only when docType is invoice)
   const fetchCetakan = useCallback(async () => {
     if (docType !== 'invoice') return;
     try {
@@ -125,7 +125,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
     return () => window.removeEventListener('dokupro:history-updated', handler);
   }, [fetchHistory, fetchCetakan]);
 
-  // Calculate uang capek per invoice
+  // Calculate profit per invoice
   const uangCapekMap = useMemo(() => {
     if (docType !== 'invoice') return new Map<string, number>();
     return calculateUangCapek(history, cetakanList);
@@ -227,7 +227,7 @@ export function HistoryTable({ docType, documentLabel, onLoad }: HistoryTablePro
                   <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga Satuan</TableHead>
                 )}
                 {docType === 'invoice' && (
-                  <TableHead className="text-right text-[11px] font-semibold text-gray-500">Uang Capek</TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold text-gray-500">Profit</TableHead>
                 )}
                 {showPriceColumns && (
                   <TableHead className="text-right text-[11px] font-semibold text-gray-500">Total Harga</TableHead>

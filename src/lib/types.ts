@@ -56,7 +56,7 @@ export interface InvoiceData {
   tanggalJatuhTempo: string; // due date (empty = no due date)
   caraPembayaran: CaraPembayaran | ''; // payment method
   tanggalGiro: string; // giro date (only used when caraPembayaran === 'giro')
-  uangCapek?: number; // uang capek (profit) amount, editable
+  uangCapek?: number; // profit amount, editable
   lunas?: boolean; // whether final payment has been made
   tanggalPelunasan?: string; // date of final payment
   referensiInvoiceId?: string; // ID of the parent DP invoice (only for invoice-pelunasan type)

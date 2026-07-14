@@ -6489,3 +6489,40 @@ Stage Summary:
   - Mobile: "+N-1 item lainnya" after first item name + "N item (gabungan)" line with Combine icon
 - The "appears briefly then disappears" perception was the merge dialog (showing all items) closing and the list (previously showing only first item) taking over. With the badge, users can now see the invoice has multiple items.
 - Merge data integrity confirmed: 2 items persist in DB, list, and stay stable over time (no disappearance at 1s through 12s).
+
+---
+Task ID: 10
+Agent: Main
+Task: Replace all "Uang Capek" display text with "Profit" across the entire application
+
+Work Log:
+- Searched all source files for "uang capek", "Uang Capek", "UANG CAPEK", and "Tired Money" (English variant)
+- Identified 12 active source files containing the text (excluding backups and tool-results)
+- Updated src/lib/i18n.ts: Changed 6 labels (ID + EN) — tired_money_today, total_tired_money, uang_capek values now show "Profit" / "Profit Hari Ini" / "Total Profit" / "Today's Profit"
+- Updated src/components/dokupro/invoice-editor.tsx: Label "Uang Capek" → "Profit"
+- Updated src/components/dokupro/history-table.tsx: TableHead "Uang Capek" → "Profit", comments updated
+- Updated src/components/riwayat-content.tsx: Column title "Uang Capek" → "Profit"
+- Updated src/app/hitung-cetakan/page.tsx: All "Uang Capek" display text → "Profit", "UANG CAPEK" comment → "PROFIT"
+- Updated src/app/riwayat/page.tsx: "Total Uang Capek" → "Total Profit", "Uang Capek" column → "Profit", comments updated
+- Updated src/app/invoice/page.tsx: "Uang Capek" display in card and table header → "Profit"
+- Updated src/app/api/dashboard/route.ts: Comments "Uang Capek" → "Profit"
+- Updated src/app/pembukaan/page.tsx: Comments "uang capek" → "profit"
+- Updated src/lib/types.ts: Comment "uang capek (profit)" → "profit"
+- Updated root components/dokupro/ files (invoice-editor, history-table, riwayat-content) — duplicate copies
+- Kept all code identifiers intact (uangCapek, uang_capek i18n keys, invoiceUangCapek, calculateUangCapek, etc.) to avoid breaking code logic
+- Fixed a critical error where MultiEdit accidentally swapped old_str/new_str in hitung-cetakan/page.tsx, causing "Profit" → "Uang Capek" replacement that broke code identifiers (setProfitPercent → setUang CapekPercent with invalid space). Fixed by reverse replace_all "Uang Capek" → "Profit"
+- Ran lint: only pre-existing errors (require imports in .cjs files, setState in effect in websocket) — no new errors from text changes
+- Verified via Agent Browser on 4 pages:
+  - /pembukaan (dashboard): "Profit Hari Ini", "Total Profit", "Profit" column header ✓
+  - /hitung-cetakan: "Profit" ✓
+  - /invoice: "Profit" column header ✓
+  - /riwayat: "Profit" column header ✓
+- No "Uang Capek" or "Tired Money" text remains on any visible page
+- No console errors
+
+Stage Summary:
+- All user-facing "Uang Capek" text successfully replaced with "Profit" across the entire application
+- Code identifiers (variable names, i18n keys, function names) kept as-is to preserve code integrity
+- Backups folder left unchanged (not active code)
+- Browser verification confirmed all 4 key pages display "Profit" correctly
+- Dev server running on port 3000, compiled successfully with Fast Refresh
