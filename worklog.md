@@ -6415,3 +6415,39 @@ Stage Summary:
 - All routes verified working: /, /login, /pembukaan, /invoice.
 - Login works (admin/268899), invoice page renders with all tabs, Riwayat shows 2 existing invoices with data intact, "Gabungkan" merge button present.
 - No errors, no data loss. Full content replacement successful.
+
+---
+Task ID: 9
+Agent: Main
+Task: Deploy to www.darrellsoft.com using Vercel token
+
+Work Log:
+- User requested deploy to www.darrellsoft.com with token vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr.
+- Discovered .vercel/project.json was missing (lost during Task 8 full-content tar replacement). Recreated it with projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, orgId team_QBdS4SJeRhBe19sMKMlDvqsj, buildCommand "node scripts/prepare-build.js && npx prisma generate && npx next build", installCommand "bun install".
+- Verified token validity via curl https://api.vercel.com/v2/user → HTTP 200 (user: koming711, defaultTeamId matches orgId).
+- Step 1: Ran `node scripts/prepare-build.js` → swapped prisma/schema.prisma AND root schema.prisma from provider="sqlite" to provider="postgresql". The script also transforms DATABASE_URL from Supabase direct connection (IPv6) to pooler transaction mode (port 6543) for Vercel IPv4 compatibility.
+- Step 2: Ran `npx prisma generate` → Prisma Client v6.19.2 generated for PostgreSQL.
+- Step 3: Deployed via `npx vercel deploy --prod --yes --scope team_QBdS4SJeRhBe19sMKMlDvqsj --token <token>`.
+  * Vercel CLI 56.1.0 retrieved project successfully.
+  * Build ran on Vercel: Next.js 16.1.3 (Turbopack) production build.
+  * Build completed in 59s. All routes prerendered (static) or server-rendered on demand.
+  * Serverless functions created in 2.871s.
+  * Deployment URL: https://darrellsoft-lunror8uq-koming711s-projects.vercel.app
+  * Aliased to: https://www.darrellsoft.com
+  * Total deploy time: 2 minutes.
+- Step 4: Reverted schema back to SQLite for local dev via `node scripts/revert-schema.js` → both prisma/schema.prisma and root schema.prisma reverted to provider="sqlite".
+- Step 5: Regenerated Prisma client for SQLite via `npx prisma generate`.
+- Verified production deployment:
+  * https://www.darrellsoft.com → HTTP 200 (1.38s), title "Darrell Soft - Kalkulator Hitung Cetakan", content includes "Darrell Soft", "Jangan jadi penonton", "Hitung Cepat".
+  * https://darrellsoft.com (apex) → HTTP 301 redirect to https://www.darrellsoft.com/ (correct apex→www redirect).
+  * https://www.darrellsoft.com/login → HTTP 200.
+- Confirmed local dev server still running (daemon PID 1905, next dev PID 1919, port 3000 HTTP 200). Local DB unchanged (SQLite).
+
+Stage Summary:
+- Production deployment LIVE at https://www.darrellsoft.com (HTTP 200, content verified).
+- Apex domain https://darrellsoft.com correctly 301-redirects to www.
+- Vercel project ID prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, org/team team_QBdS4SJeRhBe19sMKMlDvqsj.
+- Deploy URL: https://darrellsoft-lunror8uq-koming711s-projects.vercel.app
+- Build: Next.js 16.1.3 Turbopack, schema swapped sqlite→postgresql for build, DATABASE_URL transformed to Supabase pooler (port 6543, ap-southeast-1) for IPv4.
+- Post-deploy: schema reverted to sqlite, Prisma client regenerated for local SQLite dev. Local DB (db/custom.db) untouched with all existing data.
+- Local dev server continues running on port 3000.
