@@ -946,16 +946,16 @@ function HitungCetakanPage() {
     </div>`
     }
 
-    // === UANG CAPEK ===
+    // === PROFIT ===
     if (profitPercent > 0 && profitAmt > 0) {
       sections += `
     <div class="section">
       <div class="section-header">
         <div class="section-icon orange">%</div>
-        <span>Uang Capek</span>
+        <span>Profit</span>
       </div>
       <div class="cost-card orange">
-        <span class="cost-label">Uang Capek (${profitPercent}%)</span>
+        <span class="cost-label">Profit (${profitPercent}%)</span>
         <span class="cost-value orange">${rp(Math.round(profitAmt))}</span>
       </div>
     </div>`
@@ -1196,7 +1196,7 @@ function HitungCetakanPage() {
           </div>
           <div class="grand-total-detail">
             <div>Sub Total: ${rp(Math.round(subTotal))}</div>
-            ${profitAmt > 0 ? `<div>Uang Capek: ${rp(Math.round(profitAmt))}</div>` : ''}
+            ${profitAmt > 0 ? `<div>Profit: ${rp(Math.round(profitAmt))}</div>` : ''}
           </div>
         </div>
       </div>
@@ -2145,7 +2145,7 @@ function HitungCetakanPage() {
                 </div>
                 <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700">
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" /><span className="text-xs font-medium text-black dark:text-white">Uang Capek</span>
+                    <div className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" /><span className="text-xs font-medium text-black dark:text-white">Profit</span>
                     <input
                       type="number"
                       min="0"
@@ -2431,7 +2431,7 @@ function HitungCetakanPage() {
                 </div>
                 <div className={`p-1.5 rounded-lg ${summaryProfitAmount > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-100 border border-slate-200'}`}>
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1"><Percent className={`w-3 h-3 ${summaryProfitAmount > 0 ? 'text-amber-600' : 'text-slate-400'}`} /><span className={`text-[10px] font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-400'}`}>Uang Capek</span>
+                    <div className="flex items-center gap-1"><Percent className={`w-3 h-3 ${summaryProfitAmount > 0 ? 'text-amber-600' : 'text-slate-400'}`} /><span className={`text-[10px] font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-400'}`}>Profit</span>
                     <input
                       type="number"
                       min="0"
@@ -2548,7 +2548,7 @@ function HitungCetakanPage() {
                   <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
                   <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
                   <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '180px'}}>Nama Barang</th>
-                  <th className="text-left py-3 px-3 text-violet-600 font-semibold whitespace-nowrap">Uang Capek</th>
+                  <th className="text-left py-3 px-3 text-violet-600 font-semibold whitespace-nowrap">Profit</th>
                   <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden xl:table-cell">Finishing</th>
                   <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
                   <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Harga/Pcs</th>
@@ -2836,11 +2836,11 @@ function HitungCetakanPage() {
                       <div className="w-5 h-5 rounded bg-orange-100 flex items-center justify-center">
                         <Percent className="w-3 h-3 text-orange-600" />
                       </div>
-                      <p className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">Uang Capek</p>
+                      <p className="text-[13px] font-bold text-slate-700 uppercase tracking-wide">Profit</p>
                     </div>
                     <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-orange-600">Uang Capek ({pvProfitPercent}%)</p>
+                        <p className="text-sm text-orange-600">Profit ({pvProfitPercent}%)</p>
                         <p className="text-lg font-bold text-orange-700">{formatRp(pvProfitAmount)}</p>
                       </div>
                     </div>
@@ -2855,7 +2855,7 @@ function HitungCetakanPage() {
                   </div>
                   <div className="text-right text-[10px] text-slate-400 space-y-0.5">
                     <p>Sub Total: {formatRp(pvSubTotal)}</p>
-                    {pvProfitAmount > 0 && <p>Uang Capek: {formatRp(pvProfitAmount)}</p>}
+                    {pvProfitAmount > 0 && <p>Profit: {formatRp(pvProfitAmount)}</p>}
                   </div>
                 </div>
               </div>

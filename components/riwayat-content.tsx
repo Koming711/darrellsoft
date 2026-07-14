@@ -281,7 +281,7 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
     },
     {
       key: 'profitAmount',
-      title: 'Uang Capek',
+      title: 'Profit',
       render: (h: RiwayatItem) => (
         <span className={`font-semibold ${h.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>
           {h.profitAmount > 0 ? formatRp(h.profitAmount) : '-'}

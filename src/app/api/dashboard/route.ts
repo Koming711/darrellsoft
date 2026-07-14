@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
     // not from RiwayatCetakan (which are just calculations/quotes)
     const todaySales = todayInvoiceRevenue
     const todayOrderCount = todayInvoiceHistory.length
-    // Uang Capek Hari Ini: from RiwayatCetakan profitAmount (only when invoices exist)
+    // Profit Hari Ini: from RiwayatCetakan profitAmount (only when invoices exist)
     const todayUangCapek = todayInvoiceHistory.length > 0 ? (todayCetakanAgg._sum.profitAmount || 0) : 0
 
     return NextResponse.json({
@@ -287,7 +287,7 @@ export async function GET(request: NextRequest) {
         totals: {
           cetakan: cetakanAgg._sum.grandTotal || 0,
           finishing: finishingAgg._sum.totalCost || 0,
-          // Uang Capek = from RiwayatCetakan profitAmount (only when invoices exist)
+          // Profit = from RiwayatCetakan profitAmount (only when invoices exist)
           uangCapek: invoiceAgg._count > 0 ? (cetakanAgg._sum.profitAmount || 0) : 0,
           ongkosCetak: (ongkosCetakAgg._sum.totalOngkosCetak || 0) + (ongkosCetakAgg._sum.totalOngkosCetak2 || 0),
           hargaKertas: hargaKertasAgg._sum.totalPrice || 0,
