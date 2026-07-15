@@ -93,7 +93,7 @@ const menuItems = [
     titleKey: 'laporan' as TranslationKey,
     href: '/laporan',
     icon: FileBarChart,
-    featureId: 'invoice',
+    featureId: 'laporan',
     section: 'laporan',
   },
   {

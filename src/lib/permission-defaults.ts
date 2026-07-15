@@ -19,6 +19,7 @@ export const SIMPLE_FEATURES = [
   { id: 'invoice', name: 'Invoice' },
   { id: 'surat-jalan', name: 'Surat Jalan' },
   { id: 'purchase-order', name: 'Purchase Order' },
+  { id: 'laporan', name: 'Laporan' },
 ]
 
 export const GROUP_FEATURES = [
@@ -122,14 +123,16 @@ export function buildDefaultPermissions(roleId: string): Record<string, boolean>
 
   // PRO features require explicit activation via Hak Akses page
   const PRO_FEATURE_IDS = ['invoice', 'surat-jalan', 'purchase-order']
+  // Laporan aktif untuk semua role (ringkasan transaksi, bukan PRO feature)
+  const ALL_ROLE_FEATURES = ['laporan']
 
   for (const f of SIMPLE_FEATURES) {
     let allowed = false
     if (roleId === 'superadmin') allowed = true
     else if (roleId === 'admin') allowed = !PRO_FEATURE_IDS.includes(f.id)
-    else if (roleId === 'manager') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order'].includes(f.id)
-    else if (roleId === 'demo') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
-    else if (roleId === 'user') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id)
+    else if (roleId === 'manager') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
+    else if (roleId === 'demo') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
+    else if (roleId === 'user') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
     perms[f.id] = allowed
   }
 

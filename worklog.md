@@ -6551,3 +6551,30 @@ Stage Summary:
 - Dev server running on port 3000, HTTP 200, content renders correctly
 - Landing page fully functional (dialog + hero + features + CTAs), no console/runtime errors
 - MD5 verification confirms file (61) already extracted — current state is the final extracted state
+
+---
+Task ID: activate-laporan
+Agent: Main
+Task: Aktifkan halaman Laporan (menu tidak muncul karena featureId='invoice' = PRO feature)
+
+Work Log:
+- Investigasi root cause: menu Laporan di sidebar pakai featureId='invoice' (PRO feature), sehingga untuk role tanpa akses invoice, menu Laporan tidak muncul
+- Tambah feature 'laporan' ke SIMPLE_FEATURES di permission-defaults.ts (line 22)
+- Set 'laporan' aktif untuk SEMUA role via ALL_ROLE_FEATURES=['laporan'] di buildDefaultPermissions — superadmin, admin, manager, demo, user semua boleh akses
+- Tambah mapping '/laporan' -> 'laporan' di getFeatureIdForPath (permissions.ts line 117)
+- Tambah mapping 'laporan' -> '/laporan' di getPathForFeatureId (permissions.ts line 145)
+- Ubah featureId menu Laporan di sidebar.tsx (line 93) dari 'invoice' ke 'laporan'
+- Ubah featureId menu Laporan di sidebar-desktop.tsx (line 96) dari 'invoice' ke 'laporan'
+- getFeaturePermissions() auto-merge defaults dengan stored permissions, jadi role existing otomapat dapat 'laporan'=true tanpa reset localStorage
+- Restart dev daemon (node daemon.cjs restart) — HTTP 200, no errors
+- Verified via agent-browser: login sebagai superadmin (superadmin/268899), navigasi ke /laporan
+  - Menu "Laporan" muncul di sidebar section "LAPORAN" ✓
+  - Halaman /laporan render penuh: filter periode (Semua/Hari Ini/Minggu Ini/Bulan Ini/Tahun Ini), 4 kartu link (Rekap Penjualan, Laporan Penjualan, Laporan Pembelian, Laporan Piutang), section recent invoices & PO ✓
+  - Zero console errors ✓
+
+Stage Summary:
+- Halaman Laporan AKTIF untuk semua role (superadmin, admin, manager, demo, user)
+- Menu "Laporan" muncul independen di sidebar section "LAPORAN" (tidak lagi terikat PRO feature 'invoice')
+- Permission path mapping lengkap: getFeatureIdForPath('/laporan')='laporan', getPathForFeatureId('laporan')='/laporan'
+- Role existing otomatis dapat akses (merge defaults), tidak perlu reset hak akses
+- Halaman render penuh dengan filter periode + 4 kartu link laporan + recent transactions
