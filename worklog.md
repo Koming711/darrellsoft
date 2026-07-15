@@ -6526,3 +6526,28 @@ Stage Summary:
 - Backups folder left unchanged (not active code)
 - Browser verification confirmed all 4 key pages display "Profit" correctly
 - Dev server running on port 3000, compiled successfully with Fast Refresh
+
+---
+Task ID: extract-replace-61
+Agent: Main
+Task: Extract uploaded tar workspace-67f99cb9...(61).tar and replace all project content
+
+Work Log:
+- Located uploaded file at upload/workspace-67f99cb9-bcdb-4abe-b206-401508beb8b4 (61).tar (51 MB, 1438 entries)
+- Inspected tar contents: full project backup with .git, src/, prisma/, db/custom.db, package.json, .env (SQLite), NO node_modules, NO .vercel
+- Stopped dev daemon (node daemon.cjs stop) and killed lingering next-server to free port 3000
+- Backed up node_modules (679 packages) to /tmp/z-staging before clearing project root
+- Cleared project root EXCEPT upload/ folder (199 items deleted)
+- Extracted tar into project root (tar -xf) — restored all source files, .env, db/custom.db, prisma schema (sqlite provider)
+- Restored node_modules from staging (mv back) — no reinstall needed
+- Ran `bun install` to sync deps: "Checked 994 installs across 1086 packages (no changes)" — postinstall hook auto-ran prisma generate successfully
+- Started dev daemon (node daemon.cjs start) — server ready in 13.2s, HTTP 200
+- Verified via agent-browser: title="Darrell Soft - Kalkulator Hitung Cetakan", "What's New" dialog renders, landing page (nav Fitur/Harga/Testimoni, hero heading, CTAs "Langganan Sekarang", feature sections) renders fully, ZERO console errors
+- User re-sent same file in next turn; confirmed MD5 identical (daf194f5c3432b9f184ece447ad52243) — extraction already complete, no redo needed
+
+Stage Summary:
+- All project content replaced with uploaded tar (61) — source, .env, SQLite DB, prisma schema all restored
+- node_modules preserved (no reinstall needed, deps already in sync)
+- Dev server running on port 3000, HTTP 200, content renders correctly
+- Landing page fully functional (dialog + hero + features + CTAs), no console/runtime errors
+- MD5 verification confirms file (61) already extracted — current state is the final extracted state
