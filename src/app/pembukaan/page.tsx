@@ -524,11 +524,9 @@ export default function PembukaanPage() {
 
   // Month names computed client-only to avoid hydration mismatch (server/client timezone difference)
   const [currentMonthLabel, setCurrentMonthLabel] = useState('')
-  const [lastMonthLabel, setLastMonthLabel] = useState('')
 
   useEffect(() => {
     setCurrentMonthLabel(new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { month: 'long' }))
-    setLastMonthLabel(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { month: 'long' }))
   }, [language])
 
   const displayName = user?.name || user?.username || (language === 'en' ? 'User' : 'Pengguna')
@@ -794,7 +792,7 @@ export default function PembukaanPage() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
             label={t('revenue_today')}
@@ -828,15 +826,6 @@ export default function PembukaanPage() {
             count={summary?.totals.revenue ?? 0}
             total={0}
             color="sky"
-            loading={loading}
-            isCurrency
-          />
-          <StatCard
-            icon={<DollarSign className="w-5 h-5" />}
-            label={`${t('total_revenue')} ${lastMonthLabel}`}
-            count={summary?.totals.lastMonthRevenue ?? 0}
-            total={0}
-            color="teal"
             loading={loading}
             isCurrency
           />
