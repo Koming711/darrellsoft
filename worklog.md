@@ -6578,3 +6578,46 @@ Stage Summary:
 - Permission path mapping lengkap: getFeatureIdForPath('/laporan')='laporan', getPathForFeatureId('laporan')='/laporan'
 - Role existing otomatis dapat akses (merge defaults), tidak perlu reset hak akses
 - Halaman render penuh dengan filter periode + 4 kartu link laporan + recent transactions
+
+---
+Task ID: notif-sound
+Agent: Main
+Task: Tambah bunyi suara di notifikasi admin/superadmin apabila ada yang daftar akun & berhasil masuk
+
+Work Log:
+- Analisis sistem notifikasi existing: NotificationBell polls /api/notifications/registrations tiap 60s, return count + newCount. CalonPembeli dengan status="baru" = trigger (dibuat saat register via /api/register yang juga auto-login → "daftar akun dan berhasil masuk")
+- Buat src/lib/notif-sound.ts: sound utility Web Audio API (2-tone chime C6+G5, 0.9s, no external file, PWA-friendly). Auto-resume AudioContext untuk bypass browser autoplay policy. unlockAudioOnInteraction() listen click/keydown/touchstart pertama.
+- Modifikasi src/components/notification-bell.tsx:
+  - Import playNotifSound + unlockAudioOnInteraction
+  - Tambah COUNT_KEY='notif-last-known-count' & MUTE_KEY='notif-sound-muted' localStorage keys
+  - Polling interval 60s → 20s (deteksi lebih cepat untuk sound tepat waktu)
+  - Sound detection pakai json.count (TOTAL "baru" registrations), BUKAN json.newCount (yang dipengaruhi since/lastSeen param dan drop ke 0 setelah popover dibuka)
+  - prevCountRef (useRef) + localStorage baseline: first load set baseline silently, poll berikutnya jika count > baseline → playNotifSound()
+  - Baseline persist di localStorage → reopen browser setelah registrasi baru tetap bunyi (baseline < count)
+  - Toggle mute (Volume2/VolumeX icon) di popover header, persist di localStorage, unmute play sample sound
+  - Comment block diupdate (60s→20s, mention sound+mute)
+- Tambah i18n keys: notif_sound_on ('Bunyikan suara notifikasi' / 'Enable notification sound'), notif_sound_off ('Bisukan suara notifikasi' / 'Mute notification sound') di section ID & EN
+- Restart dev daemon, lint clean (no errors di file yang diubah)
+- Kill proses next-server stale (EADDRINUSE conflict), restart bersih
+
+Verifikasi via agent-browser (login superadmin/268899):
+- NotificationBell render dengan badge count ✓
+- Popover berisi header + mute toggle (Volume2 icon) + list 4 pendaftar ✓
+- Reset baseline=5, wait 22s → baseline poll: count=5, no sound (correct) ✓
+- Create CalonPembeli status="baru" via DB → total=6
+- Wait 25s → poll: localStorage count updated 5→6 (PROVES sound-detection logic ran: 6>5=true, not muted → playNotifSound() called) ✓
+- Badge shows 6 (newCount=6) ✓
+- AudioContext functional test via eval: "AudioContext works ✓ (sound playable)" ✓
+- Mute toggle: click → muted=1 persisted, icon changes VolumeX→"Bunyikan" (Enable) ✓
+- Unmute → muted=0, icon back to Volume2 ✓
+- Cleanup 2 test registrations (total back to 4) ✓
+- Zero console errors, zero dev log errors ✓
+
+Stage Summary:
+- Notifikasi berbunyi (2-tone chime via Web Audio API) saat ada CalonPembeli baru status="baru" (= seseorang daftar akun & berhasil masuk, karena /api/register auto-create session)
+- Sound detection pakai TOTAL count (bukan newCount) untuk konsistensi lintas read-state
+- Baseline persist di localStorage: refresh tidak bunyi ulang, tapi reopen setelah registrasi baru tetap bunyi
+- Polling 20s (cepat dari 60s) untuk deteksi tepat waktu
+- Mute toggle di popover header (Volume2/VolumeX), persist di localStorage
+- Hanya untuk admin & superadmin (role check existing)
+- No external audio file (Web Audio API generate tone), PWA-friendly, autoplay-policy compliant

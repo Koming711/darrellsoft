@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell } from 'lucide-react'
+import { Bell, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { useLanguage } from '@/contexts/language-context'
 import { startNavigation } from '@/components/navigation-progress'
+import { playNotifSound, unlockAudioOnInteraction } from '@/lib/notif-sound'
 import {
   Popover,
   PopoverTrigger,
@@ -30,7 +31,9 @@ interface NotifResponse {
 }
 
 const STORAGE_KEY = 'notif-reg-last-seen'
-const POLL_INTERVAL = 60_000 // 60 seconds
+const COUNT_KEY = 'notif-last-known-count'
+const MUTE_KEY = 'notif-sound-muted'
+const POLL_INTERVAL = 20_000 // 20 seconds — faster detection for timely sound
 
 function timeAgo(dateStr: string, lang: 'id' | 'en'): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -55,7 +58,8 @@ interface NotificationBellProps {
  *
  * - Visible ONLY for admin & superadmin roles.
  * - "Read" state is tracked via localStorage timestamp (last time the popover was opened).
- * - Polls the API every 60s for fresh data.
+ * - Polls the API every 20s for fresh data + plays a chime when newCount increases.
+ * - Sound can be toggled via mute button in the popover header (persisted).
  * - Clicking a registration item navigates to /administrasi/pengguna.
  */
 export function NotificationBell({ role, className }: NotificationBellProps) {
@@ -64,33 +68,64 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   const [data, setData] = useState<NotifResponse | null>(null)
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<string | null | undefined>(undefined) // undefined = not loaded yet
+  const [muted, setMuted] = useState<boolean | undefined>(undefined) // undefined = not loaded
+  const prevCountRef = useRef<number | null>(null) // baseline count for sound detection
 
   // Only render for admin / superadmin
   const isAdmin = role === 'admin' || role === 'superadmin'
   const isAdminChecked = !!role
 
-  // Load lastSeen from localStorage (client-only)
+  // Load lastSeen + muted + baseline count from localStorage (client-only)
   useEffect(() => {
     if (!isAdmin) return
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       setLastSeen(stored)
+      const mutedStored = localStorage.getItem(MUTE_KEY) === '1'
+      setMuted(mutedStored)
+      const countStored = localStorage.getItem(COUNT_KEY)
+      prevCountRef.current = countStored !== null ? parseInt(countStored, 10) : null
     } catch {
       setLastSeen(null)
+      setMuted(false)
     }
+    // Unlock audio on first user interaction (browser autoplay policy)
+    unlockAudioOnInteraction()
   }, [isAdmin])
 
   const fetchData = useCallback(async () => {
-    if (!isAdmin || lastSeen === undefined) return
+    if (!isAdmin || lastSeen === undefined || muted === undefined) return
     try {
       const res = await authFetch(`/api/notifications/registrations${lastSeen ? `?since=${encodeURIComponent(lastSeen)}` : ''}`)
       if (!res.ok) return
       const json: NotifResponse = await res.json()
       setData(json)
+
+      // Sound detection: play chime when TOTAL registration count increases
+      // vs. persisted baseline. We use `count` (total "baru" registrations)
+      // instead of `newCount` (which is affected by the `since`/lastSeen param
+      // and would drop to 0 after opening the popover).
+      // - First load (no baseline): establish baseline silently (no sound on login/refresh).
+      // - Subsequent polls: if count > baseline → new registration arrived → play sound.
+      // - Baseline persists in localStorage so reopening the browser after a new
+      //   registration still sounds (because baseline < count).
+      const prev = prevCountRef.current
+      if (prev !== null && json.count > prev && !muted) {
+        playNotifSound()
+      }
+      // Update baseline for next comparison
+      if (prev === null || json.count !== prev) {
+        prevCountRef.current = json.count
+        try {
+          localStorage.setItem(COUNT_KEY, String(json.count))
+        } catch {
+          // ignore
+        }
+      }
     } catch {
       // silent fail
     }
-  }, [isAdmin, lastSeen])
+  }, [isAdmin, lastSeen, muted])
 
   // Initial fetch + polling — only after lastSeen is loaded.
   // Re-fetches immediately whenever lastSeen changes (e.g. after marking as read).
@@ -131,6 +166,20 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     router.push('/administrasi/pengguna')
   }
 
+  const toggleMute = () => {
+    const next = !muted
+    setMuted(next)
+    try {
+      localStorage.setItem(MUTE_KEY, next ? '1' : '0')
+    } catch {
+      // ignore
+    }
+    // If unmuting, play a sample sound so user knows it works
+    if (!next) {
+      playNotifSound()
+    }
+  }
+
   // Don't render until role is checked (avoid flash) and not admin
   if (!isAdminChecked || !isAdmin) return null
 
@@ -168,11 +217,22 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
           <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {t('notif_registrations')}
           </h3>
-          {newCount > 0 && (
-            <span className="text-[11px] font-medium text-red-500">
-              {newCount} {language === 'en' ? 'new' : 'baru'}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {newCount > 0 && (
+              <span className="text-[11px] font-medium text-red-500">
+                {newCount} {language === 'en' ? 'new' : 'baru'}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? t('notif_sound_on') : t('notif_sound_off')}
+              title={muted ? t('notif_sound_on') : t('notif_sound_off')}
+              className="inline-flex items-center justify-center rounded-md h-6 w-6 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
 
         {/* List */}
