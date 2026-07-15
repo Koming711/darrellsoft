@@ -499,7 +499,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           onLogout={handleLogout}
         />
         <div className={`${desktopMargin} transition-all duration-300`}>
-          <MobileHeader username={user?.username} title={title} subtitle={subtitle} userProfile={userProfile} />
+          <MobileHeader username={user?.username} role={user?.role} title={title} subtitle={subtitle} userProfile={userProfile} />
           <main className="p-4 pb-20 lg:p-8 lg:pb-8">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
               <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
@@ -546,6 +546,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       <div className={`${desktopMargin} transition-all duration-300`}>
         <MobileHeader
           username={user?.username}
+          role={user?.role}
           title={title}
           subtitle={subtitle}
           userProfile={userProfile}

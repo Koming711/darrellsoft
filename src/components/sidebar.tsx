@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './theme-toggle'
 import { LanguageToggle } from './language-toggle'
+import { NotificationBell } from './notification-bell'
 import { toast } from 'sonner'
 import {
   Calculator,
@@ -583,7 +584,7 @@ function formatDateIndo(dateStr: string | null | undefined, lang: 'id' | 'en' = 
   return new Date(dateStr).toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export function MobileHeader({ username, title, subtitle, userProfile }: { username?: string; title?: string; subtitle?: string; userProfile?: { createdAt: string | null; validUntil: string | null } | null }) {
+export function MobileHeader({ username, role, title, subtitle, userProfile }: { username?: string; role?: string; title?: string; subtitle?: string; userProfile?: { createdAt: string | null; validUntil: string | null } | null }) {
   const { t, language } = useLanguage()
 
   return (
@@ -608,12 +609,14 @@ export function MobileHeader({ username, title, subtitle, userProfile }: { usern
           <span className="text-[11px] hidden sm:block" style={{ color: 'var(--app-banner-text-muted)' }}>
             {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
           </span>
+          <NotificationBell role={role} />
           <LanguageToggle compact />
           <ThemeToggle className="h-8 w-8" />
         </div>
         {/* Desktop: full date + account info (visible on md+) */}
         <div className="hidden md:flex flex-col items-end justify-center gap-1 flex-shrink-0">
           <div className="flex items-center gap-2">
+            <NotificationBell role={role} />
             <LanguageToggle compact />
             <ThemeToggle className="h-8 w-8" />
             <span className="text-[13px] font-semibold" style={{ color: 'var(--app-banner-text)' }}>
