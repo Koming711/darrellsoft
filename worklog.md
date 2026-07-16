@@ -6653,3 +6653,40 @@ Stage Summary:
 - PEL child juga di-sync uangCapek-nya (jika belum lunas)
 - Merge dialog menampilkan baris "Profit (gabungan N invoice): RpX" di summary
 - Verifikasi end-to-end: 2 invoice (profit 250k + 350k) → merge → hasil profit 600k ✓
+
+---
+Task ID: invoice-number-counter
+Agent: Main
+Task: Fix nomor invoice harus tetap berjalan walaupun ada invoice yang dibuat tapi dihapus
+
+Work Log:
+- Investigasi bug: nomor invoice pakai pendekatan MAX(existing)+1 (findFirst orderBy nomor desc). Kalau invoice dengan nomor tertinggi dihapus, max turun → nomor berikutnya MEMAKAI ULANG nomor yang sudah dihapus. Komentar "deleted numbers are never reused" itu salah.
+- Root cause di src/lib/doc-number.ts: generateDocumentHistoryNumber, previewDocumentHistoryNumber, generateDocNumber, generatePotongKertasNumber, generateHitungCetakanNumber — semua pakai pola yang sama (cari max yang masih ada + 1).
+- Solusi: tambah tabel DocumentCounter yang menyimpan counter persisten per (context, prefix, period, userId). Counter hanya naik (increment), tidak pernah turun saat invoice dihapus.
+- Tambah model DocumentCounter ke prisma/schema.prisma DAN schema.prisma (root — yang dipakai prisma generate):
+  model DocumentCounter { id String @id @default(cuid()), key String @unique, lastNum Int @default(0), createdAt, updatedAt }
+- Buat tabel via `bunx prisma db execute` (db:push gagal karena SQLite index conflict)
+- Refactor src/lib/doc-number.ts:
+  - Tambah helper buildCounterKey(context, prefix, year, month, dataFilter) → "documentHistory|INV|2607|userId"
+  - Tambah helper nextCounterNumber(key, findCurrentMax): 
+    1. Jika counter belum ada, upsert dengan initial value = max existing number (migrasi data lama)
+    2. Atomik increment (Prisma increment) → return new value
+    3. Counter persist, hapus invoice tidak turunkan counter
+  - Tambah helper peekCounterNumber(key, findCurrentMax): return counter.lastNum+1, atau fallback max+1 jika counter belum ada
+  - Refactor SEMUA generator (generateDocNumber, generatePotongKertasNumber, generateHitungCetakanNumber, generateDocumentHistoryNumber) + preview functions pakai helper counter
+- Restart dev server, verifikasi via agent-browser (login superadmin):
+  - Test 1: existing invoices INV/07/26/0002 + INV/06/26/0001. Preview = INV/07/26/0003 ✓
+    - Create → INV/07/26/0003 ✓. Preview after create = INV/07/26/0004 ✓ (counter naik)
+    - Delete invoice. Preview after delete = INV/07/26/0004 ✓ (TIDAK balik ke 0003!)
+    - OLD code would return 0003 (reuse). NEW code returns 0004. PASS ✅
+  - Test 2 (sequence): Create #1=0004, Create #2=0005, Delete both, Create #3=0006 ✓
+    - num1=4, num3=6 → sequence keeps advancing after deletes. PASS ✅
+  - Cleanup test invoices, zero console errors
+
+Stage Summary:
+- Nomor invoice (dan semua dokumen: PEL, PO, SJ, SPK, HC, PK) sekarang pakai counter persisten
+- Counter disimpan di tabel DocumentCounter, hanya naik (increment), tidak pernah turun saat dokumen dihapus
+- Migrasi otomatis: jika counter belum ada untuk periode tersebut, di-init ke max existing number (tidak ada gap atau backwards)
+- Atomic increment via Prisma menjamin tidak ada race condition (concurrent requests dapat nomor berbeda)
+- Key counter per-user: "context|prefix|YYMM|userId" → isolasi per-user tetap terjaga
+- Verifikasi end-to-end: create→delete→create = nomor terus naik, tidak reuse nomor yang dihapus

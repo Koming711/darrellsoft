@@ -402,6 +402,17 @@ model DocumentHistory {
   createdAt  DateTime @default(now())
 }
 
+/// Persistent sequence counter — ensures document numbers NEVER decrease
+/// or get reused, even when documents are deleted. Each (prefix, period, user)
+/// combination has its own monotonically-increasing counter.
+model DocumentCounter {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "documentHistory|INV|2607|userId"
+  lastNum   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
