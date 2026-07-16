@@ -6735,3 +6735,40 @@ Stage Summary:
 - PEL child (jika ada) otomatis direpoint referensiInvoiceNomor ke nomor baru.
 - Counter persisten tetap monotonik (tidak reuse nomor yang dihapus). Merge mengkonsumsi 1 nomor baru.
 - Dialog merge menampilkan preview nomor baru sebelum konfirmasi, supaya user tahu hasilnya akan jadi nomor berapa.
+
+---
+Task ID: deploy-darrellsoft-com
+Agent: Main
+Task: Deploy aplikasi ke www.darrellsoft.com (Vercel production)
+
+Work Log:
+- Token Vercel diberikan user: vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr (user: koming711)
+- Domain darrellsoft.com sudah terdaftar di akun Vercel (Third Party registrar, 60d old)
+- Verify schema.prisma punya model DocumentCounter (tabel baru dari task invoice-number-counter) — HARUS di-push ke DB production supaya fitur counter persisten jalan di production.
+- Stop local dev server (kill PID next-server/next-dev) untuk hindari konflik prisma client saat swap schema.
+- Step 1: Swap schema sqlite→postgresql via scripts/prepare-build.js (kedua file: prisma/schema.prisma + root schema.prisma).
+- Step 2: npx prisma generate (generate prisma client untuk postgresql).
+- Step 3: Push schema ke Supabase production DB. Pooler transaction mode (port 6543) timeout → switch ke session mode (port 5432): DATABASE_URL="postgresql://postgres.nhmxpxafnehcthzjrhjp:***@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres" npx prisma db push --accept-data-loss. Success: "Your database is now in sync with your Prisma schema. Done in 1.95s". DocumentCounter table sekarang ada di production Supabase.
+- Step 4: Buat Vercel project "darrellsoft" via `npx vercel project add darrellsoft --token TOKEN`. Project created (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, team_QBdS4SJeRhBe19sMKMlDvqsj).
+- Step 5: Link project locally via `npx vercel link --yes --project darrellsoft --token TOKEN` (buat .vercel/project.json).
+- Step 6: Cek env vars — DATABASE_URL sudah ada di project (Production env, set 50d ago, encrypted). Tidak perlu tambah. Midtrans keys + NEXT_PUBLIC_BASE_URL juga sudah ada.
+- Step 7: Deploy via `npx vercel deploy --prod --yes --token TOKEN`. Build sukses (57s build time, 2m total). Output:
+  - Production URL: https://darrellsoft-3v0omc8c3-koming711s-projects.vercel.app
+  - Aliased: https://www.darrellsoft.com (domain otomatis ter-assign karena darrellsoft.com sudah di team)
+- Step 8: Revert schema postgresql→sqlite via scripts/revert-schema.js. Regenerate prisma client untuk sqlite.
+- Step 9: Kill stale next-server (PID 10832) yang pegang port 3000, restart local dev server bersih (bun run dev). Ready in 11s, HTTP 200, no errors.
+
+Verifikasi Production (https://www.darrellsoft.com):
+- Homepage: HTTP 200, title "Darrell Soft - Kalkulator Hitung Cetakan" ✓
+- Login page: HTTP 200 ✓
+- Invoice page: HTTP 200 ✓
+- POST /api/auth/login (superadmin/268899): HTTP 200, return user data + sessionId + permissions ✓ (DB Supabase connect & auth works end-to-end)
+- POST /api/history/generate-number?docType=invoice (dengan auth cookie): HTTP 200, return {"success":true,"nomor":"INV/07/26/0001"} ✓ (endpoint baru dari task invoice-merge-newnumber-refresh jalan di production, DocumentCounter table bekerja)
+- GET /api/history?preview=next-number&docType=invoice: HTTP 200, return {"nextNumber":"INV/07/26/0002"} ✓ (counter persisten: 0001 sudah di-generate, next 0002 — tidak reuse)
+
+Stage Summary:
+- Aplikasi live di https://www.darrellsoft.com (Vercel production, region sin1)
+- Database production: Supabase PostgreSQL (schema synced, DocumentCounter table ada)
+- Semua fitur ter-deploy: invoice merge dengan nomor baru, counter persisten (no reuse), profit gabungan, notifikasi sound, dll.
+- Local dev kembali ke SQLite (schema reverted, prisma client regenerated, dev server HTTP 200 clean)
+- Domain www.darrellsoft.com otomatis ter-alias ke deployment production terbaru
