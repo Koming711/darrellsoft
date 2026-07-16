@@ -6690,3 +6690,48 @@ Stage Summary:
 - Atomic increment via Prisma menjamin tidak ada race condition (concurrent requests dapat nomor berbeda)
 - Key counter per-user: "context|prefix|YYMM|userId" → isolasi per-user tetap terjaga
 - Verifikasi end-to-end: create→delete→create = nomor terus naik, tidak reuse nomor yang dihapus
+
+---
+Task ID: invoice-merge-newnumber-refresh
+Agent: Main
+Task: Fix merge invoice — hasil gabungan harus dapat nomor baru (bukan nomor invoice utama) & item gabungan harus langsung muncul tanpa refresh
+
+Work Log:
+- Investigasi bug dari user: "no invoice 1 dan no invoice 2 digabung harusnya jadi no invoice 3. tapi sekrg jadi no invoice 2. jadi item yang digabung cuma 1 dan harus di refresh baru muncul 2 item."
+  - Bug 1: Merge invoice menomori hasil dengan nomor invoice utama (primary), padahal user mau nomor BARU (contoh: INV 1 + INV 2 → INV 3, bukan tetap INV 2).
+  - Bug 2: Setelah merge, invoice hasil gabungan di list hanya menampilkan 1 item; baru muncul 2 item setelah refresh halaman manual.
+- Root cause Bug 1 (src/app/invoice/page.tsx handleMerge): handleMerge hanya PUT invoice primary dengan items gabungan, TANPA mengubah nomor. Hasil merge tetap pakai nomor primary (mis. MERGE-TEST-B), bukan nomor baru. Tidak ada mekanisme generate nomor baru saat merge.
+- Root cause Bug 2 (src/app/invoice/page.tsx fetchHistory): fetchHistory pakai fetch() tanpa cache:'no-store'. Browser bisa menyajikan response GET yang di-cache tepat setelah PUT/DELETE merge, sehingga data stale (1 item) tampil sampai user refresh halaman.
+- Fix Bug 1 — generate nomor baru saat merge:
+  - Buat endpoint baru: src/app/api/history/generate-number/route.ts (POST /api/history/generate-number?docType=invoice). Memanggil generateDocumentHistoryNumber() yang increment counter persisten secara atomik & return nomor baru (mis. INV/07/26/0007). Counter hanya naik, tidak pernah turun saat invoice dihapus.
+  - Di handleMerge: sebelum PUT, panggil endpoint generate-number untuk dapat newNomor. Set merged.nomor = newNomor. PUT primary dengan body { dataJson, nomor: newNomor, total } agar KEDUA kolom DB nomor DAN dataJson.nomor diupdate ke nomor baru.
+  - Sync PEL child: set pelParsed.referensiInvoiceNomor = newNomor (repoint referensi PEL ke nomor baru hasil merge, supaya PEL tidak yatim).
+  - Toast success: "N invoice berhasil digabung menjadi {newNomor}".
+- Fix Bug 2 — cache:'no-store' di fetchHistory:
+  - fetchHistory (line ~226): kedua fetch (invoice + invoice-pelunasan) ditambah cache:'no-store' supaya browser tidak serve cached response setelah merge. Sebelum fix, GET bisa return data lama (1 item) walau DB sudah 2 item.
+  - fetchHistory editor pelunasan (line ~1214): juga ditambah cache:'no-store'.
+- UI merge dialog diperbaiki:
+  - Tambah state mergePreviewNomor; openMergeDialog() fetch GET /api/history?preview=next-number&docType=invoice (peek, non-incrementing) untuk tampilkan nomor yg akan didapat hasil merge.
+  - Banner ungu di atas dialog: "Nomor invoice baru — Hasil gabungan akan menjadi INV/07/26/0007. Invoice utama direnumber ke nomor ini; invoice lain dihapus."
+  - Label "Invoice Utama" diubah dari "nomor & customer akan dipertahankan" → "customer, tanggal & metadata dipertahankan — nomor akan diganti".
+  - DialogDescription: "Item dari semua invoice akan digabung & hasilnya mendapat nomor invoice baru."
+  - Import icon Hash dari lucide-react.
+- Restart dev server, lint clean (no errors di file yg diubah).
+
+Verifikasi via agent-browser (login superadmin/268899, /invoice):
+- Setup: 2 invoice test di DB (userId=user-superadmin): MERGE-TEST-A (Item A1, qty 10, Rp50.000, profit Rp100.000) + MERGE-TEST-B (Item B1, qty 5, Rp30.000, profit Rp200.000). Counter superadmin INV/07/26 = 6 (next = 0007).
+- Buka mode Gabungkan, pilih 2 invoice, buka dialog merge.
+- Dialog menampilkan: Banner "Nomor invoice baru: Hasil gabungan akan menjadi INV/07/26/0007" ✓, Item Gabungan (2): Item B1 + Item A1 ✓, Subtotal Rp650.000, Total Baru Rp650.000, Profit (gabungan 2 invoice) Rp300.000 ✓.
+- Klik "Gabungkan Sekarang" → generate-number 200, PUT primary 200, DELETE invoice lain 200.
+- List invoice LANGSUNG (tanpa refresh manual) menampilkan: INV/07/26/0007 | MergeTest User | Item B1 (merge test) | **2 item** badge | 15 (2 item) | Rp650.000 | profit Rp300.000 ✓
+  - Bug 1 FIXED: nomor hasil = INV/07/26/0007 (NOMOR BARU), bukan MERGE-TEST-B (nomor primary lama) ✓
+  - Bug 2 FIXED: "2 item" muncul LANGSUNG setelah merge, tanpa refresh halaman ✓
+- DB verify: hanya 1 invoice tersisa (INV/07/26/0007) dengan 2 items [Item B1 qty=5; Item A1 qty=10], uangCapek=300000, counter 6→7. MERGE-TEST-A terhapus. Tidak ada PEL yatim.
+- Zero console errors, zero dev log errors.
+
+Stage Summary:
+- Merge invoice sekarang menghasilkan nomor BARU (counter increment) — bukan reuse nomor primary. Merging INV 1 + INV 2 → INV 3 (nomor berikutnya), sesuai harapan user.
+- Item gabungan langsung muncul di list setelah merge (cache:'no-store' di fetchHistory mencegah stale GET). Tidak perlu refresh manual.
+- PEL child (jika ada) otomatis direpoint referensiInvoiceNomor ke nomor baru.
+- Counter persisten tetap monotonik (tidak reuse nomor yang dihapus). Merge mengkonsumsi 1 nomor baru.
+- Dialog merge menampilkan preview nomor baru sebelum konfirmasi, supaya user tahu hasilnya akan jadi nomor berapa.
