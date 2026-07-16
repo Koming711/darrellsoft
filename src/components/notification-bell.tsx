@@ -136,10 +136,12 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     return () => clearInterval(timer)
   }, [isAdmin, lastSeen, fetchData])
 
-  // Mark all as read when popover opens
+  // Mark all as read when popover CLOSES — this lets the admin actually see the
+  // items first, then once they close the popover (or click an item / "View All"),
+  // those items are considered "viewed" and disappear from the list on next poll.
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
-    if (next) {
+    if (!next) {
       const now = new Date().toISOString()
       try {
         localStorage.setItem(STORAGE_KEY, now)
@@ -185,6 +187,14 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
 
   const newCount = data?.newCount ?? 0
   const registrations = data?.registrations ?? []
+  // Only show registrations newer than lastSeen — items already viewed (those
+  // with createdAt <= lastSeen) are filtered out and disappear from the list.
+  // On first run (lastSeen null) all "baru" registrations are shown.
+  const visibleRegistrations = lastSeen
+    ? registrations.filter(
+        (r) => new Date(r.createdAt).getTime() > new Date(lastSeen).getTime()
+      )
+    : registrations
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -200,7 +210,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
           style={{ color: 'var(--app-banner-text)' }}
         >
           <Bell className="w-[18px] h-[18px]" />
-          {newCount > 0 && (
+          {newCount > 0 && !open && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
               {newCount > 99 ? '99+' : newCount}
             </span>
@@ -235,15 +245,15 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
           </div>
         </div>
 
-        {/* List */}
+        {/* List — only items not yet viewed (createdAt > lastSeen) */}
         <div className="flex-1 overflow-y-auto hide-scrollbar">
-          {registrations.length === 0 ? (
+          {visibleRegistrations.length === 0 ? (
             <div className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">
               {t('notif_no_new')}
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-zinc-800">
-              {registrations.map((reg) => (
+              {visibleRegistrations.map((reg) => (
                 <li key={reg.id}>
                   <button
                     type="button"
@@ -272,7 +282,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
         </div>
 
         {/* Footer */}
-        {registrations.length > 0 && (
+        {visibleRegistrations.length > 0 && (
           <div className="border-t border-slate-100 dark:border-zinc-800 p-2">
             <button
               type="button"
