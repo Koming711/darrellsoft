@@ -6621,3 +6621,35 @@ Stage Summary:
 - Mute toggle di popover header (Volume2/VolumeX), persist di localStorage
 - Hanya untuk admin & superadmin (role check existing)
 - No external audio file (Web Audio API generate tone), PWA-friendly, autoplay-policy compliant
+
+---
+Task ID: invoice-merge-profit
+Agent: Main
+Task: Fix profit tidak bertambah saat invoice digabungkan di halaman Invoice
+
+Work Log:
+- Investigasi bug: di halaman /invoice, fitur "Gabungkan" invoice tidak menjumlahkan profit (uangCapek) dari invoice yang digabung. Hasil merge hanya menyimpan profit dari invoice utama (primary), profit dari invoice lain hilang.
+- Root cause di src/app/invoice/page.tsx:
+  1. mergedPreview (useMemo line 509) tidak menghitung total profit dari semua selected invoices
+  2. handleMerge (line 587) build `merged = { ...primaryData, items, ppn, dp }` — spread primaryData hanya bawa uangCapek primary, tidak set profit gabungan
+  3. PEL child sync (line 619-638) juga tidak update uangCapek
+  4. Merge dialog summary (line 1096-1107) tidak menampilkan profit gabungan
+- Fix 1: Tambah totalUangCapek di mergedPreview — `selectedInvoices.reduce((sum, inv) => sum + (invoiceUangCapek.get(inv.id) ?? 0), 0)`. Pakai invoiceUangCapek map (yang sudah handle fallback cetakan lookup). Tambah invoiceUangCapek ke dependency array.
+- Fix 2: Set `merged.uangCapek = totalUangCapek` di handleMerge, destructure totalUangCapek dari mergedPreview.
+- Fix 3: Sync `pelParsed.uangCapek = totalUangCapek` ke PEL child jika ada & belum lunas.
+- Fix 4: Tambah baris "Profit (gabungan N invoice)" di merge dialog summary section, tampil jika totalUangCapek > 0.
+- Restart dev server, verifikasi via agent-browser (login superadmin/268899):
+  - Buat 2 invoice test via API: INV/07/26/0001 (Item Test A, profit Rp250.000) + INV/07/26/0002 (Item Test B, profit Rp350.000)
+  - Masuk mode Gabungkan, pilih 2 invoice, buka dialog merge
+  - Dialog menampilkan: Subtotal Rp900.000, Total Baru Rp900.000, **Profit (gabungan 2 invoice) Rp600.000** ✓
+  - Klik "Gabungkan Sekarang" → PUT primary 200, DELETE invoice lain 200
+  - Invoice hasil gabungan INV/07/26/0002: 2 item (gabungan), Qty 15, Total Rp900.000, **Profit Rp600.000** ✓ (= 250k + 350k)
+  - Zero console errors, zero dev log errors
+
+Stage Summary:
+- Profit invoice sekarang dijumlahkan dengan benar saat invoice digabungkan
+- mergedPreview menghitung totalUangCapek = sum profit semua selected invoices (primary + others)
+- handleMerge set merged.uangCapek = totalUangCapek pada invoice utama hasil gabungan
+- PEL child juga di-sync uangCapek-nya (jika belum lunas)
+- Merge dialog menampilkan baris "Profit (gabungan N invoice): RpX" di summary
+- Verifikasi end-to-end: 2 invoice (profit 250k + 350k) → merge → hasil profit 600k ✓

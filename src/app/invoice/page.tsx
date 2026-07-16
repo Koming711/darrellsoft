@@ -555,13 +555,22 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     const hasPelChild = !!pelChild
     const pelChildLunas = pelChild ? parseDocInfo(pelChild).lunas : false
 
+    // Sum profit (uangCapek) from ALL selected invoices — primary + others.
+    // Uses the same lookup logic as invoiceUangCapek (prefer saved uangCapek,
+    // fallback to cetakan lookup by referensi). This ensures the merged invoice
+    // carries the COMBINED profit, not just the primary's.
+    const totalUangCapek = selectedInvoices.reduce((sum, inv) => {
+      return sum + (invoiceUangCapek.get(inv.id) ?? 0)
+    }, 0)
+
     return {
       primary, primaryData, otherInvoices, allItems,
       subtotal, ppn, newTotal, newDpPercent, newDpAmount, newSisa,
       originalDpAmount, originalDpPercent,
       customerMismatch, pelChild, hasPelChild, pelChildLunas,
+      totalUangCapek,
     }
-  }, [selectedInvoices, mergePrimaryId, pelunasanHistory])
+  }, [selectedInvoices, mergePrimaryId, pelunasanHistory, invoiceUangCapek])
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -586,15 +595,17 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
 
   const handleMerge = async () => {
     if (!mergedPreview) return
-    const { primary, primaryData, allItems, ppn, newTotal, newDpPercent, newDpAmount, otherInvoices, pelChild, hasPelChild, pelChildLunas } = mergedPreview
+    const { primary, primaryData, allItems, ppn, newTotal, newDpPercent, newDpAmount, otherInvoices, pelChild, hasPelChild, pelChildLunas, totalUangCapek } = mergedPreview
     setMergeLoading(true)
     try {
-      // Build merged InvoiceData — keep primary's metadata, replace items, adjust DP
+      // Build merged InvoiceData — keep primary's metadata, replace items, adjust DP,
+      // and set combined profit (uangCapek) from ALL merged invoices.
       const merged: Record<string, unknown> = {
         ...primaryData,
         items: allItems,
         ppn,
         dp: newDpPercent,
+        uangCapek: totalUangCapek,
       }
       if (newDpAmount > 0) {
         merged.dpAmount = newDpAmount
@@ -615,13 +626,14 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       })
       if (!putRes.ok) throw new Error('Gagal memperbarui invoice utama')
 
-      // 2. If primary has a PEL child and it is NOT yet lunas, sync its items + totals
+      // 2. If primary has a PEL child and it is NOT yet lunas, sync its items + totals + profit
       if (hasPelChild && pelChild && !pelChildLunas) {
         try {
           const pelParsed = JSON.parse(pelChild.dataJson)
           pelParsed.items = allItems
           pelParsed.ppn = ppn
           pelParsed.originalTotal = newTotal
+          pelParsed.uangCapek = totalUangCapek
           if (newDpAmount > 0) {
             pelParsed.dp = newDpPercent
             pelParsed.dpAmount = newDpAmount
@@ -1024,7 +1036,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
             <DialogDescription>Pilih invoice utama. Item dari invoice lain akan digabungkan ke invoice utama.</DialogDescription>
           </DialogHeader>
           {mergedPreview && (() => {
-            const { otherInvoices, allItems, subtotal, ppn, newTotal, newDpPercent, newSisa, originalDpAmount, customerMismatch, hasPelChild, pelChildLunas } = mergedPreview
+            const { otherInvoices, allItems, subtotal, ppn, newTotal, newDpPercent, newSisa, originalDpAmount, customerMismatch, hasPelChild, pelChildLunas, totalUangCapek } = mergedPreview
             return (
               <div className="space-y-4 pt-1">
                 {/* Customer mismatch warning */}
@@ -1097,6 +1109,9 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                   <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-700 dark:text-slate-200">{formatRupiah(subtotal)}</span></div>
                   <div className="flex justify-between text-xs"><span className="text-slate-500">PPN ({ppn}%)</span><span className="font-medium text-slate-700 dark:text-slate-200">{formatRupiah(subtotal * ppn / 100)}</span></div>
                   <div className="flex justify-between text-sm pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="font-semibold text-slate-700 dark:text-slate-200">Total Baru</span><span className="font-bold text-emerald-700">{formatRupiah(newTotal)}</span></div>
+                  {totalUangCapek > 0 && (
+                    <div className="flex justify-between text-xs pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="text-slate-500">Profit (gabungan {selectedInvoices.length} invoice)</span><span className="font-bold text-amber-700">{formatRupiah(totalUangCapek)}</span></div>
+                  )}
                   {originalDpAmount > 0 && (
                     <>
                       <div className="flex justify-between text-xs"><span className="text-slate-500">DP sudah dibayar (tetap)</span><span className="font-medium text-violet-700">{formatRupiah(originalDpAmount)}</span></div>
