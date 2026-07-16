@@ -31,6 +31,7 @@ import {
   Banknote,
   Combine,
   Layers,
+  Hash,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -219,15 +220,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
   const [mergePrimaryId, setMergePrimaryId] = useState<string>('')
   const [mergeDeleteOthers, setMergeDeleteOthers] = useState(true)
   const [mergeLoading, setMergeLoading] = useState(false)
+  // Preview of the NEW nomor the merged invoice will receive (peek, non-incrementing).
+  // The actual number is generated atomically at merge time — this is just for display.
+  const [mergePreviewNomor, setMergePreviewNomor] = useState<string>('')
 
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true)
       const headers = getAuthHeaders()
-      // Fetch both invoice and invoice-pelunasan
+      // Fetch both invoice and invoice-pelunasan.
+      // cache: 'no-store' is MANDATORY here — without it the browser may serve
+      // a stale cached GET response right after a merge/PUT, so the merged
+      // invoice would appear to only have 1 item until a manual page refresh.
       const [invRes, pelRes] = await Promise.all([
-        fetch('/api/history?docType=invoice', { headers }),
-        fetch('/api/history?docType=invoice-pelunasan', { headers }),
+        fetch('/api/history?docType=invoice', { headers, cache: 'no-store' }),
+        fetch('/api/history?docType=invoice-pelunasan', { headers, cache: 'no-store' }),
       ])
       const invData = invRes.ok ? (await invRes.json()).data || [] : []
       const pelData = pelRes.ok ? (await pelRes.json()).data || [] : []
@@ -591,6 +598,13 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     setMergePrimaryId(sorted[0].id)
     setMergeDeleteOthers(true)
     setMergeDialogOpen(true)
+    // Peek at the next invoice number — this is the nomor the merged result
+    // will receive when the user confirms. Non-incrementing preview.
+    setMergePreviewNomor('')
+    fetcher('/api/history?preview=next-number&docType=invoice', { headers: getAuthHeaders() })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.nextNumber) setMergePreviewNomor(data.nextNumber) })
+      .catch(() => { /* non-critical */ })
   }
 
   const handleMerge = async () => {
@@ -598,10 +612,25 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
     const { primary, primaryData, allItems, ppn, newTotal, newDpPercent, newDpAmount, otherInvoices, pelChild, hasPelChild, pelChildLunas, totalUangCapek } = mergedPreview
     setMergeLoading(true)
     try {
+      // 0. Generate a BRAND-NEW invoice number for the merged result.
+      //    The merged invoice must NOT keep the primary's old number — it gets a
+      //    fresh sequential number (e.g. merging INV/.../0001 + INV/.../0002
+      //    produces INV/.../0003). The counter is incremented atomically so the
+      //    number is reserved even if the merge fails halfway.
+      const genRes = await fetcher('/api/history/generate-number?docType=invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      })
+      if (!genRes.ok) throw new Error('Gagal generate nomor invoice baru')
+      const { nomor: newNomor } = await genRes.json()
+      if (!newNomor) throw new Error('Nomor invoice baru kosong')
+
       // Build merged InvoiceData — keep primary's metadata, replace items, adjust DP,
-      // and set combined profit (uangCapek) from ALL merged invoices.
+      // set combined profit (uangCapek) from ALL merged invoices, AND assign the
+      // new nomor so the result is a fresh invoice number.
       const merged: Record<string, unknown> = {
         ...primaryData,
+        nomor: newNomor,
         items: allItems,
         ppn,
         dp: newDpPercent,
@@ -618,15 +647,18 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       delete merged.statusPembayaran
       const newDataJson = JSON.stringify(merged)
 
-      // 1. Update primary invoice (PUT)
+      // 1. Update primary invoice (PUT) — pass `nomor` so BOTH the DB column
+      //    and dataJson.nomor are updated to the new number.
       const putRes = await fetcher(`/api/history/${primary.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ dataJson: newDataJson, total: String(Math.round(newTotal)) }),
+        body: JSON.stringify({ dataJson: newDataJson, nomor: newNomor, total: String(Math.round(newTotal)) }),
       })
       if (!putRes.ok) throw new Error('Gagal memperbarui invoice utama')
 
-      // 2. If primary has a PEL child and it is NOT yet lunas, sync its items + totals + profit
+      // 2. If primary has a PEL child and it is NOT yet lunas, sync its items +
+      //    totals + profit, AND repoint its referensiInvoiceNomor to the new nomor
+      //    (so the PEL still references the merged invoice after the renumber).
       if (hasPelChild && pelChild && !pelChildLunas) {
         try {
           const pelParsed = JSON.parse(pelChild.dataJson)
@@ -634,6 +666,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           pelParsed.ppn = ppn
           pelParsed.originalTotal = newTotal
           pelParsed.uangCapek = totalUangCapek
+          pelParsed.referensiInvoiceNomor = newNomor
           if (newDpAmount > 0) {
             pelParsed.dp = newDpPercent
             pelParsed.dpAmount = newDpAmount
@@ -674,7 +707,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
         }
       }
 
-      toast.success(`${selectedInvoices.length} invoice berhasil digabung menjadi 1`)
+      toast.success(`${selectedInvoices.length} invoice berhasil digabung menjadi ${newNomor}`)
       setMergeDialogOpen(false)
       setMergeMode(false)
       setSelectedIds(new Set())
@@ -1033,12 +1066,23 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Combine className="w-5 h-5 text-violet-600" /> Gabungkan Invoice</DialogTitle>
-            <DialogDescription>Pilih invoice utama. Item dari invoice lain akan digabungkan ke invoice utama.</DialogDescription>
+            <DialogDescription>Pilih invoice utama. Item dari semua invoice akan digabung &amp; hasilnya mendapat nomor invoice baru.</DialogDescription>
           </DialogHeader>
           {mergedPreview && (() => {
             const { otherInvoices, allItems, subtotal, ppn, newTotal, newDpPercent, newSisa, originalDpAmount, customerMismatch, hasPelChild, pelChildLunas, totalUangCapek } = mergedPreview
             return (
               <div className="space-y-4 pt-1">
+                {/* New nomor banner — the merged result gets a fresh number */}
+                <div className="rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 p-3 flex items-start gap-2">
+                  <Hash className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-violet-800 dark:text-violet-200">Nomor invoice baru</p>
+                    <p className="text-[11px] text-violet-700 dark:text-violet-300">
+                      Hasil gabungan akan menjadi <span className="font-bold">{mergePreviewNomor || 'nomor berikutnya'}</span>. Invoice utama direnumber ke nomor ini; invoice lain dihapus.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Customer mismatch warning */}
                 {customerMismatch && (
                   <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 flex items-start gap-2">
@@ -1052,7 +1096,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
 
                 {/* Primary invoice selector */}
                 <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2 block">Invoice Utama (nomor &amp; customer akan dipertahankan)</Label>
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2 block">Invoice Utama (customer, tanggal &amp; metadata dipertahankan — nomor akan diganti)</Label>
                   <RadioGroup value={mergePrimaryId} onValueChange={setMergePrimaryId} className="space-y-2">
                     {selectedInvoices.map((inv) => {
                       const info = parseDocInfo(inv)
@@ -1208,7 +1252,7 @@ function PelunasanTab() {
     try {
       setLoading(true)
       const headers = getAuthHeaders()
-      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers })
+      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers, cache: 'no-store' })
       if (res.ok) {
         const json = await res.json()
         setInvoiceHistory(json.data || [])
