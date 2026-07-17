@@ -6905,3 +6905,37 @@ Stage Summary:
 - Fix konsisten di 3 API: /api/laporan, /api/rekap-penjualan, /api/history GET. POST & preview tetap per-user (document numbers & duplicate check per-user).
 - Periode filter (all/hari_ini/minggu_ini/bulan_ini/tahun_ini) bekerja dengan benar.
 - Pages affected: /laporan, /rekap-penjualan, /riwayat-penjualan, /riwayat-pembelian — semua sekarang show correct multi-user data untuk superadmin.
+
+---
+Task ID: fix-invoice-riwayat-strict-isolation
+Agent: Main
+Task: Fix halaman invoice tab riwayat — strict multi-user isolation. Akun A tidak bisa lihat akun B, begitu juga sebaliknya. Termasuk superadmin/admin.
+
+Work Log:
+- User lapor: di halaman invoice tab riwayat, riwayat invoice akun aming muncul di riwayat invoice akun admin. Harusnya semua akun terisolasi — akun A tidak bisa lihat akun B.
+- Root cause: di task fix-laporan-multiuser sebelumnya, saya tambah admin override di /api/history GET (`isAdmin(user.role) ? {} : getDataFilter(user)`) supaya superadmin lihat semua data di halaman laporan. Tapi ini juga affect halaman invoice tab riwayat (yang fetch /api/history?docType=invoice) — superadmin/admin jadi lihat SEMUA user's invoice history, bukan cuma sendiri. User jelas tidak mau ini — semua akun harus terisolasi.
+- User requirement: "semua akun terisolasi. akun a tidak bisa lihat akun b begitu juga sebaliknya. buat multi user" — strict isolation untuk SEMUA akun termasuk superadmin/admin.
+- Revert admin override di 3 API:
+  1. src/app/api/history/route.ts (line 3, 132-134): hapus import isAdmin, kembalikan `const dataFilter = await getDataFilter(user)` (strict per-user). Comment: "Strict per-user isolation: every account only sees their own data. No admin override — account A cannot see account B's data, and vice versa."
+  2. src/app/api/laporan/route.ts (line 3, 84-86): hapus import isAdmin, kembalikan `const baseFilter = await getDataFilter(user)`. Tetap baca dari DocumentHistory (Bug 1 fix dari task sebelumnya tetap dipertahankan).
+  3. src/app/api/rekap-penjualan/route.ts (line 3, 116-117): hapus import isAdmin, kembalikan `const dataFilter = await getDataFilter(user)`.
+- Note: /api/history POST (duplicate check) & preview=next-number sudah per-user dari awal — tidak diubah. Document numbers & duplicate check tetap per-user.
+
+Verifikasi via curl + agent-browser:
+- Login superadmin → GET /api/history?docType=invoice: count=3 (INV/07/26/9001, 9002, INV/06/26/0001 — all userId=user-superadmin) ✓ was 12 sebelum fix
+- Login admin → GET /api/history?docType=invoice: count=4 (INV/07/26/0002, 0014, 0017, 0018 — all userId=user-admin) ✓
+- Login aming → GET /api/history?docType=invoice: count=4 (INV/07/26/0001, 0003, 0004, INV/06/26/0001 — all userId=cmq365l8x0003...) ✓
+- GET /api/laporan?periode=all:
+  - superadmin: totalInvoice=3 (own only, was 12) ✓
+  - admin: totalInvoice=4 (own only) ✓
+  - aming: totalInvoice=4 (own only) ✓
+- agent-browser /invoice tab Riwayat (login admin): tabel INVOICE DP show 4 invoices: INV/07/26/0002, 0014, 0017, 0018 (all admin's own). aming's invoices (0001, 0003, 0004) NOT present ✓
+- agent-browser /invoice tab Riwayat (login aming): tabel INVOICE DP show 4 invoices: INV/06/26/0001, INV/07/26/0001, 0003, 0004 (all aming's own). admin's invoices (0002, 0014, 0017, 0018) NOT present ✓
+- Zero console errors, zero page errors, all API 200 OK.
+
+Stage Summary:
+- Halaman invoice tab riwayat sekarang STRICT per-user isolation untuk SEMUA akun (termasuk superadmin & admin).
+- Akun A tidak bisa lihat akun B's invoice history, dan sebaliknya. Bug aming's invoices muncul di admin SUDAH FIXED.
+- Revert admin override di 3 API: /api/history GET, /api/laporan, /api/rekap-penjualan. Semua kembali ke `getDataFilter(user)` strict isolation.
+- DocumentHistory tetap sebagai sumber data (Bug 1 fix dari task sebelumnya tetap dipertahankan) — laporan page tetap show real data, hanya sekarang per-user isolated bukan global.
+- Document numbers & duplicate check tetap per-user (tidak diubah).

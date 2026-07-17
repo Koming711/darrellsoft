@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getServerUser, getDataFilter, requireAuth, isAdmin } from '@/lib/server-auth';
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth';
 import { generateDocumentHistoryNumber, previewDocumentHistoryNumber } from '@/lib/doc-number';
 
 // Prefix mapping for doc types
@@ -129,8 +129,9 @@ export async function GET(req: NextRequest) {
     const startDateStr = searchParams.get('startDate');
     const endDateStr = searchParams.get('endDate');
 
-    // Apply per-user filter (admin/superadmin see ALL users' data for reports)
-    const dataFilter = user && isAdmin(user.role) ? {} : await getDataFilter(user);
+    // Strict per-user isolation: every account only sees their own data.
+    // No admin override — account A cannot see account B's data, and vice versa.
+    const dataFilter = await getDataFilter(user);
 
     // Build date filter
     const dateFilter: Record<string, Date> = {};
