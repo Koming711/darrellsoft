@@ -6862,3 +6862,46 @@ Stage Summary:
 - loadCompanyFromAPI() tetap berjalan di background untuk sync fresh data dari API, tapi first render sudah pakai cached company — user tidak lihat flash.
 - Fix apply ke SEMUA doc type: invoice, surat-jalan, purchase-order, spk (semua pakai createInitialXxx() yang override company).
 - First-time visitors (localStorage kosong) tetap lihat DEFAULT_COMPANY briefly sampai API fetch selesai — ini unavoidable tanpa gating render (skeleton), dan acceptable karena first-time visitor memang belum set company.
+
+---
+Task ID: fix-laporan-multiuser
+Agent: Main
+Task: Fix halaman laporan untuk multi-user — superadmin/admin harus lihat SEMUA data semua user, regular user hanya data sendiri
+
+Work Log:
+- User tanya: "cek halaman laporan masuk ke multi user apa tidak?"
+- Investigasi src/app/api/laporan/route.ts: API baca dari db.invoice.findMany() & db.purchaseOrder.findMany() (structured tables). Tapi tabel Invoice & PurchaseOrder KOSONG (0 records)!
+- Investigasi lanjut: data invoice/PO sebenarnya disimpan di tabel DocumentHistory (docType='invoice', 'purchase-order') via /api/history POST. Editor invoice/surat-jalan/purchase-order semua save ke DocumentHistory, bukan ke Invoice/PurchaseOrder tables.
+- DB check: DocumentHistory punya 26 records (12 invoice, 5 purchase-order, 5 surat-jalan, 4 invoice-pelunasan) dari 5 user berbeda (user-superadmin: 6, user-admin: 7, aming: 7, 2 user lain: 5, 1 null).
+- Bug 1 (CRITICAL): /api/laporan baca dari tabel yang salah (Invoice/PurchaseOrder yg kosong) → laporan page ALWAYS show zeros untuk semua user. Superadmin test: totalPenjualan=0, totalInvoice=0, recentInvoices=[].
+- Bug 2 (MULTI-USER): getDataFilter(user) return { userId: user.id } — strict isolation. Bahkan kalau Bug 1 fix, superadmin cuma lihat 6 record sendiri, bukan semua 26. Untuk halaman laporan (management oversight), superadmin/admin harus lihat SEMUA data semua user.
+- Pattern admin override sudah ada di pembeli & calon-pembeli API: `isAdmin(user.role) ? {} : getDataFilter(user)`.
+- Fix Bug 1: Rewrite /api/laporan/route.ts untuk baca dari DocumentHistory (where docType='invoice' / 'purchase-order'). Parse dataJson untuk extract grandTotal (sum items qty*harga + PPN), customerName (client.nama), status (lunas). Hitung totalPenjualan, totalPiutang (unpaid), totalPembelian, counts.
+- Fix Bug 2: Tambah admin override di /api/laporan: `const baseFilter = user && isAdmin(user.role) ? {} : await getDataFilter(user)`. Superadmin/admin lihat semua user, regular user lihat sendiri.
+- Fix /api/rekap-penjualan: tambah import isAdmin + admin override (line 117). Sebelumnya strict per-user, superadmin cuma lihat sendiri.
+- Fix /api/history GET: tambah import isAdmin + admin override (line 133) supaya riwayat-penjualan & riwayat-pembelian pages (yang fetch /api/history?docType=invoice/purchase-order) juga show all data untuk superadmin.
+- Note: /api/history POST (duplicate check) & preview=next-number TETAP per-user — document numbers per-user, duplikat check per-user. Hanya GET list yang override untuk reporting.
+
+Verifikasi via curl + agent-browser:
+- Login superadmin/268899 → GET /api/laporan?periode=all:
+  - totalPenjualan=579,639,100 (was 0!) ✓
+  - totalPiutang=576,897,500 ✓
+  - totalInvoice=12 (ALL users' invoices, was 0!) ✓
+  - totalPembelian=7,159,546 (was 0!) ✓
+  - totalPO=5 (ALL users' POs, was 0!) ✓
+  - recentInvoices: INV/07/26/0018 Budi Susanto Rp6.740.000, dst (real data) ✓
+- Login aming/268899 (regular user) → GET /api/laporan?periode=all:
+  - totalInvoice=3 (only aming's own invoices, NOT 12) ✓ multi-user isolation works
+  - totalPO=1 (only aming's own POs) ✓
+  - totalPenjualan=51,197,600 ✓
+- Periode filter test (superadmin): bulan_ini=8 invoices/70.6M, hari_ini=3 invoices/8.1M ✓
+- agent-browser /laporan (superadmin): page shows Total Penjualan Rp579.639.100, Total Invoice 12, real recent invoices list ✓
+- agent-browser /riwayat-penjualan (superadmin): shows all invoices from all users, Total Rp579.639.100 ✓
+- Zero console errors, zero page errors, all API 200 OK.
+
+Stage Summary:
+- Halaman laporan sekarang SHOWS REAL DATA (was always zeros before) karena API baca dari DocumentHistory (sumber data sebenarnya) bukan Invoice/PurchaseOrder tables yang kosong.
+- Multi-user: superadmin/admin lihat SEMUA data semua user (management oversight untuk laporan). Regular user tetap strict per-user isolation (hanya lihat data sendiri).
+- Fix konsisten di 3 API: /api/laporan, /api/rekap-penjualan, /api/history GET. POST & preview tetap per-user (document numbers & duplicate check per-user).
+- Periode filter (all/hari_ini/minggu_ini/bulan_ini/tahun_ini) bekerja dengan benar.
+- Pages affected: /laporan, /rekap-penjualan, /riwayat-penjualan, /riwayat-pembelian — semua sekarang show correct multi-user data untuk superadmin.

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, requireAuth, isAdmin } from '@/lib/server-auth'
 
 // Types for the recap response
 interface RecapInvoice {
@@ -113,7 +113,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<RecapRespo
     const startDateStr = searchParams.get('startDate')
     const endDateStr = searchParams.get('endDate')
 
-    const dataFilter = await getDataFilter(user)
+    // Multi-user: admin/superadmin see ALL users' data; regular users only own.
+    const dataFilter = user && isAdmin(user.role) ? {} : await getDataFilter(user)
 
     // Build date filter on createdAt
     const dateFilter: Record<string, Date> = {}
