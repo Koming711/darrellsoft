@@ -6939,3 +6939,48 @@ Stage Summary:
 - Revert admin override di 3 API: /api/history GET, /api/laporan, /api/rekap-penjualan. Semua kembali ke `getDataFilter(user)` strict isolation.
 - DocumentHistory tetap sebagai sumber data (Bug 1 fix dari task sebelumnya tetap dipertahankan) — laporan page tetap show real data, hanya sekarang per-user isolated bukan global.
 - Document numbers & duplicate check tetap per-user (tidak diubah).
+
+---
+Task ID: fix-beranda-total-profit
+Agent: Main
+Task: Fix total profit di halaman beranda — harusnya dari total profit di riwayat invoice (dataJson.uangCapek), bukan dari RiwayatCetakan aggregate
+
+Work Log:
+- User lapor: total profit di halaman beranda salah. Harusnya dilihat dari total profit di riwayat invoice.
+- Investigasi src/app/api/dashboard/route.ts:
+  - `uangCapek: invoiceAgg._count > 0 ? (cetakanAgg._sum.profitAmount || 0) : 0` — sum dari SEMUA RiwayatCetakan profitAmount (7 hari terakhir).
+  - `todayUangCapek: todayInvoiceHistory.length > 0 ? (todayCetakanAgg._sum.profitAmount || 0) : 0` — sum dari SEMUA RiwayatCetakan profitAmount hari ini.
+  - `modal: ... (cetakanAgg._sum.grandTotal || 0) - (cetakanAgg._sum.profitAmount || 0)` — juga dari cetakan aggregate.
+- Root cause: RiwayatCetakan = semua perhitungan/kutipan cetakan (calculations/quotes), banyak yang TIDAK pernah jadi invoice. Jadi sum profitAmount dari cetakan aggregate = OVERCOUNT. Beda jauh dari profit sebenarnya yang hanya ada di invoice.
+- DB verification: RiwayatCetakan sum.profitAmount = 34.633.054 (20 records, semua perhitungan). Tapi total uangCapek dari invoice dataJson (13 invoices) = 13.771.276. Selisih 20.861.778 — itu profit dari perhitungan yang tidak jadi invoice.
+- Source of truth: setiap invoice punya field `uangCapek` di dataJson (profit per-invoice). Ini yang ditampilkan di invoice riwayat tab (parseDocInfo return uangCapek, ditampilkan di kolom Profit). Saat invoice dibuat dari riwayat cetakan, uangCapek di-save ke dataJson. Saat merge invoice, uangCapek di-sum dari semua merged invoices.
+- Fix src/app/api/dashboard/route.ts:
+  - Hitung `invoiceUangCapek` dari invoice dataJson (loop allInvoiceHistory, sum `Number(data.uangCapek) || 0`). Bareng sama invoiceTotal yang sudah ada.
+  - `uangCapek: invoiceUangCapek` (bukan cetakanAgg._sum.profitAmount).
+  - Hitung `todayUangCapek` dari todayInvoiceHistory dataJson (loop, sum uangCapek). Bukan dari todayCetakanAgg.
+  - `modal: Math.max(0, invoiceTotal - invoiceUangCapek)` — konsisten dengan invoice data, bukan cetakan aggregate.
+  - Remove unused `todayCetakanAgg` query (cleanup — tidak lagi dipakai setelah fix).
+  - Comment jelas: "Profit (uang capek) — sum of per-invoice uangCapek from dataJson. This matches the profit shown in the invoice riwayat tab (NOT the RiwayatCetakan aggregate, which double-counts calculations that never became invoices)."
+
+Verifikasi via curl + agent-browser:
+- Login superadmin → GET /api/dashboard:
+  - uangCapek = 80.000 (50.000 + 30.000 dari INV/07/26/9001 + 9002) ✓ was 34.633.054 sebelum fix (overcount)
+  - invoice total (7d) = 1.400.000 ✓
+  - modal = 1.320.000 ✓ (1.400.000 - 80.000)
+  - todayUangCapek = 80.000 ✓ (kedua invoice created today)
+- Login admin → GET /api/dashboard:
+  - uangCapek = 6.934.876 ✓ (sum dari 4 invoice: 2.247.550 + 1.528.933 + 1.629.460 + 1.528.933)
+  - invoice total (7d) = 20.803.000 ✓
+  - modal = 13.868.124 ✓
+  - todayUangCapek = 2.247.550 ✓ (INV/07/26/0018 created today)
+- DB direct check (admin, last 7d): uangCapek=6.934.876, invoice total=20.803.000, modal=13.868.124 — EXACT MATCH dengan dashboard API ✓
+- /api/history?docType=invoice (admin): sum uangCapek dari 4 invoice = 6.934.876 — EXACT MATCH dengan dashboard total profit ✓
+- agent-browser /pembukaan (admin): "Total Profit 50.0% Rp6.934.876" ✓, "Profit Hari Ini Rp2.247.550" ✓ — match dengan invoice riwayat tab
+- Zero console errors, zero page errors, all API 200 OK.
+
+Stage Summary:
+- Total profit di halaman beranda sekarang dihitung dari SUM of per-invoice uangCapek di DocumentHistory dataJson — sama persis dengan yang ditampilkan di invoice riwayat tab.
+- Sebelum fix: profit dari RiwayatCetakan aggregate (overcount, termasuk perhitungan yang tidak jadi invoice). Setelah fix: profit hanya dari invoice yang benar-benar dibuat.
+- Profit Hari Ini juga fixed: dari invoice dataJson uangCapek (bukan cetakan aggregate).
+- Modal dihitung konsisten: invoiceTotal - invoiceUangCapek (kedua dari invoice dataJson), sehingga profit margin badge tetap akurat.
+- Strict per-user isolation tetap dipertahankan (dataFilter per-user, sesuai task fix-invoice-riwayat-strict-isolation).
