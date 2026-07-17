@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter, requireAuth, isAdmin } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 
 /**
  * GET /api/laporan?periode=all|hari_ini|minggu_ini|bulan_ini|tahun_ini
@@ -81,8 +81,9 @@ export async function GET(request: NextRequest) {
 
   const user = getServerUser(request)
 
-  // Multi-user: admin/superadmin see ALL users' data; regular users only own.
-  const baseFilter = user && isAdmin(user.role) ? {} : await getDataFilter(user)
+  // Strict per-user isolation: every account only sees their own data.
+  // No admin override — account A cannot see account B's data, and vice versa.
+  const baseFilter = await getDataFilter(user)
 
   const { searchParams } = new URL(request.url)
   const periode = searchParams.get('periode') || 'all'
