@@ -6799,3 +6799,30 @@ Stage Summary:
 - Fix: revert kedua schema file ke sqlite + regenerate Prisma client + restart dev server.
 - Konten halaman invoice (Editor + Riwayat + tabel INVOICE DP + tabel INVOICE PELUNASAN) sekarang muncul lengkap dengan data dari DB SQLite lokal.
 - Dev server jalan bersih di port 3000, semua API 200 OK, no errors.
+
+---
+Task ID: fix-reset-company-data
+Agent: Main
+Task: Fix bug — tombol Reset di halaman invoice mengubah data perusahaan menjadi "PT Karya Mandiri Sejahtera" padahal seharusnya tetap data perusahaan milik user (mis. "Rajabowl")
+
+Work Log:
+- User lapor: di halaman invoice, klik tombol Reset → data perusahaan berubah jadi "PT Karya Mandiri Sejahtera", padahal seharusnya tetap data perusahaan yang diinput pemilik akun (mis. "Rajabowl").
+- Root cause analysis:
+  - src/lib/types.ts:123 `DEFAULT_COMPANY` hardcode: nama="PT Karya Mandiri Sejahtera", telepon="(021) 555-0199", alamat="Jl. Merdeka No. 12, Jakarta Pusat 10110", email="halo@karyamandiri.co.id".
+  - src/lib/types.ts:166 `createDefaultInvoice()` return `company: { ...DEFAULT_COMPANY }` (hardcoded stranger company).
+  - src/lib/store.ts:205 `resetDocument('invoice')` call `createDefaultInvoice()` → invoice.company overwritten ke DEFAULT_COMPANY. Field form lain (nomor, tanggal, client, items) juga di-reset, TAPI company identity juga ikut ke-reset ke default stranger — ini bug-nya.
+  - Tombol Reset di InvoiceEditor: src/components/dokupro/invoice-editor.tsx:412 `onReset={() => resetDocument('invoice')}` (DocumentActionButtons component).
+  - User's saved company sebenarnya sudah di-load via `loadCompanyFromAPI()` (store.ts:264) ke `state.settings.company` + sync ke `state.invoice.company` saat mount. Tapi resetDocument IGNORE `state.settings.company` dan pakai DEFAULT_COMPANY mentah-mentah.
+- Fix: src/lib/store.ts `resetDocument` — setelah createDefaultXxx(), override `doc.company` dengan `state.settings.company` (user's saved company). Helper `applyCompany(doc)` apply company kalau savedCompany.nama ada (sudah di-load dari API). Juga sync `ppn` untuk invoice & purchase-order dari savedCompany.ppn.
+- Fix apply ke SEMUA doc type: invoice, surat-jalan, purchase-order, spk (semuanya punya bug sama sebelumnya).
+- Verifikasi via agent-browser (login superadmin/268899, /invoice):
+  - BEFORE Reset: DATA PERUSAHAAN = "admin" / "jakarta" / "0818268638" / "halo@karyamandiri.co.id" (user's saved company) ✓
+  - Click Reset button (ref=e28) → form fields cleared (customer kosong, item kosong, nomor invoice baru INV/07/2026/0002, tanggal hari ini) ✓
+  - AFTER Reset: DATA PERUSAHAAN = "admin" / "jakarta" / "0818268638" / "halo@karyamandiri.co.id" (TETAP, tidak berubah jadi PT Karya Mandiri Sejahtera) ✓ BUG FIXED
+  - Zero console errors, zero page errors, all API 200 OK.
+
+Stage Summary:
+- Tombol Reset di halaman invoice (dan surat-jalan, purchase-order, spk) sekarang HANYA mereset field form (nomor, tanggal, customer, items, catatan, dp, dll), TIDAK lagi mengubah identitas perusahaan.
+- Data perusahaan user (nama, alamat, telepon, email, bank, npwp, ppn, logo) dipertahankan dari state.settings.company yang sudah di-load via loadCompanyFromAPI().
+- Jika user belum punya data perusahaan tersimpan (settings kosong), fallback tetap ke DEFAULT_COMPANY — tidak ada regression.
+- Bug fix konsisten untuk semua doc type (invoice/surat-jalan/purchase-order/spk) karena applyCompany helper generic.
