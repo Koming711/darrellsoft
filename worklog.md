@@ -6826,3 +6826,39 @@ Stage Summary:
 - Data perusahaan user (nama, alamat, telepon, email, bank, npwp, ppn, logo) dipertahankan dari state.settings.company yang sudah di-load via loadCompanyFromAPI().
 - Jika user belum punya data perusahaan tersimpan (settings kosong), fallback tetap ke DEFAULT_COMPANY — tidak ada regression.
 - Bug fix konsisten untuk semua doc type (invoice/surat-jalan/purchase-order/spk) karena applyCompany helper generic.
+
+---
+Task ID: fix-reset-company-flash
+Agent: Main
+Task: Fix "PT Karya Mandiri Sejahtera" masih muncul selama 1 detik (flash) saat buka halaman invoice
+
+Work Log:
+- User lapor: setelah fix reset-company-data, "PT Karya Mandiri Sejahtera" masih muncul selama ~1 detik saat halaman invoice dibuka, baru kemudian berubah ke data perusahaan user (mis. "Rajabowl"/"admin").
+- Root cause: src/lib/store.ts create() initializes all documents dengan `createDefaultInvoice()` → DEFAULT_COMPANY (PT Karya Mandiri Sejahtera). `loadCompanyFromAPI()` (async, di useEffect) baru fetch /api/settings & update store ~300ms-1s setelah first paint. Selama jeda itu, user lihat DEFAULT_COMPANY yang salah.
+- Investigasi arsitektur:
+  - useDokuproStore punya method `hydrate()` (baca localStorage) tapi TIDAK PERNAH dipanggil untuk store utama (hanya sidebar store yang call hydrate).
+  - `loadCompanyFromAPI()` di-call di useEffect editor (invoice-editor.tsx:120, surat-jalan-editor.tsx:86, purchase-order-editor.tsx:87).
+  - Settings user SUDAH ada di localStorage (`dokupro-settings` key) karena loadCompanyFromAPI saveToStorage setiap kali fetch API.
+- Fix: synchronous preload dari localStorage di module-level store init:
+  - Tambah `initClientSettings()`: baca localStorage `dokupro-settings` synchronously di client (return DEFAULT_SETTINGS di server via `typeof window === 'undefined'` check). Call cleanOldStorage() dulu untuk handle version migration.
+  - `const initialSettings = initClientSettings()` — jalan sekali di module load.
+  - `const initialCompany` — extract company dari initialSettings (atau fallback DEFAULT).
+  - Buat `createInitialInvoice/SuratJalan/PurchaseOrder/SPK()` — create default doc LALU override `.company` dengan initialCompany (juga sync ppn untuk invoice & PO). Ini yang eliminasi flash: first render sudah pakai company user, bukan DEFAULT_COMPANY.
+  - Store init: `invoice: createInitialInvoice()`, `suratJalan: createInitialSuratJalan()`, `purchaseOrder: createInitialPurchaseOrder()`, `spk: createInitialSPK()`, `settings: initialSettings`.
+  - `companyLoaded: Boolean(initialSettings.company?.nama)` — true kalau localStorage sudah punya company, supaya editor tidak show loading state unnecessary.
+- loadCompanyFromAPI() tetap jalan di background (useEffect) untuk refresh dari API (catch settings changes dari device lain / server-side update), tapi first render sudah benar — tidak ada flash.
+- Verifikasi via agent-browser (login superadmin, /invoice):
+  - localStorage dokupro-settings.company.nama = "admin" (sudah ada dari session sebelumnya).
+  - Full page reload → snapshot within 1 second: DATA PERUSAHAAN = "admin"/"jakarta"/"0818268638" ✓ (TIDAK ada flash PT Karya Mandiri Sejahtera).
+  - Test halaman /surat-jalan: first paint = "admin" ✓ (no flash).
+  - Test halaman /purchase-order: first paint = "admin" ✓ (no flash).
+  - Reset button test: before="admin", after reset="admin" (preserved) ✓.
+  - First-time visitor test (clear localStorage): loadCompanyFromAPI re-populate localStorage dari API, company="admin" muncul setelah ~1s (expected — no cached data, must fetch from API). Setelah itu, subsequent reloads = instant (no flash).
+  - Zero console errors, zero hydration mismatch warnings, zero page errors. Semua API 200 OK.
+
+Stage Summary:
+- Flash "PT Karya Mandiri Sejahtera" selama 1 detik ELIMINATED untuk returning visitors (yang sudah punya company data di localStorage).
+- Store init sekarang baca localStorage synchronously (client-side) untuk preload company user. Server tetap pakai DEFAULT (SSR-safe, no hydration mismatch karena company section di-render dengan data sama di server & client first render).
+- loadCompanyFromAPI() tetap berjalan di background untuk sync fresh data dari API, tapi first render sudah pakai cached company — user tidak lihat flash.
+- Fix apply ke SEMUA doc type: invoice, surat-jalan, purchase-order, spk (semua pakai createInitialXxx() yang override company).
+- First-time visitors (localStorage kosong) tetap lihat DEFAULT_COMPANY briefly sampai API fetch selesai — ini unavoidable tanpa gating render (skeleton), dan acceptable karena first-time visitor memang belum set company.
