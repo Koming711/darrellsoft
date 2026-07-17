@@ -102,6 +102,53 @@ function cleanOldStorage() {
   }
 }
 
+// --- Synchronous client-side preload of the user's saved company ---
+// This ELIMINATES the ~1s flash of the hardcoded DEFAULT_COMPANY
+// ("PT Karya Mandiri Sejahtera") that appeared between the store's initial
+// creation (which used createDefaultInvoice() → DEFAULT_COMPANY) and the
+// async loadCompanyFromAPI() call inside useEffect.
+//
+// On the server this returns DEFAULT_SETTINGS (no localStorage), so SSR is safe.
+// On the client, it reads the previously-saved settings from localStorage so the
+// very first paint already shows the user's real company (e.g. "Rajabowl").
+function initClientSettings(): CompanySettings {
+  if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS };
+  cleanOldStorage();
+  const saved = readStorage<CompanySettings>(STORAGE_KEYS.settings, { ...DEFAULT_SETTINGS });
+  return saved;
+}
+
+const initialSettings: CompanySettings = initClientSettings();
+const initialCompany: CompanyInfo =
+  initialSettings.company?.nama
+    ? { ...initialSettings.company }
+    : { ...DEFAULT_SETTINGS.company };
+
+// Create default documents but OVERRIDE the company with the user's saved
+// company (from localStorage). This prevents the flash on first paint.
+function createInitialInvoice(): InvoiceData {
+  const inv = createDefaultInvoice();
+  inv.company = { ...initialCompany };
+  if (typeof initialCompany.ppn === 'number') inv.ppn = initialCompany.ppn;
+  return inv;
+}
+function createInitialSuratJalan(): SuratJalanData {
+  const sj = createDefaultSuratJalan();
+  sj.company = { ...initialCompany };
+  return sj;
+}
+function createInitialPurchaseOrder(): PurchaseOrderData {
+  const po = createDefaultPurchaseOrder();
+  po.company = { ...initialCompany };
+  if (typeof initialCompany.ppn === 'number') po.ppn = initialCompany.ppn;
+  return po;
+}
+function createInitialSPK(): SPKData {
+  const spk = createDefaultSPK();
+  spk.company = { ...initialCompany };
+  return spk;
+}
+
 export const useDokuproStore = create<DokuproState>((set, get) => ({
   activePage: 'dashboard',
   setActivePage: (page) => set({ activePage: page }),
@@ -114,9 +161,11 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
   }),
 
   hydrated: false,
-  companyLoaded: false,
+  // Mark as loaded if we already have a real company name from localStorage —
+  // this prevents editors from showing a loading state unnecessarily.
+  companyLoaded: Boolean(initialSettings.company?.nama),
 
-  invoice: createDefaultInvoice(),
+  invoice: createInitialInvoice(),
   invoiceEditingId: null,
   setInvoice: (data) => {
     set((state) => {
@@ -127,7 +176,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
   },
   setInvoiceEditingId: (id) => set({ invoiceEditingId: id }),
 
-  suratJalan: createDefaultSuratJalan(),
+  suratJalan: createInitialSuratJalan(),
   setSuratJalan: (data) => {
     set((state) => {
       const newData = typeof data === 'function' ? data(state.suratJalan) : data;
@@ -136,7 +185,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
     });
   },
 
-  purchaseOrder: createDefaultPurchaseOrder(),
+  purchaseOrder: createInitialPurchaseOrder(),
   setPurchaseOrder: (data) => {
     set((state) => {
       const newData = typeof data === 'function' ? data(state.purchaseOrder) : data;
@@ -145,7 +194,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
     });
   },
 
-  spk: createDefaultSPK(),
+  spk: createInitialSPK(),
   setSPK: (data) => {
     set((state) => {
       const newData = typeof data === 'function' ? data(state.spk) : data;
@@ -154,7 +203,7 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
     });
   },
 
-  settings: { ...DEFAULT_SETTINGS },
+  settings: initialSettings,
   setSettings: (data) => {
     set((state) => {
       const newData = typeof data === 'function' ? data(state.settings) : data;
