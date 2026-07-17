@@ -218,30 +218,51 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
       return `${newPrefix}${String(num + 1).padStart(4, '0')}`;
     };
 
+    // Preserve the user's saved company settings across resets.
+    // createDefaultInvoice/SuratJalan/etc. fall back to the hardcoded
+    // DEFAULT_COMPANY ("PT Karya Mandiri Sejahtera"). When the user clicks
+    // "Reset", they expect the FORM fields (nomor, tanggal, client, items,
+    // catatan, dp, etc.) to be cleared — NOT their company identity to be
+    // replaced by a stranger's default. So we re-apply the user's saved
+    // company from settings (loaded via loadCompanyFromAPI) after reset.
+    const savedCompany = state.settings?.company;
+    const applyCompany = <T extends { company: CompanyInfo }>(doc: T): T => (
+      savedCompany && savedCompany.nama
+        ? { ...doc, company: { ...savedCompany } }
+        : doc
+    );
+
     switch (type) {
       case 'invoice': {
-        const inv = createDefaultInvoice();
+        const inv = applyCompany(createDefaultInvoice());
         inv.nomor = nextNumber(state.invoice.nomor, 'INV');
+        // Keep PPN in sync with the user's saved company PPN setting
+        if (savedCompany && typeof savedCompany.ppn === 'number') {
+          inv.ppn = savedCompany.ppn;
+        }
         saveToStorage(STORAGE_KEYS.invoice, inv);
         set({ invoice: inv, invoiceEditingId: null });
         break;
       }
       case 'surat-jalan': {
-        const sj = createDefaultSuratJalan();
+        const sj = applyCompany(createDefaultSuratJalan());
         sj.nomor = nextNumber(state.suratJalan.nomor, 'SJ');
         saveToStorage(STORAGE_KEYS['surat-jalan'], sj);
         set({ suratJalan: sj });
         break;
       }
       case 'purchase-order': {
-        const po = createDefaultPurchaseOrder();
+        const po = applyCompany(createDefaultPurchaseOrder());
         po.nomor = nextNumber(state.purchaseOrder.nomor, 'PO');
+        if (savedCompany && typeof savedCompany.ppn === 'number') {
+          po.ppn = savedCompany.ppn;
+        }
         saveToStorage(STORAGE_KEYS['purchase-order'], po);
         set({ purchaseOrder: po });
         break;
       }
       case 'spk': {
-        const spk = createDefaultSPK();
+        const spk = applyCompany(createDefaultSPK());
         spk.nomor = nextNumber(state.spk.nomor, 'SPK');
         saveToStorage(STORAGE_KEYS.spk, spk);
         set({ spk: spk });
