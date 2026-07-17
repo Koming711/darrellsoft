@@ -657,11 +657,21 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
       if (!putRes.ok) throw new Error('Gagal memperbarui invoice utama')
 
       // 2. If primary has a PEL child and it is NOT yet lunas, sync its items +
-      //    totals + profit, AND repoint its referensiInvoiceNomor to the new nomor
-      //    (so the PEL still references the merged invoice after the renumber).
+      //    totals + profit, repoint its referensiInvoiceNomor to the new nomor,
+      //    AND renumber the PEL itself.
+      //
+      //    PEL nomors are DERIVED from INV nomors by replacing the INV→PEL prefix
+      //    (see src/lib/sync-pelunasan.ts line 79). So when the INV is renumbered
+      //    during merge (e.g. INV/07/26/0001 → INV/07/26/0007), the PEL child
+      //    MUST also be renumbered (PEL/07/26/0001 → PEL/07/26/0007) to stay
+      //    in sync. Otherwise the PEL keeps its old number while the INV has a
+      //    new one — which is the bug "nomor invoice pelunasan sama, harusnya
+      //    beda".
       if (hasPelChild && pelChild && !pelChildLunas) {
         try {
           const pelParsed = JSON.parse(pelChild.dataJson)
+          const newPelNomor = newNomor.replace(/^INV/, 'PEL')
+          pelParsed.nomor = newPelNomor
           pelParsed.items = allItems
           pelParsed.ppn = ppn
           pelParsed.originalTotal = newTotal
@@ -675,7 +685,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           await fetcher(`/api/history/${pelChild.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ dataJson: JSON.stringify(pelParsed), total: String(Math.round(newTotal)) }),
+            body: JSON.stringify({ dataJson: JSON.stringify(pelParsed), nomor: newPelNomor, total: String(Math.round(newTotal)) }),
           })
         } catch (e) {
           console.error('Failed to sync PEL child:', e)
@@ -1166,7 +1176,10 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                 </div>
 
                 {/* PEL child notice */}
-                {hasPelChild && (
+                {hasPelChild && (() => {
+                  const newPelNomor = mergePreviewNomor ? mergePreviewNomor.replace(/^INV/, 'PEL') : ''
+                  const oldPelNomor = pelChild?.nomor || ''
+                  return (
                   <div className={`rounded-lg border p-3 flex items-start gap-2 ${pelChildLunas ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'}`}>
                     {pelChildLunas ? <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />}
                     <div>
@@ -1174,11 +1187,12 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                       <p className={`text-[11px] ${pelChildLunas ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-300'}`}>
                         {pelChildLunas
                           ? 'Invoice pelunasan terkait sudah ditandai lunas dan tidak akan diubah.'
-                          : 'Invoice pelunasan terkait akan ikut diperbarui (item & total disesuaikan dengan hasil gabungan).'}
+                          : <>Invoice pelunasan terkait akan ikut diperbarui (item & total disesuaikan dengan hasil gabungan).{newPelNomor && oldPelNomor && newPelNomor !== oldPelNomor ? <> Nomor PEL akan berubah dari <span className="font-bold">{oldPelNomor}</span> menjadi <span className="font-bold">{newPelNomor}</span>.</> : null}</>}
                       </p>
                     </div>
                   </div>
-                )}
+                  )
+                })()}
 
                 {/* Delete option */}
                 <label htmlFor="merge-delete-others" className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800">
