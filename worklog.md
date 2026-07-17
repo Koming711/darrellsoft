@@ -6984,3 +6984,37 @@ Stage Summary:
 - Profit Hari Ini juga fixed: dari invoice dataJson uangCapek (bukan cetakan aggregate).
 - Modal dihitung konsisten: invoiceTotal - invoiceUangCapek (kedua dari invoice dataJson), sehingga profit margin badge tetap akurat.
 - Strict per-user isolation tetap dipertahankan (dataFilter per-user, sesuai task fix-invoice-riwayat-strict-isolation).
+
+---
+Task ID: fix-beranda-invoice-profit-mismatch
+Agent: Main
+Task: Fix profit di tabel riwayat invoice pada halaman beranda — harusnya 1.528.933 (sama dengan total profit & invoice riwayat tab), bukan 485.770
+
+Work Log:
+- User lapor: di halaman beranda, profit di riwayat invoice harusnya 1.528.933.
+- Investigasi data DB: user-admin punya 1 invoice (INV/07/26/0021, customer "jaya") dengan uangCapek=1.528.933 tersimpan di dataJson. Invoice referensi="HC/07/26/817477".
+- Investigasi RiwayatCetakan: cetakan record HC/07/26/817477 (printName="brosur") punya profitAmount=485.770 — BERBEDA dari uangCapek invoice (1.528.933).
+- Root cause: di src/app/pembukaan/page.tsx, kolom "Uang Capek" di tabel Riwayat Invoice dihitung client-side oleh `calculateUangCapek(invoiceHistory, cetakanList)` — fungsi ini match invoice.referensi ke cetakan.nomorUrut/printName lalu ambil profitAmount cetakan. Karena profit per-cetakan (485.770) ≠ profit invoice sebenarnya (1.528.933, mungkin hasil merge/adjustment), tabel menampilkan 485.770 (SALAH). Sementara kartu "Total Profit" sudah benar (1.528.933, dari dashboard API yang sum uangCapek dari dataJson — fix task sebelumnya). Mismatch antara kartu & tabel.
+- Fix src/app/pembukaan/page.tsx:
+  - `parseDocInfo()` (line ~243): tambah ekstraksi `uangCapek = Number(parsed.uangCapek) || 0` dari dataJson. Return object sekarang include uangCapek. Comment jelas: ini source of truth yang sama dengan invoice riwayat tab, jangan recompute via cetakan matching.
+  - Tabel Riwayat Invoice (line ~904): ganti `const uc = invoiceUangCapek.get(entry.id) ?? 0` → `const uc = info.uangCapek` (pakai nilai langsung dari dataJson invoice).
+  - Hapus dead code: fungsi `calculateUangCapek()` (lines 387-413), state `cetakanList`, memo `invoiceUangCapek`, dan block fetch `/api/riwayat-cetakan` di `fetchDocHistory` (semua hanya dipakai untuk client-side profit matching yang sekarang tidak lagi dipakai).
+- Lint: `npx eslint src/app/pembukaan/page.tsx` → 0 errors. (Lint errors lain hanya di folder upload/verify-fix/, unrelated.)
+
+Verifikasi via API + agent-browser:
+- API (login admin, cookies userId/userRole):
+  - GET /api/dashboard?startDate=2000-01-01&endDate=2099-12-31 → uangCapek=1.528.933, todayUangCapek=1.528.933, invoice total=4.587.000 ✓
+  - GET /api/history?docType=invoice → INV/07/26/0021 | jaya | uangCapek=1.528.933, SUM=1.528.933 ✓
+- agent-browser (login admin via form, navigate /pembukaan, wait --text "INV/07/26/0021"):
+  - Tabel Riwayat Invoice: `cell "INV/07/26/0021" [ref=e39]` → `cell "Rp1.528.933" [ref=e45]` ✓ (was 485.770 sebelum fix)
+  - Kartu Total Profit: `Rp1.528.933` + badge `50.0%` ✓
+  - Dua StaticText "Rp1.528.933" (kartu + tabel) — konsisten, MATCH ✓
+  - 485.770 masih muncul tapi HANYA di section Riwayat Cetakan (cetakan HC/07/26/817477 profitAmount=485.770) — legitimate, bukan di tabel invoice.
+  - Zero page errors.
+
+Stage Summary:
+- Bug fixed: kolom profit di tabel Riwayat Invoice pada halaman beranda sekarang menampilkan nilai uangCapek langsung dari dataJson invoice (source of truth yang sama dengan invoice riwayat tab & kartu Total Profit), bukan recompute via matching referensi ke cetakan profitAmount.
+- Untuk user-admin: tabel invoice menunjukkan Rp1.528.933 (sesuai harapan user), kartu Total Profit juga Rp1.528.933 — keduanya konsisten.
+- Sebelum fix: tabel=485.770 (cetakan profit, salah), kartu=1.528.933 (benar) → mismatch. Setelah fix: tabel=1.528.933, kartu=1.528.933 → match.
+- Dead code dihapus (calculateUangCapek, cetakanList, invoiceUangCapek memo, fetch riwayat-cetakan di fetchDocHistory) — mengurangi 1 API call per load beranda & eliminasi logic mismatch.
+- Per-user isolation tetap dipertahankan (dataFilter per-user, sesuai task fix-invoice-riwayat-strict-isolation).
