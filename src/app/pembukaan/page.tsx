@@ -255,9 +255,16 @@ function parseDocInfo(entry: HistoryEntry) {
     const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga;
     const grandTotal = dp > 0 ? originalTotal : totalHarga;
     const referensi = parsed.referensi || '';
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, dp, originalTotal, grandTotal, referensi };
+    // Profit (uang capek) — read directly from the invoice dataJson. This is
+    // the source of truth saved when the invoice was created/merged, and
+    // matches what the invoice riwayat tab shows. Do NOT recompute it by
+    // matching referensi against riwayat cetakan profitAmount (the per-cetakan
+    // profit can differ from the invoice's actual profit, e.g. after merging
+    // multiple cetakan or adjusting the profit).
+    const uangCapek = Number(parsed.uangCapek) || 0;
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, dp, originalTotal, grandTotal, referensi, uangCapek };
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dp: 0, originalTotal: 0, grandTotal: 0, referensi: '' };
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dp: 0, originalTotal: 0, grandTotal: 0, referensi: '', uangCapek: 0 };
   }
 }
 
@@ -377,33 +384,6 @@ function parsePurchaseOrderData(entry: HistoryEntry): PurchaseOrderData {
   }
 }
 
-// Calculate profit for each invoice by matching referensi with riwayat cetakan profitAmount
-// Referensi can be either a nomorUrut (e.g. "HC/05/2026/0007") or a printName (e.g. "Brosur")
-function calculateUangCapek(invoices: HistoryEntry[], cetakanRecords: { nomorUrut: string; printName: string; profitAmount: number }[]): Map<string, number> {
-  const result = new Map<string, number>()
-  
-  // Build cetakan lookup by both nomorUrut and printName
-  const cetakanByRef = new Map<string, number>()
-  for (const c of cetakanRecords) {
-    // Index by nomorUrut (preferred match)
-    if (c.nomorUrut) {
-      cetakanByRef.set(c.nomorUrut, (cetakanByRef.get(c.nomorUrut) || 0) + c.profitAmount)
-    }
-    // Also index by printName (fallback for older data)
-    if (c.printName && !cetakanByRef.has(c.printName)) {
-      cetakanByRef.set(c.printName, (cetakanByRef.get(c.printName) || 0) + c.profitAmount)
-    }
-  }
-
-  // Calculate profit per invoice
-  for (const inv of invoices) {
-    const info = parseDocInfo(inv)
-    const uangCapek = info.referensi ? (cetakanByRef.get(info.referensi) || 0) : 0
-    result.set(inv.id, uangCapek)
-  }
-
-  return result
-}
 
 export default function PembukaanPage() {
   const { t, language } = useLanguage()
@@ -504,11 +484,7 @@ export default function PembukaanPage() {
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
   const [suratJalanHistory, setSuratJalanHistory] = useState<HistoryEntry[]>([])
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
-  const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
   const [docLoading, setDocLoading] = useState(false)
-
-  // Calculate profit per invoice from riwayat cetakan profitAmount
-  const invoiceUangCapek = useMemo(() => calculateUangCapek(invoiceHistory, cetakanList), [invoiceHistory, cetakanList])
 
   // Popup state
 
@@ -570,19 +546,6 @@ export default function PembukaanPage() {
       if (invRes.ok) { const json = await invRes.json(); setInvoiceHistory(json.data || []) }
       if (sjRes.ok) { const json = await sjRes.json(); setSuratJalanHistory(json.data || []) }
       if (poRes.ok) { const json = await poRes.json(); setPoHistory(json.data || []) }
-      // Fetch riwayat cetakan for profit calculation
-      try {
-        const cetRes = await fetch('/api/riwayat-cetakan', { headers })
-        if (cetRes.ok) {
-          const cetData = await cetRes.json()
-          const mapped = (Array.isArray(cetData) ? cetData : []).map((r: { nomorUrut?: string; printName?: string; profitAmount?: number }) => ({
-            nomorUrut: r.nomorUrut || '',
-            printName: r.printName || '',
-            profitAmount: r.profitAmount || 0,
-          }))
-          setCetakanList(mapped)
-        }
-      } catch {}
     } catch {
       // ignore
     } finally {
@@ -939,7 +902,7 @@ export default function PembukaanPage() {
                       <TableBody>
                         {invoiceHistory.map((entry, i) => {
                           const info = parseDocInfo(entry)
-                          const uc = invoiceUangCapek.get(entry.id) ?? 0
+                          const uc = info.uangCapek
                           return (
                             <TableRow key={entry.id} className="group">
                               <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>

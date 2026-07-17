@@ -1,0 +1,1940 @@
+     1→'use client';
+     2→
+     3→import { motion, useInView } from 'framer-motion';
+     4→import { useRef, useState } from 'react';
+     5→import { useRouter } from 'next/navigation';
+     6→import {
+     7→  Printer,
+     8→  Calculator,
+     9→  DollarSign,
+    10→  Zap,
+    11→  Monitor,
+    12→  Smartphone,
+    13→  Shield,
+    14→  X,
+    15→  CheckCircle2,
+    16→  ChevronRight,
+    17→  Star,
+    18→  TrendingUp,
+    19→  Package,
+    20→  MousePointerClick,
+    21→  ArrowRight,
+    22→  MessageCircle,
+    23→  Download,
+    24→  Cloud,
+    25→  Globe,
+    26→  Lock,
+    27→  Banknote,
+    28→  Crown,
+    29→  type LucideIcon,
+    30→} from 'lucide-react';
+    31→import { ThemeToggle } from '@/components/theme-toggle';
+    32→import { LanguageToggle } from '@/components/language-toggle';
+    33→import { Button } from '@/components/ui/button';
+    34→import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+    35→import { Badge } from '@/components/ui/badge';
+    36→import { Separator } from '@/components/ui/separator';
+    37→import { useLanguage } from '@/contexts/language-context';
+    38→
+    39→
+    40→/* ------------------------------------------------------------------ */
+    41→/*  Animation helpers                                                  */
+    42→/* ------------------------------------------------------------------ */
+    43→function FadeIn({
+    44→  children,
+    45→  delay = 0,
+    46→  className = '',
+    47→  direction = 'up',
+    48→}: {
+    49→  children: React.ReactNode;
+    50→  delay?: number;
+    51→  className?: string;
+    52→  direction?: 'up' | 'down' | 'left' | 'right';
+    53→}) {
+    54→  const ref = useRef<HTMLDivElement>(null);
+    55→  const isInView = useInView(ref, { once: true });
+    56→
+    57→  const dirMap = {
+    58→    up: { y: 40, x: 0 },
+    59→    down: { y: -40, x: 0 },
+    60→    left: { x: 40, y: 0 },
+    61→    right: { x: -40, y: 0 },
+    62→  };
+    63→  const { x, y } = dirMap[direction];
+    64→
+    65→  return (
+    66→    <motion.div
+    67→      ref={ref}
+    68→      className={className}
+    69→      initial={isInView ? { opacity: 0, x, y } : false}
+    70→      animate={{ opacity: 1, x: 0, y: 0 }}
+    71→      transition={{ duration: 0.6, delay, ease: 'easeOut' }}
+    72→    >
+    73→      {children}
+    74→    </motion.div>
+    75→  );
+    76→}
+    77→
+    78→function CountUp({ end, suffix = '', prefix = '', duration = 2000 }: { end: number; suffix?: string; prefix?: string; duration?: number }) {
+    79→  const ref = useRef<HTMLSpanElement>(null);
+    80→  const isInView = useInView(ref, { once: true });
+    81→
+    82→  return (
+    83→    <motion.span
+    84→      ref={ref}
+    85→      initial={false}
+    86→      animate={{ opacity: 1 }}
+    87→      transition={{ duration: 0.4 }}
+    88→    >
+    89→      {isInView ? (
+    90→        <Counter end={end} suffix={suffix} prefix={prefix} duration={duration} />
+    91→      ) : (
+    92→        <span>{prefix}{end.toLocaleString('id-ID')}{suffix}</span>
+    93→      )}
+    94→    </motion.span>
+    95→  );
+    96→}
+    97→
+    98→function Counter({ end, suffix, prefix, duration }: { end: number; suffix: string; prefix: string; duration: number }) {
+    99→  const [count, setCount] = useState(0);
+   100→  const ref = useRef<HTMLSpanElement>(null);
+   101→  const started = useRef(false);
+   102→
+   103→  useInView(ref, { once: true });
+   104→
+   105→  if (!started.current) {
+   106→    started.current = true;
+   107→    const startTime = Date.now();
+   108→    const step = () => {
+   109→      const elapsed = Date.now() - startTime;
+   110→      const progress = Math.min(elapsed / duration, 1);
+   111→      const eased = 1 - Math.pow(1 - progress, 3);
+   112→      setCount(Math.round(eased * end));
+   113→      if (progress < 1) requestAnimationFrame(step);
+   114→    };
+   115→    requestAnimationFrame(step);
+   116→  }
+   117→
+   118→  return <span ref={ref}>{prefix}{count.toLocaleString('id-ID')}{suffix}</span>;
+   119→}
+   120→
+   121→/* ------------------------------------------------------------------ */
+   122→/*  Section Wrapper                                                    */
+   123→/* ------------------------------------------------------------------ */
+   124→function Section({ children, className = '', id }: { children: React.ReactNode; className?: string; id?: string }) {
+   125→  return (
+   126→    <section id={id} className={`w-full py-16 md:py-24 px-4 md:px-8 ${className}`}>
+   127→      <div className="max-w-6xl mx-auto">{children}</div>
+   128→    </section>
+   129→  );
+   130→}
+   131→
+   132→/* ------------------------------------------------------------------ */
+   133→/*  Feature Card                                                       */
+   134→/* ------------------------------------------------------------------ */
+   135→function FeatureCard({
+   136→  icon: Icon,
+   137→  title,
+   138→  desc,
+   139→  delay = 0,
+   140→}: {
+   141→  icon: LucideIcon;
+   142→  title: string;
+   143→  desc: string;
+   144→  delay?: number;
+   145→}) {
+   146→  return (
+   147→    <FadeIn delay={delay}>
+   148→      <Card className="card-tap group relative overflow-hidden border-0 bg-white dark:bg-[#111] shadow-lg hover:shadow-2xl transition-all duration-500 h-full">
+   149→        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-sky-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+   150→        <CardContent className="relative p-6 pt-8 flex flex-col items-center text-center gap-4">
+   151→          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-500">
+   152→            <Icon className="w-8 h-8 text-white" />
+   153→          </div>
+   154→          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+   155→          <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm">{desc}</p>
+   156→        </CardContent>
+   157→      </Card>
+   158→    </FadeIn>
+   159→  );
+   160→}
+   161→
+   162→/* ------------------------------------------------------------------ */
+   163→/*  Pricing Card                                                       */
+   164→/* ------------------------------------------------------------------ */
+   165→function PricingCard({
+   166→  title,
+   167→  price,
+   168→  period,
+   169→  description,
+   170→  descriptionExtra,
+   171→  features,
+   172→  popular = false,
+   173→  periodBelow = false,
+   174→  delay = 0,
+   175→  onSelect,
+   176→  popularLabel,
+   177→  buttonLabel,
+   178→}: {
+   179→  title: string;
+   180→  price: string;
+   181→  period: string;
+   182→  description: string;
+   183→  descriptionExtra?: string;
+   184→  features: React.ReactNode[];
+   185→  popular?: boolean;
+   186→  periodBelow?: boolean;
+   187→  delay?: number;
+   188→  onSelect: () => void;
+   189→  popularLabel?: string;
+   190→  buttonLabel?: string;
+   191→}) {
+   192→  return (
+   193→    <FadeIn delay={delay}>
+   194→      <motion.div
+   195→        whileTap={{ scale: 0.97 }}
+   196→        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+   197→        className="h-full"
+   198→      >
+   199→      <Card
+   200→        onClick={onSelect}
+   201→        className={`relative overflow-hidden h-full flex flex-col cursor-pointer transition-all duration-500 hover:-translate-y-2 active:shadow-xl bg-[#1a1a1a] ${
+   202→          popular
+   203→            ? 'border-2 border-blue-600 shadow-2xl shadow-blue-600/20 hover:shadow-blue-600/40'
+   204→            : 'border border-white/10 shadow-lg hover:shadow-xl hover:border-white/20'
+   205→        }`}
+   206→      >
+   207→        {popular && (
+   208→          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 to-sky-400" />
+   209→        )}
+   210→        <CardHeader className="relative p-4 pb-3 text-center">
+   211→          {popular && (
+   212→            <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-sky-400 text-white border-0 px-3 py-0.5 text-xs font-semibold shadow-lg">
+   213→              <Star className="w-3 h-3 mr-1" /> {popularLabel}
+   214→            </Badge>
+   215→          )}
+   216→          <h3 className="text-base font-bold text-white mt-1">{title}</h3>
+   217→          <p className="text-gray-400 text-xs mt-0.5">{description}{descriptionExtra && <><br />{descriptionExtra}</>}</p>
+   218→          <div className="mt-3">
+   219→            <span className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">
+   220→              {price}
+   221→            </span>
+   222→            {periodBelow ? (
+   223→              <p className="text-gray-400 text-xs mt-1">{period}</p>
+   224→            ) : (
+   225→              <span className="text-gray-500 text-xs ml-1">/{period}</span>
+   226→            )}
+   227→          </div>
+   228→        </CardHeader>
+   229→        <CardContent className="relative p-4 pt-0 flex-1">
+   230→          <Separator className="mb-4 bg-white/10" />
+   231→          <ul className="space-y-2">
+   232→            {features.map((feature, i) => (
+   233→              <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
+   234→                <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0 mt-0.5" />
+   235→                <span>{feature}</span>
+   236→              </li>
+   237→            ))}
+   238→          </ul>
+   239→        </CardContent>
+   240→        <CardFooter className="relative p-4 pt-0">
+   241→          <Button
+   242→            className={`ripple-btn w-full py-2 text-xs font-semibold transition-all duration-300 ${
+   243→              popular
+   244→                ? 'cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30'
+   245→                : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+   246→            }`}
+   247→          >
+   248→            {buttonLabel} <ArrowRight className="ml-1.5 w-3 h-3" />
+   249→          </Button>
+   250→        </CardFooter>
+   251→      </Card>
+   252→      </motion.div>
+   253→    </FadeIn>
+   254→  );
+   255→}
+   256→
+   257→/* ------------------------------------------------------------------ */
+   258→/*  Testimonial Card                                                   */
+   259→/* ------------------------------------------------------------------ */
+   260→function TestimonialCard({
+   261→  name,
+   262→  role,
+   263→  quote,
+   264→  avatar,
+   265→  delay = 0,
+   266→}: {
+   267→  name: string;
+   268→  role: string;
+   269→  quote: string;
+   270→  avatar: string;
+   271→  delay?: number;
+   272→}) {
+   273→  return (
+   274→    <FadeIn delay={delay}>
+   275→      <Card className="card-tap bg-white dark:bg-[#111] shadow-lg hover:shadow-xl transition-all duration-300 border-0 h-full">
+   276→        <CardContent className="p-6 flex flex-col gap-4">
+   277→          <div className="flex gap-1">
+   278→            {[...Array(5)].map((_, i) => (
+   279→              <Star key={i} className="w-4 h-4 fill-sky-300 text-sky-300" />
+   280→            ))}
+   281→          </div>
+   282→          <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed italic">&ldquo;{quote}&rdquo;</p>
+   283→          <div className="flex items-center gap-3 mt-auto pt-2">
+   284→            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-sky-300 flex items-center justify-center text-white font-bold text-sm">
+   285→              {avatar}
+   286→            </div>
+   287→            <div>
+   288→              <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{name}</p>
+   289→              <p className="text-gray-500 dark:text-gray-400 text-xs">{role}</p>
+   290→            </div>
+   291→          </div>
+   292→        </CardContent>
+   293→      </Card>
+   294→    </FadeIn>
+   295→  );
+   296→}
+   297→
+   298→/* ------------------------------------------------------------------ */
+   299→/*  Main Page                                                          */
+   300→/* ------------------------------------------------------------------ */
+   301→const WHATSAPP_NUMBER = '6285888082208'
+   302→const WHATSAPP_TEXT = 'Halo Darrell Soft, saya tertarik untuk berlangganan!'
+   303→const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_TEXT)}`
+   304→
+   305→/* ------------------------------------------------------------------ */
+   306→/*  Landing page translations (id + en)                                */
+   307→/* ------------------------------------------------------------------ */
+   308→const LANDING_T = {
+   309→  id: {
+   310→    nav_fitur: 'Fitur',
+   311→    nav_kenapa: 'Kenapa Langganan',
+   312→    nav_harga: 'Harga',
+   313→    nav_testimoni: 'Testimoni',
+   314→    nav_login: 'Login',
+   315→
+   316→    hero_badge: 'Sistem Hitung Cepat Percetakan',
+   317→    hero_h1_1: 'Jangan jadi penonton saja!!!.',
+   318→    hero_h1_2: 'Sekarang sudah bisa mulai bisnis cetak',
+   319→    hero_h1_3: 'Dus Makanan, Dus Kue, Hampers, dll',
+   320→    hero_p1_bold1: 'Tidak ada alasan lagi gak bisa hitung modal cetakan...!!',
+   321→    hero_p1_bold2: 'Pakai Darrell Soft aja!',
+   322→    hero_p1_text: 'Dulu cuma yang ahli yang bisa hitung modal cetak.',
+   323→    hero_p1_emphasis: 'siapapun bisa',
+   324→    hero_p1_end: 'jadi pengusaha percetakan yang sukses!',
+   325→    hero_p2: 'Lupakan kalkulator manual yang bikin pusing. Dengan Darrell Soft, hitung modal jadi semudah mengetik.',
+   326→    hero_trust1: 'Tanpa ikatan kontrak',
+   327→    hero_trust2: 'Bisa batal kapan saja tanpa syarat',
+   328→    hero_trust3: 'Bisa langganan 1 bulan saja',
+   329→    hero_trust4: 'Tanpa denda',
+   330→    hero_cta1: 'Langganan Sekarang — Gratis 3 Hari!',
+   331→    hero_cta2: 'Lihat Paket Harga',
+   332→    hero_p3: 'Mulai gratis, tanpa kartu kredit. Berhenti kapan saja, tanpa denda.',
+   333→
+   334→    hero_label_dus_kue: 'Dus Kue',
+   335→    hero_label_hampers: 'Hampers',
+   336→    hero_label_kantong_kebab: 'Kantong Kebab',
+   337→    hero_label_dus_donut: 'Dus Donut',
+   338→    hero_label_dus_ayam_geprek: 'Dus Ayam Geprek',
+   339→    hero_label_lunchbox_paper: 'Lunchbox Paper',
+   340→    hero_label_paperbowl: 'Paperbowl',
+   341→    hero_label_paperbag: 'Paperbag',
+   342→    hero_label_hampers_lebaran: 'Hampers Lebaran',
+   343→    hero_alt_printing: 'Mesin Cetak Kemasan',
+   344→    hero_badge_hitung_cepat: 'Hitung Cepat',
+   345→    hero_badge_hitung_cepat_val: '< 5 detik',
+   346→    hero_badge_profit_naik: 'Profit Naik',
+   347→    hero_badge_profit_naik_val: '+40%',
+   348→
+   349→    stats_1_label: 'Pengguna Aktif',
+   350→    stats_2_label: 'Tingkat Kepuasan',
+   351→    stats_3_label: 'Transaksi Sukses',
+   352→    stats_4_label: 'Support Online',
+   353→
+   354→    urg_badge: 'Penawaran Terbatas',
+   355→    urg_h2_1: 'Jangan Biarkan Bisnis Cetakmu',
+   356→    urg_h2_2: 'Terus Rugi',
+   357→    urg_h2_3: 'Karena Salah Hitung!',
+   358→    urg_p: 'Berlangganan Darrell Soft lebih murah daripada rugi satu kali salah hitung!',
+   359→    urg_card1_title: 'Hitung Akurat',
+   360→    urg_card1_desc: 'Perhitungan 100% akurat, tidak ada lagi kesalahan hitung yang bikin rugi jutaan rupiah.',
+   361→    urg_card2_title: 'Profit Maksimal',
+   362→    urg_card2_desc: 'Tentukan margin sendiri, setiap order pasti menguntungkan. Profit naik sampai 40%!',
+   363→    urg_card3_title: 'Hemat Waktu 90%',
+   364→    urg_card3_desc: 'Yang biasa 30 menit, sekarang cuma 3 detik. Waktumu lebih produktif untuk yang lain!',
+   365→    urg_cta1: 'Ya, Saya Mau Coba Gratis!',
+   366→    urg_cta2: 'Tanya Admin Dulu',
+   367→    urg_p_below: 'Cuma 3 detik daftar, langsung bisa pakai.',
+   368→
+   369→    fitur_badge: 'Fitur Unggulan',
+   370→    fitur_h2_1: 'Hitung Modal Jadi',
+   371→    fitur_h2_2: 'Semudah Mengetik',
+   372→    fitur_p: 'Semua yang kamu butuhkan untuk mengelola bisnis percetakan, dalam satu aplikasi yang powerful.',
+   373→    fitur_card1_title: 'Update Harga Sekali Klik',
+   374→    fitur_card1_desc: 'Update harga kertas dan ongkos cetak sekali klik. Tidak perlu edit satu-satu, semua otomatis tersinkronisasi.',
+   375→    fitur_card2_title: 'Ketik Ukuran → Langsung Harga',
+   376→    fitur_card2_desc: 'Ketik ukuran bahan, aplikasi langsung kasih harga modal. Otomatis dan akurat, tanpa kalkulator manual.',
+   377→    fitur_card3_title: 'Tentukan Profit, Harga Jual Muncul',
+   378→    fitur_card3_desc: 'Tentukan profit yang kamu mau, harga jual langsung muncul. Kontrol penuh atas margin keuntunganmu.',
+   379→
+   380→    keunggulan_badge: 'Kenapa Darrell Soft?',
+   381→    keunggulan_h2_1: 'Cepat, Akurat,',
+   382→    keunggulan_h2_2: 'dan Fleksibel!',
+   383→    keunggulan_p: 'Bisa diakses via Desktop maupun HP, kapan saja dan di mana saja.',
+   384→    adv1_title: 'Akses via Desktop',
+   385→    adv1_desc: 'Tampilan penuh yang nyaman untuk penggunaan di kantor atau toko. Semua fitur lengkap tersedia.',
+   386→    adv2_title: 'Akses via HP',
+   387→    adv2_desc: 'Mobile-friendly! Kelola bisnis percetakanmu langsung dari smartphone, di mana saja kamu berada.',
+   388→    adv3_title: 'Kecepatan Tinggi',
+   389→    adv3_desc: 'Proses kalkulasi instan. Tidak perlu menunggu lama, semua perhitungan selesai dalam hitungan detik.',
+   390→    adv4_title: 'Data Aman',
+   391→    adv4_desc: 'Data bisnismu tersimpan dengan aman. Backup otomatis dan enkripsi untuk keamanan maksimal.',
+   392→    adv5_title: 'Install di Windows & Mac',
+   393→    adv5_desc: 'Bisa diinstall langsung di komputer Windows dan MacBook. Tampil seperti aplikasi desktop asli.',
+   394→    adv6_title: 'Install di Android & iOS',
+   395→    adv6_desc: 'Install langsung di HP Android dan iPhone. Gampang digunakan, tidak usah buka browser lagi.',
+   396→
+   397→    kenapa_badge: 'Kenapa Harus Berlangganan?',
+   398→    kenapa_h2_1: 'Data Aman di',
+   399→    kenapa_h2_2: 'Cloud,',
+   400→    kenapa_h2_3: 'Bisa Buka di',
+   401→    kenapa_h2_4: 'Mana Saja',
+   402→    kenapa_p: 'Darrell Soft berbasis cloud — data bisnismu tersimpan aman dan bisa diakses kapan saja, di mana saja, selama ada internet.',
+   403→
+   404→    cloud1_title: '☁️ Data Aman di Cloud, Tidak Hilang!',
+   405→    cloud1_b1_pre: 'HP hilang/laptop rusak?',
+   406→    cloud1_b1_bold: 'Data tetap aman',
+   407→    cloud1_b1_post: 'di cloud server terenkripsi',
+   408→    cloud1_b2_pre: 'Login dari perangkat mana saja,',
+   409→    cloud1_b2_bold: 'data langsung ada lengkap dan utuh',
+   410→
+   411→    cloud2_title: '🌍 Bisa Buka di Mana Saja — Dalam & Luar Negeri!',
+   412→    cloud2_b1_pre: 'Jakarta, Surabaya, atau luar negeri —',
+   413→    cloud2_b1_bold: 'selama ada internet, bisnis tetap jalan',
+   414→    cloud2_b2_pre: 'HP saat di perjalanan,',
+   415→    cloud2_b2_bold: 'laptop saat di kantor',
+   416→    cloud2_b2_post: '— semua bisa!',
+   417→
+   418→    cloud3_title: '📱 HP & Laptop, Semua Bisa!',
+   419→    cloud3_b1_bold: 'Satu akun, semua perangkat',
+   420→    cloud3_b1_post: 'tersinkronisasi real-time',
+   421→    cloud3_b2_pre: 'Update di HP,',
+   422→    cloud3_b2_bold: 'langsung muncul di laptop',
+   423→    cloud3_b2_post: '— dan sebaliknya',
+   424→
+   425→    cloud4_title: '🛡️ Kenapa Bayar? Investasi Kecil, Hasil Besar!',
+   426→    cloud4_b1_pre: 'Cuma',
+   427→    cloud4_b1_bold: 'Rp 128.000/bulan',
+   428→    cloud4_b1_post: '— lebih murah dari sekali salah hitung!',
+   429→    cloud4_b2_bold: 'Tidak perlu bayar server, IT, atau maintenance',
+   430→    cloud4_b2_post: '— semua kami tangani',
+   431→
+   432→    golden_badge: 'Kesempatan Emas',
+   433→    golden_h3_1: 'UMKM Makanan Sudah Banyak...',
+   434→    golden_h3_2: 'Tapi Bos Percetakan Masih Sedikit!',
+   435→    golden_fakta: 'Fakta',
+   436→    golden_fakta_p_pre: 'UMKM makanan sudah',
+   437→    golden_fakta_p_bold1: 'jutaan',
+   438→    golden_fakta_p_mid: ', tapi setiap UMKM butuh',
+   439→    golden_fakta_p_bold2: 'box, kemasan, stiker, brosur',
+   440→    golden_fakta_p_post: ' — semua produk cetak!',
+   441→    golden_artinya: 'Artinya',
+   442→    golden_artinya_p_pre: 'Peluang bos percetakan masih',
+   443→    golden_artinya_p_bold1: 'sangat besar',
+   444→    golden_artinya_p_mid: '. Orang takut karena tidak bisa hitung modal —',
+   445→    golden_artinya_p_bold2: 'Darrell Soft hilangkan rintangan itu!',
+   446→    golden_stat1_val: '64 Juta+',
+   447→    golden_stat1_label: 'UMKM di Indonesia',
+   448→    golden_stat2_val: 'Sedikit',
+   449→    golden_stat2_label: 'Pengusaha Percetakan',
+   450→    golden_stat3_val: 'Peluang Besar!',
+   451→    golden_stat3_label: 'Jadilah Bos Cetakan',
+   452→    golden_cta1: 'Jadilah Bos Percetakan!',
+   453→    golden_cta2: 'Konsultasi Gratis',
+   454→    golden_quote: 'UMKM harus naik kelas! Dari yang cuma jualan, jadi pengusaha yang punya sistem.',
+   455→
+   456→    cara_badge: 'Cara Kerja',
+   457→    cara_h2_1: 'Semudah',
+   458→    cara_step1_title: 'Masukkan Spesifikasi',
+   459→    cara_step1_desc: 'Ketik ukuran bahan, jenis kertas, dan jumlah cetak yang diinginkan.',
+   460→    cara_step2_title: 'Sistem Hitung Otomatis',
+   461→    cara_step2_desc: 'Aplikasi langsung menghitung modal berdasarkan spesifikasi yang dimasukkan.',
+   462→    cara_step3_title: 'Tentukan & Jual',
+   463→    cara_step3_desc: 'Atur profit yang diinginkan, harga jual otomatis muncul. Siap cetak!',
+   464→
+   465→    harga_badge: 'Harga',
+   466→    harga_h2_1: 'Pilih Paket',
+   467→    harga_h2_2: 'Terbaik',
+   468→    harga_h2_3: 'Kamu',
+   469→    harga_p: 'Mulai dari gratis, atau berlangganan untuk fitur lengkap.',
+   470→    price_popular_badge: 'Hemat Banget!',
+   471→    price_btn: 'Pilih Paket',
+   472→
+   473→    price_economis_title: 'Bulanan Ekonomis',
+   474→    price_economis_desc: '1 akun, hemat untuk pemula',
+   475→    price_economis_period: 'per bulan',
+   476→    price_economis_f1: '1 akun pengguna',
+   477→    price_economis_f2: 'Semua fitur kalkulasi cetak',
+   478→    price_economis_f3: 'Update harga kertas & ongkos',
+   479→    price_economis_f4: 'Hitung otomatis harga modal',
+   480→    price_economis_f5: 'Akses Desktop & Mobile',
+   481→    price_economis_f6_bold: 'Boleh langganan 1 bulan saja',
+   482→    price_economis_f7: 'Tidak ada biaya denda sama sekali',
+   483→
+   484→    price_bulanan_title: 'Langganan Bulanan',
+   485→    price_bulanan_desc: 'Langganan bulanan, sangat fleksibel',
+   486→    price_bulanan_period: 'per bulan',
+   487→    price_bulanan_f1: '2 akun untuk team',
+   488→    price_bulanan_f2: 'Semua fitur kalkulasi cetak',
+   489→    price_bulanan_f3: 'Update harga kertas & ongkos',
+   490→    price_bulanan_f4: 'Hitung otomatis harga modal',
+   491→    price_bulanan_f5: 'Akses Desktop & Mobile',
+   492→    price_bulanan_f6_bold: 'Boleh langganan 1 bulan saja',
+   493→    price_bulanan_f7: 'Tidak ada biaya denda sama sekali',
+   494→
+   495→    price_tahunan_title: 'Langganan Tahunan',
+   496→    price_tahunan_desc: 'Hanya Rp 74.000/bulan',
+   497→    price_tahunan_desc_extra: '— hemat 37%!',
+   498→    price_tahunan_period: 'per tahun',
+   499→    price_tahunan_f1: '3 akun untuk group',
+   500→    price_tahunan_f2: 'Semua fitur kalkulasi cetak',
+   501→    price_tahunan_f3: 'Update harga kertas & ongkos',
+   502→    price_tahunan_f4: 'Hitung otomatis harga modal',
+   503→    price_tahunan_f5: 'Akses Desktop & Mobile',
+   504→    price_tahunan_f6: 'Priority Support 24/7',
+   505→    price_tahunan_f7: 'Laporan bulanan lengkap',
+   506→    price_tahunan_f8: 'Backup data otomatis',
+   507→
+   508→    price_lifetime_title: 'Tanpa Langganan',
+   509→    price_lifetime_desc: 'Beli putus, tidak perlu langganan',
+   510→    price_lifetime_period: 'sekali bayar',
+   511→    price_lifetime_f1: '4 akun untuk group solid',
+   512→    price_lifetime_f2: 'Semua fitur kalkulasi cetak',
+   513→    price_lifetime_f3: 'Update harga kertas & ongkos',
+   514→    price_lifetime_f4: 'Hitung otomatis harga modal',
+   515→    price_lifetime_f5: 'Akses Desktop & Mobile',
+   516→    price_lifetime_f6: 'Beli sekali, pakai selamanya',
+   517→    price_lifetime_f7: 'Tidak ada biaya berlangganan',
+   518→    price_lifetime_f8: 'Priority Support 24/7',
+   519→
+   520→    price_guarantee: 'Tanpa Ikatan Apapun! Bisa batal kapan saja tanpa denda.',
+   521→
+   522→    testimoni_badge: 'Testimoni',
+   523→    testimoni_h2_1: 'Dipercaya',
+   524→    testimoni_h2_2: 'Ribuan Pengusaha',
+   525→    testimoni_h2_3: 'Percetakan',
+   526→    testi1_name: 'Maman',
+   527→    testi1_role: 'Pemilik Tunas Makmur',
+   528→    testi1_quote: 'Dulu hitung modal cetak pakai kalkulator, sering salah dan rugi. Sekarang pakai Darrell Soft, semua otomatis dan akurat. Profit naik 40%!',
+   529→    testi2_name: 'Jimmy',
+   530→    testi2_role: 'Owner SiPrint',
+   531→    testi2_quote: 'Aplikasinya super mudah dipakai. Saya yang nggak paham komputer pun bisa langsung pakai. Harga paketnya juga sangat terjangkau.',
+   532→    testi3_name: 'Lina Listiawati',
+   533→    testi3_role: 'Owner Rajabowl',
+   534→    testi3_quote: 'Support-nya responsif banget! Setiap ada pertanyaan langsung dijawab. Darrell Soft memang solusi tepat untuk percetakan.',
+   535→    testi4_name: 'Gunawan',
+   536→    testi4_role: 'Pemilik One Printing',
+   537→    testi4_quote: 'Bayar 1 bulan aja gpp, bulan berikutnya tidak usah, tidak ada denda. Seperti langganan Netflix. Fleksibel banget!',
+   538→
+   539→    cta_h2_1: 'Jangan Tunggu Lagi!',
+   540→    cta_h2_2: 'Mulai',
+   541→    cta_h2_3: 'Langganan',
+   542→    cta_h2_4: 'Sekarang',
+   543→    cta_p: 'Kompetitormu sudah pakai Darrell Soft. Mereka hitung modal dalam hitungan detik, sementara kamu masih pakai kalkulator?',
+   544→    cta_trust1: 'Gratis 3 hari trial',
+   545→    cta_trust2: 'Tanpa kartu kredit',
+   546→    cta_trust3: 'Bisa batal kapan saja',
+   547→    cta_card_h3: 'Cuma Rp 128.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!',
+   548→    cta_card_p_pre: 'Bayangkan:',
+   549→    cta_card_p_bold1: '1 kali salah hitung saja bisa rugi ratusan ribu hingga jutaan rupiah',
+   550→    cta_card_p_mid: '. Dengan Darrell Soft, kamu bayar cuma Rp 128.000/bulan tapi hemat jutaan dari kesalahan hitung. ',
+   551→    cta_card_p_bold2: 'Investasi kecil, untung besar!',
+   552→    cta_card_check1_bold: 'Tanpa kontrak',
+   553→    cta_card_check1_post: ' — bebas berhenti kapan saja',
+   554→    cta_card_check2_bold: 'Tanpa denda',
+   555→    cta_card_check2_post: ' — tidak ada biaya tersembunyi',
+   556→    cta_card_check3_bold: 'Coba gratis 3 hari',
+   557→    cta_card_check3_post: ' — buktikan dulu!',
+   558→    cta_card_btn1: 'Langganan Sekarang — Gratis!',
+   559→    cta_card_btn2: 'Tanya Admin Dulu',
+   560→    cta_card_p_bottom: '💎 Sudah dipercaya 7.000+ pengusaha percetakan di Indonesia',
+   561→    cta_reassure: 'Masih ragu? Chat admin kami, konsultasi gratis tanpa kewajiban berlangganan.',
+   562→
+   563→    faq_badge: 'FAQ',
+   564→    faq_h2_1: 'Pertanyaan yang',
+   565→    faq_h2_2: 'Sering Ditanyakan',
+   566→    faq1_q: 'Apakah bisa dicoba dulu sebelum berlangganan?',
+   567→    faq1_a: 'Tentu! Kami menyediakan masa trial gratis agar kamu bisa merasakan semua fitur Darrell Soft sebelum memutuskan berlangganan.',
+   568→    faq2_q: 'Bagaimana cara berlangganan?',
+   569→    faq2_a: 'Sangat mudah! Cukup DM kami, pilih paket yang sesuai, dan lakukan pembayaran. Akun kamu akan langsung aktif.',
+   570→    faq3_q: 'Apakah data saya aman?',
+   571→    faq3_a: 'Ya! Data kamu dilindungi dengan enkripsi dan backup otomatis. Privasi dan keamanan data adalah prioritas utama kami.',
+   572→    faq4_q: 'Bisa berhenti berlangganan kapan saja?',
+   573→    faq4_a: 'Tentu! Tidak ada ikatan kontrak. Kamu bisa berhenti kapan saja tanpa denda atau biaya tambahan.',
+   574→
+   575→    footer_brand_desc: 'Sistem kasir percetakan yang membantu menghitung modal, mengelola harga, dan meningkatkan profit bisnis cetakmu.',
+   576→    footer_nav_title: 'Navigasi',
+   577→    footer_nav_fitur: 'Fitur',
+   578→    footer_nav_harga: 'Harga',
+   579→    footer_nav_testimoni: 'Testimoni',
+   580→    footer_nav_faq: 'FAQ',
+   581→    footer_contact_title: 'Hubungi Kami',
+   582→    footer_bottom_rights: 'All rights reserved.',
+   583→    footer_encrypted: 'Data Terenkripsi',
+   584→    footer_secure: 'Koneksi Aman',
+   585→  },
+   586→  en: {
+   587→    nav_fitur: 'Features',
+   588→    nav_kenapa: 'Why Subscribe',
+   589→    nav_harga: 'Pricing',
+   590→    nav_testimoni: 'Testimonials',
+   591→    nav_login: 'Login',
+   592→
+   593→    hero_badge: 'Fast Printing Cost Calculator',
+   594→    hero_h1_1: "Don't just be a spectator!!!.",
+   595→    hero_h1_2: 'Now you can start a printing business for',
+   596→    hero_h1_3: 'Food Boxes, Cake Boxes, Hampers, etc.',
+   597→    hero_p1_bold1: 'No more excuses for not being able to calculate printing costs...!!',
+   598→    hero_p1_bold2: 'Just use Darrell Soft!',
+   599→    hero_p1_text: 'In the past, only experts could calculate printing costs.',
+   600→    hero_p1_emphasis: 'anyone can',
+   601→    hero_p1_end: 'become a successful printing entrepreneur!',
+   602→    hero_p2: 'Forget manual calculators that give you headaches. With Darrell Soft, calculating costs is as easy as typing.',
+   603→    hero_trust1: 'No contract binding',
+   604→    hero_trust2: 'Cancel anytime, no conditions',
+   605→    hero_trust3: 'Subscribe for just 1 month',
+   606→    hero_trust4: 'No penalty',
+   607→    hero_cta1: 'Subscribe Now — Free 3 Days!',
+   608→    hero_cta2: 'View Pricing Plans',
+   609→    hero_p3: 'Start free, no credit card. Stop anytime, no penalty.',
+   610→
+   611→    hero_label_dus_kue: 'Cake Box',
+   612→    hero_label_hampers: 'Hampers',
+   613→    hero_label_kantong_kebab: 'Kebab Bag',
+   614→    hero_label_dus_donut: 'Donut Box',
+   615→    hero_label_dus_ayam_geprek: 'Fried Chicken Box',
+   616→    hero_label_lunchbox_paper: 'Paper Lunchbox',
+   617→    hero_label_paperbowl: 'Paperbowl',
+   618→    hero_label_paperbag: 'Paperbag',
+   619→    hero_label_hampers_lebaran: 'Eid Hampers',
+   620→    hero_alt_printing: 'Packaging Printing Machine',
+   621→    hero_badge_hitung_cepat: 'Fast Calculation',
+   622→    hero_badge_hitung_cepat_val: '< 5 seconds',
+   623→    hero_badge_profit_naik: 'Profit Up',
+   624→    hero_badge_profit_naik_val: '+40%',
+   625→
+   626→    stats_1_label: 'Active Users',
+   627→    stats_2_label: 'Satisfaction Rate',
+   628→    stats_3_label: 'Successful Transactions',
+   629→    stats_4_label: 'Online Support',
+   630→
+   631→    urg_badge: 'Limited Offer',
+   632→    urg_h2_1: "Don't Let Your Printing Business",
+   633→    urg_h2_2: 'Keep Losing',
+   634→    urg_h2_3: 'Due to Wrong Calculations!',
+   635→    urg_p: 'Subscribing to Darrell Soft is cheaper than losing money from one wrong calculation!',
+   636→    urg_card1_title: 'Accurate Calculation',
+   637→    urg_card1_desc: '100% accurate calculations, no more calculation mistakes that cost you millions of rupiah.',
+   638→    urg_card2_title: 'Maximum Profit',
+   639→    urg_card2_desc: 'Set your own margin, every order is profitable. Profit up by 40%!',
+   640→    urg_card3_title: 'Save 90% of Time',
+   641→    urg_card3_desc: 'What used to take 30 minutes, now only 3 seconds. Your time is more productive for other things!',
+   642→    urg_cta1: 'Yes, I Want to Try Free!',
+   643→    urg_cta2: 'Ask Admin First',
+   644→    urg_p_below: 'Just 3 seconds to register, ready to use right away.',
+   645→
+   646→    fitur_badge: 'Key Features',
+   647→    fitur_h2_1: 'Calculating Costs Is As',
+   648→    fitur_h2_2: 'Easy As Typing',
+   649→    fitur_p: 'Everything you need to manage your printing business, in one powerful application.',
+   650→    fitur_card1_title: 'Update Prices with One Click',
+   651→    fitur_card1_desc: 'Update paper prices and printing costs with one click. No need to edit one by one, everything syncs automatically.',
+   652→    fitur_card2_title: 'Type Size → Instant Price',
+   653→    fitur_card2_desc: 'Type the material size, the app instantly gives you the base cost. Automatic and accurate, no manual calculator.',
+   654→    fitur_card3_title: 'Set Profit, Selling Price Appears',
+   655→    fitur_card3_desc: 'Set your desired profit, the selling price appears instantly. Full control over your profit margin.',
+   656→
+   657→    keunggulan_badge: 'Why Darrell Soft?',
+   658→    keunggulan_h2_1: 'Fast, Accurate,',
+   659→    keunggulan_h2_2: 'and Flexible!',
+   660→    keunggulan_p: 'Accessible via Desktop or Mobile, anytime and anywhere.',
+   661→    adv1_title: 'Desktop Access',
+   662→    adv1_desc: 'Full view comfortable for office or shop use. All complete features available.',
+   663→    adv2_title: 'Mobile Access',
+   664→    adv2_desc: 'Mobile-friendly! Manage your printing business directly from your smartphone, wherever you are.',
+   665→    adv3_title: 'High Speed',
+   666→    adv3_desc: 'Instant calculation process. No need to wait long, all calculations done in seconds.',
+   667→    adv4_title: 'Secure Data',
+   668→    adv4_desc: 'Your business data is stored safely. Automatic backup and encryption for maximum security.',
+   669→    adv5_title: 'Install on Windows & Mac',
+   670→    adv5_desc: 'Can be installed directly on Windows computers and MacBooks. Looks like a native desktop app.',
+   671→    adv6_title: 'Install on Android & iOS',
+   672→    adv6_desc: 'Install directly on Android phones and iPhones. Easy to use, no need to open a browser.',
+   673→
+   674→    kenapa_badge: 'Why Subscribe?',
+   675→    kenapa_h2_1: 'Data Safe in the',
+   676→    kenapa_h2_2: 'Cloud,',
+   677→    kenapa_h2_3: 'Access from',
+   678→    kenapa_h2_4: 'Anywhere',
+   679→    kenapa_p: 'Darrell Soft is cloud-based — your business data is stored securely and accessible anytime, anywhere, as long as there is internet.',
+   680→
+   681→    cloud1_title: '☁️ Data Safe in Cloud, Never Lost!',
+   682→    cloud1_b1_pre: 'Phone lost/laptop broken?',
+   683→    cloud1_b1_bold: 'Data stays safe',
+   684→    cloud1_b1_post: 'in encrypted cloud server',
+   685→    cloud1_b2_pre: 'Login from any device,',
+   686→    cloud1_b2_bold: 'data is right there complete and intact',
+   687→
+   688→    cloud2_title: '🌍 Open from Anywhere — Domestic & Abroad!',
+   689→    cloud2_b1_pre: 'Jakarta, Surabaya, or abroad —',
+   690→    cloud2_b1_bold: 'as long as there is internet, business keeps running',
+   691→    cloud2_b2_pre: 'Phone while traveling,',
+   692→    cloud2_b2_bold: 'laptop at the office',
+   693→    cloud2_b2_post: '— all works!',
+   694→
+   695→    cloud3_title: '📱 Phone & Laptop, All Work!',
+   696→    cloud3_b1_bold: 'One account, all devices',
+   697→    cloud3_b1_post: 'synced in real-time',
+   698→    cloud3_b2_pre: 'Update on phone,',
+   699→    cloud3_b2_bold: 'instantly appears on laptop',
+   700→    cloud3_b2_post: '— and vice versa',
+   701→
+   702→    cloud4_title: '🛡️ Why Pay? Small Investment, Big Results!',
+   703→    cloud4_b1_pre: 'Only',
+   704→    cloud4_b1_bold: 'Rp 128,000/month',
+   705→    cloud4_b1_post: '— cheaper than one wrong calculation!',
+   706→    cloud4_b2_bold: 'No need to pay for server, IT, or maintenance',
+   707→    cloud4_b2_post: '— we handle everything',
+   708→
+   709→    golden_badge: 'Golden Opportunity',
+   710→    golden_h3_1: 'Food SMEs Are Many Already...',
+   711→    golden_h3_2: 'But Printing Bosses Are Still Few!',
+   712→    golden_fakta: 'The Fact',
+   713→    golden_fakta_p_pre: 'Food SMEs already',
+   714→    golden_fakta_p_bold1: 'in the millions',
+   715→    golden_fakta_p_mid: ', but every SME needs',
+   716→    golden_fakta_p_bold2: 'boxes, packaging, stickers, brochures',
+   717→    golden_fakta_p_post: ' — all printed products!',
+   718→    golden_artinya: 'Meaning',
+   719→    golden_artinya_p_pre: 'The opportunity for printing bosses is still',
+   720→    golden_artinya_p_bold1: 'very huge',
+   721→    golden_artinya_p_mid: '. People are afraid because they cannot calculate costs —',
+   722→    golden_artinya_p_bold2: 'Darrell Soft removes that barrier!',
+   723→    golden_stat1_val: '64 Million+',
+   724→    golden_stat1_label: 'SMEs in Indonesia',
+   725→    golden_stat2_val: 'Few',
+   726→    golden_stat2_label: 'Printing Entrepreneurs',
+   727→    golden_stat3_val: 'Big Opportunity!',
+   728→    golden_stat3_label: 'Become a Printing Boss',
+   729→    golden_cta1: 'Become a Printing Boss!',
+   730→    golden_cta2: 'Free Consultation',
+   731→    golden_quote: 'SMEs must level up! From just selling, to becoming entrepreneurs with systems.',
+   732→
+   733→    cara_badge: 'How It Works',
+   734→    cara_h2_1: 'As Easy as',
+   735→    cara_step1_title: 'Enter Specifications',
+   736→    cara_step1_desc: 'Type the material size, paper type, and desired print quantity.',
+   737→    cara_step2_title: 'Auto Calculation System',
+   738→    cara_step2_desc: 'The app instantly calculates the cost based on the entered specifications.',
+   739→    cara_step3_title: 'Set & Sell',
+   740→    cara_step3_desc: 'Set your desired profit, the selling price appears automatically. Ready to print!',
+   741→
+   742→    harga_badge: 'Pricing',
+   743→    harga_h2_1: 'Choose Your',
+   744→    harga_h2_2: 'Best',
+   745→    harga_h2_3: 'Plan',
+   746→    harga_p: 'Start for free, or subscribe for full features.',
+   747→    price_popular_badge: 'Best Value!',
+   748→    price_btn: 'Choose Plan',
+   749→
+   750→    price_economis_title: 'Monthly Economy',
+   751→    price_economis_desc: '1 account, economical for beginners',
+   752→    price_economis_period: 'per month',
+   753→    price_economis_f1: '1 user account',
+   754→    price_economis_f2: 'All printing calculation features',
+   755→    price_economis_f3: 'Update paper prices & costs',
+   756→    price_economis_f4: 'Auto calculate base cost',
+   757→    price_economis_f5: 'Desktop & Mobile Access',
+   758→    price_economis_f6_bold: 'Can subscribe for just 1 month',
+   759→    price_economis_f7: 'No penalty fees whatsoever',
+   760→
+   761→    price_bulanan_title: 'Monthly Subscription',
+   762→    price_bulanan_desc: 'Monthly subscription, very flexible',
+   763→    price_bulanan_period: 'per month',
+   764→    price_bulanan_f1: '2 accounts for a team',
+   765→    price_bulanan_f2: 'All printing calculation features',
+   766→    price_bulanan_f3: 'Update paper prices & costs',
+   767→    price_bulanan_f4: 'Auto calculate base cost',
+   768→    price_bulanan_f5: 'Desktop & Mobile Access',
+   769→    price_bulanan_f6_bold: 'Can subscribe for just 1 month',
+   770→    price_bulanan_f7: 'No penalty fees whatsoever',
+   771→
+   772→    price_tahunan_title: 'Annual Subscription',
+   773→    price_tahunan_desc: 'Only Rp 74,000/month',
+   774→    price_tahunan_desc_extra: '— save 37%!',
+   775→    price_tahunan_period: 'per year',
+   776→    price_tahunan_f1: '3 accounts for a group',
+   777→    price_tahunan_f2: 'All printing calculation features',
+   778→    price_tahunan_f3: 'Update paper prices & costs',
+   779→    price_tahunan_f4: 'Auto calculate base cost',
+   780→    price_tahunan_f5: 'Desktop & Mobile Access',
+   781→    price_tahunan_f6: 'Priority 24/7 Support',
+   782→    price_tahunan_f7: 'Complete monthly reports',
+   783→    price_tahunan_f8: 'Automatic data backup',
+   784→
+   785→    price_lifetime_title: 'No Subscription',
+   786→    price_lifetime_desc: 'One-time purchase, no subscription needed',
+   787→    price_lifetime_period: 'one-time payment',
+   788→    price_lifetime_f1: '4 accounts for a solid group',
+   789→    price_lifetime_f2: 'All printing calculation features',
+   790→    price_lifetime_f3: 'Update paper prices & costs',
+   791→    price_lifetime_f4: 'Auto calculate base cost',
+   792→    price_lifetime_f5: 'Desktop & Mobile Access',
+   793→    price_lifetime_f6: 'Buy once, use forever',
+   794→    price_lifetime_f7: 'No subscription fees',
+   795→    price_lifetime_f8: 'Priority 24/7 Support',
+   796→
+   797→    price_guarantee: 'No Binding Commitment! Cancel anytime without penalty.',
+   798→
+   799→    testimoni_badge: 'Testimonials',
+   800→    testimoni_h2_1: 'Trusted by',
+   801→    testimoni_h2_2: 'Thousands of',
+   802→    testimoni_h2_3: 'Printing Entrepreneurs',
+   803→    testi1_name: 'Maman',
+   804→    testi1_role: 'Owner of Tunas Makmur',
+   805→    testi1_quote: 'Used to calculate printing costs with a calculator, often wrong and losing money. Now using Darrell Soft, everything is automatic and accurate. Profit up 40%!',
+   806→    testi2_name: 'Jimmy',
+   807→    testi2_role: 'Owner of SiPrint',
+   808→    testi2_quote: "The app is super easy to use. Even I, who don't understand computers, can use it right away. The package price is also very affordable.",
+   809→    testi3_name: 'Lina Listiawati',
+   810→    testi3_role: 'Owner of Rajabowl',
+   811→    testi3_quote: 'The support is very responsive! Every question is answered immediately. Darrell Soft is indeed the right solution for printing.',
+   812→    testi4_name: 'Gunawan',
+   813→    testi4_role: 'Owner of One Printing',
+   814→    testi4_quote: 'Pay for just 1 month, no need for the next, no penalty. Like a Netflix subscription. Super flexible!',
+   815→
+   816→    cta_h2_1: "Don't Wait Anymore!",
+   817→    cta_h2_2: 'Start',
+   818→    cta_h2_3: 'Subscribing',
+   819→    cta_h2_4: 'Now',
+   820→    cta_p: 'Your competitors are already using Darrell Soft. They calculate costs in seconds, while you still use a calculator?',
+   821→    cta_trust1: 'Free 3-day trial',
+   822→    cta_trust2: 'No credit card',
+   823→    cta_trust3: 'Cancel anytime',
+   824→    cta_card_h3: 'Only Rp 128,000/month — Cheaper Than 1 Day of Employee Wage!',
+   825→    cta_card_p_pre: 'Imagine:',
+   826→    cta_card_p_bold1: 'one wrong calculation can cost you hundreds of thousands to millions of rupiah',
+   827→    cta_card_p_mid: '. With Darrell Soft, you pay only Rp 128,000/month but save millions from calculation mistakes. ',
+   828→    cta_card_p_bold2: 'Small investment, big profit!',
+   829→    cta_card_check1_bold: 'No contract',
+   830→    cta_card_check1_post: ' — free to stop anytime',
+   831→    cta_card_check2_bold: 'No penalty',
+   832→    cta_card_check2_post: ' — no hidden fees',
+   833→    cta_card_check3_bold: 'Try free for 3 days',
+   834→    cta_card_check3_post: ' — prove it first!',
+   835→    cta_card_btn1: 'Subscribe Now — Free!',
+   836→    cta_card_btn2: 'Ask Admin First',
+   837→    cta_card_p_bottom: '💎 Trusted by 7,000+ printing entrepreneurs in Indonesia',
+   838→    cta_reassure: 'Still unsure? Chat our admin, free consultation with no obligation to subscribe.',
+   839→
+   840→    faq_badge: 'FAQ',
+   841→    faq_h2_1: 'Frequently',
+   842→    faq_h2_2: 'Asked Questions',
+   843→    faq1_q: 'Can I try it first before subscribing?',
+   844→    faq1_a: 'Of course! We provide a free trial period so you can experience all Darrell Soft features before deciding to subscribe.',
+   845→    faq2_q: 'How do I subscribe?',
+   846→    faq2_a: 'Very easy! Just DM us, choose the suitable plan, and make the payment. Your account will be activated immediately.',
+   847→    faq3_q: 'Is my data safe?',
+   848→    faq3_a: 'Yes! Your data is protected with encryption and automatic backup. Privacy and data security are our top priorities.',
+   849→    faq4_q: 'Can I stop subscribing anytime?',
+   850→    faq4_a: 'Of course! No contract binding. You can stop anytime without penalty or additional fees.',
+   851→
+   852→    footer_brand_desc: 'Printing cashier system that helps calculate costs, manage prices, and increase your printing business profit.',
+   853→    footer_nav_title: 'Navigation',
+   854→    footer_nav_fitur: 'Features',
+   855→    footer_nav_harga: 'Pricing',
+   856→    footer_nav_testimoni: 'Testimonials',
+   857→    footer_nav_faq: 'FAQ',
+   858→    footer_contact_title: 'Contact Us',
+   859→    footer_bottom_rights: 'All rights reserved.',
+   860→    footer_encrypted: 'Encrypted Data',
+   861→    footer_secure: 'Secure Connection',
+   862→  },
+   863→} as const
+   864→
+   865→
+   866→export default function Home() {
+   867→  const { language } = useLanguage()
+   868→  const t = LANDING_T[language]
+   869→
+   870→  const router = useRouter();
+   871→
+   872→  const goToLogin = (tab?: string) => {
+   873→    router.push(tab ? `/login?tab=${tab}` : '/login');
+   874→  };
+   875→
+   876→  const openPayment = (pkgType: string) => {
+   877→    router.push(`/checkout?plan=${pkgType}`);
+   878→  };
+   879→
+   880→  // Hero image panel (food box grid + printing machine with overlay badges).
+   881→  // On mobile it renders inline right after the H1; on desktop it's in the right column.
+   882→  const heroImagePanel = (
+   883→    <div className="relative">
+   884→      <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 p-3 sm:p-4 -ml-3 sm:-ml-4 md:ml-0 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+   885→        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+   886→          {[
+   887→            { src: '/dus-kue.jpg', label: t.hero_label_dus_kue },
+   888→            { src: '/hampers.jpg', label: t.hero_label_hampers },
+   889→            { src: '/kantong-kebab.jpg', label: t.hero_label_kantong_kebab },
+   890→            { src: '/dus-donut.jpg', label: t.hero_label_dus_donut },
+   891→            { src: '/dus-ayam-geprek.jpg', label: t.hero_label_dus_ayam_geprek },
+   892→            { src: '/lunchbox-paper.jpg', label: t.hero_label_lunchbox_paper },
+   893→            { src: '/paperbowl.png', label: t.hero_label_paperbowl },
+   894→            { src: '/paperbag.jpg', label: t.hero_label_paperbag },
+   895→            { src: '/hampers-lebaran.jpg', label: t.hero_label_hampers_lebaran },
+   896→          ].map((item, i) => (
+   897→            <motion.div
+   898→              key={item.src}
+   899→              initial={{ opacity: 0, scale: 0.8 }}
+   900→              animate={{ opacity: 1, scale: 1 }}
+   901→              transition={{ delay: 0.3 + i * 0.07, duration: 0.4 }}
+   902→              className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10 aspect-square"
+   903→            >
+   904→              <img
+   905→                src={item.src}
+   906→                alt={item.label}
+   907→                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+   908→              />
+   909→              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1.5 sm:py-2">
+   910→                <p className="text-[10px] sm:text-xs font-bold text-white text-center leading-tight">{item.label}</p>
+   911→              </div>
+   912→            </motion.div>
+   913→          ))}
+   914→        </div>
+   915→        {/* Printing machine image — below the food box grid */}
+   916→        <motion.div
+   917→          initial={{ opacity: 0, y: 20 }}
+   918→          animate={{ opacity: 1, y: 0 }}
+   919→          transition={{ delay: 0.3 + 9 * 0.07, duration: 0.5 }}
+   920→          className="mt-2.5 sm:mt-3 relative rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800"
+   921→        >
+   922→          <img
+   923→            src="/hero-printing.png"
+   924→            alt={t.hero_alt_printing}
+   925→            className="w-full h-32 sm:h-44 md:h-48 object-cover transition-transform duration-500 hover:scale-105"
+   926→          />
+   927→          <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+   928→          {/* Hitung Cepat badge — overlaid on the printing machine image (top-right) */}
+   929→          <motion.div
+   930→            animate={{ y: [0, 4, 0] }}
+   931→            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+   932→            className="absolute top-2 right-2 md:top-3 md:right-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
+   933→          >
+   934→            <div className="flex items-center gap-1.5 md:gap-2">
+   935→              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center">
+   936→                <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-blue-700 dark:text-blue-400" />
+   937→              </div>
+   938→              <div>
+   939→                <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">{t.hero_badge_hitung_cepat}</p>
+   940→                <p className="text-xs md:text-base font-bold text-blue-700 dark:text-blue-400 leading-tight">{t.hero_badge_hitung_cepat_val}</p>
+   941→              </div>
+   942→            </div>
+   943→          </motion.div>
+   944→          {/* Profit Naik badge — overlaid on the printing machine image (bottom-left) */}
+   945→          <motion.div
+   946→            animate={{ y: [0, -4, 0] }}
+   947→            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+   948→            className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
+   949→          >
+   950→            <div className="flex items-center gap-1.5 md:gap-2">
+   951→              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+   952→                <TrendingUp className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-green-600 dark:text-green-400" />
+   953→              </div>
+   954→              <div>
+   955→                <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">{t.hero_badge_profit_naik}</p>
+   956→                <p className="text-xs md:text-base font-bold text-green-600 dark:text-green-400 leading-tight">{t.hero_badge_profit_naik_val}</p>
+   957→              </div>
+   958→            </div>
+   959→          </motion.div>
+   960→        </motion.div>
+   961→      </div>
+   962→    </div>
+   963→  );
+   964→
+   965→  return (
+   966→    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
+   967→      {/* =================== NAVBAR =================== */}
+   968→      <nav className="sticky top-0 z-50 w-full bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-100 dark:border-white/10">
+   969→        <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+   970→          {/* Logo */}
+   971→          <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
+   972→            <img src="/logo-ds.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-xl object-contain shadow-none shrink-0" />
+   973→            <span className="hidden min-[360px]:inline text-[15px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300 whitespace-nowrap" style={{ fontWeight: 900 }}>
+   974→              darrellsoft.com
+   975→            </span>
+   976→          </div>
+   977→
+   978→          {/* Desktop nav */}
+   979→          <div className="hidden md:flex items-center gap-8">
+   980→            <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_fitur}</a>
+   981→            <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_kenapa}</a>
+   982→            <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_harga}</a>
+   983→            <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_testimoni}</a>
+   984→            <div className="flex items-center gap-0.5">
+   985→              <LanguageToggle />
+   986→              <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+   987→            </div>
+   988→            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300">
+   989→              Login <ChevronRight className="ml-1 w-4 h-4" />
+   990→            </Button>
+   991→          </div>
+   992→
+   993→          {/* Mobile: Masuk button + theme toggle + language toggle instead of hamburger */}
+   994→          <div className="md:hidden flex items-center gap-2 shrink-0">
+   995→            <div className="flex items-center gap-0.5">
+   996→              <LanguageToggle compact />
+   997→              <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
+   998→            </div>
+   999→            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-2.5 py-1.5 h-8 whitespace-nowrap">
+  1000→              Login <ChevronRight className="ml-1 w-3 h-3" />
+  1001→            </Button>
+  1002→          </div>
+  1003→        </div>
+  1004→
+  1005→      </nav>
+  1006→
+  1007→      {/* =================== HERO =================== */}
+  1008→      <section className="relative w-full overflow-hidden">
+  1009→        {/* Background decoration */}
+  1010→        <div className="absolute inset-0 -z-10">
+  1011→          <div className="absolute top-20 left-1/4 w-72 h-72 bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-3xl" />
+  1012→          <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-100/20 dark:bg-blue-900/10 rounded-full blur-3xl" />
+  1013→        </div>
+  1014→
+  1015→        <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-6 pb-16 md:pb-24">
+  1016→          {/* Section title — centered, close to the Darrellsoft navbar banner */}
+  1017→          <FadeIn direction="down" delay={0.05}>
+  1018→            <div className="flex justify-center mb-4 md:mb-6 px-2">
+  1019→              <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 px-4 py-2 sm:px-6 md:px-8 md:py-3 text-[13px] sm:text-[18px] md:text-[22px] font-bold whitespace-nowrap">
+  1020→                <Zap className="w-4 h-4 sm:w-6 sm:h-6 md:w-8 md:h-8 mr-2 md:mr-3 shrink-0" /> {t.hero_badge}
+  1021→              </Badge>
+  1022→            </div>
+  1023→          </FadeIn>
+  1024→
+  1025→          <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-start">
+  1026→            {/* Left - Text */}
+  1027→            <FadeIn direction="right">
+  1028→              <div className="flex flex-col gap-6">
+  1029→                <h1 className="text-gray-900 dark:text-gray-100 leading-[1.1] text-[33.67px] md:text-[43.67px] lg:text-[55.67px]" style={{ fontWeight: 900 }}>
+  1030→                  <span style={{ fontWeight: 900 }}>{t.hero_h1_1}{' '}</span>
+  1031→                  <span className="font-extrabold" style={{ color: '#4374C1', fontWeight: 900 }}>{t.hero_h1_2}</span>{' '}
+  1032→                  <span className="bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_3}</span>
+  1033→                </h1>
+  1034→
+  1035→                {/* Mobile: show images right after H1 (below the "Hampers" text) */}
+  1036→                <div className="md:hidden">{heroImagePanel}</div>
+  1037→
+  1038→                <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
+  1039→                  <span className="font-bold text-blue-600 dark:text-blue-400">{t.hero_p1_bold1}</span><br />
+  1040→                  <span className="font-bold text-gray-900 dark:text-gray-100">{t.hero_p1_bold2}</span>.<br />
+  1041→                  {t.hero_p1_text}
+  1042→                  {' '}<span className="font-semibold text-blue-700 dark:text-blue-400">{t.hero_p1_emphasis}</span>{' '}{t.hero_p1_end}
+  1043→                </p>
+  1044→
+  1045→                <p className="text-base text-gray-500 dark:text-gray-500 leading-relaxed">
+  1046→                  {t.hero_p2}
+  1047→                </p>
+  1048→
+  1049→
+  1050→
+  1051→                {/* Trust signals */}
+  1052→                <div className="flex items-center gap-4 mt-4 flex-wrap">
+  1053→                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
+  1054→                    <Shield className="w-5 h-5 text-green-500" />
+  1055→                    <span className="font-extrabold">{t.hero_trust1}</span>
+  1056→                  </div>
+  1057→                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
+  1058→                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+  1059→                    <span className="font-extrabold">{t.hero_trust2}</span>
+  1060→                  </div>
+  1061→                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
+  1062→                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+  1063→                    <span className="font-extrabold">{t.hero_trust3}</span>
+  1064→                  </div>
+  1065→                  <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100" style={{ fontSize: '1.375rem' }}>
+  1066→                    <X className="w-5 h-5 text-red-400" />
+  1067→                    <span className="font-extrabold">{t.hero_trust4}</span>
+  1068→                  </div>
+  1069→                </div>
+  1070→
+  1071→                {/* Hero CTA — Primary */}
+  1072→                <div className="flex flex-col sm:flex-row gap-2.5 mt-6">
+  1073→                  <Button
+  1074→                    onClick={() => goToLogin('register')}
+  1075→                    className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-sm font-bold py-3 px-5"
+  1076→                  >
+  1077→                    {t.hero_cta1} <ArrowRight className="ml-2 w-4 h-4" />
+  1078→                  </Button>
+  1079→                  <Button
+  1080→                    variant="outline"
+  1081→                    onClick={() => document.getElementById('harga')?.scrollIntoView({ behavior: 'smooth' })}
+  1082→                    className="ripple-btn border-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold transition-all duration-300 text-sm py-3 px-5"
+  1083→                  >
+  1084→                    {t.hero_cta2}
+  1085→                  </Button>
+  1086→                </div>
+  1087→                <p className="text-base text-black dark:text-white mt-2">{t.hero_p3}</p>
+  1088→              </div>
+  1089→            </FadeIn>
+  1090→
+  1091→            {/* Right - Hero image grid (food boxes) — desktop only (mobile shows it inline after H1) */}
+  1092→            <FadeIn direction="left" delay={0.2} className="md:pt-[171px] hidden md:block">
+  1093→              {heroImagePanel}
+  1094→            </FadeIn>
+  1095→          </div>
+  1096→        </div>
+  1097→      </section>
+  1098→
+  1099→      {/* =================== STATS BAR =================== */}
+  1100→      <section className="w-full bg-gradient-to-r from-gray-900 to-gray-800 py-8 md:py-10">
+  1101→        <div className="max-w-6xl mx-auto px-4 md:px-8">
+  1102→          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+  1103→            {[
+  1104→              { value: 7168, suffix: '+', label: t.stats_1_label, icon: Printer },
+  1105→              { value: 98, suffix: '%', label: t.stats_2_label, icon: Star },
+  1106→              { value: 168800, suffix: '+', label: t.stats_3_label, icon: Package },
+  1107→              { value: 24, suffix: '/7', label: t.stats_4_label, icon: Shield },
+  1108→            ].map((stat, i) => (
+  1109→              <FadeIn key={i} delay={i * 0.1}>
+  1110→                <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-3 text-center md:text-left">
+  1111→                  <stat.icon className="w-8 h-8 text-blue-400 hidden md:block" />
+  1112→                  <div>
+  1113→                    <p className="text-2xl md:text-3xl font-extrabold text-white">
+  1114→                      <CountUp end={stat.value} suffix={stat.suffix} />
+  1115→                    </p>
+  1116→                    <p className="text-xs md:text-sm text-gray-400 mt-0.5">{stat.label}</p>
+  1117→                  </div>
+  1118→                </div>
+  1119→              </FadeIn>
+  1120→            ))}
+  1121→          </div>
+  1122→        </div>
+  1123→      </section>
+  1124→
+  1125→      {/* =================== AJAKAN BERLANGGANAN (URGENCY) =================== */}
+  1126→      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600">
+  1127→        {/* Background decoration */}
+  1128→        <div className="absolute inset-0 opacity-10">
+  1129→          <div className="absolute top-10 left-10 w-40 h-40 border-2 border-white rounded-full" />
+  1130→          <div className="absolute bottom-10 right-10 w-60 h-60 border-2 border-white rounded-full" />
+  1131→          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-white rounded-full" />
+  1132→        </div>
+  1133→
+  1134→        <div className="max-w-4xl mx-auto px-4 md:px-8 relative z-10">
+  1135→          <FadeIn>
+  1136→            <div className="text-center mb-10">
+  1137→              <Badge className="bg-yellow-400 text-yellow-900 border-0 mb-4 px-8 py-3 text-[18px] md:text-[22px] font-bold shadow-lg shadow-yellow-400/30 animate-pulse">
+  1138→                <Zap className="w-8 h-8 mr-2" /> {t.urg_badge}
+  1139→              </Badge>
+  1140→              <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight">
+  1141→                {t.urg_h2_1}<br className="hidden md:block" />{' '}
+  1142→                <span className="underline decoration-white/50 decoration-4 underline-offset-4">{t.urg_h2_2}</span> {t.urg_h2_3}
+  1143→              </h2>
+  1144→              <p className="text-white/90 mt-6 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+  1145→                {t.urg_p}
+  1146→              </p>
+  1147→            </div>
+  1148→          </FadeIn>
+  1149→
+  1150→          {/* Value Proposition Cards */}
+  1151→          <div className="grid md:grid-cols-3 gap-4 md:gap-6 mb-10">
+  1152→            <FadeIn delay={0}>
+  1153→              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center hover:bg-white/20 transition-all duration-300">
+  1154→                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg mb-3">
+  1155→                  <CheckCircle2 className="w-7 h-7 text-white" />
+  1156→                </div>
+  1157→                <h3 className="text-lg font-bold text-white mb-2">{t.urg_card1_title}</h3>
+  1158→                <p className="text-white/80 text-sm leading-relaxed">{t.urg_card1_desc}</p>
+  1159→              </div>
+  1160→            </FadeIn>
+  1161→            <FadeIn delay={0.15}>
+  1162→              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center hover:bg-white/20 transition-all duration-300">
+  1163→                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-blue-400 to-sky-500 flex items-center justify-center shadow-lg mb-3">
+  1164→                  <TrendingUp className="w-7 h-7 text-white" />
+  1165→                </div>
+  1166→                <h3 className="text-lg font-bold text-white mb-2">{t.urg_card2_title}</h3>
+  1167→                <p className="text-white/80 text-sm leading-relaxed">{t.urg_card2_desc}</p>
+  1168→              </div>
+  1169→            </FadeIn>
+  1170→            <FadeIn delay={0.3}>
+  1171→              <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-5 border border-white/20 text-center hover:bg-white/20 transition-all duration-300">
+  1172→                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-500 flex items-center justify-center shadow-lg mb-3">
+  1173→                  <Zap className="w-7 h-7 text-white" />
+  1174→                </div>
+  1175→                <h3 className="text-lg font-bold text-white mb-2">{t.urg_card3_title}</h3>
+  1176→                <p className="text-white/80 text-sm leading-relaxed">{t.urg_card3_desc}</p>
+  1177→              </div>
+  1178→            </FadeIn>
+  1179→          </div>
+  1180→
+  1181→          {/* Dual CTA */}
+  1182→          <FadeIn delay={0.3}>
+  1183→            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+  1184→              <Button
+  1185→                size="lg"
+  1186→                onClick={() => goToLogin('register')}
+  1187→                className="ripple-btn cta-glow bg-white text-blue-700 hover:bg-blue-50 shadow-2xl shadow-blue-700/20 hover:shadow-3xl transition-all duration-300 text-lg font-bold py-7 px-10"
+  1188→              >
+  1189→                {t.urg_cta1} <ArrowRight className="ml-2 w-5 h-5" />
+  1190→              </Button>
+  1191→              <Button
+  1192→                size="lg"
+  1193→                asChild
+  1194→                className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-lg py-7 px-10"
+  1195→              >
+  1196→                <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+  1197→                  <MessageCircle className="mr-2 w-5 h-5" /> {t.urg_cta2}
+  1198→                </a>
+  1199→              </Button>
+  1200→            </div>
+  1201→            <p className="text-center text-white/70 text-sm">{t.urg_p_below}</p>
+  1202→          </FadeIn>
+  1203→        </div>
+  1204→      </section>
+  1205→
+  1206→      {/* =================== FITUR =================== */}
+  1207→      <Section id="fitur" className="bg-white dark:bg-black">
+  1208→        <FadeIn>
+  1209→          <div className="text-center mb-12 md:mb-16">
+  1210→            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1211→              {t.fitur_badge}
+  1212→            </Badge>
+  1213→            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+  1214→              {t.fitur_h2_1}{' '}
+  1215→              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.fitur_h2_2}</span>
+  1216→            </h2>
+  1217→            <p className="text-gray-600 dark:text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+  1218→              {t.fitur_p}
+  1219→            </p>
+  1220→          </div>
+  1221→        </FadeIn>
+  1222→
+  1223→        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+  1224→          <FeatureCard
+  1225→            icon={MousePointerClick}
+  1226→            title={t.fitur_card1_title}
+  1227→            desc={t.fitur_card1_desc}
+  1228→            delay={0}
+  1229→          />
+  1230→          <FeatureCard
+  1231→            icon={Calculator}
+  1232→            title={t.fitur_card2_title}
+  1233→            desc={t.fitur_card2_desc}
+  1234→            delay={0.15}
+  1235→          />
+  1236→          <FeatureCard
+  1237→            icon={DollarSign}
+  1238→            title={t.fitur_card3_title}
+  1239→            desc={t.fitur_card3_desc}
+  1240→            delay={0.3}
+  1241→          />
+  1242→        </div>
+  1243→      </Section>
+  1244→
+  1245→      {/* =================== KEUNGGULAN =================== */}
+  1246→      <Section id="keunggulan" className="bg-gradient-to-b from-blue-50/30 to-white dark:from-black dark:to-black">
+  1247→        <FadeIn>
+  1248→          <div className="text-center mb-12 md:mb-16">
+  1249→            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1250→              {t.keunggulan_badge}
+  1251→            </Badge>
+  1252→            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+  1253→              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.keunggulan_h2_1}</span> {t.keunggulan_h2_2}
+  1254→            </h2>
+  1255→            <p className="text-gray-600 dark:text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+  1256→              {t.keunggulan_p}
+  1257→            </p>
+  1258→          </div>
+  1259→        </FadeIn>
+  1260→
+  1261→        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+  1262→          {[
+  1263→            {
+  1264→              icon: Monitor,
+  1265→              title: t.adv1_title,
+  1266→              desc: t.adv1_desc,
+  1267→              color: 'from-blue-600 to-red-500',
+  1268→            },
+  1269→            {
+  1270→              icon: Smartphone,
+  1271→              title: t.adv2_title,
+  1272→              desc: t.adv2_desc,
+  1273→              color: 'from-sky-400 to-blue-600',
+  1274→            },
+  1275→            {
+  1276→              icon: Zap,
+  1277→              title: t.adv3_title,
+  1278→              desc: t.adv3_desc,
+  1279→              color: 'from-sky-300 to-sky-400',
+  1280→            },
+  1281→            {
+  1282→              icon: Shield,
+  1283→              title: t.adv4_title,
+  1284→              desc: t.adv4_desc,
+  1285→              color: 'from-green-500 to-emerald-500',
+  1286→            },
+  1287→            {
+  1288→              icon: Download,
+  1289→              title: t.adv5_title,
+  1290→              desc: t.adv5_desc,
+  1291→              color: 'from-blue-500 to-indigo-500',
+  1292→            },
+  1293→            {
+  1294→              icon: Smartphone,
+  1295→              title: t.adv6_title,
+  1296→              desc: t.adv6_desc,
+  1297→              color: 'from-purple-500 to-pink-500',
+  1298→            },
+  1299→          ].map((item, i) => (
+  1300→            <FadeIn key={i} delay={i * 0.1}>
+  1301→              <div className="advantage-tap group flex items-start gap-4 p-5 rounded-xl bg-white dark:bg-[#111] shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-white/10 hover:border-blue-100 dark:hover:border-white/20 cursor-pointer">
+  1302→                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+  1303→                  <item.icon className="w-6 h-6 text-white" />
+  1304→                </div>
+  1305→                <div>
+  1306→                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{item.title}</h3>
+  1307→                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1 leading-relaxed">{item.desc}</p>
+  1308→                </div>
+  1309→              </div>
+  1310→            </FadeIn>
+  1311→          ))}
+  1312→        </div>
+  1313→      </Section>
+  1314→
+  1315→      {/* =================== KENAPA HARUS LANGGANAN =================== */}
+  1316→      <Section id="kenapa-langganan" className="bg-gradient-to-b from-sky-50/50 to-white dark:from-black dark:to-black">
+  1317→        <FadeIn>
+  1318→          <div className="text-center mb-12 md:mb-16">
+  1319→            <Badge variant="secondary" className="bg-sky-50 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 border-sky-100 dark:border-sky-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1320→              {t.kenapa_badge}
+  1321→            </Badge>
+  1322→            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+  1323→              {t.kenapa_h2_1} <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.kenapa_h2_2}</span>{' '}
+  1324→              {t.kenapa_h2_3} <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.kenapa_h2_4}</span>
+  1325→            </h2>
+  1326→            <p className="text-gray-600 dark:text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+  1327→              {t.kenapa_p}
+  1328→            </p>
+  1329→          </div>
+  1330→        </FadeIn>
+  1331→
+  1332→        {/* ---- Bagian 1: 4 Cloud Advantage Cards ---- */}
+  1333→        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 mb-12">
+  1334→          {/* Card 1: Data Aman di Cloud */}
+  1335→          <FadeIn delay={0}>
+  1336→            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-white/10 hover:shadow-xl hover:border-sky-200 dark:hover:border-sky-800 transition-all duration-300 h-full relative overflow-hidden">
+  1337→              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-sky-100/60 to-transparent dark:from-sky-900/20 dark:to-transparent rounded-bl-full" />
+  1338→              <div className="relative z-10">
+  1339→                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+  1340→                  <Cloud className="w-7 h-7 text-white" />
+  1341→                </div>
+  1342→                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">{t.cloud1_title}</h3>
+  1343→                <ul className="space-y-2">
+  1344→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1345→                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+  1346→                    <span>{t.cloud1_b1_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud1_b1_bold}</strong> {t.cloud1_b1_post}</span>
+  1347→                  </li>
+  1348→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1349→                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+  1350→                    <span>{t.cloud1_b2_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud1_b2_bold}</strong></span>
+  1351→                  </li>
+  1352→                </ul>
+  1353→              </div>
+  1354→            </div>
+  1355→          </FadeIn>
+  1356→
+  1357→          {/* Card 2: Bisa Buka di Mana Saja */}
+  1358→          <FadeIn delay={0.1}>
+  1359→            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-white/10 hover:shadow-xl hover:border-emerald-200 dark:hover:border-emerald-800 transition-all duration-300 h-full relative overflow-hidden">
+  1360→              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-100/60 to-transparent dark:from-emerald-900/20 dark:to-transparent rounded-bl-full" />
+  1361→              <div className="relative z-10">
+  1362→                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+  1363→                  <Globe className="w-7 h-7 text-white" />
+  1364→                </div>
+  1365→                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">{t.cloud2_title}</h3>
+  1366→                <ul className="space-y-2">
+  1367→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1368→                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+  1369→                    <span>{t.cloud2_b1_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud2_b1_bold}</strong></span>
+  1370→                  </li>
+  1371→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1372→                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+  1373→                    <span>{t.cloud2_b2_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud2_b2_bold}</strong> {t.cloud2_b2_post}</span>
+  1374→                  </li>
+  1375→                </ul>
+  1376→              </div>
+  1377→            </div>
+  1378→          </FadeIn>
+  1379→
+  1380→          {/* Card 3: HP & Laptop, Semua Bisa */}
+  1381→          <FadeIn delay={0.2}>
+  1382→            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-white/10 hover:shadow-xl hover:border-violet-200 dark:hover:border-violet-800 transition-all duration-300 h-full relative overflow-hidden">
+  1383→              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-violet-100/60 to-transparent dark:from-violet-900/20 dark:to-transparent rounded-bl-full" />
+  1384→              <div className="relative z-10">
+  1385→                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+  1386→                  <Smartphone className="w-5 h-5 text-white mr-0.5" />
+  1387→                  <Monitor className="w-4 h-4 text-white ml-0.5" />
+  1388→                </div>
+  1389→                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">{t.cloud3_title}</h3>
+  1390→                <ul className="space-y-2">
+  1391→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1392→                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+  1393→                    <span><strong className="text-gray-900 dark:text-gray-100">{t.cloud3_b1_bold}</strong> {t.cloud3_b1_post}</span>
+  1394→                  </li>
+  1395→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1396→                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+  1397→                    <span>{t.cloud3_b2_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud3_b2_bold}</strong> {t.cloud3_b2_post}</span>
+  1398→                  </li>
+  1399→                </ul>
+  1400→              </div>
+  1401→            </div>
+  1402→          </FadeIn>
+  1403→
+  1404→          {/* Card 4: Kenapa Bayar? */}
+  1405→          <FadeIn delay={0.3}>
+  1406→            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-white/10 hover:shadow-xl hover:border-amber-200 dark:hover:border-amber-800 transition-all duration-300 h-full relative overflow-hidden">
+  1407→              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-100/60 to-transparent dark:from-amber-900/20 dark:to-transparent rounded-bl-full" />
+  1408→              <div className="relative z-10">
+  1409→                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+  1410→                  <Banknote className="w-7 h-7 text-white" />
+  1411→                </div>
+  1412→                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">{t.cloud4_title}</h3>
+  1413→                <ul className="space-y-2">
+  1414→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1415→                    <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+  1416→                    <span>{t.cloud4_b1_pre} <strong className="text-amber-600 dark:text-amber-400">{t.cloud4_b1_bold}</strong> {t.cloud4_b1_post}</span>
+  1417→                  </li>
+  1418→                  <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+  1419→                    <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+  1420→                    <span><strong className="text-gray-900 dark:text-gray-100">{t.cloud4_b2_bold}</strong> {t.cloud4_b2_post}</span>
+  1421→                  </li>
+  1422→                </ul>
+  1423→              </div>
+  1424→            </div>
+  1425→          </FadeIn>
+  1426→        </div>
+  1427→
+  1428→        {/* ---- Bagian 2: Kesempatan Emas Banner ---- */}
+  1429→        <FadeIn delay={0.3}>
+  1430→          <div className="bg-gradient-to-br from-blue-700 via-blue-800 to-sky-700 rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden">
+  1431→            {/* Background decorative elements */}
+  1432→            <div className="absolute inset-0 opacity-10">
+  1433→              <div className="absolute top-8 right-16 w-40 h-40 border-2 border-white rounded-full" />
+  1434→              <div className="absolute bottom-8 left-12 w-56 h-56 border border-white rounded-full" />
+  1435→              <div className="absolute top-1/2 left-1/3 w-32 h-32 border border-white rounded-full" />
+  1436→            </div>
+  1437→
+  1438→            <div className="relative z-10">
+  1439→              {/* Crown Badge */}
+  1440→              <div className="text-center mb-6">
+  1441→                <div className="inline-flex items-center gap-3 bg-yellow-400/20 backdrop-blur-sm rounded-full px-8 py-4 border border-yellow-400/30 mb-4">
+  1442→                  <Crown className="w-8 h-8 text-yellow-300" />
+  1443→                  <span className="text-yellow-200 font-bold text-[18px] md:text-[22px]">{t.golden_badge}</span>
+  1444→                </div>
+  1445→                <h3 className="text-2xl md:text-4xl font-extrabold text-white leading-tight">
+  1446→                  {t.golden_h3_1}<br />
+  1447→                  <span className="text-yellow-300">{t.golden_h3_2}</span>
+  1448→                </h3>
+  1449→              </div>
+  1450→
+  1451→              {/* Fakta & Artinya */}
+  1452→              <div className="grid md:grid-cols-2 gap-5 mb-8">
+  1453→                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/15">
+  1454→                  <div className="flex items-center gap-2 mb-3">
+  1455→                    <div className="w-8 h-8 rounded-lg bg-yellow-400/20 flex items-center justify-center">
+  1456→                      <span className="text-lg">📊</span>
+  1457→                    </div>
+  1458→                    <h4 className="font-bold text-white text-base">{t.golden_fakta}</h4>
+  1459→                  </div>
+  1460→                  <p className="text-white/85 text-sm leading-relaxed">
+  1461→                    {t.golden_fakta_p_pre} <strong className="text-yellow-300">{t.golden_fakta_p_bold1}</strong>{t.golden_fakta_p_mid} <strong className="text-white">{t.golden_fakta_p_bold2}</strong>{t.golden_fakta_p_post}
+  1462→                  </p>
+  1463→                </div>
+  1464→                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/15">
+  1465→                  <div className="flex items-center gap-2 mb-3">
+  1466→                    <div className="w-8 h-8 rounded-lg bg-green-400/20 flex items-center justify-center">
+  1467→                      <span className="text-lg">💡</span>
+  1468→                    </div>
+  1469→                    <h4 className="font-bold text-white text-base">{t.golden_artinya}</h4>
+  1470→                  </div>
+  1471→                  <p className="text-white/85 text-sm leading-relaxed">
+  1472→                    {t.golden_artinya_p_pre} <strong className="text-yellow-300">{t.golden_artinya_p_bold1}</strong>{t.golden_artinya_p_mid} <strong className="text-white">{t.golden_artinya_p_bold2}</strong>
+  1473→                  </p>
+  1474→                </div>
+  1475→              </div>
+  1476→
+  1477→              {/* 3 Statistics Flow */}
+  1478→              <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 mb-8">
+  1479→                <FadeIn delay={0.4}>
+  1480→                  <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/20 text-center min-w-[180px]">
+  1481→                    <p className="text-3xl md:text-4xl font-extrabold text-yellow-300">{t.golden_stat1_val}</p>
+  1482→                    <p className="text-white/80 text-sm mt-1">{t.golden_stat1_label}</p>
+  1483→                  </div>
+  1484→                </FadeIn>
+  1485→                <div className="hidden md:block text-white/40 text-3xl">→</div>
+  1486→                <div className="block md:hidden text-white/40 text-2xl">↓</div>
+  1487→                <FadeIn delay={0.5}>
+  1488→                  <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/20 text-center min-w-[180px]">
+  1489→                    <p className="text-3xl md:text-4xl font-extrabold text-red-300">{t.golden_stat2_val}</p>
+  1490→                    <p className="text-white/80 text-sm mt-1">{t.golden_stat2_label}</p>
+  1491→                  </div>
+  1492→                </FadeIn>
+  1493→                <div className="hidden md:block text-white/40 text-3xl">→</div>
+  1494→                <div className="block md:hidden text-white/40 text-2xl">↓</div>
+  1495→                <FadeIn delay={0.6}>
+  1496→                  <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/20 text-center min-w-[180px]">
+  1497→                    <p className="text-3xl md:text-4xl font-extrabold text-green-300">{t.golden_stat3_val}</p>
+  1498→                    <p className="text-white/80 text-sm mt-1">{t.golden_stat3_label}</p>
+  1499→                  </div>
+  1500→                </FadeIn>
+  1501→              </div>
+  1502→
+  1503→              {/* CTAs */}
+  1504→              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
+  1505→                <Button
+  1506→                  size="lg"
+  1507→                  onClick={() => goToLogin('register')}
+  1508→                  className="ripple-btn cta-glow bg-white text-blue-700 hover:bg-blue-50 shadow-2xl shadow-blue-700/20 hover:shadow-3xl transition-all duration-300 text-base font-bold py-6 px-8"
+  1509→                >
+  1510→                  <Crown className="mr-2 w-5 h-5" /> {t.golden_cta1} <ArrowRight className="ml-2 w-5 h-5" />
+  1511→                </Button>
+  1512→                <Button
+  1513→                  size="lg"
+  1514→                  asChild
+  1515→                  className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-base py-6 px-8"
+  1516→                >
+  1517→                  <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+  1518→                    <MessageCircle className="mr-2 w-5 h-5" /> {t.golden_cta2}
+  1519→                  </a>
+  1520→                </Button>
+  1521→              </div>
+  1522→
+  1523→              {/* Quote penutup */}
+  1524→              <div className="text-center">
+  1525→                <blockquote className="text-white/90 text-base md:text-lg italic font-medium max-w-2xl mx-auto leading-relaxed">
+  1526→                  &ldquo;{t.golden_quote}&rdquo;
+  1527→                </blockquote>
+  1528→                <div className="w-16 h-1 bg-gradient-to-r from-yellow-400 to-amber-400 mx-auto mt-4 rounded-full" />
+  1529→              </div>
+  1530→            </div>
+  1531→          </div>
+  1532→        </FadeIn>
+  1533→      </Section>
+  1534→
+  1535→      {/* =================== CARA KERJA =================== */}
+  1536→      <Section className="bg-white dark:bg-black">
+  1537→        <FadeIn>
+  1538→          <div className="text-center mb-12 md:mb-16">
+  1539→            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1540→              {t.cara_badge}
+  1541→            </Badge>
+  1542→            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+  1543→              {t.cara_h2_1}{' '}
+  1544→              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">1-2-3</span>
+  1545→            </h2>
+  1546→          </div>
+  1547→        </FadeIn>
+  1548→
+  1549→        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+  1550→          {[
+  1551→            { step: '01', title: t.cara_step1_title, desc: t.cara_step1_desc, icon: Package },
+  1552→            { step: '02', title: t.cara_step2_title, desc: t.cara_step2_desc, icon: Calculator },
+  1553→            { step: '03', title: t.cara_step3_title, desc: t.cara_step3_desc, icon: DollarSign },
+  1554→          ].map((item, i) => (
+  1555→            <FadeIn key={i} delay={i * 0.15}>
+  1556→              <div className="relative text-center">
+  1557→                {/* Step number */}
+  1558→                <div className="text-7xl font-black text-blue-50 dark:text-white/5 absolute -top-4 left-1/2 -translate-x-1/2 select-none">
+  1559→                  {item.step}
+  1560→                </div>
+  1561→                <div className="relative z-10 flex flex-col items-center gap-3 pt-6">
+  1562→                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25">
+  1563→                    <item.icon className="w-7 h-7 text-white" />
+  1564→                  </div>
+  1565→                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{item.title}</h3>
+  1566→                  <p className="text-gray-600 dark:text-gray-400 text-sm max-w-xs">{item.desc}</p>
+  1567→                </div>
+  1568→              </div>
+  1569→            </FadeIn>
+  1570→          ))}
+  1571→        </div>
+  1572→      </Section>
+  1573→
+  1574→      {/* =================== HARGA =================== */}
+  1575→      <Section id="harga" className="bg-gradient-to-b from-gray-900 to-gray-950">
+  1576→        <FadeIn>
+  1577→          <div className="text-center mb-12 md:mb-16">
+  1578→            <Badge variant="secondary" className="bg-blue-400/10 text-blue-300 border-blue-400/20 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1579→              {t.harga_badge}
+  1580→            </Badge>
+  1581→            <h2 className="text-3xl md:text-4xl font-extrabold text-white">
+  1582→              {t.harga_h2_1}{' '}
+  1583→              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.harga_h2_2}</span> {t.harga_h2_3}
+  1584→            </h2>
+  1585→            <p className="text-gray-400 mt-4 max-w-2xl mx-auto text-base md:text-lg">
+  1586→              {t.harga_p}
+  1587→            </p>
+  1588→          </div>
+  1589→        </FadeIn>
+  1590→
+  1591→        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 max-w-6xl mx-auto">
+  1592→          <PricingCard
+  1593→            title={t.price_economis_title}
+  1594→            price="Rp 78.000"
+  1595→            period={t.price_economis_period}
+  1596→            description={t.price_economis_desc}
+  1597→            periodBelow
+  1598→            popularLabel={t.price_popular_badge}
+  1599→            buttonLabel={t.price_btn}
+  1600→            features={[
+  1601→              t.price_economis_f1,
+  1602→              t.price_economis_f2,
+  1603→              t.price_economis_f3,
+  1604→              t.price_economis_f4,
+  1605→              t.price_economis_f5,
+  1606→              <span key="bold" className="font-bold">{t.price_economis_f6_bold}</span>,
+  1607→              t.price_economis_f7,
+  1608→            ]}
+  1609→            delay={0}
+  1610→            onSelect={() => openPayment('bulanan-ekonomis')}
+  1611→          />
+  1612→          <PricingCard
+  1613→            title={t.price_bulanan_title}
+  1614→            price="Rp 128.000"
+  1615→            period={t.price_bulanan_period}
+  1616→            description={t.price_bulanan_desc}
+  1617→            periodBelow
+  1618→            popularLabel={t.price_popular_badge}
+  1619→            buttonLabel={t.price_btn}
+  1620→            features={[
+  1621→              t.price_bulanan_f1,
+  1622→              t.price_bulanan_f2,
+  1623→              t.price_bulanan_f3,
+  1624→              t.price_bulanan_f4,
+  1625→              t.price_bulanan_f5,
+  1626→              <span key="bold" className="font-bold">{t.price_bulanan_f6_bold}</span>,
+  1627→              t.price_bulanan_f7,
+  1628→            ]}
+  1629→            delay={0}
+  1630→            onSelect={() => openPayment('bulanan')}
+  1631→          />
+  1632→          <PricingCard
+  1633→            title={t.price_tahunan_title}
+  1634→            price="Rp 888.000"
+  1635→            period={t.price_tahunan_period}
+  1636→            description={t.price_tahunan_desc}
+  1637→            descriptionExtra={t.price_tahunan_desc_extra}
+  1638→            popular
+  1639→            periodBelow
+  1640→            popularLabel={t.price_popular_badge}
+  1641→            buttonLabel={t.price_btn}
+  1642→            features={[
+  1643→              t.price_tahunan_f1,
+  1644→              t.price_tahunan_f2,
+  1645→              t.price_tahunan_f3,
+  1646→              t.price_tahunan_f4,
+  1647→              t.price_tahunan_f5,
+  1648→              t.price_tahunan_f6,
+  1649→              t.price_tahunan_f7,
+  1650→              t.price_tahunan_f8,
+  1651→            ]}
+  1652→            delay={0.15}
+  1653→            onSelect={() => openPayment('tahunan')}
+  1654→          />
+  1655→          <PricingCard
+  1656→            title={t.price_lifetime_title}
+  1657→            price="Rp 3.888.000"
+  1658→            period={t.price_lifetime_period}
+  1659→            description={t.price_lifetime_desc}
+  1660→            periodBelow
+  1661→            popularLabel={t.price_popular_badge}
+  1662→            buttonLabel={t.price_btn}
+  1663→            features={[
+  1664→              t.price_lifetime_f1,
+  1665→              t.price_lifetime_f2,
+  1666→              t.price_lifetime_f3,
+  1667→              t.price_lifetime_f4,
+  1668→              t.price_lifetime_f5,
+  1669→              t.price_lifetime_f6,
+  1670→              t.price_lifetime_f7,
+  1671→              t.price_lifetime_f8,
+  1672→            ]}
+  1673→            delay={0}
+  1674→            onSelect={() => openPayment('lifetime')}
+  1675→          />
+  1676→        </div>
+  1677→
+  1678→        {/* Guarantee */}
+  1679→        <FadeIn delay={0.3}>
+  1680→          <div className="mt-10 text-center">
+  1681→            <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-6 py-3">
+  1682→              <Shield className="w-5 h-5 text-green-400" />
+  1683→              <span className="text-sm font-semibold text-green-400">
+  1684→                {t.price_guarantee}
+  1685→              </span>
+  1686→            </div>
+  1687→          </div>
+  1688→        </FadeIn>
+  1689→      </Section>
+  1690→
+  1691→      {/* =================== TESTIMONI =================== */}
+  1692→      <Section id="testimoni" className="bg-white dark:bg-black">
+  1693→        <FadeIn>
+  1694→          <div className="text-center mb-12 md:mb-16">
+  1695→            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1696→              {t.testimoni_badge}
+  1697→            </Badge>
+  1698→            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+  1699→              {t.testimoni_h2_1}{' '}
+  1700→              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.testimoni_h2_2}</span> {t.testimoni_h2_3}
+  1701→            </h2>
+  1702→          </div>
+  1703→        </FadeIn>
+  1704→
+  1705→        <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
+  1706→          <TestimonialCard
+  1707→            name={t.testi1_name}
+  1708→            role={t.testi1_role}
+  1709→            quote={t.testi1_quote}
+  1710→            avatar="M"
+  1711→            delay={0}
+  1712→          />
+  1713→          <TestimonialCard
+  1714→            name={t.testi2_name}
+  1715→            role={t.testi2_role}
+  1716→            quote={t.testi2_quote}
+  1717→            avatar="J"
+  1718→            delay={0.15}
+  1719→          />
+  1720→          <TestimonialCard
+  1721→            name={t.testi3_name}
+  1722→            role={t.testi3_role}
+  1723→            quote={t.testi3_quote}
+  1724→            avatar="LL"
+  1725→            delay={0.3}
+  1726→          />
+  1727→          <TestimonialCard
+  1728→            name={t.testi4_name}
+  1729→            role={t.testi4_role}
+  1730→            quote={t.testi4_quote}
+  1731→            avatar="GP"
+  1732→            delay={0.45}
+  1733→          />
+  1734→        </div>
+  1735→      </Section>
+  1736→
+  1737→      {/* =================== CTA FINAL (STRONG) =================== */}
+  1738→      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600">
+  1739→        {/* Background decoration */}
+  1740→        <div className="absolute inset-0 opacity-10">
+  1741→          <div className="absolute top-10 left-10 w-40 h-40 border-2 border-white rounded-full" />
+  1742→          <div className="absolute bottom-10 right-10 w-60 h-60 border-2 border-white rounded-full" />
+  1743→          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-white rounded-full" />
+  1744→        </div>
+  1745→
+  1746→        <div className="max-w-4xl mx-auto px-4 md:px-8 relative z-10">
+  1747→          <FadeIn>
+  1748→            <div className="text-center mb-8">
+  1749→              <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight">
+  1750→                {t.cta_h2_1}<br className="hidden md:block" />{' '}
+  1751→                {t.cta_h2_2} <span className="underline decoration-white/50 decoration-4 underline-offset-4">{t.cta_h2_3}</span> {t.cta_h2_4}
+  1752→              </h2>
+  1753→              <p className="text-white/90 mt-6 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+  1754→                {t.cta_p}
+  1755→              </p>
+  1756→            </div>
+  1757→          </FadeIn>
+  1758→
+  1759→          {/* Trust Badges */}
+  1760→          <FadeIn delay={0.15}>
+  1761→            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+  1762→              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20">
+  1763→                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+  1764→                <span className="text-white font-semibold text-sm">{t.cta_trust1}</span>
+  1765→              </div>
+  1766→              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20">
+  1767→                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+  1768→                <span className="text-white font-semibold text-sm">{t.cta_trust2}</span>
+  1769→              </div>
+  1770→              <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20">
+  1771→                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
+  1772→                <span className="text-white font-semibold text-sm">{t.cta_trust3}</span>
+  1773→              </div>
+  1774→            </div>
+  1775→          </FadeIn>
+  1776→
+  1777→          {/* Main CTA Card */}
+  1778→          <FadeIn delay={0.3}>
+  1779→            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-2xl text-center max-w-3xl mx-auto">
+  1780→              <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-4">
+  1781→                {t.cta_card_h3}
+  1782→              </h3>
+  1783→              <p className="text-gray-600 text-base md:text-lg leading-relaxed mb-4">
+  1784→                {t.cta_card_p_pre} <span className="font-bold text-gray-900">{t.cta_card_p_bold1}</span>{t.cta_card_p_mid}
+  1785→                <span className="font-bold text-blue-600"> {t.cta_card_p_bold2}</span>
+  1786→              </p>
+  1787→              <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+  1788→                <div className="flex items-center gap-2 text-sm text-gray-700">
+  1789→                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+  1790→                  <span><strong>{t.cta_card_check1_bold}</strong>{t.cta_card_check1_post}</span>
+  1791→                </div>
+  1792→                <div className="flex items-center gap-2 text-sm text-gray-700">
+  1793→                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+  1794→                  <span><strong>{t.cta_card_check2_bold}</strong>{t.cta_card_check2_post}</span>
+  1795→                </div>
+  1796→                <div className="flex items-center gap-2 text-sm text-gray-700">
+  1797→                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+  1798→                  <span><strong>{t.cta_card_check3_bold}</strong>{t.cta_card_check3_post}</span>
+  1799→                </div>
+  1800→              </div>
+  1801→              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+  1802→                <Button
+  1803→                  size="lg"
+  1804→                  onClick={() => goToLogin('register')}
+  1805→                  className="ripple-btn cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-lg font-bold py-7 px-10"
+  1806→                >
+  1807→                  {t.cta_card_btn1} <ArrowRight className="ml-2 w-5 h-5" />
+  1808→                </Button>
+  1809→                <Button
+  1810→                  size="lg"
+  1811→                  asChild
+  1812→                  className="ripple-btn bg-green-500 hover:bg-green-600 text-white font-bold shadow-lg shadow-green-700/25 hover:shadow-xl transition-all duration-300 text-lg py-7 px-10"
+  1813→                >
+  1814→                  <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
+  1815→                    <MessageCircle className="mr-2 w-5 h-5" /> {t.cta_card_btn2}
+  1816→                  </a>
+  1817→                </Button>
+  1818→              </div>
+  1819→              <p className="text-xs text-gray-400 mt-4">{t.cta_card_p_bottom}</p>
+  1820→            </div>
+  1821→          </FadeIn>
+  1822→
+  1823→          {/* Reassure */}
+  1824→          <FadeIn delay={0.45}>
+  1825→            <p className="text-center text-white/70 text-sm mt-6 max-w-xl mx-auto leading-relaxed">
+  1826→              {t.cta_reassure}
+  1827→            </p>
+  1828→          </FadeIn>
+  1829→        </div>
+  1830→      </section>
+  1831→
+  1832→      {/* =================== FAQ =================== */}
+  1833→      <Section className="bg-white dark:bg-black">
+  1834→        <FadeIn>
+  1835→          <div className="text-center mb-12 md:mb-16">
+  1836→            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-100 dark:border-blue-800 mb-4 px-6 py-2 text-[18px] md:text-[22px] font-bold">
+  1837→              {t.faq_badge}
+  1838→            </Badge>
+  1839→            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+  1840→              {t.faq_h2_1}{' '}
+  1841→              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.faq_h2_2}</span>
+  1842→            </h2>
+  1843→          </div>
+  1844→        </FadeIn>
+  1845→
+  1846→        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+  1847→          {[
+  1848→            {
+  1849→              q: t.faq1_q,
+  1850→              a: t.faq1_a,
+  1851→            },
+  1852→            {
+  1853→              q: t.faq2_q,
+  1854→              a: t.faq2_a,
+  1855→            },
+  1856→            {
+  1857→              q: t.faq3_q,
+  1858→              a: t.faq3_a,
+  1859→            },
+  1860→            {
+  1861→              q: t.faq4_q,
+  1862→              a: t.faq4_a,
+  1863→            },
+  1864→          ].map((faq, i) => (
+  1865→            <FadeIn key={i} delay={i * 0.1}>
+  1866→              <div className="p-6 rounded-xl bg-gray-50 dark:bg-[#111] border border-gray-100 dark:border-white/10 hover:border-blue-100 dark:hover:border-white/20 hover:shadow-md transition-all duration-300">
+  1867→                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">{faq.q}</h3>
+  1868→                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{faq.a}</p>
+  1869→              </div>
+  1870→            </FadeIn>
+  1871→          ))}
+  1872→        </div>
+  1873→      </Section>
+  1874→
+  1875→      {/* =================== FOOTER =================== */}
+  1876→      <footer className="w-full bg-gray-900 pt-12 pb-8 px-4 md:px-8">
+  1877→        <div className="max-w-6xl mx-auto">
+  1878→          <div className="grid md:grid-cols-3 gap-8 mb-8">
+  1879→            {/* Brand */}
+  1880→            <div>
+  1881→              <div className="flex items-center gap-2.5 mb-4">
+  1882→                <img src="/logo-ds.png" alt="Logo" className="w-9 h-9 rounded-xl object-contain shadow-none" />
+  1883→                <span className="text-xl font-extrabold tracking-tight">
+  1884→                  <span className="bg-gradient-to-r from-blue-400 to-sky-300 bg-clip-text text-transparent">Darrell</span>
+  1885→                  <span className="text-white"> Soft</span>
+  1886→                </span>
+  1887→              </div>
+  1888→              <p className="text-gray-400 text-sm leading-relaxed">
+  1889→                {t.footer_brand_desc}
+  1890→              </p>
+  1891→            </div>
+  1892→
+  1893→            {/* Links */}
+  1894→            <div>
+  1895→              <h4 className="text-white font-bold text-sm mb-4">{t.footer_nav_title}</h4>
+  1896→              <div className="flex flex-col gap-2">
+  1897→                <a href="#fitur" className="text-gray-400 hover:text-white text-sm transition-colors">{t.footer_nav_fitur}</a>
+  1898→                <a href="#harga" className="text-gray-400 hover:text-white text-sm transition-colors">{t.footer_nav_harga}</a>
+  1899→                <a href="#testimoni" className="text-gray-400 hover:text-white text-sm transition-colors">{t.footer_nav_testimoni}</a>
+  1900→                <a href="#faq" className="text-gray-400 hover:text-white text-sm transition-colors">{t.footer_nav_faq}</a>
+  1901→              </div>
+  1902→            </div>
+  1903→
+  1904→            {/* Contact */}
+  1905→            <div>
+  1906→              <h4 className="text-white font-bold text-sm mb-4">{t.footer_contact_title}</h4>
+  1907→              <div className="flex flex-col gap-2">
+  1908→                <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer" className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-2">
+  1909→                  <MessageCircle className="w-4 h-4" /> WhatsApp
+  1910→                </a>
+  1911→              </div>
+  1912→            </div>
+  1913→          </div>
+  1914→
+  1915→          {/* Bottom bar */}
+  1916→          <div className="mt-10 pt-8 border-t border-gray-800">
+  1917→            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+  1918→              <p className="text-xs text-gray-600 text-center md:text-left">
+  1919→                &copy; {new Date().getFullYear()} Darrell Soft. {t.footer_bottom_rights}
+  1920→              </p>
+  1921→              <div className="flex items-center gap-2">
+  1922→                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+  1923→                  <Shield className="w-3 h-3 text-green-500" />
+  1924→                  <span>{t.footer_encrypted}</span>
+  1925→                </div>
+  1926→                <span className="text-gray-700">•</span>
+  1927→                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+  1928→                  <Shield className="w-3 h-3 text-green-500" />
+  1929→                  <span>{t.footer_secure}</span>
+  1930→                </div>
+  1931→              </div>
+  1932→            </div>
+  1933→          </div>
+  1934→        </div>
+  1935→      </footer>
+  1936→
+  1937→    </div>
+  1938→  );
+  1939→}
+  1940→
