@@ -6772,3 +6772,30 @@ Stage Summary:
 - Semua fitur ter-deploy: invoice merge dengan nomor baru, counter persisten (no reuse), profit gabungan, notifikasi sound, dll.
 - Local dev kembali ke SQLite (schema reverted, prisma client regenerated, dev server HTTP 200 clean)
 - Domain www.darrellsoft.com otomatis ter-alias ke deployment production terbaru
+
+---
+Task ID: fix-content-not-appearing
+Agent: Main
+Task: Fix "content tidak muncul" — konten halaman tidak muncul karena database connection error
+
+Work Log:
+- User lapor "conten tidak muncul" (konten tidak tampil) di aplikasi.
+- Cek dev server: dev server mati (PID tidak ada, curl return 000). Start ulang `bun run dev`.
+- Test login API via curl: POST /api/auth/login return `{"error":"Terjadi kesalahan server","details":"Kesalahan koneksi database. Silakan coba lagi."}` → DB connection gagal.
+- Root cause: prisma/schema.prisma DAN root schema.prisma MASIH set `provider = "postgresql"` dari task deploy-darrellsoft-com sebelumnya. Step 8 (revert schema postgresql→sqlite) tampaknya tidak ter-apply / tertimpa kembali. Sementara DATABASE_URL di .env = `file:/home/z/my-project/db/custom.db` (SQLite path). Mismatch provider postgresql vs SQLite file path → Prisma client tidak bisa connect → semua API yang akses DB return 500 → frontend tidak dapat data → konten kosong.
+- Fix: jalankan `node scripts/revert-schema.js` → kedua schema file di-revert provider "postgresql" → "sqlite". Verifikasi head schema: `provider = "sqlite"` ✓.
+- Regenerate Prisma client: `bunx prisma generate` → "Generated Prisma Client (v6.19.2)" ✓.
+- Restart dev server bersih (kill old next-server, rm dev.log, bun run dev). Ready in 13.5s.
+- Test login API ulang: POST /api/auth/login superadmin/268899 → 200 OK, return user data + sessionId + permissions ✓.
+- Verifikasi via agent-browser:
+  - Login superadmin → redirect ke /pembukaan ✓
+  - Buka /invoice → konten muncul: Editor tab dengan form (No. Invoice INV/07/26/0008, customer, item, dll) ✓
+  - Klik tab Riwayat → INVOICE DP table (3 baris: INV/07/26/9002, 9001, 06/26/0001) + INVOICE PELUNASAN table (3 baris: PEL/07/26/9002, 9001, ...) ✓
+  - Semua API calls 200 OK di dev.log (settings, history, customers, riwayat-cetakan, notifications, auth/verify-session)
+  - Zero console errors, zero page errors
+
+Stage Summary:
+- Bug "content tidak muncul" disebabkan oleh mismatch Prisma provider (postgresql) vs DATABASE_URL (SQLite file) yang tersisa dari task deploy Vercel. Revert schema tidak ter-apply sempurna sebelumnya.
+- Fix: revert kedua schema file ke sqlite + regenerate Prisma client + restart dev server.
+- Konten halaman invoice (Editor + Riwayat + tabel INVOICE DP + tabel INVOICE PELUNASAN) sekarang muncul lengkap dengan data dari DB SQLite lokal.
+- Dev server jalan bersih di port 3000, semua API 200 OK, no errors.
