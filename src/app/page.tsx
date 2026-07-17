@@ -313,7 +313,7 @@ const LANDING_T = {
     nav_testimoni: 'Testimoni',
     nav_login: 'Login',
 
-    hero_badge: 'Sistem Hitung Cepat Percetakan',
+    hero_badge: 'Akuntansi Khusus untuk Cetakan',
     hero_h1_1: 'Jangan jadi penonton saja!!!.',
     hero_h1_2: 'Sekarang sudah bisa mulai bisnis cetak',
     hero_h1_3: 'Dus Makanan, Dus Kue, Hampers, dll',
@@ -590,7 +590,7 @@ const LANDING_T = {
     nav_testimoni: 'Testimonials',
     nav_login: 'Login',
 
-    hero_badge: 'Fast Printing Cost Calculator',
+    hero_badge: 'Accounting Made for Printing',
     hero_h1_1: "Don't just be a spectator!!!.",
     hero_h1_2: 'Now you can start a printing business for',
     hero_h1_3: 'Food Boxes, Cake Boxes, Hampers, etc.',
