@@ -113,7 +113,10 @@ export async function GET(request: NextRequest) {
     ])
 
     // Calculate invoice total from dataJson (7 days)
+    // Also sum uangCapek (profit) — this is the REAL profit from invoices,
+    // matching what's shown in the invoice riwayat tab.
     let invoiceTotal = 0
+    let invoiceUangCapek = 0
     const allInvoiceHistory = await db.documentHistory.findMany({
       where: invoiceFilter,
       select: { dataJson: true },
@@ -124,6 +127,9 @@ export async function GET(request: NextRequest) {
         const subtotal = (data.items || []).reduce((sum: number, item: { qty: number; harga: number }) => sum + item.qty * item.harga, 0)
         const ppn = subtotal * ((data.ppn || 0) / 100)
         invoiceTotal += subtotal + ppn
+        // Profit (uang capek) — saved per-invoice in dataJson. This is the
+        // source of truth used by the invoice riwayat tab.
+        invoiceUangCapek += Number(data.uangCapek) || 0
       } catch {
         // skip unparseable
       }
@@ -240,23 +246,21 @@ export async function GET(request: NextRequest) {
     todayStart.setHours(0, 0, 0, 0)
     const todayFilter = { createdAt: { gte: todayStart } }
 
-    const todayCetakanAgg = await db.riwayatCetakan.aggregate({
-      where: { ...dataFilter, ...todayFilter },
-      _count: true,
-      _sum: { grandTotal: true, profitAmount: true },
-    })
-
     const todayInvoiceHistory = await db.documentHistory.findMany({
       where: { docType: 'invoice', ...dataFilter, ...todayFilter },
       select: { dataJson: true },
     })
     let todayInvoiceRevenue = 0
+    let todayUangCapek = 0
     for (const inv of todayInvoiceHistory) {
       try {
         const data = JSON.parse(inv.dataJson)
         const subtotal = (data.items || []).reduce((sum: number, item: { qty: number; harga: number }) => sum + item.qty * item.harga, 0)
         const ppn = subtotal * ((data.ppn || 0) / 100)
         todayInvoiceRevenue += subtotal + ppn
+        // Profit (uang capek) — from invoice dataJson, matching the
+        // invoice riwayat tab's per-invoice profit value.
+        todayUangCapek += Number(data.uangCapek) || 0
       } catch {}
     }
 
@@ -264,8 +268,6 @@ export async function GET(request: NextRequest) {
     // not from RiwayatCetakan (which are just calculations/quotes)
     const todaySales = todayInvoiceRevenue
     const todayOrderCount = todayInvoiceHistory.length
-    // Profit Hari Ini: from RiwayatCetakan profitAmount (only when invoices exist)
-    const todayUangCapek = todayInvoiceHistory.length > 0 ? (todayCetakanAgg._sum.profitAmount || 0) : 0
 
     return NextResponse.json({
       expiryInfo,
@@ -287,8 +289,11 @@ export async function GET(request: NextRequest) {
         totals: {
           cetakan: cetakanAgg._sum.grandTotal || 0,
           finishing: finishingAgg._sum.totalCost || 0,
-          // Profit = from RiwayatCetakan profitAmount (only when invoices exist)
-          uangCapek: invoiceAgg._count > 0 ? (cetakanAgg._sum.profitAmount || 0) : 0,
+          // Profit (uang capek) — sum of per-invoice uangCapek from dataJson.
+          // This matches the profit shown in the invoice riwayat tab (NOT
+          // the RiwayatCetakan aggregate, which double-counts calculations
+          // that never became invoices).
+          uangCapek: invoiceUangCapek,
           ongkosCetak: (ongkosCetakAgg._sum.totalOngkosCetak || 0) + (ongkosCetakAgg._sum.totalOngkosCetak2 || 0),
           hargaKertas: hargaKertasAgg._sum.totalPrice || 0,
           potongKertas: potongKertasAgg._sum.totalPrice || 0,
@@ -296,7 +301,9 @@ export async function GET(request: NextRequest) {
           purchaseOrder: purchaseOrderTotal,
           revenue: totalRevenue,
           lastMonthRevenue,
-          modal: invoiceAgg._count > 0 ? (cetakanAgg._sum.grandTotal || 0) - (cetakanAgg._sum.profitAmount || 0) : 0,
+          // Modal = invoice total (revenue) - profit. Both come from invoice
+          // dataJson so the profit margin stays consistent with the riwayat.
+          modal: Math.max(0, invoiceTotal - invoiceUangCapek),
           todaySales,
           todayOrderCount,
           todayUangCapek,
