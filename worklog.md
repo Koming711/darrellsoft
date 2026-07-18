@@ -7069,3 +7069,36 @@ Stage Summary:
 - Fitur: summary cards, filter periode+status, search, sort, export Excel, print, responsive desktop+mobile
 - Tidak perlu migrasi DB — semua data DP sudah ada di DocumentHistory.dataJson
 - Pattern konsisten dengan /rekap-penjualan (auth, dataFilter, parseInvoice, formatRupiah, i18n)
+
+---
+Task ID: fix-empty-state
+Agent: Main
+Task: User report "konten tidak muncul" di halaman Laporan Invoice DP — diagnosa & perbaiki UX
+
+Work Log:
+- Start dev server, cek kode halaman (`src/app/laporan-invoice-dp/page.tsx` 876 lines) & API (`src/app/api/laporan-invoice-dp/route.ts` 245 lines) — keduanya bekerja dengan benar
+- Login sebagai superadmin di local dev → halaman render 3 invoice DP (INV/06/26/0001, INV/07/26/9001, INV/07/26/9002) dengan summary cards yang benar
+- Login sebagai admin di local dev → halaman render empty state "Belum ada invoice DP pada periode ini" (admin hanya punya 1 invoice tanpa DP)
+- Cek database lokal: 4 invoice dengan DP > 0 (3 milik superadmin, 1 milik user "aming"); admin 0 invoice DP
+- Cek production (Vercel/Supabase): superadmin 0 invoice total → database production kosong untuk superadmin
+- Verifikasi via curl: API production return `{success:true, invoices:[], summary:{totalInvoiceDP:0,...}}` → API bekerja, hanya saja datanya kosong
+- Kesimpulan: BUKAN bug kode — halaman & API bekerja sempurna. User melihat "konten tidak muncul" karena:
+  (a) Login sebagai user yang tidak punya invoice DP, atau
+  (b) Production database belum punya invoice dengan DP
+- Perbaikan UX agar user paham kenapa kosong:
+  - Tambah info banner biru di atas tabel: "Menampilkan invoice dengan DP > 0%. Invoice tanpa DP tidak ditampilkan di laporan ini."
+  - Redesign empty state: icon Receipt + judul + hint text + CTA button "Buat Invoice dengan DP" (link ke /invoice)
+  - Tambah 3 i18n keys baru (ID + EN): `laporan_dp_no_data_hint`, `laporan_dp_no_data_cta`, `laporan_dp_info_banner`
+- Verifikasi via Agent Browser:
+  - Login sebagai superadmin → info banner muncul, 3 invoice tampil di tabel ✅
+  - Login sebagai admin → info banner muncul, empty state dengan hint + CTA button ✅
+- Commit: `577f60e feat(laporan-dp): tambah info banner & empty state yang lebih informatif`
+- Push ke GitHub main: `c169d2f → 577f60e` ✅
+- Production deploy: TUNGGU — Vercel auto-deploy belum trigger (atau butuh `bun run deploy` manual dengan vercel login). Token vercel CLI expired.
+
+Stage Summary:
+- Halaman + API bekerja dengan benar (verified: superadmin lihat 3 invoice DP di local; admin lihat empty state)
+- Production database kosong untuk superadmin (0 invoice total) → itu sebabnya user lihat "konten tidak muncul"
+- UX improvements sudah di-push: info banner + empty state dengan CTA
+- Production butuh deploy manual via `bun run deploy` (atau trigger dari Vercel dashboard) karena vercel CLI token expired
+- Setelah deploy live, user akan lihat info banner + CTA "Buat Invoice dengan DP" yang menjelaskan scope laporan
