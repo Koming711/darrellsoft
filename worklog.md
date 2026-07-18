@@ -7018,3 +7018,54 @@ Stage Summary:
 - Sebelum fix: tabel=485.770 (cetakan profit, salah), kartu=1.528.933 (benar) → mismatch. Setelah fix: tabel=1.528.933, kartu=1.528.933 → match.
 - Dead code dihapus (calculateUangCapek, cetakanList, invoiceUangCapek memo, fetch riwayat-cetakan di fetchDocHistory) — mengurangi 1 API call per load beranda & eliminasi logic mismatch.
 - Per-user isolation tetap dipertahankan (dataFilter per-user, sesuai task fix-invoice-riwayat-strict-isolation).
+
+---
+Task ID: laporan-invoice-dp
+Agent: Main
+Task: Buat halaman Laporan Invoice DP — daftar invoice dengan down payment (dp>0) beserta status pelunasannya
+
+Work Log:
+- Explore codebase: DP bukan tipe invoice terpisah, melainkan field persentase (0-100%) di invoice biasa. Saat dp>0, header PDF invoice jadi "DOWN PAYMENT". Sistem juga auto-buat record invoice-pelunasan (PEL/...) untuk track pelunasan sisa.
+- Pola diambil dari /api/rekap-penjualan (parseInvoice, dateFilter, getDataFilter per-user isolation, take:5000).
+- Buat API GET /api/laporan-invoice-dp/route.ts:
+  - Query DocumentHistory where docType=invoice + dataFilter (per-user)
+  - Parse dataJson: dpPercent, dpAmount, sisa, lunas, tanggalJatuhTempo, tanggalPelunasan
+  - Filter hanya invoice dengan dpPercent > 0
+  - Status filter: all | belum_lunas | lunas | jatuh_tempo (overdue = !lunas && tanggalJatuhTempo < now)
+  - Summary: totalInvoiceDP, totalNilai, totalDPMasuk, totalSisaPiutang, totalLunas, totalBelumLunas, totalOverdue
+  - Summary dihitung dari full DP list (bukan filtered) supaya cards stabil saat user ganti status filter
+- Buat halaman /laporan-invoice-dp/page.tsx (828 lines):
+  - Summary cards: Total Invoice DP, Nilai DP Masuk, Sisa Piutang, Belum Lunas (+overdue count)
+  - Filter periode: Semua/Hari Ini/Minggu Ini/Bulan Ini/Custom (date picker dialog)
+  - Filter status: Semua/Belum Lunas/Lunas/Jatuh Tempo
+  - Search box (invoice number / customer name)
+  - Sort dropdown: Terbaru, Jatuh Tempo Terdekat, Sisa Piutang (Tertinggi), Nilai DP (Tertinggi), Nama Customer (A-Z)
+  - Desktop: table (No, No.Invoice, Customer, Tanggal, Total, DP%, Nilai DP, Sisa, Jatuh Tempo, Status badge, Aksi eye-link)
+  - Mobile: card layout (collapsible)
+  - Status badges: Lunas (emerald), Belum Lunas (amber), Jatuh Tempo/Overdue (rose)
+  - Footer row: grand total per column
+  - Export Excel (CSV with BOM, semicolon separator, Excel-friendly)
+  - Print (window.print with print-only header)
+  - Empty state: "Belum ada invoice DP pada periode ini"
+- Sidebar: tambah entry di section LAPORAN (icon Receipt, featureId=laporan, href=/laporan-invoice-dp)
+- /laporan hub: tambah card link "Laporan Invoice DP" (icon Coins, violet color) di reportLinks array
+- i18n: 35 keys baru (ID + EN) — laporan_invoice_dp, subtitle_laporan_invoice_dp, laporan_dp_* (total_invoice, total_dp, total_sisa, belum_lunas, status_*, cari, sort_*, col_*, no_data, badge_*, custom_periode, dari, sampai)
+- permissions.ts: map /laporan-invoice-dp -> featureId 'laporan' (supaya ikut permission superadmin/admin)
+- Lint: no errors in new files (errors hanya di folder upload/ test scripts lama)
+- Agent Browser verification:
+  - Server start, login via localStorage (role=superadmin)
+  - /laporan-invoice-dp: HTTP 200, page renders semua UI (summary cards, filter buttons, search, sort, table area, empty state)
+  - /laporan hub: card "Laporan Invoice DP" muncul dengan description
+  - Sidebar: link /laporan-invoice-dp ada di DOM (1 match, icon-only di desktop w-16)
+  - No console errors, no crash
+  - API /api/laporan-invoice-dp returns 401 di test env (no real session cookies) — expected, akan jalan di production dengan login asli
+- Git: commit 84d3963 (feat), rebase resolve worklog.md conflict, push ffaffc7->9dad98a
+- Vercel deploy: dpl_C9KZH15PTwHk6oU9oTUssaeq8zgS, READY in ~100s
+- Production verify: https://www.darrellsoft.com/laporan-invoice-dp HTTP 200
+
+Stage Summary:
+- Halaman Laporan Invoice DP live di production (www.darrellsoft.com/laporan-invoice-dp)
+- Akses via sidebar (icon Receipt di section LAPORAN) atau via /laporan hub card
+- Fitur: summary cards, filter periode+status, search, sort, export Excel, print, responsive desktop+mobile
+- Tidak perlu migrasi DB — semua data DP sudah ada di DocumentHistory.dataJson
+- Pattern konsisten dengan /rekap-penjualan (auth, dataFilter, parseInvoice, formatRupiah, i18n)
