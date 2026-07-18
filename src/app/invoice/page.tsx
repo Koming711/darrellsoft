@@ -1708,8 +1708,8 @@ export default function InvoicePage() {
   const tabs: { key: 'editor' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'editor', label: 'Editor', icon: <FileText className="w-3.5 h-3.5" /> },
     { key: 'riwayat', label: 'Riwayat', icon: <History className="w-3.5 h-3.5" />, badge: invoiceCount || undefined },
-    { key: 'pelunasan', label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" />, badge: pelunasanCount || undefined },
     { key: 'editor-pelunasan', label: 'Editor Pelunasan', icon: <><FileText className="w-3.5 h-3.5" /><Wallet className="w-3 h-3" /></> },
+    { key: 'pelunasan', label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" />, badge: pelunasanCount || undefined },
   ]
 
   return (
@@ -1754,18 +1754,18 @@ export default function InvoicePage() {
         </div>
       )}
 
-      {/* Pelunasan Tab */}
-      {activeTab === 'pelunasan' && (
-        <div className="print:hidden">
-          <PelunasanTab />
-        </div>
-      )}
-
       {/* Editor Pelunasan Tab */}
       {activeTab === 'editor-pelunasan' && (
         <Suspense fallback={null}>
           <InvoicePelunasanEditor />
         </Suspense>
+      )}
+
+      {/* Pelunasan Tab */}
+      {activeTab === 'pelunasan' && (
+        <div className="print:hidden">
+          <PelunasanTab />
+        </div>
       )}
     </DashboardLayout>
   )
