@@ -1,0 +1,876 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { DashboardLayout } from '@/components/dashboard-layout'
+     4→     4→import { useLanguage } from '@/contexts/language-context'
+     5→     5→import { authFetch } from '@/lib/auth-fetch'
+     6→     6→import { formatRupiah } from '@/lib/format'
+     7→     7→import { cn } from '@/lib/utils'
+     8→     8→import {
+     9→     9→  Receipt,
+    10→    10→  Wallet,
+    11→    11→  TrendingUp,
+    12→    12→  AlertTriangle,
+    13→    13→  Search,
+    14→    14→  Loader2,
+    15→    15→  Printer,
+    16→    16→  FileSpreadsheet,
+    17→    17→  CheckCircle2,
+    18→    18→  Clock,
+    19→    19→  CalendarClock,
+    20→    20→  Eye,
+    21→    21→  AlertCircle,
+    22→    22→} from 'lucide-react'
+    23→    23→import { useState, useEffect, useCallback, useMemo } from 'react'
+    24→    24→import Link from 'next/link'
+    25→    25→import { Button } from '@/components/ui/button'
+    26→    26→
+    27→    27→// ===== Types (mirror the API response) =====
+    28→    28→interface DpInvoice {
+    29→    29→  id: string
+    30→    30→  nomor: string
+    31→    31→  tanggal: string
+    32→    32→  createdAt: string
+    33→    33→  customerName: string
+    34→    34→  namaBarang: string
+    35→    35→  totalHarga: number
+    36→    36→  dpPercent: number
+    37→    37→  dpAmount: number
+    38→    38→  sisa: number
+    39→    39→  lunas: boolean
+    40→    40→  tanggalJatuhTempo: string
+    41→    41→  tanggalPelunasan: string
+    42→    42→  isOverdue: boolean
+    43→    43→  caraPembayaran: string
+    44→    44→}
+    45→    45→
+    46→    46→interface DpSummary {
+    47→    47→  totalInvoiceDP: number
+    48→    48→  totalNilai: number
+    49→    49→  totalDPMasuk: number
+    50→    50→  totalSisaPiutang: number
+    51→    51→  totalLunas: number
+    52→    52→  totalBelumLunas: number
+    53→    53→  totalOverdue: number
+    54→    54→}
+    55→    55→
+    56→    56→interface DpResponse {
+    57→    57→  success: true
+    58→    58→  periode: { startDate: string | null; endDate: string | null }
+    59→    59→  status: string
+    60→    60→  invoices: DpInvoice[]
+    61→    61→  summary: DpSummary
+    62→    62→}
+    63→    63→
+    64→    64→// ===== Date filter helpers (same scheme as rekap-penjualan) =====
+    65→    65→type FilterType = 'all' | 'today' | 'week' | 'month' | 'custom'
+    66→    66→
+    67→    67→function getFilterDates(
+    68→    68→  filter: FilterType,
+    69→    69→  customStart?: Date,
+    70→    70→  customEnd?: Date
+    71→    71→): { startDate: string; endDate: string } {
+    72→    72→  const today = new Date()
+    73→    73→  const fmt = (d: Date) => {
+    74→    74→    const y = d.getFullYear()
+    75→    75→    const m = String(d.getMonth() + 1).padStart(2, '0')
+    76→    76→    const day = String(d.getDate()).padStart(2, '0')
+    77→    77→    return `${y}-${m}-${day}`
+    78→    78→  }
+    79→    79→  switch (filter) {
+    80→    80→    case 'all':
+    81→    81→      return { startDate: '2000-01-01', endDate: '2099-12-31' }
+    82→    82→    case 'today':
+    83→    83→      return { startDate: fmt(today), endDate: fmt(today) }
+    84→    84→    case 'week': {
+    85→    85→      const s = new Date(today)
+    86→    86→      const day = s.getDay()
+    87→    87→      s.setDate(s.getDate() + (day === 0 ? -6 : 1 - day))
+    88→    88→      return { startDate: fmt(s), endDate: fmt(today) }
+    89→    89→    }
+    90→    90→    case 'month': {
+    91→    91→      const s = new Date(today.getFullYear(), today.getMonth(), 1)
+    92→    92→      return { startDate: fmt(s), endDate: fmt(today) }
+    93→    93→    }
+    94→    94→    case 'custom':
+    95→    95→      return {
+    96→    96→        startDate: customStart ? fmt(customStart) : fmt(today),
+    97→    97→        endDate: customEnd ? fmt(customEnd) : fmt(today),
+    98→    98→      }
+    99→    99→  }
+   100→   100→}
+   101→   101→
+   102→   102→function formatDateShort(iso: string): string {
+   103→   103→  if (!iso) return '-'
+   104→   104→  try {
+   105→   105→    return new Date(iso).toLocaleDateString('id-ID', {
+   106→   106→      day: '2-digit',
+   107→   107→      month: 'short',
+   108→   108→      year: 'numeric',
+   109→   109→    })
+   110→   110→  } catch {
+   111→   111→    return iso
+   112→   112→  }
+   113→   113→}
+   114→   114→
+   115→   115→function formatDateShortId(dateStr: string): string {
+   116→   116→  if (!dateStr) return '-'
+   117→   117→  try {
+   118→   118→    return new Date(dateStr + 'T00:00:00').toLocaleDateString('id-ID', {
+   119→   119→      day: '2-digit',
+   120→   120→      month: 'short',
+   121→   121→      year: 'numeric',
+   122→   122→    })
+   123→   123→  } catch {
+   124→   124→    return dateStr
+   125→   125→  }
+   126→   126→}
+   127→   127→
+   128→   128→function formatRupiahShort(n: number): string {
+   129→   129→  return new Intl.NumberFormat('id-ID', {
+   130→   130→    style: 'currency',
+   131→   131→    currency: 'IDR',
+   132→   132→    minimumFractionDigits: 0,
+   133→   133→  }).format(n)
+   134→   134→}
+   135→   135→
+   136→   136→type StatusFilter = 'all' | 'belum_lunas' | 'lunas' | 'jatuh_tempo'
+   137→   137→type SortKey = 'terbaru' | 'jatuh_tempo' | 'sisa_desc' | 'dp_desc' | 'nama_asc'
+   138→   138→
+   139→   139→export default function LaporanInvoiceDpPage() {
+   140→   140→  const { t } = useLanguage()
+   141→   141→
+   142→   142→  const [data, setData] = useState<DpResponse | null>(null)
+   143→   143→  const [loading, setLoading] = useState(true)
+   144→   144→  const [error, setError] = useState<string | null>(null)
+   145→   145→
+   146→   146→  // Date filter
+   147→   147→  const [filterType, setFilterType] = useState<FilterType>('all')
+   148→   148→  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined)
+   149→   149→  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined)
+   150→   150→  const [showCustomDialog, setShowCustomDialog] = useState(false)
+   151→   151→  const [customStartStr, setCustomStartStr] = useState('')
+   152→   152→  const [customEndStr, setCustomEndStr] = useState('')
+   153→   153→
+   154→   154→  // Status + search + sort
+   155→   155→  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+   156→   156→  const [searchTerm, setSearchTerm] = useState('')
+   157→   157→  const [sortKey, setSortKey] = useState<SortKey>('terbaru')
+   158→   158→
+   159→   159→  const fetchData = useCallback(async () => {
+   160→   160→    setLoading(true)
+   161→   161→    setError(null)
+   162→   162→    try {
+   163→   163→      const { startDate, endDate } = getFilterDates(
+   164→   164→        filterType,
+   165→   165→        customStartDate,
+   166→   166→        customEndDate
+   167→   167→      )
+   168→   168→      const res = await authFetch(
+   169→   169→        `/api/laporan-invoice-dp?startDate=${startDate}&endDate=${endDate}&status=${statusFilter}`
+   170→   170→      )
+   171→   171→      if (res.ok) {
+   172→   172→        const json = (await res.json()) as DpResponse
+   173→   173→        setData(json)
+   174→   174→      } else {
+   175→   175→        setError('Gagal memuat data laporan invoice DP')
+   176→   176→      }
+   177→   177→    } catch (err) {
+   178→   178→      console.error('[LaporanInvoiceDP] fetchData error:', err)
+   179→   179→      setError('Gagal memuat data laporan invoice DP')
+   180→   180→    } finally {
+   181→   181→      setLoading(false)
+   182→   182→    }
+   183→   183→  }, [filterType, customStartDate, customEndDate, statusFilter])
+   184→   184→
+   185→   185→  useEffect(() => {
+   186→   186→    fetchData()
+   187→   187→  }, [fetchData])
+   188→   188→
+   189→   189→  const handleFilterChange = (type: FilterType) => {
+   190→   190→    if (type === 'custom') {
+   191→   191→      setShowCustomDialog(true)
+   192→   192→    } else {
+   193→   193→      setFilterType(type)
+   194→   194→    }
+   195→   195→  }
+   196→   196→
+   197→   197→  const applyCustomFilter = () => {
+   198→   198→    if (customStartStr && customEndStr) {
+   199→   199→      setCustomStartDate(new Date(customStartStr))
+   200→   200→      setCustomEndDate(new Date(customEndStr))
+   201→   201→      setFilterType('custom')
+   202→   202→      setShowCustomDialog(false)
+   203→   203→    }
+   204→   204→  }
+   205→   205→
+   206→   206→  // Apply search + sort on the invoice list
+   207→   207→  const processedInvoices = useMemo<DpInvoice[]>(() => {
+   208→   208→    if (!data) return []
+   209→   209→    const term = searchTerm.trim().toLowerCase()
+   210→   210→    let list = data.invoices
+   211→   211→    if (term) {
+   212→   212→      list = list.filter(
+   213→   213→        (i) =>
+   214→   214→          i.customerName.toLowerCase().includes(term) ||
+   215→   215→          i.nomor.toLowerCase().includes(term)
+   216→   216→      )
+   217→   217→    }
+   218→   218→    const sorted = [...list]
+   219→   219→    switch (sortKey) {
+   220→   220→      case 'terbaru':
+   221→   221→        sorted.sort(
+   222→   222→          (a, b) =>
+   223→   223→            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+   224→   224→        )
+   225→   225→        break
+   226→   226→      case 'jatuh_tempo':
+   227→   227→        // overdue first, then nearest due date, then no due date
+   228→   228→        sorted.sort((a, b) => {
+   229→   229→          if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
+   230→   230→          if (!a.tanggalJatuhTempo) return 1
+   231→   231→          if (!b.tanggalJatuhTempo) return -1
+   232→   232→          return (
+   233→   233→            new Date(a.tanggalJatuhTempo).getTime() -
+   234→   234→            new Date(b.tanggalJatuhTempo).getTime()
+   235→   235→          )
+   236→   236→        })
+   237→   237→        break
+   238→   238→      case 'sisa_desc':
+   239→   239→        sorted.sort((a, b) => b.sisa - a.sisa)
+   240→   240→        break
+   241→   241→      case 'dp_desc':
+   242→   242→        sorted.sort((a, b) => b.dpAmount - a.dpAmount)
+   243→   243→        break
+   244→   244→      case 'nama_asc':
+   245→   245→        sorted.sort((a, b) => a.customerName.localeCompare(b.customerName, 'id'))
+   246→   246→        break
+   247→   247→    }
+   248→   248→    return sorted
+   249→   249→  }, [data, searchTerm, sortKey])
+   250→   250→
+   251→   251→  const summary = data?.summary
+   252→   252→
+   253→   253→  const filterButtons: { type: FilterType; label: string }[] = [
+   254→   254→    { type: 'all', label: t('semua') },
+   255→   255→    { type: 'today', label: t('today') },
+   256→   256→    { type: 'week', label: t('this_week') },
+   257→   257→    { type: 'month', label: t('this_month') },
+   258→   258→    { type: 'custom', label: t('custom') },
+   259→   259→  ]
+   260→   260→
+   261→   261→  const statusButtons: { type: StatusFilter; label: string }[] = [
+   262→   262→    { type: 'all', label: t('laporan_dp_status_all') },
+   263→   263→    { type: 'belum_lunas', label: t('laporan_dp_status_belum_lunas') },
+   264→   264→    { type: 'lunas', label: t('laporan_dp_status_lunas') },
+   265→   265→    { type: 'jatuh_tempo', label: t('laporan_dp_status_jatuh_tempo') },
+   266→   266→  ]
+   267→   267→
+   268→   268→  // ===== Export to Excel (CSV, opens in Excel) =====
+   269→   269→  const handleExportExcel = () => {
+   270→   270→    if (!data || processedInvoices.length === 0) return
+   271→   271→    const rows: string[][] = []
+   272→   272→    rows.push([
+   273→   273→      'No',
+   274→   274→      'No. Invoice',
+   275→   275→      'Tanggal',
+   276→   276→      'Customer',
+   277→   277→      'Total Invoice',
+   278→   278→      'DP (%)',
+   279→   279→      'Nilai DP',
+   280→   280→      'Sisa Piutang',
+   281→   281→      'Status',
+   282→   282→      'Jatuh Tempo',
+   283→   283→      'Tanggal Pelunasan',
+   284→   284→      'Cara Pembayaran',
+   285→   285→    ])
+   286→   286→    processedInvoices.forEach((inv, i) => {
+   287→   287→      const statusLabel = inv.lunas
+   288→   288→        ? 'Lunas'
+   289→   289→        : inv.isOverdue
+   290→   290→          ? 'Jatuh Tempo'
+   291→   291→          : 'Belum Lunas'
+   292→   292→      rows.push([
+   293→   293→        String(i + 1),
+   294→   294→        inv.nomor,
+   295→   295→        inv.tanggal || formatDateShort(inv.createdAt),
+   296→   296→        inv.customerName,
+   297→   297→        String(Math.round(inv.totalHarga)),
+   298→   298→        String(inv.dpPercent) + '%',
+   299→   299→        String(Math.round(inv.dpAmount)),
+   300→   300→        String(Math.round(inv.sisa)),
+   301→   301→        statusLabel,
+   302→   302→        inv.tanggalJatuhTempo || '-',
+   303→   303→        inv.tanggalPelunasan || '-',
+   304→   304→        inv.caraPembayaran || '-',
+   305→   305→      ])
+   306→   306→    })
+   307→   307→    // Summary row
+   308→   308→    if (summary) {
+   309→   309→      rows.push([])
+   310→   310→      rows.push([
+   311→   311→        '',
+   312→   312→        'TOTAL',
+   313→   313→        '',
+   314→   314→        '',
+   315→   315→        String(Math.round(summary.totalNilai)),
+   316→   316→        '',
+   317→   317→        String(Math.round(summary.totalDPMasuk)),
+   318→   318→        String(Math.round(summary.totalSisaPiutang)),
+   319→   319→        `${summary.totalLunas} Lunas / ${summary.totalBelumLunas} Belum`,
+   320→   320→        '',
+   321→   321→        '',
+   322→   322→        '',
+   323→   323→      ])
+   324→   324→    }
+   325→   325→    // Convert to CSV (Excel-friendly: semicolon separator for ID locale)
+   326→   326→    const csv = rows
+   327→   327→      .map((r) =>
+   328→   328→        r.map((cell) => `"${(cell || '').replace(/"/g, '""')}"`).join(';')
+   329→   329→      )
+   330→   330→      .join('\r\n')
+   331→   331→    // Prepend BOM so Excel detects UTF-8
+   332→   332→    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+   333→   333→    const url = URL.createObjectURL(blob)
+   334→   334→    const a = document.createElement('a')
+   335→   335→    a.href = url
+   336→   336→    const todayStr = new Date().toISOString().slice(0, 10)
+   337→   337→    a.download = `Laporan_Invoice_DP_${todayStr}.csv`
+   338→   338→    document.body.appendChild(a)
+   339→   339→    a.click()
+   340→   340→    document.body.removeChild(a)
+   341→   341→    URL.revokeObjectURL(url)
+   342→   342→  }
+   343→   343→
+   344→   344→  // ===== Print =====
+   345→   345→  const handlePrint = () => {
+   346→   346→    window.print()
+   347→   347→  }
+   348→   348→
+   349→   349→  return (
+   350→   350→    <DashboardLayout
+   351→   351→      title={t('laporan_invoice_dp')}
+   352→   352→      subtitle={t('subtitle_laporan_invoice_dp')}
+   353→   353→    >
+   354→   354→      <div className="space-y-4 sm:space-y-6 pb-6">
+   355→   355→        {/* ===== Summary Cards ===== */}
+   356→   356→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:hidden">
+   357→   357→          {/* Total Invoice DP */}
+   358→   358→          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+   359→   359→            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 flex items-center justify-center mb-2">
+   360→   360→              <Receipt className="w-5 h-5" />
+   361→   361→            </div>
+   362→   362→            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
+   363→   363→              {t('laporan_dp_total_invoice')}
+   364→   364→            </p>
+   365→   365→            {loading ? (
+   366→   366→              <div className="h-6 w-16 bg-slate-200 dark:bg-zinc-700 rounded animate-pulse" />
+   367→   367→            ) : (
+   368→   368→              <p className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-400 leading-tight">
+   369→   369→                {summary?.totalInvoiceDP ?? 0}
+   370→   370→              </p>
+   371→   371→            )}
+   372→   372→          </div>
+   373→   373→
+   374→   374→          {/* Total DP Masuk */}
+   375→   375→          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+   376→   376→            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center mb-2">
+   377→   377→              <TrendingUp className="w-5 h-5" />
+   378→   378→            </div>
+   379→   379→            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
+   380→   380→              {t('laporan_dp_total_dp')}
+   381→   381→            </p>
+   382→   382→            {loading ? (
+   383→   383→              <div className="h-6 w-24 bg-slate-200 dark:bg-zinc-700 rounded animate-pulse" />
+   384→   384→            ) : (
+   385→   385→              <p className="text-base sm:text-lg font-bold text-emerald-700 dark:text-emerald-400 leading-tight">
+   386→   386→                {formatRupiahShort(summary?.totalDPMasuk ?? 0)}
+   387→   387→              </p>
+   388→   388→            )}
+   389→   389→          </div>
+   390→   390→
+   391→   391→          {/* Sisa Piutang */}
+   392→   392→          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+   393→   393→            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center mb-2">
+   394→   394→              <Wallet className="w-5 h-5" />
+   395→   395→            </div>
+   396→   396→            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
+   397→   397→              {t('laporan_dp_total_sisa')}
+   398→   398→            </p>
+   399→   399→            {loading ? (
+   400→   400→              <div className="h-6 w-24 bg-slate-200 dark:bg-zinc-700 rounded animate-pulse" />
+   401→   401→            ) : (
+   402→   402→              <p className="text-base sm:text-lg font-bold text-amber-700 dark:text-amber-400 leading-tight">
+   403→   403→                {formatRupiahShort(summary?.totalSisaPiutang ?? 0)}
+   404→   404→              </p>
+   405→   405→            )}
+   406→   406→          </div>
+   407→   407→
+   408→   408→          {/* Belum Lunas / Overdue */}
+   409→   409→          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
+   410→   410→            <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400 flex items-center justify-center mb-2">
+   411→   411→              <AlertTriangle className="w-5 h-5" />
+   412→   412→            </div>
+   413→   413→            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
+   414→   414→              {t('laporan_dp_belum_lunas')}
+   415→   415→            </p>
+   416→   416→            {loading ? (
+   417→   417→              <div className="h-6 w-16 bg-slate-200 dark:bg-zinc-700 rounded animate-pulse" />
+   418→   418→            ) : (
+   419→   419→              <p className="text-base sm:text-lg font-bold text-rose-700 dark:text-rose-400 leading-tight">
+   420→   420→                {summary?.totalBelumLunas ?? 0}
+   421→   421→                {summary && summary.totalOverdue > 0 && (
+   422→   422→                  <span className="text-xs font-medium text-rose-500 dark:text-rose-500 ml-1">
+   423→   423→                    ({summary.totalOverdue} {t('laporan_dp_overdue_short')})
+   424→   424→                  </span>
+   425→   425→                )}
+   426→   426→              </p>
+   427→   427→            )}
+   428→   428→          </div>
+   429→   429→        </div>
+   430→   430→
+   431→   431→        {/* ===== Filter + Search + Sort + Actions ===== */}
+   432→   432→        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 p-4 print:hidden">
+   433→   433→          <div className="flex flex-col gap-3">
+   434→   434→            {/* Date filter row */}
+   435→   435→            <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+   436→   436→              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex-shrink-0">
+   437→   437→                {t('laporan_periode')}:
+   438→   438→              </span>
+   439→   439→              {filterButtons.map((f) => (
+   440→   440→                <button
+   441→   441→                  key={f.type}
+   442→   442→                  onClick={() => handleFilterChange(f.type)}
+   443→   443→                  className={cn(
+   444→   444→                    'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border',
+   445→   445→                    filterType === f.type
+   446→   446→                      ? 'bg-primary text-primary-foreground border-primary'
+   447→   447→                      : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800'
+   448→   448→                  )}
+   449→   449→                >
+   450→   450→                  {f.label}
+   451→   451→                </button>
+   452→   452→              ))}
+   453→   453→            </div>
+   454→   454→
+   455→   455→            {/* Status filter row */}
+   456→   456→            <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+   457→   457→              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex-shrink-0">
+   458→   458→                {t('laporan_dp_status_label')}:
+   459→   459→              </span>
+   460→   460→              {statusButtons.map((s) => (
+   461→   461→                <button
+   462→   462→                  key={s.type}
+   463→   463→                  onClick={() => setStatusFilter(s.type)}
+   464→   464→                  className={cn(
+   465→   465→                    'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border',
+   466→   466→                    statusFilter === s.type
+   467→   467→                      ? 'bg-primary text-primary-foreground border-primary'
+   468→   468→                      : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800'
+   469→   469→                  )}
+   470→   470→                >
+   471→   471→                  {s.label}
+   472→   472→                </button>
+   473→   473→              ))}
+   474→   474→            </div>
+   475→   475→
+   476→   476→            {/* Search + sort + actions */}
+   477→   477→            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+   478→   478→              <div className="relative flex-1 w-full">
+   479→   479→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+   480→   480→                <input
+   481→   481→                  type="text"
+   482→   482→                  placeholder={t('laporan_dp_cari')}
+   483→   483→                  value={searchTerm}
+   484→   484→                  onChange={(e) => setSearchTerm(e.target.value)}
+   485→   485→                  className="w-full pl-9 pr-4 py-2.5 border border-slate-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+   486→   486→                />
+   487→   487→              </div>
+   488→   488→              <div className="flex items-center gap-2 w-full sm:w-auto">
+   489→   489→                <select
+   490→   490→                  value={sortKey}
+   491→   491→                  onChange={(e) => setSortKey(e.target.value as SortKey)}
+   492→   492→                  className="h-9 px-3 border border-slate-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+   493→   493→                  aria-label={t('rekap_urutkan')}
+   494→   494→                >
+   495→   495→                  <option value="terbaru">{t('laporan_dp_sort_terbaru')}</option>
+   496→   496→                  <option value="jatuh_tempo">
+   497→   497→                    {t('laporan_dp_sort_jatuh_tempo')}
+   498→   498→                  </option>
+   499→   499→                  <option value="sisa_desc">
+   500→   500→                    {t('laporan_dp_sort_sisa_desc')}
+   501→   501→                  </option>
+   502→   502→                  <option value="dp_desc">{t('laporan_dp_sort_dp_desc')}</option>
+   503→   503→                  <option value="nama_asc">
+   504→   504→                    {t('laporan_dp_sort_nama_asc')}
+   505→   505→                  </option>
+   506→   506→                </select>
+   507→   507→                <Button
+   508→   508→                  variant="outline"
+   509→   509→                  size="sm"
+   510→   510→                  onClick={handleExportExcel}
+   511→   511→                  className="h-9"
+   512→   512→                  disabled={!data || processedInvoices.length === 0}
+   513→   513→                >
+   514→   514→                  <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+   515→   515→                  <span className="hidden sm:inline">
+   516→   516→                    {t('rekap_export_excel')}
+   517→   517→                  </span>
+   518→   518→                </Button>
+   519→   519→                <Button
+   520→   520→                  variant="outline"
+   521→   521→                  size="sm"
+   522→   522→                  onClick={handlePrint}
+   523→   523→                  className="h-9"
+   524→   524→                  disabled={!data || processedInvoices.length === 0}
+   525→   525→                >
+   526→   526→                  <Printer className="w-4 h-4 mr-1.5" />
+   527→   527→                  <span className="hidden sm:inline">{t('rekap_cetak')}</span>
+   528→   528→                </Button>
+   529→   529→              </div>
+   530→   530→            </div>
+   531→   531→          </div>
+   532→   532→        </div>
+   533→   533→
+   534→   534→        {/* ===== Error ===== */}
+   535→   535→        {error && (
+   536→   536→          <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 print:hidden">
+   537→   537→            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+   538→   538→            <span className="text-sm">{error}</span>
+   539→   539→          </div>
+   540→   540→        )}
+   541→   541→
+   542→   542→        {/* ===== Print Header (only visible when printing) ===== */}
+   543→   543→        <div className="hidden print:block">
+   544→   544→          <h1 className="text-lg font-bold">{t('laporan_invoice_dp')}</h1>
+   545→   545→          <p className="text-xs text-slate-500">
+   546→   546→            {summary?.totalInvoiceDP ?? 0} invoice · {t('laporan_dp_total_dp')}:{' '}
+   547→   547→            {formatRupiah(summary?.totalDPMasuk ?? 0)} ·{' '}
+   548→   548→            {t('laporan_dp_total_sisa')}:{' '}
+   549→   549→            {formatRupiah(summary?.totalSisaPiutang ?? 0)}
+   550→   550→          </p>
+   551→   551→        </div>
+   552→   552→
+   553→   553→        {/* ===== Invoice Table ===== */}
+   554→   554→        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden">
+   555→   555→          {loading ? (
+   556→   556→            <div className="flex items-center justify-center py-16">
+   557→   557→              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+   558→   558→            </div>
+   559→   559→          ) : !processedInvoices.length ? (
+   560→   560→            <div className="py-16 text-center text-sm text-slate-400">
+   561→   561→              {t('laporan_dp_no_data')}
+   562→   562→            </div>
+   563→   563→          ) : (
+   564→   564→            <>
+   565→   565→              {/* Desktop table */}
+   566→   566→              <div className="hidden lg:block overflow-x-auto">
+   567→   567→                <table className="w-full text-sm">
+   568→   568→                  <thead className="bg-slate-50 dark:bg-zinc-800/50 text-slate-500 dark:text-slate-400">
+   569→   569→                    <tr>
+   570→   570→                      <th className="px-3 py-3 text-left font-medium w-10">No</th>
+   571→   571→                      <th className="px-3 py-3 text-left font-medium">
+   572→   572→                        {t('laporan_dp_col_invoice')}
+   573→   573→                      </th>
+   574→   574→                      <th className="px-3 py-3 text-left font-medium">
+   575→   575→                        {t('laporan_dp_col_customer')}
+   576→   576→                      </th>
+   577→   577→                      <th className="px-3 py-3 text-left font-medium">
+   578→   578→                        {t('laporan_dp_col_tanggal')}
+   579→   579→                      </th>
+   580→   580→                      <th className="px-3 py-3 text-right font-medium">
+   581→   581→                        {t('laporan_dp_col_total')}
+   582→   582→                      </th>
+   583→   583→                      <th className="px-3 py-3 text-center font-medium">
+   584→   584→                        {t('laporan_dp_col_dp_percent')}
+   585→   585→                      </th>
+   586→   586→                      <th className="px-3 py-3 text-right font-medium">
+   587→   587→                        {t('laporan_dp_col_dp_amount')}
+   588→   588→                      </th>
+   589→   589→                      <th className="px-3 py-3 text-right font-medium">
+   590→   590→                        {t('laporan_dp_col_sisa')}
+   591→   591→                      </th>
+   592→   592→                      <th className="px-3 py-3 text-left font-medium">
+   593→   593→                        {t('laporan_dp_col_jatuh_tempo')}
+   594→   594→                      </th>
+   595→   595→                      <th className="px-3 py-3 text-center font-medium">
+   596→   596→                        {t('laporan_dp_col_status')}
+   597→   597→                      </th>
+   598→   598→                      <th className="px-3 py-3 text-center font-medium w-12 print:hidden">
+   599→   599→                        {t('laporan_dp_col_aksi')}
+   600→   600→                      </th>
+   601→   601→                    </tr>
+   602→   602→                  </thead>
+   603→   603→                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+   604→   604→                    {processedInvoices.map((inv, i) => (
+   605→   605→                      <tr
+   606→   606→                        key={inv.id}
+   607→   607→                        className="hover:bg-slate-50 dark:hover:bg-zinc-800/40"
+   608→   608→                      >
+   609→   609→                        <td className="px-3 py-2.5 text-slate-400 text-xs">
+   610→   610→                          {i + 1}
+   611→   611→                        </td>
+   612→   612→                        <td className="px-3 py-2.5 font-medium text-slate-700 dark:text-slate-200">
+   613→   613→                          {inv.nomor}
+   614→   614→                        </td>
+   615→   615→                        <td className="px-3 py-2.5 text-slate-700 dark:text-slate-200">
+   616→   616→                          <div className="font-medium truncate max-w-[180px]">
+   617→   617→                            {inv.customerName}
+   618→   618→                          </div>
+   619→   619→                          {inv.namaBarang && (
+   620→   620→                            <div className="text-xs text-slate-400 truncate max-w-[180px]">
+   621→   621→                              {inv.namaBarang}
+   622→   622→                            </div>
+   623→   623→                          )}
+   624→   624→                        </td>
+   625→   625→                        <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+   626→   626→                          {inv.tanggal
+   627→   627→                            ? formatDateShortId(inv.tanggal)
+   628→   628→                            : formatDateShort(inv.createdAt)}
+   629→   629→                        </td>
+   630→   630→                        <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-200 whitespace-nowrap">
+   631→   631→                          {formatRupiah(inv.totalHarga)}
+   632→   632→                        </td>
+   633→   633→                        <td className="px-3 py-2.5 text-center text-slate-600 dark:text-slate-300">
+   634→   634→                          {inv.dpPercent}%
+   635→   635→                        </td>
+   636→   636→                        <td className="px-3 py-2.5 text-right text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+   637→   637→                          {formatRupiah(inv.dpAmount)}
+   638→   638→                        </td>
+   639→   639→                        <td
+   640→   640→                          className={cn(
+   641→   641→                            'px-3 py-2.5 text-right font-medium whitespace-nowrap',
+   642→   642→                            inv.lunas
+   643→   643→                              ? 'text-slate-400 line-through'
+   644→   644→                              : 'text-amber-600 dark:text-amber-400'
+   645→   645→                          )}
+   646→   646→                        >
+   647→   647→                          {formatRupiah(inv.sisa)}
+   648→   648→                        </td>
+   649→   649→                        <td className="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+   650→   650→                          {inv.tanggalJatuhTempo
+   651→   651→                            ? formatDateShortId(inv.tanggalJatuhTempo)
+   652→   652→                            : '-'}
+   653→   653→                        </td>
+   654→   654→                        <td className="px-3 py-2.5 text-center">
+   655→   655→                          <StatusBadge
+   656→   656→                            lunas={inv.lunas}
+   657→   657→                            isOverdue={inv.isOverdue}
+   658→   658→                            t={t}
+   659→   659→                          />
+   660→   660→                        </td>
+   661→   661→                        <td className="px-3 py-2.5 text-center print:hidden">
+   662→   662→                          <Link
+   663→   663→                            href="/riwayat-penjualan"
+   664→   664→                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
+   665→   665→                            title={t('laporan_dp_lihat')}
+   666→   666→                          >
+   667→   667→                            <Eye className="w-4 h-4" />
+   668→   668→                          </Link>
+   669→   669→                        </td>
+   670→   670→                      </tr>
+   671→   671→                    ))}
+   672→   672→                  </tbody>
+   673→   673→                  <tfoot className="bg-slate-50 dark:bg-zinc-800/50 font-semibold">
+   674→   674→                    <tr>
+   675→   675→                      <td
+   676→   676→                        colSpan={4}
+   677→   677→                        className="px-3 py-3 text-right text-slate-600 dark:text-slate-300"
+   678→   678→                      >
+   679→   679→                        {t('rekap_grand_total')}
+   680→   680→                      </td>
+   681→   681→                      <td className="px-3 py-3 text-right text-slate-800 dark:text-slate-100 whitespace-nowrap">
+   682→   682→                        {formatRupiah(
+   683→   683→                          processedInvoices.reduce((s, i) => s + i.totalHarga, 0)
+   684→   684→                        )}
+   685→   685→                      </td>
+   686→   686→                      <td className="px-3 py-3" />
+   687→   687→                      <td className="px-3 py-3 text-right text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+   688→   688→                        {formatRupiah(
+   689→   689→                          processedInvoices.reduce((s, i) => s + i.dpAmount, 0)
+   690→   690→                        )}
+   691→   691→                      </td>
+   692→   692→                      <td className="px-3 py-3 text-right text-amber-700 dark:text-amber-400 whitespace-nowrap">
+   693→   693→                        {formatRupiah(
+   694→   694→                          processedInvoices.reduce((s, i) => s + i.sisa, 0)
+   695→   695→                        )}
+   696→   696→                      </td>
+   697→   697→                      <td colSpan={3} className="px-3 py-3" />
+   698→   698→                    </tr>
+   699→   699→                  </tfoot>
+   700→   700→                </table>
+   701→   701→              </div>
+   702→   702→
+   703→   703→              {/* Mobile cards */}
+   704→   704→              <div className="lg:hidden divide-y divide-slate-100 dark:divide-zinc-800 max-h-[70vh] overflow-y-auto">
+   705→   705→                {processedInvoices.map((inv, i) => (
+   706→   706→                  <div key={inv.id} className="p-3 space-y-2">
+   707→   707→                    <div className="flex items-start justify-between gap-2">
+   708→   708→                      <div className="min-w-0 flex-1">
+   709→   709→                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+   710→   710→                          {inv.nomor}
+   711→   711→                        </p>
+   712→   712→                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+   713→   713→                          {inv.customerName}
+   714→   714→                        </p>
+   715→   715→                      </div>
+   716→   716→                      <StatusBadge
+   717→   717→                        lunas={inv.lunas}
+   718→   718→                        isOverdue={inv.isOverdue}
+   719→   719→                        t={t}
+   720→   720→                      />
+   721→   721→                    </div>
+   722→   722→                    <div className="grid grid-cols-2 gap-2 text-xs">
+   723→   723→                      <div>
+   724→   724→                        <p className="text-slate-400">
+   725→   725→                          {t('laporan_dp_col_tanggal')}
+   726→   726→                        </p>
+   727→   727→                        <p className="text-slate-700 dark:text-slate-200">
+   728→   728→                          {inv.tanggal
+   729→   729→                            ? formatDateShortId(inv.tanggal)
+   730→   730→                            : formatDateShort(inv.createdAt)}
+   731→   731→                        </p>
+   732→   732→                      </div>
+   733→   733→                      <div>
+   734→   734→                        <p className="text-slate-400">
+   735→   735→                          {t('laporan_dp_col_jatuh_tempo')}
+   736→   736→                        </p>
+   737→   737→                        <p className="text-slate-700 dark:text-slate-200">
+   738→   738→                          {inv.tanggalJatuhTempo
+   739→   739→                            ? formatDateShortId(inv.tanggalJatuhTempo)
+   740→   740→                            : '-'}
+   741→   741→                        </p>
+   742→   742→                      </div>
+   743→   743→                      <div>
+   744→   744→                        <p className="text-slate-400">
+   745→   745→                          {t('laporan_dp_col_total')}
+   746→   746→                        </p>
+   747→   747→                        <p className="text-slate-700 dark:text-slate-200 font-medium">
+   748→   748→                          {formatRupiah(inv.totalHarga)}
+   749→   749→                        </p>
+   750→   750→                      </div>
+   751→   751→                      <div>
+   752→   752→                        <p className="text-slate-400">
+   753→   753→                          {t('laporan_dp_col_dp_percent')}
+   754→   754→                        </p>
+   755→   755→                        <p className="text-slate-700 dark:text-slate-200 font-medium">
+   756→   756→                          {inv.dpPercent}% · {formatRupiah(inv.dpAmount)}
+   757→   757→                        </p>
+   758→   758→                      </div>
+   759→   759→                      <div className="col-span-2">
+   760→   760→                        <p className="text-slate-400">
+   761→   761→                          {t('laporan_dp_col_sisa')}
+   762→   762→                        </p>
+   763→   763→                        <p
+   764→   764→                          className={cn(
+   765→   765→                            'font-bold',
+   766→   766→                            inv.lunas
+   767→   767→                              ? 'text-slate-400 line-through'
+   768→   768→                              : 'text-amber-600 dark:text-amber-400'
+   769→   769→                          )}
+   770→   770→                        >
+   771→   771→                          {formatRupiah(inv.sisa)}
+   772→   772→                        </p>
+   773→   773→                      </div>
+   774→   774→                    </div>
+   775→   775→                    <div className="flex justify-end pt-1">
+   776→   776→                      <Link
+   777→   777→                        href="/riwayat-penjualan"
+   778→   778→                        className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+   779→   779→                      >
+   780→   780→                        <Eye className="w-3.5 h-3.5" />
+   781→   781→                        {t('laporan_dp_lihat')}
+   782→   782→                      </Link>
+   783→   783→                    </div>
+   784→   784→                    <p className="text-[10px] text-slate-300">#{i + 1}</p>
+   785→   785→                  </div>
+   786→   786→                ))}
+   787→   787→              </div>
+   788→   788→            </>
+   789→   789→          )}
+   790→   790→        </div>
+   791→   791→      </div>
+   792→   792→
+   793→   793→      {/* ===== Custom Date Dialog ===== */}
+   794→   794→      {showCustomDialog && (
+   795→   795→        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+   796→   796→          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+   797→   797→            <h3 className="font-semibold text-slate-800 dark:text-slate-100">
+   798→   798→              {t('laporan_dp_custom_periode')}
+   799→   799→            </h3>
+   800→   800→            <div className="space-y-3">
+   801→   801→              <div>
+   802→   802→                <label className="text-xs text-slate-500 dark:text-slate-400">
+   803→   803→                  {t('laporan_dp_dari')}
+   804→   804→                </label>
+   805→   805→                <input
+   806→   806→                  type="date"
+   807→   807→                  value={customStartStr}
+   808→   808→                  onChange={(e) => setCustomStartStr(e.target.value)}
+   809→   809→                  className="w-full mt-1 px-3 py-2 border border-slate-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+   810→   810→                />
+   811→   811→              </div>
+   812→   812→              <div>
+   813→   813→                <label className="text-xs text-slate-500 dark:text-slate-400">
+   814→   814→                  {t('laporan_dp_sampai')}
+   815→   815→                </label>
+   816→   816→                <input
+   817→   817→                  type="date"
+   818→   818→                  value={customEndStr}
+   819→   819→                  onChange={(e) => setCustomEndStr(e.target.value)}
+   820→   820→                  className="w-full mt-1 px-3 py-2 border border-slate-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+   821→   821→                />
+   822→   822→              </div>
+   823→   823→            </div>
+   824→   824→            <div className="flex justify-end gap-2 pt-2">
+   825→   825→              <Button
+   826→   826→                variant="outline"
+   827→   827→                size="sm"
+   828→   828→                onClick={() => setShowCustomDialog(false)}
+   829→   829→              >
+   830→   830→                {t('batal')}
+   831→   831→              </Button>
+   832→   832→              <Button size="sm" onClick={applyCustomFilter}>
+   833→   833→                {t('terapkan')}
+   834→   834→              </Button>
+   835→   835→            </div>
+   836→   836→          </div>
+   837→   837→        </div>
+   838→   838→      )}
+   839→   839→    </DashboardLayout>
+   840→   840→  )
+   841→   841→}
+   842→   842→
+   843→   843→// ===== Status Badge component =====
+   844→   844→function StatusBadge({
+   845→   845→  lunas,
+   846→   846→  isOverdue,
+   847→   847→  t,
+   848→   848→}: {
+   849→   849→  lunas: boolean
+   850→   850→  isOverdue: boolean
+   851→   851→  t: (key: string) => string
+   852→   852→}) {
+   853→   853→  if (lunas) {
+   854→   854→    return (
+   855→   855→      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 whitespace-nowrap">
+   856→   856→        <CheckCircle2 className="w-3 h-3" />
+   857→   857→        {t('laporan_dp_badge_lunas')}
+   858→   858→      </span>
+   859→   859→    )
+   860→   860→  }
+   861→   861→  if (isOverdue) {
+   862→   862→    return (
+   863→   863→      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400 whitespace-nowrap">
+   864→   864→        <CalendarClock className="w-3 h-3" />
+   865→   865→        {t('laporan_dp_badge_overdue')}
+   866→   866→      </span>
+   867→   867→    )
+   868→   868→  }
+   869→   869→  return (
+   870→   870→    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 whitespace-nowrap">
+   871→   871→      <Clock className="w-3 h-3" />
+   872→   872→      {t('laporan_dp_badge_belum')}
+   873→   873→    </span>
+   874→   874→  )
+   875→   875→}
+   876→   876→
