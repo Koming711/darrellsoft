@@ -16,6 +16,7 @@ import {
   Loader2,
   AlertCircle,
   ChevronRight,
+  Coins,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -113,6 +114,13 @@ export default function LaporanPage() {
       descKey: 'subtitle_rekap_penjualan' as const,
       icon: BarChart3,
       color: 'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
+    },
+    {
+      href: '/laporan-invoice-dp',
+      titleKey: 'laporan_invoice_dp' as const,
+      descKey: 'subtitle_laporan_invoice_dp' as const,
+      icon: Coins,
+      color: 'bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400',
     },
     {
       href: '/riwayat-penjualan',

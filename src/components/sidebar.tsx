@@ -94,6 +94,13 @@ const menuItems = [
     section: 'laporan',
   },
   {
+    titleKey: 'laporan_invoice_dp' as TranslationKey,
+    href: '/laporan-invoice-dp',
+    icon: Receipt,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
     titleKey: 'biaya' as TranslationKey,
     href: '/biaya',
     icon: Banknote,
