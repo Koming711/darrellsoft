@@ -539,6 +539,16 @@ export default function LaporanInvoiceDpPage() {
           </div>
         )}
 
+        {/* ===== Info Banner ===== */}
+        {!loading && !error && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 print:hidden">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span className="text-xs sm:text-sm leading-relaxed">
+              {t('laporan_dp_info_banner')}
+            </span>
+          </div>
+        )}
+
         {/* ===== Print Header (only visible when printing) ===== */}
         <div className="hidden print:block">
           <h1 className="text-lg font-bold">{t('laporan_invoice_dp')}</h1>
@@ -557,8 +567,23 @@ export default function LaporanInvoiceDpPage() {
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
           ) : !processedInvoices.length ? (
-            <div className="py-16 text-center text-sm text-slate-400">
-              {t('laporan_dp_no_data')}
+            <div className="py-10 sm:py-16 text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                <Receipt className="w-6 h-6 text-slate-400" />
+              </div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                {t('laporan_dp_no_data')}
+              </p>
+              <p className="text-xs text-slate-400 max-w-md mx-auto px-4">
+                {t('laporan_dp_no_data_hint')}
+              </p>
+              <Link
+                href="/invoice"
+                className="inline-flex items-center gap-1.5 mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                {t('laporan_dp_no_data_cta')}
+              </Link>
             </div>
           ) : (
             <>

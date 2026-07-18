@@ -175,6 +175,11 @@ export const translations = {
     laporan_dp_col_status: 'Status',
     laporan_dp_col_aksi: 'Aksi',
     laporan_dp_no_data: 'Belum ada invoice DP pada periode ini',
+    laporan_dp_no_data_hint:
+      'Halaman ini hanya menampilkan invoice yang memiliki DP (Down Payment) lebih dari 0%.',
+    laporan_dp_no_data_cta: 'Buat Invoice dengan DP',
+    laporan_dp_info_banner:
+      'Menampilkan invoice dengan DP > 0%. Invoice tanpa DP tidak ditampilkan di laporan ini.',
     laporan_dp_lihat: 'Lihat',
     laporan_dp_badge_lunas: 'Lunas',
     laporan_dp_badge_belum: 'Belum Lunas',
@@ -809,6 +814,11 @@ export const translations = {
     laporan_dp_col_status: 'Status',
     laporan_dp_col_aksi: 'Action',
     laporan_dp_no_data: 'No DP invoices in this period',
+    laporan_dp_no_data_hint:
+      'This page only shows invoices that have a Down Payment (DP) greater than 0%.',
+    laporan_dp_no_data_cta: 'Create Invoice with DP',
+    laporan_dp_info_banner:
+      'Showing invoices with DP > 0%. Invoices without DP are not shown in this report.',
     laporan_dp_lihat: 'View',
     laporan_dp_badge_lunas: 'Paid',
     laporan_dp_badge_belum: 'Unpaid',
