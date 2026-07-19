@@ -1,0 +1,281 @@
+{
+  "version": "2.0",
+  "type": "auto-backup",
+  "timestamp": "2026-06-04T09:26:42.019Z",
+  "userId": "user-admin",
+  "database": {
+    "Customer": [
+      {
+        "id": "cmp742yju000ajs2m1z3n6v1l",
+        "name": "Jaya Wijaya",
+        "companyName": "UD. Sumber Berkat",
+        "address": "Jl. Diponegoro No. 78, Bandung",
+        "phone": "083456789012",
+        "email": "ahmad@sumberrejeki.co.id",
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.298Z",
+        "updatedAt": "2026-05-15T16:08:08.298Z"
+      },
+      {
+        "id": "cmp742yjt0009js2mvrssx6ec",
+        "name": "Budi Susanto",
+        "companyName": "PT. Maju berkah",
+        "address": "Jl. Raya Industri No. 45, Surabaya",
+        "phone": "081234567890",
+        "email": "",
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.298Z",
+        "updatedAt": "2026-05-15T16:08:08.298Z"
+      },
+      {
+        "id": "cmp742yjv000djs2mkqvjbqnt",
+        "name": "Lunggan",
+        "companyName": "skewer",
+        "address": "",
+        "phone": "",
+        "email": "",
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.299Z",
+        "updatedAt": "2026-05-15T16:08:08.299Z"
+      },
+      {
+        "id": "cmp742yjv000ejs2mjhl7yx4k",
+        "name": "Siti Rohana",
+        "companyName": "CV. Berkah jaya",
+        "address": "Jl. Gatot Subroto No. 12, Jakarta",
+        "phone": "082345678901",
+        "email": "siti@berkahabadi.com",
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.299Z",
+        "updatedAt": "2026-05-15T16:08:08.299Z"
+      },
+      {
+        "id": "cmp742yju000cjs2ml447z47g",
+        "name": "jaya",
+        "companyName": "mobiletech",
+        "address": "",
+        "phone": "",
+        "email": "",
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.299Z",
+        "updatedAt": "2026-05-15T16:08:08.299Z"
+      }
+    ],
+    "Paper": [
+      {
+        "id": "cmp742yjq0001js2mizzgfdf2",
+        "name": "ivory",
+        "grammage": 210,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1356233,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.294Z",
+        "updatedAt": "2026-05-15T16:08:08.294Z"
+      },
+      {
+        "id": "cmp742yjq0002js2mpirahnnw",
+        "name": "ivory",
+        "grammage": 300,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1937475,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.294Z",
+        "updatedAt": "2026-05-15T16:08:08.294Z"
+      },
+      {
+        "id": "cmp742yjq0003js2m0ay36wwd",
+        "name": "duplex",
+        "grammage": 270,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1765000,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.294Z",
+        "updatedAt": "2026-05-15T16:08:08.294Z"
+      },
+      {
+        "id": "cmp742yjq0004js2m3r3kuygv",
+        "name": "duplek",
+        "grammage": 270,
+        "width": 90,
+        "height": 120,
+        "pricePerRim": 2210000,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.294Z",
+        "updatedAt": "2026-05-15T16:08:08.294Z"
+      },
+      {
+        "id": "cmp742yjw000gjs2m1vu9mxga",
+        "name": "ivory",
+        "grammage": 210,
+        "width": 65,
+        "height": 100,
+        "pricePerRim": 1078350,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.300Z",
+        "updatedAt": "2026-05-15T16:08:08.300Z"
+      },
+      {
+        "id": "cmp742yjw000hjs2mbw1bzxbu",
+        "name": "art karton",
+        "grammage": 260,
+        "width": 65,
+        "height": 100,
+        "pricePerRim": 1394250,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.300Z",
+        "updatedAt": "2026-05-15T16:08:08.300Z"
+      },
+      {
+        "id": "cmp742yjw000ijs2mb1w5uvdr",
+        "name": "art karton",
+        "grammage": 260,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1903031,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.300Z",
+        "updatedAt": "2026-05-15T16:08:08.300Z"
+      }
+    ],
+    "PrintingCost": [
+      {
+        "id": "cmp742yjr0005js2memp1vwyj",
+        "machineName": "sm52",
+        "grammage": 0,
+        "printAreaWidth": 52,
+        "printAreaHeight": 37,
+        "pricePerColor": 62500,
+        "specialColorPrice": 80000,
+        "minimumPrintQuantity": 1000,
+        "priceAboveMinimumPerSheet": 60,
+        "platePricePerSheet": 18000,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.296Z",
+        "updatedAt": "2026-05-15T16:08:08.296Z"
+      },
+      {
+        "id": "cmp742yjw000jjs2mitw1tvcp",
+        "machineName": "oliver 58",
+        "grammage": 150,
+        "printAreaWidth": 58,
+        "printAreaHeight": 44,
+        "pricePerColor": 100000,
+        "specialColorPrice": 150000,
+        "minimumPrintQuantity": 1000,
+        "priceAboveMinimumPerSheet": 70,
+        "platePricePerSheet": 20000,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.301Z",
+        "updatedAt": "2026-05-15T16:08:08.301Z"
+      },
+      {
+        "id": "cmp742yjs0006js2m4323lsid",
+        "machineName": "sm74",
+        "grammage": 0,
+        "printAreaWidth": 74,
+        "printAreaHeight": 52,
+        "pricePerColor": 130000,
+        "specialColorPrice": 160000,
+        "minimumPrintQuantity": 1000,
+        "priceAboveMinimumPerSheet": 120,
+        "platePricePerSheet": 36000,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.296Z",
+        "updatedAt": "2026-05-15T16:08:08.296Z"
+      }
+    ],
+    "Finishing": [
+      {
+        "id": "cmp742yjs0007js2mz88rpaf6",
+        "name": "pond",
+        "minimumSheets": 1000,
+        "minimumPrice": 75000,
+        "additionalPrice": 40,
+        "pricePerCm": 0,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.296Z",
+        "updatedAt": "2026-05-15T16:08:08.296Z"
+      },
+      {
+        "id": "cmp742yjs0008js2mxd0sh5l7",
+        "name": "laminating glossy",
+        "minimumSheets": 0,
+        "minimumPrice": 150000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.16,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.296Z",
+        "updatedAt": "2026-05-15T16:08:08.296Z"
+      },
+      {
+        "id": "cmp742yju000bjs2mawcyilou",
+        "name": "spot uv",
+        "minimumSheets": 0,
+        "minimumPrice": 400000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.25,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.298Z",
+        "updatedAt": "2026-05-15T16:08:08.298Z"
+      },
+      {
+        "id": "cmp742yjw000kjs2mctp4i4mt",
+        "name": "laminating doff",
+        "minimumSheets": 0,
+        "minimumPrice": 180000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.18,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.301Z",
+        "updatedAt": "2026-05-15T16:08:08.301Z"
+      },
+      {
+        "id": "cmp742yjv000fjs2mhhtf00h2",
+        "name": "jahit kawat 2 mata",
+        "minimumSheets": 0,
+        "minimumPrice": 100000,
+        "additionalPrice": 120,
+        "pricePerCm": 0,
+        "userId": "user-admin",
+        "createdAt": "2026-05-15T16:08:08.300Z",
+        "updatedAt": "2026-05-15T16:08:08.300Z"
+      }
+    ],
+    "TokoPemasok": [
+      {
+        "id": "cmpmvo2k20002tp56susw39gk",
+        "namaToko": "Bintang Timur",
+        "jenisBarang": "kertas",
+        "kontak": "0214219430",
+        "alamat": "Jl. Bungur besar",
+        "userId": "user-admin",
+        "createdAt": "2026-05-26T16:56:55.538Z",
+        "updatedAt": "2026-05-26T16:56:55.538Z"
+      },
+      {
+        "id": "cmpmw3ssg0003tp56byqzxhq8",
+        "namaToko": "Indojaya",
+        "jenisBarang": "kertas",
+        "kontak": "021 42879120",
+        "alamat": "Jl. kalibaru barat",
+        "userId": "user-admin",
+        "createdAt": "2026-05-26T17:09:09.377Z",
+        "updatedAt": "2026-05-26T17:09:09.377Z"
+      }
+    ],
+    "Invoice": [],
+    "SuratJalan": [],
+    "PurchaseOrder": [],
+    "DocumentHistory": [],
+    "RiwayatCetakan": [],
+    "RiwayatFinishing": [],
+    "RiwayatOngkosCetak": [],
+    "RiwayatHargaKertas": [],
+    "RiwayatPotongKertas": [],
+    "CalonPembeli": [],
+    "Pembeli": []
+  }
+}

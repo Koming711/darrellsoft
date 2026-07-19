@@ -214,7 +214,7 @@ export default function RiwayatPage() {
   const [statusDialogItem, setStatusDialogItem] = useState<HistoryEntry | null>(null)
   const [statusUpdating, setStatusUpdating] = useState(false)
 
-  // profit: match invoice referensi with riwayat cetakan
+  // Uang capek: match invoice referensi with riwayat cetakan
   const [cetakanList, setCetakanList] = useState<{ nomorUrut: string; printName: string; profitAmount: number }[]>([])
 
   const invoiceUangCapek = useMemo(() => {
@@ -242,7 +242,7 @@ export default function RiwayatPage() {
         const json = await res.json()
         setHistories(json.data || [])
       }
-      // Fetch riwayat cetakan for profit calculation
+      // Fetch riwayat cetakan for uang capek calculation
       try {
         const cetRes = await fetch('/api/riwayat-cetakan', { headers })
         if (cetRes.ok) {
@@ -401,7 +401,7 @@ export default function RiwayatPage() {
     return sum + (info.totalHarga || 0)
   }, 0)
 
-  // Total profit
+  // Total uang capek
   const totalUangCapek = useMemo(() => {
     let sum = 0
     for (const h of histories) {
@@ -470,7 +470,7 @@ export default function RiwayatPage() {
             <div className="w-8 h-8 rounded-lg bg-fuchsia-100 text-fuchsia-600 flex items-center justify-center mb-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <p className="text-xs text-slate-500 mb-0.5">Total Profit</p>
+            <p className="text-xs text-slate-500 mb-0.5">Total Uang Capek</p>
             <p className="text-base sm:text-lg font-bold text-fuchsia-700 leading-tight">{formatRupiahShort(totalUangCapek)}</p>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4">
@@ -538,7 +538,7 @@ export default function RiwayatPage() {
                     <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Jatuh Tempo</th>
                     <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Cara Bayar</th>
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Qty</th>
-                    <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Profit</th>
+                    <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Uang Capek</th>
                     <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
                     <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                   </tr>
@@ -699,7 +699,7 @@ export default function RiwayatPage() {
                             <span className="text-xs font-medium text-slate-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-500">Profit</span>
+                            <span className="text-xs text-slate-500">Uang Capek</span>
                             <span className={`text-xs font-semibold ${(invoiceUangCapek.get(h.id) ?? 0) > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{(invoiceUangCapek.get(h.id) ?? 0) > 0 ? formatRupiahShort(invoiceUangCapek.get(h.id) ?? 0) : '-'}</span>
                           </div>
                           <div className="flex justify-between items-center">

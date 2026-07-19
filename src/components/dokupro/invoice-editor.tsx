@@ -667,7 +667,7 @@ export function InvoiceEditor() {
             />
           </div>
           <div className="space-y-1.5 mt-3">
-            <Label className="text-xs">Profit</Label>
+            <Label className="text-xs">Uang Capek</Label>
             <Input
               type="text"
               inputMode="numeric"

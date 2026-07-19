@@ -1,0 +1,252 @@
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/app/invoice/page.tsx:270:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/app/invoice/page.tsx:271:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/app/invoice/page.tsx:1207:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/app/invoice/page.tsx:1208:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/app/invoice/page.tsx:1624:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/app/invoice/page.tsx:1625:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/surat-jalan-editor.tsx:103:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/surat-jalan-editor.tsx:104:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/document-action-buttons.tsx:112:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/document-action-buttons.tsx:145:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/history-table.tsx:124:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/history-table.tsx:125:    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/invoice-pelunasan-editor.tsx:197:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/invoice-pelunasan-editor.tsx:198:    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/purchase-order-editor.tsx:118:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/purchase-order-editor.tsx:119:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/invoice-editor.tsx:140:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/invoice-editor.tsx:141:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/invoice-editor.tsx:348:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-150921/src/components/dokupro/invoice-editor.tsx:372:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/app/invoice/page.tsx:271:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/app/invoice/page.tsx:272:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/app/invoice/page.tsx:1222:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/app/invoice/page.tsx:1223:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/app/invoice/page.tsx:1639:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/app/invoice/page.tsx:1640:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/components/dokupro/surat-jalan-editor.tsx:103:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/surat-jalan-editor.tsx:104:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/components/dokupro/document-action-buttons.tsx:112:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/components/dokupro/document-action-buttons.tsx:145:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/components/dokupro/history-table.tsx:124:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/history-table.tsx:125:    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/invoice-pelunasan-editor.tsx:197:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/invoice-pelunasan-editor.tsx:198:    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/purchase-order-editor.tsx:118:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/purchase-order-editor.tsx:119:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/components/dokupro/invoice-editor.tsx:140:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/components/dokupro/invoice-editor.tsx:141:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/components/dokupro/invoice-editor.tsx:348:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/components/dokupro/invoice-editor.tsx:372:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/surat-jalan-editor.tsx:103:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/surat-jalan-editor.tsx:104:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/document-action-buttons.tsx:112:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/document-action-buttons.tsx:145:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/history-table.tsx:124:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/history-table.tsx:125:    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/invoice-pelunasan-editor.tsx:197:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/invoice-pelunasan-editor.tsx:198:    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/purchase-order-editor.tsx:118:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/purchase-order-editor.tsx:119:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/invoice-editor.tsx:140:    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/invoice-editor.tsx:141:    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/invoice-editor.tsx:348:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/backups/invoice-gabungan-backup-20260713-161538/src/components/dokupro/invoice-editor.tsx:372:          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781315903901_9dfcac8a1d0d.txt:179:   179→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781315903901_9dfcac8a1d0d.txt:180:   180→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781312840011_b9655de81188.txt:213:   213→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781312840011_b9655de81188.txt:214:   214→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781312840011_b9655de81188.txt:641:   641→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781312840011_b9655de81188.txt:642:   642→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781312840011_b9655de81188.txt:1044:  1044→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781312840011_b9655de81188.txt:1045:  1045→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593283046_0797066d713a.txt:180:   180→   180→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781593283046_0797066d713a.txt:181:   181→   181→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781356130245_b9655de81188.txt:213:   213→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356130245_b9655de81188.txt:214:   214→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356130245_b9655de81188.txt:641:   641→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356130245_b9655de81188.txt:642:   642→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356130245_b9655de81188.txt:1044:  1044→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356130245_b9655de81188.txt:1045:  1045→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417704206_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417704206_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417704206_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417704206_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417704206_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417704206_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781607713988_b4e8fc11e34f.txt:540:   540→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781607713988_b4e8fc11e34f.txt:541:   541→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781614793660_2dd05eab17cc.txt:134:   134→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781614793660_2dd05eab17cc.txt:135:   135→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781614793660_2dd05eab17cc.txt:342:   342→        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781417620765_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417620765_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417620765_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417620765_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417620765_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781417620765_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593274347_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593274347_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593274347_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593274347_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593274347_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781593274347_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338347523_3348131f6cec.txt:191:   191→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781338347523_3348131f6cec.txt:192:   192→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781319851564_d92ba186d76b.txt:217:   217→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781319851564_d92ba186d76b.txt:218:   218→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781319851564_d92ba186d76b.txt:652:   652→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781319851564_d92ba186d76b.txt:653:   653→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781319851564_d92ba186d76b.txt:1061:  1061→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781319851564_d92ba186d76b.txt:1062:  1062→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416215995_e38e544bcc6d.txt:272:   272→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416215995_e38e544bcc6d.txt:273:   273→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781600679648_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781600679648_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781600679648_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781600679648_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781600679648_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781600679648_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781312839437_a9788e321c81.txt:187:   187→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781312839437_a9788e321c81.txt:188:   188→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781364371625_b2d817379eb1.txt:134:   134→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781364371625_b2d817379eb1.txt:135:   135→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781364371625_b2d817379eb1.txt:343:   343→        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781338367994_a79fddc9db5e.txt:217:   217→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338367994_a79fddc9db5e.txt:218:   218→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338367994_a79fddc9db5e.txt:652:   652→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338367994_a79fddc9db5e.txt:653:   653→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338367994_a79fddc9db5e.txt:1062:  1062→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338367994_a79fddc9db5e.txt:1063:  1063→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358027001_9c0567c9b180.txt:196:   196→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781358027001_9c0567c9b180.txt:197:   197→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/src/app/invoice/page.tsx:271:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/src/app/invoice/page.tsx:272:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/src/app/invoice/page.tsx:1272:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/src/app/invoice/page.tsx:1273:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/src/app/invoice/page.tsx:1689:    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/src/app/invoice/page.tsx:1690:    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781592691047_9dfcac8a1d0d.txt:179:   179→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781592691047_9dfcac8a1d0d.txt:180:   180→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781367400834_a55e39d21a99.txt:254:   254→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781367400834_a55e39d21a99.txt:255:   255→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781367400834_a55e39d21a99.txt:808:   808→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781367400834_a55e39d21a99.txt:809:   809→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781367400834_a55e39d21a99.txt:1225:  1225→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781367400834_a55e39d21a99.txt:1226:  1226→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1782051332244_e21bde66ec95.txt:598:   598→   598→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1782051332244_e21bde66ec95.txt:599:   599→   599→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416219770_dc2f5978582b.txt:272:   272→   272→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416219770_dc2f5978582b.txt:273:   273→   273→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358393089_99f5691d2052.txt:231:   231→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358393089_99f5691d2052.txt:232:   232→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358393089_99f5691d2052.txt:750:   750→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358393089_99f5691d2052.txt:751:   751→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358393089_99f5691d2052.txt:1167:  1167→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358393089_99f5691d2052.txt:1168:  1168→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781338350742_317ddb1b6e37.txt:191:   191→   191→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781338350742_317ddb1b6e37.txt:192:   192→   192→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781614794203_c5c81a2612f4.txt:167:   167→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781614794203_c5c81a2612f4.txt:168:   168→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781614794203_c5c81a2612f4.txt:599:   599→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781614794203_c5c81a2612f4.txt:600:   600→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317150274_d1600969122a.txt:211:   211→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317150274_d1600969122a.txt:212:   212→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317150274_d1600969122a.txt:628:   628→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317150274_d1600969122a.txt:629:   629→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317150274_d1600969122a.txt:1024:  1024→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317150274_d1600969122a.txt:1025:  1025→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591320990_2dd05eab17cc.txt:134:   134→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781591320990_2dd05eab17cc.txt:135:   135→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781591320990_2dd05eab17cc.txt:342:   342→        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781314123224_9dfcac8a1d0d.txt:179:   179→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781314123224_9dfcac8a1d0d.txt:180:   180→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781607360839_b4e8fc11e34f.txt:540:   540→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781607360839_b4e8fc11e34f.txt:541:   541→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781607713671_b4e8fc11e34f.txt:540:   540→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781607713671_b4e8fc11e34f.txt:541:   541→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781362953042_11207a1b950e.txt:231:   231→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781362953042_11207a1b950e.txt:232:   232→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781362953042_11207a1b950e.txt:753:   753→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781362953042_11207a1b950e.txt:754:   754→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781362953042_11207a1b950e.txt:1170:  1170→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781362953042_11207a1b950e.txt:1171:  1171→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781359765829_99f5691d2052.txt:231:   231→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781359765829_99f5691d2052.txt:232:   232→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781359765829_99f5691d2052.txt:750:   750→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781359765829_99f5691d2052.txt:751:   751→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781359765829_99f5691d2052.txt:1167:  1167→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781359765829_99f5691d2052.txt:1168:  1168→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356790271_a9788e321c81.txt:187:   187→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781356790271_a9788e321c81.txt:188:   188→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781416716395_0253967643b9.txt:73:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416716395_0253967643b9.txt:74:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358021411_f284a120e224.txt:231:   231→   231→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358021411_f284a120e224.txt:232:   232→   232→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358021411_f284a120e224.txt:750:   750→   750→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358021411_f284a120e224.txt:751:   751→   751→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358021411_f284a120e224.txt:1167:  1167→  1167→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358021411_f284a120e224.txt:1168:  1168→  1168→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356028676_b9655de81188.txt:213:   213→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356028676_b9655de81188.txt:214:   214→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356028676_b9655de81188.txt:641:   641→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356028676_b9655de81188.txt:642:   642→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356028676_b9655de81188.txt:1044:  1044→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781356028676_b9655de81188.txt:1045:  1045→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358019256_99f5691d2052.txt:231:   231→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358019256_99f5691d2052.txt:232:   232→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358019256_99f5691d2052.txt:750:   750→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358019256_99f5691d2052.txt:751:   751→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358019256_99f5691d2052.txt:1167:  1167→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358019256_99f5691d2052.txt:1168:  1168→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781361222969_11207a1b950e.txt:231:   231→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781361222969_11207a1b950e.txt:232:   232→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781361222969_11207a1b950e.txt:753:   753→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781361222969_11207a1b950e.txt:754:   754→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781361222969_11207a1b950e.txt:1170:  1170→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781361222969_11207a1b950e.txt:1171:  1171→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244676_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244676_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244676_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244676_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244676_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244676_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781595739040_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781595739040_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781595739040_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781595739040_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781595739040_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781595739040_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781317658079_9dfcac8a1d0d.txt:179:   179→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781317658079_9dfcac8a1d0d.txt:180:   180→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781367401090_20e18e10b78c.txt:134:   134→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781367401090_20e18e10b78c.txt:135:   135→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781367401090_20e18e10b78c.txt:337:   337→        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781319851823_3348131f6cec.txt:191:   191→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781319851823_3348131f6cec.txt:192:   192→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781595708415_2dd05eab17cc.txt:134:   134→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781595708415_2dd05eab17cc.txt:135:   135→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781595708415_2dd05eab17cc.txt:342:   342→        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781592610583_9dfcac8a1d0d.txt:179:   179→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781592610583_9dfcac8a1d0d.txt:180:   180→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781416215738_88e9e2fae8b9.txt:139:   139→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781416215738_88e9e2fae8b9.txt:140:   140→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781416215738_88e9e2fae8b9.txt:343:   343→          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781416215738_88e9e2fae8b9.txt:367:   367→          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781593279898_09febf78af4e.txt:180:   180→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781593279898_09febf78af4e.txt:181:   181→    return () => window.removeEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781416699656_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416699656_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416699656_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416699656_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416699656_d9d59971fc09.txt:1226:  1226→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781416699656_d9d59971fc09.txt:1227:  1227→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781358027533_db927d01a42b.txt:134:   134→    window.addEventListener('dokupro:history-updated', handler);
+/home/z/my-project/tool-results/read_1781358027533_db927d01a42b.txt:135:   135→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+/home/z/my-project/tool-results/read_1781358027533_db927d01a42b.txt:343:   343→        window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+/home/z/my-project/tool-results/read_1781591244938_d9d59971fc09.txt:255:   255→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244938_d9d59971fc09.txt:256:   256→    return () => window.removeEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244938_d9d59971fc09.txt:809:   809→    window.addEventListener('dokupro:history-updated', handler)
+/home/z/my-project/tool-results/read_1781591244938_d9d59971fc09.txt:810:   810→    return () => window.removeEventListener('dokupro:history-updated', handler)
+
+[Showing results with pagination = limit: 250]
