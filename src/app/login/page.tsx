@@ -81,7 +81,9 @@ function LoginContent() {
     if (authUser) {
       setIsRedirecting(true)
       // Use hard navigation to ensure DashboardLayout reads fresh auth state
-      window.location.href = '/pembukaan'
+      // Respect ?redirect= param so user returns to the page they were trying to access
+      const redirectTo = searchParams.get('redirect') || '/pembukaan'
+      window.location.href = redirectTo
       return
     }
 
@@ -149,7 +151,9 @@ function LoginContent() {
         applyThemeAfterLogin()
         // Use hard navigation to ensure DashboardLayout reads fresh auth state
         // (router.push can fail in iframe contexts)
-        window.location.href = '/pembukaan'
+        // Respect ?redirect= param so user returns to the page they were trying to access
+        const redirectTo = searchParams.get('redirect') || '/pembukaan'
+        window.location.href = redirectTo
       }
     } catch (err: any) {
       console.error('Login network error:', err)
@@ -352,7 +356,8 @@ function LoginContent() {
           setDemoPopupOpen(true)
         } else {
           applyThemeAfterLogin()
-          setTimeout(() => { window.location.href = '/pembukaan' }, 1500)
+          const rd = searchParams.get('redirect') || '/pembukaan'
+          setTimeout(() => { window.location.href = rd }, 1500)
         }
       } else {
         // Notify other tabs about the new calon pembeli
@@ -947,14 +952,14 @@ function LoginContent() {
               <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
             </div>
             <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
+              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = searchParams.get('redirect') || '/pembukaan' }}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
               autoFocus
             >
               {t('ok')}
             </button>
             <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
+              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = searchParams.get('redirect') || '/pembukaan' }}
               className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
             >
               {t('masuk_ke_halaman_utama')}

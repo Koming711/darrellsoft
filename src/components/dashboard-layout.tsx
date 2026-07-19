@@ -448,23 +448,20 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   }
 
   if (!user) {
+    // Auto-redirect to login with redirect param so user returns to this page after login
+    // Show a brief loading spinner instead of the old "Belum Login" screen to avoid
+    // the impression of "content tidak muncul"
+    const currentPath = pathname || '/'
+    const loginUrl = `/login?redirect=${encodeURIComponent(currentPath)}`
+    if (typeof window !== 'undefined') {
+      // Use replace to avoid adding to history
+      window.location.replace(loginUrl)
+    }
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--app-content-bg, hsl(var(--background)))' }}>
-        <div className="text-center p-8">
-          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4 mx-auto">
-            <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-          </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">{t('not_logged_in')}</h2>
-          <p className="text-sm text-muted-foreground mb-4">{t('login_required_msg')}</p>
-          <button
-            onClick={() => {
-              clearAuthUser()
-              window.location.href = '/login'
-            }}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
-          >
-            {t('masuk')}
-          </button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
         </div>
       </div>
     )
