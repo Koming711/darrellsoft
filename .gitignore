@@ -57,4 +57,4 @@ server.log
 /upload/
 /backup-*.tar.gz
 *.tar
-*.tar.gz
+*.tar.gz.trash-app-stale/

@@ -58,6 +58,17 @@ function removePid() {
 }
 
 function killPortProcess(port) {
+  // fuser/lsof are unavailable in this sandbox — use pkill patterns instead.
+  // Matches the exact dev-server command this daemon spawns.
+  try {
+    execSync(
+      `pkill -9 -f "dist/bin/next dev -p ${port}" 2>/dev/null || true`,
+      { stdio: 'ignore' }
+    );
+  } catch {}
+  try {
+    execSync(`pkill -9 -f "next-server" 2>/dev/null || true`, { stdio: 'ignore' });
+  } catch {}
   try {
     execSync(`fuser -k ${port}/tcp 2>/dev/null || true`, { stdio: 'ignore' });
   } catch {}
@@ -120,8 +131,11 @@ function runServer() {
     killPortProcess(PORT);
     try { execSync('sleep 1', { stdio: 'ignore' }); } catch {}
 
+    // Use the REAL bin path (not .bin/next) — .bin/next is a copied file (not a
+    // symlink) in this environment, which breaks relative requires like
+    // require('../server/require-hook'). The real path resolves correctly.
     const child = spawn('node', [
-      './node_modules/.bin/next', 'dev', '-p', String(PORT)
+      './node_modules/next/dist/bin/next', 'dev', '-p', String(PORT)
     ], {
       cwd: PROJECT_DIR,
       env: {
@@ -194,16 +208,19 @@ function showStatus() {
     removePid();
   }
   
-  // Check port
+  // Check port — lsof is unavailable in this sandbox; probe HTTP instead
   try {
-    const result = execSync(`lsof -i :${PORT} -t 2>/dev/null || echo ""`, { encoding: 'utf8' }).trim();
-    if (result) {
-      console.log(`✅ Port ${PORT} is IN USE (server likely running)`);
+    const code = execSync(
+      `curl -s -o /dev/null -m 5 -w "%{http_code}" http://127.0.0.1:${PORT}/ 2>/dev/null || echo 000`,
+      { encoding: 'utf8' }
+    ).trim();
+    if (code !== '000') {
+      console.log(`✅ Port ${PORT} is IN USE (server responding with HTTP ${code})`);
     } else {
-      console.log(`❌ Port ${PORT} is FREE (server not running)`);
+      console.log(`❌ Port ${PORT} has no HTTP response (server not running)`);
     }
   } catch {
-    console.log(`❓ Cannot check port ${PORT}`);
+    console.log(`❓ Cannot probe port ${PORT}`);
   }
 
   // Show last 10 log lines
