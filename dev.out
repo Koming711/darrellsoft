@@ -1,14 +1,78 @@
+==========================================
+[2026-08-29 02:29:36] Starting: bun install
+==========================================
+[BUN] Installing dependencies...
+[0.03ms] ".env"
+bun install v1.3.14 (0d9b296a)
+
+$ prisma generate
+Environment variables loaded from .env
+Prisma schema loaded from schema.prisma
+
+✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 221ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+Checked 994 installs across 1086 packages (no changes) [1352.00ms]
+==========================================
+[2026-08-29 02:29:37] Completed: bun install
+[LOG] Step: bun install | Duration: 1s
+==========================================
+
+==========================================
+[2026-08-29 02:29:37] Starting: bun run db:push
+==========================================
+[BUN] Setting up database...
+$ prisma db push
+Environment variables loaded from .env
+Prisma schema loaded from schema.prisma
+Datasource "db": SQLite database "custom.db" at "file:/home/z/my-project/db/custom.db"
+
+The database is already in sync with the Prisma schema.
+
+Running generate... (Use --skip-generate to skip the generators)
+[2K[1A[2K[GRunning generate... - Prisma Client
+[2K[1A[2K[G✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 222ms
+
+==========================================
+[2026-08-29 02:29:39] Completed: bun run db:push
+[LOG] Step: bun run db:push | Duration: 2s
+==========================================
+
+==========================================
+[2026-08-29 02:29:39] Starting: Starting Next.js dev server
+==========================================
+[BUN] Starting development server...
+==========================================
+$ NODE_OPTIONS='--max-old-space-size=4096' next dev -p 3000 2>&1 | tee dev.log
+[2026-08-29 02:29:39] Completed: Starting Next.js dev server
+[LOG] Step: Starting Next.js dev server | Duration: 0s
+==========================================
+
+==========================================
+[2026-08-29 02:29:39] Starting: Waiting for Next.js dev server
+==========================================
+Waiting for Next.js dev server to be ready on localhost:3000...
+Attempt 1/60: Next.js dev server not ready yet, waiting...
 ▲ Next.js 16.1.3 (Turbopack)
 - Local:         http://localhost:3000
-- Network:       http://21.0.18.233:3000
+- Network:       http://21.0.20.152:3000
 - Environments: .env
 
 ✓ Starting...
-✓ Ready in 605ms
- GET / 200 in 1500ms (compile: 1257ms, render: 243ms)
- GET /api/settings 401 in 80ms (compile: 69ms, render: 11ms)
-✅ SQLite database connected
-✅ Pengguna preserved (existing users not modified)
-🌱 Syncing settings...
-✅ Settings synced
- GET /api/public-settings 200 in 50ms (compile: 25ms, render: 25ms)
+✓ Ready in 673ms
+○ Compiling / ...
+Attempt 2/60: Next.js dev server not ready yet, waiting...
+ GET / 200 in 6.6s (compile: 6.0s, render: 601ms)
+ GET / 200 in 1918ms (compile: 1719ms, render: 199ms)
+Next.js dev server is ready!
+==========================================
+ GET / 200 in 4.7s (compile: 4.5s, render: 195ms)
+[2026-08-29 02:29:48] Completed: Waiting for Next.js dev server
+[LOG] Step: Waiting for Next.js dev server | Duration: 9s
+==========================================
+
+==========================================

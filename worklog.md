@@ -7018,3 +7018,31 @@ Stage Summary:
 - Sebelum fix: tabel=485.770 (cetakan profit, salah), kartu=1.528.933 (benar) → mismatch. Setelah fix: tabel=1.528.933, kartu=1.528.933 → match.
 - Dead code dihapus (calculateUangCapek, cetakanList, invoiceUangCapek memo, fetch riwayat-cetakan di fetchDocHistory) — mengurangi 1 API call per load beranda & eliminasi logic mismatch.
 - Per-user isolation tetap dipertahankan (dataFilter per-user, sesuai task fix-invoice-riwayat-strict-isolation).
+
+---
+Task ID: restore-workspace-from-upload
+Agent: Main (Z.ai Code)
+Task: Ekstrak arsip multi-part yang diunggah user (workspace-67f99cb9...tar.001/.002) dan jalankan aplikasi dengan sempurna di sandbox baru
+
+Work Log:
+- User upload 2 file: workspace-...tar.001 (50MB) + .tar.002 (12MB) di /home/z/my-project/upload/
+- Gabungkan: cat tar.001 tar.002 > /tmp/combined.tar (65MB, 1716 file) lalu ekstrak ke /home/z/extracted/workspace
+- Identifikasi: workspace snapshot "Darrell Soft - Kalkulator Hitung Cetakan" (Next.js 16 + Prisma SQLite + app akuntansi percetakan UMKM), berasal dari sandbox /home/z/my-project sebelumnya (eviden: .env menunjuk file:/home/z/my-project/db/custom.db, ada .zscripts/Caddyfile/dev.sh)
+- Matikan dev server scaffold lama, wipe /home/z/my-project (kecuali .zscripts sandbox + mount point upload/), copy semua isi workspace ke /home/z/my-project
+- bun install sukses (962 paket, 5.7s), prisma generate sukses (client v6.19.2)
+- HAMBATAN: prisma db push gagal "index associated with UNIQUE or PRIMARY KEY constraint cannot be dropped" — drift di tabel UserSetting (DB lama pakai table-level CONSTRAINT UNIQUE, schema baru expect named unique index UserSetting_userId_key_key)
+- Perbaikan root cause: backup db/custom.db → custom.db.before-index-fix, rebuild tabel UserSetting via Prisma $executeRawUnsafe (buat tabel baru tanpa constraint, copy 56 baris, drop lama, rename, create named unique index) → migrate diff konfirmasi "empty migration" (sinkron sempurna), db push sukses
+- HAMBATAN: server next dev yang di-start dari shell tool call terbunuh harness saat antar tool-call (nohup/setsid/dev.sh-trap semua kena; dev.sh punya trap cleanup EXIT yang kill DEV_PID)
+- Solusi: pakai daemon.cjs bawaan workspace (persis dibuat sesi lalu untuk masalah ini) — `node daemon.cjs start` → daemon PID 3358 spawn next dev sebagai child + auto-restart. Terverifikasi stabil lintas 4+ tool call
+- Verifikasi browser (agent-browser): landing page render penuh (hero "Akuntansi Khusus untuk Cetakan", galeri produk, CTA), dialog changelog OK, PWA install prompt OK, login superadmin/268899 sukses
+- Dashboard beranda: data produksi ASLI tampil (Transaksi Hari Ini 3 @ Rp502.400.000, Total Profit Rp80.000 — match worklog fix sebelumnya dari INV/07/26/9001+9002, 5 pendaftar baru, tanggal Sabtu 29 Agustus 2026)
+- Halaman Invoice: tab Editor/Riwayat(6)/Pelunasan(3), data perusahaan dari DB (admin, jakarta, halo@karyamandiri.co.id), auto-number INV/08/26/0001, pratinjau A5 live
+- Responsivitas: mobile 390px render sempurna dengan bottom-nav; desktop 1280px sidebar penuh
+- Error console: ZERO. Semua API 200 (settings, notifications, history, riwayat-cetakan, customers). Screenshot verifikasi diambil lalu dihapus agar proyek bersih
+
+Stage Summary:
+- Aplikasi Darrell Soft (kalkulator hitung cetakan + invoice + akuntansi UMKM) BERJALAN SEMPURNA di http://localhost:3000 dengan database produksi asli (db/custom.db, 56 user settings, riwayat invoice/pelunasan utuh)
+- Kredensial: superadmin/268899 (Super Administrator), admin/268899 (user biasa)
+- Fix permanen drift SQLite di tabel UserSetting (backup tersedia di db/custom.db.before-index-fix)
+- Server dijaga daemon.cjs (auto-restart); container restart akan auto-boot via /start.sh sandbox (db:push kini lolos)
+- Semua fitur terverifikasi end-to-end via agent-browser: render, login, data, API, responsivitas — zero error
