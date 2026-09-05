@@ -110,6 +110,34 @@ export async function DELETE(
 
     await db.documentHistory.delete({ where: { id } });
 
+    // Jika yang dihapus adalah invoice DP, hapus juga dokumen pelunasan (PEL)
+    // yang ter-link — agar laporan tidak menyisakan transaksi yatim.
+    if (existing.docType === 'invoice') {
+      try {
+        const pelNomor = existing.nomor?.replace(/^INV/, 'PEL');
+        const pelRows = await db.documentHistory.findMany({
+          where: { docType: 'invoice-pelunasan', userId: existing.userId ?? undefined },
+          select: { id: true, nomor: true, dataJson: true },
+        });
+        const pelIds = pelRows
+          .filter((r) => {
+            if (pelNomor && r.nomor === pelNomor) return true;
+            try {
+              const parsed = JSON.parse(r.dataJson || '{}');
+              return parsed?.referensiInvoiceId === existing.id;
+            } catch {
+              return false;
+            }
+          })
+          .map((r) => r.id);
+        if (pelIds.length > 0) {
+          await db.documentHistory.deleteMany({ where: { id: { in: pelIds } } });
+        }
+      } catch (cleanupErr) {
+        console.error('Error cleaning linked pelunasan docs:', cleanupErr);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting history entry:', error);

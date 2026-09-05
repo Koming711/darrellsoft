@@ -16,6 +16,7 @@ import {
   Loader2,
   AlertCircle,
   ChevronRight,
+  PieChart,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -107,6 +108,20 @@ export default function LaporanPage() {
 
   // ===== Report cards (links to detailed report pages) =====
   const reportLinks = [
+    {
+      href: '/laporan/penjualan',
+      titleKey: 'laporan_penjualan' as const,
+      descKey: 'subtitle_laporan' as const,
+      icon: TrendingUp,
+      color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
+    },
+    {
+      href: '/laporan/rugi-laba',
+      titleKey: 'laporan_rugi_laba' as const,
+      descKey: 'subtitle_laporan' as const,
+      icon: PieChart,
+      color: 'bg-teal-100 text-teal-600 dark:bg-teal-950 dark:text-teal-400',
+    },
     {
       href: '/rekap-penjualan',
       titleKey: 'laporan_rekap' as const,

@@ -22,9 +22,10 @@ interface ItemsFieldsProps {
   items: DocumentItem[];
   onChange: (items: DocumentItem[]) => void;
   showPrice?: boolean;
+  showModal?: boolean; // input harga modal per item (snapshot untuk laporan rugi laba)
 }
 
-export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsProps) {
+export function ItemsFields({ items, onChange, showPrice = true, showModal = false }: ItemsFieldsProps) {
   const addItem = () => {
     onChange([
       ...items,
@@ -34,6 +35,7 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
         qty: 1,
         satuan: 'pcs',
         harga: 0,
+        ...(showModal ? { modal: 0 } : {}),
       },
     ]);
   };
@@ -88,7 +90,7 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
                 rows={2}
               />
             </div>
-            <div className={`grid gap-2 ${showPrice ? 'grid-cols-3' : 'grid-cols-1'}`}>
+            <div className={`grid gap-2 ${showPrice ? (showModal ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3') : 'grid-cols-1'}`}>
               <div className="space-y-1">
                 <Label className="text-xs">Qty</Label>
                 <Input
@@ -112,6 +114,21 @@ export function ItemsFields({ items, onChange, showPrice = true }: ItemsFieldsPr
                     onChange={(e) => {
                       const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
                       updateItem(item.id, 'harga', raw === '' ? 0 : Number(raw) || 0)
+                    }}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+              {showPrice && showModal && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Harga Modal</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={item.modal ? item.modal.toLocaleString('id-ID') : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
+                      updateItem(item.id, 'modal', raw === '' ? 0 : Number(raw) || 0)
                     }}
                     className="text-sm"
                   />

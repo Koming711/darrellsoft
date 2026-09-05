@@ -50,6 +50,8 @@ const KATEGORI_OPTIONS = [
   'Gaji',
   'Sewa',
   'Transportasi',
+  'Packing',
+  'Ongkir',
   'ATK',
   'Maintenance',
   'Internet',

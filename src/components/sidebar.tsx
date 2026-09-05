@@ -36,6 +36,8 @@ import {
   FileBarChart,
   Package,
   BadgePercent,
+  TrendingUp,
+  PieChart,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -106,6 +108,20 @@ const menuItems = [
     titleKey: 'laporan' as TranslationKey,
     href: '/laporan',
     icon: FileBarChart,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'laporan_penjualan' as TranslationKey,
+    href: '/laporan/penjualan',
+    icon: TrendingUp,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'laporan_rugi_laba' as TranslationKey,
+    href: '/laporan/rugi-laba',
+    icon: PieChart,
     featureId: 'laporan',
     section: 'laporan',
   },
@@ -255,6 +271,12 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     if (href === '/potong-kertas') {
       return pathname === '/potong-kertas'
     }
+    if (href === '/pembukaan') {
+      return pathname === '/pembukaan'
+    }
+    if (href === '/laporan') {
+      return pathname === '/laporan'
+    }
     return pathname.startsWith(href)
   }
 
@@ -396,6 +418,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   const isActive = (href: string) => {
     if (href === '/potong-kertas') return pathname === '/potong-kertas'
     if (href === '/pembukaan') return pathname === '/pembukaan'
+    if (href === '/laporan') return pathname === '/laporan'
     return pathname.startsWith(href)
   }
 

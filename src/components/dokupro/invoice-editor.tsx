@@ -646,6 +646,7 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
           items={invoice.items}
           onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
           showPrice
+          showModal
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
