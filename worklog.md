@@ -7080,3 +7080,38 @@ Stage Summary:
 - Mode Regular memaksa DP=0 & sembunyikan input DP; mode DP menampilkan input DP; mode Pelunasan memakai editor pelunasan (PEL) yang sama dengan tab Editor Pelunasan.
 - Restore invoice ber-DP dari riwayat otomatis membuka sub-tab DP.
 - Files: src/app/invoice/page.tsx, src/components/dokupro/invoice-editor.tsx
+
+---
+Task ID: master-barang-restore
+Agent: Main (Z.ai Code)
+Task: "master barang hilang" — menu/halaman Master Barang tidak ada di aplikasi (restore tar tidak membawanya). Dibangun ulang lengkap: halaman + API + database + menu sidebar.
+
+Work Log:
+- Investigasi: grep seluruh src/ + git history → halaman/menu Master Barang TIDAK PERNAH ada di workspace ini (fitur itu ada di snapshot sandbox sebelumnya yang tidak ikut tersimpan di tar backup). Keputusan: bangun ulang sesuai struktur yang diharapkan user (dropdown pelanggan, kode barang inisial perusahaan unik antar perusahaan, checklist daftar barang pelanggan, untung & selisih %, edit klik baris).
+- DATABASE: tambah 2 model Prisma — Barang (kode, nama, modal, jual, keterangan, userId, @@unique([userId,kode])) + BarangCustomer (barangId, customerId, price unik per pasangan, cascade delete). Relation ke Customer (barangRegs). CATATAN PENTING: `npx prisma db push` ternyata memuat ROOT /home/z/my-project/schema.prisma (bukan prisma/schema.prisma) — root schema tanpa model baru menyebabkan "already in sync" palsu. Fix: cp prisma/schema.prisma → schema.prisma, db push sukses, tabel Barang & BarangCustomer dibuat. Kedua file schema kini identik & disinkronkan.
+- API baru (pola strict per-user isolation seperti /api/customers):
+  * GET/POST /api/barang — GET list + include registrations; POST auto-generate KODE dari inisial nama perusahaan pelanggan (skip suffix PT/CV/UD dll, extend huruf bila prefix bentrok → unik antar perusahaan), running number PREFIX-001, auto-register ke customer terpilih dengan price (default jual)
+  * PUT/DELETE /api/barang/[id] — update nama/modal/jual/keterangan (owner only, canAccessRecord) / delete permanen (cascade registrations)
+  * GET/PUT/DELETE /api/barang-customer — GET daftar barang terdaftar per customer + harga khusus; PUT upsert entries (checklist); DELETE unregister (customerId+barangId)
+- MENU: sidebar-desktop.tsx (desktop) + sidebar.tsx (mobile Lainnya) — entry "Master Barang" (icon Package, href /master-barang, featureId master-barang, section master_cetakan). i18n: master_barang + subtitle_master_barang (id/en). permission-defaults.ts: GROUP_FEATURE master-barang (lihat/tambah/edit/hapus) — superadmin/admin/manager dapat akses default.
+- HALAMAN /master-barang: dropdown pelanggan ("Semua Barang" + semua customer), search, kolom Kode/Nama Barang/Modal/Jual/Untung/Selisih(%)/Keterangan/Aksi, Tambah button HANYA saat pelanggan dipilih (dialog 2 mode: checklist barang existing → register, atau barang baru → auto-register), klik baris/kartu = edit (nama, modal, harga jual per-pelanggan dengan preview untung live, keterangan, + tombol Hapus Barang permanen), Hapus per baris = unregister dari pelanggan, mode "Semua Barang" read-only (tanpa Tambah/Aksi/klik-edit), responsive (tabel desktop, kartu mobile), scrollbar area max-h-[65vh].
+- MASALAH RUNTIME: error "db.barang undefined (findMany)" → root cause proses next dev LAMA (PID 1186 dari 00:29) masih memegang port 3000 sehingga daemon restart spawn proses baru yang gagal bind. Fix: kill proses lama + daemon stop/start bersih → server baru (PID 7109) memuat Prisma client baru. (Sesi login juga ikut putus tiap restart → re-login superadmin.)
+- Verifikasi agent-browser (superadmin, desktop 1280 + mobile 390):
+  * Menu sidebar "Master Barang" tampil (desktop + mobile) ✓
+  * Pilih "Siti Rohana (CV. Berkah jaya)" → Tambah muncul, info "0 barang" ✓
+  * Buat "Brosur A4 Art Paper" modal 50rb jual 100rb → KODE OTOMATIS "BJ-001" (inisial Berkah jaya, suffix CV di-skip), auto-terdaftar, Untung Rp50.000 +100% ✓
+  * Pilih "Budi Susanto (PT. Maju berkah)" → buat "Kartu Nama" → kode "MB-001" (prefix BEDA = unik antar perusahaan), Untung Rp20.000 +133,3% ✓
+  * Klik baris → Edit Barang: ubah jual 35rb→40rb + keterangan, preview untung live "Rp25.000 (+166,7%)", tersimpan ✓
+  * Hapus dari daftar (confirm dialog) → barang hilang dari daftar pelanggan ✓
+  * Checklist "Pilih Barang (2)" → centang Kartu Nama → "Daftarkan (1)" → kembali masuk daftar dengan harga jual dasar ✓
+  * Mode "Semua Barang": 2 barang tampil, klik baris TIDAK membuka dialog, tanpa kolom Aksi, tanpa Tambah ✓
+  * Mobile 390px: kartu render, tanpa horizontal overflow ✓
+  * DB persistensi terkonfirmasi via Prisma script; data test (BJ-001, MB-001 + registrations) DIHAPUS setelah verifikasi (0 registration tersisa) ✓
+  * Zero console/page errors; lint 8 file → 0 error ✓
+
+Stage Summary:
+- Master Barang kembali ada: menu sidebar + halaman /master-barang lengkap CRUD + registrasi barang-per-pelanggan (checklist) dengan harga khusus, kode barang otomatis inisial perusahaan (unik antar perusahaan), untung & selisih %, mode Semua Barang read-only.
+- DB: tabel Barang + BarangCustomer baru (sqlite custom.db). Schema root schema.prisma = prisma/schema.prisma (harus dijaga sinkron — prisma CLI memakai yang di root).
+- API: /api/barang, /api/barang/[id], /api/barang-customer (strict per-user isolation).
+- Data test sudah dibersihkan; database kembali bersih tanpa barang.
+- File: prisma/schema.prisma + schema.prisma (sinkron), src/app/api/barang/route.ts, src/app/api/barang/[id]/route.ts, src/app/api/barang-customer/route.ts, src/app/master-barang/page.tsx, src/components/sidebar.tsx, src/components/sidebar-desktop.tsx, src/lib/i18n.ts, src/lib/permission-defaults.ts

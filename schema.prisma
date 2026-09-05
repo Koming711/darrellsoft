@@ -60,6 +60,41 @@ model Customer {
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  barangRegs BarangCustomer[]
+}
+
+model Barang {
+  id         String   @id @default(cuid())
+  kode       String
+  nama       String
+  modal      Float    @default(0)
+  jual       Float    @default(0)
+  keterangan String   @default("")
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  registrations BarangCustomer[]
+
+  @@unique([userId, kode])
+  @@index([userId])
+}
+
+model BarangCustomer {
+  id         String   @id @default(cuid())
+  barangId   String
+  customerId String
+  price      Float
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  barang   Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([barangId, customerId])
+  @@index([userId])
 }
 
 model Paper {
@@ -163,7 +198,7 @@ model UserSetting {
 
 model RiwayatCetakan {
   id                 String   @id @default(cuid())
-  nomorUrut          String   @default("")  @unique
+  nomorUrut          String   @unique @default("")
   type               String   @default("hitung_cetakan")
   printName          String
   customerName       String   @default("")
@@ -214,19 +249,19 @@ model RiwayatCetakan {
 }
 
 model RiwayatFinishing {
-  id              String   @id @default(cuid())
-  namaCustomer    String   @default("")
-  namaCetakan     String
-  jumlahLembar    String
-  lebarCm         String
-  tinggiCm        String
-  finishingNames  String
-  finishingIds    String
-  totalCost       Float
-  hargaPerLembar  Float    @default(0)
-  userId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  namaCustomer   String   @default("")
+  namaCetakan    String
+  jumlahLembar   String
+  lebarCm        String
+  tinggiCm       String
+  finishingNames String
+  finishingIds   String
+  totalCost      Float
+  hargaPerLembar Float    @default(0)
+  userId         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model RiwayatOngkosCetak {
@@ -253,50 +288,50 @@ model RiwayatOngkosCetak {
 }
 
 model RiwayatHargaKertas {
-  id              String   @id @default(cuid())
-  namaCustomer    String   @default("")
-  namaCetakan     String
-  paperName       String
-  paperId         String   @default("")
-  grammage        String   @default("0")
-  paperWidth      String   @default("0")
-  paperHeight     String   @default("0")
-  pricePerRim     String   @default("0")
-  quantity        String   @default("0")
-  lebarPotong     String   @default("0")
-  tinggiPotong    String   @default("0")
-  totalPrice      Float
-  costPerPiece    Float    @default(0)
-  userId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(cuid())
+  namaCustomer String   @default("")
+  namaCetakan  String
+  paperName    String
+  paperId      String   @default("")
+  grammage     String   @default("0")
+  paperWidth   String   @default("0")
+  paperHeight  String   @default("0")
+  pricePerRim  String   @default("0")
+  quantity     String   @default("0")
+  lebarPotong  String   @default("0")
+  tinggiPotong String   @default("0")
+  totalPrice   Float
+  costPerPiece Float    @default(0)
+  userId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model RiwayatPotongKertas {
-  id              String   @id @default(cuid())
-  nomorUrut       String   @default("")  @unique
-  namaCustomer    String   @default("")
-  namaCetakan     String
-  paperName       String
-  paperId         String   @default("")
-  grammage        String   @default("0")
-  paperWidth      String   @default("0")
-  paperHeight     String   @default("0")
-  cutWidth        String   @default("0")
-  cutHeight       String   @default("0")
-  quantity        String   @default("0")
-  setelanKertas   String   @default("0")
-  sheetsNeeded    String   @default("0")
-  totalPrice      Float    @default(0)
-  pricePerSheet   Float    @default(0)
-  efficiency      Float    @default(0)
-  strategy        String   @default("")
-  jumlahPesanan   String   @default("")
-  berapaMata      String   @default("")
-  resultData      String   @default("")
-  userId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  nomorUrut     String   @unique @default("")
+  namaCustomer  String   @default("")
+  namaCetakan   String
+  paperName     String
+  paperId       String   @default("")
+  grammage      String   @default("0")
+  paperWidth    String   @default("0")
+  paperHeight   String   @default("0")
+  cutWidth      String   @default("0")
+  cutHeight     String   @default("0")
+  quantity      String   @default("0")
+  setelanKertas String   @default("0")
+  sheetsNeeded  String   @default("0")
+  totalPrice    Float    @default(0)
+  pricePerSheet Float    @default(0)
+  efficiency    Float    @default(0)
+  strategy      String   @default("")
+  jumlahPesanan String   @default("")
+  berapaMata    String   @default("")
+  resultData    String   @default("")
+  userId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Invoice {
@@ -380,14 +415,14 @@ model PurchaseOrder {
 }
 
 model TokoPemasok {
-  id           String   @id @default(cuid())
-  namaToko     String
-  jenisBarang  String   @default("")
-  kontak       String   @default("")
-  alamat       String   @default("")
-  userId       String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  namaToko    String
+  jenisBarang String   @default("")
+  kontak      String   @default("")
+  alamat      String   @default("")
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model DocumentHistory {
@@ -407,7 +442,7 @@ model DocumentHistory {
 /// combination has its own monotonically-increasing counter.
 model DocumentCounter {
   id        String   @id @default(cuid())
-  key       String   @unique
+  key       String   @unique // e.g. "documentHistory|INV|2607|userId"
   lastNum   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -425,14 +460,14 @@ model PasswordResetToken {
 }
 
 model Biaya {
-  id              String   @id @default(cuid())
-  tanggal         String   // ISO date string (YYYY-MM-DD) for portability across SQLite/Postgres
-  kategori        String   // e.g. Listrik, Air, Tinta, Kertas, Gaji, Sewa, Transportasi, ATK, Maintenance, Lainnya
-  keterangan      String   @default("")
-  jumlah          Float    // amount in Rupiah
-  metodePembayaran String  @default("Tunai") // Tunai, Transfer, Kartu, QRIS, Lainnya
-  supplier        String   @default("")
-  userId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(cuid())
+  tanggal          String // ISO date string (YYYY-MM-DD) for portability across SQLite/Postgres
+  kategori         String // e.g. Listrik, Air, Tinta, Kertas, Gaji, Sewa, Transportasi, ATK, Maintenance, Lainnya
+  keterangan       String   @default("")
+  jumlah           Float // amount in Rupiah
+  metodePembayaran String   @default("Tunai") // Tunai, Transfer, Kartu, QRIS, Lainnya
+  supplier         String   @default("")
+  userId           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
