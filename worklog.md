@@ -7147,3 +7147,32 @@ Stage Summary:
 - Data model: Customer & Barang kini punya field versi lama (code/notes/isActive; satuan/isActive) — data lama aman (default backfilled).
 - API versi lama dihidupkan kembali di atas model sekarang dengan isolasi per-user ketat; konsumen lama /api/customers (invoice editor, hitung-*, potong-kertas) tetap kompatibel (array).
 - File baru: src/lib/client.ts, src/components/views/{items,customers,pricing}-view.tsx, src/app/api/items/*, src/app/api/prices/*, src/app/harga-khusus/*.
+
+---
+Task ID: master-barang-versi-perubahan
+Agent: Main (Z.ai Code)
+Task: "halaman master barang versi pertama. ada perubahan setelah ini. check and fix" — Master Barang yang sekarang adalah versi pertama (ItemsView dari extracted-tar), padahal setelah versi pertama ada perubahan (fitur per-pelanggan). Kembalikan versi dengan perubahan tersebut.
+
+Work Log:
+- INVESTIGASI menyeluruh: (1) git history → commit 081dd1c berisi versi rebuild /master-barang 686 baris (versi DENGAN perubahan pasca-versi-pertama); commit 3e84dcb = versi pertama ItemsView yang salah dipulihkan pada task sebelumnya; (2) upload/extracted-tar worklog hanya sampai Task 7 (versi pertama InvoiceKu); (3) upload/workspace-a7e5e2ef.tar = aplikasi lain (spk/mesin/operator), tidak relevan; (4) produksi www.darrellsoft.com/master-barang = 404 (deploy sebelum fitur ini). Kesimpulan: satu-satunya rekam kode "perubahan setelah versi pertama" adalah commit 081dd1c — dipulihkan darinya.
+- RESTORE dari git 081dd1c: src/app/master-barang/page.tsx (686 baris), src/app/api/barang/route.ts (162, deriveCompanyPrefix + GET/POST), src/app/api/barang/[id]/route.ts (74, PUT/DELETE), src/app/api/barang-customer/route.ts (140, GET/PUT/DELETE checklist). Direstorik via `git show 081dd1c:...` sehingga 100% identik.
+- KOMPATIBILITAS diverifikasi: model Barang (kode/nama/satuan/modal/jual/keterangan/isActive/userId + registrations) & BarangCustomer (barangId/customerId/price, @@unique barangId_customerId) masih utuh di schema; export server-auth (getServerUser/getDataFilter/requireAuth/canAccessRecord), api-error.sanitizeError, formatRupiah, useDataChange, hasSubPermission, permission-defaults GROUP master-barang, i18n master_barang + subtitle, sidebar desktop+mobile — semua ada.
+- VERIFIKASI agent-browser (superadmin, desktop 1280):
+  * Halaman: heading "Master Barang", section "DAFTAR BARANG", dropdown "Pilih pelanggan" berisi "Semua Barang" + 5 pelanggan (nama — perusahaan), search, kolom #/Kode/Nama Barang/Modal/Jual/Untung/Selisih/Keterangan ✓
+  * Mode "Semua Barang": read-only — tanpa tombol Tambah, tanpa kolom Aksi, empty state "Belum ada barang. Pilih pelanggan lalu klik Tambah." ✓
+  * Pilih "Siti Rohana (CV. Berkah jaya)" → info "Menampilkan daftar barang pelanggan… 0 barang" + tombol Tambah muncul ✓
+  * Tambah → dialog 2 mode "Pilih Barang (0)" / "Barang Baru"; buat "Brosur A4 Art Paper" modal 50rb jual 100rb → KODE OTOMATIS "BJ-001" (inisial Berkah jaya, suffix CV di-skip), Untung Rp50.000 +100%, auto-terdaftar ✓
+  * Pilih "Budi Susanto (PT. Maju berkah)" → checklist "Pilih Barang (1)" menampilkan BJ-001 → centang → "Daftarkan (1)" → masuk daftar dengan harga jual dasar ✓
+  * Buat baru "Kartu Nama" utk Budi → kode "MB-001" (prefix BEDA = unik antar perusahaan), Untung Rp10.000 +33,3% ✓
+  * Klik baris → Edit Barang "MB-001 — untuk Budi Susanto": ubah harga jual 40rb→45rb → preview untung live "Untung: Rp15.000 (+50%)" → Simpan → baris terupdate ✓
+  * Trash2 per baris → confirm → "Brosur A4 Art Paper" dihapus dari daftar Budi ✓
+  * Mobile 390px: tanpa horizontal overflow, kartu mobile render, tabel desktop hidden ✓
+  * Halaman tetangga aman: /harga-khusus "Harga Khusus" ✓, /master-customer 5 baris ✓, /invoice tab "Buat Invoice" ✓
+- Console browser: hanya log Fast Refresh, 0 error. dev.log: semua API 200, tanpa error.
+- CLEANUP: hapus test data BJ-001 + MB-001 beserta registrasinya → barang=0, barangCustomer=0 bersih.
+- Lint: `bunx eslint` pada 4 file direstorik → 0 error.
+
+Stage Summary:
+- Master Barang kembali ke VERSI DENGAN PERUBAHAN (bukan versi pertama): dropdown pelanggan (mode "Semua Barang" read-only + mode per-pelanggan), checklist = daftar barang pelanggan, Tambah 2 mode (checklist barang existing / barang baru), kode barang otomatis inisial perusahaan unik antar perusahaan, kolom Modal/Jual/Untung/Selisih %, klik baris edit dengan harga jual per-pelanggan + preview untung live, unregister per baris, Hapus Barang permanen di dialog edit.
+- API /api/barang, /api/barang/[id], /api/barang-customer dihidupkan kembali di atas model Barang+BarangCustomer yang sama (dipakai juga /harga-khusus), isolasi per-user ketat.
+- Versi pertama (items-view) tidak lagi dipakai /master-barang; file komponen tetap ada, /master-customer & /harga-khusus tidak diubah.
