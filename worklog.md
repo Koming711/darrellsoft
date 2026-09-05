@@ -7414,3 +7414,34 @@ Stage Summary:
 - Tombol Hapus kini SELALU tampil di tabel & kartu Master Pelanggan untuk semua pelanggan (sebelumnya disembunyikan bagi pelanggan yang punya invoice, diganti toggle Nonaktifkan).
 - Hapus tetap disertai dialog konfirmasi; teks dialog kini menjelaskan dampak ke invoice & daftar harga khusus dengan akurat.
 - Hanya customers-view.tsx yang berubah; API/schema tidak diubah. Semua data pelanggan & barang user aman.
+
+---
+Task ID: master-barang-tombol-hapus-selalu-tampil
+Agent: Main (Z.ai Code)
+Task: "tambahkan tombol hapus di tabel master barang"
+
+Work Log:
+- Investigasi: setelah task sebelumnya (master-pelanggan-tombol-hapus-selalu-tampil), tombol Hapus Master Pelanggan kini selalu tampil. Di Master Barang, tombol Hapus masih terikat flag `showCrud = canManage && customerId !== 'all'` → di mode "Semua Barang" TIDAK ada tombol Hapus sama sekali (kolom Aksi hilang total).
+- Schema check (prisma/schema.prisma): `Barang` hanya punya satu relasi — `registrations BarangCustomer[]` (onDelete: Cascade). `Invoice.items` adalah String snapshot (TANPA FK ke Barang) → delete barang SELALU berhasil di level DB, invoice lama tetap tersimpan.
+- src/components/views/items-view.tsx:
+  * Flag baru: `showHapus = canManage` — tombol Hapus SELALU tampil di tabel untuk non-KASIR, TERMASUK mode "Semua Barang" (selaras Master Pelanggan).
+  * Tambah & Edit TETAP terikat pelanggan (`showCrud` tidak berubah) — sesuai permintaan eksplisit task sebelumnya ("pilih semua barang → tambah/edit dihilangkan").
+  * Tabel desktop: kondisi kolom Aksi dari `{showCrud && ...}` → `{(showCrud || showHapus) && ...}`; di dalam sel, tombol Edit dibungkus `{showCrud && ...}`, tombol Hapus `{showHapus && ...}` → mode "Semua Barang" kini menampilkan kolom Aksi berisi HAPUS SAJA.
+  * Kartu mobile: blok tombol sama (`showCrud || showHapus`); Edit kondisional showCrud, Hapus selalu.
+  * KASIR: tetap tidak melihat apa pun (showHapus = canManage = false untuk KASIR) — konsisten pola lama.
+  * AlertDialog hapus: teks diperbaiki & akurat — "X akan dihapus permanen dari daftar beserta daftar harga khususnya. Invoice lama tetap tersimpan. Jika tidak ingin dihapus, gunakan opsi Nonaktifkan sebagai gantinya." (teks lama SALAH menyebut penghapusan "ditolak sistem" bila barang pernah dipakai di invoice — faktanya Invoice.items snapshot string tanpa FK, DELETE selalu sukses).
+- API tidak diubah: DELETE /api/items/[id] sudah benar (auth + ownership check; barangCustomer ikut ter-cascade).
+- Lint `bunx eslint src/components/views/items-view.tsx` → 0 error.
+- VERIFIKASI agent-browser (superadmin/268899):
+  * Mode "Semua Barang": buat item uji "TEST Hapus Semua" via pelanggan Budi Susanto dulu → pilih "Semua Barang" → Tambah HILANG, Edit HILANG, tapi tombol HAPUS tampil di baris (aria-label "Hapus TEST Hapus Semua") + kolom Aksi tetap ada (8 kolom) ✓ — PERILAKU BARU
+  * Klik Hapus di mode "Semua Barang" → AlertDialog "Hapus barang?" dengan teks baru yang akurat → konfirmasi → baris hilang, count "0 barang" ✓ (sekaligus cleanup item uji)
+  * Mode pelanggan (Budi Susanto): Edit + Hapus keduanya tampil (regresi ✓, diverifikasi saat item masih ada)
+  * Mobile 390px: kartu "TEST Mobile Hapus" (dibuat via API) menampilkan tombol Hapus tanpa Edit/Tambah; tanpa horizontal scroll (390/390) ✓; item uji dihapus via API setelahnya
+  * Console 0 error; page errors kosong; dev.log bersih.
+- DB final (Prisma): barang = 1 "paperbowl 800ml" (user-admin, DATA ASLI USER, UTUH), barangCustomer = 0, customer = 134 (0 ber-awalan TEST). Catatan: total customer 134 vs 135 di akhir task sebelumnya — selisih di user-admin (4, sebelumnya 5); sesi ini TIDAK memanggil DELETE customer sama sekali (hanya 2 item uji yang dibuat & dihapus sendiri); kemungkinan user menghapus 1 pelanggan sendiri lewat tombol Hapus Master Pelanggan yang baru ditambahkan.
+
+Stage Summary:
+- Tombol Hapus kini SELALU tampil di tabel & kartu Master Barang (termasuk mode "Semua Barang"), selaras Master Pelanggan.
+- Tambah & Edit tetap hanya muncul saat pelanggan spesifik dipilih (perilaku yang diminta sebelumnya dipertahankan); KASIR tetap tidak melihat tombol apa pun.
+- Teks dialog konfirmasi hapus dikoreksi agar akurat (invoice lama tetap tersimpan, penghapusan tidak pernah ditolak sistem).
+- Tidak ada perubahan API/schema. Data asli user aman.

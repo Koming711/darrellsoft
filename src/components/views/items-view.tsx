@@ -231,8 +231,10 @@ export default function ItemsView({ user }: { user: SessionUser }) {
 
   const hasResults = items.length > 0
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
-  // CRUD (Tambah/Edit/Hapus) hanya tampil saat pelanggan spesifik dipilih — bukan "Semua Barang"
+  // Tambah/Edit hanya tampil saat pelanggan spesifik dipilih — bukan "Semua Barang"
   const showCrud = canManage && customerId !== 'all'
+  // Hapus SELALU tampil di tabel (selaras Master Pelanggan), termasuk mode "Semua Barang"
+  const showHapus = canManage
   const countLabel = loading
     ? 'Memuat data…'
     : selectedCustomerName
@@ -353,7 +355,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Keterangan</TableHead>
                   <TableHead>Status</TableHead>
-                  {showCrud && <TableHead className="text-right">Aksi</TableHead>}
+                  {(showCrud || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -377,29 +379,33 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                       </span>
                     </TableCell>
                     <TableCell><ActiveBadge active={it.isActive} /></TableCell>
-                    {showCrud && (
+                    {(showCrud || showHapus) && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => openEdit(it)}
-                            aria-label={`Edit ${it.name}`}
-                            title="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteTarget(it)}
-                            aria-label={`Hapus ${it.name}`}
-                            title="Hapus"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {showCrud && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={() => openEdit(it)}
+                              aria-label={`Edit ${it.name}`}
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {showHapus && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget(it)}
+                              aria-label={`Hapus ${it.name}`}
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     )}
@@ -442,24 +448,28 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                     Keterangan: <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
-                {showCrud && (
+                {(showCrud || showHapus) && (
                   <div className="flex gap-2 pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 min-h-[44px]"
-                      onClick={() => openEdit(it)}
-                    >
-                      <Pencil className="h-4 w-4" /> Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setDeleteTarget(it)}
-                    >
-                      <Trash2 className="h-4 w-4" /> Hapus
-                    </Button>
+                    {showCrud && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 min-h-[44px]"
+                        onClick={() => openEdit(it)}
+                      >
+                        <Pencil className="h-4 w-4" /> Edit
+                      </Button>
+                    )}
+                    {showHapus && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteTarget(it)}
+                      >
+                        <Trash2 className="h-4 w-4" /> Hapus
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -588,8 +598,8 @@ export default function ItemsView({ user }: { user: SessionUser }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus barang?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget?.name} akan dihapus permanen. Jika barang pernah dipakai di invoice,
-              penghapusan akan ditolak sistem — gunakan opsi Nonaktifkan sebagai gantinya.
+              {deleteTarget?.name} akan dihapus permanen dari daftar beserta daftar harga khususnya.
+              Invoice lama tetap tersimpan. Jika tidak ingin dihapus, gunakan opsi Nonaktifkan sebagai gantinya.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
