@@ -7388,3 +7388,29 @@ Work Log:
 Stage Summary:
 - Perilaku yang diminta SUDAH AKTIF sejak task sebelumnya dan terverifikasi ulang dengan sesi browser baru: "Semua Barang" = tanpa Tambah/Edit/Hapus (kolom Aksi ikut hilang); pilih nama pelanggan = tombol semua muncul.
 - Kemungkinan user melihat versi lama karena cache browser — solusi: refresh halaman (hard refresh). Tidak ada perubahan kode pada task ini (verifikasi murni); tidak ada perubahan API/schema; data asli user aman.
+
+---
+Task ID: master-pelanggan-tombol-hapus-selalu-tampil
+Agent: Main (Z.ai Code)
+Task: "tambahkan tombol hapus di tabel master pelanggan"
+
+Work Log:
+- Investigasi: customers-view.tsx SEBELUMNYA sudah punya tombol Hapus, tapi HANYA untuk pelanggan dengan invoiceCount === 0; pelanggan dengan riwayat invoice hanya dapat tombol Nonaktifkan/Aktifkan (toggle). invoiceCount dihitung API dari DocumentHistory (docType invoice, client.nama == customer.name) — akun user asli kemungkinan besar punya invoice > 0, sehingga tombol Hapus "tidak ada" di mata user.
+- Schema check: hanya BarangCustomer yang mereferensi Customer (onDelete: Cascade); Invoice menyimpan customerName sebagai string (tanpa FK) → delete customer selalu aman di level DB (registrasi harga khusus ikut ter-cascade).
+- src/components/views/customers-view.tsx:
+  * Tabel desktop: tombol Hapus (ikon trash, merah) kini SELALU dirender di kolom Aksi; toggle Nonaktifkan/Aktifkan tetap tampil untuk pelanggan ber-invoice (kolom Aksi: [Edit][Toggle?][Hapus]).
+  * Kartu mobile: tombol Hapus juga selalu tampil di samping Edit (+ toggle bila ber-invoice).
+  * AlertDialog hapus: teks diperbarui & akurat — bila pelanggan punya invoice: "X punya N invoice. Invoice lama tetap tersimpan, tetapi pelanggan ini akan dihapus permanen dari daftar beserta daftar harga khususnya."; bila tidak: pesan hapus biasa. (Teks lama salah menyebut penghapusan "ditolak sistem" — faktanya API DELETE selalu berhasil.)
+  * API /api/customers/[id] DELETE tidak diubah (sudah benar: cek auth + ownership, cascade barang regs otomatis, set flag master_cleared bila master kosong).
+- Lint `bunx eslint` → 0 error.
+- VERIFIKASI agent-browser (superadmin):
+  * /master-customer: semua 5 baris pelanggan kini menampilkan [Edit][Hapus] ✓
+  * Buat pelanggan uji "TEST Pelanggan Hapus" (081234567890, Jl. Testing No. 1) → muncul di tabel dengan tombol Hapus; klik Hapus → AlertDialog "Hapus pelanggan?" dengan deskripsi benar → konfirmasi → baris hilang, count kembali "5 pelanggan" ✓
+  * Mobile 390px: kartu pelanggan punya tombol Edit + Hapus, tanpa horizontal scroll ✓
+  * Desktop 1280px screenshot ✓; console 0 error; dev.log bersih.
+- Cleanup: pelanggan uji dihapus VIA UI (sekaligus jadi pengujian end-to-end). DB final: 135 customer (0 tersisa ber-awalan TEST — 5 milik superadmin + 130 milik user, SEMUA UTUH), barang hanya "paperbowl 800ml" (user-admin, DATA ASLI).
+
+Stage Summary:
+- Tombol Hapus kini SELALU tampil di tabel & kartu Master Pelanggan untuk semua pelanggan (sebelumnya disembunyikan bagi pelanggan yang punya invoice, diganti toggle Nonaktifkan).
+- Hapus tetap disertai dialog konfirmasi; teks dialog kini menjelaskan dampak ke invoice & daftar harga khusus dengan akurat.
+- Hanya customers-view.tsx yang berubah; API/schema tidak diubah. Semua data pelanggan & barang user aman.

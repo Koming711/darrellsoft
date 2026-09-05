@@ -267,7 +267,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {(c.invoiceCount ?? 0) > 0 ? (
+                        {(c.invoiceCount ?? 0) > 0 && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -279,19 +279,18 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                           >
                             {c.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                           </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-destructive hover:text-destructive"
-                            disabled={!canManage}
-                            onClick={() => setDeleteTarget(c)}
-                            aria-label={`Hapus ${c.name}`}
-                            title="Hapus"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-destructive hover:text-destructive"
+                          disabled={!canManage}
+                          onClick={() => setDeleteTarget(c)}
+                          aria-label={`Hapus ${c.name}`}
+                          title="Hapus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -339,7 +338,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                   >
                     <Pencil className="h-4 w-4" /> Edit
                   </Button>
-                  {(c.invoiceCount ?? 0) > 0 ? (
+                  {(c.invoiceCount ?? 0) > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -350,17 +349,16 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                       {c.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                       {c.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                     </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
-                      disabled={!canManage}
-                      onClick={() => setDeleteTarget(c)}
-                    >
-                      <Trash2 className="h-4 w-4" /> Hapus
-                    </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
+                    disabled={!canManage}
+                    onClick={() => setDeleteTarget(c)}
+                  >
+                    <Trash2 className="h-4 w-4" /> Hapus
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -471,8 +469,9 @@ export default function CustomersView({ user }: { user: SessionUser }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus pelanggan?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget?.name} akan dihapus permanen. Jika pelanggan sudah memiliki invoice,
-              penghapusan akan ditolak sistem — gunakan opsi Nonaktifkan sebagai gantinya.
+              {deleteTarget && (deleteTarget.invoiceCount ?? 0) > 0
+                ? `${deleteTarget.name} punya ${deleteTarget.invoiceCount} invoice. Invoice lama tetap tersimpan, tetapi pelanggan ini akan dihapus permanen dari daftar beserta daftar harga khususnya.`
+                : `${deleteTarget?.name} akan dihapus permanen dari daftar pelanggan beserta daftar harga khususnya.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
