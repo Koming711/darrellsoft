@@ -4,10 +4,11 @@ import { getServerUser, requireAuth } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 
 /**
- * GET /api/items?q=&active= — list barang (versi lama "Master Barang").
+ * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
  * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, isActive, createdAt }.
  * hpp disembunyikan (null) untuk role kasir (user/demo).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
+ * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -18,12 +19,24 @@ export async function GET(request: NextRequest) {
     const sp = new URL(request.url).searchParams
     const q = (sp.get('q') ?? '').trim()
     const activeParam = sp.get('active')
+    const customerId = (sp.get('customerId') ?? '').trim()
 
     const where: Record<string, unknown> = { userId: user.id }
     if (q) {
       where.OR = [{ nama: { contains: q } }, { kode: { contains: q } }]
     }
     if (activeParam !== '0' && activeParam !== 'all') where.isActive = true
+    if (customerId && customerId !== 'all') {
+      const customer = await db.customer.findUnique({ where: { id: customerId } })
+      if (!customer || customer.userId !== user.id) {
+        return NextResponse.json({ error: 'Pelanggan tidak ditemukan' }, { status: 404 })
+      }
+      const regs = await db.barangCustomer.findMany({
+        where: { userId: user.id, customerId },
+        select: { barangId: true },
+      })
+      where.id = { in: regs.map((r) => r.barangId) }
+    }
 
     const rows = await db.barang.findMany({ where, orderBy: { nama: 'asc' } })
     const isKasir = user.role === 'user' || user.role === 'demo'
@@ -52,7 +65,9 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/items — tambah barang. Kode otomatis ITM-xxx (unik per user).
- * Body: { name, unit, standardPrice, hpp }
+ * Body: { name, unit, standardPrice, hpp, customerId? }
+ * customerId → barang otomatis terdaftar (BarangCustomer) untuk customer tsb,
+ * harga khusus awal = standardPrice (harga jual).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -79,10 +94,27 @@ export async function POST(request: NextRequest) {
     }
     const unit = typeof body.unit === 'string' && body.unit.trim() ? body.unit.trim() : 'pcs'
 
+    // Pilih customer (opsional) — barang akan didaftarkan untuk customer tsb
+    const customerId = typeof body.customerId === 'string' ? body.customerId.trim() : ''
+    if (customerId) {
+      const customer = await db.customer.findUnique({ where: { id: customerId } })
+      if (!customer || customer.userId !== user.id) {
+        return NextResponse.json({ error: 'Pelanggan tidak ditemukan' }, { status: 404 })
+      }
+    }
+
     const code = await nextCode(user.id)
     const item = await db.barang.create({
       data: { userId: user.id, kode: code, nama: name, satuan: unit, jual: standardPrice, modal: hpp },
     })
+
+    if (customerId) {
+      await db.barangCustomer.upsert({
+        where: { barangId_customerId: { barangId: item.id, customerId } },
+        update: {},
+        create: { barangId: item.id, customerId, price: standardPrice, userId: user.id },
+      })
+    }
 
     const isKasir = user.role === 'user' || user.role === 'demo'
     return NextResponse.json({

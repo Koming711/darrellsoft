@@ -7201,3 +7201,32 @@ Stage Summary:
 - Master Barang PASTI sudah kembali ke VERSI PERTAMA (ItemsView): kode otomatis ITM-xxx, satuan, harga standar, HPP + margin live, status aktif/nonaktif. Tidak ada lagi versi dropdown pelanggan di halaman ini.
 - Perubahan tambahan yang dimaksud user BELUM diterapkan — menunggu deskripsi perubahan dari user (pesan "ada perubahan setelah ini" = permintaan perubahan menyusul).
 - API /api/barang* dihapus lagi (unused); /api/items* + /api/prices tetap melayani versi pertama & /harga-khusus.
+
+---
+Task ID: master-barang-pilih-customer-harga-jual-profit
+Agent: Main (Z.ai Code)
+Task: "di master barang, tambahkan pilih customer : kotak dropdown nama customer. di popup tambah barang, harga standard diganti jadi Harga Jual. tambahkan provit di tambah barang. check and fix" — perubahan di atas versi pertama (ItemsView).
+
+Work Log:
+- API /api/items (src/app/api/items/route.ts):
+  * GET: param baru `customerId=` → validasi customer milik user, lalu hanya balikan barang TERDAFTAR (BarangCustomer) untuk customer tsb (where.id in registeredIds). Tanpa param = perilaku lama.
+  * POST: body `customerId?` opsional → validasi kepemilikan, setelah create barang → upsert BarangCustomer (barangId, customerId, price=standardPrice, userId). Kode tetap ITM-xxx otomatis.
+- View src/components/views/items-view.tsx (versi pertama, perubahan minimal):
+  * DROPDOWN "Pilih Customer" (shadcn Select) di header, sebelum kotak search: opsi "Semua Barang" (default) + semua customer (nama — perusahaan) dari /api/customers. Pilih customer → daftar terfilter hanya barang terdaftar utk customer tsb; countLabel jadi "N barang untuk {nama}".
+  * POPUP Tambah/Edit Barang: label "Harga Standar (Rp)" → "Harga Jual (Rp)" (sesuai permintaan; kolom tabel tidak diubah karena permintaan spesifik menyebut popup). Pesan validasi ikut "Harga jual wajib diisi (min 0)".
+  * PROFIT di popup: baris info live (emerald/red) "Profit: Rp 40.000 (Margin: 40%)" — profit = harga jual − HPP, margin = profit/harga jual × 100; muncul saat kedua harga terisi (logika lama dipertahankan, tinggal ditambah nominal Rp).
+  * Saat customer dipilih: DialogDescription "Kode barang dibuat otomatis. Barang akan didaftarkan untuk {nama}."; toast sukses "Barang berhasil ditambahkan untuk {nama}."; empty state "Belum ada barang untuk {nama}" + hint kembali ke "Semua Barang".
+- VERIFIKASI agent-browser (superadmin, desktop 1280 + mobile 390):
+  * Dropdown tampil dengan opsi "Semua Barang" + 5 customer (Budi Susanto — PT. Maju berkah, Jaya Wijaya — UD. Sumber Berkat, Lunggan — skewer, Siti Rohana — CV. Berkah jaya, jaya — mobiletech) ✓
+  * Pilih Siti Rohana → "Belum ada barang untuk Siti Rohana" (belum ada registrasi) ✓
+  * Tambah (customer terpilih) → dialog desc menyebut pendaftaran; label "Harga Jual (Rp)" ✓; isi harga 100000/HPP 60000 → "Profit: Rp 40.000 (Margin: 40%)" ✓; Simpan → toast "…untuk Siti Rohana", daftar customer menampilkan ITM-001 ✓ (auto-registered)
+  * countLabel "1 barang untuk Siti Rohana" ✓; kembali ke "Semua Barang" → barang tetap tampil ✓
+  * Edit Barang: label "Harga Jual (Rp)" + Profit ikut tampil ✓
+  * Mobile 390px: dropdown terlihat, tanpa horizontal overflow ✓
+  * Console 0 error; dev.log bersih; Lint 0 error.
+- DB: test item ITM-001 "Spanduk 3x1" + registrasinya DIHAPUS. Barang "paperbowl 800ml" (ITM-001, dibuat user sendiri jam 07:06, jual 1700/modal 1400) DIPERTAHANKAN sebagai data asli. Akhir: barang=1, barangCustomer=0.
+
+Stage Summary:
+- Tiga permintaan selesai di atas versi pertama: (1) dropdown "Pilih Customer" yang memfilter daftar per barang-terdaftar-pelanggan + auto-daftarkan barang baru ke customer terpilih; (2) label popup "Harga Standar" → "Harga Jual"; (3) Profit (Rp) live di popup tambah/edit barang, berdampingan dengan Margin %.
+- Arsitektur tetap versi pertama (ItemsView + /api/items); fitur memakai relasi BarangCustomer yang sudah ada (dipakai juga /harga-khusus), tanpa model baru.
+- Kolom tabel "Harga Standar" sengaja tidak diubah (permintaan hanya popup); /master-customer & /harga-khusus tidak tersentuh.
