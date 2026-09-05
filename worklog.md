@@ -7265,3 +7265,24 @@ Stage Summary:
 - Dua permintaan selesai: (1) kolom "Keterangan" di tabel desktop + kartu mobile, field "Keterangan" di popup Tambah/Edit Barang (tersimpan via /api/items POST/PUT, opsional, maks 500 karakter); (2) semua label "Harga Standar" kini "Harga Jual" — header tabel, kartu mobile, dan popup (popup sudah "Harga Jual (Rp)" dari task sebelumnya).
 - Tidak ada perubahan schema/model; field keterangan sudah tersedia di Barang sejak awal.
 - Pelajaran: cleanup harus SELECT dulu + filter userId session aktif sebelum delete — jangan menghapus lintas user.
+
+---
+Task ID: sidebar-master-customer-barang-pindah-dokumen
+Agent: Main (Z.ai Code)
+Task: "master customer dan master barang di menu dipindahin dibawah purchase order."
+
+Work Log:
+- Identifikasi 2 komponen menu: src/components/sidebar.tsx (mobile) + src/components/sidebar-desktop.tsx (desktop), keduanya memakai array `menuItems` identik; urutan item dalam section mengikuti urutan array.
+- Pada KEDUA file: pindahkan entri `master_customer` (/master-customer, icon Users) dan `master_barang` (/master-barang, icon Package) dari section 'master_cetakan' ke section 'dokumen', disisipkan tepat setelah `purchase_order` (urutan: Master Customer dulu, lalu Master Barang — sesuai urutan penyebutan user).
+- Hasil section DOKUMEN: Invoice, Surat Jalan, Purchase Order, Master Customer, Master Barang. Section MASTER CETAK kini: Master Harga Kertas, Master Ongkos Cetak, Master Finishing, Harga Khusus, Master Suplier.
+- Import icon tidak berubah (Users & Package tetap terpakai). Tanpa perubahan route/page/API/DB.
+- Lint `bunx eslint` kedua file → 0 error.
+- VERIFIKASI agent-browser (superadmin, login overlay-PWA di-kill):
+  * DOM sidebar desktop: DOKUMEN = Invoice, Surat Jalan, Purchase Order, Master Customer, Master Barang ✓; MASTER CETAK tidak lagi memuat keduanya ✓
+  * Screenshot desktop 1280px: kedua menu tampil di bawah Purchase Order ✓
+  * Screenshot mobile 390px (menu Lainnya): grid DOKUMEN menampilkan Purchase Order → Master Customer → Master Barang ✓
+  * Console 0 error; dev.log bersih; tanpa data uji (navigasi saja, DB tak tersentuh).
+
+Stage Summary:
+- Menu "Master Customer" dan "Master Barang" kini berada di grup DOKUMEN, tepat di bawah "Purchase Order", konsisten di sidebar desktop (dengan label section) dan menu mobile (grid + divider).
+- Tidak ada perubahan lain: halaman, izin akses (featureId), dan ikon tetap sama.
