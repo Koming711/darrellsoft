@@ -33,6 +33,15 @@ export const GROUP_FEATURES = [
     ]
   },
   {
+    id: 'master-barang', name: 'Master Barang',
+    subPermissions: [
+      { id: 'master-barang-lihat', name: 'Daftar Barang' },
+      { id: 'master-barang-tambah', name: 'Tambah Barang' },
+      { id: 'master-barang-edit', name: 'Edit Barang' },
+      { id: 'master-barang-hapus', name: 'Hapus Barang' },
+    ]
+  },
+  {
     id: 'master-harga-kertas', name: 'Master Harga Kertas',
     subPermissions: [
       { id: 'master-harga-kertas-lihat', name: 'Daftar Harga Kertas' },

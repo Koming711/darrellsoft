@@ -27,6 +27,7 @@ import {
   UserCog,
   Banknote,
   FileBarChart,
+  Package,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -150,6 +151,13 @@ const menuItems = [
     href: '/master-customer',
     icon: Users,
     featureId: 'master-customer',
+    section: 'master_cetakan',
+  },
+  {
+    titleKey: 'master_barang' as TranslationKey,
+    href: '/master-barang',
+    icon: Package,
+    featureId: 'master-barang',
     section: 'master_cetakan',
   },
   {
