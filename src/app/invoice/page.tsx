@@ -32,6 +32,8 @@ import {
   Combine,
   Layers,
   Hash,
+  Plus,
+  ArrowLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -187,7 +189,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
 // ============================================================
 // InvoiceRiwayatTab — all invoice history
 // ============================================================
-function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
+function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: number) => void; onCreate: () => void }) {
   const { user } = useAuth()
   const setInvoice = useDokuproStore((s) => s.setInvoice)
   const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId)
@@ -743,6 +745,16 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {!mergeMode && (
+              <Button
+                onClick={onCreate}
+                size="sm"
+                className="h-7 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                title="Buat invoice baru"
+              >
+                <Plus className="w-3.5 h-3.5" /> Buat Invoice
+              </Button>
+            )}
+            {!mergeMode && (
               <Button 
                 onClick={() => { setMergeMode(true); setSelectedIds(new Set()) }} 
                 variant="outline" 
@@ -836,7 +848,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                           </div>
                           {!mergeMode && (
                             <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                               <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           )}
@@ -893,7 +905,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                               <td className="py-3 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                                   <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </div>
                               </td>
@@ -943,7 +955,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                           </div>
                           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                             {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                             <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
@@ -987,7 +999,7 @@ function InvoiceRiwayatTab({ onRestore }: { onRestore: () => void }) {
                               <div className="flex items-center justify-center gap-1">
                                 <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
                                 {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             </td>
@@ -1674,7 +1686,8 @@ function PelunasanTab() {
 // ============================================================
 export default function InvoicePage() {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'>('editor')
+  const [activeTab, setActiveTab] = useState<'buat-baru' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'>('riwayat')
+  const [createMode, setCreateMode] = useState<'regular' | 'dp' | 'pelunasan'>('regular')
   const [invoiceCount, setInvoiceCount] = useState(0)
   const [pelunasanCount, setPelunasanCount] = useState(0)
 
@@ -1705,8 +1718,7 @@ export default function InvoicePage() {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [])
 
-  const tabs: { key: 'editor' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'editor', label: 'Editor', icon: <FileText className="w-3.5 h-3.5" /> },
+  const tabs: { key: 'riwayat' | 'pelunasan' | 'editor-pelunasan'; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'riwayat', label: 'Riwayat', icon: <History className="w-3.5 h-3.5" />, badge: invoiceCount || undefined },
     { key: 'pelunasan', label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" />, badge: pelunasanCount || undefined },
     { key: 'editor-pelunasan', label: 'Editor Pelunasan', icon: <><FileText className="w-3.5 h-3.5" /><Wallet className="w-3 h-3" /></> },
@@ -1740,17 +1752,59 @@ export default function InvoicePage() {
         ))}
       </div>
 
-      {/* Editor Tab */}
-      {activeTab === 'editor' && (
-        <Suspense fallback={null}>
-          <InvoiceEditor />
-        </Suspense>
+      {/* Buat Invoice Baru — halaman buat invoice (dari tombol "Buat Invoice" di tab Riwayat) */}
+      {activeTab === 'buat-baru' && (
+        <div className="print:hidden">
+          {/* Header: kembali + judul halaman */}
+          <div className="flex items-center gap-2 mb-3">
+            <Button
+              onClick={() => setActiveTab('riwayat')}
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+            </Button>
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide truncate">Buat Invoice Baru</h2>
+          </div>
+          {/* Sub-tab jenis invoice: Regular / DP / Pelunasan */}
+          <div className="flex items-center gap-2 mb-3 print:hidden overflow-x-auto">
+            {([
+              { key: 'regular' as const, label: 'Regular', icon: <FileText className="w-3.5 h-3.5" /> },
+              { key: 'dp' as const, label: 'DP', icon: <Banknote className="w-3.5 h-3.5" /> },
+              { key: 'pelunasan' as const, label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" /> },
+            ]).map(m => (
+              <button
+                key={m.key}
+                onClick={() => setCreateMode(m.key)}
+                className={cn(
+                  'px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap flex-shrink-0',
+                  createMode === m.key
+                    ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                    : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5">{m.icon}{m.label}</span>
+              </button>
+            ))}
+          </div>
+          <Suspense fallback={null}>
+            {createMode === 'pelunasan' ? (
+              <InvoicePelunasanEditor />
+            ) : (
+              <InvoiceEditor dpDisabled={createMode === 'regular'} />
+            )}
+          </Suspense>
+        </div>
       )}
 
       {/* Riwayat Tab */}
       {activeTab === 'riwayat' && (
         <div className="print:hidden">
-          <InvoiceRiwayatTab onRestore={() => setActiveTab('editor')} />
+          <InvoiceRiwayatTab
+            onRestore={(dpPercent) => { setCreateMode(dpPercent && dpPercent > 0 ? 'dp' : 'regular'); setActiveTab('buat-baru') }}
+            onCreate={() => setActiveTab('buat-baru')}
+          />
         </div>
       )}
 

@@ -7046,3 +7046,37 @@ Stage Summary:
 - Fix permanen drift SQLite di tabel UserSetting (backup tersedia di db/custom.db.before-index-fix)
 - Server dijaga daemon.cjs (auto-restart); container restart akan auto-boot via /start.sh sandbox (db:push kini lolos)
 - Semua fitur terverifikasi end-to-end via agent-browser: render, login, data, API, responsivitas — zero error
+
+---
+Task ID: invoice-buat-baru-tabs
+Agent: Main (Z.ai Code)
+Task: User tanya "kenapa balik ke versi lama?" — diagnos + implement ulang: di halaman invoice tab riwayat tambahkan tombol buat invoice, klik muncul halaman "Buat Invoice Baru" (isi editor), hilangkan tab Editor, dan tambahkan tab Regular/DP/Pelunasan di halaman Buat Invoice Baru
+
+Work Log:
+- DIAGNOSIS "balik ke versi lama": sandbox sempat reset, lalu workspace dipulihkan dari arsip backup yang diupload user (workspace-*.tar.001/.002, worklog restore-workspace-from-upload). Tar tersebut berisi snapshot aplikasi SEBELUM perubahan halaman invoice terakhir tersimpan, sehingga halaman invoice kembali ke struktur tab lama (Editor/Riwayat/Pelunasan/Editor Pelunasan). Diverifikasi via git: kode saat ini == commit HEAD terakhir (d4d1a02) — semua fix sebelumnya (merge invoice selalu terlihat, profit dari dataJson, strict multi-user isolation) MASIH ADA; yang tidak ikut hanyalah perubahan halaman invoice yang diminta setelah snapshot dibuat.
+- Implementasi ulang sesuai permintaan user:
+  1. src/app/invoice/page.tsx — InvoicePage: hapus tab "Editor" dari tabs array; default activeTab kini 'riwayat'; tipe tab jadi 'buat-baru' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'; tambah state createMode ('regular' | 'dp' | 'pelunasan')
+  2. src/app/invoice/page.tsx — view 'buat-baru' baru: header tombol "Kembali" (ke Riwayat) + judul "Buat Invoice Baru", sub-tab pill Regular/DP/Pelunasan (violet active), render InvoicePelunasanEditor utk mode pelunasan, InvoiceEditor dpDisabled utk regular/dp
+  3. src/app/invoice/page.tsx — InvoiceRiwayatTab: tambah tombol "Buat Invoice" (Plus icon, primary blue) di header Riwayat (hanya saat !mergeMode), props baru onCreate + onRestore(dpPercent?)
+  4. src/app/invoice/page.tsx — semua tombol Restore di riwayat kini pass parsed.dp || 0 ke onRestore → invoice ber-DP otomatis buka sub-tab DP
+  5. src/components/dokupro/invoice-editor.tsx — InvoiceEditor terima prop opsional dpDisabled: sembunyikan input "DP (%)" dan paksa dp=0 via useEffect (mode Regular)
+- Lint: bunx eslint pada kedua file → 0 error
+
+Verifikasi via agent-browser (login superadmin/268899, desktop 1280x800 + mobile 390x844):
+- Tab bar kini: Riwayat(6) / Pelunasan(3) / Editor Pelunasan — tab "Editor" TIDAK ADA lagi, default landing = Riwayat ✓
+- Tombol "Buat Invoice" terlihat di header Riwayat Invoice (di samping Gabungkan/Backup/Restore) ✓
+- Klik "Buat Invoice" → muncul halaman "Buat Invoice Baru" (heading + Kembali + sub-tab Regular/DP/Pelunasan + editor invoice dgn nomor otomatis INV/09/26/0001) ✓
+- Sub-tab Regular: field "DP (%)" TERSEMBUNYI, summary hanya Total ✓
+- Sub-tab DP: field "DP (%)" MUNCUL, bisa diisi ✓
+- Sub-tab Pelunasan: InvoicePelunasanEditor tampil ("Pilih Invoice Pelunasan") ✓
+- Kembali → balik ke tab Riwayat ✓
+- Restore INV/07/26/9001 (DP 50%) dari riwayat → otomatis buka "Buat Invoice Baru" sub-tab DP aktif, data utuh (Total Rp1.000.000, DP 50% Rp500.000, Sisa Rp500.000) ✓
+- Mobile 390px: struktur sama, tanpa horizontal overflow ✓
+- Zero console errors, zero page errors, /invoice 200 OK, tidak ada data test yang disimpan (hanya navigasi/restore ke editor tanpa Simpan)
+
+Stage Summary:
+- Penyebab "balik ke versi lama": restore workspace dari tar backup user yang berisi snapshot pra-perubahan; perubahan halaman invoice tidak pernah ikut di backup. Kode lain tetap versi terbaru.
+- Halaman Invoice sekarang: tab Riwayat (default) berisi tombol "Buat Invoice" → halaman "Buat Invoice Baru" (isi editor invoice) dengan sub-tab Regular/DP/Pelunasan. Tab "Editor" dihapus sesuai permintaan.
+- Mode Regular memaksa DP=0 & sembunyikan input DP; mode DP menampilkan input DP; mode Pelunasan memakai editor pelunasan (PEL) yang sama dengan tab Editor Pelunasan.
+- Restore invoice ber-DP dari riwayat otomatis membuka sub-tab DP.
+- Files: src/app/invoice/page.tsx, src/components/dokupro/invoice-editor.tsx

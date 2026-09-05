@@ -66,7 +66,7 @@ interface RiwayatCetakanItem {
 }
 
 
-export function InvoiceEditor() {
+export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) {
   const invoice = useDokuproStore((s) => s.invoice);
   const setInvoice = useDokuproStore((s) => s.setInvoice);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
@@ -140,6 +140,13 @@ export function InvoiceEditor() {
     window.addEventListener('dokupro:history-updated', handler);
     return () => { window.removeEventListener('dokupro:history-updated', handler) };
   }, [fetchNextNumber]);
+
+  // Mode Regular (dpDisabled): paksa DP = 0 dan sembunyikan input DP
+  useEffect(() => {
+    if (dpDisabled) {
+      setInvoice((prev) => (prev.dp === 0 ? prev : ({ ...prev, dp: 0 })));
+    }
+  }, [dpDisabled, setInvoice]);
 
   // Sync referensiInput when invoice.referensi changes externally
   useEffect(() => { setReferensiInput(invoice.referensi) }, [invoice.referensi]);
@@ -655,17 +662,19 @@ export function InvoiceEditor() {
               onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
             />
           </div>
-          <div className="space-y-1.5 mt-3">
-            <Label className="text-xs">DP (%)</Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={invoice.dp || ''}
-              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
-              placeholder="0"
-            />
-          </div>
+          {!dpDisabled && (
+            <div className="space-y-1.5 mt-3">
+              <Label className="text-xs">DP (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={invoice.dp || ''}
+                onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
+                placeholder="0"
+              />
+            </div>
+          )}
           <div className="space-y-1.5 mt-3">
             <Label className="text-xs">Profit</Label>
             <Input
