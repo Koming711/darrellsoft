@@ -26,9 +26,7 @@ import {
   ScrollText,
   UserCog,
   Banknote,
-  FileBarChart,
   Package,
-  BadgePercent,
   TrendingUp,
   PieChart,
 } from 'lucide-react'
@@ -108,13 +106,6 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'laporan' as TranslationKey,
-    href: '/laporan',
-    icon: FileBarChart,
-    featureId: 'laporan',
-    section: 'laporan',
-  },
-  {
     titleKey: 'laporan_penjualan' as TranslationKey,
     href: '/laporan/penjualan',
     icon: TrendingUp,
@@ -175,13 +166,6 @@ const menuItems = [
     href: '/master-finishing',
     icon: Layers,
     featureId: 'master-finishing',
-    section: 'master_cetakan',
-  },
-  {
-    titleKey: 'harga_khusus' as TranslationKey,
-    href: '/harga-khusus',
-    icon: BadgePercent,
-    featureId: 'harga-khusus',
     section: 'master_cetakan',
   },
   {
@@ -318,9 +302,6 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     }
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
-    }
-    if (href === '/laporan') {
-      return pathname === '/laporan'
     }
     return pathname.startsWith(href)
   }

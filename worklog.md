@@ -7478,3 +7478,22 @@ Stage Summary:
 - Biaya Operasional (/biaya) sudah ada & terhubung ke Rugi Laba (kategori Packing/Ongkir ditambah).
 - Menu baru: Laporan Penjualan & Rugi Laba di section LAPORAN (desktop + mobile), ikut hak akses laporan.
 - Tidak ada perubahan schema DB; data asli user aman.
+
+---
+Task ID: sidebar-delete-laporan-hub-harga-khusus
+Agent: Main (Z.ai Code)
+Task: "dimenu sidebar, delete laporan, delete harga khusus"
+
+Work Log:
+- src/components/sidebar.tsx & sidebar-desktop.tsx (menuItems duplikat, keduanya diedit sama):
+  * Hapus item menu "Laporan" (titleKey laporan, href /laporan, ikon FileBarChart) dari section LAPORAN.
+  * Hapus item menu "Harga Khusus" (titleKey harga_khusus, href /harga-khusus, ikon BadgePercent) dari section MASTER CETAKAN.
+  * Bersihkan import lucide yang jadi tidak terpakai (FileBarChart, BadgePercent) di kedua file.
+  * Hapus pengecualian exact-match '/laporan' di isActive (3 tempat) — tidak lagi dipakai setelah item hub dihapus.
+- Halaman /laporan (hub) & /harga-khusus sendiri TIDAK dihapus — hanya entri menunya (tetap bisa diakses via URL; halaman laporan baru /laporan/penjualan & /laporan/rugi-laba tetap di menu).
+- Lint 0 error.
+- VERIFIKASI agent-browser (superadmin): desktop — di bawah section LAPORAN hanya ada "Laporan Penjualan" & "Rugi Laba", tidak ada item "Laporan" hub, tidak ada "Harga Khusus" ✓; mobile 390px popup "Lainnya" — sama, tanpa h-scroll ✓; console & dev.log bersih.
+
+Stage Summary:
+- Menu sidebar kini: LAPORAN = [Laporan Penjualan, Rugi Laba]; item "Laporan" (hub) dan "Harga Khusus" dihilangkan dari navigasi (desktop + mobile).
+- Halaman aslinya masih ada (akses via URL); tidak ada perubahan permission/API/schema; data aman.
