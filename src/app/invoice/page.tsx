@@ -26,12 +26,8 @@ import {
   CheckCircle2,
   CircleDot,
   Wallet,
-  AlertTriangle,
-  CalendarClock,
   Banknote,
   Combine,
-  Layers,
-  Hash,
   Plus,
   ArrowLeft,
 } from 'lucide-react'
@@ -47,8 +43,6 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
@@ -215,25 +209,14 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
   const [jatuhTempoDate, setJatuhTempoDate] = useState('')
   const [pelunasanHistory, setPelunasanHistory] = useState<HistoryEntry[]>([])
 
-  // Merge invoice state
-  const [mergeMode, setMergeMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
-  const [mergePrimaryId, setMergePrimaryId] = useState<string>('')
-  const [mergeDeleteOthers, setMergeDeleteOthers] = useState(true)
-  const [mergeLoading, setMergeLoading] = useState(false)
-  // Preview of the NEW nomor the merged invoice will receive (peek, non-incrementing).
-  // The actual number is generated atomically at merge time — this is just for display.
-  const [mergePreviewNomor, setMergePreviewNomor] = useState<string>('')
-
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true)
       const headers = getAuthHeaders()
       // Fetch both invoice and invoice-pelunasan.
       // cache: 'no-store' is MANDATORY here — without it the browser may serve
-      // a stale cached GET response right after a merge/PUT, so the merged
-      // invoice would appear to only have 1 item until a manual page refresh.
+      // a stale cached GET response right after a PUT (e.g. status pelunasan),
+      // so the list would look outdated until a manual page refresh.
       const [invRes, pelRes] = await Promise.all([
         fetch('/api/history?docType=invoice', { headers, cache: 'no-store' }),
         fetch('/api/history?docType=invoice-pelunasan', { headers, cache: 'no-store' }),
@@ -509,230 +492,6 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
     return result
   }, [dpInvoices, cetakanList])
 
-  // ============================================================
-  // Merge invoice logic
-  // ============================================================
-  const selectedInvoices = useMemo(() => dpInvoices.filter(e => selectedIds.has(e.id)), [dpInvoices, selectedIds])
-
-  // Build a merged preview from selected invoices + chosen primary
-  const mergedPreview = useMemo(() => {
-    if (selectedInvoices.length < 2 || !mergePrimaryId) return null
-    const primary = selectedInvoices.find(e => e.id === mergePrimaryId)
-    if (!primary) return null
-    const primaryData = parseInvoiceData(primary)
-    // Calculate primary's original DP amount (already paid) — keep it FIXED after merge
-    const primaryInfo = parseDocInfo(primary)
-    const originalDpAmount = primaryInfo.dp > 0 ? primaryInfo.dp : 0
-    const originalDpPercent = primaryInfo.dpPercent
-
-    // Combine items: primary first, then append items from others (with new ids)
-    const allItems = [...primaryData.items]
-    const otherInvoices: HistoryEntry[] = []
-    for (const inv of selectedInvoices) {
-      if (inv.id === mergePrimaryId) continue
-      otherInvoices.push(inv)
-      const data = parseInvoiceData(inv)
-      for (const it of data.items) {
-        allItems.push({ ...it, id: `${it.id || 'item'}-${inv.id}` })
-      }
-    }
-    const subtotal = allItems.reduce((s, it) => s + (it.qty || 0) * (it.harga || 0), 0)
-    const ppn = primaryData.ppn || 0
-    const newTotal = subtotal + (subtotal * ppn / 100)
-    // Keep DP amount fixed; recalculate percentage so the already-paid amount stays the same
-    let newDpPercent = 0
-    let newDpAmount = 0
-    let newSisa = newTotal
-    if (originalDpAmount > 0 && newTotal > 0) {
-      newDpAmount = originalDpAmount
-      newDpPercent = Math.round((originalDpAmount / newTotal) * 10000) / 100 // 2 decimals
-      newSisa = newTotal - originalDpAmount
-    }
-    // Detect customer mismatch
-    const customers = new Set<string>()
-    for (const inv of selectedInvoices) {
-      const d = parseInvoiceData(inv)
-      if (d.client?.nama) customers.add(d.client.nama.trim().toLowerCase())
-    }
-    const customerMismatch = customers.size > 1
-
-    // Check if primary has a PEL child (referencing primary's nomor)
-    const pelChild = pelunasanHistory.find(p => {
-      const pInfo = parseDocInfo(p)
-      return pInfo.referensiInvoiceNomor === primary.nomor
-    })
-    const hasPelChild = !!pelChild
-    const pelChildLunas = pelChild ? parseDocInfo(pelChild).lunas : false
-
-    // Sum profit (uangCapek) from ALL selected invoices — primary + others.
-    // Uses the same lookup logic as invoiceUangCapek (prefer saved uangCapek,
-    // fallback to cetakan lookup by referensi). This ensures the merged invoice
-    // carries the COMBINED profit, not just the primary's.
-    const totalUangCapek = selectedInvoices.reduce((sum, inv) => {
-      return sum + (invoiceUangCapek.get(inv.id) ?? 0)
-    }, 0)
-
-    return {
-      primary, primaryData, otherInvoices, allItems,
-      subtotal, ppn, newTotal, newDpPercent, newDpAmount, newSisa,
-      originalDpAmount, originalDpPercent,
-      customerMismatch, pelChild, hasPelChild, pelChildLunas,
-      totalUangCapek,
-    }
-  }, [selectedInvoices, mergePrimaryId, pelunasanHistory, invoiceUangCapek])
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const openMergeDialog = () => {
-    if (selectedInvoices.length < 2) {
-      toast.error('Pilih minimal 2 invoice untuk digabung')
-      return
-    }
-    // Default primary = earliest by tanggal (or first in list)
-    const sorted = [...selectedInvoices].sort((a, b) => (a.tanggal || '').localeCompare(b.tanggal || ''))
-    setMergePrimaryId(sorted[0].id)
-    setMergeDeleteOthers(true)
-    setMergeDialogOpen(true)
-    // Peek at the next invoice number — this is the nomor the merged result
-    // will receive when the user confirms. Non-incrementing preview.
-    setMergePreviewNomor('')
-    fetcher('/api/history?preview=next-number&docType=invoice', { headers: getAuthHeaders() })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.nextNumber) setMergePreviewNomor(data.nextNumber) })
-      .catch(() => { /* non-critical */ })
-  }
-
-  const handleMerge = async () => {
-    if (!mergedPreview) return
-    const { primary, primaryData, allItems, ppn, newTotal, newDpPercent, newDpAmount, otherInvoices, pelChild, hasPelChild, pelChildLunas, totalUangCapek } = mergedPreview
-    setMergeLoading(true)
-    try {
-      // 0. Generate a BRAND-NEW invoice number for the merged result.
-      //    The merged invoice must NOT keep the primary's old number — it gets a
-      //    fresh sequential number (e.g. merging INV/.../0001 + INV/.../0002
-      //    produces INV/.../0003). The counter is incremented atomically so the
-      //    number is reserved even if the merge fails halfway.
-      const genRes = await fetcher('/api/history/generate-number?docType=invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      })
-      if (!genRes.ok) throw new Error('Gagal generate nomor invoice baru')
-      const { nomor: newNomor } = await genRes.json()
-      if (!newNomor) throw new Error('Nomor invoice baru kosong')
-
-      // Build merged InvoiceData — keep primary's metadata, replace items, adjust DP,
-      // set combined profit (uangCapek) from ALL merged invoices, AND assign the
-      // new nomor so the result is a fresh invoice number.
-      const merged: Record<string, unknown> = {
-        ...primaryData,
-        nomor: newNomor,
-        items: allItems,
-        ppn,
-        dp: newDpPercent,
-        uangCapek: totalUangCapek,
-      }
-      if (newDpAmount > 0) {
-        merged.dpAmount = newDpAmount
-        merged.originalTotal = newTotal
-      } else {
-        delete merged.dpAmount
-        delete merged.originalTotal
-      }
-      // Always re-derive sisa by clearing stale statusPembayaran
-      delete merged.statusPembayaran
-      const newDataJson = JSON.stringify(merged)
-
-      // 1. Update primary invoice (PUT) — pass `nomor` so BOTH the DB column
-      //    and dataJson.nomor are updated to the new number.
-      const putRes = await fetcher(`/api/history/${primary.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ dataJson: newDataJson, nomor: newNomor, total: String(Math.round(newTotal)) }),
-      })
-      if (!putRes.ok) throw new Error('Gagal memperbarui invoice utama')
-
-      // 2. If primary has a PEL child and it is NOT yet lunas, sync its items +
-      //    totals + profit, repoint its referensiInvoiceNomor to the new nomor,
-      //    AND renumber the PEL itself.
-      //
-      //    PEL nomors are DERIVED from INV nomors by replacing the INV→PEL prefix
-      //    (see src/lib/sync-pelunasan.ts line 79). So when the INV is renumbered
-      //    during merge (e.g. INV/07/26/0001 → INV/07/26/0007), the PEL child
-      //    MUST also be renumbered (PEL/07/26/0001 → PEL/07/26/0007) to stay
-      //    in sync. Otherwise the PEL keeps its old number while the INV has a
-      //    new one — which is the bug "nomor invoice pelunasan sama, harusnya
-      //    beda".
-      if (hasPelChild && pelChild && !pelChildLunas) {
-        try {
-          const pelParsed = JSON.parse(pelChild.dataJson)
-          const newPelNomor = newNomor.replace(/^INV/, 'PEL')
-          pelParsed.nomor = newPelNomor
-          pelParsed.items = allItems
-          pelParsed.ppn = ppn
-          pelParsed.originalTotal = newTotal
-          pelParsed.uangCapek = totalUangCapek
-          pelParsed.referensiInvoiceNomor = newNomor
-          if (newDpAmount > 0) {
-            pelParsed.dp = newDpPercent
-            pelParsed.dpAmount = newDpAmount
-          }
-          delete pelParsed.statusPembayaran
-          await fetcher(`/api/history/${pelChild.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ dataJson: JSON.stringify(pelParsed), nomor: newPelNomor, total: String(Math.round(newTotal)) }),
-          })
-        } catch (e) {
-          console.error('Failed to sync PEL child:', e)
-        }
-      }
-
-      // 3. Delete other (non-primary) invoices if option is checked
-      //    Also delete their PEL children to avoid orphaned pelunasan entries
-      if (mergeDeleteOthers) {
-        for (const inv of otherInvoices) {
-          // Find and delete PEL children referencing this invoice (by nomor)
-          const childPelList = pelunasanHistory.filter(p => {
-            const pInfo = parseDocInfo(p)
-            return pInfo.referensiInvoiceNomor === inv.nomor
-          })
-          for (const childPel of childPelList) {
-            try {
-              await fetcher(`/api/history/${childPel.id}`, { method: 'DELETE', headers: getAuthHeaders() })
-            } catch (e) {
-              console.error('Failed to delete orphaned PEL child:', childPel.id, e)
-            }
-          }
-          // Delete the DP invoice itself
-          try {
-            await fetcher(`/api/history/${inv.id}`, { method: 'DELETE', headers: getAuthHeaders() })
-          } catch (e) {
-            console.error('Failed to delete merged invoice:', inv.id, e)
-          }
-        }
-      }
-
-      toast.success(`${selectedInvoices.length} invoice berhasil digabung menjadi ${newNomor}`)
-      setMergeDialogOpen(false)
-      setMergeMode(false)
-      setSelectedIds(new Set())
-      fetchHistory()
-      notifyDataChange('invoice')
-    } catch (err) {
-      console.error(err)
-      toast.error('Gagal menggabungkan invoice')
-    } finally {
-      setMergeLoading(false)
-    }
-  }
-
   return (
     <>
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden">
@@ -744,56 +503,22 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
             <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">{allHistory.length} data</span>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {!mergeMode && (
-              <Button
-                onClick={onCreate}
-                size="sm"
-                className="h-7 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                title="Buat invoice baru"
-              >
-                <Plus className="w-3.5 h-3.5" /> Buat Invoice
-              </Button>
-            )}
-            {!mergeMode && (
-              <Button 
-                onClick={() => { setMergeMode(true); setSelectedIds(new Set()) }} 
-                variant="outline" 
-                size="sm" 
-                disabled={dpInvoices.length < 2}
-                title={dpInvoices.length < 2 ? `Butuh minimal 2 invoice untuk digabungkan (saat ini: ${dpInvoices.length})` : 'Gabungkan 2 atau lebih invoice menjadi 1'}
-                className="h-7 gap-1.5 text-xs"
-              >
-                <Combine className="w-3.5 h-3.5" /> Gabungkan
-              </Button>
-            )}
-            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup' || mergeMode} className="h-7 gap-1.5 text-xs">
+            <Button
+              onClick={onCreate}
+              size="sm"
+              className="h-7 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+              title="Buat invoice baru"
+            >
+              <Plus className="w-3.5 h-3.5" /> Buat Invoice
+            </Button>
+            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-7 gap-1.5 text-xs">
               {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />} Backup
             </Button>
-            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore' || mergeMode} className="h-7 gap-1.5 text-xs">
+            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-7 gap-1.5 text-xs">
               {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Restore
             </Button>
           </div>
         </div>
-
-        {/* Merge mode action bar */}
-        {mergeMode && (
-          <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
-            <div className="flex items-center gap-2 min-w-0">
-              <Layers className="w-4 h-4 text-violet-600 shrink-0" />
-              <span className="text-xs font-semibold text-violet-800 dark:text-violet-200 truncate">
-                Mode Gabung: {selectedIds.size} invoice dipilih
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Button onClick={() => { setMergeMode(false); setSelectedIds(new Set()) }} variant="outline" size="sm" className="h-7 text-xs">
-                Batal
-              </Button>
-              <Button onClick={openMergeDialog} size="sm" disabled={selectedIds.size < 2} className="h-7 gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white">
-                <Combine className="w-3.5 h-3.5" /> Gabungkan ({selectedIds.size})
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Search */}
         {invoiceHistory.length > 0 && (
@@ -825,14 +550,10 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
                   {dpInvoices.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
                     const uc = invoiceUangCapek.get(entry.id) ?? 0
-                    const isSelected = selectedIds.has(entry.id)
                     return (
-                      <div key={entry.id} className={`px-4 py-3 transition-colors cursor-pointer ${isSelected ? 'bg-violet-50 dark:bg-violet-950/30' : 'hover:bg-violet-50/30 active:bg-violet-100/40'}`} onClick={() => mergeMode ? toggleSelect(entry.id) : (setPreviewItem(entry), setPreviewOpen(true))}>
+                      <div key={entry.id} className="px-4 py-3 transition-colors cursor-pointer hover:bg-violet-50/30 active:bg-violet-100/40" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="min-w-0 flex items-center gap-2">
-                            {mergeMode && (
-                              <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entry.id)} onClick={(e) => e.stopPropagation()} className="shrink-0 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600" />
-                            )}
                             <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
                           </div>
                           <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
@@ -846,12 +567,10 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
                             {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
                             {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Profit: {formatRupiah(uc)}</p>}
                           </div>
-                          {!mergeMode && (
-                            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
                         </div>
                       </div>
                     )
@@ -862,7 +581,6 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
                   <table className="w-full text-[13px] min-w-[1000px]">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-                        {mergeMode && <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap w-10">Pilih</th>}
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
                         <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
@@ -872,21 +590,15 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
                         <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Profit</th>
-                        {!mergeMode && <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>}
+                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
                       </tr>
                     </thead>
                     <tbody>
                       {dpInvoices.slice(0, 100).map((entry, idx) => {
                         const info = parseDocInfo(entry)
                         const uc = invoiceUangCapek.get(entry.id) ?? 0
-                        const isSelected = selectedIds.has(entry.id)
                         return (
-                          <tr key={entry.id} className={`border-b border-slate-50 transition-colors ${isSelected ? 'bg-violet-50 dark:bg-violet-950/30' : (idx % 2 === 1 ? 'bg-slate-50/50' : '')} ${mergeMode ? 'cursor-pointer hover:bg-violet-50/50' : 'hover:bg-violet-50/30'}`} onClick={() => mergeMode && toggleSelect(entry.id)}>
-                            {mergeMode && (
-                              <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(entry.id)} className="data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600" />
-                              </td>
-                            )}
+                          <tr key={entry.id} className={`border-b border-slate-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} hover:bg-violet-50/30`}>
                             <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
                             <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
                             <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
@@ -901,15 +613,13 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
                             <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
                             <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
                             <td className={`py-3 px-3 text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</td>
-                            {!mergeMode && (
-                              <td className="py-3 px-3 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                                </div>
-                              </td>
-                            )}
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </td>
                           </tr>
                         )
                       })}
@@ -1083,149 +793,6 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
         </DialogContent>
       </Dialog>
 
-      {/* Merge Dialog */}
-      <Dialog open={mergeDialogOpen} onOpenChange={(open) => { if (!open && !mergeLoading) setMergeDialogOpen(false) }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Combine className="w-5 h-5 text-violet-600" /> Gabungkan Invoice</DialogTitle>
-            <DialogDescription>Pilih invoice utama. Item dari semua invoice akan digabung &amp; hasilnya mendapat nomor invoice baru.</DialogDescription>
-          </DialogHeader>
-          {mergedPreview && (() => {
-            const { otherInvoices, allItems, subtotal, ppn, newTotal, newDpPercent, newSisa, originalDpAmount, customerMismatch, hasPelChild, pelChildLunas, totalUangCapek } = mergedPreview
-            return (
-              <div className="space-y-4 pt-1">
-                {/* New nomor banner — the merged result gets a fresh number */}
-                <div className="rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 p-3 flex items-start gap-2">
-                  <Hash className="w-4 h-4 text-violet-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-semibold text-violet-800 dark:text-violet-200">Nomor invoice baru</p>
-                    <p className="text-[11px] text-violet-700 dark:text-violet-300">
-                      Hasil gabungan akan menjadi <span className="font-bold">{mergePreviewNomor || 'nomor berikutnya'}</span>. Invoice utama direnumber ke nomor ini; invoice lain dihapus.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Customer mismatch warning */}
-                {customerMismatch && (
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">Customer berbeda</p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-300">Invoice yang dipilih memiliki customer berbeda. Data customer akan mengikuti invoice utama.</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Primary invoice selector */}
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2 block">Invoice Utama (customer, tanggal &amp; metadata dipertahankan — nomor akan diganti)</Label>
-                  <RadioGroup value={mergePrimaryId} onValueChange={setMergePrimaryId} className="space-y-2">
-                    {selectedInvoices.map((inv) => {
-                      const info = parseDocInfo(inv)
-                      return (
-                        <label key={inv.id} htmlFor={`merge-primary-${inv.id}`} className={cn('flex items-center gap-3 rounded-lg border p-2.5 cursor-pointer transition-colors', inv.id === mergePrimaryId ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30' : 'border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800')}>
-                          <RadioGroupItem value={inv.id} id={`merge-primary-${inv.id}`} className="data-[state=checked]:border-violet-600 data-[state=checked]:text-violet-600" />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-violet-700 font-semibold text-xs truncate">{inv.nomor || '-'}</p>
-                              {info.dpPercent > 0 && <span className="text-[9px] font-bold text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded-full shrink-0">DP {info.dpPercent}%</span>}
-                            </div>
-                            <p className="text-slate-500 text-[11px] truncate">{inv.pihakKedua || '-'} &middot; {info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'} &middot; {allItems.length > 0 && inv.id === mergePrimaryId ? `${allItems.length} item (gabungan)` : `${info.totalQty > 0 ? info.totalQty : 0} qty`}</p>
-                          </div>
-                        </label>
-                      )
-                    })}
-                  </RadioGroup>
-                </div>
-
-                {/* Combined items preview */}
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-700 overflow-hidden">
-                  <div className="px-3 py-2 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700">
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-violet-600" />
-                      Item Gabungan ({allItems.length})
-                    </p>
-                  </div>
-                  <div className="max-h-48 overflow-y-auto">
-                    <table className="w-full text-[11px]">
-                      <thead className="sticky top-0 bg-white dark:bg-zinc-900">
-                        <tr className="border-b border-slate-100 dark:border-zinc-700">
-                          <th className="text-left py-1.5 px-2 text-slate-500 font-semibold">Deskripsi</th>
-                          <th className="text-right py-1.5 px-2 text-slate-500 font-semibold w-12">Qty</th>
-                          <th className="text-right py-1.5 px-2 text-slate-500 font-semibold w-20">Harga</th>
-                          <th className="text-right py-1.5 px-2 text-slate-500 font-semibold w-24">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {allItems.map((it, i) => (
-                          <tr key={i} className="border-b border-slate-50 dark:border-zinc-800">
-                            <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300 max-w-[200px] truncate">{it.deskripsi || '-'}</td>
-                            <td className="py-1.5 px-2 text-slate-600 text-right whitespace-nowrap">{it.qty}</td>
-                            <td className="py-1.5 px-2 text-slate-600 text-right whitespace-nowrap">{formatRupiah(it.harga)}</td>
-                            <td className="py-1.5 px-2 text-slate-700 text-right whitespace-nowrap font-medium">{formatRupiah(it.qty * it.harga)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <div className="rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-3 space-y-1.5">
-                  <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-700 dark:text-slate-200">{formatRupiah(subtotal)}</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500">PPN ({ppn}%)</span><span className="font-medium text-slate-700 dark:text-slate-200">{formatRupiah(subtotal * ppn / 100)}</span></div>
-                  <div className="flex justify-between text-sm pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="font-semibold text-slate-700 dark:text-slate-200">Total Baru</span><span className="font-bold text-emerald-700">{formatRupiah(newTotal)}</span></div>
-                  {totalUangCapek > 0 && (
-                    <div className="flex justify-between text-xs pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="text-slate-500">Profit (gabungan {selectedInvoices.length} invoice)</span><span className="font-bold text-amber-700">{formatRupiah(totalUangCapek)}</span></div>
-                  )}
-                  {originalDpAmount > 0 && (
-                    <>
-                      <div className="flex justify-between text-xs"><span className="text-slate-500">DP sudah dibayar (tetap)</span><span className="font-medium text-violet-700">{formatRupiah(originalDpAmount)}</span></div>
-                      <div className="flex justify-between text-xs"><span className="text-slate-500">DP % baru</span><span className="font-medium text-violet-600">{newDpPercent}%</span></div>
-                      <div className="flex justify-between text-sm pt-1 border-t border-slate-200 dark:border-zinc-700"><span className="font-semibold text-slate-700 dark:text-slate-200">Sisa Pembayaran</span><span className="font-bold text-red-600">{formatRupiah(newSisa)}</span></div>
-                    </>
-                  )}
-                </div>
-
-                {/* PEL child notice */}
-                {hasPelChild && (() => {
-                  const newPelNomor = mergePreviewNomor ? mergePreviewNomor.replace(/^INV/, 'PEL') : ''
-                  const oldPelNomor = pelChild?.nomor || ''
-                  return (
-                  <div className={`rounded-lg border p-3 flex items-start gap-2 ${pelChildLunas ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'}`}>
-                    {pelChildLunas ? <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />}
-                    <div>
-                      <p className={`text-xs font-semibold ${pelChildLunas ? 'text-blue-800 dark:text-blue-200' : 'text-amber-800 dark:text-amber-200'}`}>{pelChildLunas ? 'Invoice pelunasan sudah lunas' : 'Invoice pelunasan ditemukan'}</p>
-                      <p className={`text-[11px] ${pelChildLunas ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-300'}`}>
-                        {pelChildLunas
-                          ? 'Invoice pelunasan terkait sudah ditandai lunas dan tidak akan diubah.'
-                          : <>Invoice pelunasan terkait akan ikut diperbarui (item & total disesuaikan dengan hasil gabungan).{newPelNomor && oldPelNomor && newPelNomor !== oldPelNomor ? <> Nomor PEL akan berubah dari <span className="font-bold">{oldPelNomor}</span> menjadi <span className="font-bold">{newPelNomor}</span>.</> : null}</>}
-                      </p>
-                    </div>
-                  </div>
-                  )
-                })()}
-
-                {/* Delete option */}
-                <label htmlFor="merge-delete-others" className="flex items-center gap-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800">
-                  <Checkbox id="merge-delete-others" checked={mergeDeleteOthers} onCheckedChange={(v) => setMergeDeleteOthers(!!v)} className="data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600" />
-                  <div>
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Hapus {otherInvoices.length} invoice lain setelah digabung</p>
-                    <p className="text-[11px] text-slate-500">Invoice utama tetap dipertahankan. {otherInvoices.map(i => i.nomor).join(', ')}</p>
-                  </div>
-                </label>
-              </div>
-            )
-          })()}
-          <div className="flex justify-end gap-2 mt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setMergeDialogOpen(false)} disabled={mergeLoading}>Batal</Button>
-            <Button size="sm" onClick={handleMerge} disabled={mergeLoading || !mergedPreview} className="bg-violet-600 hover:bg-violet-700 text-white">
-              {mergeLoading ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Menggabungkan...</> : <><Combine className="w-4 h-4 mr-1.5" /> Gabungkan Sekarang</>}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Preview Popup */}
       {previewOpen && invData && (
         <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
@@ -1260,436 +827,14 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
 }
 
 // ============================================================
-// PelunasanTab — dedicated tab for settlement payments with inline form
-// ============================================================
-function PelunasanTab() {
-  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // Selected invoice for pelunasan form
-  const [selectedItem, setSelectedItem] = useState<HistoryEntry | null>(null)
-  const [pelunasanUpdating, setPelunasanUpdating] = useState(false)
-  const [pelunasanToggle, setPelunasanToggle] = useState(false)
-  const [pelunasanDate, setPelunasanDate] = useState('')
-  const [jatuhTempoDate, setJatuhTempoDate] = useState('')
-  const [caraPembayaran, setCaraPembayaran] = useState('')
-
-  const fetchHistory = useCallback(async () => {
-    try {
-      setLoading(true)
-      const headers = getAuthHeaders()
-      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers, cache: 'no-store' })
-      if (res.ok) {
-        const json = await res.json()
-        setInvoiceHistory(json.data || [])
-      }
-    } catch (err) {
-      console.error('Failed to fetch pelunasan invoice history:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchHistory()
-  }, [fetchHistory])
-
-  useEffect(() => {
-    const handler = () => fetchHistory()
-    window.addEventListener('dokupro:history-updated', handler)
-    return () => window.removeEventListener('dokupro:history-updated', handler)
-  }, [fetchHistory])
-
-  // Filter: only pelunasan invoices not yet lunas
-  const pendingInvoices = useMemo(() => {
-    return invoiceHistory.filter(entry => {
-      const info = parseDocInfo(entry)
-      return !info.lunas
-    })
-  }, [invoiceHistory])
-
-  // Filter: pelunasan invoices that are already lunas
-  const lunasInvoices = useMemo(() => {
-    return invoiceHistory.filter(entry => {
-      const info = parseDocInfo(entry)
-      return info.lunas
-    })
-  }, [invoiceHistory])
-
-  // Stats
-  const totalSisa = pendingInvoices.reduce((sum, entry) => sum + parseDocInfo(entry).sisa, 0)
-  const totalDP = pendingInvoices.reduce((sum, entry) => sum + parseDocInfo(entry).dp, 0)
-  const overdueCount = pendingInvoices.filter(entry => {
-    const info = parseDocInfo(entry)
-    return info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr())
-  }).length
-
-  // Select invoice for form
-  const selectInvoice = (item: HistoryEntry, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation()
-    const info = parseDocInfo(item)
-    setPelunasanToggle(false)
-    setPelunasanDate(getTodayStr())
-    setJatuhTempoDate(info.tanggalJatuhTempo || '')
-    setCaraPembayaran('')
-    setSelectedItem(item)
-  }
-
-  // Clear selection
-  const clearSelection = () => {
-    setSelectedItem(null)
-    setPelunasanToggle(false)
-    setPelunasanDate('')
-    setJatuhTempoDate('')
-    setCaraPembayaran('')
-  }
-
-  // Selected invoice info
-  const selectedInfo = selectedItem ? parseDocInfo(selectedItem) : null
-
-  // Pelunasan handler
-  const handleSimpanPelunasan = async () => {
-    if (!selectedItem) return
-    setPelunasanUpdating(true)
-    try {
-      const parsed = JSON.parse(selectedItem.dataJson)
-      if (jatuhTempoDate) parsed.tanggalJatuhTempo = jatuhTempoDate
-      if (pelunasanToggle) {
-        parsed.lunas = true
-        parsed.tanggalPelunasan = pelunasanDate || getTodayStr()
-        if (caraPembayaran) parsed.caraPembayaran = caraPembayaran
-      } else {
-        parsed.tanggalJatuhTempo = jatuhTempoDate
-      }
-      // Ensure type is preserved
-      parsed.type = 'invoice-pelunasan'
-      // Always derive dpAmount from originalTotal
-      if (parsed.dp > 0) {
-        const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : (() => {
-          const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
-          return sub + (sub * (parsed.ppn || 0) / 100)
-        })()
-        parsed.dpAmount = originalTotal * (parsed.dp / 100)
-        parsed.originalTotal = originalTotal
-      }
-      delete parsed.statusPembayaran
-      const newDataJson = JSON.stringify(parsed)
-
-      const res = await fetcher(`/api/history/${selectedItem.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ dataJson: newDataJson }),
-      })
-      if (res.ok) {
-        toast.success(pelunasanToggle ? 'Pelunasan berhasil dicatat!' : 'Jatuh tempo berhasil diperbarui')
-        clearSelection()
-        fetchHistory()
-        notifyDataChange('invoice')
-      } else {
-        toast.error('Gagal menyimpan perubahan')
-      }
-    } catch {
-      toast.error('Gagal menyimpan perubahan')
-    } finally {
-      setPelunasanUpdating(false)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-amber-600 flex items-center justify-center mb-2"><Wallet className="w-5 h-5" /></div>
-          <p className="text-xs text-slate-500 mb-0.5">Belum Lunas</p>
-          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{pendingInvoices.length}</p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-red-600 flex items-center justify-center mb-2"><Banknote className="w-5 h-5" /></div>
-          <p className="text-xs text-slate-500 mb-0.5">Total Sisa</p>
-          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{formatRupiahShort(totalSisa)}</p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-violet-600 flex items-center justify-center mb-2"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
-          <p className="text-xs text-slate-500 mb-0.5">Total DP Diterima</p>
-          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{formatRupiahShort(totalDP)}</p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl p-3 sm:p-4">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-rose-600 flex items-center justify-center mb-2"><AlertTriangle className="w-5 h-5" /></div>
-          <p className="text-xs text-slate-500 mb-0.5">Jatuh Tempo</p>
-          <p className="text-lg sm:text-xl font-bold text-black dark:text-white leading-tight">{overdueCount}</p>
-        </div>
-      </div>
-
-      {/* Main Content: List + Form */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Left: Pending Invoice List */}
-        <div className="lg:col-span-3 bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
-            <CircleDot className="w-4 h-4 text-amber-600" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Menunggu Pelunasan</h2>
-            <span className="text-[10px] font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">{pendingInvoices.length}</span>
-          </div>
-
-          {loading ? (
-            <div className="px-4 py-6 text-center"><Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-2">Memuat data...</p></div>
-          ) : pendingInvoices.length > 0 ? (
-            <>
-              {/* Mobile Cards */}
-              <div className="sm:hidden divide-y divide-slate-100 max-h-[50vh] overflow-y-auto">
-                {pendingInvoices.map((entry) => {
-                  const info = parseDocInfo(entry)
-                  const isOverdue = info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr())
-                  const isSelected = selectedItem?.id === entry.id
-                  return (
-                    <div key={entry.id} onClick={(e) => selectInvoice(entry, e)} className={cn('px-4 py-3 transition-colors cursor-pointer', isSelected ? 'bg-amber-50 border-l-4 border-l-amber-500' : 'hover:bg-amber-50/30')}>
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-amber-700 font-semibold text-[13px]">{entry.nomor || '-'}</p>
-                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />}
-                          </div>
-                          <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                          {info.referensiInvoiceNomor && <p className="text-[10px] text-violet-500">Ref: {info.referensiInvoiceNomor}</p>}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-red-600 font-bold text-sm">{formatRupiahShort(info.sisa)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isOverdue && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700"><AlertTriangle className="w-2.5 h-2.5" /> Lewat</span>}
-                        {info.tanggalJatuhTempo && <span className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold', isOverdue ? 'text-red-600' : 'text-amber-600')}><CalendarClock className="w-2.5 h-2.5" /> {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</span>}
-                        <span className="text-[9px] text-violet-500 font-medium">DP {info.dpPercent}%</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              {/* Desktop Table */}
-              <div className="hidden sm:block overflow-y-auto max-h-[60vh]">
-                <table className="w-full text-[13px]">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-                      <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
-                      <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. DP</th>
-                      <th className="text-left py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                      <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
-                      <th className="text-center py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Jatuh Tempo</th>
-                      <th className="text-right py-2.5 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingInvoices.map((entry) => {
-                      const info = parseDocInfo(entry)
-                      const isOverdue = info.tanggalJatuhTempo && new Date(info.tanggalJatuhTempo) < new Date(getTodayStr())
-                      const isSelected = selectedItem?.id === entry.id
-                      return (
-                        <tr key={entry.id} onClick={() => selectInvoice(entry)} className={cn('border-b border-slate-50 cursor-pointer transition-colors', isSelected ? 'bg-amber-50' : isOverdue ? 'bg-red-50/20 hover:bg-amber-50/30' : 'hover:bg-amber-50/30')}>
-                          <td className="py-2.5 px-3 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />}
-                              <span className="text-amber-700 font-semibold">{entry.nomor || '-'}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-violet-600 font-medium whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</td>
-                          <td className="py-2.5 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                            <span className="text-violet-600 font-medium">{info.dpPercent}%</span>
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            {info.tanggalJatuhTempo ? (
-                              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold', isOverdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700')}>
-                                {isOverdue && <AlertTriangle className="w-3 h-3" />}
-                                {new Date(info.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
-                              </span>
-                            ) : <span className="text-slate-400 text-[10px]">-</span>}
-                          </td>
-                          <td className="py-2.5 px-3 text-right whitespace-nowrap font-bold text-red-600">{formatRupiahShort(info.sisa)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : (
-            <div className="px-4 py-8 text-center">
-              <CheckCircle2 className="w-10 h-10 mx-auto text-green-300 mb-3" />
-              <p className="text-sm font-medium text-slate-500">Semua Invoice Sudah Lunas</p>
-              <p className="text-xs text-slate-400 mt-1">Tidak ada invoice yang menunggu pelunasan</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Form Pelunasan */}
-        <div className="lg:col-span-2">
-          {selectedItem && selectedInfo ? (
-            <div className="bg-card rounded-2xl shadow-sm border-2 border-slate-200 dark:border-zinc-700 overflow-hidden">
-              {/* Form Header */}
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-                <div className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-amber-600" />
-                  <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Form Pelunasan</h2>
-                </div>
-                <button onClick={clearSelection} className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-                  <X className="w-3.5 h-3.5 text-slate-500" />
-                </button>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {/* Invoice Info */}
-                <div className="rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">No. Invoice</span>
-                    <span className="font-semibold text-amber-800">{selectedItem.nomor}</span>
-                  </div>
-                  {selectedInfo.referensiInvoiceNomor && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Ref. Invoice DP</span>
-                      <span className="font-medium text-violet-600">{selectedInfo.referensiInvoiceNomor}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Customer</span>
-                    <span className="font-medium text-slate-700">{selectedItem.pihakKedua || '-'}</span>
-                  </div>
-                  {selectedInfo.namaBarang && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Barang</span>
-                      <span className="font-medium text-slate-700 truncate max-w-[150px]">{selectedInfo.namaBarang.split('\n')[0]}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-slate-200 pt-1.5 mt-1 space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Total</span>
-                      <span className="font-bold text-emerald-700">{formatRupiahShort(selectedInfo.totalHarga)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">DP ({selectedInfo.dpPercent}%)</span>
-                      <span className="font-medium text-violet-700">- {formatRupiahShort(selectedInfo.dp)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm pt-1 border-t border-dashed border-slate-200">
-                      <span className="font-semibold text-slate-700">Sisa Pembayaran</span>
-                      <span className="font-bold text-red-600">{formatRupiahShort(selectedInfo.sisa)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tanggal Jatuh Tempo */}
-                <div>
-                  <Label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                    <CalendarClock className="w-3.5 h-3.5" /> Tanggal Jatuh Tempo
-                  </Label>
-                  <Input type="date" value={jatuhTempoDate} onChange={(e) => setJatuhTempoDate(e.target.value)} className="mt-1.5 text-sm" />
-                </div>
-
-                {/* Pelunasan Toggle */}
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      {pelunasanToggle ? (
-                        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center"><Wallet className="w-4 h-4 text-amber-600" /></div>
-                      )}
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">Tandai Lunas</p>
-                        <p className="text-[11px] text-slate-500">
-                          {pelunasanToggle ? 'Sisa sudah dibayar' : 'Sisa belum dibayar'}
-                        </p>
-                      </div>
-                    </div>
-                    <Switch checked={pelunasanToggle} onCheckedChange={(checked) => { setPelunasanToggle(checked); if (checked && !pelunasanDate) setPelunasanDate(getTodayStr()) }} />
-                  </div>
-
-                  {pelunasanToggle && (
-                    <div className="space-y-3 pt-1">
-                      <div>
-                        <Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label>
-                        <Input type="date" value={pelunasanDate} onChange={(e) => setPelunasanDate(e.target.value)} className="mt-1 text-sm" />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-slate-600">Cara Pembayaran</Label>
-                        <Input type="text" value={caraPembayaran} onChange={(e) => setCaraPembayaran(e.target.value)} placeholder="Transfer, Tunai, Giro..." className="mt-1 text-sm" />
-                      </div>
-                      <div className="rounded-lg bg-green-50 p-2.5 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs font-semibold text-green-800">Sudah Lunas</p>
-                          <p className="text-[10px] text-green-600">
-                            Sisa {formatRupiahShort(selectedInfo.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={clearSelection} disabled={pelunasanUpdating} className="flex-1">Batal</Button>
-                  <Button size="sm" onClick={handleSimpanPelunasan} disabled={pelunasanUpdating} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
-                    {pelunasanUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                    Simpan Pelunasan
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-card rounded-2xl shadow-sm border border-dashed border-slate-300 dark:border-zinc-700 p-8 text-center">
-              <Wallet className="w-12 h-12 mx-auto text-slate-200 mb-3" />
-              <p className="text-sm font-medium text-slate-400">Pilih Invoice</p>
-              <p className="text-xs text-slate-300 mt-1">Klik invoice di daftar untuk mengisi form pelunasan</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Lunas History — collapsed by default */}
-      {lunasInvoices.length > 0 && (
-        <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <details>
-            <summary className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
-              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Sudah Lunas</h2>
-              <span className="text-[10px] font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{lunasInvoices.length} invoice</span>
-            </summary>
-            <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-              {lunasInvoices.map((entry) => {
-                const info = parseDocInfo(entry)
-                return (
-                  <div key={entry.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-violet-700 font-semibold text-xs">{entry.nomor || '-'}</p>
-                        <CheckCircle2 className="w-3 h-3 text-green-500" />
-                      </div>
-                      <p className="text-slate-500 text-[11px]">{entry.pihakKedua || '-'} · {info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-green-600 font-semibold text-xs">{formatRupiahShort(info.sisa > 0 ? info.sisa : 0)}</p>
-                      {info.tanggalPelunasan && <p className="text-[10px] text-slate-400">{new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</p>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </details>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ============================================================
-// InvoicePage — main page with 4 tabs
+// InvoicePage — daftar Riwayat + layar Buat Baru.
+// Tab "Pelunasan", "Editor Pelunasan" dan fitur "Gabungkan" dihapus.
 // ============================================================
 export default function InvoicePage() {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'buat-baru' | 'riwayat' | 'pelunasan' | 'editor-pelunasan'>('riwayat')
+  const [activeTab, setActiveTab] = useState<'buat-baru' | 'riwayat'>('riwayat')
   const [createMode, setCreateMode] = useState<'regular' | 'dp' | 'pelunasan'>('regular')
   const [invoiceCount, setInvoiceCount] = useState(0)
-  const [pelunasanCount, setPelunasanCount] = useState(0)
 
   // Fetch counts for badges
   useEffect(() => {
@@ -1703,12 +848,6 @@ export default function InvoicePage() {
         const invData: HistoryEntry[] = invRes.ok ? (await invRes.json()).data || [] : []
         const pelData: HistoryEntry[] = pelRes.ok ? (await pelRes.json()).data || [] : []
         setInvoiceCount(invData.length + pelData.length)
-        // Count pelunasan invoices that are not yet lunas
-        const pending = pelData.filter(entry => {
-          const info = parseDocInfo(entry)
-          return !info.lunas
-        })
-        setPelunasanCount(pending.length)
       } catch {}
     }
     fetchCounts()
@@ -1718,10 +857,8 @@ export default function InvoicePage() {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [])
 
-  const tabs: { key: 'riwayat' | 'pelunasan' | 'editor-pelunasan'; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const tabs: { key: 'riwayat'; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'riwayat', label: 'Riwayat', icon: <History className="w-3.5 h-3.5" />, badge: invoiceCount || undefined },
-    { key: 'pelunasan', label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" />, badge: pelunasanCount || undefined },
-    { key: 'editor-pelunasan', label: 'Editor Pelunasan', icon: <><FileText className="w-3.5 h-3.5" /><Wallet className="w-3 h-3" /></> },
   ]
 
   return (
@@ -1744,7 +881,7 @@ export default function InvoicePage() {
               {tab.label}
             </span>
             {tab.badge !== undefined && tab.badge > 0 && (
-              <span className={cn('ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full', activeTab === tab.key ? 'bg-white/20 text-white' : tab.key === 'pelunasan' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')}>
+              <span className={cn('ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full', activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>
                 {tab.badge}
               </span>
             )}
@@ -1808,19 +945,6 @@ export default function InvoicePage() {
         </div>
       )}
 
-      {/* Pelunasan Tab */}
-      {activeTab === 'pelunasan' && (
-        <div className="print:hidden">
-          <PelunasanTab />
-        </div>
-      )}
-
-      {/* Editor Pelunasan Tab */}
-      {activeTab === 'editor-pelunasan' && (
-        <Suspense fallback={null}>
-          <InvoicePelunasanEditor />
-        </Suspense>
-      )}
     </DashboardLayout>
   )
 }
