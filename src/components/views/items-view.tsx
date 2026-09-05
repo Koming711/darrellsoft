@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Package, Pencil, Plus, Search, Trash2,
+  Package, Pencil, Plus, Search, Trash2, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -245,30 +245,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
           <h1 className="text-xl md:text-2xl font-bold tracking-tight">Master Barang</h1>
           <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-            <Label
-              htmlFor="pilih-pelanggan"
-              className="text-sm font-medium text-stone-700 sm:whitespace-nowrap"
-            >
-              Pilih Pelanggan
-            </Label>
-            <div className="sm:w-52">
-              <Select value={customerId} onValueChange={(v) => setCustomerId(v || 'all')}>
-                <SelectTrigger id="pilih-pelanggan" className="w-full min-h-[44px] bg-white" aria-label="Pilih Customer">
-                  <SelectValue placeholder="Pilih Customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Barang</SelectItem>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
             <Input
@@ -289,6 +266,69 @@ export default function ItemsView({ user }: { user: SessionUser }) {
           </Button>
         </div>
       </div>
+
+      {/* Pilih Pelanggan — kotak filter tepat di bawah judul Master Barang */}
+      <section
+        aria-label="Filter pelanggan"
+        className="rounded-xl border border-stone-200 bg-white p-3 md:px-4 md:py-3"
+      >
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
+          <div className="flex items-center gap-2.5 lg:shrink-0">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-stone-100">
+              <Users className="h-4 w-4 text-stone-500" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <Label
+                htmlFor="pilih-pelanggan"
+                className="block text-sm font-semibold text-stone-800 leading-tight"
+              >
+                Pilih Pelanggan
+              </Label>
+              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                Tampilkan barang per pelanggan
+              </p>
+            </div>
+          </div>
+          <div className="lg:w-80">
+            <Select value={customerId} onValueChange={(v) => setCustomerId(v || 'all')}>
+              <SelectTrigger
+                id="pilih-pelanggan"
+                className="w-full min-h-[44px] bg-white"
+                aria-label="Pilih Pelanggan"
+              >
+                <SelectValue placeholder="Pilih pelanggan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Barang</SelectItem>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {customerId !== 'all' && selectedCustomerName && (
+            <div className="flex items-center gap-2 lg:ml-auto">
+              <Badge
+                variant="outline"
+                className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs max-w-[240px]"
+              >
+                <span className="truncate font-medium">{selectedCustomerName}</span>
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground hover:text-stone-800"
+                onClick={() => setCustomerId('all')}
+                aria-label="Reset filter pelanggan"
+              >
+                <X className="h-3.5 w-3.5" /> Reset
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Desktop table */}
       <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
