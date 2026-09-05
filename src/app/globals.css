@@ -558,10 +558,20 @@
   /* === Layout overrides only — preserve preview visual styles === */
 
   #document-preview {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
+    background: transparent !important;
+    z-index: auto !important;
+    display: block !important;
+    overflow: visible !important;
   }
 
   #document-preview > div {
@@ -604,6 +614,12 @@
     line-height: 1.35 !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
+  }
+
+  /* Popup mode scaler wrapper — drop JS inline scaled dimensions */
+  #document-preview [data-preview-scaler] {
+    width: auto !important;
+    height: auto !important;
   }
 
   /* Ensure all preview colors and backgrounds print correctly */

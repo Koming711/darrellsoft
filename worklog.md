@@ -7555,3 +7555,31 @@ Stage Summary:
 - Halaman Invoice kini TANPA tab sama sekali: daftar riwayat langsung tampil (isi tidak dihapus), layar Buat Invoice tetap via tombol.
 - Tampilan daftar invoice (desktop tabel + mobile kartu + header + dialog hapus + empty state) kini identik polanya dengan halaman Master Customer: shadcn Table sticky stone-50 + ghost icon actions, Card mobile min-h-[44px], AlertDialog hapus, Badge status, search + tombol utama emerald di header.
 - Semua fungsi lama tetap: buat Regular/DP/Pelunasan, muat ke editor, preview A5 + kirim WhatsApp, catat pelunasan, hapus, backup/restore.
+
+---
+Task ID: invoice-create-preview-popup-font-geist
+Agent: Main (Z.ai Code)
+Task: "dihalaman buat invoice baru. rubah pratinjau jadi popup. font halaman buat invoice baru buat sama dengan halaman riwayat invoice. check and fix"
+
+Work Log:
+- src/components/dokupro/document-editor-layout.tsx (ditulis ulang):
+  * Prop baru `previewMode?: 'inline' | 'popup'` (default 'inline' — surat jalan & purchase order TIDAK berubah, diverifikasi tetap side-panel inline + collapsible mobile).
+  * Mode popup (dipakai halaman Buat Invoice Baru): panel pratinjau samping dihapus, form editor jadi kolom penuh max-w-3xl centered; tombol "👁 Lihat Pratinjau A5" (min-h-[44px]) muncul di atas baris aksi (Reset/Cetak/JPG/Simpan/Surat Jalan); klik membuka OVERLAY POPUP layar penuh (bg-black/80, z-index 70 > MobileBottomNav z-50 & popup z-[60]) berisi A5 di-scale fit viewport (cap 1.4x), tombol X kanan-atas + bar "Tutup" bawah — pola sama dgn popup preview di Riwayat.
+  * KUNCI: overlay TETAP ter-mount saat tertutup di luar layar (position:fixed left:-99999px, bukan display:none) dengan id="document-preview" — tombol Cetak (window.print → #document-preview) & JPG (capture [data-document-preview]) tetap berfungsi TANPA membuka popup; A5 natural size saat tertutup.
+  * Scale effect terpisah utk popup: ukur offsetWidth/Height .a5-page (transform-immune), fit viewport saat open, transform none saat closed.
+  * src/app/globals.css @media print: rule #document-preview diperluas (position:static !important, left/top/right/bottom auto, background transparent, display block — mengalahkan inline style off-screen) + reset [data-preview-scaler] — A5 tercetak penuh 148mm apapun status popup (terverifikasi rule ter-parse di styleSheets).
+- src/components/dokupro/invoice-editor.tsx & invoice-pelunasan-editor.tsx: tambah previewMode="popup" pada DocumentEditorLayout.
+- FONT: dicek komputasi di browser — halaman Buat Invoice Baru (heading, label, input, tombol toggle, a5-page dokumen, body) semuanya SUDAH "Geist, Geist Fallback" = identik dgn halaman Riwayat Invoice (body layout.tsx pakai var(--font-geist-sans)); tidak ada elemen Arial tersisa di halaman ini (font Arial lain di repo hanya utk print/PDF/PAGE lain yg tidak diminta).
+- Lint: 4 file diedit → 0 error.
+- VERIFIKASI agent-browser (superadmin, desktop 1440 + mobile 390):
+  * Desktop: create screen tanpa panel pratinjau, form penuh rapi; popup terbuka dgn A5 scale 0.91, font A5 Geist; edit field customer ("Toko Sumber Rejeki") → popup menampilkan data live ✓ lalu dibersihkan; Tutup/X menutup popup; surat-jalan masih inline (panel lg:flex, grid 3fr_5fr, A5 559px) — no regression.
+  * Mobile 390px: tanpa h-scroll; tombol "Lihat Pratinjau A5" full-width; popup fit (scale 0.64), dokumen utuh sampai tanda tangan/footer; FIX: bar Tutup semula tertutup MobileBottomNav (z-50 sama, nav lebih belakang di DOM) → overlay dinaikkan ke z-70, Tutup kini di atas nav ✓.
+  * Sub-tab Pelunasan: popup menampilkan A5 "INVOICE PELUNASAN" ✓.
+  * Console & page errors bersih; dev.log bersih; print CSS rule terverifikasi ada.
+- CLEANUP: tidak ada data tersimpan ( hanya ketik field & buka popup, tidak klik Simpan); DB final tetap invoice=10 & PEL=3 (lintas user) — tidak berubah.
+
+Stage Summary:
+- Halaman Buat Invoice Baru: pratinjau A5 kini POPUP (Regular/DP & Pelunasan) — form full-width + tombol "Lihat Pratinjau A5"; popup full-screen dgn scale otomatis, X/Tutup, data live.
+- Cetak & JPG tetap bekerja walau popup tertutup (pratinjau ter-mount off-screen + print CSS reset #document-preview).
+- Font seluruh halaman Buat Invoice Baru (form + dokumen A5 di popup) = Geist, identik dgn halaman Riwayat Invoice — terverifikasi computed style.
+- Surat jalan & Purchase Order tidak berubah (masih pratinjau inline).

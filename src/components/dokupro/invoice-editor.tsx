@@ -409,6 +409,7 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
     <>
       <DocumentEditorLayout
         title="Invoice"
+        previewMode="popup"
         previewContent={<InvoicePreview data={invoice} />}
         actions={
           <div className="flex items-center gap-2 flex-wrap">

@@ -8,29 +8,46 @@ interface DocumentEditorLayoutProps {
   children: React.ReactNode;
   previewContent: React.ReactNode;
   actions?: React.ReactNode;
+  /**
+   * 'inline' (default): pratinjau tampil berdampingan di desktop (sticky panel)
+   *   dan collapsible di mobile — dipakai surat jalan & purchase order.
+   * 'popup': pratinjau TIDAK menempati layout — dibuka sebagai popup overlay
+   *   layar penuh via tombol "Lihat Pratinjau A5" (dipakai halaman Buat Invoice).
+   *   Pratinjau tetap ter-mount di luar layar saat popup tertutup sehingga
+   *   tombol Cetak (window.print → #document-preview) dan JPG
+   *   (capture [data-document-preview]) tetap berfungsi tanpa membuka popup.
+   */
+  previewMode?: 'inline' | 'popup';
 }
 
 /**
  * Shared layout for document editors (invoice, surat-jalan, purchase-order,
  * invoice-pelunasan).
  *
- * Renders the A5 preview (148mm wide ≈ 559px) in TWO containers:
+ * Mode inline: renders the A5 preview (148mm wide ≈ 559px) in TWO containers:
  *   - Desktop: a sticky side panel (lg+)
  *   - Mobile: a collapsible inline section (<lg)
  *
- * Each `.a5-page` is scaled to fit its own container width via a CSS
- * `transform: scale()`. This is critical on mobile, where the 559px page
- * would otherwise overflow the ~390px viewport and get clipped by
- * `overflow-hidden`.
+ * Mode popup: renders ONE preview container — a fixed overlay that is
+ *   positioned off-screen while closed. The `.a5-page` inside is scaled to fit
+ *   the viewport when open and left at natural size when closed.
+ *
+ * Each `.a5-page` is scaled to fit its container via a CSS `transform: scale()`.
+ * `offsetWidth`/`offsetHeight` are used for measurement because they are NOT
+ * affected by CSS transforms.
  */
 export function DocumentEditorLayout({
   children,
   previewContent,
   actions,
+  previewMode = 'inline',
 }: DocumentEditorLayoutProps) {
+  const isPopup = previewMode === 'popup';
   const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(false);
   const desktopWrapperRef = useRef<HTMLDivElement>(null);
   const mobileWrapperRef = useRef<HTMLDivElement>(null);
+  const popupWrapperRef = useRef<HTMLDivElement>(null);
 
   /**
    * Scale a single `.a5-page` to fit its wrapper container.
@@ -60,7 +77,62 @@ export function DocumentEditorLayout({
     wrapper.style.height = (a5Page.offsetHeight * scale) + 'px';
   };
 
+  /**
+   * Popup mode — fit the `.a5-page` to the viewport when the popup is open
+   * (same behavior as the preview overlay in the Riwayat list), and keep it
+   * at natural size while closed (off-screen mount, so print/JPG capture get
+   * the full-resolution 148mm page).
+   */
   useLayoutEffect(() => {
+    if (!isPopup) return;
+    const wrapper = popupWrapperRef.current;
+    if (!wrapper) return;
+    const a5Page = wrapper.querySelector('.a5-page') as HTMLElement | null;
+    if (!a5Page) return;
+
+    const fit = () => {
+      const naturalW = a5Page.offsetWidth;
+      const naturalH = a5Page.offsetHeight;
+      if (naturalW === 0 || naturalH === 0) {
+        // Element not laid out yet — retry on next frame
+        requestAnimationFrame(fit);
+        return;
+      }
+      if (popupOpen) {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        // Reserved space: top close-button row (~56px) + bottom bar (~88px) + padding (32px)
+        const reservedH = 56 + 88 + 32;
+        const reservedW = 32;
+        const availW = Math.max(120, vw - reservedW);
+        const availH = Math.max(120, vh - reservedH);
+        // Fit entirely within available space; cap at 1.4x for very large screens
+        const scale = Math.min(availW / naturalW, availH / naturalH, 1.4);
+        a5Page.style.transform = `scale(${scale})`;
+        a5Page.style.transformOrigin = 'top left';
+        wrapper.style.width = `${naturalW * scale}px`;
+        wrapper.style.height = `${naturalH * scale}px`;
+      } else {
+        // Closed (off-screen): natural size — keeps JPG capture & print crisp
+        a5Page.style.transform = 'none';
+        wrapper.style.width = `${naturalW}px`;
+        wrapper.style.height = `${naturalH}px`;
+      }
+    };
+
+    fit();
+    const raf = requestAnimationFrame(fit);
+    const timer = setTimeout(fit, 250);
+    window.addEventListener('resize', fit);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      window.removeEventListener('resize', fit);
+    };
+  }, [isPopup, popupOpen, previewContent]);
+
+  useLayoutEffect(() => {
+    if (isPopup) return;
     const scaleAll = () => {
       scaleContainer(desktopWrapperRef.current);
       scaleContainer(mobileWrapperRef.current);
@@ -81,8 +153,103 @@ export function DocumentEditorLayout({
     };
     // Re-scale when the preview data changes OR when the mobile collapsible
     // section is toggled (so the freshly-mounted mobile container gets scaled).
-  }, [previewContent, showMobilePreview]);
+  }, [isPopup, previewContent, showMobilePreview]);
 
+  // ===== POPUP MODE =====
+  if (isPopup) {
+    return (
+      <div className="min-h-screen">
+        <div className="mx-auto max-w-[1600px] px-3 py-3 md:px-6 md:py-4 print:max-w-none print:p-0">
+          {/* Editor form — full width (tidak dibagi dengan panel pratinjau) */}
+          <div className="max-w-3xl mx-auto space-y-3 lg:space-y-5 print-hidden">
+            {children}
+          </div>
+
+          {/* Toggle + Actions */}
+          <div className="max-w-3xl mx-auto mt-4 space-y-3 print:hidden">
+            <button
+              type="button"
+              onClick={() => setPopupOpen(true)}
+              className="w-full sm:w-auto sm:min-w-[240px] inline-flex items-center justify-center gap-2 px-4 py-3 bg-card border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 active:bg-slate-100 transition-colors min-h-[44px]"
+            >
+              <Eye className="w-4 h-4 text-slate-600" />
+              <span className="text-sm font-semibold text-slate-700">Lihat Pratinjau A5</span>
+            </button>
+            {actions && <div>{actions}</div>}
+          </div>
+        </div>
+
+        {/*
+         * Preview popup overlay.
+         * Saat tertutup: tetap ter-mount di luar layar (left: -99999px, bukan
+         * display:none) supaya tombol Cetak & JPG tetap menemukan pratinjau.
+         * id="document-preview" dipakai CSS print (@media print) yang me-reset
+         * posisi/ukurannya sehingga A5 tercetak penuh walau popup tertutup.
+         */}
+        <div
+          id="document-preview"
+          aria-hidden={!popupOpen}
+          style={popupOpen ? {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 70, // di atas MobileBottomNav (z-50) & popup lain (z-[60])
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
+            position: 'fixed',
+            top: 0,
+            left: '-99999px',
+            width: '100vw',
+            display: 'flex',
+            flexDirection: 'column',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Close row */}
+          {popupOpen && (
+            <div className="flex justify-end p-3 shrink-0 print:hidden">
+              <button
+                onClick={() => setPopupOpen(false)}
+                aria-label="Tutup pratinjau"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-700" />
+              </button>
+            </div>
+          )}
+
+          {/* Scrollable preview area */}
+          <div className="flex-1 flex items-start justify-center overflow-auto p-4 min-h-0 print:block print:p-0 print:overflow-visible">
+            <div
+              ref={popupWrapperRef}
+              data-preview-scaler
+              className="flex-shrink-0"
+            >
+              {previewContent}
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          {popupOpen && (
+            <div className="shrink-0 flex justify-center p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm print:hidden">
+              <button
+                onClick={() => setPopupOpen(false)}
+                className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[40px] rounded-lg bg-white text-slate-700 text-sm font-semibold shadow-md hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" /> Tutup
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===== INLINE MODE (default — surat jalan, purchase order) =====
   return (
     <div className="min-h-screen">
       {/* Editor + Preview */}
