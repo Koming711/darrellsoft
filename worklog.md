@@ -7497,3 +7497,27 @@ Work Log:
 Stage Summary:
 - Menu sidebar kini: LAPORAN = [Laporan Penjualan, Rugi Laba]; item "Laporan" (hub) dan "Harga Khusus" dihilangkan dari navigasi (desktop + mobile).
 - Halaman aslinya masih ada (akses via URL); tidak ada perubahan permission/API/schema; data aman.
+
+---
+Task ID: invoice-delete-tabs-font-geist
+Agent: Main (Z.ai Code)
+Task: "dihalaman invoice. delete tab pelunasan, delete tab editor pelunasan, delete tab gabungkan. rubah font dihalaman invoice sama dengan font dihalaman master barang. check and fix"
+
+Work Log:
+- src/app/invoice/page.tsx (1827 → 951 baris):
+  * Hapus tab "Pelunasan" (entry tab + render block + komponen PelunasanTab utuh ~420 baris: kartu statistik, daftar menunggu pelunasan, form pelunasan inline, daftar sudah lunas).
+  * Hapus tab "Editor Pelunasan" (entry tab + render block). InvoicePelunasanEditor TETAP ADA lewat Buat Invoice → sub-tab Pelunasan (alur buat dokumen pelunasan tidak hilang).
+  * Hapus fitur "Gabungkan" menyeluruh: tombol header, merge mode action bar, merge dialog (pilih invoice utama, item gabungan, summary, PEL child notice, opsi hapus), state (mergeMode/selectedIds/mergeDialogOpen/mergePrimaryId/mergeDeleteOthers/mergeLoading/mergePreviewNomor), memo mergedPreview/selectedInvoices, toggleSelect, openMergeDialog, handleMerge; kolom checkbox "Pilih" di tabel desktop + kondisional mergeMode di kartu mobile (aksi Restore/Hapus kini selalu tampil).
+  * Badge tab: pelunasanCount dihapus; Riwayat badge = total invoice + invoice pelunasan.
+  * Bersihkan import tak terpakai: AlertTriangle, CalendarClock, Layers, Hash, Checkbox, RadioGroup/RadioGroupItem.
+  * Yang DIPERTAHANKAN: section "Invoice Pelunasan" + dialog Form Pelunasan + tombol status Lunas/Belum di dalam tab Riwayat (bukan bagian dari tab yang dihapus), tombol Kembali, Buat Baru Regular/DP/Pelunasan.
+- src/components/dokupro/invoice-preview.tsx: font dokumen invoice A5 diubah dari 'Arial, Helvetica, sans-serif' → 'var(--font-geist-sans), Arial, Helvetica, sans-serif' — sekarang sama dengan font aplikasi yang dipakai halaman Master Barang (Geist). JPG share (captureElementAsJpg meng-clone inline style) & print otomatis ikut Geist.
+- INSIDEN: dev server ditemukan mati saat mulai verifikasi (connection refused) — di-restart (bun run dev background), verifikasi lanjut normal.
+- Lint: kedua file diedit 0 masalah (bunx eslint scoped). Sisa 80 error lint global pre-existing di file lain (hitung-*/upload/), tidak disentuh.
+- VERIFIKASI agent-browser (superadmin): desktop — tab hanya "Riwayat" (badge 6), tanpa pill Pelunasan/Editor Pelunasan/Gabungkan; header Riwayat = Buat Invoice + Backup + Restore; tabel DP (3) & PEL (3) render benar; klik Eye → preview A5 terbuka dengan computed fontFamily "Geist, Geist Fallback, ..." (bukan Arial); tombol status Lunas/Belum → dialog Form Pelunasan + switch tampil; Buat Invoice → sub-tab Regular/DP/Pelunasan aktif, InvoicePelunasanEditor termuat (list 3 PEL, preview INVOICE PELUNASAN font Geist); /master-barang vs /invoice body font keduanya "Geist, Geist Fallback" (identik); mobile 390px — tanpa h-scroll (390=390), tabel jadi kartu, aksi Restore/Hapus tampil, badge "2 item (gabungan)" historis masih tampil; console & page errors bersih; dev.log bersih.
+- CLEANUP: tidak ada data uji dibuat (hanya buka dialog/klik navigasi, tidak ada simpan); data final tetap 3 INV + 3 PEL superadmin, tidak ada perubahan DB.
+
+Stage Summary:
+- Halaman Invoice kini 1 tab "Riwayat" + layar "Buat Invoice Baru" (Regular/DP/Pelunasan); tab Pelunasan, Editor Pelunasan dan seluruh fitur Gabungkan dihapus dari UI (API generate-number tidak dihapus, hanya tak dipakai UI).
+- Alur catat pelunasan tetap tersedia: badge status Lunas/Belum di tabel Riwayat → dialog Form Pelunasan; buat dokumen pelunasan tetap lewat Buat Invoice → Pelunasan.
+- Font halaman invoice (termasuk dokumen A5 preview/print/JPG) kini Geist Sans — identik dengan halaman Master Barang.
