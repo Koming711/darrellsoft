@@ -53,6 +53,12 @@ function errText(e: unknown): string {
   return e instanceof Error ? e.message : 'Terjadi kesalahan'
 }
 
+interface CustomerOption {
+  id: string
+  name: string
+  companyName: string | null
+}
+
 interface ItemFormState {
   name: string
   unit: string
@@ -80,6 +86,10 @@ export default function ItemsView({ user }: { user: SessionUser }) {
   const [searchInput, setSearchInput] = useState('')
   const [query, setQuery] = useState('')
 
+  // Pilih Customer — filter daftar barang per pelanggan (barang terdaftar)
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
+  const [customerId, setCustomerId] = useState<string>('all')
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Item | null>(null)
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
@@ -93,12 +103,19 @@ export default function ItemsView({ user }: { user: SessionUser }) {
     return () => clearTimeout(t)
   }, [searchInput])
 
+  useEffect(() => {
+    apiFetch<CustomerOption[]>('/api/customers')
+      .then((data) => setCustomers(Array.isArray(data) ? data : []))
+      .catch(() => setCustomers([]))
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
       // active=all agar item nonaktif tetap terlihat (bisa diaktifkan kembali)
+      const cs = customerId !== 'all' ? `&customerId=${encodeURIComponent(customerId)}` : ''
       const data = await apiFetch<{ items: Item[] }>(
-        `/api/items?q=${encodeURIComponent(query)}&active=all`
+        `/api/items?q=${encodeURIComponent(query)}&active=all${cs}`
       )
       setItems(data.items)
     } catch (e) {
@@ -106,7 +123,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [query, customerId])
 
   useEffect(() => {
     void load()
@@ -130,15 +147,16 @@ export default function ItemsView({ user }: { user: SessionUser }) {
     setDialogOpen(true)
   }
 
-  // Margin = (harga standar − HPP) / harga standar × 100
+  // Profit = harga jual − HPP; Margin = profit / harga jual × 100
   const marginInfo = (() => {
     const std = Number(form.standardPrice)
     const hpp = Number(form.hpp)
     if (form.standardPrice === '' || form.hpp === '' || !Number.isFinite(std) || !Number.isFinite(hpp) || std <= 0) {
       return null
     }
-    const margin = ((std - hpp) / std) * 100
-    return { margin, negative: margin < 0 }
+    const profit = std - hpp
+    const margin = (profit / std) * 100
+    return { profit, margin, negative: margin < 0 }
   })()
 
   const handleSave = async () => {
@@ -148,7 +166,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
       return
     }
     if (form.standardPrice === '' || !Number.isFinite(std) || std < 0) {
-      toast.error('Harga standar wajib diisi (min 0)')
+      toast.error('Harga jual wajib diisi (min 0)')
       return
     }
     const hppNum = form.hpp === '' ? null : Number(form.hpp)
@@ -163,8 +181,9 @@ export default function ItemsView({ user }: { user: SessionUser }) {
         unit: form.unit,
         standardPrice: std,
         hpp: showHpp ? hppNum : null,
-        ...(editing ? { isActive: form.isActive } : {}),
+        ...(editing ? { isActive: form.isActive } : { customerId: customerId !== 'all' ? customerId : undefined }),
       }
+      const selectedCustomer = customers.find((c) => c.id === customerId)
       if (editing) {
         await apiFetch<{ item: Item }>(`/api/items/${editing.id}`, {
           method: 'PUT',
@@ -176,7 +195,11 @@ export default function ItemsView({ user }: { user: SessionUser }) {
           method: 'POST',
           body: JSON.stringify(body),
         })
-        toast.success('Barang berhasil ditambahkan')
+        toast.success(
+          selectedCustomer
+            ? `Barang berhasil ditambahkan untuk ${selectedCustomer.name}`
+            : 'Barang berhasil ditambahkan'
+        )
       }
       setDialogOpen(false)
       void load()
@@ -204,7 +227,12 @@ export default function ItemsView({ user }: { user: SessionUser }) {
   }
 
   const hasResults = items.length > 0
-  const countLabel = loading ? 'Memuat data…' : `${items.length} barang`
+  const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
+  const countLabel = loading
+    ? 'Memuat data…'
+    : selectedCustomerName
+      ? `${items.length} barang untuk ${selectedCustomerName}`
+      : `${items.length} barang`
 
   return (
     <div className="space-y-5">
@@ -215,6 +243,21 @@ export default function ItemsView({ user }: { user: SessionUser }) {
           <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <div className="sm:w-56">
+            <Select value={customerId} onValueChange={(v) => setCustomerId(v || 'all')}>
+              <SelectTrigger className="w-full min-h-[44px] bg-white" aria-label="Pilih Customer">
+                <SelectValue placeholder="Pilih Customer" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Barang</SelectItem>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
             <Input
@@ -243,7 +286,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
         ) : !hasResults ? (
-          <EmptyState filtered={query !== ''} />
+          <EmptyState filtered={query !== ''} customerName={selectedCustomerName} />
         ) : (
           <div className="max-h-96 overflow-y-auto scrollbar-thin">
             <Table>
@@ -310,7 +353,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
         {loading ? (
           [1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full rounded-xl" />)
         ) : !hasResults ? (
-          <EmptyState filtered={query !== ''} />
+          <EmptyState filtered={query !== ''} customerName={selectedCustomerName} />
         ) : (
           items.map((it) => (
             <Card key={it.id} className="p-0 gap-0">
@@ -365,7 +408,9 @@ export default function ItemsView({ user }: { user: SessionUser }) {
             <DialogDescription>
               {editing
                 ? `Kode ${editing.code} — perbarui data barang.`
-                : 'Kode barang dibuat otomatis oleh sistem.'}
+                : selectedCustomerName
+                  ? `Kode barang dibuat otomatis. Barang akan didaftarkan untuk ${selectedCustomerName}.`
+                  : 'Kode barang dibuat otomatis oleh sistem.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -394,7 +439,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="item-price">Harga Standar (Rp) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
                 <Input
                   id="item-price"
                   type="number"
@@ -421,9 +466,10 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                   placeholder="0"
                 />
                 {marginInfo && (
-                  <p className={`text-xs ${marginInfo.negative ? 'text-red-600' : 'text-emerald-600'}`}>
-                    Margin: {formatNum(marginInfo.margin, 1)}%
-                  </p>
+                  <div className={`text-xs rounded-md px-2 py-1.5 ${marginInfo.negative ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
+                    Profit: <span className="font-semibold">{formatIDR(marginInfo.profit)}</span>
+                    {' '}(Margin: {formatNum(marginInfo.margin, 1)}%)
+                  </div>
                 )}
               </div>
             )}
@@ -483,13 +529,19 @@ export default function ItemsView({ user }: { user: SessionUser }) {
   )
 }
 
-function EmptyState({ filtered }: { filtered: boolean }) {
+function EmptyState({ filtered, customerName }: { filtered: boolean; customerName?: string | null }) {
   return (
     <div className="text-center py-12 px-4">
       <Package className="h-10 w-10 text-stone-300 mx-auto mb-2" />
-      <p className="text-sm font-medium">{filtered ? 'Tidak ditemukan' : 'Belum ada barang'}</p>
+      <p className="text-sm font-medium">
+        {filtered ? 'Tidak ditemukan' : customerName ? `Belum ada barang untuk ${customerName}` : 'Belum ada barang'}
+      </p>
       <p className="text-xs text-muted-foreground mt-1">
-        {filtered ? 'Coba kata kunci lain.' : 'Tambahkan barang pertama Anda dengan tombol "+ Tambah".'}
+        {filtered
+          ? 'Coba kata kunci lain.'
+          : customerName
+            ? `Pilih "Semua Barang" untuk melihat semua, atau tambah barang saat pelanggan ini dipilih.`
+            : 'Tambahkan barang pertama Anda dengan tombol "+ Tambah".'}
       </p>
     </div>
   )
