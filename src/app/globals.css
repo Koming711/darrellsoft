@@ -679,3 +679,23 @@
 .print-mode .print-logo-box {
   border: 2px solid #000 !important;
 }
+
+/* ===== Scrollbar tipis (Master Barang / Harga Khusus — versi lama) ===== */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d3d1 transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d6d3d1;
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+}

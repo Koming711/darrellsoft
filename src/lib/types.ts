@@ -236,3 +236,52 @@ function getToday(): string {
   const d = String(today.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+// ===== Master Barang / Master Pelanggan / Harga Khusus (versi lama) =====
+
+export type Role = 'ADMIN' | 'MANAGER' | 'KASIR'
+
+export interface SessionUser {
+  id: string
+  name: string
+  username: string
+  role: Role
+}
+
+export interface Customer {
+  id: string
+  code: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  notes: string | null
+  isActive: boolean
+  invoiceCount?: number
+  customPriceCount?: number
+  createdAt: string
+}
+
+export interface Item {
+  id: string
+  code: string
+  name: string
+  unit: string
+  standardPrice: number
+  /** null = disembunyikan untuk role kasir */
+  hpp: number | null
+  isActive: boolean
+  createdAt: string
+}
+
+export interface PriceRow {
+  itemId: string
+  code: string
+  name: string
+  unit: string
+  standardPrice: number
+  hpp: number | null
+  customPrice: number | null
+}
+
+export const UNIT_OPTIONS = ['pcs', 'box', 'dus', 'sak', 'kg', 'gr', 'ltr', 'ml', 'pack', 'm', 'roll', 'set'] as const

@@ -55,3 +55,32 @@ export function generateDocNumber(prefix: string): string {
   const seq = String(Math.floor(Math.random() * 999) + 1).padStart(4, '0');
   return `${prefix}/${y}/${seq}`;
 }
+
+// ===== Formatters for Master Barang / Harga Khusus (versi lama) =====
+
+const idrFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+})
+
+/** Format angka ke Rupiah, contoh: Rp150.000 */
+export function formatIDR(n: number | null | undefined): string {
+  return idrFormatter.format(Number(n ?? 0))
+}
+
+/** Format angka biasa gaya Indonesia, contoh: 2,5 */
+export function formatNum(n: number | null | undefined, maxFrac = 2): string {
+  return new Intl.NumberFormat('id-ID', { maximumFractionDigits: maxFrac }).format(Number(n ?? 0))
+}
+
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+/** Selisih harga dalam persen (custom vs standar), dibulatkan 1 desimal */
+export function priceDelta(custom: number, standard: number): number {
+  if (!standard) return 0
+  return Math.round(((custom - standard) / standard) * 1000) / 10
+}

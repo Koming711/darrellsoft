@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import ItemsView from '@/components/views/items-view'
+import PricingView from '@/components/views/pricing-view'
 import { getAuthUser } from '@/lib/auth'
 import type { Role, SessionUser } from '@/lib/types'
 
 /**
- * Halaman Master Barang (versi lama) — tabel kode/nama/satuan/harga standar/HPP/status.
- * UI asli direstorasi dari versi pertama aplikasi (items-view).
+ * Halaman Harga Khusus (versi lama) — atur harga jual khusus per pelanggan per barang.
+ * UI asli direstorasi dari versi pertama aplikasi (pricing-view).
  */
-export default function MasterBarangPage() {
+export default function HargaKhususPage() {
   const [user, setUser] = useState<SessionUser | null>(null)
 
   useEffect(() => {
@@ -28,9 +28,9 @@ export default function MasterBarangPage() {
   }, [])
 
   return (
-    <DashboardLayout title="Master Barang" subtitle="Kelola daftar barang">
+    <DashboardLayout title="Harga Khusus" subtitle="Harga jual khusus per pelanggan">
       {user ? (
-        <ItemsView user={user} />
+        <PricingView user={user} />
       ) : (
         <div className="py-16 text-center text-sm text-muted-foreground">Memuat…</div>
       )}

@@ -78,17 +78,34 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, companyName, address, phone, email } = body
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Body tidak valid' }, { status: 400 })
+    }
+
+    // Partial update: hanya field yang dikirim yang diubah (kompatibel konsumen lama & baru).
+    const data: Record<string, unknown> = {}
+    if (body.name !== undefined) {
+      const name = typeof body.name === 'string' ? body.name.trim() : ''
+      if (!name) {
+        return NextResponse.json({ error: 'Nama customer wajib diisi' }, { status: 400 })
+      }
+      data.name = name
+    }
+    if (body.companyName !== undefined) data.companyName = body.companyName || null
+    if (body.address !== undefined) data.address = body.address || null
+    if (body.phone !== undefined) data.phone = body.phone || null
+    if (body.email !== undefined) data.email = body.email || null
+    if (body.notes !== undefined) data.notes = body.notes || null
+    if (body.isActive !== undefined) {
+      if (typeof body.isActive !== 'boolean') {
+        return NextResponse.json({ error: 'isActive tidak valid' }, { status: 400 })
+      }
+      data.isActive = body.isActive
+    }
 
     const customer = await db.customer.update({
       where: { id },
-      data: {
-        name,
-        companyName: companyName || null,
-        address,
-        phone,
-        email
-      }
+      data
     })
 
     return NextResponse.json(customer)

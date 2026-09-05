@@ -7115,3 +7115,35 @@ Stage Summary:
 - API: /api/barang, /api/barang/[id], /api/barang-customer (strict per-user isolation).
 - Data test sudah dibersihkan; database kembali bersih tanpa barang.
 - File: prisma/schema.prisma + schema.prisma (sinkron), src/app/api/barang/route.ts, src/app/api/barang/[id]/route.ts, src/app/api/barang-customer/route.ts, src/app/master-barang/page.tsx, src/components/sidebar.tsx, src/components/sidebar-desktop.tsx, src/lib/i18n.ts, src/lib/permission-defaults.ts
+
+---
+Task ID: restore-original-master-barang-customer
+Agent: Main (Z.ai Code)
+Task: "beda dari yang pernah dibuat. coba cek versi lamanya. dan master customer juga beda. check and fix" — Master Barang & Master Customer yang sekarang beda dari versi lama yang pernah dibuat. Cek versi lama, kembalikan sesuai aslinya.
+
+Work Log:
+- INVESTIGASI: versi lama TIDAK ada di git history / tar backup / extract-14 (semuanya sudah versi rebuild). Ditemukan di upload/extracted-tar/ (workspace snapshot aplikasi versi pertama "InvoiceKu" dengan model Item/CustomPrice): source code ASLI utuh di src/components/views/ — items-view.tsx (Master Barang), customers-view.tsx (Master Pelanggan), pricing-view.tsx (Harga Khusus) + API contract lengkap di src/app/api/{items,customers,prices}. Verifikasi silang: worklog extracted-tar mendeskripsikan ketiga view tsb; chunk JS produksi www.darrellsoft.com juga cocok.
+- DATABASE: prisma/schema.prisma — Barang + satuan (default "pcs") & isActive (default true); Customer + code (String?) & notes (String?) & isActive (default true). Root schema.prisma disinkronkan (prisma CLI baca root!) lalu db push sukses. Backfill: semua Customer existing diberi kode CUST-001.. per user (skrip node dari root, 0 customer tanpa kode).
+- LIB BARU: src/lib/client.ts — apiFetch + ApiError (adaptasi header auth sekarang x-user-id/x-user-role dari localStorage 'auth'). src/lib/format.ts — tambah formatIDR/formatNum/round2/priceDelta. src/lib/types.ts — tambah Role/SessionUser/Customer/Item/PriceRow/UNIT_OPTIONS (tak ada bentrok nama).
+- VIEWS: salin utuh dari extracted-tar ke src/components/views/ — items-view.tsx & pricing-view.tsx hanya adaptasi load() (API customers sekarang balas array, 2 baris); UI 100% versi lama.
+- API BARU: /api/items (GET q/active + kode ITM-xxx per user; POST) & /api/items/[id] (PUT partial; DELETE) — backed model Barang, isolasi per-user, hpp=null utk role user/demo (kasir). /api/prices (GET rows barang aktif + customPrice; PUT upsert/hapus entries) — backed Barang+BarangCustomer.
+- API DIUBAH: /api/customers GET — tetap ARRAY (kompatibel invoice-editor & hitung-*), tambah dukungan ?q=, order name asc, tiap elemen + code/notes/isActive/invoiceCount (hitung dari DocumentHistory docType invoice yang client.nama == nama customer)/customPriceCount; POST — generate kode CUST-xxx per user + notes. /api/customers/[id] PUT — partial update (hanya field terkirim), dukung notes/isActive; field lama (companyName dsb.) tak terpengaruh.
+- DIHAPUS: /api/barang, /api/barang/[id], /api/barang-customer (hanya dipakai halaman rebuild yang diganti).
+- HALAMAN: /master-barang & /master-customer diganti wrapper tipis (useEffect getAuthUser → mapRole: user/demo=KASIR, lainnya=ADMIN → DashboardLayout + ItemsView/CustomersView). BARU /harga-khusus (PricingView). Sidebar desktop+mobile: entry "Harga Khusus" (BadgePercent, section master_cetakan, featureId harga-khusus). i18n id/en: harga_khusus + subtitle_harga_khusus (sekalian hapus duplikat key master_barang di blok id). permission-defaults: GROUP_FEATURE harga-khusus (lihat/edit). globals.css: .scrollbar-thin dari versi lama.
+- MASALAH RUNTIME: proses next dev lama masih pegang port 3000 → kill + restart bersih; browser sempat "Permintaan timeout" karena keep-alive sockets ke server lama yang mati → hard reload; login via UI click terhalang overlay PWA → requestSubmit() form berhasil (POST /api/auth/login 200).
+
+Verifikasi agent-browser (superadmin, desktop 1280 + mobile 390):
+- Master Customer: judul "Master Pelanggan", kolom Kode/Nama/Telepon/Alamat/Invoice/Status/Aksi, 5 customer dengan kode CUST-001..005 + badge Aktif ✓; Tambah Pelanggan dialog field Nama*/Telepon/Email/Alamat/Catatan, centered ✓; buat "Test Customer QA" → CUST-006 otomatis ✓; Hapus via AlertDialog konfirmasi ✓.
+- Master Barang: kolom Kode/Nama/Satuan/Harga Standar/HPP/Status/Aksi, empty state "Belum ada barang" ✓; Tambah Barang dialog (kode otomatis, Satuan select) ✓; margin live "Margin: 40%" (emerald) saat isi harga 100rb/HPP 60rb ✓; simpan → ITM-001 tampil ✓; Edit Barang (desc "Kode ITM-001…", switch Status Aktif) ✓; Hapus → kembali empty ✓.
+- Harga Khusus: judul "Harga Khusus per Pelanggan", picker pelanggan Popover+Command (nama + kode) ✓; pilih Budi Susanto → kolom Barang/Harga Standar/Harga Khusus/Selisih/Aksi ✓; isi 30000 → "Rp 30.000 (-40%)" + bar "Simpan Perubahan" ✓; simpan → "1 harga khusus aktif", baris highlight emerald, nilai persist ✓.
+- Sidebar: "Harga Khusus" muncul di MASTER CETAK (desktop + mobile) ✓.
+- Mobile 390px ketiga halaman: tanpa horizontal overflow ✓.
+- Console: 0 error baru (4 error lama = AbortError saat episode server restart); dev.log bersih tanpa error server ✓.
+- DB setelah test: barang=0, barangCustomer=0, customer test=0 — bersih ✓.
+- Lint: 80 error pre-existing (baseline sama persis tanpa perubahan), 0 error baru dari file-file ini ✓.
+
+Stage Summary:
+- Master Barang & Master Customer (dan Harga Khusus) KEMBALI PERSIS SEPERTI VERASI LAMA: kode otomatis (CUST-xxx/ITM-xxx per user), satuan, harga standar, HPP + margin live, status aktif/nonaktif, harga khusus per pelanggan dengan selisih %.
+- Data model: Customer & Barang kini punya field versi lama (code/notes/isActive; satuan/isActive) — data lama aman (default backfilled).
+- API versi lama dihidupkan kembali di atas model sekarang dengan isolasi per-user ketat; konsumen lama /api/customers (invoice editor, hitung-*, potong-kertas) tetap kompatibel (array).
+- File baru: src/lib/client.ts, src/components/views/{items,customers,pricing}-view.tsx, src/app/api/items/*, src/app/api/prices/*, src/app/harga-khusus/*.
