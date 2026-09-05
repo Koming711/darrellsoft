@@ -398,6 +398,7 @@ export function InvoicePelunasanEditor() {
   return (
     <DocumentEditorLayout
       title="Invoice Pelunasan"
+      previewMode="popup"
       previewContent={<InvoicePreview data={previewData!} showPelunasanLabel dpAmountOverride={originalDpAmount} />}
       actions={
         invoiceData ? (
