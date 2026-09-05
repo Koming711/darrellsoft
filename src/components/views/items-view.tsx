@@ -64,11 +64,12 @@ interface ItemFormState {
   unit: string
   standardPrice: string
   hpp: string
+  keterangan: string
   isActive: boolean
 }
 
 const EMPTY_FORM: ItemFormState = {
-  name: '', unit: 'pcs', standardPrice: '', hpp: '', isActive: true,
+  name: '', unit: 'pcs', standardPrice: '', hpp: '', keterangan: '', isActive: true,
 }
 
 function ActiveBadge({ active }: { active: boolean }) {
@@ -142,6 +143,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
       unit: it.unit,
       standardPrice: String(it.standardPrice),
       hpp: it.hpp != null ? String(it.hpp) : '',
+      keterangan: it.keterangan ?? '',
       isActive: it.isActive,
     })
     setDialogOpen(true)
@@ -181,6 +183,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
         unit: form.unit,
         standardPrice: std,
         hpp: showHpp ? hppNum : null,
+        keterangan: form.keterangan.trim(),
         ...(editing ? { isActive: form.isActive } : { customerId: customerId !== 'all' ? customerId : undefined }),
       }
       const selectedCustomer = customers.find((c) => c.id === customerId)
@@ -294,8 +297,9 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                 <TableRow className="bg-stone-50 hover:bg-stone-50">
                   <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
+                  <TableHead>Keterangan</TableHead>
                   <TableHead className="text-center">Satuan</TableHead>
-                  <TableHead className="text-right">Harga Standar</TableHead>
+                  <TableHead className="text-right">Harga Jual</TableHead>
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
@@ -306,6 +310,14 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                   <TableRow key={it.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
                     <TableCell className="font-medium">{it.name}</TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <span
+                        className="block truncate text-sm text-muted-foreground"
+                        title={it.keterangan || undefined}
+                      >
+                        {it.keterangan || '-'}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-center">{it.unit}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatIDR(it.standardPrice)}</TableCell>
                     {showHpp && (
@@ -367,11 +379,16 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <p className="text-muted-foreground">Satuan: <span className="font-medium text-stone-700">{it.unit}</span></p>
-                  <p className="text-muted-foreground">Harga: <span className="font-semibold text-stone-700">{formatIDR(it.standardPrice)}</span></p>
+                  <p className="text-muted-foreground">Harga Jual: <span className="font-semibold text-stone-700">{formatIDR(it.standardPrice)}</span></p>
                 </div>
                 {showHpp && (
                   <p className="text-sm text-muted-foreground">
                     HPP: <span className="font-medium text-stone-700">{it.hpp != null ? formatIDR(it.hpp) : '-'}</span>
+                  </p>
+                )}
+                {it.keterangan && (
+                  <p className="text-sm text-muted-foreground">
+                    Keterangan: <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
                 <div className="flex gap-2 pt-1">
@@ -473,6 +490,17 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                 )}
               </div>
             )}
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-keterangan">Keterangan</Label>
+              <Input
+                id="item-keterangan"
+                value={form.keterangan}
+                onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
+                placeholder="Keterangan tambahan (opsional)"
+                maxLength={500}
+                autoComplete="off"
+              />
+            </div>
             {editing && (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 p-3">
                 <div>

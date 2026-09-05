@@ -270,6 +270,7 @@ export interface Item {
   standardPrice: number
   /** null = disembunyikan untuk role kasir */
   hpp: number | null
+  keterangan: string
   isActive: boolean
   createdAt: string
 }

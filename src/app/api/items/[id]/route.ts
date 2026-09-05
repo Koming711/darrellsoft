@@ -12,8 +12,8 @@ function toNumber(v: unknown): number | null {
 }
 
 /**
- * PUT /api/items/:id — update barang (nama, satuan, harga standar, HPP, status aktif).
- * Body: { name?, unit?, standardPrice?, hpp?, isActive? }
+ * PUT /api/items/:id — update barang (nama, satuan, harga jual, HPP, keterangan, status aktif).
+ * Body: { name?, unit?, standardPrice?, hpp?, keterangan?, isActive? }
  */
 export async function PUT(
   request: NextRequest,
@@ -40,6 +40,7 @@ export async function PUT(
       satuan?: string
       jual?: number
       modal?: number
+      keterangan?: string
       isActive?: boolean
     } = {}
 
@@ -68,6 +69,9 @@ export async function PUT(
       }
       data.modal = hpp
     }
+    if (body.keterangan !== undefined) {
+      data.keterangan = typeof body.keterangan === 'string' ? body.keterangan.trim().slice(0, 500) : ''
+    }
     if (body.isActive !== undefined) {
       if (typeof body.isActive !== 'boolean') {
         return NextResponse.json({ error: 'isActive tidak valid' }, { status: 400 })
@@ -86,6 +90,7 @@ export async function PUT(
         unit: item.satuan,
         standardPrice: item.jual,
         hpp: isKasir ? null : item.modal,
+        keterangan: item.keterangan,
         isActive: item.isActive,
         createdAt: item.createdAt.toISOString(),
       },
