@@ -7311,3 +7311,32 @@ Stage Summary:
 - Kolom "Keterangan" kini berada tepat di sebelah KANAN kolom "HPP" pada tabel Master Barang.
 - Label "Pilih Pelanggan" kini tampil di samping dropdown pelanggan (yang berisi opsi "Semua Barang" + daftar pelanggan), responsif di desktop & mobile.
 - Tidak ada perubahan API/schema/DB; murni penataan UI.
+
+---
+Task ID: master-barang-pilih-pelanggan-kotak-ke-bawah-judul
+Agent: Main (Z.ai Code)
+Task: "pilih pelanggan dan kotaknya dipindahin kebawah master barang. buat yang rapih crud dan ui."
+
+Work Log:
+- src/components/views/items-view.tsx — restrukturisasi header:
+  * Header kini hanya: judul "Master Barang" + count (kiri) dan search + tombol "+ Tambah" (kanan). Dropdown pelanggan dikeluarkan dari baris header.
+  * Tambahkan <section aria-label="Filter pelanggan"> (rounded-xl border bg-white) tepat DI BAWAH judul Master Barang, berisi: ikon Users dalam kotak abu + label "Pilih Pelanggan" (font-semibold) + sub-teks "Tampilkan barang per pelanggan" + Select (lg:w-80) berisi opsi "Semua Barang" + daftar pelanggan.
+  * Saat pelanggan dipilih (≠all): muncul Badge hijau berisi nama pelanggan (truncate, max-w-[240px]) + tombol "Reset" (X, aria-label="Reset filter pelanggan") yang mengembalikan ke "Semua Barang" — selaras kanan (lg:ml-auto).
+  * aria-label trigger "Pilih Customer" → "Pilih Pelanggan", placeholder → "Pilih pelanggan" (konsisten dengan label).
+  * Import lucide ditambah Users, X.
+- Lint `bunx eslint src/components/views/items-view.tsx` → 0 error.
+- VERIFIKASI agent-browser (superadmin/268899):
+  * Desktop 1280px: kotak "Pilih Pelanggan" tampil rapi persis di bawah judul; header bersih (search + Tambah saja) ✓
+  * Pilih "Budi Susanto — PT. Maju berkah" → count "0 barang untuk Budi Susanto", badge "Budi Susanto" + Reset muncul, empty state menyebut nama pelanggan ✓
+  * Tambah barang saat pelanggan terpilih → deskripsi dialog "Barang akan didaftarkan untuk Budi Susanto"; setelah simpan: "1 barang untuk Budi Susanto", baris muncul dengan urutan kolom Kode | Nama | Satuan | Harga Jual | HPP | Keterangan | Status | Aksi ✓
+  * Reset → "2 barang", semua item tampil, badge hilang ✓
+  * Edit dialog prefill lengkap (nama/harga/HPP/keterangan) + profit live "Rp 2.000 (Margin: 40%)" tetap bekerja ✓
+  * Mobile 390px: tanpa horizontal scroll; kotak filter stack rapi (label di atas select full-width); kartu mobile urutan HPP → Keterangan ✓
+  * Console 0 error; dev.log bersih.
+- Cleanup: dua item uji ("TEST Barang QA" ITM-001 versi superadmin, "TEST Barang Budi" ITM-002) dihapus via API DELETE (endpoint yang sama dengan tombol Hapus UI) → 200. DB akhir terverifikasi Prisma: barang hanya 1 = "paperbowl 800ml" (user-admin, DATA ASLI USER, UTUH), barangCustomer=0 (tidak ada link yatim).
+- Catatan: superadmin tidak melihat barang milik user lain (isolasi per-user, perilaku lama, bukan regresi). Screenshot kedua sempat tampak "2 barang" karena state client belum reload — setelah reload tampil "0 barang".
+
+Stage Summary:
+- Dropdown "Pilih Pelanggan" + kotaknya kini berada di baris tersendiri TEPAT DI BAWAH judul "Master Barang", dalam kartu ber-border rapi (ikon + label + sub-teks + select + badge pelanggan terpilih + tombol Reset).
+- UI CRUD tidak berubah perilaku: tambah/edit/hapus/filter/search/profit live semuanya terverifikasi jalan; hanya tata letak yang dipindah dan dirapikan.
+- Tidak ada perubahan API/schema; murni items-view.tsx. Data asli user aman.
