@@ -4,8 +4,6 @@ import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, u
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { InvoiceEditor } from '@/components/dokupro/invoice-editor'
 import { InvoicePelunasanEditor } from '@/components/dokupro/invoice-pelunasan-editor'
-import { useLanguage } from '@/contexts/language-context'
-import { useAuth } from '@/contexts/auth-context'
 import { authFetch } from '@/lib/auth-fetch'
 import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
@@ -20,29 +18,48 @@ import {
   FileText,
   Loader2,
   Search,
-  X,
   DatabaseBackup,
   Upload,
   CheckCircle2,
-  CircleDot,
   Wallet,
   Banknote,
   Combine,
   Plus,
   ArrowLeft,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
@@ -180,11 +197,30 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
   }
 }
 
+// --- Badge status pelunasan (gaya ActiveBadge Master Customer) ---
+function StatusBadge({ lunas }: { lunas: boolean }) {
+  return lunas
+    ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] shrink-0">Lunas</Badge>
+    : <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[11px] shrink-0">Belum Lunas</Badge>
+}
+
+// --- Empty state (gaya Master Customer) ---
+function EmptyState({ filtered }: { filtered: boolean }) {
+  return (
+    <div className="text-center py-12 px-4 rounded-xl border border-stone-200 bg-white">
+      <History className="h-10 w-10 text-stone-300 mx-auto mb-2" />
+      <p className="text-sm font-medium">{filtered ? 'Tidak ditemukan' : 'Belum ada invoice'}</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        {filtered ? 'Coba kata kunci lain.' : 'Buat invoice pertama Anda dengan tombol "+ Buat Invoice".'}
+      </p>
+    </div>
+  )
+}
+
 // ============================================================
-// InvoiceRiwayatTab — all invoice history
+// InvoiceRiwayatView — daftar invoice (UI seperti Master Customer)
 // ============================================================
-function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: number) => void; onCreate: () => void }) {
-  const { user } = useAuth()
+function InvoiceRiwayatView({ onRestore, onCreate }: { onRestore: (dpPercent?: number) => void; onCreate: () => void }) {
   const setInvoice = useDokuproStore((s) => s.setInvoice)
   const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId)
   const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([])
@@ -318,6 +354,15 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
       toast.error('Gagal menghapus invoice')
     }
     setDeleteConfirmId(null)
+  }
+
+  // Muat invoice ke editor (Restore)
+  const restoreToEditor = (entry: HistoryEntry, isPelunasan: boolean) => {
+    const parsed = parseInvoiceData(entry)
+    setInvoice(parsed)
+    setInvoiceEditingId(entry.id)
+    onRestore(parsed.dp || 0)
+    toast.success(isPelunasan ? 'Invoice pelunasan berhasil dimuat ke editor' : 'Invoice berhasil dimuat ke editor')
   }
 
   const handleStatusChange = async (updates: { tanggalJatuhTempo?: string; lunas?: boolean; tanggalPelunasan?: string }) => {
@@ -492,251 +537,293 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
     return result
   }, [dpInvoices, cetakanList])
 
+  const hasResults = filteredHistory.length > 0
+  const countLabel = loading ? 'Memuat data…' : `${allHistory.length} invoice`
+
   return (
     <>
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-200 dark:border-zinc-700 overflow-hidden">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-          <div className="flex items-center gap-2 min-w-0">
-            <History className="w-4 h-4 text-violet-600 shrink-0" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide truncate">Riwayat Invoice</h2>
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">{allHistory.length} data</span>
+      <div className="space-y-5">
+        {/* Header — gaya Master Customer */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Invoice</h1>
+            <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Button
-              onClick={onCreate}
-              size="sm"
-              className="h-7 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-              title="Buat invoice baru"
-            >
-              <Plus className="w-3.5 h-3.5" /> Buat Invoice
-            </Button>
-            <Button onClick={handleBackup} variant="outline" size="sm" disabled={backupLoading === 'backup'} className="h-7 gap-1.5 text-xs">
-              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />} Backup
-            </Button>
-            <Button onClick={handleRestore} variant="outline" size="sm" disabled={backupLoading === 'restore'} className="h-7 gap-1.5 text-xs">
-              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Restore
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari no. invoice / customer / barang…"
+                aria-label="Cari invoice"
+                className="pl-9 min-h-[44px]"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={onCreate}
+                title="Buat invoice baru"
+                className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
+              >
+                <Plus className="h-4 w-4" /> Buat Invoice
+              </Button>
+              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
+                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+              </Button>
+              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
+                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Search */}
-        {invoiceHistory.length > 0 && (
-          <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari no. invoice, customer, barang..." className="w-full h-8 pl-8 pr-8 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 placeholder:text-slate-400" />
-              {searchQuery && (<button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" /></button>)}
-            </div>
-          </div>
-        )}
-
-        {/* Table / Cards */}
+        {/* Content */}
         {loading ? (
-          <div className="px-4 py-6 text-center"><Loader2 className="w-6 h-6 mx-auto text-blue-500 animate-spin" /><p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p></div>
-        ) : filteredHistory.length > 0 ? (
           <>
-            {/* === INVOICE DP Section === */}
+            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden p-4 space-y-3">
+              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+            <div className="md:hidden space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+            </div>
+          </>
+        ) : !hasResults ? (
+          <EmptyState filtered={searchQuery.trim() !== ''} />
+        ) : (
+          <>
+            {/* === SECTION: INVOICE DP === */}
             {dpInvoices.length > 0 && (
-              <div>
-                <div className="px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700">
-                  <p className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5" />
-                    Invoice DP <span className="text-[10px] font-medium text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded-full">{dpInvoices.length}</span>
-                  </p>
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-violet-600 shrink-0" />
+                  <h2 className="text-sm font-semibold tracking-tight">Invoice DP</h2>
+                  <Badge variant="outline" className="text-[11px] text-muted-foreground border-stone-200">{dpInvoices.length}</Badge>
                 </div>
-                {/* Mobile */}
-                <div className="sm:hidden divide-y divide-slate-100">
+
+                {/* Desktop table */}
+                <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+                  <div className="max-h-96 overflow-y-auto scrollbar-thin">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-stone-50">
+                        <TableRow className="bg-stone-50 hover:bg-stone-50">
+                          <TableHead>No. Invoice</TableHead>
+                          <TableHead>Tgl</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Nama Barang</TableHead>
+                          <TableHead className="text-right hidden lg:table-cell">Qty</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">DP</TableHead>
+                          <TableHead className="text-right">Total DP</TableHead>
+                          <TableHead className="text-right">Profit</TableHead>
+                          <TableHead className="text-center">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dpInvoices.slice(0, 100).map((entry) => {
+                          const info = parseDocInfo(entry)
+                          const uc = invoiceUangCapek.get(entry.id) ?? 0
+                          return (
+                            <TableRow key={entry.id}>
+                              <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
+                              <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                              <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
+                              <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="truncate">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
+                                  {info.itemCount > 1 && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-violet-200 text-violet-700 bg-violet-50">
+                                      <Combine className="w-2.5 h-2.5" />{info.itemCount} item
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums text-muted-foreground hidden lg:table-cell">{info.totalQty > 0 ? `${info.totalQty.toLocaleString('id-ID')}${info.itemCount > 1 ? ` (${info.itemCount} item)` : ''}` : '-'}</TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                              <TableCell className="text-right tabular-nums text-muted-foreground">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</TableCell>
+                              <TableCell className="text-right tabular-nums text-violet-700">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</TableCell>
+                              <TableCell className={cn('text-right tabular-nums', uc > 0 ? 'text-amber-700 font-medium' : 'text-muted-foreground')}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-1">
+                                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => restoreToEditor(entry, false)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-3">
                   {dpInvoices.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
                     const uc = invoiceUangCapek.get(entry.id) ?? 0
                     return (
-                      <div key={entry.id} className="px-4 py-3 transition-colors cursor-pointer hover:bg-violet-50/30 active:bg-violet-100/40" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="min-w-0 flex items-center gap-2">
-                            <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
+                      <Card key={entry.id} className="p-0 gap-0">
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{entry.nomor || '-'}</p>
+                              <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                            </div>
+                            <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
                           </div>
-                          <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
-                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                            {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}{info.itemCount > 1 && <span className="text-violet-600"> +{info.itemCount - 1} item lainnya</span>}</p>}
-                            {info.itemCount > 1 && <p className="text-violet-500 font-medium text-[11px] flex items-center gap-1"><Combine className="w-3 h-3" />{info.itemCount} item (gabungan)</p>}
-                            {info.dp > 0 && <p className="text-violet-600 font-medium text-[11px]">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
-                            {uc > 0 && <p className="text-amber-700 font-medium text-[11px]">Profit: {formatRupiah(uc)}</p>}
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p className="truncate">{entry.pihakKedua || '-'}</p>
+                            {info.namaBarang && <p className="text-xs line-clamp-1">{info.namaBarang.split('\n')[0]}{info.itemCount > 1 ? ` +${info.itemCount - 1} item lainnya` : ''}</p>}
+                            {info.itemCount > 1 && <p className="text-xs text-violet-600 flex items-center gap-1"><Combine className="h-3 w-3" />{info.itemCount} item (gabungan)</p>}
+                            {info.dp > 0 && <p className="text-xs text-violet-700">DP ({info.dpPercent}%): {formatRupiah(info.dp)}</p>}
+                            {uc > 0 && <p className="text-xs text-amber-700">Profit: {formatRupiah(uc)}</p>}
                           </div>
-                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <div className="flex gap-2 pt-1">
+                            <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                              <Eye className="h-4 w-4" /> Lihat
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => restoreToEditor(entry, false)}>
+                              <RotateCcw className="h-4 w-4" /> Muat
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
+                              <Trash2 className="h-4 w-4" /> Hapus
+                            </Button>
                           </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     )
                   })}
                 </div>
-                {/* Desktop */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-[13px] min-w-[1000px]">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">DP</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total DP</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Profit</th>
-                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dpInvoices.slice(0, 100).map((entry, idx) => {
-                        const info = parseDocInfo(entry)
-                        const uc = invoiceUangCapek.get(entry.id) ?? 0
-                        return (
-                          <tr key={entry.id} className={`border-b border-slate-50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''} hover:bg-violet-50/30`}>
-                            <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
-                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
-                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                            <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>
-                              <div className="flex items-center gap-1.5">
-                                <span className="truncate">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
-                                {info.itemCount > 1 && <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-violet-700 bg-violet-100 dark:bg-violet-900/40 dark:text-violet-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0"><Combine className="w-2.5 h-2.5" />{info.itemCount} item</span>}
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? `${info.totalQty.toLocaleString('id-ID')}${info.itemCount > 1 ? ` (${info.itemCount} item)` : ''}` : '-'}</td>
-                            <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
-                            <td className="py-3 px-3 text-violet-600 font-medium text-right whitespace-nowrap">{info.dpPercent > 0 ? `${info.dpPercent}%` : '-'}</td>
-                            <td className="py-3 px-3 text-violet-700 font-semibold text-right whitespace-nowrap">{info.dp > 0 ? formatRupiah(info.dp) : '-'}</td>
-                            <td className={`py-3 px-3 text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</td>
-                            <td className="py-3 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              </section>
             )}
 
-            {/* === INVOICE PELUNASAN Section === */}
+            {/* === SECTION: INVOICE PELUNASAN === */}
             {pelunasanInvoices.length > 0 && (
-              <div>
-                <div className="px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700 border-t border-t-slate-200 dark:border-t-zinc-700">
-                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <Wallet className="w-3.5 h-3.5" />
-                    Invoice Pelunasan <span className="text-[10px] font-medium text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">{pelunasanInvoices.length}</span>
-                  </p>
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-amber-600 shrink-0" />
+                  <h2 className="text-sm font-semibold tracking-tight">Invoice Pelunasan</h2>
+                  <Badge variant="outline" className="text-[11px] text-muted-foreground border-stone-200">{pelunasanInvoices.length}</Badge>
                 </div>
-                {/* Mobile */}
-                <div className="sm:hidden divide-y divide-slate-100">
+
+                {/* Desktop table */}
+                <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+                  <div className="max-h-96 overflow-y-auto scrollbar-thin">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-stone-50">
+                        <TableRow className="bg-stone-50 hover:bg-stone-50">
+                          <TableHead>No. Invoice</TableHead>
+                          <TableHead>Ref. Invoice DP</TableHead>
+                          <TableHead>Tgl</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead className="text-right">Grand Total</TableHead>
+                          <TableHead className="text-right">Sisa Pembayaran</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-center">Aksi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pelunasanInvoices.slice(0, 100).map((entry) => {
+                          const info = parseDocInfo(entry)
+                          const isLunas = info.lunas
+                          return (
+                            <TableRow key={entry.id}>
+                              <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
+                              <TableCell className="text-violet-700 whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</TableCell>
+                              <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                              <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
+                              <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{formatRupiah(info.totalHarga)}</TableCell>
+                              <TableCell className="text-right tabular-nums font-bold text-red-600">{formatRupiah(info.sisa)}</TableCell>
+                              <TableCell className="text-center">
+                                <button onClick={(e) => openPelunasanDialog(entry, e)} className="cursor-pointer" title="Atur pelunasan" aria-label={`Atur pelunasan ${entry.nomor}`}>
+                                  <StatusBadge lunas={isLunas} />
+                                </button>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center gap-1">
+                                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
+                                  {!isLunas && (
+                                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={(e) => openPelunasanDialog(entry, e)} aria-label={`Pelunasan ${entry.nomor}`} title="Pelunasan"><Wallet className="h-4 w-4" /></Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => restoreToEditor(entry, true)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden space-y-3">
                   {pelunasanInvoices.slice(0, 100).map((entry) => {
                     const info = parseDocInfo(entry)
                     const isLunas = info.lunas
                     return (
-                      <div key={entry.id} className="px-4 py-3 hover:bg-amber-50/30 active:bg-amber-100/40 transition-colors cursor-pointer" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <div className="min-w-0 flex items-center gap-2">
-                            <p className="text-amber-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                            <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
-                              {isLunas ? <><CheckCircle2 className="w-2.5 h-2.5" /> Lunas</> : <><CircleDot className="w-2.5 h-2.5" /> Belum</>}
+                      <Card key={entry.id} className="p-0 gap-0">
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{entry.nomor || '-'}</p>
+                              <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                            </div>
+                            <button onClick={(e) => openPelunasanDialog(entry, e)} className="cursor-pointer shrink-0" title="Atur pelunasan" aria-label={`Atur pelunasan ${entry.nomor}`}>
+                              <StatusBadge lunas={isLunas} />
                             </button>
                           </div>
-                          <div className="text-right">
-                            <p className="text-emerald-700 font-semibold text-xs whitespace-nowrap">{formatRupiah(info.totalHarga)}</p>
-                            <p className="text-red-600 font-bold text-sm whitespace-nowrap">{formatRupiah(info.sisa)}</p>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p className="truncate">{entry.pihakKedua || '-'}</p>
+                            {info.referensiInvoiceNomor && <p className="text-xs">Ref: <span className="text-violet-700">{info.referensiInvoiceNomor}</span></p>}
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
-                            <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                            {info.referensiInvoiceNomor && <p className="text-slate-400 text-[11px]">Ref: {info.referensiInvoiceNomor}</p>}
+                          <div className="flex items-center justify-between gap-2 text-sm">
+                            <span className="text-muted-foreground">Sisa Pembayaran</span>
+                            <span className="font-bold text-red-600">{formatRupiah(info.sisa)}</span>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                            <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <div className="flex gap-2 pt-1">
+                            <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                              <Eye className="h-4 w-4" /> Lihat
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => restoreToEditor(entry, true)}>
+                              <RotateCcw className="h-4 w-4" /> Muat
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
+                              <Trash2 className="h-4 w-4" /> Hapus
+                            </Button>
                           </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     )
                   })}
                 </div>
-                {/* Desktop */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-[13px] min-w-[900px]">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. Invoice</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Ref. Invoice DP</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                        <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Grand Total</th>
-                        <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Sisa Pembayaran</th>
-                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Status</th>
-                        <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pelunasanInvoices.slice(0, 100).map((entry, idx) => {
-                        const info = parseDocInfo(entry)
-                        const isLunas = info.lunas
-                        return (
-                          <tr key={entry.id} className={`border-b border-slate-50 hover:bg-amber-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                            <td className="py-3 px-3 text-amber-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
-                            <td className="py-3 px-3 text-violet-600 font-medium whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</td>
-                            <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</td>
-                            <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                            <td className="py-3 px-3 text-emerald-700 font-semibold text-right whitespace-nowrap">{formatRupiah(info.totalHarga)}</td>
-                            <td className="py-3 px-3 text-red-600 font-bold text-right whitespace-nowrap">{formatRupiah(info.sisa)}</td>
-                            <td className="py-3 px-3 text-center">
-                              <button onClick={(e) => openPelunasanDialog(entry, e)} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer', isLunas ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200')}>
-                                {isLunas ? <><CheckCircle2 className="w-3 h-3" /> Lunas</> : <><CircleDot className="w-3 h-3" /> Belum</>}
-                              </button>
-                            </td>
-                            <td className="py-3 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors" title="Preview"><Eye className="w-3.5 h-3.5" /></button>
-                                {!isLunas && (<button onClick={(e) => openPelunasanDialog(entry, e)} className="inline-flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md border border-amber-200 transition-colors" title="Pelunasan"><Wallet className="w-3.5 h-3.5" /></button>)}
-                                <button onClick={() => { const parsed = parseInvoiceData(entry); setInvoice(parsed); setInvoiceEditingId(entry.id); onRestore(parsed.dp || 0); toast.success('Invoice pelunasan berhasil dimuat ke editor') }} className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors" title="Restore"><RotateCcw className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setDeleteConfirmId(entry.id)} className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors" title="Hapus"><Trash2 className="w-3.5 h-3.5" /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              </section>
             )}
           </>
-        ) : (
-          <div className="px-4 py-6 text-center"><History className="w-8 h-8 mx-auto text-slate-300 mb-2" /><p className="text-xs text-slate-400">Belum ada riwayat invoice</p></div>
         )}
       </div>
 
-      {/* Delete Dialog */}
-      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Hapus Invoice?</DialogTitle><DialogDescription>Data invoice yang dihapus tidak dapat dikembalikan.</DialogDescription></DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)}>Batal</Button>
-            <Button variant="destructive" size="sm" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>Hapus</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* AlertDialog hapus (gaya Master Customer) */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus invoice?</AlertDialogTitle>
+            <AlertDialogDescription>Data invoice yang dihapus tidak dapat dikembalikan.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); if (deleteConfirmId) void handleDelete(deleteConfirmId) }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Pelunasan Dialog */}
       <Dialog open={pelunasanDialogOpen} onOpenChange={setPelunasanDialogOpen}>
@@ -751,24 +838,24 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
             const isLunas = info.isPelunasan ? info.lunas : (hasDP ? info.lunas : (info.lunas || info.sisa <= 0))
             return (
               <div className="space-y-5 pt-1">
-                <div className="rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-4 space-y-2">
+                <div className="rounded-xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-700 p-4 space-y-2">
                   <div className="flex justify-between text-xs"><span className="text-slate-500">No. Invoice</span><span className="font-semibold text-amber-800">{pelunasanDialogItem.nomor}</span></div>
                   {info.referensiInvoiceNomor && <div className="flex justify-between text-xs"><span className="text-slate-500">Ref. Invoice DP</span><span className="font-medium text-violet-600">{info.referensiInvoiceNomor}</span></div>}
                   <div className="flex justify-between text-xs"><span className="text-slate-500">Customer</span><span className="font-medium text-slate-700">{pelunasanDialogItem.pihakKedua || '-'}</span></div>
-                  <div className="border-t border-slate-200 pt-2 mt-1">
+                  <div className="border-t border-stone-200 pt-2 mt-1">
                     <div className="flex justify-between text-xs"><span className="text-slate-500">Total</span><span className="font-bold text-emerald-700">{formatRupiahShort(info.totalHarga)}</span></div>
                     {hasDP && (<>
                       <div className="flex justify-between text-xs mt-1"><span className="text-slate-500">DP ({info.dpPercent}%)</span><span className="font-medium text-violet-700">- {formatRupiahShort(info.dp)}</span></div>
-                      <div className="flex justify-between text-sm mt-1.5 pt-1.5 border-t border-dashed border-slate-200"><span className="font-semibold text-slate-700">Sisa Pembayaran</span><span className={cn('font-bold', info.lunas ? 'text-green-600' : 'text-red-600')}>{formatRupiahShort(info.sisa)}</span></div>
+                      <div className="flex justify-between text-sm mt-1.5 pt-1.5 border-t border-dashed border-stone-200"><span className="font-semibold text-slate-700">Sisa Pembayaran</span><span className={cn('font-bold', info.lunas ? 'text-green-600' : 'text-red-600')}>{formatRupiahShort(info.sisa)}</span></div>
                     </>)}
                   </div>
                   {isLunas && info.tanggalPelunasan && (
-                    <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-2.5 flex items-center gap-2 mt-1"><CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-green-800">Sudah Lunas</p><p className="text-[10px] text-green-600">Dibayar pada {new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
+                    <div className="rounded-lg bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-700 p-2.5 flex items-center gap-2 mt-1"><CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-green-800">Sudah Lunas</p><p className="text-[10px] text-green-600">Dibayar pada {new Date(info.tanggalPelunasan).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
                   )}
                 </div>
                 <div><Label className="text-sm font-medium text-slate-700">Tanggal Jatuh Tempo</Label><Input type="date" value={jatuhTempoDate} onChange={(e) => setJatuhTempoDate(e.target.value)} className="mt-1.5" /></div>
                 {hasDP && (
-                  <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+                  <div className="rounded-xl border border-stone-200 p-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {pelunasanToggle ? (<div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>) : (<div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"><Wallet className="w-5 h-5 text-slate-400" /></div>)}
@@ -778,11 +865,11 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
                     </div>
                     {pelunasanToggle && (<>
                       <div><Label className="text-xs font-medium text-slate-600">Tanggal Pelunasan</Label><Input type="date" value={pelunasanDate} onChange={(e) => setPelunasanDate(e.target.value)} className="mt-1" /></div>
-                      <div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /><div><p className="text-sm font-semibold text-green-800">Sudah Lunas</p><p className="text-xs text-green-600">Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</p></div></div>
+                      <div className="rounded-lg bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-700 p-3 flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /><div><p className="text-sm font-semibold text-green-800">Sudah Lunas</p><p className="text-xs text-green-600">Sisa {formatRupiahShort(info.sisa)} telah dibayar{pelunasanDate ? ` pada ${new Date(pelunasanDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</p></div></div>
                     </>)}
                   </div>
                 )}
-                {!hasDP && (<div className="rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 p-3 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-blue-800">Invoice Tanpa DP</p><p className="text-[10px] text-blue-600">Invoice ini tidak memiliki down payment. Atur tanggal jatuh tempo jika diperlukan.</p></div></div>)}
+                {!hasDP && (<div className="rounded-lg bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-700 p-3 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-600 flex-shrink-0" /><div><p className="text-xs font-semibold text-blue-800">Invoice Tanpa DP</p><p className="text-[10px] text-blue-600">Invoice ini tidak memiliki down payment. Atur tanggal jatuh tempo jika diperlukan.</p></div></div>)}
               </div>
             )
           })()}
@@ -827,82 +914,29 @@ function InvoiceRiwayatTab({ onRestore, onCreate }: { onRestore: (dpPercent?: nu
 }
 
 // ============================================================
-// InvoicePage — daftar Riwayat + layar Buat Baru.
-// Tab "Pelunasan", "Editor Pelunasan" dan fitur "Gabungkan" dihapus.
+// InvoicePage — daftar invoice langsung tampil (tanpa tab Riwayat)
+// + layar "Buat Invoice Baru" dari tombol Buat Invoice.
+// UI daftar mengikuti gaya halaman Master Customer.
 // ============================================================
 export default function InvoicePage() {
-  const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'buat-baru' | 'riwayat'>('riwayat')
+  const [showCreate, setShowCreate] = useState(false)
   const [createMode, setCreateMode] = useState<'regular' | 'dp' | 'pelunasan'>('regular')
-  const [invoiceCount, setInvoiceCount] = useState(0)
-
-  // Fetch counts for badges
-  useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        const headers = getAuthHeaders()
-        const [invRes, pelRes] = await Promise.all([
-          fetch('/api/history?docType=invoice', { headers }),
-          fetch('/api/history?docType=invoice-pelunasan', { headers }),
-        ])
-        const invData: HistoryEntry[] = invRes.ok ? (await invRes.json()).data || [] : []
-        const pelData: HistoryEntry[] = pelRes.ok ? (await pelRes.json()).data || [] : []
-        setInvoiceCount(invData.length + pelData.length)
-      } catch {}
-    }
-    fetchCounts()
-
-    const handler = () => fetchCounts()
-    window.addEventListener('dokupro:history-updated', handler)
-    return () => window.removeEventListener('dokupro:history-updated', handler)
-  }, [])
-
-  const tabs: { key: 'riwayat'; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'riwayat', label: 'Riwayat', icon: <History className="w-3.5 h-3.5" />, badge: invoiceCount || undefined },
-  ]
 
   return (
     <DashboardLayout title="Invoice" subtitle="Buat invoice dengan pratinjau langsung dan cetak A5">
-      {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3 print:hidden overflow-x-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap flex-shrink-0',
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-            )}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              {tab.icon}
-              {tab.label}
-            </span>
-            {tab.badge !== undefined && tab.badge > 0 && (
-              <span className={cn('ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full', activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Buat Invoice Baru — halaman buat invoice (dari tombol "Buat Invoice" di tab Riwayat) */}
-      {activeTab === 'buat-baru' && (
+      {showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
           <div className="flex items-center gap-2 mb-3">
             <Button
-              onClick={() => setActiveTab('riwayat')}
+              onClick={() => setShowCreate(false)}
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 text-xs"
+              className="h-9 gap-1.5 text-xs"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Kembali
             </Button>
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide truncate">Buat Invoice Baru</h2>
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-wide truncate">Buat Invoice Baru</h2>
           </div>
           {/* Sub-tab jenis invoice: Regular / DP / Pelunasan */}
           <div className="flex items-center gap-2 mb-3 print:hidden overflow-x-auto">
@@ -933,18 +967,14 @@ export default function InvoicePage() {
             )}
           </Suspense>
         </div>
-      )}
-
-      {/* Riwayat Tab */}
-      {activeTab === 'riwayat' && (
+      ) : (
         <div className="print:hidden">
-          <InvoiceRiwayatTab
-            onRestore={(dpPercent) => { setCreateMode(dpPercent && dpPercent > 0 ? 'dp' : 'regular'); setActiveTab('buat-baru') }}
-            onCreate={() => setActiveTab('buat-baru')}
+          <InvoiceRiwayatView
+            onRestore={(dpPercent) => { setCreateMode(dpPercent && dpPercent > 0 ? 'dp' : 'regular'); setShowCreate(true) }}
+            onCreate={() => setShowCreate(true)}
           />
         </div>
       )}
-
     </DashboardLayout>
   )
 }
