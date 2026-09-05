@@ -7176,3 +7176,28 @@ Stage Summary:
 - Master Barang kembali ke VERSI DENGAN PERUBAHAN (bukan versi pertama): dropdown pelanggan (mode "Semua Barang" read-only + mode per-pelanggan), checklist = daftar barang pelanggan, Tambah 2 mode (checklist barang existing / barang baru), kode barang otomatis inisial perusahaan unik antar perusahaan, kolom Modal/Jual/Untung/Selisih %, klik baris edit dengan harga jual per-pelanggan + preview untung live, unregister per baris, Hapus Barang permanen di dialog edit.
 - API /api/barang, /api/barang/[id], /api/barang-customer dihidupkan kembali di atas model Barang+BarangCustomer yang sama (dipakai juga /harga-khusus), isolasi per-user ketat.
 - Versi pertama (items-view) tidak lagi dipakai /master-barang; file komponen tetap ada, /master-customer & /harga-khusus tidak diubah.
+
+---
+Task ID: master-barang-kembali-versi-pertama
+Agent: Main (Z.ai Code)
+Task: "bukan yang ini tapi sebelum ini. tadi sudah muncul, tapi berubah lagi jadi yang sekarang. check and fix." — Versi yang benar adalah versi pertama (ItemsView) yang tampil sebelumnya; task sebelumnya salah paham "ada perubahan setelah ini" (maksud user: permintaan perubahan akan menyusul), lalu menukar halaman ke versi dropdown pelanggan (081dd1c) yang TIDAK diinginkan.
+
+Work Log:
+- REVERT src/app/master-barang/page.tsx → git 3e84dcb (wrapper ItemsView 45 baris, versi pertama: tabel Kode/Nama/Satuan/Harga Standar/HPP/Status/Aksi).
+- HAPUS API yang hanya dipakai versi dropdown: src/app/api/barang/, src/app/api/barang/[id]/, src/app/api/barang-customer/ (tetap tersimpan di git 081dd1c bila suatu saat diperlukan).
+- TIDAK diubah: /api/items, /api/items/[id] (backing versi pertama), /api/prices + /harga-khusus (PricingView), /master-customer (CustomersView), sidebar, i18n, permission-defaults.
+- VERIFIKASI agent-browser (superadmin):
+  * Halaman: judul "Master Barang", tombol "Tambah", empty state "Belum ada barang" ✓
+  * Tambah Barang dialog: field "Nama barang / layanan" + harga; isi harga 100rb / HPP 60rb → margin live "Margin: 40%" ✓; Simpan → toast "Barang berhasil ditambahkan", baris ITM-001 / Test Item QA / pcs / Rp 100.000 / Rp 60.000 / Aktif ✓
+  * Header tabel persis versi pertama: Kode | Nama | Satuan | Harga Standar | HPP | Status | Aksi ✓
+  * Edit Barang: desc "Kode ITM-001 — perbarui data barang", switch Status Aktif → toggle jadi Nonaktif → Simpan → baris "Nonaktif" ✓
+  * Hapus → AlertDialog "Hapus barang?" → konfirmasi → kembali empty state ✓
+  * Mobile 390px: tanpa horizontal overflow ✓
+  * /harga-khusus "Harga Khusus" ✓, /master-customer 5 baris ✓
+- Console browser 0 error; dev.log bersih; Lint 0 error.
+- DB bersih: barang=0, barangCustomer=0 (item test dihapus via UI).
+
+Stage Summary:
+- Master Barang PASTI sudah kembali ke VERSI PERTAMA (ItemsView): kode otomatis ITM-xxx, satuan, harga standar, HPP + margin live, status aktif/nonaktif. Tidak ada lagi versi dropdown pelanggan di halaman ini.
+- Perubahan tambahan yang dimaksud user BELUM diterapkan — menunggu deskripsi perubahan dari user (pesan "ada perubahan setelah ini" = permintaan perubahan menyusul).
+- API /api/barang* dihapus lagi (unused); /api/items* + /api/prices tetap melayani versi pertama & /harga-khusus.
