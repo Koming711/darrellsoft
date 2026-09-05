@@ -6,6 +6,7 @@ export interface DocumentItem {
   qty: number;
   satuan: string;
   harga: number; // Only for invoice & PO
+  modal?: number; // Snapshot harga modal per unit saat invoice dibuat (laporan rugi laba)
 }
 
 export interface CompanyInfo {

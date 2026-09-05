@@ -7445,3 +7445,36 @@ Stage Summary:
 - Tambah & Edit tetap hanya muncul saat pelanggan spesifik dipilih (perilaku yang diminta sebelumnya dipertahankan); KASIR tetap tidak melihat tombol apa pun.
 - Teks dialog konfirmasi hapus dikoreksi agar akurat (invoice lama tetap tersimpan, penghapusan tidak pernah ditolak sistem).
 - Tidak ada perubahan API/schema. Data asli user aman.
+
+---
+Task ID: laporan-penjualan-rugi-laba-biaya-modal-snapshot
+Agent: Main (Z.ai Code)
+Task: "Tambahkan modul CRUD dan UI untuk Laporan Penjualan dan Laporan Rugi Laba Sederhana" (+ snapshot harga modal saat invoice dibuat)
+
+Work Log:
+- INVESTIGASI (Explore agent): sistem invoice AKTIF menyimpan dokumen di DocumentHistory.dataJson (bukan tabel legacy Invoice); items = {deskripsi, qty, satuan, harga} TANPA modal; DP/pelunasan/lunas semua di dataJson (dp %, dpAmount, originalTotal, lunas, tanggalPelunasan); /biaya (CRUD Biaya) & /laporan hub sudah ada; sidebar = menuItems array duplikat di sidebar.tsx + sidebar-desktop.tsx.
+- SNAPSHOT HARGA MODAL (kebutuhan paling penting user):
+  * src/lib/types.ts — DocumentItem + field `modal?: number` (snapshot per unit saat invoice dibuat).
+  * src/components/dokupro/items-fields.tsx — prop `showModal` baru: input "Harga Modal" per item (grid 4 kolom saat aktif), tersimpan permanen di dataJson.
+  * src/components/dokupro/invoice-editor.tsx — ItemsFields kini `showModal` aktif (invoice saja, bukan surat jalan/PO).
+  * VERIFIKASI UI: invoice uji "TEST Paper Bowl Modal" qty 100 × harga 1000 × modal 300, DP 50% → dataJson tersimpan `{q:100,h:1000,m:300,dpAmount:50000}` — snapshot melekat pada invoice, perubahan master tidak memengaruhi laporan lama.
+- AUTO-CLEANUP pelunasan: src/app/api/history/[id]/route.ts DELETE — jika docType 'invoice' dihapus, cari & hapus dokumen 'invoice-pelunasan' terkait (nomor INV→PEL atau dataJson.referensiInvoiceId) → laporan tidak menyisakan transaksi yatim (juga memperbaiki bug lama orphan PEL).
+- API BARU:
+  * GET /api/laporan/penjualan — 1 invoice = 1 baris penjualan (PEL TIDAK dihitung ganda); kolom: nomor, tanggal (doc tanggal, fallback createdAt), customer, jenis (Reguler/DP), total (subtotal+PPN), dpAmount, pelunasan, sisa, status (lunas/jatuh_tempo/dp/belum); search q (nomor/customer/nama barang via parse items), filter customer, status, periode start-end; summary: totalPenjualan, pembayaranMasuk (lunas→total, else dpAmount), piutang, jumlahInvoice.
+  * GET /api/laporan/rugi-laba — per item: tanggal/invoice/customer/barang/qty/harga/totalJual/modal/totalModal/laba; Harga Pokok = Σ qty×modal SNAPSHOT; fallback invoice lama: uangCapek>0 → HPP = Penjualan−uangCapek distribusi proporsional (estimated=true); Biaya Operasional = Σ Biaya.jumlah periode sama; summary penjualan/hargaPokok/labaKotor/biayaOperasional/labaBersih.
+- UI BARU:
+  * /laporan/penjualan — 4 kartu ringkasan; filter chips Hari Ini/Minggu Ini/Bulan Ini/Tahun Ini/Custom (dialog rentang tanggal); search debounce; select customer & status; tabel desktop 11 kolom + Aksi Lihat|Edit|Print|Hapus; kartu mobile (nomor+badge+Penjualan/Dibayar/Sisa+Detail|Edit|Print|ikon Hapus); dialog Lihat (items+payment info+catatan); dialog Edit (tanggal/catatan/status pembayaran → PUT /api/history/[id]); AlertDialog Hapus; Cetak & Unduh PDF via window print (header nama perusahaan dari settings company_name, judul, periode, tabel, total, tanggal cetak, TANPA tombol CRUD).
+  * /laporan/rugi-laba — 5 kartu (Penjualan/Harga Pokok/Laba Kotor/Biaya Operasional/Laba Bersih, merah bila minus); filter periode sama; tabel detail per item (klik baris → dialog detail per invoice, badge "Modal diestimasi" untuk fallback); kartu mobile per invoice; Cetak & Unduh PDF (ringkasan + tabel detail); catatan rumus di bawah halaman.
+  * Badge status: Lunas hijau, Belum Lunas oranye, Jatuh Tempo merah (jatuh tempo terlewat & belum lunas), DP biru.
+- MENU: sidebar.tsx + sidebar-desktop.tsx — tambah item "Laporan Penjualan" (/laporan/penjualan, TrendingUp) & "Rugi Laba" (/laporan/rugi-laba, PieChart) di section LAPORAN (featureId 'laporan' → ikut permission laporan yang ada); isActive '/laporan' jadi exact-match agar hub tidak menyala saat di sub-halaman; i18n key baru laporan_rugi_laba (id+en); /laporan hub — 2 kartu link baru di atas; /biaya — kategori baru Packing & Ongkir.
+- Lint 0 error (setelah fix DialogFooter import).
+- VERIFIKASI agent-browser (superadmin): buat invoice DP via UI editor (dengan input Harga Modal baru) → snapshot m:300 tersimpan; /laporan/penjualan: baris INV/09/26/0001 total 100rb/DP 50rb/sisa 50rb/status DP biru, kartu 100rb/50rb/50rb/1 (tanpa double counting); search "Paper Bowl"=1 baris, "zzz"=0+empty state; Edit → Lunas: pelunasan 50rb, sisa "-", kartu Pembayaran Masuk 100rb/Piutang 0; /laporan/rugi-laba: 100rb/−30rb/70rb/0/70rb, detail row modal 300×100=30rb laba 70rb, klik baris → dialog detail; tambah Biaya Transportasi 10rb via /biaya → rugi laba 100rb/−30rb/70rb/−10rb/60rb; Cetak membuka window laporan (tab t2 terbentuk); Hapus via laporan → INV/09/26/0001 + PEL/09/26/0001 ikut terhapus, laporan auto kosong; 3 invoice lama superadmin (Jun/Jul, punya PEL masing-masing) tampil benar saat filter Tahun Ini (fallback estimasi modal dari uangCapek bekerja, badge ~); mobile 390px: tabel jadi kartu, format sesuai contoh user (Penjualan/Dibayar/Sisa + badge), tanpa h-scroll; console & dev.log bersih.
+- INSIDEN: dev server mati di tengah sesi (503/connection refused, tanpa trace di log) — di-restart (bun run dev), verifikasi dilanjutkan & lengkap.
+- CLEANUP: item uji dihapus via tombol Hapus laporan (sekaligus uji E2E); biaya uji dihapus via API DELETE; DB final: biaya=3 (semua asli), superadmin invoice=3 & PEL=3 (asli, tidak disentuh), barang hanya "paperbowl 800ml" (user-admin, ASLI), customer=134, legacy Invoice=0.
+
+Stage Summary:
+- Snapshot harga modal: setiap item invoice kini menyimpan harga modal saat transaksi dibuat — harga modal Paper Bowl berubah bulan depan tidak mengubah laporan bulan lalu (fallback invoice lama memakai profit tersimpan, ditandai "Modal diestimasi").
+- Laporan Penjualan & Rugi Laba live dari DocumentHistory: invoice dibuat/dihapus/diedit → laporan otomatis ikut, tanpa input ulang, tanpa double counting DP+pelunasan.
+- Biaya Operasional (/biaya) sudah ada & terhubung ke Rugi Laba (kategori Packing/Ongkir ditambah).
+- Menu baru: Laporan Penjualan & Rugi Laba di section LAPORAN (desktop + mobile), ikut hak akses laporan.
+- Tidak ada perubahan schema DB; data asli user aman.
