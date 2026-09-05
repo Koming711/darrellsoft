@@ -7368,3 +7368,23 @@ Stage Summary:
 - "Semua Barang" = mode lihat-saja: Tambah, Edit, Hapus (termasuk kolom Aksi) semua dihilangkan.
 - Pilih nama pelanggan = semua tombol CRUD muncul kembali (Tambah di header, Edit/Hapus di baris/kartu).
 - Permission lama tetap: KASIR tidak pernah melihat tombol CRUD. Tidak ada perubahan API/schema.
+
+---
+Task ID: master-barang-semua-barang-tanpa-crud-verifikasi
+Agent: Main (Z.ai Code)
+Task: "dihalaman master barang apabila pilih pelanggan memilih semua barang maka tombol tambah, edit dan hapus dihilangkan saja. check and fix"
+
+Work Log:
+- Cek kode: logika dari task sebelumnya sudah lengkap di items-view.tsx — `showCrud = canManage && customerId !== 'all'` (line 235) dipakai kondisional pada: tombol Tambah (line 261), TableHead Aksi (line 356), TableCell Edit/Hapus (line 380), tombol kartu mobile (line 445). Tidak ada sisa kode `disabled={!canManage}` di luar flag ini.
+- VERIFIKASI ULANG dengan browser session BARU (browser di-close & dibuka fresh, login superadmin) untuk mengeliminasi kemungkinan user melihat bundle lama/cache:
+  * Default "Semua Barang": tombol Tambah TIDAK tampil ✓
+  * Pilih "Budi Susanto" → Tambah muncul; buat item uji "TEST Verifikasi Semua" → kolom Aksi + Edit/Hapus di baris muncul ✓
+  * Pilih kembali "Semua Barang" (via dropdown, bukan Reset): kolom Aksi HILANG (header tinggal 7 kolom: Kode|Nama|Satuan|Harga Jual|HPP|Keterangan|Status), 0 tombol di baris, Tambah hilang — meski 1 baris masih tampil ✓ (screenshot /tmp/vfy_semua_clean.png)
+  * Pilih pelanggan lagi: semua tombol muncul kembali ✓ (screenshot /tmp/vfy_customer_clean.png)
+  * Catatan: overlay PWA "Install Darrell Soft" muncul lagi setelah ganti dropdown — dimatikan via MutationObserver sebelum screenshot.
+- Hapus item uji via tombol Hapus UI (AlertDialog konfirmasi) → "0 barang untuk Budi Susanto" ✓
+- Lint 0 error; console 0 error; DB terverifikasi: hanya "paperbowl 800ml" (user-admin, DATA ASLI, UTUH), barangCustomer=0.
+
+Stage Summary:
+- Perilaku yang diminta SUDAH AKTIF sejak task sebelumnya dan terverifikasi ulang dengan sesi browser baru: "Semua Barang" = tanpa Tambah/Edit/Hapus (kolom Aksi ikut hilang); pilih nama pelanggan = tombol semua muncul.
+- Kemungkinan user melihat versi lama karena cache browser — solusi: refresh halaman (hard refresh). Tidak ada perubahan kode pada task ini (verifikasi murni); tidak ada perubahan API/schema; data asli user aman.
