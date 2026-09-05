@@ -231,6 +231,8 @@ export default function ItemsView({ user }: { user: SessionUser }) {
 
   const hasResults = items.length > 0
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
+  // CRUD (Tambah/Edit/Hapus) hanya tampil saat pelanggan spesifik dipilih — bukan "Semua Barang"
+  const showCrud = canManage && customerId !== 'all'
   const countLabel = loading
     ? 'Memuat data…'
     : selectedCustomerName
@@ -256,14 +258,15 @@ export default function ItemsView({ user }: { user: SessionUser }) {
               className="pl-9 min-h-[44px]"
             />
           </div>
-          <Button
-            onClick={openCreate}
-            disabled={!canManage}
-            title={canManage ? 'Tambah barang' : 'Hanya Admin/Manager yang dapat menambah'}
-            className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4" /> Tambah
-          </Button>
+          {showCrud && (
+            <Button
+              onClick={openCreate}
+              title="Tambah barang untuk pelanggan ini"
+              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4" /> Tambah
+            </Button>
+          )}
         </div>
       </div>
 
@@ -350,7 +353,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Keterangan</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
+                  {showCrud && <TableHead className="text-right">Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -374,32 +377,32 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                       </span>
                     </TableCell>
                     <TableCell><ActiveBadge active={it.isActive} /></TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9"
-                          disabled={!canManage}
-                          onClick={() => openEdit(it)}
-                          aria-label={`Edit ${it.name}`}
-                          title="Edit"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-destructive hover:text-destructive"
-                          disabled={!canManage}
-                          onClick={() => setDeleteTarget(it)}
-                          aria-label={`Hapus ${it.name}`}
-                          title="Hapus"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {showCrud && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={() => openEdit(it)}
+                            aria-label={`Edit ${it.name}`}
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(it)}
+                            aria-label={`Hapus ${it.name}`}
+                            title="Hapus"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -439,26 +442,26 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                     Keterangan: <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 min-h-[44px]"
-                    disabled={!canManage}
-                    onClick={() => openEdit(it)}
-                  >
-                    <Pencil className="h-4 w-4" /> Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
-                    disabled={!canManage}
-                    onClick={() => setDeleteTarget(it)}
-                  >
-                    <Trash2 className="h-4 w-4" /> Hapus
-                  </Button>
-                </div>
+                {showCrud && (
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 min-h-[44px]"
+                      onClick={() => openEdit(it)}
+                    >
+                      <Pencil className="h-4 w-4" /> Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setDeleteTarget(it)}
+                    >
+                      <Trash2 className="h-4 w-4" /> Hapus
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))
@@ -617,7 +620,7 @@ function EmptyState({ filtered, customerName }: { filtered: boolean; customerNam
           ? 'Coba kata kunci lain.'
           : customerName
             ? `Pilih "Semua Barang" untuk melihat semua, atau tambah barang saat pelanggan ini dipilih.`
-            : 'Tambahkan barang pertama Anda dengan tombol "+ Tambah".'}
+            : 'Pilih nama pelanggan di kotak "Pilih Pelanggan" untuk menambah atau mengelola barang.'}
       </p>
     </div>
   )

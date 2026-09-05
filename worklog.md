@@ -7340,3 +7340,31 @@ Stage Summary:
 - Dropdown "Pilih Pelanggan" + kotaknya kini berada di baris tersendiri TEPAT DI BAWAH judul "Master Barang", dalam kartu ber-border rapi (ikon + label + sub-teks + select + badge pelanggan terpilih + tombol Reset).
 - UI CRUD tidak berubah perilaku: tambah/edit/hapus/filter/search/profit live semuanya terverifikasi jalan; hanya tata letak yang dipindah dan dirapikan.
 - Tidak ada perubahan API/schema; murni items-view.tsx. Data asli user aman.
+
+---
+Task ID: master-barang-crud-hanya-saat-pelanggan-dipilih
+Agent: Main (Z.ai Code)
+Task: "apabila pilih semua barang, maka tombol tambah, edit dan hapus dihilangkan. kalo dipilih nama pelanggan, harus muncul. fix"
+
+Work Log:
+- src/components/views/items-view.tsx:
+  * Flag baru: `const showCrud = canManage && customerId !== 'all'` — CRUD hanya saat pelanggan spesifik dipilih (bukan "Semua Barang"); role KASIR tetap tidak melihat tombol (permission canManage dipertahankan).
+  * Tombol "+ Tambah" di header: dirender kondisional `{showCrud && ...}` (sebelumnya disabled untuk KASIR; sekarang hilang saat Semua Barang/KASIR). Title tooltip: "Tambah barang untuk pelanggan ini".
+  * Tabel desktop: kolom "Aksi" (TableHead + TableCell Edit/Hapus) dirender kondisional `{showCrud && ...}` → saat Semua Barang tabel hanya 7 kolom tanpa tombol di baris.
+  * Kartu mobile: blok tombol Edit/Hapus dirender kondisional `{showCrud && ...}`.
+  * EmptyState saat tanpa pelanggan: pesan diganti jadi "Pilih nama pelanggan di kotak \"Pilih Pelanggan\" untuk menambah atau mengelola barang." (konsisten dengan semantik baru: tambah barang = per pelanggan).
+- Lint `bunx eslint` → 0 error.
+- VERIFIKASI agent-browser (superadmin):
+  * "Semua Barang": tombol Tambah TIDAK ADA, tabel tanpa kolom Aksi (7 kolom), baris tanpa tombol, mobile kartu tanpa Edit/Hapus ✓
+  * Pilih "Budi Susanto": Tambah muncul, buat item uji → kolom Aksi + tombol Edit/Hapus di baris muncul ✓
+  * Reset ke "Semua Barang" (dengan 1 baris masih tampil): kolom Aksi langsung hilang, baris bersih tanpa tombol ✓ (regression test kunci)
+  * Mobile 390px: Semua Barang = tanpa tombol & tanpa h-scroll; pelanggan dipilih = Tambah full-width + kartu punya Edit/Hapus + badge + Reset ✓
+  * Hapus via UI (AlertDialog "Hapus barang?" → konfirmasi) → "0 barang untuk Budi Susanto" ✓ — sekaligus cleanup item uji "TEST CRUD Pelanggan".
+  * Console 0 error; dev.log bersih.
+- DB terverifikasi Prisma: barang hanya "paperbowl 800ml" (user-admin, DATA ASLI USER, UTUH), barangCustomer=0.
+- Catatan: setelah edit file, satu kali eval menampilkan hasil basi (bundle lama) — hard reload menyelesaikan; selalu reload sebelum assert.
+
+Stage Summary:
+- "Semua Barang" = mode lihat-saja: Tambah, Edit, Hapus (termasuk kolom Aksi) semua dihilangkan.
+- Pilih nama pelanggan = semua tombol CRUD muncul kembali (Tambah di header, Edit/Hapus di baris/kartu).
+- Permission lama tetap: KASIR tidak pernah melihat tombol CRUD. Tidak ada perubahan API/schema.
