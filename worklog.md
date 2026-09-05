@@ -7230,3 +7230,38 @@ Stage Summary:
 - Tiga permintaan selesai di atas versi pertama: (1) dropdown "Pilih Customer" yang memfilter daftar per barang-terdaftar-pelanggan + auto-daftarkan barang baru ke customer terpilih; (2) label popup "Harga Standar" → "Harga Jual"; (3) Profit (Rp) live di popup tambah/edit barang, berdampingan dengan Margin %.
 - Arsitektur tetap versi pertama (ItemsView + /api/items); fitur memakai relasi BarangCustomer yang sudah ada (dipakai juga /harga-khusus), tanpa model baru.
 - Kolom tabel "Harga Standar" sengaja tidak diubah (permintaan hanya popup); /master-customer & /harga-khusus tidak tersentuh.
+
+---
+Task ID: master-barang-keterangan-tabel-popup
+Agent: Main (Z.ai Code)
+Task: "di halaman master barang, tambahkan keterangan di tabel dan popup tambah barang. harga standar ditabel dan di popup tambah barang diganti jadi harga jual. check and fix"
+
+Work Log:
+- Tipe Item (src/lib/types.ts): tambah field `keterangan: string` (konsumen Item hanya items-view.tsx — aman).
+- API /api/items (src/app/api/items/route.ts):
+  * GET: mapping `keterangan: it.keterangan` ke respons.
+  * POST: body `keterangan?` opsional → trim + slice(0,500) → disimpan di create; ikut respons.
+- API /api/items/[id] (src/app/api/items/[id]/route.ts):
+  * PUT: body `keterangan?` → data.keterangan (trim + slice 0-500); ikut respons. Field Barang.keterangan sudah ada di schema (default "") — tanpa migrasi DB.
+- View src/components/views/items-view.tsx:
+  * ItemFormState + EMPTY_FORM + openEdit: `keterangan`.
+  * handleSave: body kirim `keterangan: form.keterangan.trim()`.
+  * POPUP Tambah/Edit: field input "Keterangan" (id item-keterangan, maxLength 500, opsional) diletakkan setelah HPP, sebelum Status Aktif.
+  * TABEL desktop: header "Harga Standar" → "Harga Jual"; kolom baru "Keterangan" setelah Nama (truncate max-w-[200px] + title tooltip, '-' jika kosong). Header kini: Kode | Nama | Keterangan | Satuan | Harga Jual | HPP | Status | Aksi.
+  * MOBILE card: label "Harga:" → "Harga Jual:"; baris "Keterangan: …" hanya jika terisi.
+- Lint `bunx eslint` pada 4 file → 0 error.
+- VERIFIKASI agent-browser (superadmin, desktop 1280 + mobile 390):
+  * Popup Tambah: label "Harga Jual (Rp) *" ✓ + field "Keterangan" ✓; isi harga 25000/HPP 15000 → "Profit: Rp 10.000 (Margin: 40%)" ✓; Simpan → baris ITM-001 tampil dengan keterangan ✓
+  * Tabel desktop header: Kode | Nama | Keterangan | Satuan | Harga Jual | HPP | Status | Aksi ✓ (tidak ada lagi "Harga Standar")
+  * Edit: keterangan ter-prefill ✓; update keterangan + harga → tersimpan ✓ (PUT persist)
+  * Search "art" 1 baris, miss → "Tidak ditemukan" ✓; dropdown Pilih Customer + 5 customer ✓ (fitur sebelumnya tidak rusak)
+  * Mobile 390px: kartu tampil "Harga Jual: Rp 26.000" + "Keterangan: …", tanpa horizontal overflow ✓ (screenshot)
+  * /harga-khusus ✓ dan /master-customer (5 pelanggan) ✓ tidak tersentuh
+  * Console 0 error; dev.log bersih.
+- INSIDEN & PEMULIHAN DATA: cleanup awal menghapus SEMUA row Barang, termasuk "paperbowl 800ml" (ITM-001, user-admin, data ASLI user yang sebelumnya dipertahankan). Row dipulihkan 100% identik dari remnant halaman bebas SQLite (sebelum VACUUM): id cmto1hvjp000dszwfi5rkq4lr, pcs, modal 1400, jual 1700, keterangan "", aktif, userId user-admin, createdAt=updatedAt 2026-09-05 07:06:39.733 UTC (cocok catatan "jam 07:06"). Backup DB lama tidak memuat tabel Barang.
+- DB akhir: barang=1 (paperbowl 800ml - data user utuh), barangCustomer=0, customer=135 tak tersentuh. Test item saya (ITM-001 Kertas Art Paper 150gsm) dihapus.
+
+Stage Summary:
+- Dua permintaan selesai: (1) kolom "Keterangan" di tabel desktop + kartu mobile, field "Keterangan" di popup Tambah/Edit Barang (tersimpan via /api/items POST/PUT, opsional, maks 500 karakter); (2) semua label "Harga Standar" kini "Harga Jual" — header tabel, kartu mobile, dan popup (popup sudah "Harga Jual (Rp)" dari task sebelumnya).
+- Tidak ada perubahan schema/model; field keterangan sudah tersedia di Barang sejak awal.
+- Pelajaran: cleanup harus SELECT dulu + filter userId session aktif sebelum delete — jangan menghapus lintas user.

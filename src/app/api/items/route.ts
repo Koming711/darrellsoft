@@ -5,7 +5,7 @@ import { sanitizeError } from '@/lib/api-error'
 
 /**
  * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
- * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, isActive, createdAt }.
+ * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, keterangan, isActive, createdAt }.
  * hpp disembunyikan (null) untuk role kasir (user/demo).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
  * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       unit: it.satuan,
       standardPrice: it.jual,
       hpp: isKasir ? null : it.modal,
+      keterangan: it.keterangan,
       isActive: it.isActive,
       createdAt: it.createdAt.toISOString(),
     }))
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/items — tambah barang. Kode otomatis ITM-xxx (unik per user).
- * Body: { name, unit, standardPrice, hpp, customerId? }
+ * Body: { name, unit, standardPrice, hpp, keterangan?, customerId? }
  * customerId → barang otomatis terdaftar (BarangCustomer) untuk customer tsb,
  * harga khusus awal = standardPrice (harga jual).
  */
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'HPP tidak valid' }, { status: 400 })
     }
     const unit = typeof body.unit === 'string' && body.unit.trim() ? body.unit.trim() : 'pcs'
+    const keterangan = typeof body.keterangan === 'string' ? body.keterangan.trim().slice(0, 500) : ''
 
     // Pilih customer (opsional) — barang akan didaftarkan untuk customer tsb
     const customerId = typeof body.customerId === 'string' ? body.customerId.trim() : ''
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     const code = await nextCode(user.id)
     const item = await db.barang.create({
-      data: { userId: user.id, kode: code, nama: name, satuan: unit, jual: standardPrice, modal: hpp },
+      data: { userId: user.id, kode: code, nama: name, satuan: unit, jual: standardPrice, modal: hpp, keterangan },
     })
 
     if (customerId) {
@@ -125,6 +127,7 @@ export async function POST(request: NextRequest) {
         unit: item.satuan,
         standardPrice: item.jual,
         hpp: isKasir ? null : item.modal,
+        keterangan: item.keterangan,
         isActive: item.isActive,
         createdAt: item.createdAt.toISOString(),
       },
