@@ -7286,3 +7286,28 @@ Work Log:
 Stage Summary:
 - Menu "Master Customer" dan "Master Barang" kini berada di grup DOKUMEN, tepat di bawah "Purchase Order", konsisten di sidebar desktop (dengan label section) dan menu mobile (grid + divider).
 - Tidak ada perubahan lain: halaman, izin akses (featureId), dan ikon tetap sama.
+
+---
+Task ID: master-barang-kolom-keterangan-pindah-label-pelanggan
+Agent: Main (Z.ai Code)
+Task: "dihalaman master barang kolom keterangan dipindah ke samping kanan kolom HPP. dihalaman master barang, tambahkan pilih pelanggan disamping semua barang. check and fix"
+
+Work Log:
+- src/components/views/items-view.tsx (tabel desktop):
+  * Pindahkan TableHead "Keterangan" dari setelah Nama ke setelah HPP → urutan baru: Kode | Nama | Satuan | Harga Jual | HPP | Keterangan | Status | Aksi (TableCell ikut dipindah; max-w-[200px] truncate + title dipertahankan).
+  * Untuk role tanpa HPP (kasir), Keterangan otomatis mengikuti Harga Jual.
+- Header halaman (poin 2): bungkus dropdown pelanggan dengan label "Pilih Pelanggan" (shadcn Label, htmlFor → SelectTrigger id="pilih-pelanggan") di sebelah kiri dropdown yang menampilkan "Semua Barang". Desktop (sm+): label inline di samping kiri select; mobile: label di atas select. Container kanan diberi sm:flex-wrap agar tidak overflow di lebar menengah; lebar select sm:w-56 → sm:w-52.
+- Lint `bunx eslint` → 0 error.
+- VERIFIKASI agent-browser (superadmin):
+  * Buat item uji (harga 20.000 / HPP 12.000 / keterangan "Catatan QA kolom kanan") → header tabel persis: Kode | Nama | Satuan | Harga Jual | HPP | Keterangan | Status | Aksi; nilai kolom selaras ✓
+  * Label "Pilih Pelanggan" tampil tepat di samping kiri dropdown "Semua Barang" ✓
+  * Desktop 1280px & mobile 390px screenshot: tanpa horizontal overflow, kartu mobile urutan Satuan→Harga Jual→HPP→Keterangan ✓
+  * Sidebar tetap: DOKUMEN berisi Purchase Order → Master Customer → Master Barang (task sebelumnya tidak rusak) ✓
+  * Fitur lain (Tambah/Edit/hapus/search/dropdown filter) tidak berubah perilaku; console 0 error; dev.log bersih.
+- Cleanup: item uji dihapus HANYA berdasarkan nama+id spesifik ("QA Keterangan Test", user-superadmin). Barang asli user "paperbowl 800ml" (user-admin) UTUH. DB akhir: barang=1 (paperbowl), barangCustomer=0.
+- Catatan debugging: dialog "Informasi fitur terbaru" (whats-new) juga memakai role=dialog dan berada lebih dulu di DOM — querySelector('[role=dialog]') bisa mengarah ke dialog yang salah; solusi: pilih dialog via teks konten ("Tambah Barang").
+
+Stage Summary:
+- Kolom "Keterangan" kini berada tepat di sebelah KANAN kolom "HPP" pada tabel Master Barang.
+- Label "Pilih Pelanggan" kini tampil di samping dropdown pelanggan (yang berisi opsi "Semua Barang" + daftar pelanggan), responsif di desktop & mobile.
+- Tidak ada perubahan API/schema/DB; murni penataan UI.
