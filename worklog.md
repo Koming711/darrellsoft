@@ -7521,3 +7521,37 @@ Stage Summary:
 - Halaman Invoice kini 1 tab "Riwayat" + layar "Buat Invoice Baru" (Regular/DP/Pelunasan); tab Pelunasan, Editor Pelunasan dan seluruh fitur Gabungkan dihapus dari UI (API generate-number tidak dihapus, hanya tak dipakai UI).
 - Alur catat pelunasan tetap tersedia: badge status Lunas/Belum di tabel Riwayat → dialog Form Pelunasan; buat dokumen pelunasan tetap lewat Buat Invoice → Pelunasan.
 - Font halaman invoice (termasuk dokumen A5 preview/print/JPG) kini Geist Sans — identik dengan halaman Master Barang.
+
+---
+Task ID: invoice-delete-tab-riwayat-ui-master-customer
+Agent: Main (Z.ai Code)
+Task: "dihalaman invoice, delete tab riwayat tapi isi halamannya tidak. rubah tampilan halaman invoice seperti halaman master customer. crud dan ui. fix"
+
+Work Log:
+- src/app/invoice/page.tsx (ditulis ulang, 951 → ~950 baris):
+  * Hapus navigasi tab "Riwayat" (pill tab + state activeTab 'buat-baru'|'riwayat' → diganti showCreate boolean; invoiceCount/fetchCounts untuk badge tab dihapus total). Isi halaman (tabel DP + PEL) kini langsung tampil tanpa tab.
+  * Layar "Buat Invoice Baru" tetap ada — dibuka via tombol "Buat Invoice" (emerald) di header, Kembali kembali ke daftar.
+  * RESTYLE mengikuti pola customers-view (Master Customer) persis:
+    - Header: h1 "Riwayat Invoice" (text-xl md:text-2xl bold) + count "N invoice" muted + search Input (pl-9, min-h-[44px], ikon Search) + tombol Buat Invoice (bg-emerald-600) + Backup/Restore (outline) — susunan flex-col md:flex-row sama seperti Master Customer.
+    - Desktop: shadcn <Table> dalam rounded-xl border-stone-200 bg-white, wrapper max-h-96 overflow-y-auto scrollbar-thin, TableHeader sticky top-0 bg-stone-50, aksi ghost icon button h-9 w-9 (Lihat/Muat/Hapus, Hapus text-destructive). Dua section: "Invoice DP" (FileText violet) & "Invoice Pelunasan" (Wallet amber), masing-masing heading + Badge count.
+    - Mobile (<md): Card p-0 + CardContent p-4 space-y-2 (nomor+tanggal+total, customer, barang/DP/profit atau Ref+Sisa), baris aksi outline flex-1 min-h-[44px] (Lihat/Muat/Hapus). Badge status Lunas (emerald)/Belum Lunas (merah) ala ActiveBadge, klik → dialog pelunasan.
+    - Hapus kini pakai AlertDialog (gaya Master Customer), bukan Dialog.
+    - EmptyState baru bergaya Master Customer (ikon + "Belum ada invoice"/"Tidak ditemukan"), Skeleton loading desktop+mobile.
+  * Logika TIDAK berubah: fetchHistory (no-store), profit lookup cetakan, restore ke editor (dp→mode DP), dialog Form Pelunasan (jatuh tempo + switch lunas + tanggal), preview overlay A5 + Kirim WhatsApp, Backup/Restore XLSX.
+  * Bersihkan import: useAuth/useLanguage tidak terpakai dihapus; tambah Table*/AlertDialog*/Badge/Card/Skeleton; ikon X & CircleDot diatur ulang (X tetap untuk tombol close preview).
+- Lint: bunx eslint src/app/invoice/page.tsx → 0 error (setelah tambah helper EmptyState yang tertinggal + import X).
+- VERIFIKASI agent-browser (superadmin):
+  * Desktop 1440px: TIDAK ada pill tab; h1 "Riwayat Invoice" + "6 invoice"; tabel DP (3 baris: INV/07/26/9002, 9001, INV/06/26/0001) & PEL (3 baris: PEL/07/26/9002, 9001, PEL/06/26/0001) render lengkap dgn kolom + aksi ghost; header search+3 tombol; sticky header stone-50.
+  * Buat Invoice → layar BUAT INVOICE BARU (sub-tab Regular/DP/Pelunasan, editor termuat, nomor berikut INV/09/26/0002) → Kembali → daftar tampil lagi.
+  * Search "9001" → filter jadi 2 baris (1 DP + 1 PEL), kosongkan → 6 lagi.
+  * Eye INV/06/26/0001 → preview A5 "INVOICE DOWN PAYMENT" terbuka, font Geist, tombol Kirim WhatsApp ada, close bekerja.
+  * Klik badge "Belum Lunas" PEL/06/26/0001 → dialog Form Pelunasan terbuka (info total/DP/sisa, Tgl Jatuh Tempo, switch Pelunasan) → Batal tanpa mengubah.
+  * Tombol Hapus → AlertDialog "Hapus invoice?" (Batal/Hapus merah) → Batal, tidak ada data terhapus.
+  * Muat INV/07/26/9002 (mobile) → editor terbuka dgn sub-tab DP aktif + data invoice termuat → Kembali.
+  * Mobile 390px: tanpa h-scroll (390=390), kartu DP & PEL bergaya Master Customer dgn tombol 44px, badge status klik-able; console & page errors bersih; dev.log bersih.
+- CLEANUP: tidak ada data uji dibuat (hanya buka dialog/klik, tidak ada simpan/hapus); DB final tetap: dokumen invoice milik superadmin 3 INV + 3 PEL (total DB lintas user: invoice 10, PEL 3) — tidak ada perubahan.
+
+Stage Summary:
+- Halaman Invoice kini TANPA tab sama sekali: daftar riwayat langsung tampil (isi tidak dihapus), layar Buat Invoice tetap via tombol.
+- Tampilan daftar invoice (desktop tabel + mobile kartu + header + dialog hapus + empty state) kini identik polanya dengan halaman Master Customer: shadcn Table sticky stone-50 + ghost icon actions, Card mobile min-h-[44px], AlertDialog hapus, Badge status, search + tombol utama emerald di header.
+- Semua fungsi lama tetap: buat Regular/DP/Pelunasan, muat ke editor, preview A5 + kirim WhatsApp, catat pelunasan, hapus, backup/restore.
