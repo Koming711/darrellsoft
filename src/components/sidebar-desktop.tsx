@@ -92,6 +92,20 @@ const menuItems = [
     section: 'dokumen',
   },
   {
+    titleKey: 'master_customer' as TranslationKey,
+    href: '/master-customer',
+    icon: Users,
+    featureId: 'master-customer',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'master_barang' as TranslationKey,
+    href: '/master-barang',
+    icon: Package,
+    featureId: 'master-barang',
+    section: 'dokumen',
+  },
+  {
     titleKey: 'laporan' as TranslationKey,
     href: '/laporan',
     icon: FileBarChart,
@@ -145,20 +159,6 @@ const menuItems = [
     href: '/master-finishing',
     icon: Layers,
     featureId: 'master-finishing',
-    section: 'master_cetakan',
-  },
-  {
-    titleKey: 'master_customer' as TranslationKey,
-    href: '/master-customer',
-    icon: Users,
-    featureId: 'master-customer',
-    section: 'master_cetakan',
-  },
-  {
-    titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
     section: 'master_cetakan',
   },
   {
