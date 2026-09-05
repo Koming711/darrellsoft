@@ -28,6 +28,7 @@ import {
   Banknote,
   FileBarChart,
   Package,
+  BadgePercent,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -158,6 +159,13 @@ const menuItems = [
     href: '/master-barang',
     icon: Package,
     featureId: 'master-barang',
+    section: 'master_cetakan',
+  },
+  {
+    titleKey: 'harga_khusus' as TranslationKey,
+    href: '/harga-khusus',
+    icon: BadgePercent,
+    featureId: 'harga-khusus',
     section: 'master_cetakan',
   },
   {

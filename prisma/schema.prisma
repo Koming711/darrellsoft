@@ -52,11 +52,14 @@ model Post {
 
 model Customer {
   id          String   @id @default(cuid())
+  code        String?
   name        String
   companyName String?
   address     String?
   phone       String?
   email       String?
+  notes       String?
+  isActive    Boolean  @default(true)
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -68,9 +71,11 @@ model Barang {
   id         String   @id @default(cuid())
   kode       String
   nama       String
+  satuan     String   @default("pcs")
   modal      Float    @default(0)
   jual       Float    @default(0)
   keterangan String   @default("")
+  isActive   Boolean  @default(true)
   userId     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
