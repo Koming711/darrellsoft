@@ -56,9 +56,10 @@ interface RiwayatContentProps {
   title: string
   subtitle: string
   defaultFilterType: 'all' | 'Hitung Cetakan' | 'Potong Kertas'
+  enableRowPreview?: boolean
 }
 
-export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatContentProps) {
+export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPreview = false }: RiwayatContentProps) {
   const { t } = useLanguage()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
@@ -357,14 +358,17 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
             keyField="id"
             onDelete={handleDelete}
             showAsButtons={true}
+            onRowClick={enableRowPreview ? handlePreview : undefined}
             emptyMessage="Belum ada riwayat perhitungan"
             emptyIcon={<History className="w-12 h-12 mx-auto text-slate-400" />}
             extraActions={(item: RiwayatItem) => (
               <div className="flex items-center gap-1">
-                <button onClick={() => handlePreview(item)} title={t('preview')}
-                  className="p-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors">
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
+                {!enableRowPreview && (
+                  <button onClick={() => handlePreview(item)} title={t('preview')}
+                    className="p-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors">
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button onClick={() => handleRestore(item)} title={t('restore_ke_hitung')}
                   className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors">
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -372,11 +376,13 @@ export function RiwayatContent({ title, subtitle, defaultFilterType }: RiwayatCo
               </div>
             )}
             mobileCardActions={(item: RiwayatItem) => (
-              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-                <button onClick={() => handlePreview(item)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
-                  <Eye className="w-3.5 h-3.5" /> Preview
-                </button>
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                {!enableRowPreview && (
+                  <button onClick={() => handlePreview(item)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
+                    <Eye className="w-3.5 h-3.5" /> Preview
+                  </button>
+                )}
                 <button onClick={() => handleRestore(item)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors">
                   <RotateCcw className="w-3.5 h-3.5" /> Restore

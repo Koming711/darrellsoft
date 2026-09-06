@@ -13,6 +13,7 @@ export default function RiwayatPotongKertasPage() {
         title={t('riwayat_potong_kertas')}
         subtitle={t('subtitle_riwayat_potong_kertas')}
         defaultFilterType="Potong Kertas"
+        enableRowPreview
       />
     </DashboardLayout>
   )

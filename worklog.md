@@ -7659,3 +7659,26 @@ Work Log:
 Stage Summary:
 - Halaman Surat Jalan & Purchase Order kini identik polanya dengan halaman Invoice: riwayat gaya Master Customer (tanpa tab), tombol Buat → layar editor, dan pratinjau A5 sebagai popup (bukan berdampingan).
 - Deep-link ?invoiceId= (SJ) dan ?riwayatId= (PO) tetap berfungsi — auto membuka editor.
+
+---
+Task ID: potong-kertas-row-click-preview
+Agent: Z.ai Code (main)
+Task: Di halaman riwayat potong kertas, klik baris tabel memunculkan preview potong kertas; hilangkan tombol preview di tabel riwayat potong kertas.
+
+Work Log:
+- Investigasi: /riwayat-potong-kertas & /riwayat-hitung-cetakan berbagi komponen src/components/riwayat-content.tsx (MobileTable + preview Dialog yang sudah ada)
+- mobile-table.tsx: tambah prop opsional onRowClick — desktop <tr> onClick + cursor-pointer, Aksi <td> stopPropagation (agar tombol Hapus/Restore/dropdown tidak memicu preview), mobile card onClick → onRowClick jika ada (fallback perilaku lama)
+- riwayat-content.tsx: tambah prop opsional enableRowPreview (default false) — pass onRowClick={enableRowPreview ? handlePreview : undefined}; sembunyikan tombol Eye preview di extraActions desktop & tombol "Preview" di mobileCardActions saat aktif; wrapper stopPropagation pada container aksi mobile card
+- riwayat-potong-kertas/page.tsx: kirim enableRowPreview (hanya halaman ini; riwayat-hitung-cetakan tidak diubah)
+- E2E agent-browser (login superadmin): buat 2 baris data uji via Prisma (potong_kertas + hitung_cetakan, userId user-superadmin)
+- Desktop potong-kertas: baris hanya punya tombol Hapus + Restore (tanpa Preview), cursor pointer, klik baris → Dialog "Rincian Potong Kertas" terbuka, tombol Cetak/Restore/PDF ada; klik tombol Restore → navigate restore, TIDAK buka preview (stopPropagation OK)
+- Mobile 390px: card tanpa tombol Preview, klik card → preview terbuka; klik tombol Restore di card → navigate, TIDAK buka preview
+- riwayat-hitung-cetakan (tidak berubah): tombol Preview MASIH ada & berfungsi ("Rincian Harga Cetakan"), klik baris tidak melakukan apa-apa
+- Cleanup: hapus 2 baris uji (deleteMany where userId=user-superadmin AND printName startsWith 'TEST E2E'), baseline kembali 20 total / 0 potong kertas
+- bunx eslint 3 file = 0 error; dev.log bersih
+
+Stage Summary:
+- Halaman Riwayat Potong Kertas: klik baris tabel/kartu = buka popup preview "Rincian Potong Kertas"; tombol preview (mata) dihapus dari tabel
+- Riwayat Hitung Cetakan tetap perilaku lama (tombol Preview masih ada) via prop enableRowPreview=false default
+- MobileTable mampu onRowClick generik untuk pemakaian lain
+- File: src/components/mobile-table.tsx, src/components/riwayat-content.tsx, src/app/riwayat-potong-kertas/page.tsx

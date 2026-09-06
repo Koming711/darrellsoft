@@ -25,6 +25,7 @@ interface MobileTableProps<T> {
   showAsButtons?: boolean
   extraActions?: (item: T) => React.ReactNode
   mobileCardActions?: (item: T) => React.ReactNode
+  onRowClick?: (item: T) => void
 }
 
 export function MobileTable<T extends Record<string, any>>({
@@ -40,6 +41,7 @@ export function MobileTable<T extends Record<string, any>>({
   showAsButtons = false,
   extraActions,
   mobileCardActions,
+  onRowClick,
 }: MobileTableProps<T>) {
   const [selectedItems, setSelectedItems] = useState<Set<any>>(new Set())
   const [isMobile, setIsMobile] = useState(false)
@@ -156,13 +158,17 @@ export function MobileTable<T extends Record<string, any>>({
           </thead>
           <tbody className="divide-y divide-slate-200">
             {data.map((item, idx) => (
-              <tr key={String(item[keyField]) || idx} className="hover:bg-slate-50">
+              <tr
+                key={String(item[keyField]) || idx}
+                className={cn("hover:bg-slate-50", onRowClick && "cursor-pointer")}
+                onClick={() => onRowClick?.(item)}
+              >
                 {columns.map((col) => (
                   <td key={col.key} className={cn("px-4 py-2.5 text-sm", col.className)}>
                     {col.render ? col.render(item) : (item[col.key] as React.ReactNode)}
                   </td>
                 ))}
-                <td className="px-4 py-2.5 text-center">
+                <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
                     <TableDropdownMenu
                       onEdit={onEdit ? () => onEdit(item) : undefined}
@@ -187,10 +193,16 @@ export function MobileTable<T extends Record<string, any>>({
           return (
             <div
               key={String(item[keyField]) || idx}
-              onClick={() => isMobile && !mobileCardActions && toggleSelection(item)}
+              onClick={() => {
+                if (onRowClick) {
+                  onRowClick(item)
+                } else if (isMobile && !mobileCardActions) {
+                  toggleSelection(item)
+                }
+              }}
               className={cn(
                 "bg-white border border-slate-200 rounded-lg p-3 transition-all",
-                mobileCardActions ? "cursor-default" : "cursor-pointer",
+                onRowClick || !mobileCardActions ? "cursor-pointer" : "cursor-default",
                 isSelected ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-offset-2" : "hover:border-slate-300"
               )}
             >
