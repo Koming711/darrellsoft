@@ -220,3 +220,95 @@ export async function captureElementAsJpg(element: HTMLElement): Promise<Blob> {
     document.body.removeChild(wrapper)
   }
 }
+
+// ============================================================
+// Fit a captured JPG blob onto an A5-sized canvas (148 × 210 mm)
+// ============================================================
+
+const MM_PER_INCH = 25.4
+
+/**
+ * Load a Blob into an HTMLImageElement (object URL based, no CORS issues).
+ */
+function loadImageElement(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load captured image')) }
+    img.src = url
+  })
+}
+
+/**
+ * Fit a captured JPG blob into an A5-sized image (148mm × 210mm).
+ *
+ * The source image is scaled to FIT (contain) inside the A5 canvas, centered,
+ * with a white background filling the remaining space. The output orientation
+ * follows the source content: portrait content → A5 portrait (874 × 1240 px
+ * at 150 DPI), landscape content → A5 landscape (1240 × 874 px).
+ *
+ * This makes the shared JPG print edge-to-edge on A5 paper with the whole
+ * document visible.
+ *
+ * @param blob - Source JPG blob (e.g. from captureElementAsJpg)
+ * @param opts.dpi - Output resolution in DPI. Default 150 → 874 × 1240 px.
+ * @param opts.marginPct - White margin around content, % of the short edge. Default 4.
+ * @param opts.quality - JPEG quality (0-1). Default 0.95.
+ * @returns A5-fitted JPG Blob
+ */
+export async function fitBlobToA5(
+  blob: Blob,
+  opts?: { dpi?: number; marginPct?: number; quality?: number }
+): Promise<Blob> {
+  const dpi = opts?.dpi ?? 150
+  const marginPct = opts?.marginPct ?? 4
+  const quality = opts?.quality ?? 0.95
+
+  const img = await loadImageElement(blob)
+  if (!img.width || !img.height) {
+    throw new Error('Captured image has invalid dimensions')
+  }
+
+  // A5: short edge = 148mm, long edge = 210mm
+  const shortEdge = Math.round((148 / MM_PER_INCH) * dpi) // 874 @ 150 DPI
+  const longEdge = Math.round((210 / MM_PER_INCH) * dpi)  // 1240 @ 150 DPI
+
+  // Auto orientation: landscape content → A5 landscape, portrait → A5 portrait
+  const isLandscape = img.width > img.height
+  const canvasW = isLandscape ? longEdge : shortEdge
+  const canvasH = isLandscape ? shortEdge : longEdge
+
+  const canvas = document.createElement('canvas')
+  canvas.width = canvasW
+  canvas.height = canvasH
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 2D context unavailable')
+
+  // White background
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvasW, canvasH)
+
+  // Contain-fit with margin, centered
+  const margin = Math.round(Math.min(canvasW, canvasH) * (marginPct / 100))
+  const availW = canvasW - margin * 2
+  const availH = canvasH - margin * 2
+  const scale = Math.min(availW / img.width, availH / img.height)
+  const drawW = Math.max(1, Math.round(img.width * scale))
+  const drawH = Math.max(1, Math.round(img.height * scale))
+  const dx = Math.round((canvasW - drawW) / 2)
+  const dy = Math.round((canvasH - drawH) / 2)
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, dx, dy, drawW, drawH)
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => { if (b && b.size > 0) resolve(b); else reject(new Error('Failed to encode A5 JPG')) },
+      'image/jpeg',
+      quality
+    )
+  })
+}

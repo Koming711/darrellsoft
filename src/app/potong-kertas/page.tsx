@@ -16,7 +16,7 @@ import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
 import { Button } from '@/components/ui/button'
 import { openWhatsApp } from '@/lib/whatsapp-business'
-import { captureElementAsJpg } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
 
@@ -1194,7 +1194,9 @@ function CalculatorPage() {
 
     setIsGeneratingJpg(true)
     try {
-      const blob = await captureElementAsJpg(el)
+      const rawBlob = await captureElementAsJpg(el)
+      // Fit the captured document onto an A5-sized canvas (148 × 210 mm)
+      const blob = await fitBlobToA5(rawBlob)
       const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'preview'))
       const fileName = `potong-kertas-${(custLabel || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
 
@@ -1803,10 +1805,7 @@ function CalculatorPage() {
           <div ref={previewRef} className="p-2 sm:p-4 bg-white">
             {/* Header */}
             <div className="text-center mb-3 pb-2 border-b-2 border-slate-200">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900">Preview Potong Kertas</h1>
-              <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">
-                {(previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-'))} · {previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')} · {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
+              <h1 className="text-[22px] font-bold text-slate-900">Preview Potong Kertas</h1>
             </div>
 
             {/* Info Grid */}
@@ -1814,6 +1813,14 @@ function CalculatorPage() {
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Customer</p>
                 <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Bahan</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')}</p>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Gramatur</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
               </div>
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>

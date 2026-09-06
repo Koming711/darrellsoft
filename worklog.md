@@ -7719,3 +7719,21 @@ Work Log:
 Stage Summary:
 - Preview Potong Kertas: tombol [Cetak][Edit][JPG → WA] satu baris sticky (ikut scroll, selalu terlihat); PDF diganti JPG (share/unduh); Edit = muat data riwayat ke Editor; card Nama Customer tampil di grid
 - File: src/app/potong-kertas/page.tsx (satu-satunya file yang berubah)
+
+---
+Task ID: potong-kertas-preview-a5-bahan-gramatur
+Agent: Z.ai Code (main)
+Task: Di preview potong kertas — tambah Nama Bahan & Gramatur, hilangkan tulisan "jaya · art karton · ..." di bawah judul, judul "Preview Potong Kertas" jadi 22px, hasil JPG ukuran fit A5.
+
+Work Log:
+- Judul 22px: h1 "Preview Potong Kertas" dalam dialog diubah text-base sm:text-lg → text-[22px] (verified computed font-size = 22px, desktop & 390px)
+- Hilangkan baris "customer · bahan · tanggal" (mis. "Jaya Wijaya · art karton · 6 September 2026") di bawah judul: <p> subtitle dihapus total; header kini hanya h1 (verified headerPs=0, tidak ada teks " · " tersisa di dialog)
+- Nama Bahan & Gramatur: 2 card baru ditambahkan di Info Grid tepat setelah "Nama Customer" → grid jadi 12 card. Nama Bahan = previewRiwayatInfo.paper (mode riwayat) / selectedPaper?.name || restoredPaperName || 'Custom' (mode editor); Gramatur = `${previewRiwayatRow.grammage} gsm` (riwayat) / `${grammage} gsm` (editor), '-' jika kosong
+- JPG fit A5: fungsi baru fitBlobToA5 di src/lib/capture-jpg.ts — blob hasil captureElementAsJpg digambar contain-fit di canvas A5 (148×210mm; auto-orientasi: portrait content → A5 portrait) @150 DPI = 874×1240px, margin putih 4%, quality 0.95; handleJpg kini rawBlob → fitBlobToA5 → shareJpgToWhatsApp
+- E2E agent-browser (login superadmin, data uji TEST-PK-E2E-003: Jaya Wijaya / art karton / 260gsm dibuat via Prisma lalu dihapus): h1=22px ✓; header tanpa subtitle ✓; card Nama Customer="Jaya Wijaya", Nama Bahan="art karton", Gramatur="260 gsm" ✓; tombol [Cetak|Edit|JPG → WA] tetap 1 baris nowrap sticky (bar top 769 konstan saat konten discroll 578px) ✓; patch canvas.toBlob → capture tercatat TEPAT {w:874,h:1240,type:image/jpeg} = A5 portrait @150 DPI ✓; toast "JPG diunduh ke perangkat — File JPG telah disimpan ke folder Downloads." ✓; desktop 1280 + mobile 390 screenshot OK, tombol bottom=814 < 844 (di atas bottom nav yang tertutup backdrop z-60>z-50) ✓
+- Cleanup: hapus 1 baris uji (TEST-PK-E2E-003), baseline riwayatPotongKertas kembali 20; bunx eslint 2 file berubah = 0 error (18 error lama hanya di hitung-* yang tidak disentuh); dev.log bersih
+- Note: fungsi generateJpgFromElement di generate-pdf.ts (A5 untuk invoice) TIDAK dipakai karena memaksa class .print-mode + style invoice (padding 8mm/10mm, Arial 9pt) dan overflow hidden 793px → akan merusak layout & memotong dokumen potong kertas yang panjang; pendekatan contain-fit mempertahankan seluruh dokumen
+
+Stage Summary:
+- Preview Potong Kertas: judul 22px tanpa baris "customer · bahan · tanggal"; Info Grid 12 card termasuk Nama Bahan & Gramatur; tombol JPG menghasilkan file A5 (874×1240, siap cetak A5) via fitBlobToA5
+- Files: src/app/potong-kertas/page.tsx + src/lib/capture-jpg.ts (fitBlobToA5 baru; API lama tak berubah, halaman lain aman)
