@@ -36,7 +36,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
         padding: '8mm 10mm',
         fontSize: '9pt',
         lineHeight: '1.35',
-        fontFamily: 'var(--font-geist-sans), Arial, Helvetica, sans-serif',
+        fontFamily: 'var(--font-space-grotesk), Arial, Helvetica, sans-serif',
         boxSizing: 'border-box',
       }}
     >
