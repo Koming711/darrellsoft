@@ -7700,3 +7700,22 @@ Work Log:
 Stage Summary:
 - Tab Riwayat halaman Potong Kertas: klik baris = popup preview potong kertas; icon preview mata dihapus dari tabel; kolom Gramatur (gsm); judul "Riwayat Potong Kertas" 24px
 - File: src/app/potong-kertas/page.tsx (satu-satunya file yang berubah)
+
+---
+Task ID: potong-kertas-preview-jpg-edit-customer
+Agent: Z.ai Code (main)
+Task: Di preview potong kertas — tombol PDF diganti JPG, tambah tombol Edit, tombol 1 baris & posisi mengikuti scroll, tambahkan nama customer.
+
+Work Log:
+- Tombol PDF → JPG: hapus handlePdf (jsPDF+iframe), ganti handleJpg memakai captureElementAsJpg (src/lib/capture-jpg) + shareJpgToWhatsApp (mobile: Web Share ke WA, desktop: unduh .jpg); state isGeneratingPdf → isGeneratingJpg; label tombol "JPG → WA"
+- Tombol Edit: state baru previewRiwayatRow (diisi di handlePreviewRiwayat); handleEditFromPreview = handleRestore(row) + tutup dialog & reset state preview → pindah ke tab Editor dengan form ter-isi (handleRestore sudah setActiveTab('editor')); tombol Edit (amber, icon Pencil) hanya tampil saat preview dari riwayat
+- 1 baris & sticky: hapus flex-wrap + min-w-[calc(50%...)], semua tombol flex-1 min-w-0 (verified sameRow, flexWrap nowrap); bar tetap sticky bottom-0 (verified top tak berubah saat konten discroll 769→769)
+- Nama customer: card "Nama Customer" ditambah sebagai kartu pertama Info Grid (isi: previewRiwayatInfo.customer atau selectedCustomer?.name)
+- Bugfix z-index: MobileBottomNav (z-50, sama dengan dialog tapi lebih belakang di DOM) menutupi bar tombol di mobile → PreviewDialog root dinaikkan z-50 → z-[60]; verified tombol bottom=814 < viewport 844, nav tertutup dialog
+- E2E: login superadmin, data uji TEST-PK-E2E-002 dibuat lalu dihapus (baseline 20); desktop+390px: dialog terbuka via klik baris, tombol [Cetak|Edit|JPG → WA] nowrap 1 baris, teks "PDF" tidak ada, card customer tampil; klik JPG → toast "JPG diunduh ke perangkat" (desktop path shareJpgToWhatsApp OK); klik Edit → dialog tutup + tab Editor aktif + input "TEST Potong JPG" terisi
+- Note: saat test pertama, selector 'div.sticky button' keliru match tab "Editor" (mengandung kata "Edit") — diperbaiki selector ke 'div.sticky.bottom-0 button' di dalam dialog; bukan bug aplikasi
+- bunx eslint = 0 error; dev.log bersih
+
+Stage Summary:
+- Preview Potong Kertas: tombol [Cetak][Edit][JPG → WA] satu baris sticky (ikut scroll, selalu terlihat); PDF diganti JPG (share/unduh); Edit = muat data riwayat ke Editor; card Nama Customer tampil di grid
+- File: src/app/potong-kertas/page.tsx (satu-satunya file yang berubah)
