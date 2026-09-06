@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, Eye, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload } from 'lucide-react'
+import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -1321,7 +1321,7 @@ function CalculatorPage() {
             <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
             <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Nama Barang</th>
             <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Kertas</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Kertas</th>
+            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Gramatur</th>
             <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Potong</th>
             <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
             <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
@@ -1331,7 +1331,7 @@ function CalculatorPage() {
         <tbody>
           {items.map((r, idx) => {
             return (
-              <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
+              <tr key={r.id} onClick={() => handlePreviewRiwayat(r)} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors cursor-pointer ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
                 <td className="py-3 px-3 text-teal-700 font-semibold whitespace-nowrap">{r.nomorUrut || '-'}</td>
                 <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
                 <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">
@@ -1344,7 +1344,7 @@ function CalculatorPage() {
                   {r.paperName || '-'}
                 </td>
                 <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
-                  {r.paperWidth && r.paperWidth !== '0' ? `${r.paperWidth}×${r.paperHeight}` : '-'}
+                  {r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}
                 </td>
                 <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
                   {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
@@ -1355,15 +1355,8 @@ function CalculatorPage() {
                 <td className="py-3 px-3 text-rose-700 font-bold text-right whitespace-nowrap">
                   Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}
                 </td>
-                <td className="py-3 px-3 text-center">
+                <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
-                    <button
-                      onClick={() => handlePreviewRiwayat(r)}
-                      className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors"
-                      title="Preview"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
                     <button
                       onClick={() => handleRestore(r)}
                       className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
@@ -1833,7 +1826,7 @@ function CalculatorPage() {
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
               <History className="w-3.5 h-3.5 text-amber-600" />
-              <h2 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
+              <h2 className="text-2xl font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
               <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
             </div>
             <div className="flex items-center gap-1.5">

@@ -7682,3 +7682,21 @@ Stage Summary:
 - Riwayat Hitung Cetakan tetap perilaku lama (tombol Preview masih ada) via prop enableRowPreview=false default
 - MobileTable mampu onRowClick generik untuk pemakaian lain
 - File: src/components/mobile-table.tsx, src/components/riwayat-content.tsx, src/app/riwayat-potong-kertas/page.tsx
+
+---
+Task ID: potong-kertas-tab-riwayat-preview-gramatur
+Agent: Z.ai Code (main)
+Task: Di halaman potong kertas tab riwayat — klik baris tabel memunculkan preview; hilangkan icon preview di tabel; kolom "Uk. Kertas" diganti "Gramatur"; judul "Riwayat Potong Kertas" diperbesar 24px.
+
+Work Log:
+- Target sebenarnya = /potong-kertas (halaman kalkulator dengan tab Editor | Riwayat), bukan /riwayat-potong-kertas; tabel riwayat = komponen RiwayatTable inline di page.tsx
+- Klik baris: <tr> tambah onClick={() => handlePreviewRiwayat(r)} + cursor-pointer; td Aksi stopPropagation agar Restore/Hapus tidak memicu preview (handlePreviewRiwayat sudah ada — buka PreviewDialog "Preview Potong Kertas")
+- Icon preview (button Eye biru, title="Preview") dihapus dari kolom Aksi; import Eye dari lucide-react ikut dibersihkan (satu-satunya pemakaian)
+- Kolom "Uk. Kertas" → "Gramatur": header diganti, cell kini menampilkan `${r.grammage} gsm` (sebelumnya paperWidth×paperHeight)
+- Judul h2 "Riwayat Potong Kertas" pada tab riwayat: text-xs → text-2xl (24px)
+- E2E agent-browser (login superadmin, data uji dibuat via Prisma lalu dihapus): h2 computed font-size=24px ✓; header tabel memuat "Gramatur" tanpa "Uk. Kertas" ✓; tbody button[title=Preview] = 0 ✓ (sisa Restore+Hapus); cell gramatur "150 gsm" ✓; klik baris → PreviewDialog terbuka (desktop & 390px) ✓; tombol X menutup ✓; klik Restore → TIDAK buka preview, pindah ke tab Editor dengan nilai ter-restore ✓
+- Cleanup: hapus 1 baris uji (nomorUrut TEST-PK-E2E-001), baseline riwayatPotongKertas kembali 20; bunx eslint page = 0 error; dev.log bersih
+
+Stage Summary:
+- Tab Riwayat halaman Potong Kertas: klik baris = popup preview potong kertas; icon preview mata dihapus dari tabel; kolom Gramatur (gsm); judul "Riwayat Potong Kertas" 24px
+- File: src/app/potong-kertas/page.tsx (satu-satunya file yang berubah)
