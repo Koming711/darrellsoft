@@ -7583,3 +7583,23 @@ Stage Summary:
 - Cetak & JPG tetap bekerja walau popup tertutup (pratinjau ter-mount off-screen + print CSS reset #document-preview).
 - Font seluruh halaman Buat Invoice Baru (form + dokumen A5 di popup) = Geist, identik dgn halaman Riwayat Invoice — terverifikasi computed style.
 - Surat jalan & Purchase Order tidak berubah (masih pratinjau inline).
+
+---
+Task ID: invoice-font-samakan-riwayat
+Agent: Z.ai Code (main)
+Task: "semua font di halaman buat invoice baru dibuat sama dengan font di halaman riwayat invoice" — samakan seluruh font halaman Buat Invoice Baru dengan halaman Riwayat Invoice (kelanjutan permintaan pratinjau-jadi-popup yang sudah terpasang).
+
+Work Log:
+- Baca invoice-editor.tsx & invoice-pelunasan-editor.tsx: keduanya sudah memakai DocumentEditorLayout previewMode="popup" (popup pratinjau A5 via tombol "Lihat Pratinjau A5" — permintaan popup sudah terpenuhi).
+- Audit font menyeluruh (grep font-serif/mono/sans/font-[...]/fontFamily di seluruh src/components/dokupro): satu-satunya penyimpangan = font-mono pada 3 span di company-fields.tsx (nomor rekening bank 1, bank 2, NPWP) yang ter-render di halaman Buat Invoice Baru.
+- Konfirmasi halaman Riwayat Invoice & global layout.tsx memakai Geist (var --font-geist-sans) 100%; invoice-preview.tsx sudah var(--font-geist-sans).
+- Fix: hapus font-mono pada 3 span di company-fields.tsx → mewarisi Geist default.
+- bunx eslint pada file yang disentuh (company-fields, invoice-editor, invoice-pelunasan-editor, document-editor-layout, invoice/page.tsx): 0 error (18 error pre-existing hanya di hitung-*/page.tsx, tidak tersentuh tugas ini).
+- E2E agent-browser (desktop 1280 + mobile 390): login superadmin → Invoice → Buat Invoice → audit computed font-family seluruh elemen = hanya Geist (nonGeist=0); nomor rekening 0818268638 kini Geist (bukan mono); popup pratinjau A5 Regular & Pelunasan: buka (fixed z-70, bg-black/80, scale 0.505) → tutup (off-screen -99999px tetap ter-mount utk print/JPG) → buka ulang OK; mobile 390 tanpa scroll horizontal; PWA overlay diatasi via sessionStorage install_dismissed=1 + klik X native.
+- Verifikasi DB: documentHistory invoice=10, invoice-pelunasan=3 — tidak berubah, tanpa data test.
+
+Stage Summary:
+- Halaman Buat Invoice Baru (Regular + DP + Pelunasan) kini 100% font Geist, identik dengan halaman Riwayat Invoice.
+- Pratinjau A5 berupa popup overlay layar penuh (bukan inline), tetap mendukung Cetak & JPG walau popup tertutup (mount off-screen).
+- company-fields.tsx shared component kini konsisten Geist di semua halaman editor (invoice, pelunasan, surat jalan, PO).
+- Tanpa perubahan data; lint file-sentuh 0 error.
