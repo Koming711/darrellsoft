@@ -312,6 +312,7 @@ export function PurchaseOrderEditor() {
     <>
       <DocumentEditorLayout
         title="Purchase Order"
+        previewMode="popup"
         previewContent={<PurchaseOrderPreview data={po} />}
         actions={
           <DocumentActionButtons

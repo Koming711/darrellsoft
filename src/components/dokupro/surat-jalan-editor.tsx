@@ -259,6 +259,7 @@ export function SuratJalanEditor() {
     <>
       <DocumentEditorLayout
         title="Surat Jalan"
+        previewMode="popup"
         previewContent={<SuratJalanPreview data={sj} />}
         actions={
           <DocumentActionButtons

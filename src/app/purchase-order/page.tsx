@@ -1,9 +1,9 @@
 'use client'
 
 import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { PurchaseOrderEditor } from '@/components/dokupro/purchase-order-editor'
-import { useLanguage } from '@/contexts/language-context'
 import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { formatRupiah, formatTanggal } from '@/lib/format'
@@ -14,22 +14,36 @@ import {
   Eye,
   RotateCcw,
   Trash2,
-  FileText,
   Loader2,
   Search,
   X,
   DatabaseBackup,
   Upload,
+  Plus,
+  ArrowLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
@@ -127,7 +141,26 @@ function parsePurchaseOrderData(entry: HistoryEntry): PurchaseOrderData {
   }
 }
 
-function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
+// Auto-open editor when the page receives a deep-link param
+// (dipakai link dari Hitung Cetakan → ?riwayatId=...)
+function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }) {
+  const searchParams = useSearchParams()
+  const doneRef = useRef(false)
+  useEffect(() => {
+    if (doneRef.current) return
+    if (searchParams.get(param)) {
+      doneRef.current = true
+      onOpen()
+    }
+  }, [searchParams, param, onOpen])
+  return null
+}
+
+// ============================================================
+// PurchaseOrderRiwayatView — daftar purchase order langsung
+// tampil (tanpa tab). UI mengikuti gaya halaman Invoice / Master Customer.
+// ============================================================
+function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
   const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder)
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -145,7 +178,7 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     try {
       setLoading(true)
       const headers = getAuthHeaders()
-      const res = await fetch('/api/history?docType=purchase-order', { headers })
+      const res = await fetch('/api/history?docType=purchase-order', { headers, cache: 'no-store' })
       if (res.ok) {
         const json = await res.json()
         setPoHistory(json.data || [])
@@ -174,9 +207,6 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
   }, [previewItem])
 
   // Measure actual rendered element and fit it to the available viewport space.
-  // Fixes mobile cut-off: uses real offsetWidth/offsetHeight (unaffected by
-  // transform), top-left origin, and a wrapper sized to the scaled dimensions
-  // so flex layout reserves the correct visual space.
   useLayoutEffect(() => {
     if (!previewOpen) {
       setPreviewDims(null)
@@ -207,6 +237,13 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
   }, [previewOpen, poData])
 
+  const restoreToEditor = (entry: HistoryEntry) => {
+    const parsed = parsePurchaseOrderData(entry)
+    setPurchaseOrder(parsed)
+    onCreate()
+    toast.success('Purchase Order berhasil dimuat ke editor')
+  }
+
   const handleDelete = async (id: string) => {
     try {
       const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
@@ -227,15 +264,12 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     if (!poData) return
     setSendingPdf(true)
     try {
-      // Capture the preview DOM element as A5-sized JPG (matches print output)
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (previewEl) {
         const blob = await captureElementAsJpg(previewEl)
         const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         const phone = poData.pemasok?.kontak || ''
 
-        // No-API sharing: Web Share API first (auto-attaches file),
-        // then fallback to download + WhatsApp Web.
         const result = await shareJpgToWhatsApp({
           blob,
           fileName,
@@ -341,200 +375,164 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
     })
   }, [poHistory, searchQuery])
 
+  const countLabel = loading ? 'Memuat data…' : `${poHistory.length} purchase order`
+
   return (
     <>
-      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
-          <div className="flex items-center gap-2 min-w-0">
-            <History className="w-4 h-4 text-violet-600 shrink-0" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide truncate">Riwayat Purchase Order</h2>
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">{poHistory.length} data</span>
+      <div className="space-y-5">
+        {/* Header — gaya Master Customer */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Purchase Order</h1>
+            <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Button
-              onClick={handleBackup}
-              variant="outline"
-              size="sm"
-              disabled={backupLoading === 'backup'}
-              className="h-7 gap-1.5 text-xs"
-            >
-              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
-              Backup
-            </Button>
-            <Button
-              onClick={handleRestore}
-              variant="outline"
-              size="sm"
-              disabled={backupLoading === 'restore'}
-              className="h-7 gap-1.5 text-xs"
-            >
-              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-              Restore
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari no. PO / suplier / barang…"
+                aria-label="Cari purchase order"
+                className="pl-9 min-h-[44px]"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={onCreate}
+                title="Buat purchase order baru"
+                className="bg-violet-600 hover:bg-violet-700 min-h-[44px] flex-1 sm:flex-none"
+              >
+                <Plus className="h-4 w-4" /> Buat PO
+              </Button>
+              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
+                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+              </Button>
+              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
+                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Search */}
-        {poHistory.length > 0 && (
-          <div className="px-4 py-2 border-b border-slate-100 bg-white/50">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari no. PO, suplier, barang..."
-                className="w-full h-8 pl-8 pr-8 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 focus:border-violet-400 placeholder:text-slate-400"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Table */}
+        {/* Content */}
         {loading ? (
-          <div className="px-4 py-6 text-center">
-            <Loader2 className="w-6 h-6 mx-auto text-violet-500 animate-spin" />
-            <p className="text-xs text-slate-400 mt-2">Memuat riwayat...</p>
-          </div>
-        ) : filteredHistory.length > 0 ? (
           <>
-            {/* Mobile card layout */}
-            <div className="sm:hidden divide-y divide-slate-100">
+            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden p-4 space-y-3">
+              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+            <div className="md:hidden space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+            </div>
+          </>
+        ) : filteredHistory.length === 0 ? (
+          <div className="text-center py-16">
+            <History className="h-10 w-10 mx-auto text-stone-300 mb-3" />
+            <p className="text-sm font-medium text-stone-600">{searchQuery.trim() ? 'Tidak ditemukan' : 'Belum ada purchase order'}</p>
+            <p className="text-xs text-muted-foreground mt-1">{searchQuery.trim() ? 'Coba kata kunci lain' : 'Klik "Buat PO" untuk membuat baru'}</p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+              <div className="max-h-96 overflow-y-auto scrollbar-thin">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-stone-50">
+                    <TableRow className="bg-stone-50 hover:bg-stone-50">
+                      <TableHead>No. PO</TableHead>
+                      <TableHead>Tgl</TableHead>
+                      <TableHead>Suplier</TableHead>
+                      <TableHead>Nama Barang</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">Qty</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHistory.slice(0, 100).map((entry) => {
+                      const info = parseDocInfo(entry)
+                      return (
+                        <TableRow key={entry.id}>
+                          <TableCell className="font-medium whitespace-nowrap text-violet-700">{entry.nomor || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                          <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
+                          <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
+                            <span className="truncate block">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground hidden lg:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
                 return (
-                  <div
-                    key={entry.id}
-                    className="px-4 py-3 hover:bg-violet-50/30 active:bg-violet-100/40 transition-colors cursor-pointer"
-                    onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="min-w-0">
-                        <p className="text-violet-700 font-semibold text-[13px] truncate">{entry.nomor || '-'}</p>
-                        <p className="text-slate-500 text-xs">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</p>
+                  <Card key={entry.id} className="p-0 gap-0">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{entry.nomor || '-'}</p>
+                          <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                        </div>
+                        <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
                       </div>
-                      <p className="text-emerald-700 font-bold text-sm whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-slate-700 font-medium text-xs truncate">{entry.pihakKedua || '-'}</p>
-                        {info.namaBarang && <p className="text-slate-400 text-[11px] truncate">{info.namaBarang.split('\n')[0]}</p>}
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p className="truncate">{entry.pihakKedua || '-'}</p>
+                        {info.namaBarang && <p className="text-xs line-clamp-1">{info.namaBarang.split('\n')[0]}</p>}
+                        {info.totalQty > 0 && <p className="text-xs">Qty: {info.totalQty.toLocaleString('id-ID')}</p>}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            const parsed = parsePurchaseOrderData(entry)
-                            setPurchaseOrder(parsed)
-                            onRestore()
-                            toast.success('Purchase Order berhasil dimuat ke editor')
-                          }}
-                          className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
-                          title="Restore ke Editor"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(entry.id)}
-                          className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex gap-2 pt-1">
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                          <Eye className="h-4 w-4" /> Lihat
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => restoreToEditor(entry)}>
+                          <RotateCcw className="h-4 w-4" /> Muat
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
+                          <Trash2 className="h-4 w-4" /> Hapus
+                        </Button>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )
               })}
             </div>
-            {/* Desktop table layout */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-[13px] min-w-[700px]">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. PO</th>
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Suplier</th>
-                    <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap" style={{minWidth: '160px'}}>Nama Barang</th>
-                    <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Qty</th>
-                    <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                    <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHistory.slice(0, 100).map((entry, idx) => {
-                    const info = parseDocInfo(entry)
-                    return (
-                      <tr key={entry.id} className={`border-b border-slate-50 hover:bg-violet-50/30 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                        <td className="py-3 px-3 text-violet-700 font-semibold whitespace-nowrap">{entry.nomor || '-'}</td>
-                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                        <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">{entry.pihakKedua || '-'}</td>
-                        <td className="py-3 px-3 text-slate-600 max-w-[180px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</td>
-                        <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap hidden md:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</td>
-                        <td className="py-3 px-3 text-emerald-700 font-bold text-right whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</td>
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
-                              className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors"
-                              title="Preview"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                const parsed = parsePurchaseOrderData(entry)
-                                setPurchaseOrder(parsed)
-                                onRestore()
-                                toast.success('Purchase Order berhasil dimuat ke editor')
-                              }}
-                              className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
-                              title="Restore ke Editor"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(entry.id)}
-                              className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
-                              title="Hapus"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
           </>
-        ) : (
-          <div className="px-4 py-6 text-center">
-            <History className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-            <p className="text-xs text-slate-400">Belum ada riwayat purchase order</p>
-          </div>
         )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Hapus Purchase Order?</DialogTitle>
-            <DialogDescription>Data purchase order yang dihapus tidak dapat dikembalikan.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)}>Batal</Button>
-            <Button variant="destructive" size="sm" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>Hapus</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* AlertDialog hapus */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus purchase order?</AlertDialogTitle>
+            <AlertDialogDescription>Data purchase order yang dihapus tidak dapat dikembalikan.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); if (deleteConfirmId) void handleDelete(deleteConfirmId) }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Preview Popup */}
       {previewOpen && poData && (
@@ -543,6 +541,7 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
           <div className="flex justify-end p-3 shrink-0">
             <button
               onClick={() => setPreviewOpen(false)}
+              aria-label="Tutup pratinjau"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
             >
               <X className="w-4 h-4 text-slate-700" />
@@ -580,76 +579,40 @@ function PurchaseOrderRiwayatTab({ onRestore }: { onRestore: () => void }) {
   )
 }
 
+// ============================================================
+// PurchaseOrderPage — daftar purchase order langsung tampil
+// (tanpa tab) + layar "Buat Purchase Order Baru" dari tombol Buat PO.
+// UI daftar & editor mengikuti gaya halaman Invoice.
+// ============================================================
 export default function PurchaseOrderPage() {
-  const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
-  const [poCount, setPoCount] = useState(0)
-
-  // Fetch purchase order count for the badge
-  useEffect(() => {
-    const fetchCount = async () => {
-      try {
-        const headers = getAuthHeaders()
-        const res = await fetch('/api/history?docType=purchase-order', { headers })
-        if (res.ok) {
-          const json = await res.json()
-          setPoCount((json.data || []).length)
-        }
-      } catch {}
-    }
-    fetchCount()
-
-    const handler = () => fetchCount()
-    window.addEventListener('dokupro:history-updated', handler)
-    return () => window.removeEventListener('dokupro:history-updated', handler)
-  }, [])
+  const [showCreate, setShowCreate] = useState(false)
 
   return (
-    <DashboardLayout title="Purchase Order" subtitle="Buat purchase order dengan pratinjau langsung dan cetak A5">
-      {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3 print:hidden">
-        <button
-          onClick={() => setActiveTab('editor')}
-          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
-            activeTab === 'editor'
-              ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-          }`}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <FileText className="w-3.5 h-3.5" />
-            Editor
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('riwayat')}
-          className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
-            activeTab === 'riwayat'
-              ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-              : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-          }`}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <History className="w-3.5 h-3.5" />
-            Riwayat
-          </span>
-          {poCount > 0 && (
-            <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'riwayat' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{poCount}</span>
-          )}
-        </button>
-      </div>
-
-      {/* Editor Tab Content */}
-      {activeTab === 'editor' && (
-        <Suspense fallback={null}>
-          <PurchaseOrderEditor />
-        </Suspense>
-      )}
-
-      {/* Riwayat Tab Content */}
-      {activeTab === 'riwayat' && (
+    <DashboardLayout title="Purchase Order" subtitle="Buat purchase order dengan pratinjau popup dan cetak A5">
+      <Suspense fallback={null}>
+        <AutoOpenEditor param="riwayatId" onOpen={() => setShowCreate(true)} />
+      </Suspense>
+      {showCreate ? (
         <div className="print:hidden">
-          <PurchaseOrderRiwayatTab onRestore={() => setActiveTab('editor')} />
+          {/* Header: kembali + judul halaman */}
+          <div className="flex items-center gap-2 mb-3">
+            <Button
+              onClick={() => setShowCreate(false)}
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+            </Button>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Purchase Order Baru</h2>
+          </div>
+          <Suspense fallback={null}>
+            <PurchaseOrderEditor />
+          </Suspense>
+        </div>
+      ) : (
+        <div className="print:hidden">
+          <PurchaseOrderRiwayatView onCreate={() => setShowCreate(true)} />
         </div>
       )}
     </DashboardLayout>
