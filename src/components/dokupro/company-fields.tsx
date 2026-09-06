@@ -93,7 +93,7 @@ export function CompanyFields({ company }: CompanyFieldsProps) {
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold text-teal-700">{company.bankName}</p>
                     <div className="flex flex-wrap gap-x-2">
-                      {company.bankAccount && <span className="text-[11px] text-slate-600 font-mono">{company.bankAccount}</span>}
+                      {company.bankAccount && <span className="text-[11px] text-slate-600">{company.bankAccount}</span>}
                       {company.bankHolder && <span className="text-[11px] text-slate-400">a.n. {company.bankHolder}</span>}
                     </div>
                   </div>
@@ -106,7 +106,7 @@ export function CompanyFields({ company }: CompanyFieldsProps) {
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold text-slate-600">{company.bankName2}</p>
                     <div className="flex flex-wrap gap-x-2">
-                      {company.bankAccount2 && <span className="text-[11px] text-slate-600 font-mono">{company.bankAccount2}</span>}
+                      {company.bankAccount2 && <span className="text-[11px] text-slate-600">{company.bankAccount2}</span>}
                       {company.bankHolder2 && <span className="text-[11px] text-slate-400">a.n. {company.bankHolder2}</span>}
                     </div>
                   </div>
@@ -117,7 +117,7 @@ export function CompanyFields({ company }: CompanyFieldsProps) {
                 <div className="flex items-center gap-2 p-2 bg-amber-50/60 rounded-md">
                   <Hash className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
                   <span className="text-[10px] font-semibold text-amber-700">NPWP</span>
-                  <span className="text-[11px] text-slate-600 font-mono">{company.npwp}</span>
+                  <span className="text-[11px] text-slate-600">{company.npwp}</span>
                 </div>
               )}
             </div>
