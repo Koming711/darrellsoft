@@ -7618,3 +7618,21 @@ Work Log:
 
 Stage Summary:
 - Judul "Buat Invoice Baru" kini sama besar & bergaya dengan judul "Riwayat Invoice" (text-xl md:text-2xl font-bold tracking-tight; 24px desktop / 20px mobile), bukan lagi uppercase kecil.
+
+---
+Task ID: global-font-space-grotesk
+Agent: Z.ai Code (main)
+Task: "ganti semua font dengan font space grotesk" — ganti seluruh font aplikasi dari Geist ke Space Grotesk.
+
+Work Log:
+- Audit seluruh pemakaian font (grep font-mono/--font-geist/fontFamily/font-family di src): 7 titik — layout.tsx (Geist+Geist_Mono), globals.css (--font-sans/--font-mono + .print-mode Arial), invoice-preview.tsx, surat-jalan-preview.tsx, purchase-order-preview.tsx (Arial), plus ~12 class font-mono (customers/pricing/items/pengaturan/payment/chart).
+- layout.tsx: import Space_Grotesk (variable --font-space-grotesk, subset latin, display swap), body className + inline fontFamily diarahkan ke var baru; hapus Geist & Geist_Mono.
+- globals.css: --font-sans DAN --font-mono → var(--font-space-grotesk) sehingga semua class font-mono (kode customer/barang, order ID, rekening di pengaturan, chart) otomatis ikut Space Grotesk tanpa sentuh call-site; .print-mode (capture JPG/PDF) Arial → var(--font-space-grotesk), Arial fallback.
+- 3 preview A5 (invoice/surat-jalan/PO): fontFamily → 'var(--font-space-grotesk), Arial, Helvetica, sans-serif'.
+- Verifikasi grep: 0 sisa referensi Geist/font-geist di src. bunx eslint 5 file tersentuh: 0 error.
+- E2E agent-browser: login superadmin → document.fonts memuat "Space Grotesk"+"Space Grotesk Fallback"; body computed = "Space Grotesk"; halaman Riwayat Invoice audit seluruh elemen → hanya Space Grotesk (satu-satunya non-SG = font internal Next DevTools __nextjs-Geist, bukan konten); Buat Invoice + popup pratinjau A5 → semua Space Grotesk; Master Customer (.font-mono code) → Space Grotesk; screenshot desktop+mobile terverifikasi visual; mobile 390 tanpa overflow-X.
+- dev.log 0 error (font terunduh sukses saat kompilasi); DB invoice=10 pelunasan=3 tidak berubah; browser ditutup.
+
+Stage Summary:
+- Seluruh aplikasi kini 100% Space Grotesk: UI umum, class font-mono, pratinjau cetak A5 (invoice/surat jalan/PO), dan mode capture JPG/PDF (.print-mode). Fallback Arial/Helvetica hanya sebagai pengaman bila var gagal resolve.
+- Satu variable font baru: --font-space-grotesk (next/font/google, self-hosted otomatis oleh Next.js).

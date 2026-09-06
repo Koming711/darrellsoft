@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -14,14 +14,8 @@ import { WhatsNewDialog } from "@/components/whats-new-dialog";
 import { NavigationProgressBar } from "@/components/navigation-progress";
 import { DocumentLanguageSync } from "@/components/document-language-sync";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
   display: "swap",
 });
@@ -74,8 +68,8 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}
-        style={{ fontFamily: 'var(--font-geist-sans)' }}
+        className={`${spaceGrotesk.variable} font-sans antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-space-grotesk)' }}
       >
         <AuthProvider>
           <LanguageProvider>
