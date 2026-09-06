@@ -1,0 +1,462 @@
+  1573→                <div>
+  1574→                  <label className={lbl}><span className="md:hidden">Cetak Brp Mata</span><span className="hidden md:inline">Cetak Berapa Mata</span></label>
+  1575→                  <input type="number" step="1" min="0" placeholder="0" value={berapaMata} onChange={(e) => setBerapaMata(e.target.value)} className={inp} />
+  1576→                </div>
+  1577→                <div>
+  1578→                  <label className={lbl}>{t('jumlah_cetakan')}</label>
+  1579→                  <input type="number" step="1" min="0" placeholder="Auto" value={computedQuantity || quantity} onChange={(e) => setQuantity(e.target.value)} className={computedQuantity ? inpDisabled : inp} readOnly={!!computedQuantity} />
+  1580→                </div>
+  1581→              </div>
+  1582→              <div className="grid grid-cols-2 gap-2">
+  1583→                <div>
+  1584→                  <label className={lbl}>Insit Kertas</label>
+  1585→                  <input type="number" step="1" min="0" placeholder="0" value={setelanKertas} onChange={(e) => setSetelanKertas(e.target.value)} className={inp} />
+  1586→                </div>
+  1587→                <div>
+  1588→                  <label className={lbl}>{t('mode_optimasi')}</label>
+  1589→                  <Select value={optimizationMode} onValueChange={(v: any) => setOptimizationMode(v)}>
+  1590→                    <SelectTrigger className="w-full h-9 text-sm"><SelectValue /></SelectTrigger>
+  1591→                    <SelectContent>
+  1592→                      <SelectItem value="fast"><span className="text-[11px]">Cepat (Greedy)</span></SelectItem>
+  1593→                      <SelectItem value="maximal"><span className="text-[11px]">Maksimal (Brute Force)</span></SelectItem>
+  1594→                    </SelectContent>
+  1595→                  </Select>
+  1596→                </div>
+  1597→              </div>
+  1598→            </div>
+  1599→          </div>
+  1600→
+  1601→          {/* Ukuran */}
+  1602→          <div className="bg-card rounded-xl border border-slate-200 p-2.5">
+  1603→            <p className="text-xs font-semibold text-slate-700 mb-2">Ukuran</p>
+  1604→            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+  1605→              <div>
+  1606→                <label className={lbl}>{t('lebar_kertas')}</label>
+  1607→                <input type="number" step="0.1" placeholder="W" value={paperWidth} onChange={(e) => setPaperWidth(e.target.value)} disabled={!isCustomPaper}
+  1608→                  className={!isCustomPaper ? inpDisabled : inp} />
+  1609→              </div>
+  1610→              <div>
+  1611→                <label className={lbl}>{t('tinggi_kertas')}</label>
+  1612→                <input type="number" step="0.1" placeholder="H" value={paperHeight} onChange={(e) => setPaperHeight(e.target.value)} disabled={!isCustomPaper}
+  1613→                  className={!isCustomPaper ? inpDisabled : inp} />
+  1614→              </div>
+  1615→              <div>
+  1616→                <label className={lbl}>{t('lebar_potongan')}</label>
+  1617→                <input type="number" step="0.1" placeholder="W" value={cutWidth} onChange={(e) => setCutWidth(e.target.value)} className={inp} />
+  1618→              </div>
+  1619→              <div>
+  1620→                <label className={lbl}>{t('tinggi_potongan')}</label>
+  1621→                <input type="number" step="0.1" placeholder="H" value={cutHeight} onChange={(e) => setCutHeight(e.target.value)} className={inp} />
+  1622→              </div>
+  1623→            </div>
+  1624→
+  1625→          </div>
+  1626→
+  1627→          {/* Action Buttons */}
+  1628→          <div className="flex flex-col gap-2">
+  1629→            <div className="grid grid-cols-3 gap-2">
+  1630→              <button onClick={handleCalculateCuts} disabled={isCalculating || !(parseFloat(paperWidth) > 0) || !(parseFloat(paperHeight) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
+  1631→                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
+  1632→                {isCalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+  1633→                {t('hitung_potongan')}
+  1634→              </button>
+  1635→              <button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!results || savingRiwayat || needsRecalc}
+  1636→                className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
+  1637→                {restoredRiwayatId && <RefreshCw className={`w-3 h-3 ${savingRiwayat ? 'animate-spin' : ''}`} />}
+  1638→                {restoredRiwayatId ? (savingRiwayat ? 'Updating...' : 'Update Riwayat') : (savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat')}
+  1639→              </button>
+  1640→              <button onClick={handlePO} disabled={!results || savingRiwayat || needsRecalc}
+  1641→                className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
+  1642→                <FileText className="w-3.5 h-3.5" />
+  1643→                PO
+  1644→              </button>
+  1645→            </div>
+  1646→            <div className="grid grid-cols-4 gap-2">
+  1647→              <button onClick={() => { if (!results) { toast.error('Hitung potongan terlebih dahulu!'); return; } setPreviewOpen(true) }} disabled={!results || needsRecalc}
+  1648→                className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('preview')}>
+  1649→                {t('preview')}
+  1650→              </button>
+  1651→              <button onClick={handlePrint} disabled={!results || needsRecalc}
+  1652→                className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('cetak')}>
+  1653→                <Printer className="w-3.5 h-3.5" />
+  1654→                {t('cetak')}
+  1655→              </button>
+  1656→              <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
+  1657→                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
+  1658→                <Share2 className="w-3.5 h-3.5" />
+  1659→                <span className="lg:hidden xl:inline">WhatsApp</span>
+  1660→                <span className="hidden lg:inline xl:hidden">WA</span>
+  1661→              </button>
+  1662→              <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
+  1663→                className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
+  1664→                <RotateCcw className="w-3 h-3" />
+  1665→                <span className="hidden xl:inline">{t('reset')}</span>
+  1666→              </button>
+  1667→            </div>
+  1668→          </div>
+  1669→
+  1670→          {/* Link to Hitung Cetakan */}
+  1671→          <button
+  1672→            onClick={() => {
+  1673→              if (!results) {
+  1674→                toast.error('Hitung potongan terlebih dahulu!')
+  1675→                return
+  1676→              }
+  1677→              // Navigasi langsung ke hitung cetakan
+  1678→              const params = new URLSearchParams()
+  1679→              if (selectedCustomer?.name) params.set('customerName', selectedCustomer.name)
+  1680→              if (printName) params.set('printName', printName)
+  1681→              if (selectedCustomerId) params.set('customerId', selectedCustomerId)
+  1682→              if (paperWidth) params.set('paperLength', paperWidth)
+  1683→              if (paperHeight) params.set('paperWidth', paperHeight)
+  1684→              const effectiveQuantity = computedQuantity || quantity
+  1685→              if (effectiveQuantity) params.set('quantity', effectiveQuantity)
+  1686→              if (jumlahPesanan) params.set('jumlahPesanan', jumlahPesanan)
+  1687→              if (berapaMata) params.set('berapaMata', berapaMata)
+  1688→              if (setelanKertas) params.set('setelanKertas', setelanKertas)
+  1689→              if (selectedPaperId && selectedPaperId !== 'custom') params.set('paperId', selectedPaperId)
+  1690→              if (selectedPaper?.name) params.set('paperName', selectedPaper.name)
+  1691→              if (grammage) params.set('grammage', grammage)
+  1692→              if (pricePerSheet) params.set('pricePerSheet', pricePerSheet)
+  1693→              if (cutWidth) params.set('cutWidth', cutWidth)
+  1694→              if (cutHeight) params.set('cutHeight', cutHeight)
+  1695→              if (results?.totalPrice) params.set('totalPaperPrice', results.totalPrice.toString())
+  1696→              if (results?.sheetsNeeded) params.set('sheetsNeeded', results.sheetsNeeded.toString())
+  1697→              if (results?.totalPieces) params.set('totalPieces', results.totalPieces.toString())
+  1698→              if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
+  1699→              params.set('fromPotongKertas', '1')
+  1700→              params.set('reset', '1')
+  1701→              router.push(`/hitung-cetakan?${params.toString()}`)
+  1702→              // Simpan riwayat di background (non-blocking)
+  1703→              if (results && !isDataSameAsAnyRiwayat()) {
+  1704→                fetcher('/api/riwayat-potong-kertas', {
+  1705→                  method: 'POST',
+  1706→                  headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+  1707→                  body: JSON.stringify(buildPayload())
+  1708→                }).then(res => { if (res.ok) fetchRiwayat() }).catch(() => {})
+  1709→              }
+  1710→            }}
+  1711→            disabled={!results || needsRecalc}
+  1712→            style={{
+  1713→              background: (results && !needsRecalc) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
+  1714→            }}
+  1715→            className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-blue-500 cursor-pointer transition-colors">
+  1716→            <Calculator className="w-3.5 h-3.5" />
+  1717→            Hitung Cetakan Lengkap
+  1718→            <ArrowRight className="w-3 h-3" />
+  1719→          </button>
+  1720→        </div>
+  1721→
+  1722→        {/* ===== RIGHT: RESULTS ===== */}
+  1723→        <div className="flex-1 bg-card rounded-xl border border-slate-200 p-4 flex flex-col lg:min-h-0 lg:min-h-[calc(100vh-8rem+2cm)]">
+  1724→          {results ? (
+  1725→            <div className="flex-1 flex flex-col gap-1.5 lg:min-h-0 lg:overflow-hidden">
+  1726→              {/* Stats Grid - mobile 2col, desktop 3col/5col */}
+  1727→              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2 flex-shrink-0">
+  1728→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1729→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Diperlukan</p>
+  1730→                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{computedQuantity || quantity || '0'}</p>
+  1731→                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
+  1732→                </div>
+  1733→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1734→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Insit Kertas</p>
+  1735→                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{setelanKertas || '0'}</p>
+  1736→                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
+  1737→                </div>
+  1738→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1739→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Potongan/Lembar</p>
+  1740→                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{results.totalPieces}</p>
+  1741→                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
+  1742→                </div>
+  1743→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1744→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Kertas Yg Dibeli</p>
+  1745→                  <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{results.sheetsNeeded}</p>
+  1746→                  <p className="text-[10px] text-slate-500 dark:text-slate-400">lembar</p>
+  1747→                </div>
+  1748→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1749→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Harga / Lembar</p>
+  1750→                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+  1751→                </div>
+  1752→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1753→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Harga/Lembar Setelah Dipotong</p>
+  1754→                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">Rp {results.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / results.totalPieces).toLocaleString('id-ID') : '0'}</p>
+  1755→                </div>
+  1756→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
+  1757→                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Berat Kertas</p>
+  1758→                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">{(() => {
+  1759→                    const g = parseFloat(grammage) || 0
+  1760→                    const w = parseFloat(paperWidth) || 0
+  1761→                    const h = parseFloat(paperHeight) || 0
+  1762→                    const sheets = results.sheetsNeeded || 0
+  1763→                    if (g > 0 && w > 0 && h > 0 && sheets > 0) {
+  1764→                      const totalGrams = (w * h * g * sheets) / 10000
+  1765→                      return totalGrams >= 1000 ? `${(totalGrams / 1000).toFixed(2)} kg` : `${Math.round(totalGrams)} g`
+  1766→                    }
+  1767→                    return '0'
+  1768→                  })()}</p>
+  1769→                </div>
+  1770→                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-7">
+  1771→                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium leading-tight">Total Harga</p>
+  1772→                  <p className="text-xl lg:text-xl font-bold text-blue-700 dark:text-blue-300 leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
+  1773→                </div>
+  1774→              </div>
+  1775→
+  1776→              {/* Strategy */}
+  1777→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded px-1.5 py-0.5 flex-shrink-0" style={{ transform: 'scale(1.05)', transformOrigin: 'left center' }}>
+  1778→                <span className="text-[10px] font-bold text-black dark:text-white">Strategi: </span>
+  1779→                <span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">{results.strategy}</span>
+  1780→              </div>
+  1781→
+  1782→              {/* Diagram + Steps side by side */}
+  1783→              <div className="flex-1 flex flex-col lg:flex-row gap-3 lg:min-h-0 lg:overflow-auto">
+  1784→                {/* Diagram */}
+  1785→                <div className="flex-1 flex items-center justify-center min-w-0 min-h-0 p-1" style={{ transform: 'scale(0.917)', transformOrigin: 'center center' }}>
+  1786→                  <CuttingDiagram results={results} />
+  1787→                </div>
+  1788→
+  1789→                {/* Steps + Block Details */}
+  1790→                <div className="lg:w-[192px] xl:w-[211px] flex-shrink-0 flex flex-col gap-1 lg:min-h-0 lg:overflow-y-auto hide-scrollbar">
+  1791→                  {/* Steps */}
+  1792→                  <div>
+  1793→                    <p className="text-[11px] font-bold text-slate-700 mb-1">Cara Potong:</p>
+  1794→                    <div className="space-y-1">
+  1795→                      {results.steps.map((step, idx) => (
+  1796→                        <div key={idx} className="flex items-start gap-1.5">
+  1797→                          <div className="flex-shrink-0 w-4 h-4 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold mt-0.5">{idx + 1}</div>
+  1798→                          <p className="text-[10px] text-slate-600 leading-snug">{step}</p>
+  1799→                        </div>
+  1800→                      ))}
+  1801→                    </div>
+  1802→                  </div>
+  1803→
+  1804→                  {/* Block Details - compact */}
+  1805→                  <div>
+  1806→                    <p className="text-[11px] font-bold text-slate-700 mb-1">Detail Blok:</p>
+  1807→                    <div className="space-y-1">
+  1808→                      {results.blocks.map((block: any, idx: number) => {
+  1809→                        return (
+  1810→                          <div key={idx} className="border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-md p-1.5">
+  1811→                            <div className="flex items-center justify-between mb-0">
+  1812→                              <span className="text-[10px] font-bold text-black dark:text-white">{block.name}</span>
+  1813→                              <span className="px-1 py-0 bg-slate-100 dark:bg-zinc-800 text-black dark:text-white rounded-full text-[8px] font-semibold">{block.pieces} pcs</span>
+  1814→                            </div>
+  1815→                            <div className="grid grid-cols-2 gap-x-1 gap-y-0 text-[9px] text-black dark:text-white">
+  1816→                              <div><span className="opacity-70">Ukuran: </span><span className="font-bold">{block.width.toFixed(1)}×{block.height.toFixed(1)}</span></div>
+  1817→                              <div><span className="opacity-70">Layout: </span><span className="font-bold">{block.horizontal}×{block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
+  1818→                            </div>
+  1819→                          </div>
+  1820→                        )
+  1821→                      })}
+  1822→                    </div>
+  1823→                  </div>
+  1824→                </div>
+  1825→              </div>
+  1826→            </div>
+  1827→          ) : (
+  1828→            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+  1829→              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+  1830→                <Calculator className="w-8 h-8 text-slate-300" />
+  1831→              </div>
+  1832→              <div className="text-center">
+  1833→                <p className="text-sm font-medium text-slate-400">Belum ada hasil</p>
+  1834→                <p className="text-xs text-slate-300 mt-0.5">Masukkan ukuran dan klik &quot;Hitung&quot;</p>
+  1835→              </div>
+  1836→            </div>
+  1837→          )}
+  1838→        </div>
+  1839→      </div>
+  1840→
+  1841→      </>
+  1842→      )}
+  1843→
+  1844→      {/* Riwayat Tab Content */}
+  1845→      {activeTab === 'riwayat' && (
+  1846→        <div className="bg-card rounded-xl border border-slate-200 p-4">
+  1847→          <div className="flex items-start justify-between gap-2 mb-3">
+  1848→            <div>
+  1849→              <div className="flex items-center gap-2">
+  1850→                <History className="w-3.5 h-3.5 text-amber-600" />
+  1851→                <h2 className="text-2xl font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
+  1852→              </div>
+  1853→              <span className="inline-block ml-[22px] mt-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
+  1854→            </div>
+  1855→            <div className="flex items-center gap-1.5">
+  1856→              <Button
+  1857→                onClick={handleBackupRiwayat}
+  1858→                variant="outline"
+  1859→                size="sm"
+  1860→                disabled={backupLoading === 'backup'}
+  1861→                className="h-7 gap-1.5 text-xs"
+  1862→              >
+  1863→                {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
+  1864→                Backup
+  1865→              </Button>
+  1866→              <Button
+  1867→                onClick={handleRestoreRiwayat}
+  1868→                variant="outline"
+  1869→                size="sm"
+  1870→                disabled={backupLoading === 'restore'}
+  1871→                className="h-7 gap-1.5 text-xs"
+  1872→              >
+  1873→                {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+  1874→                Restore
+  1875→              </Button>
+  1876→            </div>
+  1877→          </div>
+  1878→          {riwayatList.length > 0 ? (
+  1879→            <RiwayatTable items={riwayatList} />
+  1880→          ) : (
+  1881→            <p className="text-xs text-slate-400 py-8 text-center">Belum ada riwayat potong kertas</p>
+  1882→          )}
+  1883→        </div>
+  1884→      )}
+  1885→
+  1886→      {/* ===== PREVIEW DIALOG ===== */}
+  1887→      {previewOpen && (
+  1888→        <PreviewDialog
+  1889→          onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
+  1890→          title="Preview Potong Kertas"
+  1891→        >
+  1892→          {/* Preview Content (rendered for print & PDF capture) */}
+  1893→          <div ref={previewRef} className="p-2 sm:p-4 bg-white">
+  1894→            {/* Header */}
+  1895→            <div className="text-center mb-3 pb-2 border-b-2 border-slate-200">
+  1896→              <h1 className="text-[22px] font-bold text-slate-900">Preview Potong Kertas</h1>
+  1897→            </div>
+  1898→
+  1899→            {/* Info Grid */}
+  1900→            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3">
+  1901→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1902→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Customer</p>
+  1903→                <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
+  1904→              </div>
+  1905→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1906→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Bahan</p>
+  1907→                <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')}</p>
+  1908→              </div>
+  1909→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1910→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Gramatur</p>
+  1911→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
+  1912→              </div>
+  1913→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1914→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>
+  1915→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
+  1916→              </div>
+  1917→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1918→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium"><span className="sm:hidden">Cetak Brp Mata</span><span className="hidden sm:inline">Cetak Berapa Mata</span></p>
+  1919→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
+  1920→              </div>
+  1921→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1922→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Cetakan</p>
+  1923→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+  1924→              </div>
+  1925→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1926→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Insit Kertas</p>
+  1927→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
+  1928→              </div>
+  1929→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1930→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Potongan / Lembar</p>
+  1931→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+  1932→              </div>
+  1933→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1934→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Lembar Kertas</p>
+  1935→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+  1936→              </div>
+  1937→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1938→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Total Harga Kertas</p>
+  1939→                <p className="text-lg sm:text-[24px] font-bold text-black dark:text-white">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
+  1940→              </div>
+  1941→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1942→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga / Lembar</p>
+  1943→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+  1944→              </div>
+  1945→              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+  1946→                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga/Lembar Setelah Dipotong</p>
+  1947→                <p className="text-base sm:text-xl font-bold text-black dark:text-white">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+  1948→              </div>
+  1949→            </div>
+  1950→
+  1951→            {/* Strategy */}
+  1952→            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 mb-3">
+  1953→              <p className="text-[8px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium text-center">Strategi Optimasi</p>
+  1954→              <p className="text-[11px] sm:text-sm font-bold text-black dark:text-white text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
+  1955→            </div>
+  1956→
+  1957→            {/* Diagram */}
+  1958→            {(previewRiwayatData || results) && (
+  1959→              <div className="mb-3 w-full">
+  1960→                <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
+  1961→                  <CuttingDiagram results={previewRiwayatData || results!} maxHeight="50vh" />
+  1962→                </div>
+  1963→              </div>
+  1964→            )}
+  1965→
+  1966→            {/* Steps */}
+  1967→            {(previewRiwayatData || results) && (
+  1968→              <div className="mb-3">
+  1969→                <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Cara Potong:</h3>
+  1970→                <div className="space-y-1 sm:space-y-1.5">
+  1971→                  {(previewRiwayatData || results)!.steps.map((step, idx) => (
+  1972→                    <div key={idx} className="flex items-start gap-1.5 sm:gap-2">
+  1973→                      <div className="flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold">{idx + 1}</div>
+  1974→                      <p className="text-[10px] sm:text-[11px] text-slate-600 pt-0.5">{step}</p>
+  1975→                    </div>
+  1976→                  ))}
+  1977→                </div>
+  1978→              </div>
+  1979→            )}
+  1980→
+  1981→            {/* Block Details */}
+  1982→            {(previewRiwayatData || results) && (
+  1983→              <div className="mb-2">
+  1984→                <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Detail per Blok:</h3>
+  1985→                <div className="space-y-1.5 sm:space-y-2">
+  1986→                  {(previewRiwayatData || results)!.blocks.map((block: any, idx: number) => (
+  1987→                    <div key={idx} className="border border-slate-200 rounded-lg p-2 sm:p-3">
+  1988→                      <div className="flex items-center justify-between mb-1">
+  1989→                        <span className="text-[11px] sm:text-xs font-bold text-slate-800">{block.name}</span>
+  1990→                        <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] sm:text-[10px] font-semibold">{block.pieces} lembar</span>
+  1991→                      </div>
+  1992→                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] sm:text-[10px]">
+  1993→                        <div><span className="text-slate-500">Ukuran:</span> <span className="font-medium">{block.width.toFixed(1)} × {block.height.toFixed(1)} cm</span></div>
+  1994→                        <div><span className="text-slate-500">Layout:</span> <span className="font-medium">{block.horizontal} × {block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
+  1995→                      </div>
+  1996→                    </div>
+  1997→                  ))}
+  1998→                </div>
+  1999→              </div>
+  2000→            )}
+  2001→          </div>
+  2002→
+  2003→          {/* Action buttons at bottom of dialog (sticky, single row) */}
+  2004→          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2">
+  2005→            <button onClick={handlePrint}
+  2006→              className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+  2007→              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
+  2008→            </button>
+  2009→            {previewRiwayatRow && (
+  2010→              <button onClick={handleEditFromPreview}
+  2011→                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+  2012→                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Edit
+  2013→              </button>
+  2014→            )}
+  2015→            <button onClick={handleJpg} disabled={isGeneratingJpg}
+  2016→              className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+  2017→              {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> JPG → WA</>}
+  2018→            </button>
+  2019→          </div>
+  2020→        </PreviewDialog>
+  2021→      )}
+  2022→    </DashboardLayout>
+  2023→  )
+  2024→}
+  2025→
+  2026→export default function Home() {
+  2027→  return (
+  2028→    <Suspense fallback={null}>
+  2029→      <CalculatorPage />
+  2030→    </Suspense>
+  2031→  )
+  2032→}
+
+[showing lines 1573-2032 of 2033; use offset=2033 with limit to continue reading]
