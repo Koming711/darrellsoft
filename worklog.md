@@ -7603,3 +7603,18 @@ Stage Summary:
 - Pratinjau A5 berupa popup overlay layar penuh (bukan inline), tetap mendukung Cetak & JPG walau popup tertutup (mount off-screen).
 - company-fields.tsx shared component kini konsisten Geist di semua halaman editor (invoice, pelunasan, surat jalan, PO).
 - Tanpa perubahan data; lint file-sentuh 0 error.
+
+---
+Task ID: invoice-heading-size-samakan-riwayat
+Agent: Z.ai Code (main)
+Task: "rubah tulisan buat invoice baru disamain besarnya dengan riwayat invoice" — samakan ukuran judul "Buat Invoice Baru" dengan judul "Riwayat Invoice".
+
+Work Log:
+- Grep invoice/page.tsx: judul "Riwayat Invoice" = h1 text-xl md:text-2xl font-bold tracking-tight (24px/20px); judul "Buat Invoice Baru" = h2 text-sm uppercase (14px) — terlalu kecil.
+- Edit line 939: ganti class h2 Buat Invoice Baru → text-xl md:text-2xl font-bold tracking-tight text-foreground truncate (buang uppercase/tracking-wide agar konsisten gaya Riwayat).
+- bunx eslint src/app/invoice/page.tsx: 0 error.
+- E2E agent-browser: reload (bundle lama → fresh open), ukur computed font-size: Riwayat=24px vs Buat Invoice Baru=24px (desktop 1280, weight 700, transform none); mobile 390: keduanya 20px, Kembali button sebaris, tanpa overflow-X; screenshot desktop+mobile terverifikasi visual.
+- dev.log 0 error; DB invoice=10 pelunasan=3 tidak berubah (tanpa data test); browser ditutup.
+
+Stage Summary:
+- Judul "Buat Invoice Baru" kini sama besar & bergaya dengan judul "Riwayat Invoice" (text-xl md:text-2xl font-bold tracking-tight; 24px desktop / 20px mobile), bukan lagi uppercase kecil.

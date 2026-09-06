@@ -936,7 +936,7 @@ export default function InvoicePage() {
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Kembali
             </Button>
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wide truncate">Buat Invoice Baru</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Invoice Baru</h2>
           </div>
           {/* Sub-tab jenis invoice: Regular / DP / Pelunasan */}
           <div className="flex items-center gap-2 mb-3 print:hidden overflow-x-auto">
