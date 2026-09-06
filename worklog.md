@@ -7756,3 +7756,22 @@ Stage Summary:
 - Tabel riwayat potong kertas (/potong-kertas tab Riwayat): kolom Aksi hanya Hapus — icon Restore dihapus (restore data masih bisa via tombol Edit di preview)
 - Badge jumlah riwayat kini di baris baru di bawah judul "Riwayat Potong Kertas", rata kiri dengan judul
 - Files: src/app/potong-kertas/page.tsx + src/lib/capture-jpg.ts (opsi orientation, default tetap auto)
+
+---
+Task ID: potong-kertas-jpg-2kolom-a5-landscape
+Agent: Z.ai Code (main)
+Task: Hasil JPG di preview potong kertas dibuat 2 kolom (detail kiri, gambar potong + cara potong kanan), A5 landscape. Fix.
+
+Work Log:
+- Fungsi baru buildA5LandscapeLayout(src/app/potong-kertas/page.tsx, module scope): membangun layout off-screen 1122px (rasio A5 landscape 148/210 ≈ min-height 791) dari Kloning DOM preview live — header "Preview Potong Kertas" full-width di atas; body flex 2 kolom: KIRI (data-col=left) = grid info 12 card (dipaksa 2 kolom via inline gridTemplateColumns override sm:grid-cols-3) + box Strategi Optimasi; KANAN (data-col=right) = diagram potong (SVG) + Cara Potong + Detail per Blok; holder ditandai data-a5-layout-holder dan di-append off-screen (left:-99999px) supaya ter-render/terukur, caller WAJB remove di finally
+- handleJpg baru: holder = buildA5LandscapeLayout(previewRef) → rawBlob = captureElementAsJpg(layout) → blob = fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 }) → shareJpgToWhatsApp; holder di-remove dari DOM di blok finally
+- Preview di LAYAR tidak berubah (tetap 1 kolom scroll) — hanya HASIL JPG yang 2 kolom
+- INSIDEN: setelah edit, browser sempat mengeksekusi handleJpg LAMA (hook appendChild hanya mencatat DIV+A, tanpa A5 holder) meski chunk baru ada di server → diselesaikan reload penuh dengan URL cache-busting baru; setelah reload: log appendChild = [DIV[A5], DIV, A] (holder → capture wrapper → link download) ✓
+- E2E (data uji TEST-PK-E2E-005 dibuat lalu dihapus, baseline 20): struktur holder — layoutW=1122, twoColsSideBySide=true, kolom 525/525px, kiri: 12 card grid-cols=2 + Strategi, kanan: SVG diagram + "Cara Potong" + "Detail per Blok" ✓; canvas toBlob = TEPAT {w:1240,h:874} = A5 landscape @150 DPI ✓; toast "JPG diunduh ke perangkat" ✓; screenshot layout 2 kolom disimpan (pk-jpg-2col-layout.jpg); mobile 390px: toast sukses + captures 1240×874 ✓
+- Catatan: layoutH konten 905px > 791 min-height (rasio 1.240) — fitBlobToA5 contain-fit menskalakan seluruh konten ke 1240×874 tanpa memotong apa pun (margen putih atas/bawah via scaling); konten dijamin utuh
+- Cleanup: hapus TEST-PK-E2E-005, riwayatPotongKertas kembali 20; bunx eslint = 0 error; dev.log bersih
+
+Stage Summary:
+- Hasil JPG preview potong kertas kini A5 LANDSCAPE 2 KOLOM: judul full-width; KIRI = detail (12 card info + strategi); KANAN = gambar potong + cara potong + detail per blok; output 1240×874 @150 DPI
+- Preview di layar tetap 1 kolom; hanya hasil JPG yang diubah
+- Files: src/app/potong-kertas/page.tsx (buildA5LandscapeLayout + handleJpg); src/lib/capture-jpg.ts & fitBlobToA5 tidak berubah dari task sebelumnya

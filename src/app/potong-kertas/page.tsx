@@ -120,6 +120,95 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
   )
 }
 
+/**
+ * Build an off-screen 2-column A5-landscape layout from the preview content.
+ *
+ * Structure (A5 landscape, 210 × 148 mm ratio):
+ *   ┌────────────────────────────────────────┐
+ *   │         Preview Potong Kertas          │  ← full-width header
+ *   ├───────────────────┬────────────────────┤
+ *   │  LEFT (details)   │  RIGHT (cutting)   │
+ *   │  - Info grid      │  - Diagram potong  │
+ *   │  - Strategi       │  - Cara potong     │
+ *   │                   │  - Detail per blok │
+ *   └───────────────────┴────────────────────┘
+ *
+ * The pieces are cloned from the live preview DOM, so the JPG always matches
+ * what the user sees on screen. The holder is attached off-screen so the
+ * layout is rendered (measurable) before capture. Caller MUST remove the
+ * returned holder from the DOM after capture.
+ */
+function buildA5LandscapeLayout(source: HTMLElement): HTMLElement {
+  const W = 1122
+  const H = Math.round(W * 148 / 210) // ≈ 791 → A5 landscape ratio
+
+  const layout = document.createElement('div')
+  layout.style.cssText = [
+    `width: ${W}px`,
+    `min-height: ${H}px`,
+    'background: #ffffff',
+    'box-sizing: border-box',
+    'padding: 24px 28px',
+    'display: flex',
+    'flex-direction: column',
+    'gap: 14px',
+  ].join(';')
+
+  const kids = Array.from(source.children) as HTMLElement[]
+  const [header, grid, strategy, ...cuttingParts] = kids
+
+  // Full-width header
+  if (header) {
+    const h = header.cloneNode(true) as HTMLElement
+    h.style.marginBottom = '0'
+    h.style.flexShrink = '0'
+    layout.appendChild(h)
+  }
+
+  // Two-column body
+  const body = document.createElement('div')
+  body.style.cssText = 'flex: 1; display: flex; gap: 16px; align-items: flex-start;'
+
+  // LEFT column: details (info grid + strategy)
+  const left = document.createElement('div')
+  left.setAttribute('data-col', 'left')
+  left.style.cssText = 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;'
+  if (grid) {
+    const g = grid.cloneNode(true) as HTMLElement
+    g.style.marginBottom = '0'
+    // Force 2 cards per row regardless of Tailwind sm: breakpoint
+    g.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))'
+    left.appendChild(g)
+  }
+  if (strategy) {
+    const s = strategy.cloneNode(true) as HTMLElement
+    s.style.marginBottom = '0'
+    left.appendChild(s)
+  }
+
+  // RIGHT column: cutting (diagram + cara potong + detail per blok)
+  const right = document.createElement('div')
+  right.setAttribute('data-col', 'right')
+  right.style.cssText = 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;'
+  cuttingParts.forEach((part) => {
+    const p = part.cloneNode(true) as HTMLElement
+    p.style.marginBottom = '0'
+    right.appendChild(p)
+  })
+
+  body.appendChild(left)
+  body.appendChild(right)
+  layout.appendChild(body)
+
+  // Off-screen holder so the layout is actually rendered (dimensions measurable)
+  const holder = document.createElement('div')
+  holder.setAttribute('data-a5-layout-holder', '1')
+  holder.style.cssText = 'position: fixed; top: 0; left: -99999px; z-index: -1; background: #ffffff; overflow: visible; width: auto; height: auto;'
+  holder.appendChild(layout)
+  document.body.appendChild(holder)
+  return holder
+}
+
 function CalculatorPage() {
   const { t } = useLanguage()
   const router = useRouter()
@@ -1193,10 +1282,13 @@ function CalculatorPage() {
     if (!activeResults) return
 
     setIsGeneratingJpg(true)
+    let holder: HTMLElement | null = null
     try {
-      const rawBlob = await captureElementAsJpg(el)
-      // Fit the captured document onto an A5 LANDSCAPE canvas (210 × 148 mm)
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape' })
+      // 2-column A5 landscape layout: details left, cutting right
+      holder = buildA5LandscapeLayout(el)
+      const rawBlob = await captureElementAsJpg(holder.firstChild as HTMLElement)
+      // Fit the composed layout onto an A5 LANDSCAPE canvas (210 × 148 mm)
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
       const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'preview'))
       const fileName = `potong-kertas-${(custLabel || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
 
@@ -1217,6 +1309,7 @@ function CalculatorPage() {
       console.error('JPG generation error:', err)
       toast.error('Gagal menghasilkan gambar JPG')
     } finally {
+      if (holder && holder.parentElement) holder.parentElement.removeChild(holder)
       setIsGeneratingJpg(false)
     }
   }
