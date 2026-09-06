@@ -13,8 +13,8 @@
   --color-space: srgb;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-poppins);
-  --font-mono: var(--font-poppins);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -63,7 +63,7 @@
   --secondary: #f5f5f4;
   --secondary-foreground: #292524;
   --muted: #f5f5f4;
-  --muted-foreground: #78716c;
+  --muted-foreground: #000000;
   --accent: #f5f5f4;
   --accent-foreground: #292524;
   --destructive: #ef4444;
@@ -92,7 +92,7 @@
   --app-content-bg: #f8fafc;
   --app-banner-bg: #ffffff;
   --app-banner-text: #1e293b;
-  --app-banner-text-muted: #64748b;
+  --app-banner-text-muted: #000000;
   --app-font-size: 16px;
   --app-font-size-sm: 14px;
   --app-font-size-lg: 18px;
@@ -656,7 +656,7 @@
   padding: 8mm 10mm !important;
   font-size: 9pt !important;
   line-height: 1.35 !important;
-  font-family: var(--font-poppins), Arial, Helvetica, sans-serif !important;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif !important;
   box-sizing: border-box !important;
 }
 
@@ -715,3 +715,70 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #a8a29e;
 }
+
+/* ===== Semua tulisan abu-abu → hitam (mode terang) ===== */
+html:not(.dark) .text-slate-300,
+html:not(.dark) .text-slate-400,
+html:not(.dark) .text-slate-500,
+html:not(.dark) .text-slate-600,
+html:not(.dark) .text-slate-700,
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400,
+html:not(.dark) .text-gray-500,
+html:not(.dark) .text-gray-600,
+html:not(.dark) .text-gray-700,
+html:not(.dark) .text-zinc-300,
+html:not(.dark) .text-zinc-400,
+html:not(.dark) .text-zinc-500,
+html:not(.dark) .text-zinc-600,
+html:not(.dark) .text-zinc-700,
+html:not(.dark) .text-neutral-300,
+html:not(.dark) .text-neutral-400,
+html:not(.dark) .text-neutral-500,
+html:not(.dark) .text-neutral-600,
+html:not(.dark) .text-neutral-700,
+html:not(.dark) .text-stone-300,
+html:not(.dark) .text-stone-400,
+html:not(.dark) .text-stone-500,
+html:not(.dark) .text-stone-600,
+html:not(.dark) .text-stone-700,
+html:not(.dark) .text-muted-foreground,
+html:not(.dark) .text-foreground\/50 {
+  color: #000000 !important;
+}
+
+/* Toast (sonner) — teks ikut hitam di mode terang */
+html:not(.dark) [data-sonner-toast],
+html:not(.dark) [data-sonner-toast] [data-title],
+html:not(.dark) [data-sonner-toast] [data-description] {
+  color: #000000 !important;
+}
+
+/* Pengecualian: di atas permukaan gelap hardcoded (class .dark-surface),
+   tulisan abu-abu TETAP terang agar tetap terbaca */
+html:not(.dark) .dark-surface .text-slate-300 { color: #cbd5e1 !important; }
+html:not(.dark) .dark-surface .text-slate-400 { color: #94a3b8 !important; }
+html:not(.dark) .dark-surface .text-slate-500 { color: #64748b !important; }
+html:not(.dark) .dark-surface .text-slate-600 { color: #475569 !important; }
+html:not(.dark) .dark-surface .text-slate-700 { color: #334155 !important; }
+html:not(.dark) .dark-surface .text-gray-300 { color: #d1d5db !important; }
+html:not(.dark) .dark-surface .text-gray-400 { color: #9ca3af !important; }
+html:not(.dark) .dark-surface .text-gray-500 { color: #6b7280 !important; }
+html:not(.dark) .dark-surface .text-gray-600 { color: #4b5563 !important; }
+html:not(.dark) .dark-surface .text-gray-700 { color: #374151 !important; }
+html:not(.dark) .dark-surface .text-zinc-300 { color: #d4d4d8 !important; }
+html:not(.dark) .dark-surface .text-zinc-400 { color: #a1a1aa !important; }
+html:not(.dark) .dark-surface .text-zinc-500 { color: #71717a !important; }
+html:not(.dark) .dark-surface .text-zinc-600 { color: #52525b !important; }
+html:not(.dark) .dark-surface .text-zinc-700 { color: #3f3f3f !important; }
+html:not(.dark) .dark-surface .text-neutral-300 { color: #d4d4d4 !important; }
+html:not(.dark) .dark-surface .text-neutral-400 { color: #a3a3a3 !important; }
+html:not(.dark) .dark-surface .text-neutral-500 { color: #737373 !important; }
+html:not(.dark) .dark-surface .text-neutral-600 { color: #525252 !important; }
+html:not(.dark) .dark-surface .text-neutral-700 { color: #404040 !important; }
+html:not(.dark) .dark-surface .text-stone-300 { color: #d6d3d1 !important; }
+html:not(.dark) .dark-surface .text-stone-400 { color: #a8a29e !important; }
+html:not(.dark) .dark-surface .text-stone-500 { color: #78716c !important; }
+html:not(.dark) .dark-surface .text-stone-600 { color: #57534e !important; }
+html:not(.dark) .dark-surface .text-stone-700 { color: #44403c !important; }
+html:not(.dark) .dark-surface .text-muted-foreground { color: #a1a1aa !important; }
