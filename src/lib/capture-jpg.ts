@@ -255,15 +255,17 @@ function loadImageElement(blob: Blob): Promise<HTMLImageElement> {
  * @param opts.dpi - Output resolution in DPI. Default 150 → 874 × 1240 px.
  * @param opts.marginPct - White margin around content, % of the short edge. Default 4.
  * @param opts.quality - JPEG quality (0-1). Default 0.95.
+ * @param opts.orientation - 'auto' (default, follows content direction), 'portrait', or 'landscape'.
  * @returns A5-fitted JPG Blob
  */
 export async function fitBlobToA5(
   blob: Blob,
-  opts?: { dpi?: number; marginPct?: number; quality?: number }
+  opts?: { dpi?: number; marginPct?: number; quality?: number; orientation?: 'auto' | 'portrait' | 'landscape' }
 ): Promise<Blob> {
   const dpi = opts?.dpi ?? 150
   const marginPct = opts?.marginPct ?? 4
   const quality = opts?.quality ?? 0.95
+  const orientation = opts?.orientation ?? 'auto'
 
   const img = await loadImageElement(blob)
   if (!img.width || !img.height) {
@@ -274,8 +276,8 @@ export async function fitBlobToA5(
   const shortEdge = Math.round((148 / MM_PER_INCH) * dpi) // 874 @ 150 DPI
   const longEdge = Math.round((210 / MM_PER_INCH) * dpi)  // 1240 @ 150 DPI
 
-  // Auto orientation: landscape content → A5 landscape, portrait → A5 portrait
-  const isLandscape = img.width > img.height
+  // Orientation: explicit option wins, otherwise auto from content direction
+  const isLandscape = orientation === 'auto' ? img.width > img.height : orientation === 'landscape'
   const canvasW = isLandscape ? longEdge : shortEdge
   const canvasH = isLandscape ? shortEdge : longEdge
 
