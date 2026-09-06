@@ -89,13 +89,13 @@ const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
 // Preview Dialog Component (centered, scrollable)
 function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 lg:p-0" onClick={onClose}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" />
-      {/* Dialog - centered with CSS flex, scrollable content */}
+      {/* Dialog - centered modal on mobile; FULL-SCREEN one page without scroll on desktop (lg) */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col"
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
@@ -111,8 +111,8 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch">
+        {/* Content: scrollable on mobile, fixed one-page layout on desktop (no scroll) */}
+        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch lg:overflow-hidden lg:min-h-0 lg:flex lg:flex-col">
           {children}
         </div>
       </div>
@@ -154,8 +154,14 @@ function buildA5LandscapeLayout(source: HTMLElement): HTMLElement {
     'gap: 14px',
   ].join(';')
 
-  const kids = Array.from(source.children) as HTMLElement[]
-  const [header, grid, strategy, ...cuttingParts] = kids
+  // Sections are located by data-pk attributes — robust against DOM restructuring
+  const pick = (name: string) => source.querySelector<HTMLElement>(`[data-pk="${name}"]`)
+  const header = pick('header')
+  const grid = pick('grid')
+  const strategy = pick('strategy')
+  const diagram = pick('diagram')
+  const steps = pick('steps')
+  const blocks = pick('blocks')
 
   // Full-width header
   if (header) {
@@ -190,7 +196,8 @@ function buildA5LandscapeLayout(source: HTMLElement): HTMLElement {
   const right = document.createElement('div')
   right.setAttribute('data-col', 'right')
   right.style.cssText = 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;'
-  cuttingParts.forEach((part) => {
+  ;[diagram, steps, blocks].forEach((part) => {
+    if (!part) return
     const p = part.cloneNode(true) as HTMLElement
     p.style.marginBottom = '0'
     right.appendChild(p)
@@ -1889,119 +1896,119 @@ function CalculatorPage() {
           onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
           title="Preview Potong Kertas"
         >
-          {/* Preview Content (rendered for print & PDF capture) */}
-          <div ref={previewRef} className="p-2 sm:p-4 bg-white">
+          {/* Preview Content (rendered for print & JPG capture) — one full page, no scroll on desktop */}
+          <div ref={previewRef} className="p-2 sm:p-4 bg-white lg:flex-1 lg:min-h-0 lg:px-4 lg:py-2 lg:flex lg:flex-col lg:gap-2.5 lg:overflow-hidden">
             {/* Header */}
-            <div className="text-center mb-3 pb-2 border-b-2 border-slate-200">
+            <div data-pk="header" className="text-center mb-3 pb-2 border-b-2 border-slate-200 lg:mb-0 lg:shrink-0">
               <h1 className="text-[22px] font-bold text-slate-900">Preview Potong Kertas</h1>
             </div>
 
             {/* Info Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3">
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+            <div data-pk="grid" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 mb-3 lg:mb-0 lg:shrink-0">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Customer</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Bahan</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Gramatur</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium"><span className="sm:hidden">Cetak Brp Mata</span><span className="hidden sm:inline">Cetak Berapa Mata</span></p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Cetakan</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Insit Kertas</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Potongan / Lembar</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Lembar Kertas</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Total Harga Kertas</p>
-                <p className="text-lg sm:text-[24px] font-bold text-black dark:text-white">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
+                <p className="text-lg sm:text-[24px] lg:text-base font-bold text-black dark:text-white">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga / Lembar</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga/Lembar Setelah Dipotong</p>
-                <p className="text-base sm:text-xl font-bold text-black dark:text-white">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
               </div>
             </div>
 
             {/* Strategy */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 mb-3">
+            <div data-pk="strategy" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 mb-3 lg:mb-0 lg:shrink-0">
               <p className="text-[8px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium text-center">Strategi Optimasi</p>
               <p className="text-[11px] sm:text-sm font-bold text-black dark:text-white text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
             </div>
 
-            {/* Diagram */}
+            {/* Diagram | Cara Potong + Detail per Blok — berdampingan di desktop (1 halaman tanpa scroll) */}
             {(previewRiwayatData || results) && (
-              <div className="mb-3 w-full">
-                <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
-                  <CuttingDiagram results={previewRiwayatData || results!} maxHeight="50vh" />
+              <div className="lg:flex-1 lg:min-h-0 lg:grid lg:grid-cols-2 lg:gap-4">
+                {/* Diagram */}
+                <div data-pk="diagram" className="mb-3 w-full lg:mb-0 lg:min-h-0">
+                  <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
+                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="45vh" />
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* Steps */}
-            {(previewRiwayatData || results) && (
-              <div className="mb-3">
-                <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Cara Potong:</h3>
-                <div className="space-y-1 sm:space-y-1.5">
-                  {(previewRiwayatData || results)!.steps.map((step, idx) => (
-                    <div key={idx} className="flex items-start gap-1.5 sm:gap-2">
-                      <div className="flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold">{idx + 1}</div>
-                      <p className="text-[10px] sm:text-[11px] text-slate-600 pt-0.5">{step}</p>
+                {/* Steps + Block Details */}
+                <div className="lg:min-h-0 lg:overflow-y-auto">
+                  <div data-pk="steps" className="mb-3">
+                    <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Cara Potong:</h3>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      {(previewRiwayatData || results)!.steps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-1.5 sm:gap-2">
+                          <div className="flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold">{idx + 1}</div>
+                          <p className="text-[10px] sm:text-[11px] text-slate-600 pt-0.5">{step}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
 
-            {/* Block Details */}
-            {(previewRiwayatData || results) && (
-              <div className="mb-2">
-                <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Detail per Blok:</h3>
-                <div className="space-y-1.5 sm:space-y-2">
-                  {(previewRiwayatData || results)!.blocks.map((block: any, idx: number) => (
-                    <div key={idx} className="border border-slate-200 rounded-lg p-2 sm:p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] sm:text-xs font-bold text-slate-800">{block.name}</span>
-                        <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] sm:text-[10px] font-semibold">{block.pieces} lembar</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] sm:text-[10px]">
-                        <div><span className="text-slate-500">Ukuran:</span> <span className="font-medium">{block.width.toFixed(1)} × {block.height.toFixed(1)} cm</span></div>
-                        <div><span className="text-slate-500">Layout:</span> <span className="font-medium">{block.horizontal} × {block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
-                      </div>
+                  <div data-pk="blocks" className="mb-2 lg:mb-0">
+                    <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Detail per Blok:</h3>
+                    <div className="space-y-1.5 sm:space-y-2">
+                      {(previewRiwayatData || results)!.blocks.map((block: any, idx: number) => (
+                        <div key={idx} className="border border-slate-200 rounded-lg p-2 sm:p-3 lg:p-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-slate-800">{block.name}</span>
+                            <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] sm:text-[10px] font-semibold">{block.pieces} lembar</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px] sm:text-[10px]">
+                            <div><span className="text-slate-500">Ukuran:</span> <span className="font-medium">{block.width.toFixed(1)} × {block.height.toFixed(1)} cm</span></div>
+                            <div><span className="text-slate-500">Layout:</span> <span className="font-medium">{block.horizontal} × {block.vertical}{block.rotated ? ' (90°)' : ''}</span></div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Action buttons at bottom of dialog (sticky, single row) */}
-          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2">
+          {/* Action buttons at bottom of dialog (sticky on mobile, fixed row on desktop; single row) */}
+          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2 flex-shrink-0">
             <button onClick={handlePrint}
               className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
               <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}

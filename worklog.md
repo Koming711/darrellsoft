@@ -7775,3 +7775,31 @@ Stage Summary:
 - Hasil JPG preview potong kertas kini A5 LANDSCAPE 2 KOLOM: judul full-width; KIRI = detail (12 card info + strategi); KANAN = gambar potong + cara potong + detail per blok; output 1240×874 @150 DPI
 - Preview di layar tetap 1 kolom; hanya hasil JPG yang diubah
 - Files: src/app/potong-kertas/page.tsx (buildA5LandscapeLayout + handleJpg); src/lib/capture-jpg.ts & fitBlobToA5 tidak berubah dari task sebelumnya
+
+---
+Task ID: potong-kertas-poppins-fullscreen-popup
+Agent: Z.ai Code (main)
+Task: Ganti semua font jadi Poppins; rubah popup Preview Potong Kertas menjadi 1 halaman full desktop tanpa scroll. Fix.
+
+Work Log:
+- FONT POPPINS GLOBAL: layout.tsx ganti Space_Grotesk → Poppins (next/font/google, weight 300–900 + normal/italic, variable --font-poppins, display swap); body className + inline fontFamily diarahkan ke var(--font-poppins)
+- globals.css: --font-sans & --font-mono → var(--font-poppins) (font-mono sebelumnya memang sudah dipetakan ke font app, jadi semua teks termasuk kode/angka mono kini Poppins); .print-mode font-family → var(--font-poppins), Arial fallback
+- dokupro preview (invoice/purchase-order/surat-jalan-preview.tsx): inline fontFamily var(--font-space-grotesk) → var(--font-poppins); rg "space-grotesk|Space_Grotesk" src = NONE (bersih semua)
+- Font document cetak mentah (Arial/Segoe di buildFullPrintHtml, generate-pdf .print-mode injeksi, hitung-*, email) TIDAK diubah — pipeline cetak/PDF dipertahankan stabil
+- POPUP FULL DESKTOP 1 HALAMAN TANPA SCROLL: PreviewDialog responsif — mobile/tablet tetap modal center max-w-lg scrollable (max-h-95/90vh); lg+: p-0, dialog w-full h-full max-w-none max-h-none rounded-none border-0 (menempati seluruh viewport)
+- Struktur konten lg (≥1024px): previewRef = flex col h penuh (flex-1 min-h-0 overflow-hidden, gap-2.5, py-2 px-4); header h1 22px shrink-0 (ukuran tidak diubah sesuai task sebelumnya); Info Grid 12 card lg:grid-cols-6 (2 baris, card lg:p-2, nilai lg:text-base agar muat); Strategi full width; baris 2 kolom lg:grid-cols-2 = DIAGRAM kiri (CuttingDiagram maxHeight 50vh→45vh) | CARA POTONG + DETAIL PER BLOK kanan (lg:overflow-y-auto sebagai pengaman data ekstrem)
+- Mobile tidak berubah: urutan section & margin sama (wrapper baru netral di bawah lg)
+- buildA5LandscapeLayout (hasil JPG 2 kolom A5 landscape) direfactor: pilih section via atribut data-pk (header/grid/strategy/diagram/steps/blocks) + querySelector, BUKAN urutan children — output JPG dijamin identik (kiri: grid 12 card dipaksa 2 kolom + strategi; kanan: diagram + cara potong + detail blok)
+- Tombol bar bawah: + flex-shrink-0 (di lg jadi baris tetap bawah karena content lg:flex-col; di mobile tetap sticky bottom-0)
+- INSIDEN kecil: (1) tab button teks "Riwayat1" (badge menyatu) — selector harus startsWith('Riwayat') bukan ===; (2) console error "Received NaN for attribute x/y/width/height/cx/cy/r" saat E2E — root cause DATA UJI saya yang blok-nya tak lengkap (tanpa usedWidth/usedHeight/wasteWidth/wasteHeight, cutPosition) BUKAN kode app; setelah resultData dilengkapi console bersih; diagram live terverifikasi sehat (viewBox 386.1×594, 8 rect, 2 line cut, label 1-4)
+- E2E agent-browser (data uji TEST-PK-E2E-006 dibuat via Prisma lalu dihapus, baseline riwayatPotongKertas kembali 20; catatan: superadmin memang 0 riwayat sebelumnya — 20 record milik user lain):
+  Desktop 1280×800: dialog rect {0,0,1280,800} full viewport ✓; content scrollHeight 751 = clientHeight 751 = TANPA SCROLL ✓; h1 22px ✓; grid 6 kolom 12 card ✓; diagram|steps sideBySide ✓; bar bawah bottom=800 terlihat ✓; font h1 & body = 'Poppins, "Poppins Fallback", Arial' ✓; tombol JPG → canvas toBlob TEPAT {w:1240,h:874,image/jpeg} (A5 landscape) ✓; holder JPG: 12 card kiri + svg/steps/blocks kanan, holder ter-remove dari DOM ✓; toast "JPG diunduh ke perangkat — File JPG telah disimpan ke folder Downloads." ✓; tombol X menutup dialog ✓
+  Mobile 390×844: modal center 374×802 (bukan fullscreen) ✓; scrollable (sh 1219 > ch 755, overflowY auto) ✓; grid 2 kolom, section stack ✓; h1 22px + Poppins ✓; bar bottom 822 terlihat ✓
+  Beranda: body & heading font Poppins, document.fonts.check('16px Poppins') = true ✓
+- bunx eslint 5 file berubah = 0 error; dev.log bersih (semua 200)
+
+Stage Summary:
+- Seluruh UI aplikasi kini memakai font POPPINS (default font-sans & font-mono via --font-poppins; dokupro preview ikut); font pipeline cetak mentah (Arial/Segoe) sengaja dipertahankan
+- Popup Preview Potong Kertas di desktop (lg≥1024) = 1 HALAMAN PENUH TANPA SCROLL: info grid 12 card 6 kolom di atas, strategi full width, diagram kiri berdampingan dengan cara potong + detail blok kanan, bar [Cetak|Edit|JPG→WA] terpasang di bawah; mobile/tablet tetap modal center yang bisa di-scroll
+- Hasil JPG 2 kolom A5 landscape (1240×874) TIDAK berubah — buildA5LandscapeLayout kini tahan terhadap restrukturisasi DOM via selector data-pk
+- Files: src/app/layout.tsx, src/app/globals.css, src/app/potong-kertas/page.tsx, src/components/dokupro/{invoice,purchase-order,surat-jalan}-preview.tsx

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -14,9 +14,11 @@ import { WhatsNewDialog } from "@/components/whats-new-dialog";
 import { NavigationProgressBar } from "@/components/navigation-progress";
 import { DocumentLanguageSync } from "@/components/document-language-sync";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -68,8 +70,8 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${spaceGrotesk.variable} font-sans antialiased bg-background text-foreground`}
-        style={{ fontFamily: 'var(--font-space-grotesk)' }}
+        className={`${poppins.variable} font-sans antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-poppins), Arial, Helvetica, sans-serif' }}
       >
         <AuthProvider>
           <LanguageProvider>
