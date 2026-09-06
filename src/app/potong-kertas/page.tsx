@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload } from 'lucide-react'
+import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -16,6 +16,8 @@ import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
 import { Button } from '@/components/ui/button'
 import { openWhatsApp } from '@/lib/whatsapp-business'
+import { captureElementAsJpg } from '@/lib/capture-jpg'
+import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
 
 const CuttingDiagram = dynamic(
@@ -87,7 +89,7 @@ const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
 // Preview Dialog Component (centered, scrollable)
 function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" />
       {/* Dialog - centered with CSS flex, scrollable content */}
@@ -186,7 +188,8 @@ function CalculatorPage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewRiwayatData, setPreviewRiwayatData] = useState<CuttingResult | null>(null)
   const [previewRiwayatInfo, setPreviewRiwayatInfo] = useState<{ customer: string; paper: string; jumlahPesanan: string; berapaMata: string; setelanKertas: string }>({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [previewRiwayatRow, setPreviewRiwayatRow] = useState<any>(null)
+  const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   // Auto-persist form data to localStorage
@@ -826,6 +829,7 @@ function CalculatorPage() {
 
     if (resultData) {
       setPreviewRiwayatData(resultData)
+      setPreviewRiwayatRow(r)
       setPreviewRiwayatInfo({
         customer: (r.namaCustomer && r.namaCustomer !== '-') ? r.namaCustomer : '-',
         paper: r.paperName || 'Custom',
@@ -837,6 +841,14 @@ function CalculatorPage() {
     } else {
       toast.error('Data tidak cukup untuk preview')
     }
+  }
+
+  const handleEditFromPreview = () => {
+    if (previewRiwayatRow) handleRestore(previewRiwayatRow)
+    setPreviewOpen(false)
+    setPreviewRiwayatData(null)
+    setPreviewRiwayatRow(null)
+    setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
   }
 
   const handleRestore = async (r: any) => {
@@ -1174,115 +1186,36 @@ function CalculatorPage() {
     }
   }
 
-  const handlePdf = async () => {
+  const handleJpg = async () => {
+    const el = previewRef.current
+    if (!el) return
     const activeResults = previewRiwayatData || results
     if (!activeResults) return
 
-    setIsGeneratingPdf(true)
+    setIsGeneratingJpg(true)
     try {
-      const { jsPDF } = await import('jspdf')
-      // A4 portrait: 210mm x 297mm
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfW = pdf.internal.pageSize.getWidth() // 210
-      const pdfH = pdf.internal.pageSize.getHeight() // 297
-      const margin = 8
-      const contentW = pdfW - margin * 2
-      const contentH = pdfH - margin * 2
+      const blob = await captureElementAsJpg(el)
+      const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'preview'))
+      const fileName = `potong-kertas-${(custLabel || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
 
-      // Render HTML to canvas via hidden iframe at A4 pixel dimensions
-      const a4PxW = 794 // ~210mm at 96dpi
-      const a4PxH = 1123 // ~297mm at 96dpi
-      const iframe = document.createElement('iframe')
-      iframe.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${a4PxW}px;height:${a4PxH}px;border:none;`
-      document.body.appendChild(iframe)
-      const iframeDoc = iframe.contentDocument!
-      iframeDoc.open()
-      const isPreview = !!previewRiwayatData
-      iframeDoc.write(buildFullPrintHtml(
-        activeResults,
-        isPreview ? previewRiwayatInfo.customer : undefined,
-        isPreview ? previewRiwayatInfo.paper : undefined,
-        isPreview ? previewRiwayatInfo.jumlahPesanan : undefined,
-        isPreview ? previewRiwayatInfo.berapaMata : undefined,
-        isPreview ? previewRiwayatInfo.setelanKertas : undefined,
-      ))
-      iframeDoc.close()
-
-      await new Promise(resolve => setTimeout(resolve, 600))
-
-      const { toCanvas } = await import('html-to-image')
-      const canvas = await toCanvas(iframeDoc.body, {
-        backgroundColor: '#ffffff',
-        pixelRatio: 3,
-        width: a4PxW,
-        height: iframeDoc.body.scrollHeight,
-        canvasWidth: a4PxW * 3,
-        canvasHeight: iframeDoc.body.scrollHeight * 3,
+      const result = await shareJpgToWhatsApp({
+        blob,
+        fileName,
+        documentLabel: 'Potong Kertas',
       })
 
-      document.body.removeChild(iframe)
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const imgW = contentW
-      const imgH = (canvas.height * imgW) / canvas.width
-
-      // Scale to fit A4 portrait in 1 page
-      if (imgH <= contentH) {
-        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH)
-      } else {
-        const scaledW = (contentH * imgW) / imgH
-        const offsetX = margin + (contentW - scaledW) / 2
-        pdf.addImage(imgData, 'JPEG', offsetX, margin, scaledW, contentH)
+      if (result.status === 'shared') {
+        toast.success('Gambar JPG dibagikan ke WhatsApp')
+      } else if (result.status === 'downloaded') {
+        toast.success('JPG diunduh ke perangkat', { description: 'File JPG telah disimpan ke folder Downloads.' })
+      } else if (result.status === 'error') {
+        toast.error(result.error || 'Gagal memproses JPG')
       }
-
-      // Generate PDF blob
-      const pdfBlob = pdf.output('blob')
-      const fileName = `potong-kertas-${(selectedCustomer?.name || printName || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`
-
-      // Build WhatsApp text message
-      const r = activeResults
-      const paperLabel = selectedPaper?.name || restoredPaperName || 'Custom'
-      const gramLabel = grammage ? `${grammage} gsm` : '-'
-      let msg = `*Potong Kertas - www.darrellsoft.com*\n\n`
-      msg += `Nama Bahan: ${paperLabel}\n`
-      msg += `Gramatur: ${gramLabel}\n`
-      msg += `Ukuran Kertas: ${r.paperWidth} × ${r.paperHeight} cm\n`
-      msg += `Ukuran Potong: ${r.cutWidth} × ${r.cutHeight} cm\n`
-      msg += `Kertas yg dibeli: ${r.sheetsNeeded} lembar\n`
-      msg += `Potongan Jadi: ${r.totalPieces}\n`
-      msg += `Harga Kertas: Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}\n`
-      msg += `Terima Kasih.`
-
-      // Try Web Share API (mobile) to share PDF file directly to WhatsApp
-      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
-      if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
-        try {
-          await navigator.share({
-            text: msg,
-            files: [pdfFile],
-          })
-          toast.success('PDF berhasil dibagikan!')
-          return
-        } catch (err: any) {
-          // User cancelled share - don't show error
-          if (err?.name === 'AbortError') return
-          // Fallback if share fails
-          console.warn('Web Share API failed, falling back:', err)
-        }
-      }
-
-      // Desktop fallback: download PDF + open WhatsApp with text
-      pdf.save(fileName)
-      toast.success('PDF diunduh! Membuka WhatsApp...')
-
-      // Open WhatsApp with text message
-      const encoded = encodeURIComponent(msg)
-      openWhatsApp(encoded, { waWindowRef })
     } catch (err) {
-      console.error('PDF generation error:', err)
-      toast.error('Gagal menghasilkan PDF')
+      console.error('JPG generation error:', err)
+      toast.error('Gagal menghasilkan gambar JPG')
     } finally {
-      setIsGeneratingPdf(false)
+      setIsGeneratingJpg(false)
     }
   }
 
@@ -1863,7 +1796,7 @@ function CalculatorPage() {
       {/* ===== PREVIEW DIALOG ===== */}
       {previewOpen && (
         <PreviewDialog
-          onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
+          onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
           title="Preview Potong Kertas"
         >
           {/* Preview Content (rendered for print & PDF capture) */}
@@ -1878,6 +1811,10 @@ function CalculatorPage() {
 
             {/* Info Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Customer</p>
+                <p className="text-base sm:text-xl font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
+              </div>
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>
                 <p className="text-base sm:text-xl font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
@@ -1968,15 +1905,21 @@ function CalculatorPage() {
             )}
           </div>
 
-          {/* Action buttons at bottom of dialog */}
-          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex flex-wrap gap-1.5 sm:gap-2">
+          {/* Action buttons at bottom of dialog (sticky, single row) */}
+          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2">
             <button onClick={handlePrint}
-              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
               <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
             </button>
-            <button onClick={handlePdf} disabled={isGeneratingPdf}
-              className="flex-1 min-w-[calc(50%-0.375rem)] flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
-              {isGeneratingPdf ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />PDF...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> PDF → WA</>}
+            {previewRiwayatRow && (
+              <button onClick={handleEditFromPreview}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Edit
+              </button>
+            )}
+            <button onClick={handleJpg} disabled={isGeneratingJpg}
+              className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+              {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> JPG → WA</>}
             </button>
           </div>
         </PreviewDialog>
