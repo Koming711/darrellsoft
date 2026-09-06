@@ -7636,3 +7636,26 @@ Work Log:
 Stage Summary:
 - Seluruh aplikasi kini 100% Space Grotesk: UI umum, class font-mono, pratinjau cetak A5 (invoice/surat jalan/PO), dan mode capture JPG/PDF (.print-mode). Fallback Arial/Helvetica hanya sebagai pengaman bila var gagal resolve.
 - Satu variable font baru: --font-space-grotesk (next/font/google, self-hosted otomatis oleh Next.js).
+
+---
+Task ID: sj-po-popup-dan-gaya-invoice
+Agent: Z.ai Code (main)
+Task: "dihalaman surat jalan. pratinjau diganti dengan popup. dihalaman purchase order, pratinjau diganti dengan popup. buat halaman surat jalan dan halaman purchase order diganti seperti di halaman invoice. check and fix"
+
+Work Log:
+- Audit: kedua halaman masih pakai tab Editor|Riwayat + DocumentEditorLayout mode "inline" (pratinjau berdampingan) + riwayat gaya lama (card header kecil uppercase).
+- surat-jalan-editor.tsx & purchase-order-editor.tsx: tambah previewMode="popup" → form full-width + tombol "Lihat Pratinjau A5" + popup overlay (sama seperti invoice).
+- Rewrite src/app/surat-jalan/page.tsx & purchase-order/page.tsx mengikuti pola invoice/page.tsx:
+  * Hapus tab Editor|Riwayat → daftar riwayat langsung tampil, gaya Master Customer: h1 text-xl md:text-2xl (Riwayat Surat Jalan / Riwayat Purchase Order) + count + search Input pl-9 min-h-[44px] + tombol utama (Buat Surat Jalan amber-600 / Buat PO violet-600) + Backup/Restore outline.
+  * Tabel desktop: shadcn Table, header sticky stone-50, max-h-96 overflow-y-auto scrollbar-thin, rounded-xl border-stone-200, tombol ghost icon (Lihat/Muat/Hapus); mobile: Card p-0 + CardContent p-4 + tombol flex-1 min-h-[44px].
+  * Loading skeleton, empty state, hapus via AlertDialog (ganti Dialog), preview overlay list dipertahankan (Kirim WhatsApp).
+  * Create view: Kembali + h2 "Buat Surat Jalan Baru"/"Buat Purchase Order Baru" text-xl md:text-2xl + editor.
+  * fetch riwayat pakai cache:'no-store' (anti stale).
+  * AutoOpenEditor (useSearchParams dalam Suspense): ?invoiceId= (SJ) / ?riwayatId= (PO) → auto buka editor — menjaga flow dari tombol Surat Jalan di invoice & link Hitung Cetakan ke PO.
+- Lint 4 file tersentuh: 0 error.
+- E2E agent-browser (superadmin): SJ — riwayat-first (h1 24px, tanpa tab, empty state "Belum ada surat jalan"), Buat Surat Jalan → editor popup (inline preview hilang, off-screen mount ada), popup A5 SURAT JALAN open z-70 scale 0.505 Space Grotesk → Tutup; deep-link ?invoiceId=<id superadmin INV/07/26/9002> → editor auto-terbuka + data invoice ter-load (SJ/09/26/0001). PO — sama semua: h1 24px, Buat PO → "Buat Purchase Order Baru" 24px, popup A5 PURCHASE ORDER Space Grotesk open→close, deep-link ?riwayatId → auto-terbuka, Kembali → kembali ke riwayat; mobile 390: list & popup tanpa overflow-X; screenshot desktop+mobile OK.
+- dev.log 0 error; DB tidak berubah (invoice 10, pelunasan 3, PO 5, SJ 5) — tanpa data test; browser ditutup.
+
+Stage Summary:
+- Halaman Surat Jalan & Purchase Order kini identik polanya dengan halaman Invoice: riwayat gaya Master Customer (tanpa tab), tombol Buat → layar editor, dan pratinjau A5 sebagai popup (bukan berdampingan).
+- Deep-link ?invoiceId= (SJ) dan ?riwayatId= (PO) tetap berfungsi — auto membuka editor.
