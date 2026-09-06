@@ -7737,3 +7737,22 @@ Work Log:
 Stage Summary:
 - Preview Potong Kertas: judul 22px tanpa baris "customer · bahan · tanggal"; Info Grid 12 card termasuk Nama Bahan & Gramatur; tombol JPG menghasilkan file A5 (874×1240, siap cetak A5) via fitBlobToA5
 - Files: src/app/potong-kertas/page.tsx + src/lib/capture-jpg.ts (fitBlobToA5 baru; API lama tak berubah, halaman lain aman)
+
+---
+Task ID: potong-kertas-jpg-a5-landscape-hapus-restore-badge
+Agent: Z.ai Code (main)
+Task: Hasil JPG preview potong kertas jadi A5 landscape; hilangkan icon Restore di tabel riwayat potong kertas; pindahkan badge jumlah riwayat ke bawah judul "Riwayat Potong Kertas". Fix.
+
+Work Log:
+- JPG A5 landscape: fitBlobToA5 (src/lib/capture-jpg.ts) dapat opsi baru orientation: 'auto' | 'portrait' | 'landscape' (default 'auto', backward-compatible); handleJpg potong-kertas kini memanggil fitBlobToA5(rawBlob, { orientation: 'landscape' }) → canvas 1240×874 @150 DPI
+- Icon Restore dihapus dari kolom Aksi tabel riwayat (RiwayatTable inline /potong-kertas): button RotateCcw emerald (title="Restore") dihapus, kolom Aksi kini hanya Hapus (Trash2); import RotateCcw DIPERTAHANKAN karena masih dipakai tombol Reset di Editor (line ~1578); handleRestore tidak dihapus (dipakai tombol Edit dari preview dialog)
+- Badge jumlah dipindah: dari sebelah kanan judul (sejajar h2) ke BARIS BARU DI BAWAH judul — struktur header: div > [baris-judul (History + h2 24px), badge span ml-[22px] mt-1]; ml-[22px] = lebar icon (14px) + gap (8px) supaya badge rata kiri dengan teks judul; container header diubah items-center → items-start
+- INSIDEN: dev server mati saat E2E (proses next hilang, gateway balas 503 {"error":"Network error"}, curl status 000) → restart bun run dev background, server sehat kembali; setelah restart browser masih memuat bundle LAMA dari cache (Restore masih ada, JPG masih portrait) → diselesaikan dengan navigasi cache-busting (?cb=timestamp); kode baru terkonfirmasi ter-compile di .next (rg "orientation: 'landscape'" .next = match)
+- E2E agent-browser (data uji TEST-PK-E2E-004 dibuat lalu dihapus, baseline 20): tbody button[title=Restore]=0, button[title=Hapus]=1 (desktop & 390px) ✓; badge "1" DI BAWAH judul (badgeBelow=true, leftAligned=true), h2 tetap 24px ✓; klik JPG → toBlob tercatat TEPAT {w:1240,h:874,type:image/jpeg}, ratio 1.419 = 210/148 (A5 landscape) ✓; toast "JPG diunduh ke perangkat" ✓; screenshot desktop 1280 + mobile 390 OK
+- Cleanup: hapus TEST-PK-E2E-004, riwayatPotongKertas kembali 20; bunx eslint 2 file berubah = 0 error; dev.log bersih
+
+Stage Summary:
+- Tombol JPG preview potong kertas menghasilkan file A5 LANDSCAPE (1240×874 @150 DPI, dokumen fit + margin putih)
+- Tabel riwayat potong kertas (/potong-kertas tab Riwayat): kolom Aksi hanya Hapus — icon Restore dihapus (restore data masih bisa via tombol Edit di preview)
+- Badge jumlah riwayat kini di baris baru di bawah judul "Riwayat Potong Kertas", rata kiri dengan judul
+- Files: src/app/potong-kertas/page.tsx + src/lib/capture-jpg.ts (opsi orientation, default tetap auto)

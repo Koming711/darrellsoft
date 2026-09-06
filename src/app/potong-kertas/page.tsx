@@ -1195,8 +1195,8 @@ function CalculatorPage() {
     setIsGeneratingJpg(true)
     try {
       const rawBlob = await captureElementAsJpg(el)
-      // Fit the captured document onto an A5-sized canvas (148 × 210 mm)
-      const blob = await fitBlobToA5(rawBlob)
+      // Fit the captured document onto an A5 LANDSCAPE canvas (210 × 148 mm)
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape' })
       const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'preview'))
       const fileName = `potong-kertas-${(custLabel || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
 
@@ -1292,13 +1292,6 @@ function CalculatorPage() {
                 </td>
                 <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
-                    <button
-                      onClick={() => handleRestore(r)}
-                      className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
-                      title="Restore"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </button>
                     <button
                       onClick={() => handleDeleteRiwayat(r.id)}
                       className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
@@ -1758,11 +1751,13 @@ function CalculatorPage() {
       {/* Riwayat Tab Content */}
       {activeTab === 'riwayat' && (
         <div className="bg-card rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2">
-              <History className="w-3.5 h-3.5 text-amber-600" />
-              <h2 className="text-2xl font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
-              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <History className="w-3.5 h-3.5 text-amber-600" />
+                <h2 className="text-2xl font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
+              </div>
+              <span className="inline-block ml-[22px] mt-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Button
