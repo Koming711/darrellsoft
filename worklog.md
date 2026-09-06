@@ -7803,3 +7803,31 @@ Stage Summary:
 - Popup Preview Potong Kertas di desktop (lg≥1024) = 1 HALAMAN PENUH TANPA SCROLL: info grid 12 card 6 kolom di atas, strategi full width, diagram kiri berdampingan dengan cara potong + detail blok kanan, bar [Cetak|Edit|JPG→WA] terpasang di bawah; mobile/tablet tetap modal center yang bisa di-scroll
 - Hasil JPG 2 kolom A5 landscape (1240×874) TIDAK berubah — buildA5LandscapeLayout kini tahan terhadap restrukturisasi DOM via selector data-pk
 - Files: src/app/layout.tsx, src/app/globals.css, src/app/potong-kertas/page.tsx, src/components/dokupro/{invoice,purchase-order,surat-jalan}-preview.tsx
+
+---
+Task ID: font-geist-sans-grey-to-black
+Agent: Z.ai Code (main)
+Task: Ganti font jadi Geist Sans; semua tulisan grey rubah jadi black. Fix.
+
+Work Log:
+- FONT GEIST SANS: layout.tsx Poppins → Geist (next/font/google, variable font — TANPA array weight, TANPA opsi style karena Geist di next/font versi ini hanya punya style 'normal'; opsi style:["normal","italic"] sempat menyebabkan 500 "Unknown style italic for font Geist" — diperbaiki dengan menghapus opsi tsb); variable --font-geist-sans
+- Referensi font diupdate semua: globals.css (--font-sans, --font-mono, .print-mode) + dokupro invoice/purchase-order/surat-jalan preview (inline fontFamily); rg "font-poppins" src = NONE
+- GREY → BLACK (pendekatan override CSS global, BUKAN replace class — 1435 occurren grey text di 86 file terlalu banyak & dark mode ikut terjaga):
+  - globals.css :root --muted-foreground #78716c → #000000 (semua text-muted-foreground + placeholder:text-muted-foreground kini hitam di mode terang) & --app-banner-text-muted → #000000
+  - Blok override html:not(.dark): text-{slate,gray,zinc,neutral,stone}-{300..700} + text-muted-foreground + text-foreground/50 → #000 !important; toast sonner [data-sonner-toast] + [data-title]/[data-description] → hitam
+  - Dark mode TIDAK tersentuh (semua rule di-scope html:not(.dark); rule .dark yang lama tetap menang)
+  - PENGECAUAN dark-surface: teks abu di atas permukaan gelap hardcoded TETAP terang — rule restore html:not(.dark) .dark-surface .text-{gray,slate,zinc,neutral,stone}-{300..700} (spesifisitas lebih tinggi, menang atas rule hitam); marker class "dark-surface" ditambahkan ke 6 permukaan gelap nyata: payment-dialog (bg-[#141414]), checkout root + loading (bg-[#141414]), landing pricing card (bg-[#1a1a1a]) + footer (bg-gray-900), banner Grand Total riwayat-content & hitung-cetakan (bg-slate-900, pakai text-slate-400)
+- INSIDEN: setelah ganti font, home & potong-kertas 500 (Unknown style italic for font Geist — next/font versi ini tidak punya italic utk Geist) → hapus opsi style → 200 kembali; sesi login browser sempat reset (500 episode) → login ulang superadmin; Changelog "Versi Baru!" + PWA overlay muncul lagi → ditutup via Oke, Mengerti + sessionStorage install_dismissed + X
+- E2E agent-browser (data uji TEST-PK-E2E-007 dibuat via Prisma — resultData blok LENGKAP dgn usedWidth/wasteWidth/cutPosition pelajaran task lalu — lalu dihapus, baseline riwayatPotongKertas kembali 20):
+  Font: h1 & body computed = 'Geist, "Geist Fallback", Arial'; document.fonts.check('16px Geist') = true; beranda body Geist ✓; judul tetap 22px ✓
+  Grey→black: label card text-slate-600 = rgb(0,0,0); steps text = rgb(0,0,0); strategi = rgb(0,0,0); elemen text-slate-500/600 di beranda = rgb(0,0,0); toast sonner color rgb(0,0,0) ✓
+  Mekanisme dark-surface (probe dinamis): .text-gray-400 biasa = rgb(0,0,0) HITAM; .text-gray-400 dalam .dark-surface = rgb(156,163,175) #9ca3af TETAP TERANG; .text-slate-400 dalam .dark-surface = rgb(148,163,184) ✓
+  Regresi preview potong kertas: desktop 1280×800 fullscreen (panel 1280×800) + tanpa scroll ✓; JPG → toBlob TEPAT {w:1240,h:874,image/jpeg} + toast "JPG diunduh ke perangkat" ✓; mobile 390×844 modal center 374px scrollable ✓; tombol X tutup ✓
+- bunx eslint semua file berubah = 0 error (termasuk hitung-cetakan yang ikut diedit className-nya — 0 error); dev.log bersih
+
+Stage Summary:
+- Seluruh UI aplikasi kini memakai font GEIST SANS (variable --font-geist-sans; sans & mono); italic disintesis browser (Geist next/font tak punya italic)
+- SEMUA tulisan abu-abu (slate/gray/zinc/neutral/stone 300–700, muted-foreground, foreground/50, toast) kini HITAM di mode terang — via override CSS global 1 titik di globals.css, bukan replace 1435 class
+- Teks abu di atas 6 permukaan gelap hardcoded (checkout, payment-dialog, kartu harga + footer landing, banner Grand Total riwayat-content & hitung-cetakan) tetap terang via marker .dark-surface — tidak ada teks hitam di background gelap
+- Dark mode tidak berubah; popup preview potong kertas fullscreen-tanpa-scroll & hasil JPG A5 landscape 2 kolom (1240×874) terverifikasi tidak regresi
+- Files: src/app/layout.tsx, src/app/globals.css, src/components/dokupro/{invoice,purchase-order,surat-jalan}-preview.tsx, src/components/payment-dialog.tsx, src/app/checkout/page.tsx, src/app/page.tsx, src/components/riwayat-content.tsx, src/app/hitung-cetakan/page.tsx

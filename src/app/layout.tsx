@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -14,11 +14,9 @@ import { WhatsNewDialog } from "@/components/whats-new-dialog";
 import { NavigationProgressBar } from "@/components/navigation-progress";
 import { DocumentLanguageSync } from "@/components/document-language-sync";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -70,8 +68,8 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${poppins.variable} font-sans antialiased bg-background text-foreground`}
-        style={{ fontFamily: 'var(--font-poppins), Arial, Helvetica, sans-serif' }}
+        className={`${geistSans.variable} font-sans antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-geist-sans), Arial, Helvetica, sans-serif' }}
       >
         <AuthProvider>
           <LanguageProvider>

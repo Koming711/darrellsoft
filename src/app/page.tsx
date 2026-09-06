@@ -198,7 +198,7 @@ function PricingCard({
       >
       <Card
         onClick={onSelect}
-        className={`relative overflow-hidden h-full flex flex-col cursor-pointer transition-all duration-500 hover:-translate-y-2 active:shadow-xl bg-[#1a1a1a] ${
+        className={`dark-surface relative overflow-hidden h-full flex flex-col cursor-pointer transition-all duration-500 hover:-translate-y-2 active:shadow-xl bg-[#1a1a1a] ${
           popular
             ? 'border-2 border-blue-600 shadow-2xl shadow-blue-600/20 hover:shadow-blue-600/40'
             : 'border border-white/10 shadow-lg hover:shadow-xl hover:border-white/20'
@@ -1873,7 +1873,7 @@ export default function Home() {
       </Section>
 
       {/* =================== FOOTER =================== */}
-      <footer className="w-full bg-gray-900 pt-12 pb-8 px-4 md:px-8">
+      <footer className="dark-surface w-full bg-gray-900 pt-12 pb-8 px-4 md:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-8 mb-8">
             {/* Brand */}

@@ -27,7 +27,7 @@ export function SuratJalanPreview({ data }: SuratJalanPreviewProps) {
         padding: '8mm 10mm',
         fontSize: '9pt',
         lineHeight: '1.35',
-        fontFamily: 'var(--font-poppins), Arial, Helvetica, sans-serif',
+        fontFamily: 'var(--font-geist-sans), Arial, Helvetica, sans-serif',
         boxSizing: 'border-box',
       }}
     >

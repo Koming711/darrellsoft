@@ -2848,7 +2848,7 @@ function HitungCetakanPage() {
                 )}
 
                 {/* === GRAND TOTAL === */}
-                <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between">
+                <div className="dark-surface bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-400">Grand Total</p>
                     <p className="text-2xl font-extrabold text-emerald-400">{formatRp(pvGrandTotal)}</p>

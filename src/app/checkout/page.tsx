@@ -196,7 +196,7 @@ function CheckoutContent() {
   }, [plan]);
 
   return (
-    <div className="min-h-screen bg-[#141414] text-white flex flex-col">
+    <div className="dark-surface min-h-screen bg-[#141414] text-white flex flex-col">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-[#141414]/95 backdrop-blur-md border-b border-white/5">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -672,7 +672,7 @@ function CheckoutContent() {
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#141414] flex items-center justify-center">
+      <div className="dark-surface min-h-screen bg-[#141414] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#e50914] animate-spin" />
       </div>
     }>

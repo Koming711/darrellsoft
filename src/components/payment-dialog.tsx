@@ -433,7 +433,7 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-lg z-[101]"
           >
-            <div className="bg-[#141414] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col">
+            <div className="dark-surface bg-[#141414] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col">
 
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
