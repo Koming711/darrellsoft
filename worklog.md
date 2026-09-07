@@ -7831,3 +7831,34 @@ Stage Summary:
 - Teks abu di atas 6 permukaan gelap hardcoded (checkout, payment-dialog, kartu harga + footer landing, banner Grand Total riwayat-content & hitung-cetakan) tetap terang via marker .dark-surface — tidak ada teks hitam di background gelap
 - Dark mode tidak berubah; popup preview potong kertas fullscreen-tanpa-scroll & hasil JPG A5 landscape 2 kolom (1240×874) terverifikasi tidak regresi
 - Files: src/app/layout.tsx, src/app/globals.css, src/components/dokupro/{invoice,purchase-order,surat-jalan}-preview.tsx, src/components/payment-dialog.tsx, src/app/checkout/page.tsx, src/app/page.tsx, src/components/riwayat-content.tsx, src/app/hitung-cetakan/page.tsx
+
+---
+Task ID: restore-workspace-tar-5
+Agent: Main (Z.ai Code)
+Task: "extract file ini. ganti semua conten dengan file ini" — ekstrak workspace-...tar.001/.002 dan ganti seluruh konten project dengan arsip tersebut (sekaligus akar masalah "halaman invoice balik ke versi lama / masih versi lama")
+
+Work Log:
+- UPLOAD: 2 file ter-upload (tar.001 52MB + tar.002 27MB, multi-part gzip tar). Diekstrak via `cat part1 part2 | tar -xzf -` ke /tmp/ws-extract5 → workspace lengkap (src, db, .git, worklog, .zscripts, daemon.cjs, watchdog, dkk; 99MB; status kode 5-6 Sep).
+- VERIFIKASI pranulis: arsip TIDAK berisi node_modules/.next; .env identik; package.json identik dengan yang berjalan; DB arsip = 23 documentHistory + 134 customer (sama dengan DB lama secara jumlah, beda md5).
+- AKAR MASALAH "versi lama": service worker (sw.js v29) terdaftar di browser user memakai pola stale-while-revalidate untuk chunk JS → browser menyajikan JS LAMA dari cache meski server sudah baru; APP_VERSION ('2026-06-07-v2') tidak pernah di-bump sehingga pembersihan cache tak pernah terpicu.
+- PENGGANTIAN KONTEN: server dihentikan → seluruh isi project lama dipindah ke /home/z/backup-pre-replace-sep7/ (kecuali node_modules, .next, dev.log, upload/) → rsync arsip ke project (exclude *.pid/.daemon.pid/dev.out).
+- IKAT RUNTIME: prisma generate ulang (schema arsip = sqlite, tanpa deletedAt); .next dihapus (cache lama); server dinyalakan via `node daemon.cjs start` (daemon detached + auto-restart — setsid biasa dibunuh sandbox).
+- FIX SW (agar user benar-benar melihat versi baru & tidak berulang):
+  * src/components/service-worker-registration.tsx: APP_VERSION → '2026-09-07-v1' (memicu auto clear-caches + unregister SW + reload di semua browser lama); mode DEV (NODE_ENV !== production) kini SELALU unregister semua SW + hapus semua Cache API dan TIDAK mendaftar SW → preview dev tak pernah lagi menyajikan chunk basi.
+  * public/sw.js: CACHE_NAME v29 → v40 (disinkron ke salinan root sw.js).
+- VERIFIKASI agent-browser (admin, read-only, dialog "Peringatan Keamanan"/"Install" ditutup via remove() TANPA klik tombol logout apa pun agar sesi asli user tak terganggu):
+  * SW: 0 registrasi tersisa; fetch /api/history kembali normal (sebelumnya diblok SW → "Network error").
+  * /invoice desktop 1280: "Riwayat Invoice — 1 invoice", tabel No. Invoice|Tgl|Customer|Nama Barang|Qty|Total|DP|Total DP|Profit|Aksi; baris INV/07/26/0021 | 17 Juli 2026 | jaya | brosur (2 item) | 5.000 (2 item) | Rp4.587.000 | Profit Rp1.528.933; overflow 1280=1280. Sidebar kini memuat Laporan Penjualan + Rugi Laba (modul versi arsip).
+  * /invoice mobile 390: kartu INV/07/26/0021 tampil, overflow 390=390.
+  * Editor "Buat Invoice" (render saja, tanpa simpan): sub-tab Regular|DP|Pelunasan, kotak DATA PERUSAHAAN, DETAIL DOKUMEN + Referensi (No. HC), INFORMASI PEMBAYARAN (Cash/Transfer/Giro), ITEM dengan kolom Harga Satuan + Harga Modal (fitur profit), INFORMASI TAMBAHAN. Overflow 1280=1280.
+  * /surat-jalan (mobile): kartu SJ/06/26/0001 | 6 Juni 2026 | Qty: 10.000 | Siti Rohana — versi arsip, overflow 390=390.
+  * /laporan/rugi-laba (mobile): modul Laporan Rugi Laba render penuh (Penjualan/Modal/Laba Kotor/Biaya Operasional/Laba Bersih), overflow 390=390.
+- eslint: service-worker-registration.tsx + 4 file inti (invoice page, surat jalan page, rugi-laba page, invoice-editor) → 0 error.
+- dev.log/.daemon.log: tanpa error; server hidup stabil via daemon (health check 200).
+- DB final: documentHistory=23, customer=134 (data arsip milik user; 0 data uji dibuat).
+
+Stage Summary:
+- SELURUH konten project kini = isi workspace tar.001+002 unggahan user (versi yang dianggap user "versi terbaru"): halaman invoice dengan kolom Profit + Harga Modal, modul Laporan Penjualan & Rugi Laba, dan seluruh kode/fitur versi 5-6 Sep.
+- Akar masalah "balik ke versi lama" = service worker stale-while-revalidate + APP_VERSION tak pernah di-bump → DIPERBAIKI: versi di-bump, DEV mode kini otomatis bersihkan SW+cache tiap load, CACHE_NAME naik ke v40. Browser user akan otomatis bersih dan melihat versi baru pada kunjungan berikutnya (bisa 1x reload ekstra).
+- Server dev dikelola daemon.cjs (auto-restart). Konten lama (termasuk rebuild Task 12-21 sebelumnya & DB lama) dicadangkan utuh di /home/z/backup-pre-replace-sep7/.
+- Catatan: worklog ikut tergantikan oleh versi arsip; riwayat task 15-21 sesi lama tersimpan di backup.
