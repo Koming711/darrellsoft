@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
-import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
@@ -66,7 +65,7 @@ interface RiwayatCetakanItem {
 }
 
 
-export function InvoiceEditor() {
+export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) {
   const invoice = useDokuproStore((s) => s.invoice);
   const setInvoice = useDokuproStore((s) => s.setInvoice);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
@@ -140,6 +139,13 @@ export function InvoiceEditor() {
     window.addEventListener('dokupro:history-updated', handler);
     return () => { window.removeEventListener('dokupro:history-updated', handler) };
   }, [fetchNextNumber]);
+
+  // Mode Regular (dpDisabled): paksa DP = 0 dan sembunyikan input DP
+  useEffect(() => {
+    if (dpDisabled) {
+      setInvoice((prev) => (prev.dp === 0 ? prev : ({ ...prev, dp: 0 })));
+    }
+  }, [dpDisabled, setInvoice]);
 
   // Sync referensiInput when invoice.referensi changes externally
   useEffect(() => { setReferensiInput(invoice.referensi) }, [invoice.referensi]);
@@ -295,10 +301,6 @@ export function InvoiceEditor() {
     setClientDropdownOpen(false);
   };
 
-  const updateCompany = (company: typeof invoice.company) => {
-    setInvoice((prev) => ({ ...prev, company }));
-  };
-
   const updateClient = (field: string, value: string) => {
     setInvoice((prev) => ({
       ...prev,
@@ -402,6 +404,8 @@ export function InvoiceEditor() {
     <>
       <DocumentEditorLayout
         title="Invoice"
+        previewMode="popup"
+        formColumns={2}
         previewContent={<InvoicePreview data={invoice} />}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
@@ -425,8 +429,12 @@ export function InvoiceEditor() {
           </div>
         }
       >
-        <CompanyFields company={invoice.company} onChange={updateCompany} />
-
+        {/* FORM 2 KOLOM (desktop) — KIRI: Detail Dokumen + Informasi Pembayaran +
+            Kepada Yth, KANAN: Item + Informasi Tambahan. Kotak Data Perusahaan
+            dihapus (data perusahaan diatur di halaman Pengaturan). */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start">
+        {/* ===== KOLOM KIRI ===== */}
+        <div className="space-y-3 lg:space-y-5 min-w-0">
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
@@ -634,11 +642,15 @@ export function InvoiceEditor() {
             />
           </div>
         </div>
+        </div>
 
+        {/* ===== KOLOM KANAN ===== */}
+        <div className="space-y-3 lg:space-y-5 min-w-0">
         <ItemsFields
           items={invoice.items}
           onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
           showPrice
+          showModal
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
@@ -655,17 +667,19 @@ export function InvoiceEditor() {
               onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
             />
           </div>
-          <div className="space-y-1.5 mt-3">
-            <Label className="text-xs">DP (%)</Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={invoice.dp || ''}
-              onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
-              placeholder="0"
-            />
-          </div>
+          {!dpDisabled && (
+            <div className="space-y-1.5 mt-3">
+              <Label className="text-xs">DP (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={invoice.dp || ''}
+                onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
+                placeholder="0"
+              />
+            </div>
+          )}
           <div className="space-y-1.5 mt-3">
             <Label className="text-xs">Profit</Label>
             <Input
@@ -707,6 +721,8 @@ export function InvoiceEditor() {
               rows={3}
             />
           </div>
+        </div>
+        </div>
         </div>
       </DocumentEditorLayout>
     </>

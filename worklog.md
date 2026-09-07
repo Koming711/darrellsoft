@@ -7862,3 +7862,28 @@ Stage Summary:
 - Akar masalah "balik ke versi lama" = service worker stale-while-revalidate + APP_VERSION tak pernah di-bump → DIPERBAIKI: versi di-bump, DEV mode kini otomatis bersihkan SW+cache tiap load, CACHE_NAME naik ke v40. Browser user akan otomatis bersih dan melihat versi baru pada kunjungan berikutnya (bisa 1x reload ekstra).
 - Server dev dikelola daemon.cjs (auto-restart). Konten lama (termasuk rebuild Task 12-21 sebelumnya & DB lama) dicadangkan utuh di /home/z/backup-pre-replace-sep7/.
 - Catatan: worklog ikut tergantikan oleh versi arsip; riwayat task 15-21 sesi lama tersimpan di backup.
+
+---
+Task ID: invoice-editor-hapus-data-perusahaan-2kolom
+Agent: Main (Z.ai Code)
+Task: "dihalaman buat invoice baru. kotak data perusahaan dihapus. buat 2 kolom"
+
+Work Log:
+- Konteks: project kini memakai workspace arsip unggahan user (task restore-workspace-tar-5). Editor invoice arsip (src/components/dokupro/invoice-editor.tsx, popup previewMode) masih menampilkan kotak CompanyFields "DATA PERUSAHAAN" di atas form.
+- src/components/dokupro/invoice-editor.tsx:
+  * Import CompanyFields + fungsi updateCompany DIHAPUS (data invoice.company tetap ada di state untuk header dokumen A5 — hanya form editnya yang dibuang; data perusahaan diatur via halaman Pengaturan).
+  * Children DocumentEditorLayout disusun ulang jadi grid 2 kolom: `grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start` — KOLOM KIRI = Detail Dokumen + Informasi Pembayaran + Kepada Yth, KOLOM KANAN = Item (ItemsFields showPrice+showModal) + Informasi Tambahan (PPN/DP/Profit/Total/Catatan). Mobile otomatis 1 kolom (urutan sama seperti sebelumnya).
+- src/components/dokupro/document-editor-layout.tsx: prop opsional baru `formColumns?: 1 | 2` (default 1, backward-compatible — PO/SJ/pelunasan tak berubah). Saat 2 & previewMode=popup, container form + toggle/actions melebar max-w-3xl → max-w-5xl agar tiap kolom lega.
+- Disinkron ke salinan root (components/dokupro/) keduanya.
+- eslint kedua file → 0 error.
+- VERIFIKASI agent-browser (admin, read-only — tidak menyimpan dokumen apa pun):
+  * Desktop 1280x800 (Buat Invoice → Regular): "DATA PERUSAHAAN" TIDAK ADA; grid computed = "470px 470px"; KIRI=[DETAIL DOKUMEN, INFORMASI PEMBAYARAN, KEPADA YTH :], KANAN=[ITEM, INFORMASI TAMBAHAN]; overflow 1280=1280. Screenshot /tmp/e2e-inv2-desktop.png.
+  * Mobile 390x844: 1 kolom (334px), semua 5 kotak tampil berurutan, tanpa DATA PERUSAHAAN, overflow 390=390. Screenshot /tmp/e2e-inv2-mobile.png.
+  * Pratinjau A5 (popup "Lihat Pratinjau A5"): tetap menampilkan kop perusahaan (rajabowl, jakarta) di DOKUMEN — hanya kotak form yang dihapus. Popup buka/tutup normal, overflow tetap 390=390.
+- .daemon.log bersih (API 200 normal); server hidup (HTTP 200); DB tetap 23 documentHistory + 134 customer (0 data uji).
+
+Stage Summary:
+- Halaman "Buat Invoice Baru" kini TANPA kotak Data Perusahaan dan tampil 2 kolom di desktop (Detail Dokumen + Informasi Pembayaran + Kepada Yth | Item + Informasi Tambahan), stack 1 kolom di mobile.
+- Kop perusahaan pada dokumen/pratinjau A5, Cetak, dan JPG tetap utuh (data dari state/Pengaturan).
+- document-editor-layout.tsx punya prop generik formColumns (reusable untuk editor lain bila diminta).
+- File berubah: invoice-editor.tsx, document-editor-layout.tsx (+ salinan root). Lint 0 error; E2E lulus; DB utuh.
