@@ -3,10 +3,27 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-06-01-v1'
+const APP_VERSION = '2026-09-07-v1'
+const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
   useEffect(() => {
+    // DEV MODE: aggressively remove any service worker + caches so the dev preview
+    // always serves fresh code (stale SW was causing "halaman balik ke versi lama")
+    if (IS_DEV) {
+      try {
+        if ('caches' in window) {
+          caches.keys().then(names => names.forEach(n => caches.delete(n)))
+        }
+      } catch (e) {}
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(reg => reg.unregister())
+        }).catch(() => {})
+      }
+      return
+    }
+
     // Always clean up old install_prompt_dismissed flag (we now use sessionStorage)
     // Also clean up old darrellsoft_installed flag that was preventing install popup from showing
     try {
@@ -34,7 +51,8 @@ export function ServiceWorkerRegistration() {
             key.includes('form-data-version') ||
             key.includes('potong-kertas-form-version') ||
             key.includes('dokupro') ||
-            key.includes('install_prompt_dismissed')
+            key.includes('install_prompt_dismissed') ||
+            key === 'permissions'
           )) {
             keysToRemove.push(key)
           }
