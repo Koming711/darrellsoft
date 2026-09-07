@@ -18,6 +18,12 @@ interface DocumentEditorLayoutProps {
    *   (capture [data-document-preview]) tetap berfungsi tanpa membuka popup.
    */
   previewMode?: 'inline' | 'popup';
+  /**
+   * 1 (default) = lebar form standar (max-w-3xl).
+   * 2 = form dibagi 2 kolom di desktop — container dilebarkan (max-w-5xl)
+   *   supaya tiap kolom cukup lega. Grid kolomnya disusun oleh editor sendiri.
+   */
+  formColumns?: 1 | 2;
 }
 
 /**
@@ -41,8 +47,10 @@ export function DocumentEditorLayout({
   previewContent,
   actions,
   previewMode = 'inline',
+  formColumns = 1,
 }: DocumentEditorLayoutProps) {
   const isPopup = previewMode === 'popup';
+  const wideForm = formColumns === 2;
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [popupOpen, setPopupOpen] = useState(false);
   const desktopWrapperRef = useRef<HTMLDivElement>(null);
@@ -160,13 +168,13 @@ export function DocumentEditorLayout({
     return (
       <div className="min-h-screen">
         <div className="mx-auto max-w-[1600px] px-3 py-3 md:px-6 md:py-4 print:max-w-none print:p-0">
-          {/* Editor form — full width (tidak dibagi dengan panel pratinjau) */}
-          <div className="max-w-3xl mx-auto space-y-3 lg:space-y-5 print-hidden">
+        {/* Editor form — dibagi 2 kolom (grid disusun editor) saat formColumns=2 */}
+          <div className={`mx-auto space-y-3 lg:space-y-5 print-hidden ${wideForm ? 'max-w-5xl' : 'max-w-3xl'}`}>
             {children}
           </div>
 
           {/* Toggle + Actions */}
-          <div className="max-w-3xl mx-auto mt-4 space-y-3 print:hidden">
+          <div className={`mx-auto mt-4 space-y-3 print:hidden ${wideForm ? 'max-w-5xl' : 'max-w-3xl'}`}>
             <button
               type="button"
               onClick={() => setPopupOpen(true)}
