@@ -363,7 +363,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   };
 
   // Pilih barang dari dropdown Master Barang customer → isi deskripsi +
-  // harga satuan + harga modal otomatis (keduanya readonly di form).
+  // harga satuan + harga modal otomatis (semuanya tetap bisa diedit manual).
   const handlePickBarang = (itemIndex: number, barang: BarangOption) => {
     setInvoice((prev) => ({
       ...prev,
