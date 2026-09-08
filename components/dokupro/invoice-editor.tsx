@@ -1,21 +1,18 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
-import { ItemsFields } from './items-fields';
+import { ItemsFields, type BarangOption } from './items-fields';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
-import { syncLinkedPelunasan } from '@/lib/sync-pelunasan';
-import { Truck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { InvoiceData } from '@/lib/types';
 
@@ -65,18 +62,24 @@ interface RiwayatCetakanItem {
 }
 
 
-export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) {
+export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: boolean; onSaved?: (id: string) => void }) {
   const invoice = useDokuproStore((s) => s.invoice);
   const setInvoice = useDokuproStore((s) => s.setInvoice);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
   const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
   const invoiceEditingId = useDokuproStore((s) => s.invoiceEditingId);
   const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const riwayatIdFromUrl = searchParams.get('riwayatId');
   const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
-  const [savingSj, setSavingSj] = useState(false);
+
+  // Daftar barang milik customer terpilih (Master Barang per pelanggan)
+  const [barangList, setBarangList] = useState<BarangOption[]>([]);
+  // Nama customer sebelumnya — untuk mendeteksi perubahan customer
+  const prevClientNameRef = useRef<string>(invoice.client.nama);
+  // Nama yang diisi otomatis oleh pemilihan referensi (hitung cetakan) —
+  // perubahan nama dari alur ini TIDAK boleh mengosongkan item yang baru diisi.
+  const autoFillNameRef = useRef<string>('');
 
   // Riwayat cetakan dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatCetakanItem[]>([]);
@@ -119,6 +122,60 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
   useEffect(() => { loadCompanyFromAPI() }, [loadCompanyFromAPI]);
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
+
+  // Muat daftar barang milik customer terpilih (Master Barang per pelanggan).
+  // Jika customer tidak dikenal / belum memilih, daftar barang = kosong.
+  useEffect(() => {
+    const nama = invoice.client.nama.trim().toLowerCase();
+    const found = nama
+      ? customerList.find((c) => c.name.trim().toLowerCase() === nama)
+      : undefined;
+    if (!found) {
+      setBarangList([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1`, { headers: getAuthHeaders() })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.items) ? data.items : [];
+        setBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null }) => ({
+          id: r.id,
+          name: r.name,
+          unit: r.unit || 'pcs',
+          standardPrice: r.standardPrice || 0,
+          hpp: r.hpp ?? null,
+        })));
+      })
+      .catch(() => { if (!cancelled) setBarangList([]); });
+    return () => { cancelled = true; };
+  }, [invoice.client.nama, customerList]);
+
+  // Ganti customer → otomatis KOSONGKAN nama barang di kotak item
+  // (barang milik tiap pelanggan tidak boleh tercampur).
+  // Pengecualian: nama yang diisi otomatis oleh pemilihan referensi cetakan.
+  useEffect(() => {
+    const nama = invoice.client.nama.trim();
+    const prev = prevClientNameRef.current.trim();
+    if (nama !== prev) {
+      prevClientNameRef.current = invoice.client.nama;
+      if (autoFillNameRef.current && nama === autoFillNameRef.current.trim()) {
+        // Diisi otomatis oleh applyReferensi — jangan kosongkan
+        autoFillNameRef.current = '';
+        return;
+      }
+      autoFillNameRef.current = '';
+      setInvoice((prevInv) => ({
+        ...prevInv,
+        items: prevInv.items.map((it, i) => (
+          i === 0
+            ? { ...it, deskripsi: '', qty: 1, harga: 0, modal: 0 }
+            : null
+        )).filter((it): it is typeof prevInv.items[number] => it !== null),
+      }));
+    }
+  }, [invoice.client.nama, setInvoice]);
 
   // Fetch next Invoice number from server (only when creating new, not editing)
   const fetchNextNumber = useCallback(() => {
@@ -192,6 +249,10 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
       satuan: 'pcs',
       harga: hargaPerPcs,
     }];
+
+    // Tandai bahwa perubahan nama customer berikutnya berasal dari alur
+    // referensi cetakan — jangan kosongkan item yang baru saja diisi.
+    if (item.customerName) autoFillNameRef.current = item.customerName;
 
     // Use functional form to always get the LATEST state
     setInvoice((prev) => ({
@@ -301,6 +362,25 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
     setClientDropdownOpen(false);
   };
 
+  // Pilih barang dari dropdown Master Barang customer → isi deskripsi +
+  // harga satuan + harga modal otomatis (keduanya readonly di form).
+  const handlePickBarang = (itemIndex: number, barang: BarangOption) => {
+    setInvoice((prev) => ({
+      ...prev,
+      items: prev.items.map((it, i) => (
+        i === itemIndex
+          ? {
+              ...it,
+              deskripsi: barang.name,
+              satuan: barang.unit || it.satuan || 'pcs',
+              harga: barang.standardPrice || 0,
+              modal: barang.hpp ?? 0,
+            }
+          : it
+      )),
+    }));
+  };
+
   const updateClient = (field: string, value: string) => {
     setInvoice((prev) => ({
       ...prev,
@@ -315,118 +395,43 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
   const dpAmount = total * (dpPercent / 100);
   const sisa = total - dpAmount;
 
-  const handleSuratJalan = async () => {
-    // Check if data has content
-    const pihakKedua = invoice.client?.nama;
-    const hasItem = invoice.items?.some((item) => item.deskripsi.trim() !== '');
-    if (!pihakKedua?.trim() || !hasItem) {
-      toast.error('Lengkapi data invoice terlebih dahulu!');
-      return;
-    }
-
-    setSavingSj(true);
-    try {
-      // Save invoice to history first
-      const dataToSave = { ...invoice, dpAmount, originalTotal: total };
-
-      if (invoiceEditingId) {
-        // Update existing record
-        const res = await fetch(`/api/history/${invoiceEditingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({
-            nomor: invoice.nomor || '-',
-            tanggal: invoice.tanggal || '',
-            pihakKedua: invoice.client?.nama || '-',
-            total: '-',
-            dataJson: JSON.stringify(dataToSave),
-          }),
-        });
-        if (res.ok) {
-          // If DP was added/updated during this edit, ensure a linked
-          // invoice-pelunasan entry exists & is in sync so it shows up in
-          // the Editor Pelunasan tab. (Previously this only happened on CREATE.)
-          await syncLinkedPelunasan(invoiceEditingId, invoice.nomor || '-', dataToSave);
-          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
-          toast.success('Invoice diperbarui');
-          const invoiceId = invoiceEditingId;
-          setInvoiceEditingId(null);
-          resetDocument('invoice');
-          router.push(`/surat-jalan?invoiceId=${invoiceId}`);
-        } else {
-          toast.error('Gagal memperbarui invoice');
-        }
-      } else {
-        const res = await fetch('/api/history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({
-            docType: 'invoice',
-            nomor: invoice.nomor || '-',
-            tanggal: invoice.tanggal || '',
-            pihakKedua: invoice.client?.nama || '-',
-            total: '-',
-            dataJson: JSON.stringify(dataToSave),
-          }),
-        });
-        if (res.ok) {
-          const saved = await res.json();
-          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
-
-          // If invoice has DP, ensure a linked invoice-pelunasan entry exists
-          // (creates if missing, updates if already present)
-          await syncLinkedPelunasan(saved.id, saved.nomor || invoice.nomor || '-', dataToSave);
-
-          toast.success('Invoice disimpan ke riwayat');
-          // Reset invoice form after saving
-          resetDocument('invoice');
-          router.push(`/surat-jalan?invoiceId=${saved.id}`);
-        } else if (res.status === 409) {
-          // Invoice already saved, get existing ID and navigate
-          const errData = await res.json().catch(() => ({}));
-          if (errData.id) {
-            resetDocument('invoice');
-            router.push(`/surat-jalan?invoiceId=${errData.id}`);
-          } else {
-            toast('Invoice sudah ada di riwayat.');
-          }
-        } else {
-          toast.error('Gagal menyimpan invoice');
-        }
-      }
-    } catch {
-      toast.error('Gagal menyimpan invoice');
-    }
-    setSavingSj(false);
-  };
+  // Pratinjau langsung muncul begitu ada data inti (referensi dipilih /
+  // customer terisi / ada barang) — tanpa tombol "Lihat Pratinjau A5".
+  const hasPreviewData = Boolean(
+    referensiInput.trim() ||
+    invoice.client.nama.trim() ||
+    invoice.items.some((it) => it.deskripsi.trim() !== '')
+  );
 
   return (
     <>
       <DocumentEditorLayout
         title="Invoice"
-        previewMode="popup"
+        previewMode="inline-bottom"
         formColumns={2}
-        previewContent={<InvoicePreview data={invoice} />}
+        previewMaxWidth={560}
+        previewContent={
+          hasPreviewData ? (
+            <InvoicePreview data={invoice} />
+          ) : (
+            <div className="flex min-h-[320px] w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 p-6 text-center">
+              <p className="max-w-[280px] text-sm text-slate-400">
+                Pratinjau invoice akan muncul di sini setelah Anda memilih referensi (No. HC) atau customer.
+              </p>
+            </div>
+          )
+        }
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <DocumentActionButtons
-              docType="invoice"
-              documentLabel="Invoice"
-              currentData={invoice}
-              onReset={() => resetDocument('invoice')}
-              editingId={invoiceEditingId}
-              onUpdateSuccess={() => setInvoiceEditingId(null)}
-            />
-            <Button
-              size="sm"
-              onClick={handleSuratJalan}
-              disabled={savingSj}
-              className="bg-orange-600 hover:bg-orange-700 h-8 sm:h-9"
-            >
-              <Truck className="mr-1.5 h-3.5 w-3.5" />
-              {savingSj ? 'Menyimpan...' : 'Surat Jalan'}
-            </Button>
-          </div>
+          <DocumentActionButtons
+            docType="invoice"
+            documentLabel="Invoice"
+            currentData={invoice}
+            onReset={() => resetDocument('invoice')}
+            editingId={invoiceEditingId}
+            onUpdateSuccess={() => setInvoiceEditingId(null)}
+            showPrintActions={false}
+            onSaved={onSaved}
+          />
         }
       >
         {/* FORM 2 KOLOM (desktop) — KIRI: Detail Dokumen + Informasi Pembayaran +
@@ -651,6 +656,13 @@ export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) 
           onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
           showPrice
           showModal
+          barangOptions={barangList}
+          emptyBarangMessage={
+            invoice.client.nama.trim()
+              ? 'Belum ada barang untuk customer ini — tambahkan di Master Barang'
+              : 'Pilih customer terlebih dahulu'
+          }
+          onPickBarang={handlePickBarang}
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">

@@ -35,6 +35,42 @@ export function formatTanggal(dateStr: string, lang: 'id' | 'en' = 'id'): string
 }
 
 /**
+ * Format a date string (YYYY-MM-DD) as short numeric Indonesian style: d/m/yy.
+ * Example: "2026-09-07" → "7/9/26". Used by Riwayat Invoice table.
+ */
+export function formatTanggalShort(dateStr: string): string {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr + 'T00:00:00');
+    if (isNaN(date.getTime())) return dateStr;
+    const d = date.getDate();
+    const m = date.getMonth() + 1;
+    const yy = String(date.getFullYear()).slice(-2);
+    return `${d}/${m}/${yy}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Format a date string (YYYY-MM-DD) as numeric Indonesian style: d/m/yyyy.
+ * Example: "2026-06-06" → "6/6/2026". Used by Riwayat Surat Jalan table.
+ */
+export function formatTanggalFull(dateStr: string): string {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr + 'T00:00:00');
+    if (isNaN(date.getTime())) return dateStr;
+    const d = date.getDate();
+    const m = date.getMonth() + 1;
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
  * Get today's date in YYYY-MM-DD format.
  */
 export function getTodayDate(): string {

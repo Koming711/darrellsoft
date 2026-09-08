@@ -47,9 +47,9 @@ export async function GET(request: NextRequest) {
     const combinedFilter = { ...dataFilter, ...dateFilter }
 
     // DocumentHistory filters for each doc type — now with per-user isolation
-    const invoiceFilter = { docType: 'invoice', ...dataFilter, ...dateFilter }
-    const suratJalanFilter = { docType: 'surat-jalan', ...dataFilter, ...dateFilter }
-    const purchaseOrderFilter = { docType: 'purchase-order', ...dataFilter, ...dateFilter }
+    const invoiceFilter = { docType: 'invoice', deletedAt: null, ...dataFilter, ...dateFilter }
+    const suratJalanFilter = { docType: 'surat-jalan', deletedAt: null, ...dataFilter, ...dateFilter }
+    const purchaseOrderFilter = { docType: 'purchase-order', deletedAt: null, ...dataFilter, ...dateFilter }
 
     // Aggregate counts and totals for each riwayat type (last 7 days)
     const [
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date()
     monthStart.setDate(1)
     monthStart.setHours(0, 0, 0, 0)
-    const monthlyInvoiceFilter = { docType: 'invoice', ...dataFilter, createdAt: { gte: monthStart } }
+    const monthlyInvoiceFilter = { docType: 'invoice', deletedAt: null, ...dataFilter, createdAt: { gte: monthStart } }
     let monthlyRevenue = 0
     const monthlyInvoices = await db.documentHistory.findMany({
       where: monthlyInvoiceFilter,
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
     lastMonthEnd.setDate(1)
     lastMonthEnd.setHours(0, 0, 0, 0)
     // lastMonthEnd is the first of current month, so we use < for the upper bound
-    const lastMonthInvoiceFilter = { docType: 'invoice', ...dataFilter, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } }
+    const lastMonthInvoiceFilter = { docType: 'invoice', deletedAt: null, ...dataFilter, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } }
     let lastMonthRevenue = 0
     const lastMonthInvoices = await db.documentHistory.findMany({
       where: lastMonthInvoiceFilter,
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
 
     // Document history with per-user filter
     const allDocDates = await db.documentHistory.findMany({
-      where: { ...dataFilter, ...dateFilter },
+      where: { deletedAt: null, ...dataFilter, ...dateFilter },
       select: { docType: true, createdAt: true },
     })
 
@@ -247,7 +247,7 @@ export async function GET(request: NextRequest) {
     const todayFilter = { createdAt: { gte: todayStart } }
 
     const todayInvoiceHistory = await db.documentHistory.findMany({
-      where: { docType: 'invoice', ...dataFilter, ...todayFilter },
+      where: { docType: 'invoice', deletedAt: null, ...dataFilter, ...todayFilter },
       select: { dataJson: true },
     })
     let todayInvoiceRevenue = 0

@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
@@ -251,10 +250,6 @@ export function InvoicePelunasanEditor() {
     setInvoiceData(prev => prev ? { ...prev, ...updates } : null);
   };
 
-  const updateCompany = (company: CompanyInfo) => {
-    setInvoiceData(prev => prev ? { ...prev, company } : null);
-  };
-
   const updateClient = (field: string, value: string) => {
     setInvoiceData(prev => prev ? { ...prev, client: { ...prev.client, [field]: value } } : null);
   };
@@ -398,8 +393,20 @@ export function InvoicePelunasanEditor() {
   return (
     <DocumentEditorLayout
       title="Invoice Pelunasan"
-      previewMode="popup"
-      previewContent={<InvoicePreview data={previewData!} showPelunasanLabel dpAmountOverride={originalDpAmount} />}
+      previewMode="inline-bottom"
+      formColumns={2}
+      previewMaxWidth={560}
+      previewContent={
+        invoiceData ? (
+          <InvoicePreview data={previewData!} showPelunasanLabel dpAmountOverride={originalDpAmount} />
+        ) : (
+          <div className="flex min-h-[320px] w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 p-6 text-center">
+            <p className="max-w-[280px] text-sm text-slate-400">
+              Pratinjau akan muncul setelah Anda memilih invoice pelunasan dari daftar di atas.
+            </p>
+          </div>
+        )
+      }
       actions={
         invoiceData ? (
           <div className="flex items-center gap-2 flex-wrap">
@@ -575,11 +582,13 @@ export function InvoicePelunasanEditor() {
         )}
       </div>
 
-      {/* When an invoice is selected, show the editor form */}
+      {/* When an invoice is selected, show the editor form — 2 kolom (desktop):
+          KIRI = Detail Dokumen + Informasi Pelunasan + Kepada Yth,
+          KANAN = Item + Informasi Tambahan. Kotak Data Perusahaan dihapus. */}
       {invoiceData ? (
-        <>
-          <CompanyFields company={invoiceData.company} onChange={updateCompany} />
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start">
+        {/* ===== KOLOM KIRI ===== */}
+        <div className="space-y-3 lg:space-y-5 min-w-0">
           <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Detail Dokumen
@@ -784,7 +793,10 @@ export function InvoicePelunasanEditor() {
               />
             </div>
           </div>
+        </div>
 
+        {/* ===== KOLOM KANAN ===== */}
+        <div className="space-y-3 lg:space-y-5 min-w-0">
           {/* Items */}
           <ItemsFields
             items={invoiceData.items}
@@ -852,7 +864,8 @@ export function InvoicePelunasanEditor() {
               />
             </div>
           </div>
-        </>
+        </div>
+        </div>
       ) : (
         <div className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/30 p-6 text-center">
           <Wallet className="w-12 h-12 mx-auto text-amber-300 mb-3" />

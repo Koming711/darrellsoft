@@ -555,6 +555,7 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
             >
               <div
                 ref={previewWrapperRef}
+                data-document-preview
                 style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
               >
                 <PurchaseOrderPreview data={poData} />

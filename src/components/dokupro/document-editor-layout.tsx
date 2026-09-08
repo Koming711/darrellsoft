@@ -12,18 +12,26 @@ interface DocumentEditorLayoutProps {
    * 'inline' (default): pratinjau tampil berdampingan di desktop (sticky panel)
    *   dan collapsible di mobile — dipakai surat jalan & purchase order.
    * 'popup': pratinjau TIDAK menempati layout — dibuka sebagai popup overlay
-   *   layar penuh via tombol "Lihat Pratinjau A5" (dipakai halaman Buat Invoice).
-   *   Pratinjau tetap ter-mount di luar layar saat popup tertutup sehingga
-   *   tombol Cetak (window.print → #document-preview) dan JPG
-   *   (capture [data-document-preview]) tetap berfungsi tanpa membuka popup.
+   *   layar penuh via tombol "Lihat Pratinjau A5". Pratinjau tetap ter-mount di
+   *   luar layar saat popup tertutup sehingga tombol Cetak (window.print →
+   *   #document-preview) dan JPG (capture [data-document-preview]) tetap
+   *   berfungsi tanpa membuka popup.
+   * 'inline-bottom': pratinjau SELALU tampil di bawah form (tanpa tombol
+   *   "Lihat Pratinjau A5") — lebar dibatasi previewMaxWidth, di-scale agar pas,
+   *   dengan garis outline. Dipakai halaman Buat Invoice / Surat Jalan / PO.
    */
-  previewMode?: 'inline' | 'popup';
+  previewMode?: 'inline' | 'popup' | 'inline-bottom';
   /**
    * 1 (default) = lebar form standar (max-w-3xl).
    * 2 = form dibagi 2 kolom di desktop — container dilebarkan (max-w-5xl)
    *   supaya tiap kolom cukup lega. Grid kolomnya disusun oleh editor sendiri.
    */
   formColumns?: 1 | 2;
+  /**
+   * Lebar maksimum (px) container pratinjau untuk mode 'inline-bottom'.
+   * Mobile otomatis full-width (dibatasi padding container).
+   */
+  previewMaxWidth?: number;
 }
 
 /**
@@ -48,14 +56,17 @@ export function DocumentEditorLayout({
   actions,
   previewMode = 'inline',
   formColumns = 1,
+  previewMaxWidth = 620,
 }: DocumentEditorLayoutProps) {
   const isPopup = previewMode === 'popup';
+  const isInlineBottom = previewMode === 'inline-bottom';
   const wideForm = formColumns === 2;
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [popupOpen, setPopupOpen] = useState(false);
   const desktopWrapperRef = useRef<HTMLDivElement>(null);
   const mobileWrapperRef = useRef<HTMLDivElement>(null);
   const popupWrapperRef = useRef<HTMLDivElement>(null);
+  const bottomWrapperRef = useRef<HTMLDivElement>(null);
 
   /**
    * Scale a single `.a5-page` to fit its wrapper container.
@@ -140,10 +151,13 @@ export function DocumentEditorLayout({
   }, [isPopup, popupOpen, previewContent]);
 
   useLayoutEffect(() => {
-    if (isPopup) return;
+    // No early return for isInlineBottom — bottomWrapperRef (inline-bottom
+    // preview) needs scaling too. scaleContainer() guards null/hidden refs,
+    // so desktop/mobile wrappers that are absent in this mode are skipped.
     const scaleAll = () => {
       scaleContainer(desktopWrapperRef.current);
       scaleContainer(mobileWrapperRef.current);
+      scaleContainer(bottomWrapperRef.current);
     };
 
     // Run immediately (post-DOM-mutation, pre-paint) so there's no flash of
@@ -161,7 +175,55 @@ export function DocumentEditorLayout({
     };
     // Re-scale when the preview data changes OR when the mobile collapsible
     // section is toggled (so the freshly-mounted mobile container gets scaled).
-  }, [isPopup, previewContent, showMobilePreview]);
+  }, [isPopup, isInlineBottom, previewContent, showMobilePreview]);
+
+  // ===== INLINE-BOTTOM MODE (Buat Invoice / Surat Jalan / PO) =====
+  if (isInlineBottom) {
+    return (
+      <div className="min-h-screen">
+        <div className="mx-auto max-w-[1600px] px-3 py-3 md:px-6 md:py-4 print:max-w-none print:p-0">
+          {/* Editor form — dibagi 2 kolom (grid disusun editor) saat formColumns=2 */}
+          <div className={`mx-auto space-y-3 lg:space-y-5 print-hidden ${wideForm ? 'max-w-5xl' : 'max-w-3xl'}`}>
+            {children}
+          </div>
+
+          {/* Actions — di bawah form, sebelum pratinjau */}
+          {actions && (
+            <div className={`mx-auto mt-4 space-y-3 print:hidden ${wideForm ? 'max-w-5xl' : 'max-w-3xl'}`}>
+              {actions}
+            </div>
+          )}
+
+          {/* Pratinjau A5 — SELALU tampil (fit lebar, garis outline).
+              id="document-preview" dipakai CSS print (@media print) yang me-reset
+              posisi/ukuran sehingga A5 tercetak penuh pada ukuran aslinya. */}
+          <div
+            id="document-preview"
+            className="mt-5 flex justify-center print:mt-0 print:block"
+          >
+            <div
+              className="w-full print:max-w-none"
+              style={{ maxWidth: `${previewMaxWidth}px` }}
+            >
+              <div
+                ref={bottomWrapperRef}
+                data-preview-scaler
+                data-document-preview
+                className="a5-preview-container mx-auto bg-white overflow-hidden"
+                style={{
+                  border: '2px solid #cbd5e1',
+                  borderRadius: '10px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.07)',
+                }}
+              >
+                {previewContent}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ===== POPUP MODE =====
   if (isPopup) {
@@ -235,6 +297,7 @@ export function DocumentEditorLayout({
             <div
               ref={popupWrapperRef}
               data-preview-scaler
+              data-document-preview
               className="flex-shrink-0"
             >
               {previewContent}
@@ -279,6 +342,8 @@ export function DocumentEditorLayout({
                 {/* A5 preview wrapper — scales the 148mm page to fit */}
                 <div
                   ref={desktopWrapperRef}
+                  data-preview-scaler
+                  data-document-preview
                   className="a5-preview-container mx-auto bg-white overflow-hidden"
                   style={{ border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
                 >
@@ -315,6 +380,8 @@ export function DocumentEditorLayout({
               <div className="w-full max-w-[420px]">
                 <div
                   ref={mobileWrapperRef}
+                  data-preview-scaler
+                  data-document-preview
                   className="a5-preview-container bg-white overflow-hidden"
                   style={{ border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
                 >

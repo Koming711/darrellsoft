@@ -431,15 +431,16 @@ model TokoPemasok {
 }
 
 model DocumentHistory {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   docType    String
   nomor      String
-  tanggal    String   @default("")
-  pihakKedua String   @default("")
-  total      String   @default("")
+  tanggal    String    @default("")
+  pihakKedua String    @default("")
+  total      String    @default("")
   dataJson   String
   userId     String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime? // Soft delete — non-null = masuk Sampah (bisa dipulihkan)
 }
 
 /// Persistent sequence counter — ensures document numbers NEVER decrease

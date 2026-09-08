@@ -28,6 +28,11 @@ interface DocumentActionButtonsProps {
   onReset: () => void;
   editingId?: string | null;
   onUpdateSuccess?: () => void;
+  /** Sembunyikan tombol Cetak & JPG (dipindah ke halaman pratinjau/detail). */
+  showPrintActions?: boolean;
+  /** Dipanggil setelah data tersimpan (create/update/409) dengan id record —
+   *  dipakai Buat Invoice untuk menuju halaman pratinjau (Detail Invoice). */
+  onSaved?: (id: string) => void;
 }
 
 function isDataEmpty(data: Record<string, unknown>): boolean {
@@ -49,6 +54,8 @@ export function DocumentActionButtons({
   onReset,
   editingId,
   onUpdateSuccess,
+  showPrintActions = true,
+  onSaved,
 }: DocumentActionButtonsProps) {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -111,6 +118,7 @@ export function DocumentActionButtons({
           toast.success(`${documentLabel} berhasil diperbarui`);
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
           if (onUpdateSuccess) onUpdateSuccess();
+          if (onSaved) onSaved(editingId as string);
         } else {
           toast.error('Gagal memperbarui');
         }
@@ -144,9 +152,11 @@ export function DocumentActionButtons({
           toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
           onReset();
+          if (onSaved) onSaved(savedData.id);
         } else if (res.status === 409) {
           const errData = await res.json().catch(() => ({}));
           toast('Data tidak berubah, riwayat tidak duplikat.', { description: 'Ubah minimal 1 data untuk menyimpan riwayat baru.' });
+          if (onSaved && errData.id) onSaved(errData.id);
         } else {
           toast.error('Gagal menyimpan');
         }
@@ -231,6 +241,7 @@ export function DocumentActionButtons({
           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
           Reset
         </Button>
+        {showPrintActions && (
         <Button
           size="sm"
           onClick={() => {
@@ -247,6 +258,8 @@ export function DocumentActionButtons({
           <Printer className="mr-1.5 h-3.5 w-3.5" />
           Cetak
         </Button>
+        )}
+        {showPrintActions && (
         <Button
           size="sm"
           onClick={handleJpgWhatsApp}
@@ -265,6 +278,7 @@ export function DocumentActionButtons({
             </>
           )}
         </Button>
+        )}
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <Button
@@ -308,7 +322,7 @@ export function DocumentActionButtons({
       </div>
 
       {/* Mobile: 2x2 grid */}
-      <div className="grid grid-cols-2 gap-2 sm:hidden">
+      <div className={`grid gap-2 sm:hidden ${showPrintActions ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <Button
           variant="outline"
           size="sm"
@@ -318,6 +332,7 @@ export function DocumentActionButtons({
           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
           Reset
         </Button>
+        {showPrintActions && (
         <Button
           size="sm"
           onClick={() => {
@@ -334,6 +349,8 @@ export function DocumentActionButtons({
           <Printer className="mr-1.5 h-3.5 w-3.5" />
           Cetak
         </Button>
+        )}
+        {showPrintActions && (
         <Button
           size="sm"
           onClick={handleJpgWhatsApp}
@@ -352,6 +369,7 @@ export function DocumentActionButtons({
             </>
           )}
         </Button>
+        )}
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <Button

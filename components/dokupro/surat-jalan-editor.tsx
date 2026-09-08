@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
-import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { SuratJalanPreview } from './surat-jalan-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
@@ -244,10 +243,6 @@ export function SuratJalanEditor() {
     setPenerimaDropdownOpen(false);
   };
 
-  const updateCompany = (company: typeof sj.company) => {
-    setSuratJalan((prev) => ({ ...prev, company }));
-  };
-
   const updatePenerima = (field: string, value: string) => {
     setSuratJalan((prev) => ({
       ...prev,
@@ -259,6 +254,9 @@ export function SuratJalanEditor() {
     <>
       <DocumentEditorLayout
         title="Surat Jalan"
+        previewMode="inline-bottom"
+        formColumns={2}
+        previewMaxWidth={575}
         previewContent={<SuratJalanPreview data={sj} />}
         actions={
           <DocumentActionButtons
@@ -269,196 +267,207 @@ export function SuratJalanEditor() {
           />
         }
       >
-        <CompanyFields company={sj.company} onChange={updateCompany} />
-
-        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Detail Dokumen
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">No. Surat Jalan</Label>
-              <Input
-                value={sj.nomor}
-                readOnly
-                className="bg-slate-50 text-slate-500 cursor-not-allowed"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tanggal</Label>
-              <Input
-                type="date"
-                value={sj.tanggal}
-                onChange={(e) => setSuratJalan((prev) => ({ ...prev, tanggal: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Referensi (opsional)</Label>
-            <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
-              <PopoverAnchor asChild>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Pilih No. Invoice / ketik referensi..."
-                    value={referensiInput}
-                    onChange={(e) => handleReferensiInputChange(e.target.value)}
-                    onFocus={() => setDropdownOpen(true)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+        {/*
+          CATATAN: Kotak "Data Perusahaan" dihapus dari form ini.
+          Data perusahaan (untuk kop dokumen) tetap tersimpan di state sj.company
+          dan kini diatur melalui halaman Pengaturan.
+        */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start">
+          {/* ===== KOLOM KIRI ===== */}
+          <div className="space-y-3 lg:space-y-5 min-w-0">
+            <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Detail Dokumen
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">No. Surat Jalan</Label>
+                  <Input
+                    value={sj.nomor}
+                    readOnly
+                    className="bg-slate-50 text-slate-500 cursor-not-allowed"
                   />
-                  {/* Dropdown chevron icon */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
                 </div>
-              </PopoverAnchor>
-              <PopoverContent
-                align="start"
-                className="p-0 w-[var(--radix-popover-trigger-width)] max-h-52 overflow-y-auto"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-              >
-                {filteredInvoiceList.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Riwayat Invoice</div>
-                    {filteredInvoiceList.map((inv) => (
-                      <button
-                        key={inv.id}
-                        type="button"
-                        onMouseDown={(e) => { e.preventDefault(); handleInvoiceSelect(inv) }}
-                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${sj.referensi === inv.nomor ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
-                      >
-                        <span className="truncate">{inv.nomor || '-'}</span>
-                        {inv.pihakKedua && <span className="text-slate-400 ml-1.5 text-[11px]">({inv.pihakKedua})</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {filteredInvoiceList.length === 0 && (
-                  <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada riwayat invoice</div>
-                )}
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Kepada Yth :
-          </h3>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Nama Customer</Label>
-            <Popover open={penerimaDropdownOpen} onOpenChange={setPenerimaDropdownOpen}>
-              <PopoverAnchor asChild>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Ketik atau pilih customer..."
-                    value={penerimaInput}
-                    onChange={(e) => handlePenerimaInputChange(e.target.value)}
-                    onFocus={() => { setPenerimaDropdownOpen(true); setPenerimaTyping(false); }}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tanggal</Label>
+                  <Input
+                    type="date"
+                    value={sj.tanggal}
+                    onChange={(e) => setSuratJalan((prev) => ({ ...prev, tanggal: e.target.value }))}
                   />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    onMouseDown={(e) => { e.preventDefault(); setPenerimaTyping(false); setPenerimaDropdownOpen(!penerimaDropdownOpen); }}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Referensi (opsional)</Label>
+                <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Pilih No. Invoice / ketik referensi..."
+                        value={referensiInput}
+                        onChange={(e) => handleReferensiInputChange(e.target.value)}
+                        onFocus={() => setDropdownOpen(true)}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+                      />
+                      {/* Dropdown chevron icon */}
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-52 overflow-y-auto"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </button>
-                </div>
-              </PopoverAnchor>
-              <PopoverContent
-                align="start"
-                className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-              >
-                {filteredCustomerList.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Master Customer</div>
-                    {filteredCustomerList.map((c) => (
+                    {filteredInvoiceList.length > 0 && (
+                      <div>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Riwayat Invoice</div>
+                        {filteredInvoiceList.map((inv) => (
+                          <button
+                            key={inv.id}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); handleInvoiceSelect(inv) }}
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${sj.referensi === inv.nomor ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                          >
+                            <span className="truncate">{inv.nomor || '-'}</span>
+                            {inv.pihakKedua && <span className="text-slate-400 ml-1.5 text-[11px]">({inv.pihakKedua})</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {filteredInvoiceList.length === 0 && (
+                      <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada riwayat invoice</div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Kepada Yth :
+              </h3>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nama Customer</Label>
+                <Popover open={penerimaDropdownOpen} onOpenChange={setPenerimaDropdownOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Ketik atau pilih customer..."
+                        value={penerimaInput}
+                        onChange={(e) => handlePenerimaInputChange(e.target.value)}
+                        onFocus={() => { setPenerimaDropdownOpen(true); setPenerimaTyping(false); }}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+                      />
                       <button
-                        key={c.id}
                         type="button"
-                        onMouseDown={(e) => { e.preventDefault(); handlePenerimaSelect(c) }}
-                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${sj.penerima.nama === c.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                        tabIndex={-1}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        onMouseDown={(e) => { e.preventDefault(); setPenerimaTyping(false); setPenerimaDropdownOpen(!penerimaDropdownOpen); }}
                       >
-                        <span className="truncate">{c.name}</span>
-                        {c.companyName && <span className="text-slate-400 ml-1.5 text-[11px]">({c.companyName})</span>}
-                        {(c.phone || c.address) && (
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            {c.phone && <span>{c.phone}</span>}
-                            {c.phone && c.address && <span> · </span>}
-                            {c.address && <span className="truncate">{c.address}</span>}
-                          </div>
-                        )}
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
-                    ))}
-                  </div>
-                )}
-                {filteredCustomerList.length === 0 && (
-                  <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada data customer</div>
-                )}
-              </PopoverContent>
-            </Popover>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    {filteredCustomerList.length > 0 && (
+                      <div>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Master Customer</div>
+                        {filteredCustomerList.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); handlePenerimaSelect(c) }}
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${sj.penerima.nama === c.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                          >
+                            <span className="truncate">{c.name}</span>
+                            {c.companyName && <span className="text-slate-400 ml-1.5 text-[11px]">({c.companyName})</span>}
+                            {(c.phone || c.address) && (
+                              <div className="text-[11px] text-slate-400 mt-0.5">
+                                {c.phone && <span>{c.phone}</span>}
+                                {c.phone && c.address && <span> · </span>}
+                                {c.address && <span className="truncate">{c.address}</span>}
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {filteredCustomerList.length === 0 && (
+                      <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada data customer</div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Kontak</Label>
+                <Input
+                  value={sj.penerima.kontak}
+                  onChange={(e) => updatePenerima('kontak', e.target.value)}
+                  placeholder="No. telepon / email"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Alamat</Label>
+                <Input
+                  value={sj.penerima.alamat}
+                  onChange={(e) => updatePenerima('alamat', e.target.value)}
+                  placeholder="Alamat penerima"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Kontak</Label>
-            <Input
-              value={sj.penerima.kontak}
-              onChange={(e) => updatePenerima('kontak', e.target.value)}
-              placeholder="No. telepon / email"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Alamat</Label>
-            <Input
-              value={sj.penerima.alamat}
-              onChange={(e) => updatePenerima('alamat', e.target.value)}
-              placeholder="Alamat penerima"
-            />
-          </div>
-        </div>
 
-        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Informasi Tambahan
-          </h3>
-          <div className="space-y-1.5">
-            <Label className="text-xs">No. Kendaraan</Label>
-            <Input
-              value={sj.noKendaraan}
-              onChange={(e) => setSuratJalan((prev) => ({ ...prev, noKendaraan: e.target.value }))}
-              placeholder="B 1234 XYZ"
+          {/* ===== KOLOM KANAN ===== */}
+          <div className="space-y-3 lg:space-y-5 min-w-0">
+            <ItemsFields
+              items={sj.items}
+              onChange={(items) => setSuratJalan((prev) => ({ ...prev, items }))}
+              showPrice={false}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Pengemudi</Label>
-            <Input
-              value={sj.pengemudi}
-              onChange={(e) => setSuratJalan((prev) => ({ ...prev, pengemudi: e.target.value }))}
-              placeholder="Nama pengemudi"
-            />
-          </div>
-        </div>
 
-        <ItemsFields
-          items={sj.items}
-          onChange={(items) => setSuratJalan((prev) => ({ ...prev, items }))}
-          showPrice={false}
-        />
+            <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Informasi Tambahan
+              </h3>
+              <div className="space-y-1.5">
+                <Label className="text-xs">No. Kendaraan</Label>
+                <Input
+                  value={sj.noKendaraan}
+                  onChange={(e) => setSuratJalan((prev) => ({ ...prev, noKendaraan: e.target.value }))}
+                  placeholder="B 1234 XYZ"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Pengemudi</Label>
+                <Input
+                  value={sj.pengemudi}
+                  onChange={(e) => setSuratJalan((prev) => ({ ...prev, pengemudi: e.target.value }))}
+                  placeholder="Nama pengemudi"
+                />
+              </div>
+            </div>
 
-        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Catatan
-          </h3>
-          <div className="space-y-1.5">
-            <Textarea
-              value={sj.catatan}
-              onChange={(e) => setSuratJalan((prev) => ({ ...prev, catatan: e.target.value }))}
-              placeholder="Catatan tambahan..."
-              rows={3}
-            />
+            <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Catatan
+              </h3>
+              <div className="space-y-1.5">
+                <Textarea
+                  value={sj.catatan}
+                  onChange={(e) => setSuratJalan((prev) => ({ ...prev, catatan: e.target.value }))}
+                  placeholder="Catatan tambahan..."
+                  rows={3}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </DocumentEditorLayout>
