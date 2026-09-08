@@ -30,6 +30,7 @@ import {
   Truck,
   Ban,
   ArchiveRestore,
+  Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -70,6 +71,13 @@ import { syncLinkedPelunasan } from '@/lib/sync-pelunasan'
 import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
+import {
+  RiwayatPeriodFilter,
+  RiwayatSummaryCard,
+  riwayatDateRange,
+  riwayatPeriodText,
+  type RiwayatPeriod,
+} from '@/components/dokupro/riwayat-period-filter'
 
 // --- Types ---
 interface HistoryEntry {
@@ -227,7 +235,7 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
 // --- Empty state (gaya Master Customer) ---
 function EmptyState({ filtered, title, desc }: { filtered: boolean; title?: string; desc?: string }) {
   return (
-    <div className="text-center py-12 px-4 rounded-xl border border-stone-200 bg-white">
+    <div className="rounded-xl border border-dashed border-stone-300 bg-white text-center py-12 px-4">
       <History className="h-10 w-10 text-stone-300 mx-auto mb-2" />
       <p className="text-sm font-medium">{title || (filtered ? 'Tidak ditemukan' : 'Belum ada invoice')}</p>
       <p className="text-xs text-muted-foreground mt-1">
@@ -604,6 +612,9 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [period, setPeriod] = useState<RiwayatPeriod>('all')
+  const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
+  const [year, setYear] = useState<number | null>(new Date().getFullYear())
   const [purgeTarget, setPurgeTarget] = useState<HistoryEntry | null>(null)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
@@ -654,20 +665,27 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
 
   const allHistory = useMemo(() => [...invoiceHistory, ...pelunasanHistory], [invoiceHistory, pelunasanHistory])
 
-  // Filter pencarian + status + rentang tanggal
+  // Periode efektif (rentang tanggal yyyy-mm-dd, inklusif) dari mode periode yang dipilih
+  const eff = useMemo(
+    () => riwayatDateRange(period, dateFrom, dateTo, month, year),
+    [period, dateFrom, dateTo, month, year]
+  )
+  const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
+
+  // Filter pencarian + status + rentang tanggal efektif (inklusif)
   const matchesFilters = useCallback((entry: HistoryEntry) => {
     const info = parseDocInfo(entry)
     const st = getInvoiceStatus(info)
     if (statusFilter !== 'all' && st !== statusFilter) return false
-    if (dateFrom && entry.tanggal && entry.tanggal < dateFrom) return false
-    if (dateTo && entry.tanggal && entry.tanggal > dateTo) return false
+    if (eff.dateFrom && entry.tanggal && entry.tanggal < eff.dateFrom) return false
+    if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       const hay = `${entry.nomor || ''} ${entry.pihakKedua || ''} ${info.namaBarang || ''} ${entry.tanggal || ''}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
     return true
-  }, [statusFilter, dateFrom, dateTo, searchQuery])
+  }, [statusFilter, eff, searchQuery])
 
   const dpInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice' && matchesFilters(e)), [allHistory, matchesFilters])
   const pelunasanInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice-pelunasan' && matchesFilters(e)), [allHistory, matchesFilters])
@@ -680,7 +698,30 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
       .sort((a, b) => (b.info.tanggalPelunasan || '').localeCompare(a.info.tanggalPelunasan || ''))
   }, [allHistory])
 
-  const filtersActive = statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+  // Ringkasan invoice terfilter (kartu statistik)
+  const invoiceSummary = useMemo(() => {
+    let total = 0
+    let lunas = 0
+    let belum = 0
+    for (const entry of dpInvoices) {
+      const info = parseDocInfo(entry)
+      total += info.totalHarga
+      const st = getInvoiceStatus(info)
+      if (st === 'lunas') lunas += 1
+      else if (st === 'belum') belum += 1
+    }
+    return { count: dpInvoices.length, total, lunas, belum }
+  }, [dpInvoices])
+
+  const filtersActive = period !== 'all' || statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+
+  const resetFilters = () => {
+    setPeriod('all')
+    setStatusFilter('all')
+    setDateFrom('')
+    setDateTo('')
+    setSearchQuery('')
+  }
 
   // === Sampah actions ===
   const handlePulihkan = async (item: HistoryEntry) => {
@@ -777,43 +818,30 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   }
 
   const hasResults = dpInvoices.length > 0 || pelunasanInvoices.length > 0
-  const countLabel = loading ? 'Memuat data…' : `${allHistory.length} invoice`
 
   return (
     <>
       <div className="space-y-5">
-        {/* Header — gaya Master Customer */}
+        {/* Header — gaya Laporan Penjualan */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Invoice</h1>
-            <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
+            <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari no. invoice / customer / barang…"
-                aria-label="Cari invoice"
-                className="pl-9 min-h-[44px]"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={onCreate}
-                title="Buat invoice baru"
-                className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
-              >
-                <Plus className="h-4 w-4" /> Buat Invoice
-              </Button>
-              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
-                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
-              </Button>
-              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
-                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={onCreate}
+              title="Buat invoice baru"
+              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
+            >
+              <Plus className="h-4 w-4" /> Buat Invoice
+            </Button>
+            <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
+              {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+            </Button>
+            <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
+              {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+            </Button>
           </div>
         </div>
 
@@ -842,48 +870,79 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
         {/* ================= TAB: RIWAYAT INVOICE ================= */}
         {activeTab === 'invoice' && (
           <>
-            {/* Filter: status + rentang tanggal */}
-            <div className="rounded-xl border border-stone-200 bg-white p-3 md:px-4 md:py-3">
-              <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
-                <div className="lg:w-44">
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Status</Label>
-                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
-                    <SelectTrigger className="w-full min-h-[40px] bg-white mt-1" aria-label="Filter status">
-                      <SelectValue placeholder="Semua Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Status</SelectItem>
-                      <SelectItem value="lunas">Lunas</SelectItem>
-                      <SelectItem value="belum">Belum Lunas</SelectItem>
-                      <SelectItem value="batal">Batal</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* Filter: periode + status + cari — gaya Laporan Penjualan */}
+            <Card className="p-0 gap-0">
+              <CardContent className="p-4 space-y-4">
+                <RiwayatPeriodFilter
+                  idPrefix="riwayat-invoice"
+                  period={period}
+                  onChangePeriod={setPeriod}
+                  from={dateFrom}
+                  to={dateTo}
+                  onFromChange={setDateFrom}
+                  onToChange={setDateTo}
+                  month={month}
+                  onMonthChange={setMonth}
+                  year={year}
+                  onYearChange={setYear}
+                />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="riwayat-invoice-status">Status</Label>
+                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
+                      <SelectTrigger id="riwayat-invoice-status" aria-label="Filter status" className="w-full min-h-[44px]">
+                        <SelectValue placeholder="Semua Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Status</SelectItem>
+                        <SelectItem value="lunas">Lunas</SelectItem>
+                        <SelectItem value="belum">Belum Lunas</SelectItem>
+                        <SelectItem value="batal">Batal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="riwayat-invoice-search">Cari</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                      <Input
+                        id="riwayat-invoice-search"
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Cari nomor, pelanggan, atau barang…"
+                        aria-label="Cari"
+                        className="pl-9 min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  {filtersActive && (
+                    <div className="flex items-end">
+                      <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
+                        <X className="h-3.5 w-3.5" /> Reset Filter
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <div className="lg:w-40">
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Dari Tanggal</Label>
-                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Dari tanggal" />
-                </div>
-                <div className="lg:w-40">
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Sampai Tanggal</Label>
-                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Sampai tanggal" />
-                </div>
-                {filtersActive && (
-                  <Button variant="ghost" size="sm" className="lg:ml-auto mt-1 lg:mt-4 text-xs text-muted-foreground" onClick={() => { setStatusFilter('all'); setDateFrom(''); setDateTo(''); setSearchQuery('') }}>
-                    <X className="h-3.5 w-3.5" /> Reset Filter
-                  </Button>
-                )}
+              </CardContent>
+            </Card>
+
+            {/* Ringkasan — gaya Laporan Penjualan */}
+            {loading ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
               </div>
-            </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <RiwayatSummaryCard label="Jumlah Invoice" value={invoiceSummary.count} note={`${pelunasanInvoices.length} invoice pelunasan`} />
+                <RiwayatSummaryCard label="Total Nilai Invoice" value={formatRupiah(invoiceSummary.total)} />
+                <RiwayatSummaryCard label="Sudah Lunas" value={invoiceSummary.lunas} valueClass="text-emerald-700" />
+                <RiwayatSummaryCard label="Belum Lunas" value={invoiceSummary.belum} valueClass="text-amber-700" />
+              </div>
+            )}
 
             {loading ? (
-              <>
-                <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden p-4 space-y-3">
-                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-                </div>
-                <div className="md:hidden space-y-3">
-                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
-                </div>
-              </>
+              <Skeleton className="h-72 w-full rounded-xl" />
             ) : !hasResults ? (
               <EmptyState filtered={filtersActive} />
             ) : (
@@ -903,6 +962,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                         <Table>
                           <TableHeader className="sticky top-0 z-10 bg-stone-50">
                             <TableRow className="bg-stone-50 hover:bg-stone-50">
+                              <TableHead className="w-10">No.</TableHead>
                               <TableHead className="w-0 min-w-0">No. Invoice</TableHead>
                               <TableHead>Tanggal</TableHead>
                               <TableHead>Customer</TableHead>
@@ -911,10 +971,11 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                               <TableHead className="text-right">Item</TableHead>
                               <TableHead className="text-right">Total</TableHead>
                               <TableHead className="text-center">Status</TableHead>
+                              <TableHead className="text-center">Aksi</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {dpInvoices.slice(0, 100).map((entry) => {
+                            {dpInvoices.slice(0, 100).map((entry, i) => {
                               const info = parseDocInfo(entry)
                               const st = getInvoiceStatus(info)
                               return (
@@ -923,7 +984,8 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                   className="cursor-pointer hover:bg-stone-50"
                                   onClick={() => onOpenDetail(entry.id)}
                                 >
-                                  <TableCell className="font-medium whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
+                                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                                  <TableCell className="font-mono text-xs whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
                                   <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
                                   <TableCell className="max-w-56 truncate">{entry.pihakKedua || '-'}</TableCell>
                                   <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
@@ -933,6 +995,11 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                   <TableCell className="text-right tabular-nums text-muted-foreground">{info.itemCount > 0 ? info.itemCount : '-'}</TableCell>
                                   <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
                                   <TableCell className="text-center"><StatusBadge status={st} /></TableCell>
+                                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Lihat" aria-label={`Lihat ${entry.nomor || 'invoice'}`} onClick={() => onOpenDetail(entry.id)}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
                                 </TableRow>
                               )
                             })}
@@ -954,21 +1021,23 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                           >
                             <CardContent className="p-4 space-y-2">
                               <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="font-medium truncate">{entry.nomor || '-'}</p>
-                                  <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</p>
-                                </div>
+                                <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
                                 <StatusBadge status={st} />
                               </div>
-                              <div className="text-sm text-muted-foreground space-y-1">
-                                <p className="truncate">{entry.pihakKedua || '-'}</p>
-                                {info.namaBarang && <p className="text-xs line-clamp-1">{info.namaBarang.split('\n')[0]}</p>}
-                                <div className="flex items-center gap-3 text-xs">
-                                  <span>Qty: <span className="font-medium text-stone-700">{info.totalQty.toLocaleString('id-ID')}</span></span>
-                                  <span>Item: <span className="font-medium text-stone-700">{info.itemCount}</span></span>
-                                </div>
+                              <p className="text-sm">
+                                <span className="text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · </span>
+                                <span className="font-medium">{entry.pihakKedua || '-'}</span>
+                              </p>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+                                <p className="text-muted-foreground">Qty: <span className="font-medium text-stone-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</span></p>
+                                <p className="text-muted-foreground">Item: <span className="font-medium text-stone-700">{info.itemCount > 0 ? info.itemCount : '-'}</span></p>
+                                <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</span></p>
                               </div>
-                              <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+                              <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
+                                <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); onOpenDetail(entry.id) }}>
+                                  <Eye className="h-3.5 w-3.5" /> Detail
+                                </Button>
+                              </div>
                             </CardContent>
                           </Card>
                         )
@@ -992,16 +1061,18 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                         <Table>
                           <TableHeader className="sticky top-0 z-10 bg-stone-50">
                             <TableRow className="bg-stone-50 hover:bg-stone-50">
+                              <TableHead className="w-10">No.</TableHead>
                               <TableHead className="w-0 min-w-0">No. Invoice</TableHead>
                               <TableHead>Ref. Invoice DP</TableHead>
                               <TableHead>Tanggal</TableHead>
                               <TableHead>Customer</TableHead>
                               <TableHead className="text-right">Total</TableHead>
                               <TableHead className="text-center">Status</TableHead>
+                              <TableHead className="text-center">Aksi</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {pelunasanInvoices.slice(0, 100).map((entry) => {
+                            {pelunasanInvoices.slice(0, 100).map((entry, i) => {
                               const info = parseDocInfo(entry)
                               const st = getInvoiceStatus(info)
                               return (
@@ -1010,12 +1081,18 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                   className="cursor-pointer hover:bg-stone-50"
                                   onClick={() => onOpenDetail(entry.id)}
                                 >
-                                  <TableCell className="font-medium whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
+                                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                                  <TableCell className="font-mono text-xs whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
                                   <TableCell className="text-violet-700 whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</TableCell>
                                   <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
                                   <TableCell className="max-w-56 truncate">{entry.pihakKedua || '-'}</TableCell>
                                   <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
                                   <TableCell className="text-center"><StatusBadge status={st} /></TableCell>
+                                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Lihat" aria-label={`Lihat ${entry.nomor || 'invoice'}`} onClick={() => onOpenDetail(entry.id)}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
                                 </TableRow>
                               )
                             })}
@@ -1037,17 +1114,22 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                           >
                             <CardContent className="p-4 space-y-2">
                               <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="font-medium truncate">{entry.nomor || '-'}</p>
-                                  <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</p>
-                                </div>
+                                <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
                                 <StatusBadge status={st} />
                               </div>
-                              <div className="text-sm text-muted-foreground space-y-1">
-                                <p className="truncate">{entry.pihakKedua || '-'}</p>
-                                {info.referensiInvoiceNomor && <p className="text-xs">Ref: <span className="text-violet-700">{info.referensiInvoiceNomor}</span></p>}
+                              <p className="text-sm">
+                                <span className="text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · </span>
+                                <span className="font-medium">{entry.pihakKedua || '-'}</span>
+                              </p>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+                                <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{formatRupiah(info.totalHarga)}</span></p>
+                                {info.referensiInvoiceNomor && <p className="text-muted-foreground">Ref: <span className="font-medium text-stone-700">{info.referensiInvoiceNomor}</span></p>}
                               </div>
-                              <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{formatRupiah(info.totalHarga)}</p>
+                              <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
+                                <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); onOpenDetail(entry.id) }}>
+                                  <Eye className="h-3.5 w-3.5" /> Detail
+                                </Button>
+                              </div>
                             </CardContent>
                           </Card>
                         )
@@ -1080,23 +1162,31 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-stone-50">
                       <TableRow className="bg-stone-50 hover:bg-stone-50">
+                        <TableHead className="w-10">No.</TableHead>
                         <TableHead className="w-0 min-w-0">No. Invoice</TableHead>
                         <TableHead>Ref. Invoice DP</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead>Tanggal Bayar</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-center">Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pembayaranList.slice(0, 100).map(({ entry, info }) => (
+                      {pembayaranList.slice(0, 100).map(({ entry, info }, i) => (
                         <TableRow key={entry.id} className="cursor-pointer hover:bg-stone-50" onClick={() => onOpenDetail(entry.id)}>
-                          <TableCell className="font-medium whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-mono text-xs whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
                           <TableCell className="text-violet-700 whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</TableCell>
                           <TableCell className="max-w-56 truncate">{entry.pihakKedua || '-'}</TableCell>
                           <TableCell className="whitespace-nowrap">{info.tanggalPelunasan ? formatTanggalShort(info.tanggalPelunasan) : '-'}</TableCell>
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
                           <TableCell className="text-center"><StatusBadge status="lunas" /></TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Lihat" aria-label={`Lihat ${entry.nomor || 'invoice'}`} onClick={() => onOpenDetail(entry.id)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1110,17 +1200,22 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                   <Card key={entry.id} className="p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors" onClick={() => onOpenDetail(entry.id)}>
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{entry.nomor || '-'}</p>
-                          <p className="text-xs text-muted-foreground">Dibayar {info.tanggalPelunasan ? formatTanggalShort(info.tanggalPelunasan) : '-'}</p>
-                        </div>
+                        <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
                         <StatusBadge status="lunas" />
                       </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <p className="truncate">{entry.pihakKedua || '-'}</p>
-                        {info.referensiInvoiceNomor && <p className="text-xs">Ref: <span className="text-violet-700">{info.referensiInvoiceNomor}</span></p>}
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">{info.tanggalPelunasan ? formatTanggalShort(info.tanggalPelunasan) : '-'} · </span>
+                        <span className="font-medium">{entry.pihakKedua || '-'}</span>
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+                        <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{formatRupiah(info.totalHarga)}</span></p>
+                        {info.referensiInvoiceNomor && <p className="text-muted-foreground">Ref: <span className="font-medium text-stone-700">{info.referensiInvoiceNomor}</span></p>}
                       </div>
-                      <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{formatRupiah(info.totalHarga)}</p>
+                      <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
+                        <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); onOpenDetail(entry.id) }}>
+                          <Eye className="h-3.5 w-3.5" /> Detail
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -1148,6 +1243,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-stone-50">
                       <TableRow className="bg-stone-50 hover:bg-stone-50">
+                        <TableHead className="w-10">No.</TableHead>
                         <TableHead className="w-0 min-w-0">Nomor</TableHead>
                         <TableHead>Jenis</TableHead>
                         <TableHead>Pihak</TableHead>
@@ -1156,9 +1252,10 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sampahList.slice(0, 100).map((item) => (
+                      {sampahList.slice(0, 100).map((item, i) => (
                         <TableRow key={item.id}>
-                          <TableCell className="font-medium whitespace-nowrap w-px">{item.nomor || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-mono text-xs whitespace-nowrap w-px">{item.nomor || '-'}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-[11px] border-stone-200 text-stone-600">{docTypeLabel(item.docType)}</Badge>
                           </TableCell>

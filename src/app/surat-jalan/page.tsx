@@ -4,6 +4,14 @@ import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, u
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { SuratJalanEditor } from '@/components/dokupro/surat-jalan-editor'
+import {
+  RiwayatEmptyState,
+  RiwayatPeriodFilter,
+  RiwayatSummaryCard,
+  riwayatDateRange,
+  riwayatPeriodText,
+  type RiwayatPeriod,
+} from '@/components/dokupro/riwayat-period-filter'
 import { getAuthHeaders } from '@/lib/auth'
 import { formatTanggalFull } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
@@ -13,6 +21,7 @@ import {
   Loader2,
   Search,
   X,
+  Eye,
   DatabaseBackup,
   Upload,
   Plus,
@@ -20,6 +29,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -153,6 +163,19 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
   const previewWrapperRef = useRef<HTMLDivElement>(null)
   const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
+
+  // Filter periode (gaya Laporan Penjualan) — default: Semua Periode
+  const [period, setPeriod] = useState<RiwayatPeriod>('all')
+  const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
+  const [year, setYear] = useState<number | null>(new Date().getFullYear())
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
+  const eff = useMemo(
+    () => riwayatDateRange(period, dateFrom, dateTo, month, year),
+    [period, dateFrom, dateTo, month, year]
+  )
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -317,11 +340,13 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
     input.click()
   }
 
-  // Filter by search
+  // Filter by periode + search
   const filteredHistory = useMemo(() => {
-    if (!searchQuery.trim()) return sjHistory
-    const q = searchQuery.toLowerCase().trim()
     return sjHistory.filter(entry => {
+      if (eff.dateFrom && entry.tanggal && entry.tanggal < eff.dateFrom) return false
+      if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase().trim()
       const info = parseDocInfo(entry)
       return (
         entry.nomor?.toLowerCase().includes(q) ||
@@ -330,64 +355,120 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
         entry.tanggal?.toLowerCase().includes(q)
       )
     })
-  }, [sjHistory, searchQuery])
+  }, [sjHistory, searchQuery, eff])
 
-  const countLabel = loading ? 'Memuat data…' : `${sjHistory.length} surat jalan`
+  // Ringkasan dari hasil filter (gaya Laporan Penjualan)
+  const summary = useMemo(() => {
+    let totalItems = 0
+    let totalQty = 0
+    for (const entry of filteredHistory) {
+      const info = parseDocInfo(entry)
+      totalItems += info.itemsCount
+      totalQty += info.totalQty
+    }
+    return { count: filteredHistory.length, totalItems, totalQty }
+  }, [filteredHistory])
+
+  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+
+  const resetFilters = () => {
+    setPeriod('all')
+    setDateFrom('')
+    setDateTo('')
+    setSearchQuery('')
+  }
 
   return (
     <>
       <div className="space-y-5">
-        {/* Header — gaya Master Customer */}
+        {/* Header — gaya Laporan Penjualan */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Surat Jalan</h1>
-            <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
+            <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari no. SJ / penerima / barang…"
-                aria-label="Cari surat jalan"
-                className="pl-9 min-h-[44px]"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={onCreate}
-                title="Buat surat jalan baru"
-                className="bg-amber-600 hover:bg-amber-700 min-h-[44px] flex-1 sm:flex-none"
-              >
-                <Plus className="h-4 w-4" /> Buat Surat Jalan
-              </Button>
-              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat surat jalan" className="min-h-[44px] flex-1 sm:flex-none">
-                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
-              </Button>
-              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat surat jalan" className="min-h-[44px] flex-1 sm:flex-none">
-                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={onCreate}
+              title="Buat surat jalan baru"
+              className="bg-amber-600 hover:bg-amber-700 min-h-[44px] flex-1 sm:flex-none"
+            >
+              <Plus className="h-4 w-4" /> Buat Surat Jalan
+            </Button>
+            <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat surat jalan" className="min-h-[44px] flex-1 sm:flex-none">
+              {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+            </Button>
+            <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat surat jalan" className="min-h-[44px] flex-1 sm:flex-none">
+              {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+            </Button>
           </div>
         </div>
 
+        {/* Filter — gaya Laporan Penjualan */}
+        <Card className="p-0 gap-0">
+          <CardContent className="p-4 space-y-4">
+            <RiwayatPeriodFilter
+              idPrefix="riwayat-sj"
+              period={period}
+              onChangePeriod={setPeriod}
+              from={dateFrom}
+              to={dateTo}
+              onFromChange={setDateFrom}
+              onToChange={setDateTo}
+              month={month}
+              onMonthChange={setMonth}
+              year={year}
+              onYearChange={setYear}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="riwayat-sj-search">Cari</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                  <Input
+                    id="riwayat-sj-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cari no. SJ / penerima / barang…"
+                    aria-label="Cari"
+                    className="pl-9 min-h-[44px]"
+                  />
+                </div>
+              </div>
+              {filtersActive && (
+                <div className="flex items-end">
+                  <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
+                    <X className="h-3.5 w-3.5" /> Reset Filter
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Ringkasan */}
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <RiwayatSummaryCard label="Jumlah Surat Jalan" value={summary.count} />
+            <RiwayatSummaryCard label="Jumlah Barang" value={summary.totalItems} />
+            <RiwayatSummaryCard label="Total Qty" value={summary.totalQty.toLocaleString('id-ID')} />
+          </div>
+        )}
+
         {/* Content */}
         {loading ? (
-          <>
-            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden p-4 space-y-3">
-              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-            <div className="md:hidden space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
-            </div>
-          </>
+          <Skeleton className="h-72 w-full rounded-xl" />
         ) : filteredHistory.length === 0 ? (
-          <div className="text-center py-16">
-            <History className="h-10 w-10 mx-auto text-stone-300 mb-3" />
-            <p className="text-sm font-medium text-stone-600">{searchQuery.trim() ? 'Tidak ditemukan' : 'Belum ada surat jalan'}</p>
-            <p className="text-xs text-muted-foreground mt-1">{searchQuery.trim() ? 'Coba kata kunci lain' : 'Klik "Buat Surat Jalan" untuk membuat baru'}</p>
-          </div>
+          <RiwayatEmptyState
+            icon={<History />}
+            title={filtersActive ? 'Tidak ditemukan' : 'Belum ada surat jalan'}
+            desc={filtersActive ? 'Coba ubah filter periode atau kata kunci pencarian.' : 'Klik "Buat Surat Jalan" untuk membuat baru'}
+          />
         ) : (
           <>
             {/* Desktop table */}
@@ -396,6 +477,7 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
+                      <TableHead className="w-10">No.</TableHead>
                       <TableHead>No. SJ</TableHead>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Penerima</TableHead>
@@ -403,10 +485,11 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                       <TableHead>Ref. Invoice</TableHead>
                       <TableHead className="text-right">Jumlah Barang</TableHead>
                       <TableHead className="text-right">Total Qty</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredHistory.slice(0, 100).map((entry) => {
+                    {filteredHistory.slice(0, 100).map((entry, i) => {
                       const info = parseDocInfo(entry)
                       return (
                         <TableRow
@@ -414,13 +497,28 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                           onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
                           className="cursor-pointer"
                         >
-                          <TableCell className="font-medium whitespace-nowrap text-amber-700 text-xs">{entry.nomor || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <span className="font-mono text-xs">{entry.nomor || '-'}</span>
+                          </TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggalFull(entry.tanggal) : '-'}</TableCell>
                           <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
                           <TableCell className="max-w-24 truncate text-muted-foreground">{info.pengemudi || '-'}</TableCell>
                           <TableCell className="max-w-28 truncate text-xs text-muted-foreground" title={info.referensi}>{info.referensi || '-'}</TableCell>
                           <TableCell className="text-right tabular-nums">{info.itemsCount}</TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{info.totalQty.toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Lihat"
+                              aria-label={`Lihat ${entry.nomor || 'surat jalan'}`}
+                              onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       )
                     })}
@@ -439,22 +537,25 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                     onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
                     className="cursor-pointer"
                   >
-                    <Card className="p-0 gap-0">
+                    <Card className="p-0 gap-0 hover:bg-stone-50">
                       <CardContent className="p-4 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">{entry.nomor || '-'}</p>
-                            <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggalFull(entry.tanggal) : '-'}</p>
-                          </div>
-                          {info.totalQty > 0 && (
-                            <p className="text-sm text-muted-foreground whitespace-nowrap">Qty: {info.totalQty.toLocaleString('id-ID')}</p>
-                          )}
+                        <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">{formatTanggalFull(entry.tanggal)} · </span>
+                          <span className="font-medium">{entry.pihakKedua || '-'}</span>
+                        </p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+                          <p className="text-muted-foreground">Barang: <span className="font-medium text-stone-700">{info.itemsCount}</span></p>
+                          <p className="text-muted-foreground">Total Qty: <span className="font-medium text-stone-700">{info.totalQty.toLocaleString('id-ID')}</span></p>
                         </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p className="truncate">{entry.pihakKedua || '-'}</p>
-                          <p className="text-xs truncate">Driver: {info.pengemudi || '-'}</p>
-                          <p className="text-xs truncate">Ref. Invoice: {info.referensi || '-'}</p>
-                          <p className="text-xs">{info.itemsCount} barang · Total Qty: {info.totalQty.toLocaleString('id-ID')}</p>
+                        <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
+                          <Button
+                            variant="outline"
+                            className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
+                            onClick={(e) => { e.stopPropagation(); setPreviewItem(entry); setPreviewOpen(true) }}
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Lihat
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
