@@ -1,0 +1,832 @@
+     1→'use client'
+     2→
+     3→import { useCallback, useEffect, useMemo, useState } from 'react'
+     4→import { BarChart3, Eye, FileDown, Pencil, Printer, Search, Trash2 } from 'lucide-react'
+     5→import { toast } from 'sonner'
+     6→import { apiFetch } from '@/lib/client'
+     7→import { formatDate, formatIDR, toInputDate } from '@/lib/format'
+     8→import {
+     9→  STATUS_LABEL,
+    10→  TYPE_LABEL,
+    11→  type Customer,
+    12→  type Invoice,
+    13→  type InvoiceIntent,
+    14→  type InvoiceStatus,
+    15→  type ReportPeriod,
+    16→  type SalesReportResponse,
+    17→  type SalesReportRow,
+    18→  type SessionUser,
+    19→  type ViewKey,
+    20→} from '@/lib/types'
+    21→import { cn } from '@/lib/utils'
+    22→import {
+    23→  AlertDialog,
+    24→  AlertDialogAction,
+    25→  AlertDialogCancel,
+    26→  AlertDialogContent,
+    27→  AlertDialogDescription,
+    28→  AlertDialogFooter,
+    29→  AlertDialogHeader,
+    30→  AlertDialogTitle,
+    31→} from '@/components/ui/alert-dialog'
+    32→import { Button } from '@/components/ui/button'
+    33→import { Card, CardContent } from '@/components/ui/card'
+    34→import {
+    35→  Dialog,
+    36→  DialogContent,
+    37→  DialogDescription,
+    38→  DialogFooter,
+    39→  DialogHeader,
+    40→  DialogTitle,
+    41→} from '@/components/ui/dialog'
+    42→import { Input } from '@/components/ui/input'
+    43→import { Label } from '@/components/ui/label'
+    44→import { Skeleton } from '@/components/ui/skeleton'
+    45→import {
+    46→  Select,
+    47→  SelectContent,
+    48→  SelectItem,
+    49→  SelectTrigger,
+    50→  SelectValue,
+    51→} from '@/components/ui/select'
+    52→import {
+    53→  Table,
+    54→  TableBody,
+    55→  TableCell,
+    56→  TableHead,
+    57→  TableHeader,
+    58→  TableRow,
+    59→} from '@/components/ui/table'
+    60→import { Textarea } from '@/components/ui/textarea'
+    61→import { StatusBadge, TypeBadge } from '@/components/views/dashboard-view'
+    62→import { InvoicePrintBody } from '@/components/views/invoice-print'
+    63→import {
+    64→  PeriodFilter,
+    65→  periodText,
+    66→  ReportKop,
+    67→  ReportSignature,
+    68→  useReportPrint,
+    69→} from '@/components/views/report-shared'
+    70→
+    71→function errText(e: unknown): string {
+    72→  return e instanceof Error ? e.message : 'Terjadi kesalahan'
+    73→}
+    74→
+    75→function sisaCell(r: SalesReportRow) {
+    76→  if (r.type === 'PELUNASAN') return <span className="text-muted-foreground">—</span>
+    77→  return (
+    78→    <span className={cn(r.sisa > 0 && 'text-amber-700 font-medium')}>
+    79→      {formatIDR(r.sisa)}
+    80→    </span>
+    81→  )
+    82→}
+    83→
+    84→/** Opsi filter status pembayaran (param API `status`: LUNAS | BELUM) */
+    85→const PAYMENT_STATUS_OPTIONS: Array<{ value: 'all' | 'LUNAS' | 'BELUM'; label: string }> = [
+    86→  { value: 'all', label: 'Semua Status' },
+    87→  { value: 'LUNAS', label: 'Lunas' },
+    88→  { value: 'BELUM', label: 'Belum Lunas' },
+    89→]
+    90→
+    91→interface ReportSalesViewProps {
+    92→  user: SessionUser
+    93→  onNavigate: (v: ViewKey, intent?: InvoiceIntent) => void
+    94→}
+    95→
+    96→export default function ReportSalesView({ user, onNavigate }: ReportSalesViewProps) {
+    97→  const [now] = useState(() => new Date())
+    98→  const [period, setPeriod] = useState<ReportPeriod>('month')
+    99→  const [month, setMonth] = useState<number | null>(now.getMonth() + 1)
+   100→  const [year, setYear] = useState<number | null>(now.getFullYear())
+   101→  const [from, setFrom] = useState<string>(() => toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)))
+   102→  const [to, setTo] = useState<string>(() => toInputDate(now))
+   103→  const [customerId, setCustomerId] = useState<string>('all')
+   104→  const [payStatus, setPayStatus] = useState<'all' | 'LUNAS' | 'BELUM'>('all')
+   105→  const [searchInput, setSearchInput] = useState('')
+   106→  const [q, setQ] = useState('')
+   107→
+   108→  const [data, setData] = useState<SalesReportResponse | null>(null)
+   109→  const [loading, setLoading] = useState(true)
+   110→  const [customers, setCustomers] = useState<Customer[]>([])
+   111→
+   112→  // Dialog edit
+   113→  const [editRow, setEditRow] = useState<SalesReportRow | null>(null)
+   114→  const [editDate, setEditDate] = useState('')
+   115→  const [editStatus, setEditStatus] = useState<InvoiceStatus>('BELUM_BAYAR')
+   116→  const [editDueDate, setEditDueDate] = useState('')
+   117→  const [editNotes, setEditNotes] = useState('')
+   118→  const [saving, setSaving] = useState(false)
+   119→
+   120→  // Dialog hapus
+   121→  const [deleteRow, setDeleteRow] = useState<SalesReportRow | null>(null)
+   122→  const [deleting, setDeleting] = useState(false)
+   123→
+   124→  // Dialog cetak invoice per baris
+   125→  const [printId, setPrintId] = useState<string | null>(null)
+   126→  const [printInv, setPrintInv] = useState<Invoice | null>(null)
+   127→
+   128→  const { print, savePdf } = useReportPrint()
+   129→
+   130→  // Debounce pencarian 400ms
+   131→  useEffect(() => {
+   132→    const t = setTimeout(() => setQ(searchInput.trim()), 400)
+   133→    return () => clearTimeout(t)
+   134→  }, [searchInput])
+   135→
+   136→  // Daftar pelanggan untuk filter (sekali saat mount; hanya yang aktif)
+   137→  useEffect(() => {
+   138→    let cancelled = false
+   139→    apiFetch<{ customers: Customer[] }>('/api/customers')
+   140→      .then((d) => {
+   141→        if (!cancelled) setCustomers(d.customers.filter((c) => c.isActive))
+   142→      })
+   143→      .catch((e) => {
+   144→        if (!cancelled) toast.error(errText(e))
+   145→      })
+   146→    return () => {
+   147→      cancelled = true
+   148→    }
+   149→  }, [])
+   150→
+   151→  const query = useMemo(() => {
+   152→    const p = new URLSearchParams()
+   153→    p.set('period', period)
+   154→    if (period === 'date') {
+   155→      if (from) p.set('from', from)
+   156→      if (to) p.set('to', to)
+   157→    }
+   158→    if (period === 'month') {
+   159→      p.set('month', String(month ?? now.getMonth() + 1))
+   160→      p.set('year', String(year ?? now.getFullYear()))
+   161→    }
+   162→    if (period === 'year') {
+   163→      p.set('year', String(year ?? now.getFullYear()))
+   164→    }
+   165→    if (customerId !== 'all') p.set('customerId', customerId)
+   166→    if (payStatus !== 'all') p.set('status', payStatus)
+   167→    if (q) p.set('q', q)
+   168→    return p.toString()
+   169→  }, [period, from, to, month, year, customerId, payStatus, q, now])
+   170→
+   171→  const load = useCallback(async () => {
+   172→    setLoading(true)
+   173→    try {
+   174→      const d = await apiFetch<SalesReportResponse>(`/api/reports/sales?${query}`)
+   175→      setData(d)
+   176→    } catch (e) {
+   177→      toast.error(errText(e))
+   178→    } finally {
+   179→      setLoading(false)
+   180→    }
+   181→  }, [query])
+   182→
+   183→  useEffect(() => {
+   184→    void load()
+   185→  }, [load])
+   186→
+   187→  // Inisialisasi form edit saat dialog dibuka
+   188→  useEffect(() => {
+   189→    if (!editRow) return
+   190→    setEditDate(toInputDate(editRow.date))
+   191→    setEditStatus(editRow.status)
+   192→    setEditDueDate(editRow.dueDate ? toInputDate(editRow.dueDate) : '')
+   193→    setEditNotes(editRow.notes ?? '')
+   194→  }, [editRow])
+   195→
+   196→  // Fetch invoice bentuk penuh saat dialog cetak dibuka
+   197→  useEffect(() => {
+   198→    if (!printId) return
+   199→    let cancelled = false
+   200→    setPrintInv(null)
+   201→    apiFetch<{ invoice: Invoice }>(`/api/invoices/${encodeURIComponent(printId)}`)
+   202→      .then((d) => {
+   203→        if (!cancelled) setPrintInv(d.invoice)
+   204→      })
+   205→      .catch((e) => {
+   206→        if (cancelled) return
+   207→        toast.error(errText(e))
+   208→        setPrintId(null)
+   209→      })
+   210→    return () => {
+   211→      cancelled = true
+   212→    }
+   213→  }, [printId])
+   214→
+   215→  const closePrintDialog = useCallback(() => {
+   216→    setPrintId(null)
+   217→    setPrintInv(null)
+   218→  }, [])
+   219→
+   220→  const saveEdit = async () => {
+   221→    if (!editRow) return
+   222→    setSaving(true)
+   223→    try {
+   224→      await apiFetch<{ invoice: Invoice }>(`/api/invoices/${encodeURIComponent(editRow.id)}`, {
+   225→        method: 'PUT',
+   226→        body: JSON.stringify({
+   227→          date: editDate,
+   228→          status: editStatus,
+   229→          dueDate: editDueDate || '',
+   230→          notes: editNotes,
+   231→        }),
+   232→      })
+   233→      toast.success('Perubahan disimpan')
+   234→      setEditRow(null)
+   235→      await load()
+   236→    } catch (e) {
+   237→      toast.error(errText(e))
+   238→    } finally {
+   239→      setSaving(false)
+   240→    }
+   241→  }
+   242→
+   243→  const confirmDelete = async () => {
+   244→    if (!deleteRow) return
+   245→    setDeleting(true)
+   246→    try {
+   247→      await apiFetch<{ ok: boolean }>(`/api/invoices/${encodeURIComponent(deleteRow.id)}`, { method: 'DELETE' })
+   248→      toast.success('Invoice dihapus')
+   249→      setDeleteRow(null)
+   250→      await load()
+   251→    } catch (e) {
+   252→      // mis. 409: invoice DP masih memiliki pelunasan → pesan dari server
+   253→      toast.error(errText(e))
+   254→    } finally {
+   255→      setDeleting(false)
+   256→    }
+   257→  }
+   258→
+   259→  const rows = data?.rows ?? []
+   260→  const s = data?.summary
+   261→  const periodLabel = periodText(period, from, to, month, year)
+   262→  const isAdmin = user.role === 'ADMIN'
+   263→
+   264→  return (
+   265→    <div className="space-y-5">
+   266→      {/* Header */}
+   267→      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+   268→        <div>
+   269→          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Laporan Penjualan</h1>
+   270→          <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
+   271→        </div>
+   272→        <div className="flex gap-2">
+   273→          <Button
+   274→            variant="outline"
+   275→            onClick={print}
+   276→            className="min-h-[44px] flex-1 sm:flex-none"
+   277→            aria-label="Cetak laporan penjualan"
+   278→          >
+   279→            <Printer className="h-4 w-4" /> Print
+   280→          </Button>
+   281→          <Button
+   282→            variant="outline"
+   283→            onClick={savePdf}
+   284→            className="min-h-[44px] flex-1 sm:flex-none"
+   285→            aria-label="Simpan laporan penjualan sebagai PDF"
+   286→          >
+   287→            <FileDown className="h-4 w-4" /> Simpan sebagai PDF
+   288→          </Button>
+   289→        </div>
+   290→      </div>
+   291→
+   292→      {/* Filter */}
+   293→      <Card className="p-0 gap-0">
+   294→        <CardContent className="p-4 space-y-4">
+   295→          <PeriodFilter
+   296→            period={period}
+   297→            onChangePeriod={setPeriod}
+   298→            from={from}
+   299→            to={to}
+   300→            onFromChange={setFrom}
+   301→            onToChange={setTo}
+   302→            month={month}
+   303→            onMonthChange={setMonth}
+   304→            year={year}
+   305→            onYearChange={setYear}
+   306→          />
+   307→          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   308→            <div className="grid gap-1.5">
+   309→              <Label htmlFor="report-customer">Pelanggan</Label>
+   310→              <Select value={customerId} onValueChange={setCustomerId}>
+   311→                <SelectTrigger id="report-customer" aria-label="Filter pelanggan" className="w-full min-h-[44px]">
+   312→                  <SelectValue placeholder="Semua Pelanggan" />
+   313→                </SelectTrigger>
+   314→                <SelectContent>
+   315→                  <SelectItem value="all">Semua Pelanggan</SelectItem>
+   316→                  {customers.map((c) => (
+   317→                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+   318→                  ))}
+   319→                </SelectContent>
+   320→              </Select>
+   321→            </div>
+   322→            <div className="grid gap-1.5">
+   323→              <Label htmlFor="report-pay-status">Status Pembayaran</Label>
+   324→              <Select value={payStatus} onValueChange={(v) => setPayStatus(v as 'all' | 'LUNAS' | 'BELUM')}>
+   325→                <SelectTrigger id="report-pay-status" aria-label="Filter status pembayaran" className="w-full min-h-[44px]">
+   326→                  <SelectValue placeholder="Semua Status" />
+   327→                </SelectTrigger>
+   328→                <SelectContent>
+   329→                  {PAYMENT_STATUS_OPTIONS.map((o) => (
+   330→                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+   331→                  ))}
+   332→                </SelectContent>
+   333→              </Select>
+   334→            </div>
+   335→            <div className="grid gap-1.5 sm:col-span-2 lg:col-span-1">
+   336→              <Label htmlFor="report-search">Cari</Label>
+   337→              <div className="relative">
+   338→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+   339→                <Input
+   340→                  id="report-search"
+   341→                  type="search"
+   342→                  value={searchInput}
+   343→                  onChange={(e) => setSearchInput(e.target.value)}
+   344→                  placeholder="Cari nomor, pelanggan, atau barang…"
+   345→                  aria-label="Cari"
+   346→                  className="pl-9 min-h-[44px]"
+   347→                />
+   348→              </div>
+   349→            </div>
+   350→          </div>
+   351→        </CardContent>
+   352→      </Card>
+   353→
+   354→      {/* Ringkasan */}
+   355→      {loading && !data ? (
+   356→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   357→          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+   358→        </div>
+   359→      ) : s ? (
+   360→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   361→          <Card className="p-0 gap-0">
+   362→            <CardContent className="p-4">
+   363→              <p className="text-xs font-medium text-muted-foreground">Total Penjualan</p>
+   364→              <p className="text-lg md:text-xl font-bold mt-1">{formatIDR(s.totalPenjualan)}</p>
+   365→              <p className="text-[11px] text-muted-foreground mt-1">{s.salesCount} invoice reguler &amp; DP</p>
+   366→            </CardContent>
+   367→          </Card>
+   368→          <Card className="p-0 gap-0">
+   369→            <CardContent className="p-4">
+   370→              <p className="text-xs font-medium text-muted-foreground">Pembayaran Masuk</p>
+   371→              <p className="text-lg md:text-xl font-bold mt-1 text-emerald-700">{formatIDR(s.pembayaranMasuk)}</p>
+   372→              <p className="text-[11px] text-muted-foreground mt-1">
+   373→                DP {formatIDR(s.totalDp)} · Pelunasan {formatIDR(s.totalPelunasan)} · Reguler lunas {formatIDR(s.regulerLunasTotal)}
+   374→              </p>
+   375→            </CardContent>
+   376→          </Card>
+   377→          <Card className="p-0 gap-0">
+   378→            <CardContent className="p-4">
+   379→              <p className="text-xs font-medium text-muted-foreground">Total Piutang</p>
+   380→              <p className="text-lg md:text-xl font-bold mt-1 text-amber-700">{formatIDR(s.totalPiutang)}</p>
+   381→              <p className="text-[11px] text-muted-foreground mt-1">Belum dibayar dari invoice reguler &amp; DP</p>
+   382→            </CardContent>
+   383→          </Card>
+   384→          <Card className="p-0 gap-0">
+   385→            <CardContent className="p-4">
+   386→              <p className="text-xs font-medium text-muted-foreground">Jumlah Invoice</p>
+   387→              <p className="text-lg md:text-xl font-bold mt-1">{s.invoiceCount}</p>
+   388→              <p className="text-[11px] text-muted-foreground mt-1">{s.salesCount} transaksi penjualan</p>
+   389→            </CardContent>
+   390→          </Card>
+   391→        </div>
+   392→      ) : null}
+   393→
+   394→      {/* Peringatan data terpotong */}
+   395→      {data?.truncated && (
+   396→        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" role="alert">
+   397→          Menampilkan 500 invoice terbaru dari {data.summary.invoiceCount} — persempit periode untuk melihat semua.
+   398→        </div>
+   399→      )}
+   400→
+   401→      {/* Daftar invoice */}
+   402→      {loading && !data ? (
+   403→        <Skeleton className="h-72 w-full rounded-xl" />
+   404→      ) : rows.length === 0 ? (
+   405→        <EmptyState />
+   406→      ) : (
+   407→        <>
+   408→          {/* Tabel desktop */}
+   409→          <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+   410→            <div className="max-h-96 overflow-y-auto scrollbar-thin">
+   411→              <Table>
+   412→                <TableHeader className="sticky top-0 z-10 bg-stone-50">
+   413→                  <TableRow className="bg-stone-50 hover:bg-stone-50">
+   414→                    <TableHead className="w-10">No.</TableHead>
+   415→                    <TableHead>Nomor Invoice</TableHead>
+   416→                    <TableHead>Tanggal</TableHead>
+   417→                    <TableHead>Customer</TableHead>
+   418→                    <TableHead>Jenis Invoice</TableHead>
+   419→                    <TableHead className="text-right">Total Penjualan</TableHead>
+   420→                    <TableHead className="text-right">DP</TableHead>
+   421→                    <TableHead className="text-right">Pelunasan</TableHead>
+   422→                    <TableHead className="text-right">Sisa Tagihan</TableHead>
+   423→                    <TableHead>Status</TableHead>
+   424→                    <TableHead>Aksi</TableHead>
+   425→                  </TableRow>
+   426→                </TableHeader>
+   427→                <TableBody>
+   428→                  {rows.map((r, i) => (
+   429→                    <TableRow key={r.id} className={cn(r.status === 'BATAL' && 'opacity-60')}>
+   430→                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+   431→                      <TableCell>
+   432→                        <div className="flex items-center gap-1.5 flex-wrap">
+   433→                          <span className="font-mono text-xs">{r.number}</span>
+   434→                          {r.type !== 'REGULER' && <TypeBadge type={r.type} />}
+   435→                        </div>
+   436→                        {r.type === 'PELUNASAN' && r.parentNumber && (
+   437→                          <p className="text-[11px] text-muted-foreground mt-0.5">untuk {r.parentNumber}</p>
+   438→                        )}
+   439→                      </TableCell>
+   440→                      <TableCell className="whitespace-nowrap">{formatDate(r.date)}</TableCell>
+   441→                      <TableCell className="font-medium max-w-40 truncate">{r.customerName}</TableCell>
+   442→                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{TYPE_LABEL[r.type]}</TableCell>
+   443→                      <TableCell className={cn('text-right whitespace-nowrap', r.type === 'PELUNASAN' && 'text-muted-foreground')}>{r.type === 'PELUNASAN' ? '—' : formatIDR(r.penjualan)}</TableCell>
+   444→                      <TableCell className="text-right whitespace-nowrap">{r.dp > 0 ? formatIDR(r.dp) : '—'}</TableCell>
+   445→                      <TableCell className="text-right whitespace-nowrap">{r.pelunasan > 0 ? formatIDR(r.pelunasan) : '—'}</TableCell>
+   446→                      <TableCell className="text-right whitespace-nowrap">{sisaCell(r)}</TableCell>
+   447→                      <TableCell><StatusBadge status={r.status} dueDate={r.dueDate} /></TableCell>
+   448→                      <TableCell>
+   449→                        <DesktopRowActions
+   450→                          number={r.number}
+   451→                          isAdmin={isAdmin}
+   452→                          onView={() => onNavigate('invoices', { mode: 'detail', invoiceId: r.id })}
+   453→                          onEdit={() => setEditRow(r)}
+   454→                          onPrint={() => setPrintId(r.id)}
+   455→                          onDelete={() => setDeleteRow(r)}
+   456→                        />
+   457→                      </TableCell>
+   458→                    </TableRow>
+   459→                  ))}
+   460→                </TableBody>
+   461→              </Table>
+   462→            </div>
+   463→          </div>
+   464→
+   465→          {/* Kartu mobile */}
+   466→          <div className="md:hidden space-y-3">
+   467→            {rows.map((r) => (
+   468→              <Card key={r.id} className={cn('p-0 gap-0', r.status === 'BATAL' && 'opacity-60')}>
+   469→                <CardContent className="p-4 space-y-2">
+   470→                  <div className="flex items-start justify-between gap-2">
+   471→                    <div className="min-w-0">
+   472→                      <div className="flex items-center gap-1.5 flex-wrap">
+   473→                        <p className="font-mono text-xs font-semibold break-all">{r.number}</p>
+   474→                        {r.type !== 'REGULER' && <TypeBadge type={r.type} />}
+   475→                      </div>
+   476→                      {r.type === 'PELUNASAN' && r.parentNumber && (
+   477→                        <p className="text-[11px] text-muted-foreground mt-0.5">untuk {r.parentNumber}</p>
+   478→                      )}
+   479→                    </div>
+   480→                    <StatusBadge status={r.status} dueDate={r.dueDate} />
+   481→                  </div>
+   482→                  <p className="text-sm">
+   483→                    <span className="text-muted-foreground">{formatDate(r.date)} · </span>
+   484→                    <span className="font-medium">{r.customerName}</span>
+   485→                  </p>
+   486→                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+   487→                    <p className="text-muted-foreground">Penjualan: <span className="font-medium text-stone-700">{r.type === 'PELUNASAN' ? '—' : formatIDR(r.penjualan)}</span></p>
+   488→                    <p className="text-muted-foreground text-right sm:text-left">DP: <span className="font-medium text-stone-700">{r.dp > 0 ? formatIDR(r.dp) : '—'}</span></p>
+   489→                    <p className="text-muted-foreground">Pelunasan: <span className="font-medium text-stone-700">{r.pelunasan > 0 ? formatIDR(r.pelunasan) : '—'}</span></p>
+   490→                    <p className="text-muted-foreground text-right sm:text-left">
+   491→                      Sisa: <span className={cn('font-medium', r.type === 'PELUNASAN' ? 'text-stone-700' : r.sisa > 0 ? 'text-amber-700' : 'text-stone-700')}>
+   492→                        {r.type === 'PELUNASAN' ? '—' : formatIDR(r.sisa)}
+   493→                      </span>
+   494→                    </p>
+   495→                  </div>
+   496→                  <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
+   497→                    <Button
+   498→                      variant="outline"
+   499→                      className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
+   500→                      onClick={() => onNavigate('invoices', { mode: 'detail', invoiceId: r.id })}
+   501→                    >
+   502→                      <Eye className="h-3.5 w-3.5" /> Detail
+   503→                    </Button>
+   504→                    <Button
+   505→                      variant="outline"
+   506→                      className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
+   507→                      onClick={() => setEditRow(r)}
+   508→                    >
+   509→                      <Pencil className="h-3.5 w-3.5" /> Edit
+   510→                    </Button>
+   511→                    <Button
+   512→                      variant="outline"
+   513→                      className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
+   514→                      onClick={() => setPrintId(r.id)}
+   515→                    >
+   516→                      <Printer className="h-3.5 w-3.5" /> Print
+   517→                    </Button>
+   518→                    {isAdmin && (
+   519→                      <Button
+   520→                        variant="outline"
+   521→                        className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
+   522→                        onClick={() => setDeleteRow(r)}
+   523→                      >
+   524→                        <Trash2 className="h-3.5 w-3.5" /> Hapus
+   525→                      </Button>
+   526→                    )}
+   527→                  </div>
+   528→                </CardContent>
+   529→              </Card>
+   530→            ))}
+   531→          </div>
+   532→
+   533→          <p className="text-xs text-muted-foreground">
+   534→            Penjualan dihitung dari invoice Reguler &amp; DP. Invoice pelunasan adalah pembayaran, tidak dihitung dua kali.
+   535→          </p>
+   536→        </>
+   537→      )}
+   538→
+   539→      {/* Dialog edit invoice */}
+   540→      <Dialog open={editRow !== null} onOpenChange={(o) => { if (!o) setEditRow(null) }}>
+   541→        <DialogContent className="sm:max-w-md">
+   542→          <DialogHeader>
+   543→            <DialogTitle>Edit Invoice</DialogTitle>
+   544→            <DialogDescription>
+   545→              Perbarui data {editRow?.number}. Nomor, pelanggan, dan rincian barang tidak dapat diubah di sini.
+   546→            </DialogDescription>
+   547→          </DialogHeader>
+   548→          <div className="space-y-3">
+   549→            <div className="grid gap-1.5">
+   550→              <Label htmlFor="edit-date">Tanggal</Label>
+   551→              <Input
+   552→                id="edit-date"
+   553→                type="date"
+   554→                value={editDate}
+   555→                onChange={(e) => setEditDate(e.target.value)}
+   556→                className="min-h-[44px]"
+   557→              />
+   558→            </div>
+   559→            <div className="grid gap-1.5">
+   560→              <Label htmlFor="edit-status">Status Pembayaran</Label>
+   561→              <Select value={editStatus} onValueChange={(v) => setEditStatus(v as InvoiceStatus)}>
+   562→                <SelectTrigger id="edit-status" aria-label="Status pembayaran" className="w-full min-h-[44px]">
+   563→                  <SelectValue />
+   564→                </SelectTrigger>
+   565→                <SelectContent>
+   566→                  {(Object.keys(STATUS_LABEL) as InvoiceStatus[]).map((st) => (
+   567→                    <SelectItem key={st} value={st}>{STATUS_LABEL[st]}</SelectItem>
+   568→                  ))}
+   569→                </SelectContent>
+   570→              </Select>
+   571→            </div>
+   572→            <div className="grid gap-1.5">
+   573→              <Label htmlFor="edit-due">Jatuh Tempo</Label>
+   574→              <Input
+   575→                id="edit-due"
+   576→                type="date"
+   577→                value={editDueDate}
+   578→                onChange={(e) => setEditDueDate(e.target.value)}
+   579→                aria-label="Jatuh tempo"
+   580→                className="min-h-[44px]"
+   581→              />
+   582→              <p className="text-[11px] text-muted-foreground">Kosongkan jika tidak ada jatuh tempo.</p>
+   583→            </div>
+   584→            <div className="grid gap-1.5">
+   585→              <Label htmlFor="edit-notes">Catatan</Label>
+   586→              <Textarea
+   587→                id="edit-notes"
+   588→                value={editNotes}
+   589→                onChange={(e) => setEditNotes(e.target.value)}
+   590→                rows={3}
+   591→                placeholder="Catatan invoice (opsional)"
+   592→              />
+   593→            </div>
+   594→          </div>
+   595→          <DialogFooter>
+   596→            <Button variant="outline" onClick={() => setEditRow(null)} disabled={saving}>Batal</Button>
+   597→            <Button
+   598→              onClick={() => void saveEdit()}
+   599→              disabled={saving}
+   600→              className="bg-emerald-600 hover:bg-emerald-700"
+   601→            >
+   602→              {saving ? 'Menyimpan…' : 'Simpan'}
+   603→            </Button>
+   604→          </DialogFooter>
+   605→        </DialogContent>
+   606→      </Dialog>
+   607→
+   608→      {/* Dialog hapus invoice */}
+   609→      <AlertDialog open={deleteRow !== null} onOpenChange={(o) => { if (!o) setDeleteRow(null) }}>
+   610→        <AlertDialogContent>
+   611→          <AlertDialogHeader>
+   612→            <AlertDialogTitle>Hapus {deleteRow?.number}?</AlertDialogTitle>
+   613→            <AlertDialogDescription>
+   614→              Invoice akan dihapus permanen beserta seluruh rinciannya dan laporan otomatis diperbarui.
+   615→              Invoice DP yang sudah memiliki pelunasan akan ditolak server — hapus invoice pelunasannya terlebih dahulu.
+   616→            </AlertDialogDescription>
+   617→          </AlertDialogHeader>
+   618→          <AlertDialogFooter>
+   619→            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+   620→            <AlertDialogAction
+   621→              disabled={deleting}
+   622→              className="bg-destructive text-white hover:bg-destructive/90"
+   623→              onClick={(e) => { e.preventDefault(); void confirmDelete() }}
+   624→            >
+   625→              {deleting ? 'Menghapus…' : 'Hapus'}
+   626→            </AlertDialogAction>
+   627→          </AlertDialogFooter>
+   628→        </AlertDialogContent>
+   629→      </AlertDialog>
+   630→
+   631→      {/* Dialog cetak invoice per baris — saat terbuka, satu-satunya #print-area adalah Card di dalam dialog */}
+   632→      <Dialog open={printId !== null} onOpenChange={(o) => { if (!o) closePrintDialog() }}>
+   633→        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+   634→          <DialogHeader className="sr-only">
+   635→            <DialogTitle>Cetak Invoice</DialogTitle>
+   636→            <DialogDescription>Pratinjau invoice sebelum dicetak</DialogDescription>
+   637→          </DialogHeader>
+   638→          {printInv ? (
+   639→            <Card id="print-area" className="p-0 gap-0">
+   640→              <CardContent className="p-5 md:p-8">
+   641→                <InvoicePrintBody inv={printInv} />
+   642→              </CardContent>
+   643→            </Card>
+   644→          ) : (
+   645→            <Skeleton className="h-96 w-full" />
+   646→          )}
+   647→          <DialogFooter>
+   648→            <Button variant="outline" onClick={closePrintDialog}>Tutup</Button>
+   649→            <Button
+   650→              onClick={() => window.print()}
+   651→              disabled={!printInv}
+   652→              className="bg-emerald-600 hover:bg-emerald-700"
+   653→              aria-label="Cetak invoice"
+   654→            >
+   655→              <Printer className="h-4 w-4" /> Cetak
+   656→            </Button>
+   657→          </DialogFooter>
+   658→        </DialogContent>
+   659→      </Dialog>
+   660→
+   661→      {/* ===== Template cetak laporan (terlihat di layar; tidak dirender saat dialog cetak invoice terbuka) ===== */}
+   662→      {!printId && (
+   663→        <Card id="print-area" className="p-0 gap-0 shadow-sm">
+   664→          <CardContent className="p-5 md:p-8">
+   665→            <ReportKop title="LAPORAN PENJUALAN" period={periodLabel} />
+   666→
+   667→            {/* Ringkasan cetak */}
+   668→            {s && (
+   669→              <div className="py-5 border-b border-stone-200 space-y-1.5 text-sm max-w-md">
+   670→                <div className="flex items-start justify-between gap-3">
+   671→                  <div>
+   672→                    <p>Total Penjualan</p>
+   673→                    <p className="text-[11px] text-muted-foreground">{s.salesCount} invoice reguler &amp; DP</p>
+   674→                  </div>
+   675→                  <p className="font-semibold text-right whitespace-nowrap">{formatIDR(s.totalPenjualan)}</p>
+   676→                </div>
+   677→                <div className="flex items-start justify-between gap-3">
+   678→                  <div>
+   679→                    <p>Total Pembayaran Masuk</p>
+   680→                    <p className="text-[11px] text-muted-foreground">
+   681→                      DP {formatIDR(s.totalDp)} · Pelunasan {formatIDR(s.totalPelunasan)} · Reguler lunas {formatIDR(s.regulerLunasTotal)}
+   682→                    </p>
+   683→                  </div>
+   684→                  <p className="font-semibold text-right whitespace-nowrap">{formatIDR(s.pembayaranMasuk)}</p>
+   685→                </div>
+   686→                <div className="flex items-start justify-between gap-3">
+   687→                  <div>
+   688→                    <p>Total Piutang</p>
+   689→                    <p className="text-[11px] text-muted-foreground">Belum dibayar dari invoice reguler &amp; DP</p>
+   690→                  </div>
+   691→                  <p className="font-semibold text-right whitespace-nowrap text-amber-700">{formatIDR(s.totalPiutang)}</p>
+   692→                </div>
+   693→                <div className="flex items-start justify-between gap-3">
+   694→                  <div>
+   695→                    <p>Jumlah Invoice</p>
+   696→                    <p className="text-[11px] text-muted-foreground">{s.salesCount} transaksi penjualan</p>
+   697→                  </div>
+   698→                  <p className="font-semibold text-right whitespace-nowrap">{s.invoiceCount}</p>
+   699→                </div>
+   700→              </div>
+   701→            )}
+   702→
+   703→            {/* Tabel ringkas cetak */}
+   704→            <div className="py-5">
+   705→              {rows.length === 0 ? (
+   706→                <p className="text-sm text-muted-foreground">Tidak ada invoice pada periode ini.</p>
+   707→              ) : (
+   708→                <Table>
+   709→                  <TableHeader>
+   710→                    <TableRow>
+   711→                      <TableHead className="text-xs">Nomor Invoice</TableHead>
+   712→                      <TableHead className="text-xs">Tanggal</TableHead>
+   713→                      <TableHead className="text-xs">Pelanggan</TableHead>
+   714→                      <TableHead className="text-xs">Tipe</TableHead>
+   715→                      <TableHead className="text-xs text-right">Penjualan</TableHead>
+   716→                      <TableHead className="text-xs text-right">DP</TableHead>
+   717→                      <TableHead className="text-xs text-right">Pelunasan</TableHead>
+   718→                      <TableHead className="text-xs text-right">Sisa</TableHead>
+   719→                      <TableHead className="text-xs">Status</TableHead>
+   720→                    </TableRow>
+   721→                  </TableHeader>
+   722→                  <TableBody>
+   723→                    {rows.map((r) => (
+   724→                      <TableRow key={r.id}>
+   725→                        <TableCell className="text-xs font-mono py-1.5">
+   726→                          {r.number}
+   727→                          {r.type === 'PELUNASAN' && r.parentNumber && (
+   728→                            <span className="block text-[10px] text-muted-foreground">untuk {r.parentNumber}</span>
+   729→                          )}
+   730→                        </TableCell>
+   731→                        <TableCell className="text-xs py-1.5 whitespace-nowrap">{formatDate(r.date)}</TableCell>
+   732→                        <TableCell className="text-xs py-1.5">{r.customerName}</TableCell>
+   733→                        <TableCell className="text-xs py-1.5">{TYPE_LABEL[r.type]}</TableCell>
+   734→                        <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">{r.type === 'PELUNASAN' ? '—' : formatIDR(r.penjualan)}</TableCell>
+   735→                        <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">{r.dp > 0 ? formatIDR(r.dp) : '—'}</TableCell>
+   736→                        <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">{r.pelunasan > 0 ? formatIDR(r.pelunasan) : '—'}</TableCell>
+   737→                        <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">{r.type === 'PELUNASAN' ? '—' : formatIDR(r.sisa)}</TableCell>
+   738→                        <TableCell className="text-xs py-1.5 whitespace-nowrap">{STATUS_LABEL[r.status]}</TableCell>
+   739→                      </TableRow>
+   740→                    ))}
+   741→                  </TableBody>
+   742→                </Table>
+   743→              )}
+   744→            </div>
+   745→
+   746→            <p className="text-[11px] text-muted-foreground">
+   747→              Penjualan dihitung dari invoice Reguler &amp; DP. Invoice pelunasan adalah pembayaran, tidak dihitung dua kali.
+   748→            </p>
+   749→
+   750→            <ReportSignature userName={user.name} />
+   751→          </CardContent>
+   752→        </Card>
+   753→      )}
+   754→    </div>
+   755→  )
+   756→}
+   757→
+   758→/** Tombol aksi baris (desktop): ikon kecil ghost — Lihat | Edit | Print | (Hapus, ADMIN saja) */
+   759→function DesktopRowActions({
+   760→  number,
+   761→  isAdmin,
+   762→  onView,
+   763→  onEdit,
+   764→  onPrint,
+   765→  onDelete,
+   766→}: {
+   767→  number: string
+   768→  isAdmin: boolean
+   769→  onView: () => void
+   770→  onEdit: () => void
+   771→  onPrint: () => void
+   772→  onDelete: () => void
+   773→}) {
+   774→  const cls = 'min-h-[36px] h-8 w-8'
+   775→  return (
+   776→    <div className="flex gap-0.5">
+   777→      <Button
+   778→        variant="ghost"
+   779→        size="icon"
+   780→        className={cls}
+   781→        title="Lihat"
+   782→        aria-label={`Lihat invoice ${number}`}
+   783→        onClick={onView}
+   784→      >
+   785→        <Eye className="h-4 w-4" />
+   786→      </Button>
+   787→      <Button
+   788→        variant="ghost"
+   789→        size="icon"
+   790→        className={cls}
+   791→        title="Edit"
+   792→        aria-label={`Edit invoice ${number}`}
+   793→        onClick={onEdit}
+   794→      >
+   795→        <Pencil className="h-4 w-4" />
+   796→      </Button>
+   797→      <Button
+   798→        variant="ghost"
+   799→        size="icon"
+   800→        className={cls}
+   801→        title="Print"
+   802→        aria-label={`Cetak invoice ${number}`}
+   803→        onClick={onPrint}
+   804→      >
+   805→        <Printer className="h-4 w-4" />
+   806→      </Button>
+   807→      {isAdmin && (
+   808→        <Button
+   809→          variant="ghost"
+   810→          size="icon"
+   811→          className={cn(cls, 'text-destructive hover:text-destructive')}
+   812→          title="Hapus"
+   813→          aria-label={`Hapus invoice ${number}`}
+   814→          onClick={onDelete}
+   815→        >
+   816→          <Trash2 className="h-4 w-4" />
+   817→        </Button>
+   818→      )}
+   819→    </div>
+   820→  )
+   821→}
+   822→
+   823→function EmptyState() {
+   824→  return (
+   825→    <div className="rounded-xl border border-dashed border-stone-300 bg-white text-center py-12 px-4">
+   826→      <BarChart3 className="h-10 w-10 text-stone-300 mx-auto mb-2" aria-hidden="true" />
+   827→      <p className="text-sm font-medium">Tidak ada invoice pada periode ini.</p>
+   828→      <p className="text-xs text-muted-foreground mt-1">Coba ubah filter periode, status, atau kata kunci pencarian.</p>
+   829→    </div>
+   830→  )
+   831→}
+   832→

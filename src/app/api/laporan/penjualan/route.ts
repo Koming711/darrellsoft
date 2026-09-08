@@ -10,8 +10,17 @@ import { sanitizeError } from '@/lib/api-error'
  * (docType 'invoice-pelunasan') TIDAK dihitung terpisah — DP + pelunasan dari
  * transaksi yang sama dihitung sebagai satu transaksi (anti double counting).
  *
- * Query: q (nomor/customer/nama barang), customer, status (all|lunas|belum),
+ * Query: q (nomor/customer/nama barang), customer, status (all|lunas|belum|batal),
  *        start, end (YYYY-MM-DD, filter pada tanggal dokumen)
+ *
+ * Perubahan ADDITIF (paritas arsip Task 2-a):
+ * - dataJson.batal === true → status 'batal' (prioritas tertinggi), badge/opacity di UI.
+ * - Invoice batal TIDAK dihitung ke ringkasan (total penjualan/pembayaran/piutang)
+ *   — keputusan paritas: invoice batal bukan penjualan.
+ * - Summary field baru: totalDp, totalPelunasan, regulerLunasTotal, jumlahTransaksi.
+ * - Response field baru: truncated + totalCount (peringatan data terpotong gaya arsip).
+ *   Field existing (rows[].*, summary.totalPenjualan/pembayaranMasuk/piutang/jumlahInvoice)
+ *   TIDAK diubah untuk data non-batal.
  */
 
 interface ParsedItem { deskripsi?: string; qty?: number; harga?: number; modal?: number }
@@ -53,17 +62,24 @@ export async function GET(request: NextRequest) {
     const start = (searchParams.get('start') || '').trim()
     const end = (searchParams.get('end') || '').trim()
 
+    const dataWhere = { docType: 'invoice', deletedAt: null, ...dataFilter }
     const rows = await db.documentHistory.findMany({
-      where: { docType: 'invoice', deletedAt: null, ...dataFilter },
+      where: dataWhere,
       orderBy: { createdAt: 'desc' },
       take: 2000,
     })
+    // Total dokumen live (tanpa take) — untuk peringatan data terpotong (additif)
+    const totalCount = await db.documentHistory.count({ where: dataWhere })
 
     const todayStr = new Date().toISOString().slice(0, 10)
 
     let totalPenjualan = 0
     let pembayaranMasuk = 0
     let piutang = 0
+    let totalDp = 0
+    let totalPelunasan = 0
+    let regulerLunasTotal = 0
+    let jumlahTransaksi = 0
 
     const sales = [] as Array<Record<string, unknown>>
 
@@ -82,8 +98,10 @@ export async function GET(request: NextRequest) {
       const custName = r.pihakKedua || (typeof parsed.client === 'object' && parsed.client ? String((parsed.client as { nama?: string }).nama || '') : '')
       const jenis = (Number(parsed.dp) || 0) > 0 ? 'DP' : 'Reguler'
       const due = typeof parsed.tanggalJatuhTempo === 'string' ? parsed.tanggalJatuhTempo : ''
-      let status: 'lunas' | 'jatuh_tempo' | 'dp' | 'belum' = 'belum'
-      if (m.lunas) status = 'lunas'
+      const batal = parsed.batal === true
+      let status: 'lunas' | 'jatuh_tempo' | 'dp' | 'belum' | 'batal' = 'belum'
+      if (batal) status = 'batal'
+      else if (m.lunas) status = 'lunas'
       else if (due && due < todayStr && m.sisa > 0) status = 'jatuh_tempo'
       else if ((Number(parsed.dp) || 0) > 0) status = 'dp'
 
@@ -96,11 +114,19 @@ export async function GET(request: NextRequest) {
       }
       if (customer && custName.toLowerCase() !== customer) continue
       if (statusFilter === 'lunas' && status !== 'lunas') continue
-      if (statusFilter === 'belum' && status === 'lunas') continue
+      if (statusFilter === 'belum' && (status === 'lunas' || status === 'batal')) continue
+      if (statusFilter === 'batal' && status !== 'batal') continue
 
-      totalPenjualan += m.total
-      pembayaranMasuk += m.uangMasuk
-      piutang += m.sisa
+      // Invoice batal tidak dihitung ke ringkasan (bukan penjualan)
+      if (!batal) {
+        totalPenjualan += m.total
+        pembayaranMasuk += m.uangMasuk
+        piutang += m.sisa
+        totalDp += m.dpAmount
+        totalPelunasan += m.pelunasan
+        if (jenis === 'Reguler' && m.lunas) regulerLunasTotal += m.total
+        jumlahTransaksi += 1
+      }
 
       sales.push({
         id: r.id,
@@ -126,11 +152,18 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       rows: sales,
+      truncated: totalCount > 2000,
+      totalCount,
       summary: {
         totalPenjualan,
         pembayaranMasuk,
         piutang,
         jumlahInvoice: sales.length,
+        // Field additif untuk caption kartu gaya arsip
+        totalDp,
+        totalPelunasan,
+        regulerLunasTotal,
+        jumlahTransaksi,
       },
     }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
   } catch (error) {

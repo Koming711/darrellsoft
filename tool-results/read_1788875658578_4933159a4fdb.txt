@@ -1,0 +1,673 @@
+     1→'use client'
+     2→
+     3→import { useCallback, useEffect, useMemo, useState } from 'react'
+     4→import { AlertTriangle, ChevronRight, FileDown, Printer, ReceiptText, Scale } from 'lucide-react'
+     5→import { toast } from 'sonner'
+     6→import { apiFetch } from '@/lib/client'
+     7→import { formatDate, formatIDR, formatNum, toInputDate } from '@/lib/format'
+     8→import {
+     9→  type InvoiceIntent,
+    10→  type ProfitReportResponse,
+    11→  type ReportPeriod,
+    12→  type SessionUser,
+    13→  type ViewKey,
+    14→} from '@/lib/types'
+    15→import { cn } from '@/lib/utils'
+    16→import { Badge } from '@/components/ui/badge'
+    17→import { Button } from '@/components/ui/button'
+    18→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    19→import { Separator } from '@/components/ui/separator'
+    20→import { Skeleton } from '@/components/ui/skeleton'
+    21→import {
+    22→  Table,
+    23→  TableBody,
+    24→  TableCell,
+    25→  TableHead,
+    26→  TableHeader,
+    27→  TableRow,
+    28→} from '@/components/ui/table'
+    29→import {
+    30→  PeriodFilter,
+    31→  periodText,
+    32→  ReportKop,
+    33→  ReportSignature,
+    34→  useReportPrint,
+    35→} from '@/components/views/report-shared'
+    36→
+    37→function errText(e: unknown): string {
+    38→  return e instanceof Error ? e.message : 'Terjadi kesalahan'
+    39→}
+    40→
+    41→function MissingBadge() {
+    42→  return (
+    43→    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[11px] shrink-0">
+    44→      Belum diisi
+    45→    </Badge>
+    46→  )
+    47→}
+    48→
+    49→/** Badge kategori biaya (outline stone). */
+    50→function CategoryBadge({ label }: { label: string }) {
+    51→  return (
+    52→    <Badge variant="outline" className="bg-stone-50 text-stone-600 border-stone-200 text-[11px] shrink-0">
+    53→      {label}
+    54→    </Badge>
+    55→  )
+    56→}
+    57→
+    58→/** Satu baris ringkasan bertingkat (label+kiri, nilai+kanan). */
+    59→function ProfitLine({
+    60→  label,
+    61→  caption,
+    62→  value,
+    63→  valueClass,
+    64→  big,
+    65→}: {
+    66→  label: string
+    67→  caption?: string
+    68→  value: string
+    69→  valueClass?: string
+    70→  big?: boolean
+    71→}) {
+    72→  return (
+    73→    <div className="flex items-start justify-between gap-3">
+    74→      <div>
+    75→        <p className={cn('text-sm', big && 'font-semibold')}>{label}</p>
+    76→        {caption && <p className="text-[11px] text-muted-foreground">{caption}</p>}
+    77→      </div>
+    78→      <p
+    79→        className={cn(
+    80→          'font-semibold text-right whitespace-nowrap',
+    81→          big ? 'text-xl md:text-2xl font-bold' : 'text-sm',
+    82→          valueClass
+    83→        )}
+    84→      >
+    85→        {value}
+    86→      </p>
+    87→    </div>
+    88→  )
+    89→}
+    90→
+    91→interface ReportProfitViewProps {
+    92→  user: SessionUser
+    93→  onNavigate: (v: ViewKey, intent?: InvoiceIntent) => void
+    94→}
+    95→
+    96→export default function ReportProfitView({ user, onNavigate }: ReportProfitViewProps) {
+    97→  const [now] = useState(() => new Date())
+    98→  const [period, setPeriod] = useState<ReportPeriod>('month')
+    99→  const [month, setMonth] = useState<number | null>(now.getMonth() + 1)
+   100→  const [year, setYear] = useState<number | null>(now.getFullYear())
+   101→  const [from, setFrom] = useState<string>(() => toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)))
+   102→  const [to, setTo] = useState<string>(() => toInputDate(now))
+   103→  const [data, setData] = useState<ProfitReportResponse | null>(null)
+   104→  const [loading, setLoading] = useState(true)
+   105→
+   106→  const { print, savePdf } = useReportPrint()
+   107→
+   108→  // period dikirim langsung ke API (API mendukung today/week/month/year/all);
+   109→  // hanya mode 'date' yang mengirim from&to.
+   110→  const query = useMemo(() => {
+   111→    const p = new URLSearchParams()
+   112→    p.set('period', period)
+   113→    if (period === 'date') {
+   114→      if (from) p.set('from', from)
+   115→      if (to) p.set('to', to)
+   116→    }
+   117→    if (period === 'month') {
+   118→      p.set('month', String(month ?? now.getMonth() + 1))
+   119→      p.set('year', String(year ?? now.getFullYear()))
+   120→    }
+   121→    if (period === 'year') {
+   122→      p.set('year', String(year ?? now.getFullYear()))
+   123→    }
+   124→    return p.toString()
+   125→  }, [period, from, to, month, year, now])
+   126→
+   127→  const load = useCallback(async () => {
+   128→    setLoading(true)
+   129→    try {
+   130→      const d = await apiFetch<ProfitReportResponse>(`/api/reports/profit?${query}`)
+   131→      setData(d)
+   132→    } catch (e) {
+   133→      toast.error(errText(e))
+   134→    } finally {
+   135→      setLoading(false)
+   136→    }
+   137→  }, [query])
+   138→
+   139→  useEffect(() => {
+   140→    void load()
+   141→  }, [load])
+   142→
+   143→  const t = data?.totals
+   144→  const expenses = data?.expenses ?? []
+   145→  const items = data?.items ?? []
+   146→  const lines = data?.lines ?? []
+   147→  const periodLabel = periodText(period, from, to, month, year)
+   148→  const netLoss = t != null && t.labaBersih < 0
+   149→
+   150→  return (
+   151→    <div className="space-y-5">
+   152→      {/* Header */}
+   153→      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+   154→        <div>
+   155→          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Laporan Rugi Laba</h1>
+   156→          <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
+   157→        </div>
+   158→        <div className="flex gap-2">
+   159→          <Button
+   160→            variant="outline"
+   161→            onClick={print}
+   162→            className="min-h-[44px] flex-1 sm:flex-none"
+   163→            aria-label="Cetak laporan rugi laba"
+   164→          >
+   165→            <Printer className="h-4 w-4" /> Print
+   166→          </Button>
+   167→          <Button
+   168→            variant="outline"
+   169→            onClick={savePdf}
+   170→            className="min-h-[44px] flex-1 sm:flex-none"
+   171→            aria-label="Simpan laporan rugi laba sebagai PDF"
+   172→          >
+   173→            <FileDown className="h-4 w-4" /> Simpan sebagai PDF
+   174→          </Button>
+   175→        </div>
+   176→      </div>
+   177→
+   178→      {/* Filter */}
+   179→      <Card className="p-0 gap-0">
+   180→        <CardContent className="p-4">
+   181→          <PeriodFilter
+   182→            period={period}
+   183→            onChangePeriod={setPeriod}
+   184→            from={from}
+   185→            to={to}
+   186→            onFromChange={setFrom}
+   187→            onToChange={setTo}
+   188→            month={month}
+   189→            onMonthChange={setMonth}
+   190→            year={year}
+   191→            onYearChange={setYear}
+   192→          />
+   193→        </CardContent>
+   194→      </Card>
+   195→
+   196→      {loading && !data ? (
+   197→        <div className="grid gap-3 md:grid-cols-2">
+   198→          <Skeleton className="h-64 w-full rounded-xl" />
+   199→          <Skeleton className="h-64 w-full rounded-xl" />
+   200→        </div>
+   201→      ) : t ? (
+   202→        <>
+   203→          {/* Ringkasan rugi laba */}
+   204→          <Card className="p-0 gap-0">
+   205→            <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3">
+   206→              <CardTitle className="text-sm md:text-base">Rugi Laba</CardTitle>
+   207→            </CardHeader>
+   208→            <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-3">
+   209→              <ProfitLine
+   210→                label="Total Penjualan"
+   211→                caption={`Invoice reguler & DP non-batal · ${t.invoiceCount} invoice`}
+   212→                value={formatIDR(t.penjualan)}
+   213→              />
+   214→              <ProfitLine
+   215→                label="Total Modal"
+   216→                caption="Harga pokok dari item dengan modal terisi"
+   217→                value={formatIDR(t.modal)}
+   218→              />
+   219→              <ProfitLine
+   220→                label="Laba Kotor"
+   221→                caption="Penjualan − modal (harga pokok)"
+   222→                value={formatIDR(t.labaKotor)}
+   223→                valueClass="text-emerald-700"
+   224→              />
+   225→              <ProfitLine
+   226→                label="Biaya Operasional"
+   227→                caption={expenses.length > 0 ? `${expenses.length} catatan biaya` : 'Belum ada biaya'}
+   228→                value={formatIDR(t.biayaOperasional)}
+   229→              />
+   230→              <Separator />
+   231→              <ProfitLine
+   232→                label="Laba Bersih"
+   233→                caption="Laba kotor − biaya operasional"
+   234→                value={formatIDR(t.labaBersih)}
+   235→                valueClass={netLoss ? 'text-red-600' : 'text-emerald-700'}
+   236→                big
+   237→              />
+   238→            </CardContent>
+   239→          </Card>
+   240→
+   241→          {/* Peringatan modal belum diisi */}
+   242→          {t.uncountedCount > 0 && (
+   243→            <Card className="p-0 gap-0 border-amber-200 bg-amber-50">
+   244→              <CardContent className="p-4 space-y-2">
+   245→                <p className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+   246→                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+   247→                  Modal belum diisi
+   248→                </p>
+   249→                <p className="text-sm text-amber-800">
+   250→                  Modal belum diisi — {t.uncountedCount} baris item (penjualan {formatIDR(t.uncountedPenjualan)}) tidak
+   251→                  diikutkan dalam perhitungan laba karena harga modal belum diisi.
+   252→                </p>
+   253→                <ul className="text-xs text-amber-700 space-y-0.5 list-disc list-inside">
+   254→                  {data.uncounted.slice(0, 10).map((u, i) => (
+   255→                    <li key={`${u.invoiceNumber}-${i}`}>
+   256→                      {u.invoiceNumber} — {u.description}: {formatIDR(u.lineTotal)}
+   257→                    </li>
+   258→                  ))}
+   259→                </ul>
+   260→                <p className="text-xs text-amber-700">Lengkapi HPP di menu Barang agar laba akurat.</p>
+   261→              </CardContent>
+   262→            </Card>
+   263→          )}
+   264→
+   265→          {/* Biaya operasional (read-only — CRUD di menu Biaya Operasional) */}
+   266→          <Card className="p-0 gap-0">
+   267→            <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3">
+   268→              <CardTitle className="text-sm md:text-base">Biaya Operasional ({expenses.length} catatan)</CardTitle>
+   269→            </CardHeader>
+   270→            <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
+   271→              {expenses.length === 0 ? (
+   272→                <p className="text-sm text-muted-foreground">Belum ada biaya operasional pada periode ini.</p>
+   273→              ) : (
+   274→                <>
+   275→                  {/* Desktop */}
+   276→                  <div className="hidden md:block rounded-xl border border-stone-200 overflow-hidden">
+   277→                    <div className="max-h-64 overflow-y-auto scrollbar-thin">
+   278→                      <Table>
+   279→                        <TableHeader className="sticky top-0 z-10 bg-stone-50">
+   280→                          <TableRow className="bg-stone-50 hover:bg-stone-50">
+   281→                            <TableHead>Tanggal</TableHead>
+   282→                            <TableHead>Nama</TableHead>
+   283→                            <TableHead>Kategori</TableHead>
+   284→                            <TableHead className="text-right">Nominal</TableHead>
+   285→                          </TableRow>
+   286→                        </TableHeader>
+   287→                        <TableBody>
+   288→                          {expenses.map((x) => (
+   289→                            <TableRow key={x.id}>
+   290→                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(x.date)}</TableCell>
+   291→                              <TableCell className="font-medium">{x.description}</TableCell>
+   292→                              <TableCell><CategoryBadge label={x.category} /></TableCell>
+   293→                              <TableCell className="text-right whitespace-nowrap">{formatIDR(x.amount)}</TableCell>
+   294→                            </TableRow>
+   295→                          ))}
+   296→                        </TableBody>
+   297→                      </Table>
+   298→                    </div>
+   299→                  </div>
+   300→
+   301→                  {/* Mobile */}
+   302→                  <ul className="md:hidden divide-y divide-stone-100 max-h-64 overflow-y-auto scrollbar-thin rounded-xl border border-stone-200">
+   303→                    {expenses.map((x) => (
+   304→                      <li key={x.id} className="flex items-start justify-between gap-2 p-3">
+   305→                        <div className="min-w-0">
+   306→                          <p className="text-sm font-medium">{x.description}</p>
+   307→                          <p className="text-xs text-muted-foreground">{formatDate(x.date)} · {x.category}</p>
+   308→                        </div>
+   309→                        <p className="text-sm font-semibold whitespace-nowrap">{formatIDR(x.amount)}</p>
+   310→                      </li>
+   311→                    ))}
+   312→                  </ul>
+   313→                </>
+   314→              )}
+   315→
+   316→              {/* Total biaya */}
+   317→              <div className="flex justify-between gap-3 text-sm font-semibold border-t border-stone-200 pt-2">
+   318→                <span>Total Biaya Operasional</span>
+   319→                <span className="whitespace-nowrap">{formatIDR(t.biayaOperasional)}</span>
+   320→              </div>
+   321→
+   322→              {/* Hint ke menu Biaya Operasional */}
+   323→              <div className="flex flex-wrap items-center justify-between gap-2">
+   324→                <p className="text-xs text-muted-foreground">Kelola catatan biaya di menu Biaya Operasional.</p>
+   325→                <Button
+   326→                  variant="ghost"
+   327→                  size="sm"
+   328→                  className="h-8 text-emerald-700 hover:text-emerald-800"
+   329→                  onClick={() => onNavigate('expenses')}
+   330→                >
+   331→                  Buka menu Biaya Operasional <ChevronRight className="h-4 w-4" />
+   332→                </Button>
+   333→              </div>
+   334→            </CardContent>
+   335→          </Card>
+   336→
+   337→          {/* Rincian per barang */}
+   338→          <Card className="p-0 gap-0">
+   339→            <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3">
+   340→              <CardTitle className="text-sm md:text-base">Rincian per Barang</CardTitle>
+   341→            </CardHeader>
+   342→            <CardContent className="px-4 md:px-6 pb-4 md:pb-6">
+   343→              {items.length === 0 ? (
+   344→                <div className="text-center py-10">
+   345→                  <Scale className="h-10 w-10 text-stone-300 mx-auto mb-2" aria-hidden="true" />
+   346→                  <p className="text-sm font-medium">Tidak ada penjualan pada periode ini.</p>
+   347→                  <p className="text-xs text-muted-foreground mt-1">Rincian per barang muncul setelah ada invoice.</p>
+   348→                </div>
+   349→              ) : (
+   350→                <>
+   351→                  {/* Desktop */}
+   352→                  <div className="hidden md:block rounded-xl border border-stone-200 overflow-hidden">
+   353→                    <div className="max-h-96 overflow-auto scrollbar-thin">
+   354→                      <Table>
+   355→                        <TableHeader className="sticky top-0 z-10 bg-stone-50">
+   356→                          <TableRow className="bg-stone-50 hover:bg-stone-50">
+   357→                            <TableHead>Nama</TableHead>
+   358→                            <TableHead className="text-right">Qty</TableHead>
+   359→                            <TableHead className="text-right">Penjualan</TableHead>
+   360→                            <TableHead className="text-right">Modal</TableHead>
+   361→                            <TableHead className="text-right">Laba</TableHead>
+   362→                          </TableRow>
+   363→                        </TableHeader>
+   364→                        <TableBody>
+   365→                          {items.map((it) => (
+   366→                            <TableRow key={it.key}>
+   367→                              <TableCell className="font-medium">{it.name}</TableCell>
+   368→                              <TableCell className="text-right whitespace-nowrap">{formatNum(it.qty)}</TableCell>
+   369→                              <TableCell className="text-right whitespace-nowrap">{formatIDR(it.penjualan)}</TableCell>
+   370→                              <TableCell className="text-right whitespace-nowrap">
+   371→                                {it.modalMissing ? <MissingBadge /> : formatIDR(it.modal)}
+   372→                              </TableCell>
+   373→                              <TableCell className="text-right whitespace-nowrap">
+   374→                                {it.modalMissing ? (
+   375→                                  <MissingBadge />
+   376→                                ) : (
+   377→                                  <span className="text-emerald-700 font-medium">{formatIDR(it.laba ?? 0)}</span>
+   378→                                )}
+   379→                              </TableCell>
+   380→                            </TableRow>
+   381→                          ))}
+   382→                        </TableBody>
+   383→                      </Table>
+   384→                    </div>
+   385→                  </div>
+   386→
+   387→                  {/* Mobile */}
+   388→                  <div className="md:hidden space-y-3">
+   389→                    {items.map((it) => (
+   390→                      <Card key={it.key} className="p-0 gap-0">
+   391→                        <CardContent className="p-4 space-y-2">
+   392→                          <div className="flex items-start justify-between gap-2">
+   393→                            <p className="font-medium min-w-0 break-words">{it.name}</p>
+   394→                            <p className="text-xs text-muted-foreground shrink-0">Qty {formatNum(it.qty)}</p>
+   395→                          </div>
+   396→                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+   397→                            <p className="text-muted-foreground">Penjualan: <span className="font-medium text-stone-700">{formatIDR(it.penjualan)}</span></p>
+   398→                            <p className="text-muted-foreground text-right sm:text-left">
+   399→                              Modal:{' '}
+   400→                              {it.modalMissing ? (
+   401→                                <MissingBadge />
+   402→                              ) : (
+   403→                                <span className="font-medium text-stone-700">{formatIDR(it.modal)}</span>
+   404→                              )}
+   405→                            </p>
+   406→                            <p className="text-muted-foreground col-span-2 sm:col-span-1">
+   407→                              Laba:{' '}
+   408→                              {it.modalMissing ? (
+   409→                                <MissingBadge />
+   410→                              ) : (
+   411→                                <span className="font-medium text-emerald-700">{formatIDR(it.laba ?? 0)}</span>
+   412→                              )}
+   413→                            </p>
+   414→                          </div>
+   415→                        </CardContent>
+   416→                      </Card>
+   417→                    ))}
+   418→                  </div>
+   419→                </>
+   420→              )}
+   421→            </CardContent>
+   422→          </Card>
+   423→
+   424→          {/* Rincian per transaksi (baris diklik -> detail transaksi) */}
+   425→          <Card className="p-0 gap-0">
+   426→            <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3">
+   427→              <CardTitle className="text-sm md:text-base">Rincian per Transaksi</CardTitle>
+   428→            </CardHeader>
+   429→            <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-3">
+   430→              {data.linesTruncated && (
+   431→                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" role="alert">
+   432→                  Menampilkan 1000 baris terbaru — persempit periode untuk melihat semua transaksi.
+   433→                </div>
+   434→              )}
+   435→              {lines.length === 0 ? (
+   436→                <div className="text-center py-10">
+   437→                  <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2" aria-hidden="true" />
+   438→                  <p className="text-sm font-medium">Tidak ada transaksi pada periode ini.</p>
+   439→                  <p className="text-xs text-muted-foreground mt-1">Rincian per transaksi muncul setelah ada invoice.</p>
+   440→                </div>
+   441→              ) : (
+   442→                <>
+   443→                  {/* Desktop */}
+   444→                  <div className="hidden md:block rounded-xl border border-stone-200 overflow-hidden">
+   445→                    <div className="max-h-96 overflow-y-auto scrollbar-thin">
+   446→                      <Table>
+   447→                        <TableHeader className="sticky top-0 z-10 bg-stone-50">
+   448→                          <TableRow className="bg-stone-50 hover:bg-stone-50">
+   449→                            <TableHead>Tanggal</TableHead>
+   450→                            <TableHead>Invoice</TableHead>
+   451→                            <TableHead>Customer</TableHead>
+   452→                            <TableHead>Nama Barang</TableHead>
+   453→                            <TableHead className="text-right">Qty</TableHead>
+   454→                            <TableHead className="text-right">Harga Jual</TableHead>
+   455→                            <TableHead className="text-right">Total Jual</TableHead>
+   456→                            <TableHead className="text-right">Harga Modal</TableHead>
+   457→                            <TableHead className="text-right">Total Modal</TableHead>
+   458→                            <TableHead className="text-right">Laba</TableHead>
+   459→                          </TableRow>
+   460→                        </TableHeader>
+   461→                        <TableBody>
+   462→                          {lines.map((ln, i) => (
+   463→                            <TableRow
+   464→                              key={`${ln.invoiceId}-${i}`}
+   465→                              onClick={() => onNavigate('invoices', { mode: 'detail', invoiceId: ln.invoiceId })}
+   466→                              className="cursor-pointer hover:bg-stone-50"
+   467→                              aria-label={`Lihat detail transaksi ${ln.invoiceNumber} — ${ln.description}`}
+   468→                            >
+   469→                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(ln.date)}</TableCell>
+   470→                              <TableCell className="font-mono text-xs whitespace-nowrap">{ln.invoiceNumber}</TableCell>
+   471→                              <TableCell className="font-medium">{ln.customerName}</TableCell>
+   472→                              <TableCell className="max-w-40 truncate">{ln.description}</TableCell>
+   473→                              <TableCell className="text-right whitespace-nowrap">{formatNum(ln.qty)}</TableCell>
+   474→                              <TableCell className="text-right whitespace-nowrap">{formatIDR(ln.price)}</TableCell>
+   475→                              <TableCell className="text-right whitespace-nowrap font-medium">{formatIDR(ln.lineTotal)}</TableCell>
+   476→                              <TableCell className="text-right whitespace-nowrap">
+   477→                                {ln.hpp == null ? <MissingBadge /> : formatIDR(ln.hpp)}
+   478→                              </TableCell>
+   479→                              <TableCell className="text-right whitespace-nowrap">
+   480→                                {ln.totalModal == null ? (
+   481→                                  <span className="text-[11px] text-amber-700">Belum diisi</span>
+   482→                                ) : (
+   483→                                  formatIDR(ln.totalModal)
+   484→                                )}
+   485→                              </TableCell>
+   486→                              <TableCell className="text-right whitespace-nowrap">
+   487→                                {ln.laba == null ? (
+   488→                                  <span className="text-[11px] text-amber-700">Belum diisi</span>
+   489→                                ) : (
+   490→                                  <span className="text-emerald-700 font-medium">{formatIDR(ln.laba)}</span>
+   491→                                )}
+   492→                              </TableCell>
+   493→                            </TableRow>
+   494→                          ))}
+   495→                        </TableBody>
+   496→                      </Table>
+   497→                    </div>
+   498→                  </div>
+   499→
+   500→                  {/* Mobile */}
+   501→                  <div className="md:hidden space-y-3">
+   502→                    {lines.map((ln, i) => (
+   503→                      <Card key={`${ln.invoiceId}-${i}`} className="p-0 gap-0">
+   504→                        <CardContent className="p-4 space-y-2">
+   505→                          <div className="flex items-start justify-between gap-2">
+   506→                            <p className="font-mono text-xs font-semibold break-all">{ln.invoiceNumber}</p>
+   507→                            <p className="text-xs text-muted-foreground shrink-0">{formatDate(ln.date)}</p>
+   508→                          </div>
+   509→                          <p className="text-sm font-medium">{ln.customerName}</p>
+   510→                          <p className="text-sm text-muted-foreground break-words">
+   511→                            {ln.description} · Qty {formatNum(ln.qty)} × {formatIDR(ln.price)}
+   512→                          </p>
+   513→                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+   514→                            <p className="text-muted-foreground">
+   515→                              Total Jual: <span className="font-medium text-stone-700">{formatIDR(ln.lineTotal)}</span>
+   516→                            </p>
+   517→                            <p className="text-muted-foreground text-right sm:text-left">
+   518→                              Total Modal:{' '}
+   519→                              {ln.totalModal == null ? (
+   520→                                <MissingBadge />
+   521→                              ) : (
+   522→                                <span className="font-medium text-stone-700">{formatIDR(ln.totalModal)}</span>
+   523→                              )}
+   524→                            </p>
+   525→                            <p className="text-muted-foreground col-span-2 sm:col-span-1">
+   526→                              Laba:{' '}
+   527→                              {ln.laba == null ? (
+   528→                                <MissingBadge />
+   529→                              ) : (
+   530→                                <span className="font-medium text-emerald-700">{formatIDR(ln.laba)}</span>
+   531→                              )}
+   532→                            </p>
+   533→                          </div>
+   534→                          <Button
+   535→                            variant="outline"
+   536→                            size="sm"
+   537→                            className="w-full min-h-[44px]"
+   538→                            onClick={() => onNavigate('invoices', { mode: 'detail', invoiceId: ln.invoiceId })}
+   539→                          >
+   540→                            Detail
+   541→                          </Button>
+   542→                        </CardContent>
+   543→                      </Card>
+   544→                    ))}
+   545→                  </div>
+   546→
+   547→                  <p className="text-xs text-muted-foreground">
+   548→                    Klik baris transaksi untuk membuka detail invoice terkait.
+   549→                  </p>
+   550→                </>
+   551→              )}
+   552→            </CardContent>
+   553→          </Card>
+   554→        </>
+   555→      ) : null}
+   556→
+   557→      {/* ===== Template cetak (terlihat di layar, satu-satunya #print-area) ===== */}
+   558→      <Card id="print-area" className="p-0 gap-0 shadow-sm">
+   559→        <CardContent className="p-5 md:p-8">
+   560→          <ReportKop title="LAPORAN RUGI LABA SEDERHANA" period={periodLabel} />
+   561→
+   562→          {/* Ringkasan bertingkat */}
+   563→          {t && (
+   564→            <div className="py-5 border-b border-stone-200 space-y-1.5 text-sm max-w-md">
+   565→              <div className="flex items-start justify-between gap-3">
+   566→                <div>
+   567→                  <p>Total Penjualan</p>
+   568→                  <p className="text-[11px] text-muted-foreground">{t.invoiceCount} invoice reguler &amp; DP</p>
+   569→                </div>
+   570→                <p className="font-semibold text-right whitespace-nowrap">{formatIDR(t.penjualan)}</p>
+   571→              </div>
+   572→              <div className="flex items-start justify-between gap-3">
+   573→                <div>
+   574→                  <p>Total Modal</p>
+   575→                  <p className="text-[11px] text-muted-foreground">Harga pokok barang terjual</p>
+   576→                </div>
+   577→                <p className="font-semibold text-right whitespace-nowrap">{formatIDR(t.modal)}</p>
+   578→              </div>
+   579→              <div className="flex items-start justify-between gap-3">
+   580→                <div>
+   581→                  <p>Laba Kotor</p>
+   582→                  <p className="text-[11px] text-muted-foreground">Penjualan − modal (harga pokok)</p>
+   583→                </div>
+   584→                <p className="font-semibold text-right whitespace-nowrap text-emerald-700">{formatIDR(t.labaKotor)}</p>
+   585→              </div>
+   586→
+   587→              <div className="pt-3">
+   588→                <p className="font-semibold">Biaya Operasional</p>
+   589→                {expenses.length === 0 ? (
+   590→                  <>
+   591→                    <p className="text-[11px] text-muted-foreground mt-0.5">Tidak ada biaya operasional pada periode ini.</p>
+   592→                    <p className="text-[11px] text-muted-foreground">Catatan: kelola biaya di menu Biaya Operasional.</p>
+   593→                  </>
+   594→                ) : (
+   595→                  <div className="mt-1 space-y-0.5">
+   596→                    {expenses.map((x) => (
+   597→                      <div key={x.id} className="flex justify-between gap-3 text-xs sm:text-sm">
+   598→                        <span className="min-w-0">
+   599→                          {formatDate(x.date)} — {x.description}
+   600→                        </span>
+   601→                        <span className="whitespace-nowrap">{formatIDR(x.amount)}</span>
+   602→                      </div>
+   603→                    ))}
+   604→                  </div>
+   605→                )}
+   606→                <div className="flex justify-between gap-3 text-xs sm:text-sm font-semibold border-t border-stone-200 mt-1.5 pt-1.5">
+   607→                  <span>Total Biaya Operasional</span>
+   608→                  <span className="whitespace-nowrap">{formatIDR(t.biayaOperasional)}</span>
+   609→                </div>
+   610→              </div>
+   611→
+   612→              <Separator className="my-2" />
+   613→              <div className="flex items-start justify-between gap-3">
+   614→                <div>
+   615→                  <p className="font-semibold">Laba Bersih</p>
+   616→                  <p className="text-[11px] text-muted-foreground">Laba kotor − biaya operasional</p>
+   617→                </div>
+   618→                <p className={cn('text-xl font-bold text-right whitespace-nowrap', t.labaBersih < 0 ? 'text-red-600' : 'text-emerald-700')}>
+   619→                  {formatIDR(t.labaBersih)}
+   620→                </p>
+   621→              </div>
+   622→            </div>
+   623→          )}
+   624→
+   625→          {/* Rincian per barang */}
+   626→          <div className="py-5">
+   627→            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Rincian per Barang</p>
+   628→            {items.length === 0 ? (
+   629→              <p className="text-sm text-muted-foreground">Tidak ada penjualan pada periode ini.</p>
+   630→            ) : (
+   631→              <Table>
+   632→                <TableHeader>
+   633→                  <TableRow>
+   634→                    <TableHead className="text-xs">Nama</TableHead>
+   635→                    <TableHead className="text-xs text-right">Qty</TableHead>
+   636→                    <TableHead className="text-xs text-right">Penjualan</TableHead>
+   637→                    <TableHead className="text-xs text-right">Modal</TableHead>
+   638→                    <TableHead className="text-xs text-right">Laba</TableHead>
+   639→                  </TableRow>
+   640→                </TableHeader>
+   641→                <TableBody>
+   642→                  {items.map((it) => (
+   643→                    <TableRow key={it.key}>
+   644→                      <TableCell className="text-xs py-1.5">{it.name}</TableCell>
+   645→                      <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">{formatNum(it.qty)}</TableCell>
+   646→                      <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">{formatIDR(it.penjualan)}</TableCell>
+   647→                      <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">
+   648→                        {it.modalMissing ? 'Belum diisi' : formatIDR(it.modal)}
+   649→                      </TableCell>
+   650→                      <TableCell className="text-xs py-1.5 text-right whitespace-nowrap">
+   651→                        {it.modalMissing ? 'Belum diisi' : formatIDR(it.laba ?? 0)}
+   652→                      </TableCell>
+   653→                    </TableRow>
+   654→                  ))}
+   655→                </TableBody>
+   656→              </Table>
+   657→            )}
+   658→          </div>
+   659→
+   660→          {t && t.uncountedCount > 0 && (
+   661→            <p className="text-[11px] text-muted-foreground">
+   662→              Catatan: {t.uncountedCount} baris item (penjualan {formatIDR(t.uncountedPenjualan)}) tidak diikutkan dalam
+   663→              perhitungan laba karena harga modal belum diisi.
+   664→            </p>
+   665→          )}
+   666→
+   667→          <ReportSignature userName={user.name} />
+   668→        </CardContent>
+   669→      </Card>
+   670→    </div>
+   671→  )
+   672→}
+   673→
