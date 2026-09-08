@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search } from 'lucide-react'
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -18,6 +18,11 @@ import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/language-context'
 import { notifyDataChange } from '@/lib/data-sync'
@@ -254,18 +259,41 @@ function HitungCetakanPage() {
   const [savingRiwayat, setSavingRiwayat] = useState(false)
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
   const [riwayatCetakanList, setRiwayatCetakanList] = useState<any[]>([])
+  const [riwayatLoading, setRiwayatLoading] = useState(true)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
   const [nextHitungCetakanNumber, setNextHitungCetakanNumber] = useState('')
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const fetchRiwayatCetakan = async () => {
     try {
+      setRiwayatLoading(true)
       const res = await fetcher('/api/riwayat-cetakan', { headers: getAuthHeaders() })
       if (res.ok) {
         const data = await res.json()
         setRiwayatCetakanList((Array.isArray(data) ? data : []).filter((r: any) => r.type === 'hitung_cetakan'))
       }
-    } catch {}
+    } catch {} finally {
+      setRiwayatLoading(false)
+    }
   }
+
+  // Filter riwayat: pencarian + rentang tanggal (gaya Riwayat Invoice)
+  const filteredRiwayatList = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return riwayatCetakanList.filter((r) => {
+      const created = String(r?.createdAt || '').slice(0, 10)
+      if (dateFrom && created && created < dateFrom) return false
+      if (dateTo && created && created > dateTo) return false
+      if (q) {
+        const hay = `${r?.nomorUrut || ''} ${r?.customerName || ''} ${r?.printName || ''} ${r?.finishingNames || ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [riwayatCetakanList, searchQuery, dateFrom, dateTo])
+  const riwayatFiltersActive = !!searchQuery.trim() || !!dateFrom || !!dateTo
 
   const fetchNextNumber = () => {
     fetcher('/api/riwayat-cetakan?preview=next-number', { headers: getAuthHeaders() })
@@ -2507,116 +2535,192 @@ function HitungCetakanPage() {
       </div>
       )}
 
-      {/* Riwayat Tab Content */}
+      {/* Riwayat Tab Content — gaya Riwayat Invoice */}
       {activeTab === 'riwayat' && (
-      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/60">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-emerald-600" />
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Riwayat Hitung Cetakan</h2>
-            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{riwayatCetakanList.length} data</span>
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Hitung Cetakan</h1>
+            <p className="text-sm text-muted-foreground mt-1">{riwayatLoading ? 'Memuat data…' : `${filteredRiwayatList.length} data`}</p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              onClick={handleBackup}
-              variant="outline"
-              size="sm"
-              disabled={backupLoading === 'backup'}
-              className="h-7 gap-1.5 text-xs"
-            >
-              {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
-              Backup
-            </Button>
-            <Button
-              onClick={handleRestore}
-              variant="outline"
-              size="sm"
-              disabled={backupLoading === 'restore'}
-              className="h-7 gap-1.5 text-xs"
-            >
-              {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-              Restore
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari no. HC / customer / barang…"
+                aria-label="Cari riwayat hitung cetakan"
+                className="pl-9 min-h-[44px]"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleBackup}
+                variant="outline"
+                disabled={backupLoading === 'backup'}
+                title="Backup riwayat hitung cetakan"
+                className="min-h-[44px] flex-1 sm:flex-none"
+              >
+                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+              </Button>
+              <Button
+                onClick={handleRestore}
+                variant="outline"
+                disabled={backupLoading === 'restore'}
+                title="Restore riwayat hitung cetakan"
+                className="min-h-[44px] flex-1 sm:flex-none"
+              >
+                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+              </Button>
+            </div>
           </div>
         </div>
-        {riwayatCetakanList.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px] min-w-[700px]">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. HC</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden sm:table-cell" style={{minWidth: '180px'}}>Nama Barang</th>
-                  <th className="text-left py-3 px-3 text-violet-600 font-semibold whitespace-nowrap">Profit</th>
-                  <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden xl:table-cell">Finishing</th>
-                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
-                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Harga/Pcs</th>
-                  <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-                  <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {riwayatCetakanList.slice(0, 50).map((r, idx) => (
-                  <tr key={r.id} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                    <td className="py-3 px-3 text-blue-700 font-semibold whitespace-nowrap">{r.nomorUrut || '-'}</td>
-                    <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                    <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">
-                      {r.customerName && r.customerName !== '' ? r.customerName : '-'}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 hidden sm:table-cell max-w-[180px] truncate">
-                      {r.printName || '-'}
-                    </td>
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <span className={`font-semibold ${r.profitAmount && r.profitAmount > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{r.profitAmount && r.profitAmount > 0 ? `Rp ${Math.round(r.profitAmount).toLocaleString('id-ID')}` : '-'}</span>
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 hidden xl:table-cell max-w-[150px] truncate" title={r.finishingNames || '-'}>
-                      {r.finishingNames && r.finishingNames !== '' ? r.finishingNames : '-'}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
-                      {parseInt(r.jumlahPesanan || r.quantity || 0).toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
-                      Rp {(parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 0) > 0 ? Math.round((r.grandTotal || 0) / (parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 1)).toLocaleString('id-ID') : '0'}
-                    </td>
-                    <td className="py-3 px-3 text-rose-700 font-bold text-right whitespace-nowrap">
-                      Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handlePreviewRiwayat(r)}
-                          className="inline-flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md border border-blue-200 transition-colors"
-                          title="Preview"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleRestoreRiwayat(r)}
-                          className="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 transition-colors"
-                          title="Restore"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRiwayat(r.id)}
-                          className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+        {/* Filter: rentang tanggal */}
+        <div className="rounded-xl border border-stone-200 bg-white p-3 md:px-4 md:py-3">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
+            <div className="lg:w-40">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Dari Tanggal</Label>
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Dari tanggal" />
+            </div>
+            <div className="lg:w-40">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Sampai Tanggal</Label>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Sampai tanggal" />
+            </div>
+            {riwayatFiltersActive && (
+              <Button variant="ghost" size="sm" className="lg:ml-auto mt-1 lg:mt-4 text-xs text-muted-foreground" onClick={() => { setDateFrom(''); setDateTo(''); setSearchQuery('') }}>
+                <X className="h-3.5 w-3.5" /> Reset Filter
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {riwayatLoading ? (
+          <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : filteredRiwayatList.length === 0 ? (
+          <div className="text-center py-12 px-4 rounded-xl border border-stone-200 bg-white">
+            <History className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-medium">{riwayatFiltersActive ? 'Tidak ditemukan' : 'Belum ada riwayat hitung cetakan'}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {riwayatFiltersActive ? 'Coba kata kunci atau rentang tanggal lain.' : 'Hasil hitung yang disimpan akan tampil di sini'}
+            </p>
           </div>
         ) : (
-          <div className="px-4 py-6 text-center">
-            <History className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-            <p className="text-xs text-slate-400">Belum ada riwayat hitung cetakan</p>
-          </div>
+          <>
+            {/* Desktop table — klik baris → Preview */}
+            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+              <div className="max-h-96 overflow-y-auto scrollbar-thin">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-stone-50">
+                    <TableRow className="bg-stone-50 hover:bg-stone-50">
+                      <TableHead className="w-0 min-w-0">No. HC</TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Nama Barang</TableHead>
+                      <TableHead className="text-right">Profit</TableHead>
+                      <TableHead className="hidden xl:table-cell">Finishing</TableHead>
+                      <TableHead className="text-right">Jml</TableHead>
+                      <TableHead className="text-right">Harga/Pcs</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRiwayatList.slice(0, 100).map((r) => {
+                      const jml = parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 0
+                      return (
+                        <TableRow
+                          key={r.id}
+                          className={`cursor-pointer hover:bg-stone-50 ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                          onClick={() => handlePreviewRiwayat(r)}
+                        >
+                          <TableCell className="font-medium whitespace-nowrap w-px">{r.nomorUrut || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</TableCell>
+                          <TableCell className="max-w-40 truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</TableCell>
+                          <TableCell className="max-w-44 text-muted-foreground" title={r.printName || '-'}>
+                            <span className="truncate block">{r.printName || '-'}</span>
+                          </TableCell>
+                          <TableCell className={`text-right tabular-nums font-semibold ${r.profitAmount && r.profitAmount > 0 ? 'text-violet-700' : 'text-muted-foreground'}`}>
+                            {r.profitAmount && r.profitAmount > 0 ? `Rp ${Math.round(r.profitAmount).toLocaleString('id-ID')}` : '-'}
+                          </TableCell>
+                          <TableCell className="hidden xl:table-cell max-w-36 text-muted-foreground" title={r.finishingNames || '-'}>
+                            <span className="truncate block">{r.finishingNames && r.finishingNames !== '' ? r.finishingNames : '-'}</span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{jml.toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground whitespace-nowrap">Rp {jml > 0 ? Math.round((r.grandTotal || 0) / jml).toLocaleString('id-ID') : '0'}</TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600" title="Preview" aria-label="Preview" onClick={() => handlePreviewRiwayat(r)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-600" title="Restore" aria-label="Restore" onClick={() => handleRestoreRiwayat(r)}>
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Hapus" aria-label="Hapus" onClick={() => handleDeleteRiwayat(r.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Mobile cards — klik kartu → Preview */}
+            <div className="md:hidden space-y-3">
+              {filteredRiwayatList.slice(0, 100).map((r) => (
+                <Card
+                  key={r.id}
+                  className={`p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                  onClick={() => handlePreviewRiwayat(r)}
+                >
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium truncate">{r.nomorUrut || '-'}</p>
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p className="truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</p>
+                      {r.printName && <p className="text-xs line-clamp-1">{r.printName}</p>}
+                      {r.finishingNames && r.finishingNames !== '' && <p className="text-xs line-clamp-1">Fin: {r.finishingNames}</p>}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      {r.profitAmount && r.profitAmount > 0
+                        ? <span className="text-xs text-violet-700">Profit Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
+                        : <span />}
+                      <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</p>
+                    </div>
+                    <div className="border-t pt-2 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 min-h-[36px] text-xs"
+                        onClick={(e) => { e.stopPropagation(); handleRestoreRiwayat(r) }}
+                      >
+                        Muat
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 min-h-[36px] text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
+                      >
+                        Hapus
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
       </div>
       )}
