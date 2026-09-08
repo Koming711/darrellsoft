@@ -1,0 +1,661 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useMemo } from 'react'
+     4→import { Banknote, Plus, Search, Printer, Pencil, Trash2, Loader2, Wallet, CalendarDays, TrendingDown, Receipt, Store } from 'lucide-react'
+     5→import { DashboardLayout } from '@/components/dashboard-layout'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import {
+    10→  Dialog,
+    11→  DialogContent,
+    12→  DialogDescription,
+    13→  DialogFooter,
+    14→  DialogHeader,
+    15→  DialogTitle,
+    16→} from '@/components/ui/dialog'
+    17→import {
+    18→  Table,
+    19→  TableBody,
+    20→  TableCell,
+    21→  TableHead,
+    22→  TableHeader,
+    23→  TableRow,
+    24→} from '@/components/ui/table'
+    25→import { toast } from 'sonner'
+    26→import { getAuthUser } from '@/lib/auth'
+    27→import { authFetch } from '@/lib/auth-fetch'
+    28→import { hasSubPermission } from '@/lib/permissions'
+    29→import { notifyDataChange } from '@/lib/data-sync'
+    30→import { useDataChange } from '@/hooks/use-data-change'
+    31→import { useLanguage } from '@/contexts/language-context'
+    32→
+    33→interface Biaya {
+    34→  id: string
+    35→  tanggal: string
+    36→  kategori: string
+    37→  keterangan: string
+    38→  jumlah: number
+    39→  metodePembayaran: string
+    40→  supplier: string
+    41→  createdAt: string
+    42→  updatedAt: string
+    43→}
+    44→
+    45→const KATEGORI_OPTIONS = [
+    46→  'Listrik',
+    47→  'Air',
+    48→  'Tinta',
+    49→  'Kertas',
+    50→  'Gaji',
+    51→  'Sewa',
+    52→  'Transportasi',
+    53→  'Packing',
+    54→  'Ongkir',
+    55→  'ATK',
+    56→  'Maintenance',
+    57→  'Internet',
+    58→  'Telepon',
+    59→  'Lainnya',
+    60→]
+    61→
+    62→const METODE_OPTIONS = ['Tunai', 'Transfer', 'Kartu', 'QRIS', 'Lainnya']
+    63→
+    64→function formatRupiah(n: number): string {
+    65→  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
+    66→}
+    67→
+    68→function formatDateID(iso: string): string {
+    69→  if (!iso) return '-'
+    70→  const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''))
+    71→  if (isNaN(d.getTime())) return iso
+    72→  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+    73→}
+    74→
+    75→function todayISO(): string {
+    76→  const d = new Date()
+    77→  const tz = d.getTimezoneOffset() * 60000
+    78→  return new Date(d.getTime() - tz).toISOString().slice(0, 10)
+    79→}
+    80→
+    81→export default function BiayaPage() {
+    82→  const { t } = useLanguage()
+    83→  const currentUser = getAuthUser()
+    84→  const canAdd = currentUser?.role === 'superadmin' || hasSubPermission(currentUser?.role || '', 'biaya', 'biaya-tambah')
+    85→  const canEdit = currentUser?.role === 'superadmin' || hasSubPermission(currentUser?.role || '', 'biaya', 'biaya-edit')
+    86→  const canDelete = currentUser?.role === 'superadmin' || hasSubPermission(currentUser?.role || '', 'biaya', 'biaya-hapus')
+    87→  const canView = currentUser?.role === 'superadmin' || hasSubPermission(currentUser?.role || '', 'biaya', 'biaya-lihat') || canAdd || canEdit || canDelete
+    88→
+    89→  const [searchTerm, setSearchTerm] = useState('')
+    90→  const [filterMonth, setFilterMonth] = useState('') // YYYY-MM
+    91→  const [data, setData] = useState<Biaya[]>([])
+    92→  const [loading, setLoading] = useState(true)
+    93→  const [dialogOpen, setDialogOpen] = useState(false)
+    94→  const [editingItem, setEditingItem] = useState<Biaya | null>(null)
+    95→  const [isSaving, setIsSaving] = useState(false)
+    96→  const [form, setForm] = useState({
+    97→    tanggal: todayISO(),
+    98→    kategori: 'Listrik',
+    99→    keterangan: '',
+   100→    jumlah: '',
+   101→    metodePembayaran: 'Tunai',
+   102→    supplier: '',
+   103→  })
+   104→
+   105→  useEffect(() => {
+   106→    fetchData()
+   107→  }, [])
+   108→
+   109→  useDataChange(['biaya'], () => {
+   110→    fetchData()
+   111→  })
+   112→
+   113→  const fetchData = async () => {
+   114→    try {
+   115→      const response = await authFetch('/api/biaya')
+   116→      const result = await response.json()
+   117→      setData(Array.isArray(result) ? result : [])
+   118→    } catch (error) {
+   119→      console.error('Error fetching biaya:', error)
+   120→      toast.error('Gagal memuat data biaya')
+   121→    } finally {
+   122→      setLoading(false)
+   123→    }
+   124→  }
+   125→
+   126→  const filteredData = useMemo(() => {
+   127→    return data.filter(item => {
+   128→      const matchesSearch =
+   129→        item.kategori.toLowerCase().includes(searchTerm.toLowerCase()) ||
+   130→        item.keterangan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+   131→        item.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+   132→        item.metodePembayaran.toLowerCase().includes(searchTerm.toLowerCase())
+   133→      const matchesMonth = !filterMonth || item.tanggal.startsWith(filterMonth)
+   134→      return matchesSearch && matchesMonth
+   135→    })
+   136→  }, [data, searchTerm, filterMonth])
+   137→
+   138→  const stats = useMemo(() => {
+   139→    const now = new Date()
+   140→    const ymNow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+   141→    const yNow = String(now.getFullYear())
+   142→    let totalBulanIni = 0
+   143→    let totalTahunIni = 0
+   144→    let totalKeseluruhan = 0
+   145→    for (const item of data) {
+   146→      totalKeseluruhan += item.jumlah || 0
+   147→      if (item.tanggal.startsWith(ymNow)) totalBulanIni += item.jumlah || 0
+   148→      if (item.tanggal.startsWith(yNow)) totalTahunIni += item.jumlah || 0
+   149→    }
+   150→    return { totalBulanIni, totalTahunIni, totalKeseluruhan, count: data.length }
+   151→  }, [data])
+   152→
+   153→  const handleAdd = () => {
+   154→    setEditingItem(null)
+   155→    setForm({
+   156→      tanggal: todayISO(),
+   157→      kategori: 'Listrik',
+   158→      keterangan: '',
+   159→      jumlah: '',
+   160→      metodePembayaran: 'Tunai',
+   161→      supplier: '',
+   162→    })
+   163→    setDialogOpen(true)
+   164→  }
+   165→
+   166→  const handleEdit = (item: Biaya) => {
+   167→    setEditingItem(item)
+   168→    setForm({
+   169→      tanggal: item.tanggal,
+   170→      kategori: item.kategori,
+   171→      keterangan: item.keterangan || '',
+   172→      jumlah: String(item.jumlah),
+   173→      metodePembayaran: item.metodePembayaran || 'Tunai',
+   174→      supplier: item.supplier || '',
+   175→    })
+   176→    setDialogOpen(true)
+   177→  }
+   178→
+   179→  const handleDelete = async (item: Biaya) => {
+   180→    if (!confirm('Yakin mau hapus data biaya ini?')) return
+   181→    try {
+   182→      const response = await authFetch(`/api/biaya/${item.id}`, { method: 'DELETE' })
+   183→      if (response.ok) {
+   184→        toast.success('Biaya berhasil dihapus')
+   185→        setData(prev => prev.filter(d => d.id !== item.id))
+   186→        notifyDataChange('biaya')
+   187→      } else {
+   188→        toast.error('Gagal menghapus biaya')
+   189→      }
+   190→    } catch (error) {
+   191→      console.error('Error deleting biaya:', error)
+   192→      toast.error('Gagal menghapus biaya')
+   193→    }
+   194→  }
+   195→
+   196→  const handleSave = async (e: React.FormEvent) => {
+   197→    e.preventDefault()
+   198→    if (isSaving) return
+   199→    const jumlahNum = parseFloat(String(form.jumlah).replace(/[^\d.-]/g, '')) || 0
+   200→    if (!form.tanggal) { toast.error('Tanggal wajib diisi'); return }
+   201→    if (!form.kategori.trim()) { toast.error('Kategori wajib diisi'); return }
+   202→    if (!jumlahNum || jumlahNum <= 0) { toast.error('Jumlah harus lebih dari 0'); return }
+   203→
+   204→    setIsSaving(true)
+   205→    try {
+   206→      const payload = {
+   207→        tanggal: form.tanggal,
+   208→        kategori: form.kategori.trim(),
+   209→        keterangan: form.keterangan.trim(),
+   210→        jumlah: jumlahNum,
+   211→        metodePembayaran: form.metodePembayaran,
+   212→        supplier: form.supplier.trim(),
+   213→      }
+   214→      let response: Response
+   215→      if (editingItem) {
+   216→        response = await authFetch(`/api/biaya/${editingItem.id}`, {
+   217→          method: 'PUT',
+   218→          headers: { 'Content-Type': 'application/json' },
+   219→          body: JSON.stringify(payload)
+   220→        })
+   221→      } else {
+   222→        response = await authFetch('/api/biaya', {
+   223→          method: 'POST',
+   224→          headers: { 'Content-Type': 'application/json' },
+   225→          body: JSON.stringify(payload)
+   226→        })
+   227→      }
+   228→
+   229→      if (response.ok) {
+   230→        const saved = await response.json()
+   231→        toast.success(editingItem ? 'Biaya berhasil diperbarui' : 'Biaya berhasil ditambahkan')
+   232→        setDialogOpen(false)
+   233→        if (editingItem) {
+   234→          setData(prev => prev.map(d => d.id === saved.id ? saved : d))
+   235→        } else {
+   236→          setData(prev => [saved, ...prev])
+   237→        }
+   238→        notifyDataChange('biaya')
+   239→      } else {
+   240→        const errData = await response.json().catch(() => ({}))
+   241→        toast.error(errData?.error || 'Gagal menyimpan biaya')
+   242→      }
+   243→    } catch (error) {
+   244→      console.error('Error saving biaya:', error)
+   245→      toast.error('Gagal menyimpan biaya')
+   246→    } finally {
+   247→      setIsSaving(false)
+   248→    }
+   249→  }
+   250→
+   251→  const handlePrint = () => {
+   252→    const printWindow = window.open('', '', 'height=800,width=1000')
+   253→    if (!printWindow) {
+   254→      toast.error('Gagal membuka jendela print')
+   255→      return
+   256→    }
+   257→
+   258→    printWindow.document.write('<html><head><title>Laporan Biaya</title>')
+   259→    printWindow.document.write(`
+   260→      <style>
+   261→        body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+   262→        h1 { text-align: center; margin-bottom: 4px; font-size: 18px; }
+   263→        .meta { text-align: right; font-size: 11px; color: #666; margin-bottom: 10px; }
+   264→        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+   265→        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+   266→        th { background-color: #f2f2f2; font-weight: bold; white-space: nowrap; }
+   267→        tr:nth-child(even) { background-color: #f9f9f9; }
+   268→        .right { text-align: right; }
+   269→        .center { text-align: center; }
+   270→        .footer { margin-top: 20px; font-size: 11px; color: #666; }
+   271→        .grand { font-weight: bold; background-color: #fef9c3; }
+   272→        @media print { body { padding: 0; } }
+   273→      </style>
+   274→    `)
+   275→    printWindow.document.write('</head><body>')
+   276→
+   277→    printWindow.document.write('<h1>Laporan Biaya Operasional</h1>')
+   278→    printWindow.document.write(`<div class="meta">Dicetak: ${new Date().toLocaleString('id-ID')}${filterMonth ? ` | Periode: ${filterMonth}` : ''}</div>`)
+   279→
+   280→    printWindow.document.write('<table>')
+   281→    printWindow.document.write('<thead>')
+   282→    printWindow.document.write('<tr>')
+   283→    printWindow.document.write('<th>No</th>')
+   284→    printWindow.document.write('<th>Tanggal</th>')
+   285→    printWindow.document.write('<th>Kategori</th>')
+   286→    printWindow.document.write('<th>Keterangan</th>')
+   287→    printWindow.document.write('<th>Supplier</th>')
+   288→    printWindow.document.write('<th>Metode</th>')
+   289→    printWindow.document.write('<th class="right">Jumlah</th>')
+   290→    printWindow.document.write('</tr>')
+   291→    printWindow.document.write('</thead>')
+   292→    printWindow.document.write('<tbody>')
+   293→
+   294→    let total = 0
+   295→    filteredData.forEach((item, index) => {
+   296→      total += item.jumlah || 0
+   297→      printWindow.document.write(`
+   298→        <tr>
+   299→          <td>${index + 1}</td>
+   300→          <td>${formatDateID(item.tanggal)}</td>
+   301→          <td>${item.kategori}</td>
+   302→          <td>${item.keterangan || '-'}</td>
+   303→          <td>${item.supplier || '-'}</td>
+   304→          <td>${item.metodePembayaran || '-'}</td>
+   305→          <td class="right">${formatRupiah(item.jumlah)}</td>
+   306→        </tr>
+   307→      `)
+   308→    })
+   309→
+   310→    printWindow.document.write(`<tr class="grand"><td colspan="6" class="right">TOTAL</td><td class="right">${formatRupiah(total)}</td></tr>`)
+   311→    printWindow.document.write('</tbody></table>')
+   312→    printWindow.document.write(`<div class="footer">Total Data: ${filteredData.length} | Total Biaya: ${formatRupiah(total)}</div>`)
+   313→    printWindow.document.write('</body></html>')
+   314→    printWindow.document.close()
+   315→
+   316→    setTimeout(() => {
+   317→      printWindow.print()
+   318→    }, 250)
+   319→
+   320→    toast.success('Mencetak laporan biaya...')
+   321→  }
+   322→
+   323→  const summaryCards = [
+   324→    { label: 'Bulan Ini', value: formatRupiah(stats.totalBulanIni), icon: CalendarDays, color: 'text-blue-600', bg: 'bg-blue-50' },
+   325→    { label: 'Tahun Ini', value: formatRupiah(stats.totalTahunIni), icon: TrendingDown, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+   326→    { label: 'Total Keseluruhan', value: formatRupiah(stats.totalKeseluruhan), icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50' },
+   327→    { label: 'Jumlah Transaksi', value: String(stats.count), icon: Receipt, color: 'text-purple-600', bg: 'bg-purple-50' },
+   328→  ]
+   329→
+   330→  return (
+   331→    <DashboardLayout
+   332→      title={t('biaya_operasional')}
+   333→      subtitle={t('subtitle_biaya')}
+   334→    >
+   335→      {canView && (
+   336→        <>
+   337→          {/* Summary Cards */}
+   338→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+   339→            {summaryCards.map((card, idx) => (
+   340→              <div key={idx} className="bg-card rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4">
+   341→                <div className="flex items-center gap-2.5">
+   342→                  <div className={`w-9 h-9 rounded-lg ${card.bg} flex items-center justify-center flex-shrink-0`}>
+   343→                    <card.icon className={`w-4.5 h-4.5 ${card.color}`} />
+   344→                  </div>
+   345→                  <div className="min-w-0 flex-1">
+   346→                    <p className="text-[11px] text-slate-500 truncate">{card.label}</p>
+   347→                    <p className="text-sm sm:text-base font-bold text-slate-800 truncate">{card.value}</p>
+   348→                  </div>
+   349→                </div>
+   350→              </div>
+   351→            ))}
+   352→          </div>
+   353→
+   354→          <div className="bg-card rounded-xl shadow-sm border border-slate-200">
+   355→            {/* Toolbar */}
+   356→            <div className="p-3 sm:p-4 border-b border-slate-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+   357→              <div className="flex flex-1 flex-col sm:flex-row gap-2 sm:gap-3 sm:max-w-2xl">
+   358→                <div className="relative flex-1 min-w-0">
+   359→                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+   360→                  <input
+   361→                    type="text"
+   362→                    placeholder="Cari kategori, keterangan, supplier..."
+   363→                    value={searchTerm}
+   364→                    onChange={(e) => setSearchTerm(e.target.value)}
+   365→                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+   366→                  />
+   367→                </div>
+   368→                <input
+   369→                  type="month"
+   370→                  value={filterMonth}
+   371→                  onChange={(e) => setFilterMonth(e.target.value)}
+   372→                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-44"
+   373→                />
+   374→                {filterMonth && (
+   375→                  <Button onClick={() => setFilterMonth('')} variant="outline" size="sm" className="h-9">
+   376→                    Reset
+   377→                  </Button>
+   378→                )}
+   379→              </div>
+   380→              <div className="flex flex-wrap items-center gap-2">
+   381→                <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
+   382→                  <Printer className="w-3.5 h-3.5" />
+   383→                  Cetak
+   384→                </Button>
+   385→                {canAdd && (
+   386→                  <Button onClick={handleAdd} size="sm" className="h-9 gap-1.5 text-xs sm:h-auto sm:text-sm">
+   387→                    <Plus className="w-3.5 h-3.5" />
+   388→                    Tambah
+   389→                  </Button>
+   390→                )}
+   391→              </div>
+   392→            </div>
+   393→
+   394→            {/* Content */}
+   395→            <div className="p-3 sm:p-4">
+   396→              {loading ? (
+   397→                <div className="flex items-center justify-center py-12">
+   398→                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+   399→                </div>
+   400→              ) : filteredData.length === 0 ? (
+   401→                <div className="flex flex-col items-center justify-center py-12 text-center">
+   402→                  <Banknote className="w-12 h-12 text-slate-300 mb-3" />
+   403→                  <p className="text-sm text-slate-500">
+   404→                    {searchTerm || filterMonth ? 'Tidak ada data biaya sesuai filter' : 'Belum ada data biaya. Klik "Tambah" untuk menambahkan.'}
+   405→                  </p>
+   406→                </div>
+   407→              ) : (
+   408→                <>
+   409→                  {/* Desktop Table */}
+   410→                  <div className="hidden lg:block overflow-auto">
+   411→                    <Table>
+   412→                      <TableHeader>
+   413→                        <TableRow className="hover:bg-transparent">
+   414→                          <TableHead className="w-[50px] text-center">#</TableHead>
+   415→                          <TableHead className="min-w-[110px]">Tanggal</TableHead>
+   416→                          <TableHead className="min-w-[130px]">Kategori</TableHead>
+   417→                          <TableHead className="min-w-[200px]">Keterangan</TableHead>
+   418→                          <TableHead className="min-w-[140px]">Supplier</TableHead>
+   419→                          <TableHead className="min-w-[110px]">Metode</TableHead>
+   420→                          <TableHead className="min-w-[130px] text-right">Jumlah</TableHead>
+   421→                          <TableHead className="text-center w-[100px]">Aksi</TableHead>
+   422→                        </TableRow>
+   423→                      </TableHeader>
+   424→                      <TableBody>
+   425→                        {filteredData.map((item, idx) => (
+   426→                          <TableRow key={item.id} className="group">
+   427→                            <TableCell className="text-center text-slate-400 text-xs">{idx + 1}</TableCell>
+   428→                            <TableCell className="text-slate-600 whitespace-nowrap">{formatDateID(item.tanggal)}</TableCell>
+   429→                            <TableCell>
+   430→                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
+   431→                                {item.kategori}
+   432→                              </span>
+   433→                            </TableCell>
+   434→                            <TableCell className="text-slate-600">
+   435→                              {item.keterangan || <span className="text-slate-300">-</span>}
+   436→                            </TableCell>
+   437→                            <TableCell className="text-slate-600">
+   438→                              {item.supplier ? (
+   439→                                <span className="flex items-center gap-1">
+   440→                                  <Store className="w-3 h-3 text-slate-400" />
+   441→                                  {item.supplier}
+   442→                                </span>
+   443→                              ) : <span className="text-slate-300">-</span>}
+   444→                            </TableCell>
+   445→                            <TableCell className="text-slate-600">{item.metodePembayaran || '-'}</TableCell>
+   446→                            <TableCell className="text-right font-semibold text-slate-800 whitespace-nowrap">{formatRupiah(item.jumlah)}</TableCell>
+   447→                            <TableCell>
+   448→                              <div className="flex items-center justify-center gap-0.5">
+   449→                                {canEdit && (
+   450→                                  <Button variant="ghost" size="sm" onClick={() => handleEdit(item)} className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50">
+   451→                                    <Pencil className="w-3.5 h-3.5" />
+   452→                                  </Button>
+   453→                                )}
+   454→                                {canDelete && (
+   455→                                  <Button variant="ghost" size="sm" onClick={() => handleDelete(item)} className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50">
+   456→                                    <Trash2 className="w-3.5 h-3.5" />
+   457→                                  </Button>
+   458→                                )}
+   459→                              </div>
+   460→                            </TableCell>
+   461→                          </TableRow>
+   462→                        ))}
+   463→                      </TableBody>
+   464→                    </Table>
+   465→                  </div>
+   466→
+   467→                  {/* Mobile Cards */}
+   468→                  <div className="lg:hidden space-y-2 max-h-[70vh] overflow-y-auto">
+   469→                    {filteredData.map((item) => (
+   470→                      <div
+   471→                        key={item.id}
+   472→                        className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5"
+   473→                      >
+   474→                        <div className="flex items-start justify-between gap-2">
+   475→                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+   476→                            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+   477→                              <Banknote className="w-4.5 h-4.5 text-amber-600" />
+   478→                            </div>
+   479→                            <div className="min-w-0 flex-1">
+   480→                              <h3 className="font-semibold text-sm text-slate-800">{item.kategori}</h3>
+   481→                              <p className="text-xs text-slate-500">{formatDateID(item.tanggal)}</p>
+   482→                            </div>
+   483→                          </div>
+   484→                          <span className="font-bold text-sm text-slate-800 whitespace-nowrap">{formatRupiah(item.jumlah)}</span>
+   485→                        </div>
+   486→
+   487→                        {item.keterangan && (
+   488→                          <p className="text-xs text-slate-600 ml-12 -mt-1">{item.keterangan}</p>
+   489→                        )}
+   490→
+   491→                        <div className="flex flex-wrap items-center gap-2 ml-12 text-xs text-slate-500">
+   492→                          {item.supplier && (
+   493→                            <span className="inline-flex items-center gap-1">
+   494→                              <Store className="w-3 h-3" />
+   495→                              {item.supplier}
+   496→                            </span>
+   497→                          )}
+   498→                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded">
+   499→                            {item.metodePembayaran}
+   500→                          </span>
+   501→                        </div>
+   502→
+   503→                        {(canEdit || canDelete) && (
+   504→                          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 ml-12">
+   505→                            {canEdit && (
+   506→                              <button
+   507→                                onClick={() => handleEdit(item)}
+   508→                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors active:scale-95"
+   509→                              >
+   510→                                <Pencil className="w-3.5 h-3.5" />
+   511→                                Edit
+   512→                              </button>
+   513→                            )}
+   514→                            {canDelete && (
+   515→                              <button
+   516→                                onClick={() => handleDelete(item)}
+   517→                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors active:scale-95"
+   518→                              >
+   519→                                <Trash2 className="w-3.5 h-3.5" />
+   520→                                Hapus
+   521→                              </button>
+   522→                            )}
+   523→                          </div>
+   524→                        )}
+   525→                      </div>
+   526→                    ))}
+   527→                  </div>
+   528→
+   529→                  {/* Footer total */}
+   530→                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between text-sm">
+   531→                    <span className="text-slate-500">Total {filteredData.length} transaksi</span>
+   532→                    <span className="font-bold text-slate-800">
+   533→                      {formatRupiah(filteredData.reduce((s, i) => s + (i.jumlah || 0), 0))}
+   534→                    </span>
+   535→                  </div>
+   536→                </>
+   537→              )}
+   538→            </div>
+   539→          </div>
+   540→        </>
+   541→      )}
+   542→
+   543→      {!canView && (
+   544→        <div className="bg-card rounded-xl shadow-sm border border-slate-200">
+   545→          <div className="p-4 lg:p-6 min-h-[600px] flex flex-col items-center justify-center text-slate-400">
+   546→            <Banknote className="w-16 h-16 mb-4" />
+   547→            <p className="text-lg font-semibold text-slate-500">Akses Ditolak</p>
+   548→            <p className="text-sm mt-1">Anda tidak memiliki izin untuk melihat daftar biaya</p>
+   549→          </div>
+   550→        </div>
+   551→      )}
+   552→
+   553→      {/* Add/Edit Dialog */}
+   554→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   555→        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+   556→          <DialogHeader>
+   557→            <DialogTitle>{editingItem ? 'Edit Biaya' : 'Tambah Biaya Baru'}</DialogTitle>
+   558→            <DialogDescription>{editingItem ? 'Edit informasi biaya operasional' : 'Catat pengeluaran biaya operasional'}</DialogDescription>
+   559→          </DialogHeader>
+   560→          <form onSubmit={handleSave}>
+   561→            <div className="grid gap-4 py-2">
+   562→              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+   563→                <Label htmlFor="tanggal" className="sm:text-right">Tanggal <span className="text-red-500">*</span></Label>
+   564→                <Input
+   565→                  id="tanggal"
+   566→                  type="date"
+   567→                  required
+   568→                  value={form.tanggal}
+   569→                  onChange={(e) => setForm({ ...form, tanggal: e.target.value })}
+   570→                  className="sm:col-span-3"
+   571→                  disabled={isSaving}
+   572→                />
+   573→              </div>
+   574→
+   575→              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+   576→                <Label htmlFor="kategori" className="sm:text-right">Kategori <span className="text-red-500">*</span></Label>
+   577→                <select
+   578→                  id="kategori"
+   579→                  required
+   580→                  value={form.kategori}
+   581→                  onChange={(e) => setForm({ ...form, kategori: e.target.value })}
+   582→                  className="sm:col-span-3 h-9 w-full rounded-md border border-slate-300 bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+   583→                  disabled={isSaving}
+   584→                >
+   585→                  {KATEGORI_OPTIONS.map(k => <option key={k} value={k}>{k}</option>)}
+   586→                  {editingItem && !KATEGORI_OPTIONS.includes(editingItem.kategori) && (
+   587→                    <option value={editingItem.kategori}>{editingItem.kategori}</option>
+   588→                  )}
+   589→                </select>
+   590→              </div>
+   591→
+   592→              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+   593→                <Label htmlFor="jumlah" className="sm:text-right">Jumlah (Rp) <span className="text-red-500">*</span></Label>
+   594→                <Input
+   595→                  id="jumlah"
+   596→                  type="number"
+   597→                  required
+   598→                  min="0"
+   599→                  step="any"
+   600→                  placeholder="0"
+   601→                  value={form.jumlah}
+   602→                  onChange={(e) => setForm({ ...form, jumlah: e.target.value })}
+   603→                  className="sm:col-span-3"
+   604→                  disabled={isSaving}
+   605→                />
+   606→              </div>
+   607→
+   608→              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+   609→                <Label htmlFor="metodePembayaran" className="sm:text-right">Metode Bayar</Label>
+   610→                <select
+   611→                  id="metodePembayaran"
+   612→                  value={form.metodePembayaran}
+   613→                  onChange={(e) => setForm({ ...form, metodePembayaran: e.target.value })}
+   614→                  className="sm:col-span-3 h-9 w-full rounded-md border border-slate-300 bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+   615→                  disabled={isSaving}
+   616→                >
+   617→                  {METODE_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+   618→                </select>
+   619→              </div>
+   620→
+   621→              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+   622→                <Label htmlFor="supplier" className="sm:text-right">Supplier</Label>
+   623→                <Input
+   624→                  id="supplier"
+   625→                  type="text"
+   626→                  placeholder="Nama supplier/vendor (opsional)"
+   627→                  value={form.supplier}
+   628→                  onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+   629→                  className="sm:col-span-3"
+   630→                  disabled={isSaving}
+   631→                />
+   632→              </div>
+   633→
+   634→              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
+   635→                <Label htmlFor="keterangan" className="sm:text-right">Keterangan</Label>
+   636→                <Input
+   637→                  id="keterangan"
+   638→                  type="text"
+   639→                  placeholder="Catatan tambahan (opsional)"
+   640→                  value={form.keterangan}
+   641→                  onChange={(e) => setForm({ ...form, keterangan: e.target.value })}
+   642→                  className="sm:col-span-3"
+   643→                  disabled={isSaving}
+   644→                />
+   645→              </div>
+   646→            </div>
+   647→            <DialogFooter>
+   648→              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
+   649→                Batal
+   650→              </Button>
+   651→              <Button type="submit" disabled={isSaving}>
+   652→                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : 'Simpan'}
+   653→              </Button>
+   654→            </DialogFooter>
+   655→          </form>
+   656→        </DialogContent>
+   657→      </Dialog>
+   658→    </DashboardLayout>
+   659→  )
+   660→}
+   661→

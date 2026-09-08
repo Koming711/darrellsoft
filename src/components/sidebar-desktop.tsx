@@ -120,8 +120,8 @@ const menuItems = [
     section: 'laporan',
   },
   {
-    titleKey: 'biaya' as TranslationKey,
-    href: '/biaya',
+    titleKey: 'biaya_operasional' as TranslationKey,
+    href: '/biaya-operasional',
     icon: Banknote,
     featureId: 'biaya',
     section: 'biaya',
