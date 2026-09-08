@@ -24,8 +24,17 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  RiwayatPeriodFilter,
+  RiwayatSummaryCard,
+  RiwayatEmptyState,
+  riwayatPeriodText,
+  riwayatDateRange,
+  type RiwayatPeriod,
+} from '@/components/dokupro/riwayat-period-filter'
 import {
   Table,
   TableBody,
@@ -158,13 +167,20 @@ function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }
 
 // ============================================================
 // PurchaseOrderRiwayatView — daftar purchase order langsung
-// tampil (tanpa tab). UI mengikuti gaya halaman Invoice / Master Customer.
+// tampil (tanpa tab). UI mengikuti gaya halaman Laporan Penjualan
+// (filter periode, kartu ringkasan, tabel & kartu riwayat).
 // ============================================================
 function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
   const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder)
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  // Filter periode — gaya Laporan Penjualan
+  const [period, setPeriod] = useState<RiwayatPeriod>('all')
+  const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
+  const [year, setYear] = useState<number | null>(new Date().getFullYear())
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -360,11 +376,18 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
     input.click()
   }
 
-  // Filter by search
+  // Periode efektif & label — dari helper bersama riwayat-period-filter
+  const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
+  const eff = riwayatDateRange(period, dateFrom, dateTo, month, year)
+  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+
+  // Filter by search + rentang tanggal periode
   const filteredHistory = useMemo(() => {
-    if (!searchQuery.trim()) return poHistory
     const q = searchQuery.toLowerCase().trim()
     return poHistory.filter(entry => {
+      if (eff.dateFrom && entry.tanggal && entry.tanggal < eff.dateFrom) return false
+      if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
+      if (!q) return true
       const info = parseDocInfo(entry)
       return (
         entry.nomor?.toLowerCase().includes(q) ||
@@ -373,64 +396,118 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
         entry.tanggal?.toLowerCase().includes(q)
       )
     })
-  }, [poHistory, searchQuery])
+  }, [poHistory, searchQuery, eff.dateFrom, eff.dateTo])
 
-  const countLabel = loading ? 'Memuat data…' : `${poHistory.length} purchase order`
+  // Total nilai PO pada periode terpilih
+  const summaryTotal = useMemo(() => {
+    let total = 0
+    for (const entry of filteredHistory) total += parseDocInfo(entry).totalHarga
+    return total
+  }, [filteredHistory])
 
   return (
     <>
       <div className="space-y-5">
-        {/* Header — gaya Master Customer */}
+        {/* Header — gaya Laporan Penjualan */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Purchase Order</h1>
-            <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
+            <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari no. PO / suplier / barang…"
-                aria-label="Cari purchase order"
-                className="pl-9 min-h-[44px]"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={onCreate}
-                title="Buat purchase order baru"
-                className="bg-violet-600 hover:bg-violet-700 min-h-[44px] flex-1 sm:flex-none"
-              >
-                <Plus className="h-4 w-4" /> Buat PO
-              </Button>
-              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
-                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
-              </Button>
-              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
-                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={onCreate}
+              title="Buat purchase order baru"
+              className="bg-violet-600 hover:bg-violet-700 min-h-[44px] flex-1 sm:flex-none"
+            >
+              <Plus className="h-4 w-4" /> Buat PO
+            </Button>
+            <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
+              {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+            </Button>
+            <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
+              {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+            </Button>
           </div>
         </div>
 
+        {/* Filter periode + pencarian — gaya Laporan Penjualan */}
+        <Card className="p-0 gap-0">
+          <CardContent className="p-4 space-y-4">
+            <RiwayatPeriodFilter
+              idPrefix="riwayat-po"
+              period={period}
+              onChangePeriod={setPeriod}
+              from={dateFrom}
+              to={dateTo}
+              onFromChange={setDateFrom}
+              onToChange={setDateTo}
+              month={month}
+              onMonthChange={setMonth}
+              year={year}
+              onYearChange={setYear}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="riwayat-po-search">Cari</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                  <Input
+                    id="riwayat-po-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cari no. PO / suplier / barang…"
+                    aria-label="Cari purchase order"
+                    className="pl-9 min-h-[44px]"
+                  />
+                </div>
+              </div>
+              {filtersActive && (
+                <div className="flex items-end">
+                  <Button
+                    variant="ghost"
+                    className="text-xs text-muted-foreground h-10"
+                    onClick={() => { setPeriod('all'); setDateFrom(''); setDateTo(''); setSearchQuery('') }}
+                  >
+                    <X className="h-3.5 w-3.5" /> Reset Filter
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Ringkasan — gaya Laporan Penjualan */}
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <RiwayatSummaryCard
+              label="Jumlah Purchase Order"
+              value={filteredHistory.length}
+              note="PO pada periode terpilih"
+            />
+            <RiwayatSummaryCard
+              label="Total Nilai PO"
+              value={formatRupiah(summaryTotal)}
+              note="Akumulasi nilai purchase order"
+            />
+          </div>
+        )}
+
         {/* Content */}
         {loading ? (
-          <>
-            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden p-4 space-y-3">
-              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-            <div className="md:hidden space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
-            </div>
-          </>
+          <Skeleton className="h-72 w-full rounded-xl" />
         ) : filteredHistory.length === 0 ? (
-          <div className="text-center py-16">
-            <History className="h-10 w-10 mx-auto text-stone-300 mb-3" />
-            <p className="text-sm font-medium text-stone-600">{searchQuery.trim() ? 'Tidak ditemukan' : 'Belum ada purchase order'}</p>
-            <p className="text-xs text-muted-foreground mt-1">{searchQuery.trim() ? 'Coba kata kunci lain' : 'Klik "Buat PO" untuk membuat baru'}</p>
-          </div>
+          <RiwayatEmptyState
+            icon={<History />}
+            title={filtersActive ? 'Tidak ditemukan' : 'Belum ada purchase order'}
+            desc={filtersActive ? 'Coba ubah filter periode atau kata kunci pencarian.' : 'Klik "Buat PO" untuk membuat baru'}
+          />
         ) : (
           <>
             {/* Desktop table */}
@@ -439,6 +516,7 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
+                      <TableHead className="w-10">No.</TableHead>
                       <TableHead>No. PO</TableHead>
                       <TableHead>Tgl</TableHead>
                       <TableHead>Suplier</TableHead>
@@ -449,11 +527,12 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredHistory.slice(0, 100).map((entry) => {
+                    {filteredHistory.slice(0, 100).map((entry, i) => {
                       const info = parseDocInfo(entry)
                       return (
                         <TableRow key={entry.id}>
-                          <TableCell className="font-medium whitespace-nowrap text-violet-700">{entry.nomor || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap"><span className="font-mono text-xs">{entry.nomor || '-'}</span></TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
                           <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
                           <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
@@ -463,9 +542,9 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -476,34 +555,31 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
               </div>
             </div>
 
-            {/* Mobile cards */}
+            {/* Mobile cards — gaya Laporan Penjualan (aksi via tombol, kartu tidak clickable) */}
             <div className="md:hidden space-y-3">
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
                 return (
                   <Card key={entry.id} className="p-0 gap-0">
                     <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{entry.nomor || '-'}</p>
-                          <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
-                        </div>
-                        <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+                      <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
+                      <p className="text-sm">
+                        <span className="text-muted-foreground">{formatTanggal(entry.tanggal)} · </span>
+                        <span className="font-medium">{entry.pihakKedua || '-'}</span>
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+                        <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '—'}</span></p>
+                        <p className="text-muted-foreground">Qty: <span className="font-medium text-stone-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '—'}</span></p>
                       </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <p className="truncate">{entry.pihakKedua || '-'}</p>
-                        {info.namaBarang && <p className="text-xs line-clamp-1">{info.namaBarang.split('\n')[0]}</p>}
-                        {info.totalQty > 0 && <p className="text-xs">Qty: {info.totalQty.toLocaleString('id-ID')}</p>}
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
-                          <Eye className="h-4 w-4" /> Lihat
+                      <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
+                        <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+                          <Eye className="h-3.5 w-3.5" /> Lihat
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => restoreToEditor(entry)}>
-                          <RotateCcw className="h-4 w-4" /> Muat
+                        <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={() => restoreToEditor(entry)}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Muat
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
-                          <Trash2 className="h-4 w-4" /> Hapus
+                        <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
+                          <Trash2 className="h-3.5 w-3.5" /> Hapus
                         </Button>
                       </div>
                     </CardContent>

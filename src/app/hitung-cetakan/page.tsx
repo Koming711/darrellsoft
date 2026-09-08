@@ -30,6 +30,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 import { calculateCuts } from '@/lib/cutting-engine'
+import { RiwayatPeriodFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
 interface Paper {
   id: string
@@ -266,6 +267,9 @@ function HitungCetakanPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [period, setPeriod] = useState<RiwayatPeriod>('all')
+  const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
+  const [year, setYear] = useState<number | null>(new Date().getFullYear())
   const fetchRiwayatCetakan = async () => {
     try {
       setRiwayatLoading(true)
@@ -279,21 +283,34 @@ function HitungCetakanPage() {
     }
   }
 
-  // Filter riwayat: pencarian + rentang tanggal (gaya Riwayat Invoice)
+  // Filter riwayat: periode + pencarian (gaya Laporan Penjualan)
+  const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
+  const eff = riwayatDateRange(period, dateFrom, dateTo, month, year)
   const filteredRiwayatList = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return riwayatCetakanList.filter((r) => {
-      const created = String(r?.createdAt || '').slice(0, 10)
-      if (dateFrom && created && created < dateFrom) return false
-      if (dateTo && created && created > dateTo) return false
+      const t = String(r?.createdAt || '').slice(0, 10)
+      if (eff.dateFrom && t && t < eff.dateFrom) return false
+      if (eff.dateTo && t && t > eff.dateTo) return false
       if (q) {
         const hay = `${r?.nomorUrut || ''} ${r?.customerName || ''} ${r?.printName || ''} ${r?.finishingNames || ''}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
     })
-  }, [riwayatCetakanList, searchQuery, dateFrom, dateTo])
-  const riwayatFiltersActive = !!searchQuery.trim() || !!dateFrom || !!dateTo
+  }, [riwayatCetakanList, searchQuery, eff])
+  const riwayatFiltersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+
+  // Ringkasan riwayat: total & profit (profitAmount > 0 saja) dari list terfilter
+  const riwayatSummary = useMemo(() => {
+    let total = 0
+    let profit = 0
+    for (const r of filteredRiwayatList) {
+      total += Number(r?.grandTotal) || 0
+      if (r?.profitAmount && r.profitAmount > 0) profit += Number(r.profitAmount)
+    }
+    return { total, profit }
+  }, [filteredRiwayatList])
 
   const fetchNextNumber = () => {
     fetcher('/api/riwayat-cetakan?preview=next-number', { headers: getAuthHeaders() })
@@ -2542,19 +2559,9 @@ function HitungCetakanPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Hitung Cetakan</h1>
-            <p className="text-sm text-muted-foreground mt-1">{riwayatLoading ? 'Memuat data…' : `${filteredRiwayatList.length} data`}</p>
+            <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari no. HC / customer / barang…"
-                aria-label="Cari riwayat hitung cetakan"
-                className="pl-9 min-h-[44px]"
-              />
-            </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleBackup}
@@ -2578,37 +2585,70 @@ function HitungCetakanPage() {
           </div>
         </div>
 
-        {/* Filter: rentang tanggal */}
-        <div className="rounded-xl border border-stone-200 bg-white p-3 md:px-4 md:py-3">
-          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
-            <div className="lg:w-40">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Dari Tanggal</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Dari tanggal" />
+        {/* Filter: periode + pencarian */}
+        <Card className="p-0 gap-0">
+          <CardContent className="p-4 space-y-4">
+            <RiwayatPeriodFilter
+              idPrefix="riwayat-hc"
+              period={period}
+              onChangePeriod={setPeriod}
+              from={dateFrom}
+              to={dateTo}
+              onFromChange={setDateFrom}
+              onToChange={setDateTo}
+              month={month}
+              onMonthChange={setMonth}
+              year={year}
+              onYearChange={setYear}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="riwayat-hc-search">Cari</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                  <Input
+                    id="riwayat-hc-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cari no. HC / customer / barang…"
+                    aria-label="Cari riwayat hitung cetakan"
+                    className="pl-9 min-h-[44px]"
+                  />
+                </div>
+              </div>
+              {riwayatFiltersActive && (
+                <div className="flex items-end">
+                  <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={() => { setPeriod('all'); setDateFrom(''); setDateTo(''); setSearchQuery('') }}>
+                    <X className="h-3.5 w-3.5" /> Reset Filter
+                  </Button>
+                </div>
+              )}
             </div>
-            <div className="lg:w-40">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Sampai Tanggal</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Sampai tanggal" />
-            </div>
-            {riwayatFiltersActive && (
-              <Button variant="ghost" size="sm" className="lg:ml-auto mt-1 lg:mt-4 text-xs text-muted-foreground" onClick={() => { setDateFrom(''); setDateTo(''); setSearchQuery('') }}>
-                <X className="h-3.5 w-3.5" /> Reset Filter
-              </Button>
-            )}
+          </CardContent>
+        </Card>
+
+        {/* Ringkasan */}
+        {riwayatLoading ? (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
           </div>
-        </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <RiwayatSummaryCard label="Jumlah Hitung Cetakan" value={filteredRiwayatList.length} note="Data pada periode terpilih" />
+            <RiwayatSummaryCard label="Total" value={`Rp ${Math.round(riwayatSummary.total).toLocaleString('id-ID')}`} valueClass="text-emerald-700" />
+            <RiwayatSummaryCard label="Profit" value={`Rp ${Math.round(riwayatSummary.profit).toLocaleString('id-ID')}`} valueClass="text-violet-700" />
+          </div>
+        )}
 
         {riwayatLoading ? (
-          <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
-            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-          </div>
+          <Skeleton className="h-72 w-full rounded-xl" />
         ) : filteredRiwayatList.length === 0 ? (
-          <div className="text-center py-12 px-4 rounded-xl border border-stone-200 bg-white">
-            <History className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-medium">{riwayatFiltersActive ? 'Tidak ditemukan' : 'Belum ada riwayat hitung cetakan'}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {riwayatFiltersActive ? 'Coba kata kunci atau rentang tanggal lain.' : 'Hasil hitung yang disimpan akan tampil di sini'}
-            </p>
-          </div>
+          <RiwayatEmptyState
+            icon={<History />}
+            title={riwayatFiltersActive ? 'Tidak ditemukan' : 'Belum ada riwayat hitung cetakan'}
+            desc={riwayatFiltersActive ? 'Coba ubah filter periode atau kata kunci pencarian.' : 'Hasil hitung yang disimpan akan tampil di sini'}
+          />
         ) : (
           <>
             {/* Desktop table — klik baris → Preview */}
@@ -2617,6 +2657,7 @@ function HitungCetakanPage() {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
+                      <TableHead className="w-10">No.</TableHead>
                       <TableHead className="w-0 min-w-0">No. HC</TableHead>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Customer</TableHead>
@@ -2630,7 +2671,7 @@ function HitungCetakanPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRiwayatList.slice(0, 100).map((r) => {
+                    {filteredRiwayatList.slice(0, 100).map((r, i) => {
                       const jml = parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 0
                       return (
                         <TableRow
@@ -2638,7 +2679,8 @@ function HitungCetakanPage() {
                           className={`cursor-pointer hover:bg-stone-50 ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
                           onClick={() => handlePreviewRiwayat(r)}
                         >
-                          <TableCell className="font-medium whitespace-nowrap w-px">{r.nomorUrut || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap w-px"><span className="font-mono text-xs">{r.nomorUrut || '-'}</span></TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</TableCell>
                           <TableCell className="max-w-40 truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</TableCell>
                           <TableCell className="max-w-44 text-muted-foreground" title={r.printName || '-'}>
@@ -2683,37 +2725,40 @@ function HitungCetakanPage() {
                   onClick={() => handlePreviewRiwayat(r)}
                 >
                   <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium truncate">{r.nomorUrut || '-'}</p>
-                      <p className="text-xs text-muted-foreground whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
-                    </div>
+                    <p className="font-mono text-xs font-semibold break-all">{r.nomorUrut || '-'}</p>
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'} · </span>
+                      <span className="font-medium">{r.customerName || '-'}</span>
+                    </p>
                     <div className="text-sm text-muted-foreground space-y-1">
-                      <p className="truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</p>
-                      {r.printName && <p className="text-xs line-clamp-1">{r.printName}</p>}
+                      {r.printName && <p className="truncate">{r.printName}</p>}
                       {r.finishingNames && r.finishingNames !== '' && <p className="text-xs line-clamp-1">Fin: {r.finishingNames}</p>}
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      {r.profitAmount && r.profitAmount > 0
-                        ? <span className="text-xs text-violet-700">Profit Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
-                        : <span />}
-                      <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
+                      <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</span></p>
+                      <p className="text-muted-foreground">
+                        Profit:{' '}
+                        {r.profitAmount && r.profitAmount > 0
+                          ? <span className="text-violet-700">Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
+                          : '—'}
+                      </p>
                     </div>
-                    <div className="border-t pt-2 flex gap-2">
+                    <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 min-h-[36px] text-xs"
+                        className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
                         onClick={(e) => { e.stopPropagation(); handleRestoreRiwayat(r) }}
                       >
-                        Muat
+                        <RotateCcw className="h-3.5 w-3.5" /> Muat
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 min-h-[36px] text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                        className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
                         onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
                       >
-                        Hapus
+                        <Trash2 className="h-3.5 w-3.5" /> Hapus
                       </Button>
                     </div>
                   </CardContent>
