@@ -7976,3 +7976,30 @@ Stage Summary:
 - Root `app/` dihapus (sumber 404 massal); pelajaran untuk agen berikutnya tercatat.
 - File berubah: prisma/schema.prisma(+root), api/history(+[id]), api/dashboard, api/laporan(3), api/rekap-penjualan, lib/format, dokupro/{items-fields,invoice-editor,invoice-pelunasan-editor,document-editor-layout,document-action-buttons,surat-jalan-editor,purchase-order-editor}, app/{invoice,surat-jalan,purchase-order}/page.tsx (+salinan root components/ & lib/).
 - Lint 0 error; DB utuh (23 dok, 0 sampah); server stabil via daemon.
+
+---
+Task ID: invoice-namabarang-editable-7
+Agent: Main (Z.ai Code)
+Task: "dihalaman buat invoice baru, nama barang bisa diedit. kotaknya diperbesar lagi." — Nama Barang di Buat Invoice Baru dibuat bisa diedit manual lagi (menggantikan mode tombol dropdown readonly 1 baris dari task 6) dan kotaknya diperbesar.
+
+Work Log:
+- items-fields.tsx (branch `isBarangMode`, hanya dipakai invoice-editor — SJ/PO/pelunasan tetap mode textarea biasa):
+  * Trigger dropdown readonly (button h-9 truncate) DIGANTI menjadi Textarea editable rows=3 min-h-[84px] pr-11 (444×84px desktop vs 36px sebelumnya) — user bisa ketik nama barang manual.
+  * Tombol dropdown chevron kecil (h-8 w-8, absolute right-2 top-2, rotate saat terbuka, aria-label "Pilih barang dari daftar customer") dipertahankan di dalam kotak untuk memilih dari Master Barang customer.
+  * Harga Satuan & Harga Modal: `readOnly={isBarangMode}` + styling abu dihapus → keduanya editable lagi (wajib agar barang ketikan manual bisa diisi harga). Pilih dari dropdown tetap auto-isi nama+satuan+harga+modal via onPickBarang.
+  * Komentar doc prop barangOptions diperbarui.
+- invoice-editor.tsx: hanya komentar handlePickBarang disesuaikan ("tetap bisa diedit manual"); perilaku auto-isi, clear-on-customer-change, dan isolasi barang per pelanggan TIDAK diubah.
+- eslint 2 file → 0 error.
+- VERIFIKASI agent-browser (login ulang admin karena sesi habis; desktop 1280×800 + mobile 390×844; TIDAK menyimpan apa pun — semua uji sisi klien):
+  * Buat Invoice → pilih customer "wiayana wisnu": kotak Nama Barang kini textarea 444×84px, readOnly=false.
+  * Tombol dropdown masih berisi barang milik wiayana (paperbowl 720ml @1.700, ongkir @150.000); pilih paperbowl → nama terisi otomatis, Harga Satuan 1.700, Harga Modal 1.400, keduanya readOnly=false.
+  * Ketik manual "stiker custom A3" → nilai tersimpan di state; edit Harga Satuan manual 1.700→2.500 → Total Harga ikut 2.500.
+  * Ganti customer ke "rendy" → nama barang & harga otomatis kosong; dropdown barang rendy → "Belum ada barang untuk customer ini — tambahkan di Master Barang" (isolasi per pelanggan utuh).
+  * Overflow: desktop scrollW 1280=1280; mobile 390=390. Kotak mobile 308×84px editable.
+- Catatan teknis: popup pengumuman/install ditutup lewat tombolnya (X / Oke) — penghapusan node React via JS `remove()` memicu hydration error "removeChild" (jangan remove elemen React-managed; reload pulih).
+- DB: documentHistory=22, customer=132, sampah=0 — sesi ini tidak membuat/menghapus data (pergeseran angka vs task 6 berasal dari aktivitas sesi browser user sendiri yang aktif bersamaan).
+
+Stage Summary:
+- Nama Barang di Buat Invoice Baru kini kotak besar (84px) yang bisa diketik manual + tombol dropdown pilih barang customer (auto-isi harga tetap jalan); Harga Satuan & Harga Modal editable lagi.
+- Isolasi Master Barang per pelanggan, clear-on-customer-change, dan layout 2 kolom tanpa Data Perusahaan tidak berubah.
+- File berubah: src/components/dokupro/items-fields.tsx, src/components/dokupro/invoice-editor.tsx (komentar). Lint 0 error, tanpa perubahan DB.

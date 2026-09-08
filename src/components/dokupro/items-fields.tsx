@@ -35,10 +35,11 @@ interface ItemsFieldsProps {
   showPrice?: boolean;
   showModal?: boolean; // input harga modal per item (snapshot untuk laporan rugi laba)
   /**
-   * Mode dropdown barang (dipakai Buat Invoice): jika disediakan, kotak
-   * Nama Barang menjadi dropdown readonly 1 baris berisi daftar barang milik
-   * customer terpilih (dari Master Barang per pelanggan) — tidak bisa diketik
-   * manual. Harga Satuan & Harga Modal otomatis terisi dan tidak bisa diedit.
+   * Mode barang (dipakai Buat Invoice): jika disediakan, kotak Nama Barang
+   * menjadi kotak besar yang BISA diketik manual, dilengkapi tombol dropdown
+   * berisi daftar barang milik customer terpilih (dari Master Barang per
+   * pelanggan). Memilih dari dropdown otomatis mengisi Nama Barang, Satuan,
+   * Harga Satuan & Harga Modal — semuanya tetap bisa diedit manual.
    */
   barangOptions?: BarangOption[];
   /** Pesan saat daftar barang kosong untuk customer terpilih. */
@@ -138,23 +139,31 @@ export function ItemsFields({
             <div className="space-y-1">
               <Label className="text-xs">Nama Barang</Label>
               {isBarangMode ? (
-                /* MODE DROPDOWN — readonly 1 baris, tidak bisa diketik manual */
+                /* MODE BARANG (Buat Invoice) — kotak besar & bisa diketik
+                   manual, plus tombol dropdown untuk memilih barang milik
+                   customer (auto-isi nama, satuan, harga satuan & modal). */
                 <Popover
                   open={openBarangIndex === index}
                   onOpenChange={(open) => setOpenBarangIndex(open ? index : null)}
                 >
                   <PopoverAnchor asChild>
-                    <button
-                      type="button"
-                      onClick={() => setOpenBarangIndex(openBarangIndex === index ? null : index)}
-                      className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-slate-50 px-3 py-2 text-sm shadow-xs outline-none cursor-pointer hover:bg-slate-100 transition-colors text-left"
-                      aria-label="Pilih barang dari daftar customer"
-                    >
-                      <span className={`truncate ${item.deskripsi ? 'text-slate-900' : 'text-slate-400'}`}>
-                        {item.deskripsi || 'Pilih barang...'}
-                      </span>
-                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                    </button>
+                    <div className="relative">
+                      <Textarea
+                        value={item.deskripsi}
+                        onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
+                        placeholder="Ketik nama barang atau pilih lewat tombol dropdown"
+                        className="text-sm min-h-[84px] pr-11"
+                        rows={3}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOpenBarangIndex(openBarangIndex === index ? null : index)}
+                        className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-slate-50 shadow-xs outline-none cursor-pointer transition-colors hover:bg-slate-100 ${openBarangIndex === index ? 'text-slate-700' : 'text-slate-400'}`}
+                        aria-label="Pilih barang dari daftar customer"
+                      >
+                        <ChevronDown className={`w-4 h-4 transition-transform ${openBarangIndex === index ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
                   </PopoverAnchor>
                   <PopoverContent
                     align="start"
@@ -225,8 +234,7 @@ export function ItemsFields({
                       const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
                       updateItem(item.id, 'harga', raw === '' ? 0 : Number(raw) || 0)
                     }}
-                    readOnly={isBarangMode}
-                    className={`text-sm ${isBarangMode ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
+                    className="text-sm"
                   />
                 </div>
               )}
@@ -241,8 +249,7 @@ export function ItemsFields({
                       const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
                       updateItem(item.id, 'modal', raw === '' ? 0 : Number(raw) || 0)
                     }}
-                    readOnly={isBarangMode}
-                    className={`text-sm ${isBarangMode ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
+                    className="text-sm"
                   />
                 </div>
               )}
