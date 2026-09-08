@@ -450,7 +450,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               <Input
                 value={invoice.nomor}
                 readOnly
-                className="bg-slate-50 text-slate-500 cursor-not-allowed"
+                className="bg-slate-50 text-slate-500 cursor-not-allowed text-sm"
               />
             </div>
             <div className="space-y-1.5">
@@ -459,6 +459,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
                 type="date"
                 value={invoice.tanggal}
                 onChange={(e) => setInvoice((prev) => ({ ...prev, tanggal: e.target.value }))}
+                className="text-sm"
               />
             </div>
           </div>
@@ -519,6 +520,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
                 type="date"
                 value={invoice.tanggalJatuhTempo}
                 onChange={(e) => setInvoice((prev) => ({ ...prev, tanggalJatuhTempo: e.target.value }))}
+                className="text-sm"
               />
             </div>
             <div className="space-y-1.5">
@@ -556,6 +558,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
                 type="date"
                 value={invoice.tanggalGiro}
                 onChange={(e) => setInvoice((prev) => ({ ...prev, tanggalGiro: e.target.value }))}
+                className="text-sm"
               />
             </div>
           )}
@@ -636,6 +639,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               value={invoice.client.kontak}
               onChange={(e) => updateClient('kontak', e.target.value)}
               placeholder="No. telepon / email"
+              className="text-sm"
             />
           </div>
           <div className="space-y-2">
@@ -644,6 +648,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               value={invoice.client.alamat}
               onChange={(e) => updateClient('alamat', e.target.value)}
               placeholder="Alamat lengkap"
+              className="text-sm"
             />
           </div>
         </div>
@@ -677,6 +682,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               max={100}
               value={invoice.ppn || ''}
               onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+              className="text-sm"
             />
           </div>
           {!dpDisabled && (
@@ -689,6 +695,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
                 value={invoice.dp || ''}
                 onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
                 placeholder="0"
+                className="text-sm"
               />
             </div>
           )}
@@ -705,7 +712,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               }}
               readOnly={!!invoice.referensi}
               placeholder="0"
-              className={invoice.referensi ? 'bg-slate-50 cursor-not-allowed' : ''}
+              className={`text-sm ${invoice.referensi ? 'bg-slate-50 cursor-not-allowed' : ''}`}
             />
           </div>
           <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
@@ -731,6 +738,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               onChange={(e) => setInvoice((prev) => ({ ...prev, catatan: e.target.value }))}
               placeholder="Catatan tambahan..."
               rows={3}
+              className="text-sm"
             />
           </div>
         </div>
