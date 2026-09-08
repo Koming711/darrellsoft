@@ -8073,3 +8073,27 @@ Stage Summary:
 - Laporan Penjualan, Rugi Laba, dan menu Biaya Operasional kini memakai font/ukuran/tampilan & fitur persis versi arsip (dengan branding Darrell Soft), di atas data layer sekarang (DocumentHistory + /api/biaya) — tanpa migrasi DB.
 - Menu "Biaya" dihapus dari sidebar (desktop+mobile), diganti "Biaya Operasional" di grup OPERASIONAL; permission featureId 'biaya' tidak berubah.
 - File berubah: components/{sidebar,sidebar-desktop}.tsx, lib/{permissions,i18n}.ts, app/biaya-operasional/page.tsx (dari app/biaya), app/laporan/{penjualan,rugi-laba}/page.tsx, api/laporan/{penjualan,rugi-laba}/route.ts.
+
+---
+Task ID: 9
+Agent: Main (Z.ai Code)
+Task: "di halaman buat invoice baru, halaman buat surat jalan baru dan buat purchase baru, tulisan isi font sama besar. fix" — samakan ukuran font teks isi (input/textarea) di 3 halaman editor dokumen.
+
+Work Log:
+- Audit root cause: komponen ui/input.tsx & ui/textarea.tsx (shadcn) memakai class dasar "text-base md:text-sm" → 16px di layar <768px, 14px di desktop. Sementara input raw (Referensi, Nama Customer/Suplier di 3 editor) dan seluruh items-fields.tsx (Nama Barang, Qty, Harga Satuan, Harga Modal, Total Harga) sudah "text-sm" (14px di semua viewport). Akibatnya di layar sempit/mobile tercampur 16px vs 14px dalam satu form.
+- Fix scoped (TIDAK mengubah ui/input.tsx & ui/textarea.tsx global agar halaman lain tidak terdampak): tambahkan className "text-sm" ke semua Input/Textarea shadcn di 3 editor:
+  * invoice-editor.tsx (10 field): No. Invoice (readOnly), Tanggal, Tgl. Jatuh Tempo, Tgl. Giro, Nomor Telp, Alamat, PPN (%), DP (%), Profit (template literal dipertahankan untuk conditional bg-slate-50), Catatan.
+  * surat-jalan-editor.tsx (7 field): No. Surat Jalan (readOnly), Tanggal, Kontak, Alamat, No. Kendaraan, Pengemudi, Catatan.
+  * purchase-order-editor.tsx (8 field): No. Purchase Order (readOnly), Tanggal, Tgl. Jatuh Tempo, Jenis Barang, Kontak, Alamat, PPN (%), Catatan.
+- items-fields.tsx tidak diubah (sudah text-sm seragam — dipakai bersama oleh ketiga halaman).
+- Verifikasi: bunx eslint pada 4 file dokupro → 0 error 0 warning.
+- E2E agent-browser (login sesi aktif, READ-ONLY — tidak ada simpan/hapus; form hanya dibuka-tutup via tombol "Buat Invoice"/"Buat Surat Jalan"/"Buat PO"/"Kembali"):
+  * Mobile 390×844: /invoice form = 13 input/textarea semua computed fontSize 14px; /surat-jalan = 11 semua 14px; /purchase-order = 13 semua 14px; scrollWidth == clientWidth (390) di semua halaman → tanpa overflow horizontal.
+  * Desktop 1280×800: invoice 13 @14px, surat jalan 11 @14px, PO 13 @14px, tanpa overflow; screenshot 3 halaman disimpan di tool-results/task9-{invoice,sj,po}-desktop.jpg — visual isi kotak input seragam.
+  * Browser console errors: kosong; .daemon.log: GET /invoice 200, /surat-jalan 200, /purchase-order 200 tanpa error compile (entri EADDRINUSE lama di dev.log adalah sisa sesi restart sebelumnya — server hidup dan melayani 200).
+  * DB baseline tidak berubah: documentHistory=22, customer=132, biaya=3.
+
+Stage Summary:
+- Tulisan isi (teks di dalam kotak input/textarea) di halaman Buat Invoice Baru, Buat Surat Jalan Baru, dan Buat Purchase Baru kini SERAGAM 14px (text-sm) di semua ukuran layar — sebelumnya tercampur 16px (Input shadcn di mobile) dan 14px (input item & dropdown raw).
+- Font family tidak berubah (Geist global); label tetap text-xs; komponen ui/input & ui/textarea global tidak disentuh sehingga halaman lain (pelunasan, master data, laporan) tidak terdampak.
+- File berubah: src/components/dokupro/{invoice-editor,surat-jalan-editor,purchase-order-editor}.tsx (25 className text-sm ditambahkan).

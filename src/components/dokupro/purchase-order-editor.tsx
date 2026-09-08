@@ -336,7 +336,7 @@ export function PurchaseOrderEditor() {
               <Input
                 value={po.nomor}
                 readOnly
-                className="bg-slate-50 text-slate-500 cursor-not-allowed"
+                className="bg-slate-50 text-slate-500 cursor-not-allowed text-sm"
               />
             </div>
             <div className="space-y-2">
@@ -345,6 +345,7 @@ export function PurchaseOrderEditor() {
                 type="date"
                 value={po.tanggal}
                 onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, tanggal: e.target.value }))}
+                className="text-sm"
               />
             </div>
           </div>
@@ -354,6 +355,7 @@ export function PurchaseOrderEditor() {
               type="date"
               value={po.tanggalJatuhTempo}
               onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, tanggalJatuhTempo: e.target.value }))}
+              className="text-sm"
             />
           </div>
           {po.tanggalJatuhTempo && (
@@ -485,6 +487,7 @@ export function PurchaseOrderEditor() {
               value={po.pemasok.jenisBarang}
               onChange={(e) => updatePemasok('jenisBarang', e.target.value)}
               placeholder="Jenis barang"
+              className="text-sm"
             />
           </div>
           <div className="space-y-2">
@@ -493,6 +496,7 @@ export function PurchaseOrderEditor() {
               value={po.pemasok.kontak}
               onChange={(e) => updatePemasok('kontak', e.target.value)}
               placeholder="No. telepon / email"
+              className="text-sm"
             />
           </div>
           <div className="space-y-2">
@@ -501,6 +505,7 @@ export function PurchaseOrderEditor() {
               value={po.pemasok.alamat}
               onChange={(e) => updatePemasok('alamat', e.target.value)}
               placeholder="Alamat pemasok"
+              className="text-sm"
             />
           </div>
         </div>
@@ -526,6 +531,7 @@ export function PurchaseOrderEditor() {
               max={100}
               value={po.ppn}
               onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, ppn: Number(e.target.value) || 0 }))}
+              className="text-sm"
             />
           </div>
           <div className="mt-3 rounded-lg bg-amber-50 p-3">
@@ -541,6 +547,7 @@ export function PurchaseOrderEditor() {
               onChange={(e) => setPurchaseOrder((prev) => ({ ...prev, catatan: e.target.value }))}
               placeholder="Catatan tambahan..."
               rows={3}
+              className="text-sm"
             />
           </div>
         </div>

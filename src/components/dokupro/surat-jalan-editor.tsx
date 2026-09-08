@@ -285,7 +285,7 @@ export function SuratJalanEditor() {
                   <Input
                     value={sj.nomor}
                     readOnly
-                    className="bg-slate-50 text-slate-500 cursor-not-allowed"
+                    className="bg-slate-50 text-slate-500 cursor-not-allowed text-sm"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -294,6 +294,7 @@ export function SuratJalanEditor() {
                     type="date"
                     value={sj.tanggal}
                     onChange={(e) => setSuratJalan((prev) => ({ ...prev, tanggal: e.target.value }))}
+                    className="text-sm"
                   />
                 </div>
               </div>
@@ -412,6 +413,7 @@ export function SuratJalanEditor() {
                   value={sj.penerima.kontak}
                   onChange={(e) => updatePenerima('kontak', e.target.value)}
                   placeholder="No. telepon / email"
+                  className="text-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -420,6 +422,7 @@ export function SuratJalanEditor() {
                   value={sj.penerima.alamat}
                   onChange={(e) => updatePenerima('alamat', e.target.value)}
                   placeholder="Alamat penerima"
+                  className="text-sm"
                 />
               </div>
             </div>
@@ -443,6 +446,7 @@ export function SuratJalanEditor() {
                   value={sj.noKendaraan}
                   onChange={(e) => setSuratJalan((prev) => ({ ...prev, noKendaraan: e.target.value }))}
                   placeholder="B 1234 XYZ"
+                  className="text-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -451,6 +455,7 @@ export function SuratJalanEditor() {
                   value={sj.pengemudi}
                   onChange={(e) => setSuratJalan((prev) => ({ ...prev, pengemudi: e.target.value }))}
                   placeholder="Nama pengemudi"
+                  className="text-sm"
                 />
               </div>
             </div>
@@ -465,6 +470,7 @@ export function SuratJalanEditor() {
                   onChange={(e) => setSuratJalan((prev) => ({ ...prev, catatan: e.target.value }))}
                   placeholder="Catatan tambahan..."
                   rows={3}
+                  className="text-sm"
                 />
               </div>
             </div>
