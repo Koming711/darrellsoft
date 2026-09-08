@@ -1,11 +1,16 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil } from 'lucide-react'
+import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import type { Customer, Paper, CuttingResult } from '@/lib/cutting-engine'
 import dynamic from 'next/dynamic'
@@ -37,6 +42,14 @@ const STORAGE_KEY = () => userKey('potong-kertas-form')
 const STORAGE_RESULTS_KEY = () => userKey('potong-kertas-results')
 const STORAGE_VERSION_KEY = () => userKey('potong-kertas-form-version')
 const STORAGE_VERSION = 'v6'
+
+// Format tanggal riwayat potong kertas (gaya Riwayat Invoice: 05 Jun 2025)
+function formatTanggalRiwayat(value?: string | null): string {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '-'
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+}
 
 interface FormData {
   paperWidth: string
@@ -279,6 +292,30 @@ function CalculatorPage() {
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
   const [nextPotongKertasNumber, setNextPotongKertasNumber] = useState('')
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
+
+  // Riwayat tab UI states (pencarian + filter tanggal, gaya halaman Invoice)
+  const [loadingRiwayat, setLoadingRiwayat] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  // Filter riwayat: pencarian (No. PK / customer / barang / kertas) + rentang tanggal
+  const filteredRiwayatList = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q && !dateFrom && !dateTo) return riwayatList
+    return riwayatList.filter((r: any) => {
+      const created = String(r?.createdAt || '').slice(0, 10)
+      if (dateFrom && created < dateFrom) return false
+      if (dateTo && created > dateTo) return false
+      if (q) {
+        const hay = `${r?.nomorUrut || ''} ${r?.namaCustomer || ''} ${r?.namaCetakan || ''} ${r?.paperName || ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [riwayatList, searchQuery, dateFrom, dateTo])
+
+  const filtersActive = !!searchQuery.trim() || !!dateFrom || !!dateTo
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -620,12 +657,15 @@ function CalculatorPage() {
   // === Riwayat functions ===
   const fetchRiwayat = async () => {
     try {
+      setLoadingRiwayat(true)
       const res = await fetcher('/api/riwayat-potong-kertas', { headers: getAuthHeaders() })
       if (res.ok) {
         const data = await res.json()
         setRiwayatList(Array.isArray(data) ? data : [])
       }
-    } catch {}
+    } catch {} finally {
+      setLoadingRiwayat(false)
+    }
   }
 
   const handleBackupRiwayat = async () => {
@@ -1345,70 +1385,6 @@ function CalculatorPage() {
     toast.success('Membuka WhatsApp...')
   }
 
-  // Riwayat table component
-  const RiwayatTable = ({ items }: { items: any[] }) => (
-    <div className="overflow-x-auto">
-      <table className="w-full text-[13px] min-w-[700px]">
-        <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/80">
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">No. PK</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Tgl</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Customer</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Nama Barang</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden md:table-cell">Kertas</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Gramatur</th>
-            <th className="text-left py-3 px-3 text-slate-500 font-semibold whitespace-nowrap hidden lg:table-cell">Uk. Potong</th>
-            <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Jml</th>
-            <th className="text-right py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Total</th>
-            <th className="text-center py-3 px-3 text-slate-500 font-semibold whitespace-nowrap">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((r, idx) => {
-            return (
-              <tr key={r.id} onClick={() => handlePreviewRiwayat(r)} className={`border-b border-slate-50 hover:bg-amber-50/40 transition-colors cursor-pointer ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : idx % 2 === 1 ? 'bg-slate-100' : ''}`}>
-                <td className="py-3 px-3 text-teal-700 font-semibold whitespace-nowrap">{r.nomorUrut || '-'}</td>
-                <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</td>
-                <td className="py-3 px-3 text-slate-700 font-medium max-w-[120px] truncate">
-                  {r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}
-                </td>
-                <td className="py-3 px-3 text-slate-600 max-w-[100px] truncate">
-                  {r.namaCetakan || '-'}
-                </td>
-                <td className="py-3 px-3 text-slate-600 max-w-[90px] truncate hidden md:table-cell">
-                  {r.paperName || '-'}
-                </td>
-                <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
-                  {r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}
-                </td>
-                <td className="py-3 px-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
-                  {r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}
-                </td>
-                <td className="py-3 px-3 text-slate-600 text-right whitespace-nowrap">
-                  {parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}
-                </td>
-                <td className="py-3 px-3 text-rose-700 font-bold text-right whitespace-nowrap">
-                  Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}
-                </td>
-                <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      onClick={() => handleDeleteRiwayat(r.id)}
-                      className="inline-flex items-center justify-center w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-md border border-red-200 transition-colors"
-                      title="Hapus"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-
   return (
     <DashboardLayout
       title={t('potong_kertas')}
@@ -1635,39 +1611,39 @@ function CalculatorPage() {
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-3 gap-2">
               <button onClick={handleCalculateCuts} disabled={isCalculating || !(parseFloat(paperWidth) > 0) || !(parseFloat(paperHeight) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
-                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
+                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
                 {isCalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {t('hitung_potongan')}
               </button>
               <button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!results || savingRiwayat || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
+                className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
                 {restoredRiwayatId && <RefreshCw className={`w-3 h-3 ${savingRiwayat ? 'animate-spin' : ''}`} />}
                 {restoredRiwayatId ? (savingRiwayat ? 'Updating...' : 'Update Riwayat') : (savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat')}
               </button>
               <button onClick={handlePO} disabled={!results || savingRiwayat || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
+                className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
                 <FileText className="w-3.5 h-3.5" />
                 PO
               </button>
             </div>
             <div className="grid grid-cols-4 gap-2">
               <button onClick={() => { if (!results) { toast.error('Hitung potongan terlebih dahulu!'); return; } setPreviewOpen(true) }} disabled={!results || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('preview')}>
+                className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('preview')}>
                 {t('preview')}
               </button>
               <button onClick={handlePrint} disabled={!results || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('cetak')}>
+                className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('cetak')}>
                 <Printer className="w-3.5 h-3.5" />
                 {t('cetak')}
               </button>
               <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
+                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
                 <Share2 className="w-3.5 h-3.5" />
                 <span className="lg:hidden xl:inline">WhatsApp</span>
                 <span className="hidden lg:inline xl:hidden">WA</span>
               </button>
               <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
-                className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-xs font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
+                className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
                 <RotateCcw className="w-3 h-3" />
                 <span className="hidden xl:inline">{t('reset')}</span>
               </button>
@@ -1848,44 +1824,177 @@ function CalculatorPage() {
       </>
       )}
 
-      {/* Riwayat Tab Content */}
+      {/* Riwayat Tab Content — gaya Riwayat Invoice */}
       {activeTab === 'riwayat' && (
-        <div className="bg-card rounded-xl border border-slate-200 p-4">
-          <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="flex items-center gap-2">
-                <History className="w-3.5 h-3.5 text-amber-600" />
-                <h2 className="text-2xl font-semibold text-slate-700 uppercase tracking-wide">Riwayat Potong Kertas</h2>
-              </div>
-              <span className="inline-block ml-[22px] mt-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Potong Kertas</h1>
+              <p className="text-sm text-muted-foreground mt-1">{loadingRiwayat ? 'Memuat data…' : `${filteredRiwayatList.length} data`}</p>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                onClick={handleBackupRiwayat}
-                variant="outline"
-                size="sm"
-                disabled={backupLoading === 'backup'}
-                className="h-7 gap-1.5 text-xs"
-              >
-                {backupLoading === 'backup' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DatabaseBackup className="w-3.5 h-3.5" />}
-                Backup
-              </Button>
-              <Button
-                onClick={handleRestoreRiwayat}
-                variant="outline"
-                size="sm"
-                disabled={backupLoading === 'restore'}
-                className="h-7 gap-1.5 text-xs"
-              >
-                {backupLoading === 'restore' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                Restore
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari no. PK / customer / barang…"
+                  aria-label="Cari riwayat potong kertas"
+                  className="pl-9 min-h-[44px]"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleBackupRiwayat}
+                  variant="outline"
+                  disabled={backupLoading === 'backup'}
+                  title="Backup riwayat potong kertas"
+                  className="min-h-[44px] flex-1 sm:flex-none"
+                >
+                  {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+                </Button>
+                <Button
+                  onClick={handleRestoreRiwayat}
+                  variant="outline"
+                  disabled={backupLoading === 'restore'}
+                  title="Restore riwayat potong kertas"
+                  className="min-h-[44px] flex-1 sm:flex-none"
+                >
+                  {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+                </Button>
+              </div>
             </div>
           </div>
-          {riwayatList.length > 0 ? (
-            <RiwayatTable items={riwayatList} />
+
+          {/* Filter: rentang tanggal */}
+          <div className="rounded-xl border border-stone-200 bg-white p-3 md:px-4 md:py-3">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
+              <div className="lg:w-40">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Dari Tanggal</Label>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Dari tanggal" />
+              </div>
+              <div className="lg:w-40">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Sampai Tanggal</Label>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 min-h-[40px] bg-white" aria-label="Sampai tanggal" />
+              </div>
+              {filtersActive && (
+                <Button variant="ghost" size="sm" className="lg:ml-auto mt-1 lg:mt-4 text-xs text-muted-foreground" onClick={() => { setDateFrom(''); setDateTo(''); setSearchQuery('') }}>
+                  <X className="h-3.5 w-3.5" /> Reset Filter
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {loadingRiwayat ? (
+            <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
+              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : filteredRiwayatList.length === 0 ? (
+            <div className="py-12 text-center">
+              <History className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-sm font-medium">{filtersActive ? 'Tidak ada data yang cocok dengan filter' : 'Belum ada riwayat potong kertas'}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {filtersActive ? 'Coba ubah kata kunci atau rentang tanggal.' : 'Hasil hitung yang disimpan akan tampil di sini'}
+              </p>
+            </div>
           ) : (
-            <p className="text-xs text-slate-400 py-8 text-center">Belum ada riwayat potong kertas</p>
+            <>
+              {/* Desktop table — klik baris → Preview */}
+              <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+                <div className="max-h-96 overflow-y-auto scrollbar-thin">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-stone-50">
+                      <TableRow className="bg-stone-50 hover:bg-stone-50">
+                        <TableHead className="w-0 min-w-0">No. PK</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Nama Barang</TableHead>
+                        <TableHead className="hidden lg:table-cell">Kertas</TableHead>
+                        <TableHead className="hidden xl:table-cell">Gramatur</TableHead>
+                        <TableHead className="hidden xl:table-cell">Uk. Potong</TableHead>
+                        <TableHead className="text-right">Jml</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-center">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRiwayatList.slice(0, 100).map((r) => (
+                        <TableRow
+                          key={r.id}
+                          className={`cursor-pointer hover:bg-stone-50 ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                          onClick={() => handlePreviewRiwayat(r)}
+                        >
+                          <TableCell className="font-medium whitespace-nowrap w-px">{r.nomorUrut || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">{formatTanggalRiwayat(r.createdAt)}</TableCell>
+                          <TableCell className="max-w-40 truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</TableCell>
+                          <TableCell className="max-w-40 text-muted-foreground" title={r.namaCetakan}>
+                            <span className="truncate block">{r.namaCetakan || '-'}</span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell max-w-32 text-muted-foreground" title={r.paperName}>
+                            <span className="truncate block">{r.paperName || '-'}</span>
+                          </TableCell>
+                          <TableCell className="hidden xl:table-cell text-muted-foreground whitespace-nowrap">{r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}</TableCell>
+                          <TableCell className="hidden xl:table-cell text-muted-foreground whitespace-nowrap">{r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteRiwayat(r.id)}
+                              title="Hapus"
+                              aria-label={`Hapus ${r.nomorUrut || 'riwayat'}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Mobile cards — klik kartu → Preview */}
+              <div className="md:hidden space-y-3">
+                {filteredRiwayatList.slice(0, 100).map((r) => (
+                  <Card
+                    key={r.id}
+                    className={`p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                    onClick={() => handlePreviewRiwayat(r)}
+                  >
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium truncate">{r.nomorUrut || '-'}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">{formatTanggalRiwayat(r.createdAt)}</p>
+                      </div>
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p className="truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
+                        {r.namaCetakan && <p className="truncate">{r.namaCetakan}</p>}
+                        <div className="flex items-center gap-3 text-xs">
+                          <span>Kertas: {r.paperName || '-'}</span>
+                          {r.grammage && r.grammage !== '0' && <span>{r.grammage}g</span>}
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</p>
+                      <div className="border-t pt-2 flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 min-h-[36px] text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
+                          title="Hapus"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Hapus
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
