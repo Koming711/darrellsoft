@@ -129,7 +129,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<RecapRespo
       dateFilter.lte = end
     }
 
-    const where: Record<string, unknown> = { docType: 'invoice', ...dataFilter }
+    const where: Record<string, unknown> = { docType: 'invoice', deletedAt: null, ...dataFilter }
     if (Object.keys(dateFilter).length > 0) {
       where.createdAt = dateFilter
     }

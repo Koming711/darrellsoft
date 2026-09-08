@@ -1,0 +1,621 @@
+     1→'use client'
+     2→
+     3→import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
+     4→import { useSearchParams } from 'next/navigation'
+     5→import { DashboardLayout } from '@/components/dashboard-layout'
+     6→import { PurchaseOrderEditor } from '@/components/dokupro/purchase-order-editor'
+     7→import { getAuthHeaders } from '@/lib/auth'
+     8→import { fetcher } from '@/lib/fetcher'
+     9→import { formatRupiah, formatTanggal } from '@/lib/format'
+    10→import { notifyDataChange } from '@/lib/data-sync'
+    11→import { authFetch } from '@/lib/auth-fetch'
+    12→import {
+    13→  History,
+    14→  Eye,
+    15→  RotateCcw,
+    16→  Trash2,
+    17→  Loader2,
+    18→  Search,
+    19→  X,
+    20→  DatabaseBackup,
+    21→  Upload,
+    22→  Plus,
+    23→  ArrowLeft,
+    24→} from 'lucide-react'
+    25→import { Button } from '@/components/ui/button'
+    26→import { Input } from '@/components/ui/input'
+    27→import { Card, CardContent } from '@/components/ui/card'
+    28→import { Skeleton } from '@/components/ui/skeleton'
+    29→import {
+    30→  Table,
+    31→  TableBody,
+    32→  TableCell,
+    33→  TableHead,
+    34→  TableHeader,
+    35→  TableRow,
+    36→} from '@/components/ui/table'
+    37→import {
+    38→  AlertDialog,
+    39→  AlertDialogAction,
+    40→  AlertDialogCancel,
+    41→  AlertDialogContent,
+    42→  AlertDialogDescription,
+    43→  AlertDialogFooter,
+    44→  AlertDialogHeader,
+    45→  AlertDialogTitle,
+    46→} from '@/components/ui/alert-dialog'
+    47→import { toast } from 'sonner'
+    48→import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
+    49→import { captureElementAsJpg } from '@/lib/capture-jpg'
+    50→import { shareJpgToWhatsApp } from '@/lib/share-jpg'
+    51→import { useDokuproStore } from '@/lib/store'
+    52→import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
+    53→import { DEFAULT_COMPANY } from '@/lib/types'
+    54→
+    55→// --- Types ---
+    56→interface HistoryEntry {
+    57→  id: string
+    58→  docType: string
+    59→  nomor: string
+    60→  tanggal: string
+    61→  pihakKedua: string
+    62→  total: string
+    63→  dataJson: string
+    64→  createdAt: string
+    65→}
+    66→
+    67→// --- Parse dataJson for document info ---
+    68→function parseDocInfo(entry: HistoryEntry) {
+    69→  try {
+    70→    const parsed = JSON.parse(entry.dataJson)
+    71→    const items = parsed.items || []
+    72→    const firstItem = items[0]
+    73→    const namaBarang = firstItem?.deskripsi || ''
+    74→    const hargaSatuan = firstItem?.harga || 0
+    75→    const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
+    76→    const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
+    77→    const ppn = parsed.ppn || 0
+    78→    const totalHarga = subtotal + (subtotal * ppn / 100)
+    79→    const referensi = parsed.referensi || ''
+    80→    const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
+    81→    return { namaBarang, hargaSatuan, totalQty, totalHarga, referensi, tanggalJatuhTempo }
+    82→  } catch {
+    83→    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '', tanggalJatuhTempo: '' }
+    84→  }
+    85→}
+    86→
+    87→// --- Parse dataJson for PurchaseOrderData ---
+    88→function parsePurchaseOrderData(entry: HistoryEntry): PurchaseOrderData {
+    89→  try {
+    90→    const parsed = JSON.parse(entry.dataJson)
+    91→    const company: CompanyInfo = {
+    92→      nama: parsed.company?.nama || DEFAULT_COMPANY.nama,
+    93→      telepon: parsed.company?.telepon || DEFAULT_COMPANY.telepon,
+    94→      alamat: parsed.company?.alamat || DEFAULT_COMPANY.alamat,
+    95→      email: parsed.company?.email || DEFAULT_COMPANY.email,
+    96→      npwp: parsed.company?.npwp || '',
+    97→      website: parsed.company?.website || '',
+    98→      ppn: parsed.company?.ppn ?? parsed.ppn ?? 0,
+    99→      logo: parsed.company?.logo || '',
+   100→      bankName: parsed.company?.bankName || '',
+   101→      bankAccount: parsed.company?.bankAccount || '',
+   102→      bankHolder: parsed.company?.bankHolder || '',
+   103→      bankName2: parsed.company?.bankName2 || '',
+   104→      bankAccount2: parsed.company?.bankAccount2 || '',
+   105→      bankHolder2: parsed.company?.bankHolder2 || '',
+   106→    }
+   107→    const pemasok = parsed.pemasok || { nama: '', jenisBarang: '', kontak: '', alamat: '' }
+   108→    const items = (parsed.items || []).map((it: { id?: string; deskripsi?: string; qty?: number; satuan?: string; harga?: number }, i: number) => ({
+   109→      id: it.id || `item-${i}`,
+   110→      deskripsi: it.deskripsi || '',
+   111→      qty: it.qty || 0,
+   112→      satuan: it.satuan || '',
+   113→      harga: it.harga || 0,
+   114→    }))
+   115→    return {
+   116→      type: 'purchase-order',
+   117→      company,
+   118→      nomor: parsed.nomor || entry.nomor || '',
+   119→      tanggal: parsed.tanggal || entry.tanggal || '',
+   120→      referensi: parsed.referensi || '',
+   121→      pemasok,
+   122→      items,
+   123→      ppn: parsed.ppn ?? 0,
+   124→      catatan: parsed.catatan || '',
+   125→      tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
+   126→      riwayatPotongKertasId: parsed.riwayatPotongKertasId || '',
+   127→    }
+   128→  } catch {
+   129→    return {
+   130→      type: 'purchase-order',
+   131→      company: { ...DEFAULT_COMPANY },
+   132→      nomor: entry.nomor || '',
+   133→      tanggal: entry.tanggal || '',
+   134→      referensi: '',
+   135→      pemasok: { nama: '', jenisBarang: '', kontak: '', alamat: '' },
+   136→      items: [],
+   137→      ppn: 0,
+   138→      catatan: '',
+   139→      tanggalJatuhTempo: '',
+   140→    }
+   141→  }
+   142→}
+   143→
+   144→// Auto-open editor when the page receives a deep-link param
+   145→// (dipakai link dari Hitung Cetakan → ?riwayatId=...)
+   146→function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }) {
+   147→  const searchParams = useSearchParams()
+   148→  const doneRef = useRef(false)
+   149→  useEffect(() => {
+   150→    if (doneRef.current) return
+   151→    if (searchParams.get(param)) {
+   152→      doneRef.current = true
+   153→      onOpen()
+   154→    }
+   155→  }, [searchParams, param, onOpen])
+   156→  return null
+   157→}
+   158→
+   159→// ============================================================
+   160→// PurchaseOrderRiwayatView — daftar purchase order langsung
+   161→// tampil (tanpa tab). UI mengikuti gaya halaman Invoice / Master Customer.
+   162→// ============================================================
+   163→function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
+   164→  const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder)
+   165→  const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
+   166→  const [loading, setLoading] = useState(true)
+   167→  const [searchQuery, setSearchQuery] = useState('')
+   168→  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+   169→  const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
+   170→  const [previewOpen, setPreviewOpen] = useState(false)
+   171→  const [previewScale, setPreviewScale] = useState(1)
+   172→  const [previewDims, setPreviewDims] = useState<{ w: number; h: number } | null>(null)
+   173→  const previewWrapperRef = useRef<HTMLDivElement>(null)
+   174→  const [sendingPdf, setSendingPdf] = useState(false)
+   175→  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+   176→
+   177→  const fetchHistory = useCallback(async () => {
+   178→    try {
+   179→      setLoading(true)
+   180→      const headers = getAuthHeaders()
+   181→      const res = await fetch('/api/history?docType=purchase-order', { headers, cache: 'no-store' })
+   182→      if (res.ok) {
+   183→        const json = await res.json()
+   184→        setPoHistory(json.data || [])
+   185→      }
+   186→    } catch (err) {
+   187→      console.error('Failed to fetch purchase order history:', err)
+   188→    } finally {
+   189→      setLoading(false)
+   190→    }
+   191→  }, [])
+   192→
+   193→  useEffect(() => {
+   194→    fetchHistory()
+   195→  }, [fetchHistory])
+   196→
+   197→  // Listen for save events
+   198→  useEffect(() => {
+   199→    const handler = () => fetchHistory()
+   200→    window.addEventListener('dokupro:history-updated', handler)
+   201→    return () => window.removeEventListener('dokupro:history-updated', handler)
+   202→  }, [fetchHistory])
+   203→
+   204→  const poData = useMemo(() => {
+   205→    if (!previewItem) return null
+   206→    return parsePurchaseOrderData(previewItem)
+   207→  }, [previewItem])
+   208→
+   209→  // Measure actual rendered element and fit it to the available viewport space.
+   210→  useLayoutEffect(() => {
+   211→    if (!previewOpen) {
+   212→      setPreviewDims(null)
+   213→      setPreviewScale(1)
+   214→      return
+   215→    }
+   216→    const measureAndScale = () => {
+   217→      const el = previewWrapperRef.current
+   218→      if (!el) return
+   219→      const naturalW = el.offsetWidth
+   220→      const naturalH = el.offsetHeight
+   221→      if (naturalW === 0 || naturalH === 0) {
+   222→        requestAnimationFrame(measureAndScale)
+   223→        return
+   224→      }
+   225→      const vw = window.innerWidth
+   226→      const vh = window.innerHeight
+   227→      const reservedH = 56 + 88 + 32
+   228→      const reservedW = 32
+   229→      const availW = Math.max(120, vw - reservedW)
+   230→      const availH = Math.max(120, vh - reservedH)
+   231→      const scale = Math.min(availW / naturalW, availH / naturalH, 1.4)
+   232→      setPreviewScale(scale)
+   233→      setPreviewDims({ w: naturalW * scale, h: naturalH * scale })
+   234→    }
+   235→    const t = setTimeout(measureAndScale, 50)
+   236→    window.addEventListener('resize', measureAndScale)
+   237→    return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
+   238→  }, [previewOpen, poData])
+   239→
+   240→  const restoreToEditor = (entry: HistoryEntry) => {
+   241→    const parsed = parsePurchaseOrderData(entry)
+   242→    setPurchaseOrder(parsed)
+   243→    onCreate()
+   244→    toast.success('Purchase Order berhasil dimuat ke editor')
+   245→  }
+   246→
+   247→  const handleDelete = async (id: string) => {
+   248→    try {
+   249→      const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+   250→      if (res.ok) {
+   251→        toast.success('Purchase Order berhasil dihapus')
+   252→        notifyDataChange('purchase-order')
+   253→        fetchHistory()
+   254→      } else {
+   255→        toast.error('Gagal menghapus purchase order')
+   256→      }
+   257→    } catch {
+   258→      toast.error('Gagal menghapus purchase order')
+   259→    }
+   260→    setDeleteConfirmId(null)
+   261→  }
+   262→
+   263→  const handleSendJpg = useCallback(async () => {
+   264→    if (!poData) return
+   265→    setSendingPdf(true)
+   266→    try {
+   267→      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+   268→      if (previewEl) {
+   269→        const blob = await captureElementAsJpg(previewEl)
+   270→        const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
+   271→        const phone = poData.pemasok?.kontak || ''
+   272→
+   273→        const result = await shareJpgToWhatsApp({
+   274→          blob,
+   275→          fileName,
+   276→          documentLabel: `Purchase Order ${poData.nomor}`,
+   277→          phone,
+   278→        })
+   279→
+   280→        if (result.status === 'shared') {
+   281→          toast.success('Gambar dibagikan ke WhatsApp')
+   282→        } else if (result.status === 'cancelled') {
+   283→          // silent
+   284→        } else if (result.status === 'downloaded') {
+   285→          toast.success(`${fileName} tersimpan ke perangkat`, {
+   286→            description: 'File JPG telah diunduh ke folder Downloads.',
+   287→          })
+   288→        } else {
+   289→          toast.error(result.error || 'Gagal memproses JPG')
+   290→        }
+   291→      } else {
+   292→        toast.error('Preview tidak ditemukan')
+   293→      }
+   294→    } catch (err) {
+   295→      console.error(err)
+   296→      toast.error('Gagal mengirim gambar')
+   297→    } finally {
+   298→      setSendingPdf(false)
+   299→    }
+   300→  }, [poData])
+   301→
+   302→  const handleBackup = async () => {
+   303→    setBackupLoading('backup')
+   304→    try {
+   305→      const res = await authFetch(`/api/database/backup-master?table=purchase_order_history`)
+   306→      if (!res.ok) {
+   307→        let errMsg = 'Gagal backup data riwayat purchase order'
+   308→        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+   309→        toast.error(errMsg)
+   310→        return
+   311→      }
+   312→      const blob = await res.blob()
+   313→      if (blob.size === 0) {
+   314→        toast.error('Backup kosong — tidak ada data')
+   315→        return
+   316→      }
+   317→      const url = URL.createObjectURL(blob)
+   318→      const a = document.createElement('a')
+   319→      a.href = url
+   320→      const disposition = res.headers.get('Content-Disposition')
+   321→      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+   322→      a.download = match ? match[1] : `backup-purchase-order-history-${Date.now()}.xlsx`
+   323→      document.body.appendChild(a)
+   324→      a.click()
+   325→      document.body.removeChild(a)
+   326→      URL.revokeObjectURL(url)
+   327→      toast.success('Backup berhasil diunduh')
+   328→    } catch (e) { console.error('Backup error:', e); toast.error('Gagal backup data riwayat purchase order') }
+   329→    setBackupLoading(null)
+   330→  }
+   331→
+   332→  const handleRestore = async () => {
+   333→    const input = document.createElement('input')
+   334→    input.type = 'file'
+   335→    input.accept = '.xlsx'
+   336→    input.onchange = async (e) => {
+   337→      const file = (e.target as HTMLInputElement).files?.[0]
+   338→      if (!file) return
+   339→      if (!confirm('Data riwayat purchase order yang ada akan diganti dengan data dari file backup. Lanjutkan?')) return
+   340→      setBackupLoading('restore')
+   341→      try {
+   342→        const fd = new FormData()
+   343→        fd.append('file', file)
+   344→        fd.append('table', 'purchase_order_history')
+   345→        const res = await authFetch('/api/database/restore-master', {
+   346→          method: 'POST',
+   347→          body: fd,
+   348→        })
+   349→        const data = await res.json()
+   350→        if (res.ok && data.success) {
+   351→          toast.success(`Restore berhasil (${data.count} data)`)
+   352→          fetchHistory()
+   353→          notifyDataChange('purchase-order')
+   354→        } else {
+   355→          toast.error(data.error || 'Gagal restore data riwayat purchase order')
+   356→        }
+   357→      } catch { toast.error('File backup tidak valid') }
+   358→      setBackupLoading(null)
+   359→    }
+   360→    input.click()
+   361→  }
+   362→
+   363→  // Filter by search
+   364→  const filteredHistory = useMemo(() => {
+   365→    if (!searchQuery.trim()) return poHistory
+   366→    const q = searchQuery.toLowerCase().trim()
+   367→    return poHistory.filter(entry => {
+   368→      const info = parseDocInfo(entry)
+   369→      return (
+   370→        entry.nomor?.toLowerCase().includes(q) ||
+   371→        entry.pihakKedua?.toLowerCase().includes(q) ||
+   372→        info.namaBarang?.toLowerCase().includes(q) ||
+   373→        entry.tanggal?.toLowerCase().includes(q)
+   374→      )
+   375→    })
+   376→  }, [poHistory, searchQuery])
+   377→
+   378→  const countLabel = loading ? 'Memuat data…' : `${poHistory.length} purchase order`
+   379→
+   380→  return (
+   381→    <>
+   382→      <div className="space-y-5">
+   383→        {/* Header — gaya Master Customer */}
+   384→        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+   385→          <div>
+   386→            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Purchase Order</h1>
+   387→            <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
+   388→          </div>
+   389→          <div className="flex flex-col sm:flex-row gap-2">
+   390→            <div className="relative flex-1 sm:w-64">
+   391→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+   392→              <Input
+   393→                value={searchQuery}
+   394→                onChange={(e) => setSearchQuery(e.target.value)}
+   395→                placeholder="Cari no. PO / suplier / barang…"
+   396→                aria-label="Cari purchase order"
+   397→                className="pl-9 min-h-[44px]"
+   398→              />
+   399→            </div>
+   400→            <div className="flex gap-2">
+   401→              <Button
+   402→                onClick={onCreate}
+   403→                title="Buat purchase order baru"
+   404→                className="bg-violet-600 hover:bg-violet-700 min-h-[44px] flex-1 sm:flex-none"
+   405→              >
+   406→                <Plus className="h-4 w-4" /> Buat PO
+   407→              </Button>
+   408→              <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
+   409→                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
+   410→              </Button>
+   411→              <Button onClick={handleRestore} variant="outline" disabled={backupLoading === 'restore'} title="Restore riwayat purchase order" className="min-h-[44px] flex-1 sm:flex-none">
+   412→                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Restore
+   413→              </Button>
+   414→            </div>
+   415→          </div>
+   416→        </div>
+   417→
+   418→        {/* Content */}
+   419→        {loading ? (
+   420→          <>
+   421→            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden p-4 space-y-3">
+   422→              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+   423→            </div>
+   424→            <div className="md:hidden space-y-3">
+   425→              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+   426→            </div>
+   427→          </>
+   428→        ) : filteredHistory.length === 0 ? (
+   429→          <div className="text-center py-16">
+   430→            <History className="h-10 w-10 mx-auto text-stone-300 mb-3" />
+   431→            <p className="text-sm font-medium text-stone-600">{searchQuery.trim() ? 'Tidak ditemukan' : 'Belum ada purchase order'}</p>
+   432→            <p className="text-xs text-muted-foreground mt-1">{searchQuery.trim() ? 'Coba kata kunci lain' : 'Klik "Buat PO" untuk membuat baru'}</p>
+   433→          </div>
+   434→        ) : (
+   435→          <>
+   436→            {/* Desktop table */}
+   437→            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+   438→              <div className="max-h-96 overflow-y-auto scrollbar-thin">
+   439→                <Table>
+   440→                  <TableHeader className="sticky top-0 z-10 bg-stone-50">
+   441→                    <TableRow className="bg-stone-50 hover:bg-stone-50">
+   442→                      <TableHead>No. PO</TableHead>
+   443→                      <TableHead>Tgl</TableHead>
+   444→                      <TableHead>Suplier</TableHead>
+   445→                      <TableHead>Nama Barang</TableHead>
+   446→                      <TableHead className="text-right hidden lg:table-cell">Qty</TableHead>
+   447→                      <TableHead className="text-right">Total</TableHead>
+   448→                      <TableHead className="text-center">Aksi</TableHead>
+   449→                    </TableRow>
+   450→                  </TableHeader>
+   451→                  <TableBody>
+   452→                    {filteredHistory.slice(0, 100).map((entry) => {
+   453→                      const info = parseDocInfo(entry)
+   454→                      return (
+   455→                        <TableRow key={entry.id}>
+   456→                          <TableCell className="font-medium whitespace-nowrap text-violet-700">{entry.nomor || '-'}</TableCell>
+   457→                          <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+   458→                          <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
+   459→                          <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
+   460→                            <span className="truncate block">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
+   461→                          </TableCell>
+   462→                          <TableCell className="text-right tabular-nums text-muted-foreground hidden lg:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
+   463→                          <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
+   464→                          <TableCell className="text-center">
+   465→                            <div className="flex justify-center gap-1">
+   466→                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
+   467→                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
+   468→                              <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+   469→                            </div>
+   470→                          </TableCell>
+   471→                        </TableRow>
+   472→                      )
+   473→                    })}
+   474→                  </TableBody>
+   475→                </Table>
+   476→              </div>
+   477→            </div>
+   478→
+   479→            {/* Mobile cards */}
+   480→            <div className="md:hidden space-y-3">
+   481→              {filteredHistory.slice(0, 100).map((entry) => {
+   482→                const info = parseDocInfo(entry)
+   483→                return (
+   484→                  <Card key={entry.id} className="p-0 gap-0">
+   485→                    <CardContent className="p-4 space-y-2">
+   486→                      <div className="flex items-start justify-between gap-2">
+   487→                        <div className="min-w-0">
+   488→                          <p className="font-medium truncate">{entry.nomor || '-'}</p>
+   489→                          <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+   490→                        </div>
+   491→                        <p className="text-sm font-bold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+   492→                      </div>
+   493→                      <div className="text-sm text-muted-foreground space-y-1">
+   494→                        <p className="truncate">{entry.pihakKedua || '-'}</p>
+   495→                        {info.namaBarang && <p className="text-xs line-clamp-1">{info.namaBarang.split('\n')[0]}</p>}
+   496→                        {info.totalQty > 0 && <p className="text-xs">Qty: {info.totalQty.toLocaleString('id-ID')}</p>}
+   497→                      </div>
+   498→                      <div className="flex gap-2 pt-1">
+   499→                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
+   500→                          <Eye className="h-4 w-4" /> Lihat
+   501→                        </Button>
+   502→                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => restoreToEditor(entry)}>
+   503→                          <RotateCcw className="h-4 w-4" /> Muat
+   504→                        </Button>
+   505→                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
+   506→                          <Trash2 className="h-4 w-4" /> Hapus
+   507→                        </Button>
+   508→                      </div>
+   509→                    </CardContent>
+   510→                  </Card>
+   511→                )
+   512→              })}
+   513→            </div>
+   514→          </>
+   515→        )}
+   516→      </div>
+   517→
+   518→      {/* AlertDialog hapus */}
+   519→      <AlertDialog open={!!deleteConfirmId} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null) }}>
+   520→        <AlertDialogContent>
+   521→          <AlertDialogHeader>
+   522→            <AlertDialogTitle>Hapus purchase order?</AlertDialogTitle>
+   523→            <AlertDialogDescription>Data purchase order yang dihapus tidak dapat dikembalikan.</AlertDialogDescription>
+   524→          </AlertDialogHeader>
+   525→          <AlertDialogFooter>
+   526→            <AlertDialogCancel>Batal</AlertDialogCancel>
+   527→            <AlertDialogAction
+   528→              className="bg-destructive text-white hover:bg-destructive/90"
+   529→              onClick={(e) => { e.preventDefault(); if (deleteConfirmId) void handleDelete(deleteConfirmId) }}
+   530→            >
+   531→              Hapus
+   532→            </AlertDialogAction>
+   533→          </AlertDialogFooter>
+   534→        </AlertDialogContent>
+   535→      </AlertDialog>
+   536→
+   537→      {/* Preview Popup */}
+   538→      {previewOpen && poData && (
+   539→        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
+   540→          {/* Close button */}
+   541→          <div className="flex justify-end p-3 shrink-0">
+   542→            <button
+   543→              onClick={() => setPreviewOpen(false)}
+   544→              aria-label="Tutup pratinjau"
+   545→              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
+   546→            >
+   547→              <X className="w-4 h-4 text-slate-700" />
+   548→            </button>
+   549→          </div>
+   550→          {/* Preview */}
+   551→          <div className="flex-1 flex items-start justify-center overflow-auto p-4 pb-28 min-h-0">
+   552→            <div
+   553→              style={{ width: previewDims?.w, height: previewDims?.h }}
+   554→              className="flex-shrink-0"
+   555→            >
+   556→              <div
+   557→                ref={previewWrapperRef}
+   558→                style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
+   559→              >
+   560→                <PurchaseOrderPreview data={poData} />
+   561→              </div>
+   562→            </div>
+   563→          </div>
+   564→          {/* Action buttons - fixed at bottom */}
+   565→          <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
+   566→            <Button
+   567→              onClick={handleSendJpg}
+   568→              disabled={sendingPdf}
+   569→              size="sm"
+   570→              className="bg-green-600 hover:bg-green-700 text-white"
+   571→            >
+   572→              {sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
+   573→            </Button>
+   574→          </div>
+   575→        </div>
+   576→      )}
+   577→
+   578→    </>
+   579→  )
+   580→}
+   581→
+   582→// ============================================================
+   583→// PurchaseOrderPage — daftar purchase order langsung tampil
+   584→// (tanpa tab) + layar "Buat Purchase Order Baru" dari tombol Buat PO.
+   585→// UI daftar & editor mengikuti gaya halaman Invoice.
+   586→// ============================================================
+   587→export default function PurchaseOrderPage() {
+   588→  const [showCreate, setShowCreate] = useState(false)
+   589→
+   590→  return (
+   591→    <DashboardLayout title="Purchase Order" subtitle="Buat purchase order dengan pratinjau popup dan cetak A5">
+   592→      <Suspense fallback={null}>
+   593→        <AutoOpenEditor param="riwayatId" onOpen={() => setShowCreate(true)} />
+   594→      </Suspense>
+   595→      {showCreate ? (
+   596→        <div className="print:hidden">
+   597→          {/* Header: kembali + judul halaman */}
+   598→          <div className="flex items-center gap-2 mb-3">
+   599→            <Button
+   600→              onClick={() => setShowCreate(false)}
+   601→              variant="outline"
+   602→              size="sm"
+   603→              className="h-9 gap-1.5 text-xs"
+   604→            >
+   605→              <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+   606→            </Button>
+   607→            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Purchase Order Baru</h2>
+   608→          </div>
+   609→          <Suspense fallback={null}>
+   610→            <PurchaseOrderEditor />
+   611→          </Suspense>
+   612→        </div>
+   613→      ) : (
+   614→        <div className="print:hidden">
+   615→          <PurchaseOrderRiwayatView onCreate={() => setShowCreate(true)} />
+   616→        </div>
+   617→      )}
+   618→    </DashboardLayout>
+   619→  )
+   620→}
+   621→

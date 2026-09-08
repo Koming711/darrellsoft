@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
-import { CompanyFields } from './company-fields';
 import { ItemsFields } from './items-fields';
 import { PurchaseOrderPreview } from './purchase-order-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
@@ -259,10 +258,6 @@ export function PurchaseOrderEditor() {
     applyReferensi(item);
   };
 
-  const updateCompany = (company: typeof po.company) => {
-    setPurchaseOrder((prev) => ({ ...prev, company }));
-  };
-
   const updatePemasok = (field: string, value: string) => {
     setPurchaseOrder((prev) => ({
       ...prev,
@@ -312,7 +307,9 @@ export function PurchaseOrderEditor() {
     <>
       <DocumentEditorLayout
         title="Purchase Order"
-        previewMode="popup"
+        previewMode="inline-bottom"
+        formColumns={2}
+        previewMaxWidth={560}
         previewContent={<PurchaseOrderPreview data={po} />}
         actions={
           <DocumentActionButtons
@@ -323,8 +320,12 @@ export function PurchaseOrderEditor() {
           />
         }
       >
-        <CompanyFields company={po.company} onChange={updateCompany} />
-
+        {/* Catatan: kotak "Data Perusahaan" dihapus dari form editor — data perusahaan
+            untuk kop dokumen A5 kini diatur melalui halaman Pengaturan.
+            State po.company tetap ada karena masih dipakai PurchaseOrderPreview. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start">
+          {/* === KOLOM KIRI: Detail Dokumen + Informasi Pemasok === */}
+          <div className="space-y-3 lg:space-y-5 min-w-0">
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Detail Dokumen
@@ -503,7 +504,10 @@ export function PurchaseOrderEditor() {
             />
           </div>
         </div>
+          </div>
 
+          {/* === KOLOM KANAN: Item + Informasi Tambahan === */}
+          <div className="space-y-3 lg:space-y-5 min-w-0">
         <ItemsFields
           items={po.items}
           onChange={(items) => setPurchaseOrder((prev) => ({ ...prev, items }))}
@@ -538,6 +542,8 @@ export function PurchaseOrderEditor() {
               placeholder="Catatan tambahan..."
               rows={3}
             />
+          </div>
+        </div>
           </div>
         </div>
       </DocumentEditorLayout>

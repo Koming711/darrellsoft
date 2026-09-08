@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     // Read from DocumentHistory — where the editors actually save data.
     const [invoiceHistories, poHistories] = await Promise.all([
       db.documentHistory.findMany({
-        where: { docType: 'invoice', ...baseFilter, ...dateWhere },
+        where: { docType: 'invoice', deletedAt: null, ...baseFilter, ...dateWhere },
         select: {
           id: true,
           nomor: true,
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       }),
       db.documentHistory.findMany({
-        where: { docType: 'purchase-order', ...baseFilter, ...dateWhere },
+        where: { docType: 'purchase-order', deletedAt: null, ...baseFilter, ...dateWhere },
         select: {
           id: true,
           nomor: true,

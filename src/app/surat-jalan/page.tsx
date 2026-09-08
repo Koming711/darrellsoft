@@ -5,15 +5,11 @@ import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { SuratJalanEditor } from '@/components/dokupro/surat-jalan-editor'
 import { getAuthHeaders } from '@/lib/auth'
-import { fetcher } from '@/lib/fetcher'
-import { formatTanggal } from '@/lib/format'
+import { formatTanggalFull } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
 import {
   History,
-  Eye,
-  RotateCcw,
-  Trash2,
   Loader2,
   Search,
   X,
@@ -34,21 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { SuratJalanPreview } from '@/components/dokupro/surat-jalan-preview'
 import { captureElementAsJpg } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
-import { useDokuproStore } from '@/lib/store'
 import type { SuratJalanData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 
@@ -71,13 +56,14 @@ function parseDocInfo(entry: HistoryEntry) {
     const items = parsed.items || []
     const firstItem = items[0]
     const namaBarang = firstItem?.deskripsi || ''
-    const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
+    const itemsCount = items.length
+    const totalQty = items.reduce((sum: number, it: { qty?: number }) => sum + (Number(it.qty) || 0), 0)
     const referensi = parsed.referensi || ''
     const noKendaraan = parsed.noKendaraan || ''
     const pengemudi = parsed.pengemudi || ''
-    return { namaBarang, totalQty, referensi, noKendaraan, pengemudi }
+    return { namaBarang, totalQty, itemsCount, referensi, noKendaraan, pengemudi }
   } catch {
-    return { namaBarang: '', totalQty: 0, referensi: '', noKendaraan: '', pengemudi: '' }
+    return { namaBarang: '', totalQty: 0, itemsCount: 0, referensi: '', noKendaraan: '', pengemudi: '' }
   }
 }
 
@@ -157,11 +143,9 @@ function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }
 // (tanpa tab). UI mengikuti gaya halaman Invoice / Master Customer.
 // ============================================================
 function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
-  const setSuratJalan = useDokuproStore((s) => s.setSuratJalan)
   const [sjHistory, setSjHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewScale, setPreviewScale] = useState(1)
@@ -232,29 +216,6 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
     window.addEventListener('resize', measureAndScale)
     return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
   }, [previewOpen, sjData])
-
-  const restoreToEditor = (entry: HistoryEntry) => {
-    const parsed = parseSuratJalanData(entry)
-    setSuratJalan(parsed)
-    onCreate()
-    toast.success('Surat Jalan berhasil dimuat ke editor')
-  }
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
-      if (res.ok) {
-        toast.success('Surat Jalan berhasil dihapus')
-        notifyDataChange('surat-jalan')
-        fetchHistory()
-      } else {
-        toast.error('Gagal menghapus surat jalan')
-      }
-    } catch {
-      toast.error('Gagal menghapus surat jalan')
-    }
-    setDeleteConfirmId(null)
-  }
 
   const handleSendJpg = useCallback(async () => {
     if (!sjData) return
@@ -436,32 +397,30 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                   <TableHeader className="sticky top-0 z-10 bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
                       <TableHead>No. SJ</TableHead>
-                      <TableHead>Tgl</TableHead>
+                      <TableHead>Tanggal</TableHead>
                       <TableHead>Penerima</TableHead>
-                      <TableHead>Nama Barang</TableHead>
-                      <TableHead className="text-right hidden lg:table-cell">Qty</TableHead>
-                      <TableHead className="text-center">Aksi</TableHead>
+                      <TableHead>Driver</TableHead>
+                      <TableHead>Ref. Invoice</TableHead>
+                      <TableHead className="text-right">Jumlah Barang</TableHead>
+                      <TableHead className="text-right">Total Qty</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredHistory.slice(0, 100).map((entry) => {
                       const info = parseDocInfo(entry)
                       return (
-                        <TableRow key={entry.id}>
-                          <TableCell className="font-medium whitespace-nowrap text-amber-700">{entry.nomor || '-'}</TableCell>
-                          <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
+                        <TableRow
+                          key={entry.id}
+                          onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                          className="cursor-pointer"
+                        >
+                          <TableCell className="font-medium whitespace-nowrap text-amber-700 text-xs">{entry.nomor || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggalFull(entry.tanggal) : '-'}</TableCell>
                           <TableCell className="max-w-32 truncate">{entry.pihakKedua || '-'}</TableCell>
-                          <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
-                            <span className="truncate block">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground hidden lg:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
+                          <TableCell className="max-w-24 truncate text-muted-foreground">{info.pengemudi || '-'}</TableCell>
+                          <TableCell className="max-w-28 truncate text-xs text-muted-foreground" title={info.referensi}>{info.referensi || '-'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{info.itemsCount}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{info.totalQty.toLocaleString('id-ID')}</TableCell>
                         </TableRow>
                       )
                     })}
@@ -475,59 +434,37 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
                 return (
-                  <Card key={entry.id} className="p-0 gap-0">
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{entry.nomor || '-'}</p>
-                          <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</p>
+                  <div
+                    key={entry.id}
+                    onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                    className="cursor-pointer"
+                  >
+                    <Card className="p-0 gap-0">
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{entry.nomor || '-'}</p>
+                            <p className="text-xs text-muted-foreground">{entry.tanggal ? formatTanggalFull(entry.tanggal) : '-'}</p>
+                          </div>
+                          {info.totalQty > 0 && (
+                            <p className="text-sm text-muted-foreground whitespace-nowrap">Qty: {info.totalQty.toLocaleString('id-ID')}</p>
+                          )}
                         </div>
-                        {info.totalQty > 0 && (
-                          <p className="text-sm text-muted-foreground whitespace-nowrap">Qty: {info.totalQty.toLocaleString('id-ID')}</p>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <p className="truncate">{entry.pihakKedua || '-'}</p>
-                        {info.namaBarang && <p className="text-xs line-clamp-1">{info.namaBarang.split('\n')[0]}</p>}
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
-                          <Eye className="h-4 w-4" /> Lihat
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" onClick={() => restoreToEditor(entry)}>
-                          <RotateCcw className="h-4 w-4" /> Muat
-                        </Button>
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
-                          <Trash2 className="h-4 w-4" /> Hapus
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p className="truncate">{entry.pihakKedua || '-'}</p>
+                          <p className="text-xs truncate">Driver: {info.pengemudi || '-'}</p>
+                          <p className="text-xs truncate">Ref. Invoice: {info.referensi || '-'}</p>
+                          <p className="text-xs">{info.itemsCount} barang · Total Qty: {info.totalQty.toLocaleString('id-ID')}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 )
               })}
             </div>
           </>
         )}
       </div>
-
-      {/* AlertDialog hapus */}
-      <AlertDialog open={!!deleteConfirmId} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus surat jalan?</AlertDialogTitle>
-            <AlertDialogDescription>Data surat jalan yang dihapus tidak dapat dikembalikan.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={(e) => { e.preventDefault(); if (deleteConfirmId) void handleDelete(deleteConfirmId) }}
-            >
-              Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Preview Popup */}
       {previewOpen && sjData && (
@@ -550,6 +487,7 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
             >
               <div
                 ref={previewWrapperRef}
+                data-document-preview
                 style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
               >
                 <SuratJalanPreview data={sjData} />

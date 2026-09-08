@@ -39,10 +39,11 @@ export async function POST(req: NextRequest) {
 
     const fingerprint = `${docType}||${pihakNama}||${itemFingerprint}`;
 
-    // Only check THIS user's records for duplicates
+    // Only check THIS user's records for duplicates (exclude sampah —
+    // a soft-deleted document must not block re-creating the same content)
     const dataFilter = await getDataFilter(user);
     const existingRecords = await db.documentHistory.findMany({
-      where: { docType, ...dataFilter },
+      where: { docType, deletedAt: null, ...dataFilter },
     });
 
     for (const existing of existingRecords) {
@@ -122,7 +123,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ nextNumber });
     }
 
-    if (!docType) {
+    // Sampah mode: ?deleted=1 lists ONLY soft-deleted entries (docType optional).
+    // Default (without deleted param) lists only LIVE (not deleted) entries.
+    const deletedParam = searchParams.get('deleted');
+    const showDeleted = deletedParam === '1';
+
+    if (!docType && !showDeleted) {
       return NextResponse.json({ error: 'docType wajib diisi' }, { status: 400 });
     }
 
@@ -146,7 +152,14 @@ export async function GET(req: NextRequest) {
       dateFilter.lte = end;
     }
 
-    const where: Record<string, unknown> = { docType, ...dataFilter };
+    const where: Record<string, unknown> = { ...dataFilter };
+    if (docType) where.docType = docType;
+    // Sampah vs live isolation
+    if (showDeleted) {
+      where.deletedAt = { not: null };
+    } else {
+      where.deletedAt = null;
+    }
     if (Object.keys(dateFilter).length > 0) {
       where.createdAt = dateFilter;
     }

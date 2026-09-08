@@ -86,7 +86,73 @@ export async function PUT(
   }
 }
 
-// DELETE /api/history/[id] — Delete a history entry (per-user isolation)
+// POST /api/history/[id] — Restore a soft-deleted entry from Sampah
+// (clears deletedAt on this entry and its linked PEL docs if it's an invoice DP)
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authErr = requireAuth(request);
+    if (authErr) return authErr;
+    const user = getServerUser(request)!;
+
+    const { id } = await params;
+    const existing = await db.documentHistory.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+    }
+    if (!canAccessRecord(user, existing.userId)) {
+      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+    }
+    if (!existing.deletedAt) {
+      return NextResponse.json({ error: 'Data tidak ada di Sampah' }, { status: 400 });
+    }
+
+    await db.documentHistory.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+
+    // Restore linked PEL docs of a restored invoice DP
+    if (existing.docType === 'invoice') {
+      try {
+        const pelRows = await db.documentHistory.findMany({
+          where: { docType: 'invoice-pelunasan', userId: existing.userId ?? undefined },
+          select: { id: true, nomor: true, dataJson: true },
+        });
+        const pelNomor = existing.nomor?.replace(/^INV/, 'PEL');
+        const pelIds = pelRows
+          .filter((r) => {
+            if (pelNomor && r.nomor === pelNomor) return true;
+            try {
+              const parsed = JSON.parse(r.dataJson || '{}');
+              return parsed?.referensiInvoiceId === existing.id;
+            } catch {
+              return false;
+            }
+          })
+          .map((r) => r.id);
+        if (pelIds.length > 0) {
+          await db.documentHistory.updateMany({
+            where: { id: { in: pelIds } },
+            data: { deletedAt: null },
+          });
+        }
+      } catch (restoreErr) {
+        console.error('Error restoring linked pelunasan docs:', restoreErr);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error restoring history entry:', error);
+    return NextResponse.json({ error: 'Gagal memulihkan data' }, { status: 500 });
+  }
+}
+
+// DELETE /api/history/[id] — Soft-delete (default) or purge permanently (?purge=1).
+// Soft-deleted entries go to "Sampah" and can be restored via POST /api/history/[id].
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -108,7 +174,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     }
 
-    await db.documentHistory.delete({ where: { id } });
+    const purge = new URL(request.url).searchParams.get('purge') === '1';
+
+    if (purge) {
+      // PERMANENT delete (from Sampah) + linked PEL docs
+      await db.documentHistory.delete({ where: { id } });
+    } else {
+      // Soft delete → Sampah (bisa dipulihkan)
+      await db.documentHistory.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+    }
 
     // Jika yang dihapus adalah invoice DP, hapus juga dokumen pelunasan (PEL)
     // yang ter-link — agar laporan tidak menyisakan transaksi yatim.
@@ -116,7 +193,11 @@ export async function DELETE(
       try {
         const pelNomor = existing.nomor?.replace(/^INV/, 'PEL');
         const pelRows = await db.documentHistory.findMany({
-          where: { docType: 'invoice-pelunasan', userId: existing.userId ?? undefined },
+          where: {
+            docType: 'invoice-pelunasan',
+            userId: existing.userId ?? undefined,
+            ...(purge ? {} : { deletedAt: null }),
+          },
           select: { id: true, nomor: true, dataJson: true },
         });
         const pelIds = pelRows
@@ -131,7 +212,14 @@ export async function DELETE(
           })
           .map((r) => r.id);
         if (pelIds.length > 0) {
-          await db.documentHistory.deleteMany({ where: { id: { in: pelIds } } });
+          if (purge) {
+            await db.documentHistory.deleteMany({ where: { id: { in: pelIds } } });
+          } else {
+            await db.documentHistory.updateMany({
+              where: { id: { in: pelIds } },
+              data: { deletedAt: new Date() },
+            });
+          }
         }
       } catch (cleanupErr) {
         console.error('Error cleaning linked pelunasan docs:', cleanupErr);

@@ -1,0 +1,731 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+     4→import { useSearchParams, useRouter } from 'next/navigation';
+     5→import { Input } from '@/components/ui/input';
+     6→import { Label } from '@/components/ui/label';
+     7→import { Textarea } from '@/components/ui/textarea';
+     8→import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
+     9→import { useDokuproStore } from '@/lib/store';
+    10→import { ItemsFields } from './items-fields';
+    11→import { InvoicePreview } from './invoice-preview';
+    12→import { DocumentEditorLayout } from './document-editor-layout';
+    13→import { DocumentActionButtons } from './document-action-buttons';
+    14→import { formatRupiah } from '@/lib/format';
+    15→import { getAuthHeaders } from '@/lib/auth';
+    16→import { syncLinkedPelunasan } from '@/lib/sync-pelunasan';
+    17→import { Truck } from 'lucide-react';
+    18→import { Button } from '@/components/ui/button';
+    19→import { toast } from 'sonner';
+    20→import type { InvoiceData } from '@/lib/types';
+    21→
+    22→interface CustomerItem {
+    23→  id: string;
+    24→  name: string;
+    25→  companyName?: string;
+    26→  phone?: string;
+    27→  email?: string;
+    28→  address?: string;
+    29→}
+    30→
+    31→interface RiwayatCetakanItem {
+    32→  id: string;
+    33→  nomorUrut: string;
+    34→  printName: string;
+    35→  customerName: string;
+    36→  paperName: string;
+    37→  paperGrammage: string;
+    38→  cutWidth: string;
+    39→  cutHeight: string;
+    40→  quantity: string;
+    41→  jumlahPesanan: string;
+    42→  berapaMata: string;
+    43→  warna: string;
+    44→  machineName: string;
+    45→  ongkosCetak: number;
+    46→  machineName2: string;
+    47→  ongkosCetak2: number;
+    48→  totalPaperPrice: number;
+    49→  pricePerSheet: number;
+    50→  finishingNames: string;
+    51→  finishingCost: number;
+    52→  packingCost: number;
+    53→  shippingCost: number;
+    54→  otherCost: number;
+    55→  otherCost2: number;
+    56→  otherCostLabel: string;
+    57→  otherCostLabel2: string;
+    58→  glueCost: number;
+    59→  glueBorongan: number;
+    60→  subTotal: number;
+    61→  profitPercent: number;
+    62→  profitAmount: number;
+    63→  grandTotal: number;
+    64→  createdAt: string;
+    65→}
+    66→
+    67→
+    68→export function InvoiceEditor({ dpDisabled = false }: { dpDisabled?: boolean }) {
+    69→  const invoice = useDokuproStore((s) => s.invoice);
+    70→  const setInvoice = useDokuproStore((s) => s.setInvoice);
+    71→  const resetDocument = useDokuproStore((s) => s.resetDocument);
+    72→  const loadCompanyFromAPI = useDokuproStore((s) => s.loadCompanyFromAPI);
+    73→  const invoiceEditingId = useDokuproStore((s) => s.invoiceEditingId);
+    74→  const setInvoiceEditingId = useDokuproStore((s) => s.setInvoiceEditingId);
+    75→  const router = useRouter();
+    76→  const searchParams = useSearchParams();
+    77→  const riwayatIdFromUrl = searchParams.get('riwayatId');
+    78→  const autoSelectDoneRef = useRef<string | null>(null); // track which riwayatId was auto-selected
+    79→  const [savingSj, setSavingSj] = useState(false);
+    80→
+    81→  // Riwayat cetakan dropdown state
+    82→  const [riwayatList, setRiwayatList] = useState<RiwayatCetakanItem[]>([]);
+    83→  const [referensiInput, setReferensiInput] = useState(invoice.referensi);
+    84→  const [dropdownOpen, setDropdownOpen] = useState(false);
+    85→
+    86→  // Customer dropdown state
+    87→  const [customerList, setCustomerList] = useState<CustomerItem[]>([]);
+    88→  const [clientInput, setClientInput] = useState(invoice.client.nama);
+    89→  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+    90→  const [clientTyping, setClientTyping] = useState(false);
+    91→
+    92→  const fetchRiwayatCetakan = useCallback(async () => {
+    93→    try {
+    94→      const res = await fetch('/api/riwayat-cetakan', { headers: getAuthHeaders() });
+    95→      if (res.ok) {
+    96→        const data = await res.json();
+    97→        setRiwayatList(data);
+    98→        return data;
+    99→      }
+   100→    } catch {
+   101→      // silently fail
+   102→    }
+   103→    return [];
+   104→  }, []);
+   105→
+   106→  // Fetch customer list
+   107→  const fetchCustomers = useCallback(async () => {
+   108→    try {
+   109→      const res = await fetch('/api/customers', { headers: getAuthHeaders() });
+   110→      if (res.ok) {
+   111→        const data = await res.json();
+   112→        setCustomerList(Array.isArray(data) ? data : []);
+   113→      }
+   114→    } catch {
+   115→      // silently fail
+   116→    }
+   117→  }, []);
+   118→
+   119→  useEffect(() => { loadCompanyFromAPI() }, [loadCompanyFromAPI]);
+   120→  useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
+   121→  useEffect(() => { fetchCustomers() }, [fetchCustomers]);
+   122→
+   123→  // Fetch next Invoice number from server (only when creating new, not editing)
+   124→  const fetchNextNumber = useCallback(() => {
+   125→    // Read current editingId from store to avoid stale closure
+   126→    const currentEditingId = useDokuproStore.getState().invoiceEditingId;
+   127→    if (currentEditingId) return; // Don't overwrite nomor when editing
+   128→    fetch('/api/history?preview=next-number&docType=invoice', { headers: getAuthHeaders() })
+   129→      .then(res => res.ok ? res.json() : null)
+   130→      .then(data => { if (data?.nextNumber) setInvoice((prev) => ({ ...prev, nomor: data.nextNumber })) })
+   131→      .catch(() => {});
+   132→  }, [setInvoice]);
+   133→
+   134→  useEffect(() => { fetchNextNumber() }, [fetchNextNumber]);
+   135→
+   136→  // Re-fetch next number after a document is saved
+   137→  useEffect(() => {
+   138→    const handler = () => { fetchNextNumber() };
+   139→    window.addEventListener('dokupro:history-updated', handler);
+   140→    return () => { window.removeEventListener('dokupro:history-updated', handler) };
+   141→  }, [fetchNextNumber]);
+   142→
+   143→  // Mode Regular (dpDisabled): paksa DP = 0 dan sembunyikan input DP
+   144→  useEffect(() => {
+   145→    if (dpDisabled) {
+   146→      setInvoice((prev) => (prev.dp === 0 ? prev : ({ ...prev, dp: 0 })));
+   147→    }
+   148→  }, [dpDisabled, setInvoice]);
+   149→
+   150→  // Sync referensiInput when invoice.referensi changes externally
+   151→  useEffect(() => { setReferensiInput(invoice.referensi) }, [invoice.referensi]);
+   152→  // Sync clientInput when invoice.client.nama changes externally
+   153→  useEffect(() => { setClientInput(invoice.client.nama) }, [invoice.client.nama]);
+   154→
+   155→  // Filter riwayat list — when dropdown is open show all, otherwise not used
+   156→  const filteredRiwayatList = riwayatList;
+   157→
+   158→  const handleReferensiInputChange = (value: string) => {
+   159→    setReferensiInput(value);
+   160→    setInvoice((prev) => ({ ...prev, referensi: value }));
+   161→    setDropdownOpen(true);
+   162→  };
+   163→
+   164→  // Apply referensi data using functional setInvoice to avoid stale closure
+   165→  const applyReferensi = (item: RiwayatCetakanItem) => {
+   166→    const ref = item.nomorUrut || item.printName || '';
+   167→    setReferensiInput(ref);
+   168→
+   169→    // Build single item with multi-line description
+   170→    const descLines: string[] = [];
+   171→    if (item.printName) descLines.push(item.printName);
+   172→
+   173→    const bahanParts: string[] = [];
+   174→    if (item.paperName) bahanParts.push(item.paperName);
+   175→    if (item.paperGrammage) bahanParts.push(item.paperGrammage + 'g');
+   176→    if (bahanParts.length > 0) descLines.push(bahanParts.join(' '));
+   177→
+   178→    if (item.finishingNames) {
+   179→      const finishings = item.finishingNames.split(',').map(f => f.trim()).filter(Boolean);
+   180→      descLines.push('Finishing:');
+   181→      finishings.forEach(f => descLines.push(f));
+   182→    }
+   183→
+   184→    const deskripsi = descLines.join('\n');
+   185→    const jumlahPesanan = parseInt(item.jumlahPesanan) || 1;
+   186→    const hargaPerPcs = jumlahPesanan > 0 ? Math.round(item.grandTotal / jumlahPesanan) : 0;
+   187→
+   188→    const newItems: InvoiceData['items'] = [{
+   189→      id: 'riwayat-0',
+   190→      deskripsi: deskripsi || ref,
+   191→      qty: jumlahPesanan,
+   192→      satuan: 'pcs',
+   193→      harga: hargaPerPcs,
+   194→    }];
+   195→
+   196→    // Use functional form to always get the LATEST state
+   197→    setInvoice((prev) => ({
+   198→      ...prev,
+   199→      referensi: ref,
+   200→      client: {
+   201→        ...prev.client,
+   202→        nama: item.customerName || prev.client.nama,
+   203→      },
+   204→      items: newItems,
+   205→      catatan: '',
+   206→      uangCapek: item.profitAmount || 0,
+   207→    }));
+   208→    setDropdownOpen(false);
+   209→  };
+   210→
+   211→  const handleReferensiSelect = (item: RiwayatCetakanItem) => {
+   212→    applyReferensi(item);
+   213→  };
+   214→
+   215→  // Auto-select referensi when coming from hitung cetakan with riwayatId
+   216→  // Fetches the specific riwayat directly by ID for reliability (no race condition with list loading)
+   217→  useEffect(() => {
+   218→    if (!riwayatIdFromUrl) return;
+   219→    if (autoSelectDoneRef.current === riwayatIdFromUrl) return;
+   220→
+   221→    let cancelled = false;
+   222→
+   223→    const fetchAndApply = async () => {
+   224→      // First, try to find it in the already-loaded list (fast path)
+   225→      const foundInList = riwayatList.find((r) => r.id === riwayatIdFromUrl);
+   226→      if (foundInList) {
+   227→        if (!cancelled) {
+   228→          autoSelectDoneRef.current = riwayatIdFromUrl;
+   229→          applyReferensi(foundInList);
+   230→        }
+   231→        return;
+   232→      }
+   233→
+   234→      // Not in list yet — fetch directly by ID from the API (reliable path)
+   235→      try {
+   236→        const res = await fetch(`/api/riwayat-cetakan?id=${riwayatIdFromUrl}`, { headers: getAuthHeaders() });
+   237→        if (res.ok && !cancelled) {
+   238→          const data = await res.json();
+   239→          if (data && !data.error) {
+   240→            autoSelectDoneRef.current = riwayatIdFromUrl;
+   241→            applyReferensi(data as RiwayatCetakanItem);
+   242→          }
+   243→        }
+   244→      } catch {
+   245→        // Fallback: retry once after a short delay
+   246→        if (cancelled) return;
+   247→        await new Promise(r => setTimeout(r, 800));
+   248→        if (cancelled) return;
+   249→        try {
+   250→          const res = await fetch(`/api/riwayat-cetakan?id=${riwayatIdFromUrl}`, { headers: getAuthHeaders() });
+   251→          if (res.ok) {
+   252→            const data = await res.json();
+   253→            if (data && !data.error) {
+   254→              autoSelectDoneRef.current = riwayatIdFromUrl;
+   255→              applyReferensi(data as RiwayatCetakanItem);
+   256→            }
+   257→          }
+   258→        } catch {
+   259→          // Give up silently
+   260→        }
+   261→      }
+   262→    };
+   263→
+   264→    fetchAndApply();
+   265→
+   266→    return () => { cancelled = true; };
+   267→  }, [riwayatIdFromUrl]);
+   268→
+   269→  // Filter customer list (only when user is actively typing)
+   270→  const filteredCustomerList = useMemo(() =>
+   271→    clientTyping
+   272→      ? customerList.filter((c) => {
+   273→          const search = clientInput.toLowerCase().trim();
+   274→          if (!search) return true;
+   275→          return c.name.toLowerCase().includes(search) ||
+   276→                 (c.companyName || '').toLowerCase().includes(search) ||
+   277→                 (c.phone || '').toLowerCase().includes(search) ||
+   278→                 (c.address || '').toLowerCase().includes(search);
+   279→        })
+   280→      : customerList
+   281→  , [clientTyping, customerList, clientInput]);
+   282→
+   283→  const handleClientInputChange = (value: string) => {
+   284→    setClientInput(value);
+   285→    setClientTyping(true);
+   286→    updateClient('nama', value);
+   287→    setClientDropdownOpen(true);
+   288→  };
+   289→
+   290→  const handleClientSelect = (item: CustomerItem) => {
+   291→    setClientInput(item.name);
+   292→    setClientTyping(false);
+   293→    setInvoice((prev) => ({
+   294→      ...prev,
+   295→      client: {
+   296→        nama: item.name,
+   297→        kontak: item.phone || item.email || '',
+   298→        alamat: item.address || '',
+   299→      },
+   300→    }));
+   301→    setClientDropdownOpen(false);
+   302→  };
+   303→
+   304→  const updateClient = (field: string, value: string) => {
+   305→    setInvoice((prev) => ({
+   306→      ...prev,
+   307→      client: { ...prev.client, [field]: value },
+   308→    }));
+   309→  };
+   310→
+   311→  const subtotal = invoice.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
+   312→  const ppnAmount = subtotal * (invoice.ppn / 100);
+   313→  const total = subtotal + ppnAmount;
+   314→  const dpPercent = invoice.dp || 0;
+   315→  const dpAmount = total * (dpPercent / 100);
+   316→  const sisa = total - dpAmount;
+   317→
+   318→  const handleSuratJalan = async () => {
+   319→    // Check if data has content
+   320→    const pihakKedua = invoice.client?.nama;
+   321→    const hasItem = invoice.items?.some((item) => item.deskripsi.trim() !== '');
+   322→    if (!pihakKedua?.trim() || !hasItem) {
+   323→      toast.error('Lengkapi data invoice terlebih dahulu!');
+   324→      return;
+   325→    }
+   326→
+   327→    setSavingSj(true);
+   328→    try {
+   329→      // Save invoice to history first
+   330→      const dataToSave = { ...invoice, dpAmount, originalTotal: total };
+   331→
+   332→      if (invoiceEditingId) {
+   333→        // Update existing record
+   334→        const res = await fetch(`/api/history/${invoiceEditingId}`, {
+   335→          method: 'PUT',
+   336→          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+   337→          body: JSON.stringify({
+   338→            nomor: invoice.nomor || '-',
+   339→            tanggal: invoice.tanggal || '',
+   340→            pihakKedua: invoice.client?.nama || '-',
+   341→            total: '-',
+   342→            dataJson: JSON.stringify(dataToSave),
+   343→          }),
+   344→        });
+   345→        if (res.ok) {
+   346→          // If DP was added/updated during this edit, ensure a linked
+   347→          // invoice-pelunasan entry exists & is in sync so it shows up in
+   348→          // the Editor Pelunasan tab. (Previously this only happened on CREATE.)
+   349→          await syncLinkedPelunasan(invoiceEditingId, invoice.nomor || '-', dataToSave);
+   350→          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+   351→          toast.success('Invoice diperbarui');
+   352→          const invoiceId = invoiceEditingId;
+   353→          setInvoiceEditingId(null);
+   354→          resetDocument('invoice');
+   355→          router.push(`/surat-jalan?invoiceId=${invoiceId}`);
+   356→        } else {
+   357→          toast.error('Gagal memperbarui invoice');
+   358→        }
+   359→      } else {
+   360→        const res = await fetch('/api/history', {
+   361→          method: 'POST',
+   362→          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+   363→          body: JSON.stringify({
+   364→            docType: 'invoice',
+   365→            nomor: invoice.nomor || '-',
+   366→            tanggal: invoice.tanggal || '',
+   367→            pihakKedua: invoice.client?.nama || '-',
+   368→            total: '-',
+   369→            dataJson: JSON.stringify(dataToSave),
+   370→          }),
+   371→        });
+   372→        if (res.ok) {
+   373→          const saved = await res.json();
+   374→          window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
+   375→
+   376→          // If invoice has DP, ensure a linked invoice-pelunasan entry exists
+   377→          // (creates if missing, updates if already present)
+   378→          await syncLinkedPelunasan(saved.id, saved.nomor || invoice.nomor || '-', dataToSave);
+   379→
+   380→          toast.success('Invoice disimpan ke riwayat');
+   381→          // Reset invoice form after saving
+   382→          resetDocument('invoice');
+   383→          router.push(`/surat-jalan?invoiceId=${saved.id}`);
+   384→        } else if (res.status === 409) {
+   385→          // Invoice already saved, get existing ID and navigate
+   386→          const errData = await res.json().catch(() => ({}));
+   387→          if (errData.id) {
+   388→            resetDocument('invoice');
+   389→            router.push(`/surat-jalan?invoiceId=${errData.id}`);
+   390→          } else {
+   391→            toast('Invoice sudah ada di riwayat.');
+   392→          }
+   393→        } else {
+   394→          toast.error('Gagal menyimpan invoice');
+   395→        }
+   396→      }
+   397→    } catch {
+   398→      toast.error('Gagal menyimpan invoice');
+   399→    }
+   400→    setSavingSj(false);
+   401→  };
+   402→
+   403→  return (
+   404→    <>
+   405→      <DocumentEditorLayout
+   406→        title="Invoice"
+   407→        previewMode="popup"
+   408→        formColumns={2}
+   409→        previewContent={<InvoicePreview data={invoice} />}
+   410→        actions={
+   411→          <div className="flex items-center gap-2 flex-wrap">
+   412→            <DocumentActionButtons
+   413→              docType="invoice"
+   414→              documentLabel="Invoice"
+   415→              currentData={invoice}
+   416→              onReset={() => resetDocument('invoice')}
+   417→              editingId={invoiceEditingId}
+   418→              onUpdateSuccess={() => setInvoiceEditingId(null)}
+   419→            />
+   420→            <Button
+   421→              size="sm"
+   422→              onClick={handleSuratJalan}
+   423→              disabled={savingSj}
+   424→              className="bg-orange-600 hover:bg-orange-700 h-8 sm:h-9"
+   425→            >
+   426→              <Truck className="mr-1.5 h-3.5 w-3.5" />
+   427→              {savingSj ? 'Menyimpan...' : 'Surat Jalan'}
+   428→            </Button>
+   429→          </div>
+   430→        }
+   431→      >
+   432→        {/* FORM 2 KOLOM (desktop) — KIRI: Detail Dokumen + Informasi Pembayaran +
+   433→            Kepada Yth, KANAN: Item + Informasi Tambahan. Kotak Data Perusahaan
+   434→            dihapus (data perusahaan diatur di halaman Pengaturan). */}
+   435→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start">
+   436→        {/* ===== KOLOM KIRI ===== */}
+   437→        <div className="space-y-3 lg:space-y-5 min-w-0">
+   438→        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   439→          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   440→            Detail Dokumen
+   441→          </h3>
+   442→          <div className="grid grid-cols-2 gap-2">
+   443→            <div className="space-y-1.5">
+   444→              <Label className="text-xs">No. Invoice</Label>
+   445→              <Input
+   446→                value={invoice.nomor}
+   447→                readOnly
+   448→                className="bg-slate-50 text-slate-500 cursor-not-allowed"
+   449→              />
+   450→            </div>
+   451→            <div className="space-y-1.5">
+   452→              <Label className="text-xs">Tanggal</Label>
+   453→              <Input
+   454→                type="date"
+   455→                value={invoice.tanggal}
+   456→                onChange={(e) => setInvoice((prev) => ({ ...prev, tanggal: e.target.value }))}
+   457→              />
+   458→            </div>
+   459→          </div>
+   460→          <div className="space-y-2">
+   461→            <Label className="text-xs">Referensi (No. HC)</Label>
+   462→            <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+   463→              <PopoverAnchor asChild>
+   464→                <button
+   465→                  type="button"
+   466→                  onClick={() => setDropdownOpen(true)}
+   467→                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-slate-50 px-3 py-2 text-sm shadow-xs outline-none cursor-pointer hover:bg-slate-100 transition-colors text-left"
+   468→                >
+   469→                  <span className={referensiInput ? 'text-slate-900' : 'text-slate-400'}>
+   470→                    {referensiInput || 'Pilih No. HC...'}
+   471→                  </span>
+   472→                  <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+   473→                </button>
+   474→              </PopoverAnchor>
+   475→              <PopoverContent
+   476→                align="start"
+   477→                className="p-0 w-[var(--radix-popover-trigger-width)] max-h-52 overflow-y-auto"
+   478→                onOpenAutoFocus={(e) => e.preventDefault()}
+   479→              >
+   480→                {filteredRiwayatList.length > 0 && (
+   481→                  <div>
+   482→                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Riwayat Hitung Cetakan</div>
+   483→                    {filteredRiwayatList.map((r) => (
+   484→                      <button
+   485→                        key={r.id}
+   486→                        type="button"
+   487→                        onMouseDown={(e) => { e.preventDefault(); handleReferensiSelect(r) }}
+   488→                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${invoice.referensi === r.nomorUrut ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+   489→                      >
+   490→                        <span className="font-semibold text-xs text-emerald-700">{r.nomorUrut || '-'}</span>
+   491→                        <span className="ml-1.5 truncate">{r.printName || ''}</span>
+   492→                        {r.customerName && <span className="text-slate-400 ml-1.5 text-[11px]">({r.customerName})</span>}
+   493→                      </button>
+   494→                    ))}
+   495→                  </div>
+   496→                )}
+   497→                {filteredRiwayatList.length === 0 && (
+   498→                  <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada riwayat cetakan</div>
+   499→                )}
+   500→              </PopoverContent>
+   501→            </Popover>
+   502→          </div>
+   503→        </div>
+   504→
+   505→        {/* Informasi Pembayaran - moved below Detail Dokumen */}
+   506→        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   507→          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   508→            Informasi Pembayaran
+   509→          </h3>
+   510→          <div className="grid grid-cols-2 gap-3">
+   511→            <div className="space-y-1.5">
+   512→              <Label className="text-xs">Tgl. Jatuh Tempo</Label>
+   513→              <Input
+   514→                type="date"
+   515→                value={invoice.tanggalJatuhTempo}
+   516→                onChange={(e) => setInvoice((prev) => ({ ...prev, tanggalJatuhTempo: e.target.value }))}
+   517→              />
+   518→            </div>
+   519→            <div className="space-y-1.5">
+   520→              <Label className="text-xs">Cara Pembayaran</Label>
+   521→              <div className="flex gap-1.5">
+   522→                {(['cash', 'transfer', 'giro'] as const).map((method) => {
+   523→                  const labels: Record<string, string> = { cash: 'Cash', transfer: 'Transfer', giro: 'Giro' };
+   524→                  const isSelected = invoice.caraPembayaran === method;
+   525→                  return (
+   526→                    <button
+   527→                      key={method}
+   528→                      type="button"
+   529→                      onClick={() => setInvoice((prev) => ({
+   530→                        ...prev,
+   531→                        caraPembayaran: prev.caraPembayaran === method ? '' : method,
+   532→                        tanggalGiro: method === 'giro' && prev.caraPembayaran !== method ? prev.tanggalGiro : (method !== 'giro' ? '' : prev.tanggalGiro),
+   533→                      }))}
+   534→                      className={`flex-1 py-2 rounded-lg border text-[11px] font-semibold transition-colors ${
+   535→                        isSelected
+   536→                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300 ring-2 ring-offset-1 ring-emerald-400 shadow-sm'
+   537→                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+   538→                      }`}
+   539→                    >
+   540→                      {labels[method]}
+   541→                    </button>
+   542→                  );
+   543→                })}
+   544→              </div>
+   545→            </div>
+   546→          </div>
+   547→          {invoice.caraPembayaran === 'giro' && (
+   548→            <div className="mt-3 space-y-1.5">
+   549→              <Label className="text-xs">Tgl. Giro</Label>
+   550→              <Input
+   551→                type="date"
+   552→                value={invoice.tanggalGiro}
+   553→                onChange={(e) => setInvoice((prev) => ({ ...prev, tanggalGiro: e.target.value }))}
+   554→              />
+   555→            </div>
+   556→          )}
+   557→          {invoice.tanggalJatuhTempo && (
+   558→            <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 flex items-center gap-2">
+   559→              <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+   560→              <p className="text-xs text-amber-700">
+   561→                Jatuh tempo: <span className="font-semibold">{new Date(invoice.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+   562→              </p>
+   563→            </div>
+   564→          )}
+   565→        </div>
+   566→
+   567→        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   568→          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   569→            Kepada Yth :
+   570→          </h3>
+   571→          <div className="space-y-1.5">
+   572→            <Label className="text-xs">Nama Customer</Label>
+   573→            <Popover open={clientDropdownOpen} onOpenChange={setClientDropdownOpen}>
+   574→              <PopoverAnchor asChild>
+   575→                <div className="relative">
+   576→                  <input
+   577→                    type="text"
+   578→                    placeholder="Ketik atau pilih customer..."
+   579→                    value={clientInput}
+   580→                    onChange={(e) => handleClientInputChange(e.target.value)}
+   581→                    onFocus={() => { setClientDropdownOpen(true); setClientTyping(false); }}
+   582→                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] pr-9"
+   583→                  />
+   584→                  <button
+   585→                    type="button"
+   586→                    tabIndex={-1}
+   587→                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+   588→                    onMouseDown={(e) => { e.preventDefault(); setClientTyping(false); setClientDropdownOpen(!clientDropdownOpen); }}
+   589→                  >
+   590→                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+   591→                  </button>
+   592→                </div>
+   593→              </PopoverAnchor>
+   594→              <PopoverContent
+   595→                align="start"
+   596→                className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+   597→                onOpenAutoFocus={(e) => e.preventDefault()}
+   598→              >
+   599→                {filteredCustomerList.length > 0 && (
+   600→                  <div>
+   601→                    <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Master Customer</div>
+   602→                    {filteredCustomerList.map((c) => (
+   603→                      <button
+   604→                        key={c.id}
+   605→                        type="button"
+   606→                        onMouseDown={(e) => { e.preventDefault(); handleClientSelect(c) }}
+   607→                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${invoice.client.nama === c.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+   608→                      >
+   609→                        <span className="truncate">{c.name}</span>
+   610→                        {c.companyName && <span className="text-slate-400 ml-1.5 text-[11px]">({c.companyName})</span>}
+   611→                        {(c.phone || c.address) && (
+   612→                          <div className="text-[11px] text-slate-400 mt-0.5">
+   613→                            {c.phone && <span>{c.phone}</span>}
+   614→                            {c.phone && c.address && <span> · </span>}
+   615→                            {c.address && <span className="truncate">{c.address}</span>}
+   616→                          </div>
+   617→                        )}
+   618→                      </button>
+   619→                    ))}
+   620→                  </div>
+   621→                )}
+   622→                {filteredCustomerList.length === 0 && (
+   623→                  <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada data customer</div>
+   624→                )}
+   625→              </PopoverContent>
+   626→            </Popover>
+   627→          </div>
+   628→          <div className="space-y-2">
+   629→            <Label className="text-xs">Nomor Telp</Label>
+   630→            <Input
+   631→              value={invoice.client.kontak}
+   632→              onChange={(e) => updateClient('kontak', e.target.value)}
+   633→              placeholder="No. telepon / email"
+   634→            />
+   635→          </div>
+   636→          <div className="space-y-2">
+   637→            <Label className="text-xs">Alamat</Label>
+   638→            <Input
+   639→              value={invoice.client.alamat}
+   640→              onChange={(e) => updateClient('alamat', e.target.value)}
+   641→              placeholder="Alamat lengkap"
+   642→            />
+   643→          </div>
+   644→        </div>
+   645→        </div>
+   646→
+   647→        {/* ===== KOLOM KANAN ===== */}
+   648→        <div className="space-y-3 lg:space-y-5 min-w-0">
+   649→        <ItemsFields
+   650→          items={invoice.items}
+   651→          onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
+   652→          showPrice
+   653→          showModal
+   654→        />
+   655→
+   656→        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+   657→          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   658→            Informasi Tambahan
+   659→          </h3>
+   660→          <div className="space-y-1.5">
+   661→            <Label className="text-xs">PPN (%)</Label>
+   662→            <Input
+   663→              type="number"
+   664→              min={0}
+   665→              max={100}
+   666→              value={invoice.ppn || ''}
+   667→              onChange={(e) => setInvoice((prev) => ({ ...prev, ppn: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+   668→            />
+   669→          </div>
+   670→          {!dpDisabled && (
+   671→            <div className="space-y-1.5 mt-3">
+   672→              <Label className="text-xs">DP (%)</Label>
+   673→              <Input
+   674→                type="number"
+   675→                min={0}
+   676→                max={100}
+   677→                value={invoice.dp || ''}
+   678→                onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
+   679→                placeholder="0"
+   680→              />
+   681→            </div>
+   682→          )}
+   683→          <div className="space-y-1.5 mt-3">
+   684→            <Label className="text-xs">Profit</Label>
+   685→            <Input
+   686→              type="text"
+   687→              inputMode="numeric"
+   688→              value={invoice.uangCapek ? invoice.uangCapek.toLocaleString('id-ID') : ''}
+   689→              onChange={(e) => {
+   690→                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
+   691→                const num = raw === '' ? 0 : Number(raw) || 0
+   692→                setInvoice((prev) => ({ ...prev, uangCapek: num }))
+   693→              }}
+   694→              readOnly={!!invoice.referensi}
+   695→              placeholder="0"
+   696→              className={invoice.referensi ? 'bg-slate-50 cursor-not-allowed' : ''}
+   697→            />
+   698→          </div>
+   699→          <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
+   700→            <p className="text-sm text-emerald-800">
+   701→              Total: <span className="font-bold">{formatRupiah(total)}</span>
+   702→            </p>
+   703→            {(invoice.dp > 0) && (
+   704→              <>
+   705→                <p className="text-sm text-emerald-800">
+   706→                  DP ({invoice.dp}%): <span className="font-bold">{formatRupiah(dpAmount)}</span>
+   707→                </p>
+   708→                <p className="text-sm text-emerald-800">
+   709→                  Sisa Pembayaran: <span className="font-bold">{formatRupiah(sisa)}</span>
+   710→                </p>
+   711→              </>
+   712→            )}
+   713→          </div>
+   714→
+   715→          <div className="mt-3 space-y-2">
+   716→            <Label className="text-xs">Catatan</Label>
+   717→            <Textarea
+   718→              value={invoice.catatan}
+   719→              onChange={(e) => setInvoice((prev) => ({ ...prev, catatan: e.target.value }))}
+   720→              placeholder="Catatan tambahan..."
+   721→              rows={3}
+   722→            />
+   723→          </div>
+   724→        </div>
+   725→        </div>
+   726→        </div>
+   727→      </DocumentEditorLayout>
+   728→    </>
+   729→  );
+   730→}
+   731→

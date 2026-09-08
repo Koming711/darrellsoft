@@ -7887,3 +7887,92 @@ Stage Summary:
 - Kop perusahaan pada dokumen/pratinjau A5, Cetak, dan JPG tetap utuh (data dari state/Pengaturan).
 - document-editor-layout.tsx punya prop generik formColumns (reusable untuk editor lain bila diminta).
 - File berubah: invoice-editor.tsx, document-editor-layout.tsx (+ salinan root). Lint 0 error; E2E lulus; DB utuh.
+---
+Task ID: 5-b
+Agent: Purchase-Order-Subagent
+Task: Purchase order — editor 2 kolom tanpa Data Perusahaan + pratinjau inline-bottom
+
+Work Log:
+- Membaca konteks worklog agen sebelumnya (fondasi document-editor-layout.tsx dengan previewMode 'inline-bottom' + previewMaxWidth + formColumns sudah tersedia; editor invoice sudah jadi pola referensi).
+- src/components/dokupro/purchase-order-editor.tsx:
+  * Import `CompanyFields` DIHAPUS; fungsi `updateCompany` DIHAPUS (jadi tidak terpakai). Komentar (ID) ditambahkan: kotak Data Perusahaan dihapus, data perusahaan diatur via halaman Pengaturan. State `po.company` TIDAK dihapus — tetap dipakai PurchaseOrderPreview untuk kop dokumen A5.
+  * DocumentEditorLayout: `previewMode="popup"` → `previewMode="inline-bottom"` + `formColumns={2}` + `previewMaxWidth={560}` (pratinjau A5 kini SELALU tampil di bawah form, fit maks 560px, garis outline, id="document-preview" tetap terpasang sehingga Cetak berfungsi).
+  * Children disusun ulang jadi grid 2 kolom `grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start`: KOLOM KIRI (`space-y-3 lg:space-y-5 min-w-0`) = kotak Detail Dokumen (No. PO readonly, Tanggal, Tgl. Jatuh Tempo + badge jatuh tempo, Referensi/No. PK dengan popover riwayat potong kertas) + kotak "Kepada Yth." (Nama Suplier dengan popover master suplier, Jenis Barang, Kontak, Alamat); KOLOM KANAN = `<ItemsFields showPrice />` (prop semula) + kotak Informasi Tambahan (PPN %, Total, Catatan). Mobile otomatis 1 kolom.
+  * Tombol/aksi TIDAK diubah (DocumentActionButtons tetap persis semula).
+- src/app/purchase-order/page.tsx: div pembungkus PurchaseOrderPreview di popup pratinjau riwayat PO (ref={previewWrapperRef}) ditambah atribut `data-document-preview` — tombol "Kirim WhatsApp" (JPG via document.querySelector('[data-document-preview]')) kini yakin menemukan elemen pratinjau di popup (catatan: root PurchaseOrderPreview sendiri sudah punya atribut ini; div wrapper kini juga membawanya, captureElementAsJpg kebal transform scale karena memakai scrollWidth/scrollHeight). Tidak ada perubahan lain di file ini.
+- Salinan root disinkronkan: cp ke components/dokupro/purchase-order-editor.tsx dan app/purchase-order/page.tsx (diff -q identik).
+- eslint (bunx eslint src/components/dokupro/purchase-order-editor.tsx src/app/purchase-order/page.tsx) → 0 error 0 warning (exit code 0). File lain (termasuk invoice-editor.tsx milik agen lain) tidak disentuh.
+- Verifikasi runtime: GET /purchase-order → HTTP 200 (dev server compile OK). File invoice-editor.tsx, document-editor-layout.tsx, document-action-buttons.tsx, items-fields.tsx TIDAK diubah.
+
+Stage Summary:
+- Editor "Buat Purchase Order" kini tanpa kotak "Data Perusahaan" (data via Pengaturan), form 2 kolom di desktop (KIRI: Detail Dokumen + Kepada Yth./Pemasok | KANAN: Item + Informasi Tambahan), stack 1 kolom di mobile, dengan pratinjau A5 SELALU tampil di bawah form (inline-bottom, maks 560px) — tanpa tombol "Lihat Pratinjau A5".
+- Kop perusahaan pada dokumen/pratinjau A5, Cetak, dan JPG tetap utuh (state po.company dipertahankan).
+- Popup pratinjau riwayat PO kini membawa data-document-preview pada wrapper (tombol JPG/WhatsApp aman).
+- File berubah: src/components/dokupro/purchase-order-editor.tsx, src/app/purchase-order/page.tsx (+ salinan root masing-masing). Lint 0 error; halaman 200 OK.
+---
+---
+Task ID: 5-a
+Agent: Surat-Jalan-Subagent
+Task: Surat jalan — editor 2 kolom tanpa Data Perusahaan + pratinjau inline-bottom (+30%), riwayat: kolom baru tanpa Aksi
+
+Work Log:
+- Baca worklog.md (konteks agen sebelumnya) + verifikasi fondasi: document-editor-layout.tsx sudah punya previewMode 'inline-bottom' + previewMaxWidth + formColumns; format.ts sudah punya formatTanggalFull.
+- src/components/dokupro/surat-jalan-editor.tsx (file direwrite utuh, logika internal tiap kotak dipertahankan 100%):
+  * Import CompanyFields + JSX <CompanyFields> + fungsi updateCompany DIHAPUS. State sj.company TIDAK dihapus (dipakai kop SuratJalanPreview). Komentar ditambahkan: data perusahaan diatur via halaman Pengaturan.
+  * DocumentEditorLayout: previewMode="popup" → "inline-bottom", + formColumns={2} + previewMaxWidth={575} (pratinjau A5 selalu tampil di bawah form, tanpa tombol popup).
+  * Children form disusun grid 2 kolom (grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-5 items-start): KIRI = Detail Dokumen (No. SJ readonly + Tanggal + Referensi dropdown) + Kepada Yth (Nama Customer dropdown + Kontak + Alamat); KANAN = ItemsFields (showPrice={false}) + Informasi Tambahan (No. Kendaraan + Pengemudi) + Catatan. Mobile otomatis 1 kolom.
+- src/app/surat-jalan/page.tsx:
+  * Tabel desktop: header kini No. SJ | Tanggal | Penerima | Driver | Ref. Invoice | Jumlah Barang | Total Qty. Kolom "Aksi" + tombol Eye/RotateCcw/Trash2 DIHAPUS. Konten: Tanggal pakai formatTanggalFull ("6/6/2026"); Driver = parsed.pengemudi || '-'; Ref. Invoice = parsed.referensi || '-' (text-xs, max-w-28 truncate); Jumlah Barang = items.length; Total Qty = reduce(Number(qty)||0) format id-ID. parseDocInfo diperluas (itemsCount) sebagai sumber parse dataJson tunggal.
+  * Baris tabel desktop kini clickable (TableRow onClick + cursor-pointer) → membuka popup pratinjau via setter state yang sama (setPreviewItem/setPreviewOpen).
+  * Kartu mobile: deretan tombol Lihat/Muat/Hapus DIHAPUS; Card dibungkus div clickable (onClick → popup pratinjau, cursor-pointer); kartu kini menampilkan nomor, tanggal (formatTanggalFull), penerima, driver, ref invoice, jumlah barang, total qty.
+  * Kode mati dibersihkan: restoreToEditor, handleDelete, deleteConfirmId, AlertDialog hapus (blok + import), ikon Eye/RotateCcw/Trash2, fetcher, useDokuproStore, formatTanggal → formatTanggalFull.
+  * Wrapper pratinjau popup (div ref previewWrapperRef) diberi atribut data-document-preview agar tombol JPG (Kirim WhatsApp) selalu menemukan elemen pratinjau.
+  * Tidak ada perubahan data/API/db; hanya UI.
+- eslint (bunx eslint src/components/dokupro/surat-jalan-editor.tsx src/app/surat-jalan/page.tsx): 0 error, 0 warning.
+- Salinan root disinkronkan: cp ke components/dokupro/surat-jalan-editor.tsx dan app/surat-jalan/page.tsx (diff -q identik).
+
+Stage Summary:
+- Editor Surat Jalan kini tanpa kotak Data Perusahaan, form 2 kolom di desktop (Detail Dokumen + Kepada Yth | Item + Informasi Tambahan + Catatan), pratinjau A5 selalu tampil inline di bawah form (maks 575px) — tebal form ±30% lebih ramping.
+- Riwayat Surat Jalan: tabel desktop 7 kolom baru tanpa kolom Aksi (klik baris → pratinjau), kartu mobile clickable tanpa tombol, tanggal format penuh, ada Driver/Ref. Invoice/Jumlah Barang/Total Qty.
+- Tombol Cetak & JPG tetap berfungsi (data-document-preview terpasang di wrapper popup; SuratJalanPreview root juga sudah punya atribut tsb).
+- File berubah: src/components/dokupro/surat-jalan-editor.tsx, src/app/surat-jalan/page.tsx (+ salinan root components/dokupro/ & app/surat-jalan/). Lint 0 error. File lain (invoice-editor, document-editor-layout, dll.) tidak disentuh.
+---
+
+---
+Task ID: check-fix-invoice-sj-po-sampah-6
+Agent: Main (Z.ai Code) + 2 subagent (5-a Surat Jalan, 5-b Purchase Order)
+Task: "check and fix" seluruh daftar permintaan user: buat invoice (dropdown barang per customer, simpan→pratinjau, tombol cetak/jpg/surat jalan pindah ke pratinjau, preview inline fit-desktop outline, 2 kolom), detail invoice (judul "Detail Invoice", tombol di atas pratinjau, +20%, outline, Tandai Lunas/Hapus/Batal + popup konfirmasi), riwayat invoice (hapus kolom aksi & profit & dp/sisa, tanggal 7/9/26, kolom Qty+Item, tanpa badge "N item", baris diklik→detail, status non-klik, no invoice pas, total nowrap, filter status+dari/sampai tanggal, tab Riwayat Pembayaran), sampah (tombol delete di samping pulihkan), master barang per pelanggan (rendy kosong), riwayat surat jalan (kolom baru: No. SJ kecil, Tanggal 6/6/2026, Penerima, Driver, Ref. Invoice kecil, Jumlah Barang, Total Qty, tanpa aksi), buat surat jalan (2 kolom, tanpa data perusahaan, pratinjau +30%), purchase order (2 kolom, tanpa data perusahaan).
+
+Work Log:
+- BUG KRITIS DITEMUKAN & DIPERBAIKI: (1) invoice-editor.tsx line 540 `{labelsethod]}` → `{labels[method]}` (syntax error yang membuat /invoice gagal compile); (2) atribut `data-document-preview` TIDAK ADA di elemen pratinjau mana pun → semua tombol JPG ("capture [data-document-preview]") gagal "Pratinjau tidak ditemukan" — atribut kini dipasang di semua scaler (document-editor-layout popup/inline/inline-bottom, halaman invoice/surat-jalan/purchase-order/riwayat-penjualan-pembelian tetap apa adanya).
+- BUG ROUTING: subagent membuat folder root `app/` (duplikat) → Next.js mem-prioritaskan root `app/` dan mengabaikan `src/app/` → SEMUA route 404. Root `app/` DIHAPUS (pola Task 1 lama); server direstart via daemon. Pelajaran: jangan pernah membuat folder root `app/`; salinan root yang aman hanya `components/` & `lib/`.
+- Backend Sampah: schema DocumentHistory + `deletedAt DateTime?` (db push aman, kolom nullable); DELETE /api/history/[id] kini soft-delete (→Sampah) + cascade PEL; `?purge=1` = hapus permanen; POST /api/history/[id] = pulihkan (+PEL terkait); GET /api/history: default hanya live, `?deleted=1` hanya sampah (docType opsional); duplikat-check POST mengecualikan sampah; filter `deletedAt: null` ditambahkan di api/dashboard (7 query), api/laporan (3), api/laporan/penjualan, api/laporan/rugi-laba, api/rekap-penjualan.
+- lib/format.ts: + formatTanggalShort (d/m/yy → "7/9/26") & formatTanggalFull (d/m/yyyy → "6/6/2026").
+- items-fields.tsx: mode dropdown barang baru (props barangOptions/emptyBarangMessage/onPickBarang) — Nama Barang jadi tombol dropdown readonly 1 baris; Harga Satuan & Harga Modal auto-terisi (dari BarangCustomer.price & Barang.modal) dan readOnly bg-slate-50; Qty tetap editable; dipakai SJ/PO/pelunasan tanpa perubahan perilaku.
+- invoice-editor.tsx: fix syntax; InvoiceEditor terima prop onSaved; fetch /api/items?customerId= saat customer terpilih (barang per pelanggan, tanpa campur); effect ganti-customer → items otomatis dikosongkan (guard autoFillNameRef agar alur referensi cetakan tidak terkosongkan); handlePickBarang; DocumentEditorLayout → previewMode="inline-bottom" previewMaxWidth=560 + placeholder pratinjau sebelum ada data; aksi kini Simpan+Reset saja (showPrintActions={false}) + onSaved→Detail; tombol "Surat Jalan" & handleSuratJalan DIHAPUS dari editor (pindah ke Detail).
+- invoice-pelunasan-editor.tsx: CompanyFields+updateCompany dihapus; 2 kolom grid; inline-bottom 560; pratinjau hanya setelah invoice dipilih.
+- document-editor-layout.tsx: mode 'inline-bottom' + previewMaxWidth; outline 2px #cbd5e1; data-document-preview di semua mode.
+- document-action-buttons.tsx: props showPrintActions & onSaved (update/409/create memanggil onSaved(id)).
+- invoice/page.tsx ditulis ulang: DetailInvoiceView (judul "Detail Invoice", badge status, strip info, tombol Cetak/JPG/Surat Jalan/Tandai Lunas/Batal/Hapus DI ATAS pratinjau, pratinjau outline 670px ≈ scale 1.199 = +20% (desktop) & full-width 358px (mobile), popup konfirmasi untuk Lunas/Batal/Hapus; Hapus=soft-delete→Sampah; Batal=PUT dataJson.batal; Lunas=PUT lunas+tanggalPelunasan+syncLinkedPelunasan; Surat Jalan→/surat-jalan?invoiceId=); Riwayat: tab Riwayat Invoice|Riwayat Pembayaran|Sampah; filter dropdown Status (Semua/Lunas/Belum Lunas/Batal) + Dari Tanggal + Sampai Tanggal + reset; tabel kolom No. Invoice(w-px pas)|Tanggal(7/9/26)|Customer(max-w-56)|Nama Barang(tanpa badge)|Qty|Item|Total(nowrap)|Status(non-klik); klik baris/kartu → Detail; kolom Aksi/Profit/DP/Sisa dihapus (DP & pelunasan); pelunasan dialog lama & preview popup riwayat dihapus; Sampah tab: daftar semua docType terhapus + tombol Pulihkan & Delete berdampingan (desktop+mobile) + konfirmasi hapus permanen; simpan→pratinjau via onSaved.
+- Subagent 5-a (surat jalan): editor 2 kolom tanpa CompanyFields + inline-bottom 575 (±+30%); riwayat kolom No. SJ|Tanggal(6/6/2026)|Penerima|Driver|Ref. Invoice|Jumlah Barang|Total Qty tanpa Aksi; klik baris→popup pratinjau; kartu mobile tanpa tombol.
+- Subagent 5-b (purchase order): editor 2 kolom tanpa CompanyFields + inline-bottom 560; attr data-document-preview di popup riwayat PO.
+- eslint 18 file ubahan → 0 error. Server dikelola daemon (.daemon.log aktif, semua 200; dev.log basi dari era server lama).
+- VERIFIKASI agent-browser (admin, desktop 1280x800 + mobile 390x844, read-only kecuali roundtrip hapus→pulihkan yang dikembalikan persis):
+  * Riwayat desktop: header kolom baru terverifikasi; baris "INV/07/26/0021 | 17/7/26 | jaya | brosur | 5.000 | 2 | Rp4.587.000 | Belum Lunas"; status non-klik; overflow 1280=1280.
+  * Klik baris → Detail Invoice: judul+badge, tombol di atas pratinjau, scale 1.19857 (≈+20%), outline 2px, tanpa tombol scroll; dialog "Tandai invoice lunas?"/"Batalkan invoice ini?"/"Hapus invoice?" terbuka & dibatalkan tanpa mutasi.
+  * Roundtrip Sampah (INV/07/26/0021): hapus→tampil di tab Sampah dengan tombol Pulihkan+Delete berdampingan→Pulihkan→kembali di riwayat; DB akhir: documentHistory=23, sampah=0 (data utuh persis seperti sebelumnya).
+  * Riwayat Pembayaran tab: empty-state benar ("Belum ada pembayaran"); Sampah tab: empty-state benar ("Sampah kosong").
+  * Buat Invoice (desktop): tanpa DATA PERUSAHAAN, grid 470px+470px, tanpa "Lihat Pratinjau", hanya Simpan; dropdown customer "wiayana wisnu" → dropdown barang berisi MILIKNYA (paperbowl 720ml @1.700, ongkir @150.000); pilih paperbowl → Nama Barang 1 baris, Harga Satuan 1.700 readOnly, Harga Modal 1.400 readOnly, Qty editable, pratinjau langsung tampil; ganti customer ke "rendy" → item otomatis kosong; dropdown barang rendy → "Belum ada barang untuk customer ini" (keluhan user teratasi); overflow 390=390.
+  * Mobile 390: riwayat kartu tanpa tombol aksi, tab lengkap; Detail pratinjau full-width 358px; Buat Invoice 1 kolom 334px + placeholder pratinjau; tanpa scroll horizontal.
+  * Surat Jalan: riwayat "SJ/06/26/0001 | 6/6/2026 | Siti Rohana | Nama pengemudi | INV/06/26/0001 | 1 | 10.000" tanpa Aksi, klik baris→popup; editor 2 kolom tanpa Data Perusahaan, pratinjau scale 1.0215 (≈571px ≈ +30%), tanpa tombol Lihat Pratinjau.
+  * Purchase Order: editor 2 kolom tanpa Data Perusahaan, pratinjau inline scale 0.995.
+  * Master Barang: wiayana wisnu → 2 barang miliknya; rendy → 0 (kosong) — barang tidak tercampur antar pelanggan.
+  * API pasca perubahan: /api/dashboard, /api/laporan/penjualan, /api/laporan/rugi-laba, /api/rekap-penjualan, /api/history?deleted=1, /api/history?docType=invoice semua 200.
+- Catatan: jumlah customer terbaca 132 vs 134 saat restore arsip — tidak ada operasi hapus customer dari sesi ini (kemungkinan aktivitas user di sesi browser aslinya yang aktif bersamaan; muncul popup "Peringatan Keamanan" sesi ganda yang ditutup via JS tanpa menyentuh tombol Logout).
+
+Stage Summary:
+- SELURUH item dalam daftar "check and fix" kini terimplementasi & terverifikasi browser: Buat Invoice (dropdown barang per pelanggan + harga terkunci, simpan→halaman pratinjau, tanpa data perusahaan, 2 kolom, pratinjau inline outline), Detail Invoice (tombol di atas pratinjau, +20%/full-mobile, outline, Tandai Lunas/Hapus/Batal berk Konfirmasi), Riwayat (kolom baru, filter, 3 tab, klik baris→detail), Sampah (Pulihkan + Delete), Master Barang per pelanggan, Surat Jalan (editor 2 kolom + riwayat kolom baru), PO (2 kolom).
+- 2 bug latent ditemukan & diperbaiki: syntax error invoice-editor & tombol JPG mati (atribut data-document-preview hilang).
+- Root `app/` dihapus (sumber 404 massal); pelajaran untuk agen berikutnya tercatat.
+- File berubah: prisma/schema.prisma(+root), api/history(+[id]), api/dashboard, api/laporan(3), api/rekap-penjualan, lib/format, dokupro/{items-fields,invoice-editor,invoice-pelunasan-editor,document-editor-layout,document-action-buttons,surat-jalan-editor,purchase-order-editor}, app/{invoice,surat-jalan,purchase-order}/page.tsx (+salinan root components/ & lib/).
+- Lint 0 error; DB utuh (23 dok, 0 sampah); server stabil via daemon.

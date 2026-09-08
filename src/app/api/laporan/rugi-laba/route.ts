@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const end = (searchParams.get('end') || '').trim()
 
     const rows = await db.documentHistory.findMany({
-      where: { docType: 'invoice', ...dataFilter },
+      where: { docType: 'invoice', deletedAt: null, ...dataFilter },
       orderBy: { createdAt: 'desc' },
       take: 2000,
     })
