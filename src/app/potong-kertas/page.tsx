@@ -100,6 +100,14 @@ const inp = "w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm tex
 const inpDisabled = "w-full border border-slate-200 rounded-md px-2.5 py-1.5 text-sm text-slate-500 bg-slate-100 cursor-not-allowed"
 const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
 
+/** Format ukuran "W × H cm"; '-' jika keduanya kosong. */
+function fmtUkuran(w?: string | number | null, h?: string | number | null): string {
+  const W = (w ?? '').toString().trim()
+  const H = (h ?? '').toString().trim()
+  if (!W && !H) return '-'
+  return `${W || '-'} × ${H || '-'} cm`
+}
+
 // Preview Dialog Component (centered, scrollable)
 function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
   return (
@@ -2045,7 +2053,7 @@ function CalculatorPage() {
             </div>
 
             {/* Info Grid */}
-            <div data-pk="grid" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 mb-3 lg:mb-0 lg:shrink-0">
+            <div data-pk="grid" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-1.5 sm:gap-2 mb-3 lg:mb-0 lg:shrink-0">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Customer</p>
                 <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
@@ -2057,6 +2065,18 @@ function CalculatorPage() {
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Gramatur</p>
                 <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Ukuran Kertas</p>
+                <p className="text-base sm:text-xl lg:text-sm font-bold text-black dark:text-white">{previewRiwayatData
+                  ? fmtUkuran(previewRiwayatRow?.paperWidth || previewRiwayatData.paperWidth, previewRiwayatRow?.paperHeight || previewRiwayatData.paperHeight)
+                  : fmtUkuran(paperWidth, paperHeight)}</p>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+                <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Ukuran Potong</p>
+                <p className="text-base sm:text-xl lg:text-sm font-bold text-black dark:text-white">{previewRiwayatData
+                  ? fmtUkuran(previewRiwayatRow?.cutWidth || previewRiwayatData.cutWidth, previewRiwayatRow?.cutHeight || previewRiwayatData.cutHeight)
+                  : fmtUkuran(cutWidth, cutHeight)}</p>
               </div>
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>
