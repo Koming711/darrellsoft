@@ -73,6 +73,7 @@ import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import {
   RiwayatPeriodFilter,
+  RiwayatFilterCard,
   RiwayatSummaryCard,
   riwayatDateRange,
   riwayatPeriodText,
@@ -870,9 +871,8 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
         {/* ================= TAB: RIWAYAT INVOICE ================= */}
         {activeTab === 'invoice' && (
           <>
-            {/* Filter: periode + status + cari — gaya Laporan Penjualan */}
-            <Card className="p-0 gap-0">
-              <CardContent className="p-4 space-y-4">
+            {/* Filter: periode + status + cari — mobile collapsible */}
+            <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
                 <RiwayatPeriodFilter
                   idPrefix="riwayat-invoice"
                   period={period}
@@ -924,16 +924,15 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+            </RiwayatFilterCard>
 
             {/* Ringkasan — gaya Laporan Penjualan */}
             {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
                 {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
                 <RiwayatSummaryCard label="Jumlah Invoice" value={invoiceSummary.count} note={`${pelunasanInvoices.length} invoice pelunasan`} />
                 <RiwayatSummaryCard label="Total Nilai Invoice" value={formatRupiah(invoiceSummary.total)} />
                 <RiwayatSummaryCard label="Sudah Lunas" value={invoiceSummary.lunas} valueClass="text-emerald-700" />

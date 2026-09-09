@@ -11,6 +11,7 @@
 // ============================================================
 
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type RiwayatPeriod = 'today' | 'week' | 'month' | 'year' | 'date' | 'all'
@@ -174,8 +176,12 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
 
   return (
     <div className="space-y-3">
-      {/* Segmented control mode periode */}
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Mode periode riwayat">
+      {/* Segmented control mode periode — mobile: 1 baris scroll horizontal, desktop: wrap */}
+      <div
+        className="flex flex-nowrap gap-1.5 overflow-x-auto scrollbar-thin -mx-1 px-1 pb-1 md:mx-0 md:flex-wrap md:overflow-x-visible md:px-0 md:pb-0"
+        role="group"
+        aria-label="Mode periode riwayat"
+      >
         {PERIOD_OPTIONS.map((opt) => {
           const active = period === opt.value
           return (
@@ -185,7 +191,7 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
               aria-pressed={active}
               onClick={() => onChangePeriod(opt.value)}
               className={cn(
-                'rounded-lg border px-4 min-h-[44px] text-sm font-medium transition-colors',
+                'shrink-0 rounded-lg border px-4 min-h-[44px] text-sm font-medium transition-colors',
                 active
                   ? 'border-emerald-600 bg-emerald-600 text-white'
                   : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-100 hover:text-stone-900'
@@ -274,7 +280,53 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
   )
 }
 
-/** Kartu ringkasan kecil bergaya kartu statistik Laporan Penjualan. */
+/**
+ * Kartu filter riwayat yang bisa dilipat di mobile (gaya aplikasi CRUD):
+ * - Mobile: tampil tombol "Filter & Cari" + badge jumlah filter aktif; konten dilipat default.
+ * - Desktop (md+): konten selalu terlihat, tombol lipat disembunyikan.
+ * Isi kartu (filter periode, status, pencarian, reset) dikirim via `children`.
+ */
+export function RiwayatFilterCard({
+  activeCount = 0,
+  children,
+}: {
+  activeCount?: number
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Card className="p-0 gap-0">
+      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="md:hidden w-full min-h-[44px] flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 text-left"
+        >
+          <span className="flex items-center gap-2 text-sm font-medium text-stone-700">
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> Filter &amp; Cari
+          </span>
+          <span className="flex items-center gap-2">
+            {activeCount > 0 && (
+              <span className="rounded-full bg-emerald-600 text-white text-[11px] font-semibold px-2 py-0.5 leading-4">
+                {activeCount} aktif
+              </span>
+            )}
+            <ChevronDown
+              className={cn('h-4 w-4 text-stone-500 transition-transform', open && 'rotate-180')}
+              aria-hidden="true"
+            />
+          </span>
+        </button>
+        <div className={cn('space-y-3 sm:space-y-4', open ? 'block' : 'hidden md:block')}>
+          {children}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Kartu ringkasan kecil bergaya kartu statistik Laporan Penjualan — kompak di mobile. */
 export function RiwayatSummaryCard({
   label,
   value,
@@ -288,9 +340,9 @@ export function RiwayatSummaryCard({
 }) {
   return (
     <Card className="p-0 gap-0">
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className={cn('text-lg md:text-xl font-bold mt-1', valueClass)}>{value}</p>
+        <p className={cn('text-base sm:text-lg md:text-xl font-bold mt-1 break-words', valueClass)}>{value}</p>
         {note && <p className="text-[11px] text-muted-foreground mt-1">{note}</p>}
       </CardContent>
     </Card>
