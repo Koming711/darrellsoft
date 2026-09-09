@@ -2697,9 +2697,6 @@ function HitungCetakanPage() {
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600" title="Preview" aria-label="Preview" onClick={() => handlePreviewRiwayat(r)}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-600" title="Restore" aria-label="Restore" onClick={() => handleRestoreRiwayat(r)}>
                                 <RotateCcw className="h-4 w-4" />
                               </Button>
