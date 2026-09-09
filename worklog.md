@@ -8279,3 +8279,22 @@ Stage Summary:
 - 5 halaman riwayat (Invoice, Purchase Order, Surat Jalan, Potong Kertas, Hitung Cetakan) kini tampilannya konsisten dengan halaman Laporan Penjualan: header + subjudul "Periode: …", filter card berisi segmented control periode (Hari ini/Minggu ini/Bulan ini/Tahun ini/Custom/Semua, aktif emerald) + pencarian, kartu ringkasan statistik, tabel desktop dgn kolom No. & nomor font-mono & tombol aksi ghost h-8, kartu mobile dgn grid label + action bar tombol berlabel, empty state border-dashed.
 - Filter "Dari Tanggal" & "Sampai Tanggal" kini tersedia di KELIMA halaman (mode Custom) — termasuk PO & Surat Jalan yang sebelumnya sama sekali tidak punya filter tanggal; mode periode lain (Hari ini/Minggu ini/Bulan ini/Tahun ini) memfilter otomatis; default "Semua" agar seluruh data tetap tampil seperti sebelumnya.
 - File berubah: +1 komponen bersama (riwayat-period-filter.tsx) & 5 halaman. Semua handler lama (preview, detail, hapus, muat/restore, backup/restore, highlight, badge tab) tetap berfungsi — terverifikasi via browser. ESLint 0 error, log bersih, DB tidak berubah.
+---
+Task ID: 12
+Agent: Main (Z.ai Code)
+Task: "preview tidk muncul. fix" — preview panel blank; server down + Prisma client salah provider (postgresql vs SQLite)
+
+Work Log:
+- Diagnosis: tidak ada proses di port 3000 (dev server mati setelah environment reset 01:31). Start daemon → server hidup, tapi muncul error PrismaClientInitializationError "the URL must start with the protocol postgresql:// or postgres://" pada semua query (documentHistory, setting, dll).
+- Akar masalah: node_modules/.prisma/client di-regenerate ulang saat sandbox reset (01:31) memakai prisma/schema.prisma yang provider-nya "postgresql" (versi committed di git), padahal DATABASE_URL=file:/home/z/my-project/db/custom.db (SQLite). Client lama yang masih sqlite tertimpa.
+- Fix: (1) Edit prisma/schema.prisma datasource provider "postgresql" → "sqlite". (2) `bunx prisma generate` menghasilkan output stale (anomali bunx cache) — paksa regenerate dengan `./node_modules/.bin/prisma generate --schema prisma/schema.prisma` → client terverifikasi sqlite (node_modules/.prisma/client/schema.prisma provider = sqlite). (3) Runtime test OK: documentHistory count = 22 (baseline utuh).
+- Bersihkan restart: daemon restart pertama gagal EADDRINUSE (server lama pid 2066 masih menempel) → `daemon.cjs stop` + kill -9 pid lama + `daemon.cjs start` final (PID 2854, next-server pid 2894).
+- Verifikasi E2E agent-browser READ-ONLY (admin/268899, banner PWA di-dismiss): /login render (dialog "Versi Baru!" → Oke, Mengerti); login sukses → /pembukaan; /invoice render penuh layout Task 11 (subjudul "Periode: Semua Periode", segmented filter, 4 kartu ringkasan, empty state "Belum ada invoice" — admin memang 0 invoice); /potong-kertas tab Riwayat: 6 baris data nyata (PK/07/26/849947 dst), kartu Jumlah 6 + Total Rp 6.486.176 (persis baseline Task 11), tombol Custom → input Dari/Sampai Tanggal muncul (id riwayat-pk-from/-to); /laporan/penjualan render ("Periode: September 2026", API 200).
+- Overflow: desktop 1280×800 & mobile 390×844 scrollWidth == clientWidth (tanpa overflow). Browser errors: kosong. Console: tidak ada error.
+- Log: setelah restart final (marker line 2907) = 0 error, 46 GET 200 (termasuk /api/laporan/penjualan 200). DB baseline tidak berubah: documentHistory=22. File dibersihkan: .zscripts/test-prisma.cjs dihapus.
+- File berubah HANYA: prisma/schema.prisma (1 kata: provider sqlite). Tidak ada perubahan kode aplikasi, API, package.json.
+
+Stage Summary:
+- Preview blank disebabkan 2 lapis: (1) dev server mati total setelah reset sandbox; (2) setelah dihidupkan, Prisma client salah provider (postgresql) karena schema.prisma versi git + regenerate otomatis saat provisioning, sehingga semua query DB gagal.
+- Permanen fix: schema.prisma kini provider "sqlite" di working tree (GESIKAN CATATAN: jika sandbox reset lagi, file ini bisa kembali ke versi git "postgresql" — regenerate client sqlite lagi bila error postgresql:// muncul).
+- Semua halaman terverifikasi hidup kembali dengan layout Task 11 utuh dan data baseline sama (documentHistory 22, riwayat PK admin 6 baris, total Rp 6.486.176).
