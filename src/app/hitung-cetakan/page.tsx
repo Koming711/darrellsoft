@@ -30,7 +30,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 import { calculateCuts } from '@/lib/cutting-engine'
-import { RiwayatPeriodFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
+import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
 interface Paper {
   id: string
@@ -2585,9 +2585,8 @@ function HitungCetakanPage() {
           </div>
         </div>
 
-        {/* Filter: periode + pencarian */}
-        <Card className="p-0 gap-0">
-          <CardContent className="p-4 space-y-4">
+        {/* Filter: periode + pencarian — mobile collapsible */}
+        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-hc"
               period={period}
@@ -2625,16 +2624,15 @@ function HitungCetakanPage() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+        </RiwayatFilterCard>
 
         {/* Ringkasan */}
         {riwayatLoading ? (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             <RiwayatSummaryCard label="Jumlah Hitung Cetakan" value={filteredRiwayatList.length} note="Data pada periode terpilih" />
             <RiwayatSummaryCard label="Total" value={`Rp ${Math.round(riwayatSummary.total).toLocaleString('id-ID')}`} valueClass="text-emerald-700" />
             <RiwayatSummaryCard label="Profit" value={`Rp ${Math.round(riwayatSummary.profit).toLocaleString('id-ID')}`} valueClass="text-violet-700" />

@@ -29,6 +29,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   RiwayatPeriodFilter,
+  RiwayatFilterCard,
   RiwayatSummaryCard,
   RiwayatEmptyState,
   riwayatPeriodText,
@@ -431,9 +432,8 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
           </div>
         </div>
 
-        {/* Filter periode + pencarian — gaya Laporan Penjualan */}
-        <Card className="p-0 gap-0">
-          <CardContent className="p-4 space-y-4">
+        {/* Filter periode + pencarian — mobile collapsible */}
+        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-po"
               period={period}
@@ -475,17 +475,16 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+        </RiwayatFilterCard>
 
         {/* Ringkasan — gaya Laporan Penjualan */}
         {loading ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Skeleton className="h-24 w-full rounded-xl" />
             <Skeleton className="h-24 w-full rounded-xl" />
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <RiwayatSummaryCard
               label="Jumlah Purchase Order"
               value={filteredHistory.length}

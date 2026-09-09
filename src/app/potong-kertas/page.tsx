@@ -24,7 +24,7 @@ import { openWhatsApp } from '@/lib/whatsapp-business'
 import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
-import { RiwayatPeriodFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
+import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
 const CuttingDiagram = dynamic(
   () => import('@/components/cutting-results').then(m => ({ default: m.CuttingDiagram })),
@@ -1869,10 +1869,9 @@ function CalculatorPage() {
             </div>
           </div>
 
-          {/* Filter: periode + pencarian */}
-          <Card className="p-0 gap-0">
-            <CardContent className="p-4 space-y-4">
-              <RiwayatPeriodFilter
+          {/* Filter: periode + pencarian — mobile collapsible */}
+          <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
+            <RiwayatPeriodFilter
                 idPrefix="riwayat-pk"
                 period={period}
                 onChangePeriod={setPeriod}
@@ -1909,17 +1908,16 @@ function CalculatorPage() {
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+          </RiwayatFilterCard>
 
           {/* Ringkasan */}
           {loadingRiwayat ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <Skeleton className="h-24 w-full rounded-xl" />
               <Skeleton className="h-24 w-full rounded-xl" />
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <RiwayatSummaryCard label="Jumlah Potong Kertas" value={filteredRiwayatList.length} note="Data pada periode terpilih" />
               <RiwayatSummaryCard label="Total" value={`Rp ${Math.round(totalRiwayat).toLocaleString('id-ID')}`} valueClass="text-emerald-700" />
             </div>

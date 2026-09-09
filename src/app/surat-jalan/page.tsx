@@ -7,6 +7,7 @@ import { SuratJalanEditor } from '@/components/dokupro/surat-jalan-editor'
 import {
   RiwayatEmptyState,
   RiwayatPeriodFilter,
+  RiwayatFilterCard,
   RiwayatSummaryCard,
   riwayatDateRange,
   riwayatPeriodText,
@@ -404,9 +405,8 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
           </div>
         </div>
 
-        {/* Filter — gaya Laporan Penjualan */}
-        <Card className="p-0 gap-0">
-          <CardContent className="p-4 space-y-4">
+        {/* Filter — mobile collapsible */}
+        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-sj"
               period={period}
@@ -444,16 +444,15 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+        </RiwayatFilterCard>
 
         {/* Ringkasan */}
         {loading ? (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             <RiwayatSummaryCard label="Jumlah Surat Jalan" value={summary.count} />
             <RiwayatSummaryCard label="Jumlah Barang" value={summary.totalItems} />
             <RiwayatSummaryCard label="Total Qty" value={summary.totalQty.toLocaleString('id-ID')} />

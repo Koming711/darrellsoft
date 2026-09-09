@@ -8316,3 +8316,44 @@ Work Log:
 Stage Summary:
 - Tabel riwayat Hitung Cetakan (desktop) tidak lagi menampilkan ikon Preview (Eye) di kolom Aksi — tersisa tombol Restore (emerald) dan Hapus (destructive). Cara melihat rincian kini via klik baris (perilaku sama seperti sebelumnya, baris tetap cursor-pointer).
 - Verifikasi penuh: ESLint 0/0, preview dialog tetap berfungsi, mobile & desktop tanpa overflow, log bersih, data baseline utuh.
+
+---
+Task ID: 14-b
+Agent: full-stack-developer (mobile-crud-4pages)
+Task: Terapkan pola filter mobile collapsible + grid ringkasan 2 kolom ke 4 halaman riwayat
+
+Work Log:
+- Baca worklog.md (200 baris terakhir) + komponen bersama src/components/dokupro/riwayat-period-filter.tsx (RiwayatFilterCard: tombol "Filter & Cari" mobile md:hidden + badge "{n} aktif", konten hidden md:block) + contoh nyata potong-kertas/page.tsx (1872-1924).
+- Audit 4 file target: identifikasi wrapper <Card className="p-0 gap-0"><CardContent className="p-4 space-y-4"> di tab Riwayat, nama state masing-masing (invoice: period/statusFilter/searchQuery/filtersActive/resetFilters; po & sj: period/searchQuery/filtersActive; hitung-cetakan: period/searchQuery/riwayatFiltersActive), dan posisi grid skeleton + grid kartu ringkasan.
+- src/app/invoice/page.tsx: tambah RiwayatFilterCard ke import bersama; ganti Card/CardContent filter → <RiwayatFilterCard activeCount={(period!=='all'?1:0)+(statusFilter!=='all'?1:0)+(searchQuery.trim()!==''?1:0)}> (props RiwayatPeriodFilter & isi search/reset persis sama); grid ringkasan 4 kartu (skeleton + asli) "grid gap-3 sm:grid-cols-2 lg:grid-cols-4" → "grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4" (2 tempat, replace_all).
+- src/app/purchase-order/page.tsx: tambah RiwayatFilterCard; ganti wrapper → RiwayatFilterCard activeCount=(period!=='all'?1:0)+(searchQuery.trim()!==''?1:0); grid ringkasan 2 kartu (skeleton + asli) → "grid grid-cols-2 gap-2 sm:gap-3". Grid "sm:grid-cols-2" di DALAM filter card (search/reset) sengaja TIDAK diubah.
+- src/app/surat-jalan/page.tsx: tambah RiwayatFilterCard; ganti wrapper → RiwayatFilterCard activeCount=(period!=='all'?1:0)+(searchQuery.trim()!==''?1:0); grid ringkasan 3 kartu (skeleton + asli) → "grid grid-cols-3 gap-1.5 sm:gap-3".
+- src/app/hitung-cetakan/page.tsx: tambah RiwayatFilterCard ke import satu baris; ganti wrapper → RiwayatFilterCard activeCount=(period!=='all'?1:0)+(searchQuery.trim()!==''?1:0); grid ringkasan 3 kartu (skeleton + asli) → "grid grid-cols-3 gap-1.5 sm:gap-3". Bagian lain (ikon Eye sudah dihapus Task 13, tabel, dialog) tidak disentuh.
+- Import Card/CardContent dibiarkan di keempat file karena masih dipakai kartu mobile list (invoice 1017+, po 563, sj 540, hc 2719). Handler/fetch/state/logika filter/tabel desktop/PreviewDialog/editor tab tidak diubah.
+
+Stage Summary:
+- 4 halaman (invoice, purchase-order, surat-jalan, hitung-cetakan) kini memakai RiwayatFilterCard: filter bisa dilipat di mobile dengan badge jumlah filter aktif, selalu terlihat di desktop md+; grid ringkasan jadi 2 kolom di mobile (invoice 2x2→4 di lg, po 2 kolom, sj & hitung-cetakan 3 kolom gap-1.5). Desktop tidak berubah.
+- Verifikasi: bunx eslint 4 file = 0 error 0 warning; curl /invoice /purchase-order /surat-jalan /hitung-cetakan semua 200; .daemon.log tanpa error baru (✓ Compiled + 4 route 200).
+---
+Task ID: 14 (Main — verifikasi menyeluruh)
+Agent: Main (Z.ai Code) + 1 subagent (14-b mobile-crud-4pages)
+Task: "check tampilan mobile. rubah tampilan mobil jadi crud dan ui"
+
+Work Log:
+- AUDIT mobile (390×844, agent-browser + screenshot): 5 halaman riwayat mobile menumpuk — kartu ringkasan 1 kolom penuh (invoice 4 kartu ≈ 300px vertical), segmented periode wrap 2 baris, user harus scroll jauh sebelum melihat data list. Terdapat dialog "Peringatan Keamanan" sesi ganda saat mulai → diselesaikan via "Paksa Logout Perangkat Lain" (bukan bagian dari bug UI).
+- DESAIN pola mobile CRUD (mobile-first, desktop TIDAK berubah), 3 perubahan:
+  1) Komponen bersama src/components/dokupro/riwayat-period-filter.tsx: (a) segmented periode → mobile 1 baris scroll horizontal (flex-nowrap overflow-x-auto scrollbar-thin, tombol shrink-0), desktop tetap wrap (md:flex-wrap md:overflow-x-visible); (b) RiwayatSummaryCard → kompak (p-3 sm:p-4, value text-base sm:text-lg md:text-xl, break-words); (c) KOMPONEN BARU RiwayatFilterCard {activeCount, children}: Card p-0 > CardContent p-3 sm:p-4 > tombol "Filter & Cari" (SlidersHorizontal + badge emerald "N aktif" + ChevronDown rotate) yang hanya tampil di mobile (md:hidden), konten children collapsible (open ? block : hidden md:block) — desktop selalu terbuka.
+  2) Halaman contoh potong-kertas (Task 14-a, oleh Main): import +RiwayatFilterCard; filter Card/CardContent → RiwayatFilterCard activeCount=(period!=='all')+(searchQuery.trim()!==''); grid ringkasan+skeleton `grid gap-3 sm:grid-cols-2` → `grid grid-cols-2 gap-2 sm:gap-3`. ESLint 0/0.
+  3) Subagent 14-b menerapkan pola identik ke 4 halaman: invoice (activeCount +statusFilter!=='all'; grid 4 kartu → grid-cols-2 lg:grid-cols-4), purchase-order (2 kartu → grid-cols-2), surat-jalan & hitung-cetakan (3 kartu → grid-cols-3 gap-1.5). Semua grid skeleton ikut diganti. Handler/logika/tabel desktop/kartu mobile list tidak disentuh; hapus ikon Eye Task 13 di hitung-cetakan tetap utuh.
+- VERIFIKASI Main (agent-browser READ-ONLY, mobile 390×844 & desktop 1280×800):
+  * Mobile 4 halaman (invoice/PO/SJ/HC): toggle "Filter & Cari" tampil, TANPA overflow, ikon Eye tabel = 0 (Task 13 aman).
+  * Invoice mobile interaksi: buka filter → segmented 1 baris scrollable + Status + Cari + Reset; klik "Bulan ini" → subjudul "Periode: September 2026" + badge "1 aktif" di tombol; tutup → search tersembunyi. Custom date di PK (riwayat-pk-from/-to) tetap berfungsi lewat filter terbuka.
+  * Mobile tertutup: ringkasan 2×2 kompak (invoice), data list/empty state langsung terlihat tanpa scroll berlebihan.
+  * Desktop invoice & HC: filter konten LANGSUNG terlihat, toggle tersembunyi — desktop tidak berubah. (HC perlu klik tab Riwayat dulu karena default tab Editor — bukan bug.)
+  * ESLint 6 file (komponen + 5 halaman) → 0 error 0 warning; curl 5 route → 200; log .daemon tanpa error baru.
+  * DB baseline utuh (read-only): documentHistory=22, riwayatCetakan=20, riwayatPotongKertas=20.
+  * Screenshot: tool-results/mob-{invoice,pk}-before…after, mob-invoice-filter-open.jpg, fix13-* (sebelumnya).
+
+Stage Summary:
+- Tampilan mobile 5 halaman riwayat (Invoice, Purchase Order, Surat Jalan, Potong Kertas, Hitung Cetakan) kini bergaya aplikasi CRUD: bar "Filter & Cari" collapsible dengan badge jumlah filter aktif (default terlipat di mobile, selalu terbuka di desktop), segmented periode 1 baris scrollable, kartu ringkasan statistik 2–3 kolom kompak — data list langsung terlihat di layar pertama tanpa scroll panjang. Semua fungsi CRUD (Buat/Backup/Restore, Lihat/Detail, Muat, Hapus, klik baris → preview, filter periode Dari/Sampai Tanggal, cari, reset) tetap berfungsi, desktop 100% tidak berubah.
+- File berubah: 1 komponen bersama (riwayat-period-filter.tsx: segmented scroll + RiwayatFilterCard baru + ringkasan kompak) & 5 halaman (ganti wrapper filter + grid ringkasan). ESLint 0/0, log bersih, DB tidak berubah.
