@@ -8388,3 +8388,23 @@ Work Log:
 Stage Summary:
 - "Preview tidak muncul" bukan bug kode — environment reset mematikan dev server & menimpa prisma client dengan provider postgresql. Regenerate client sqlite + start daemon menyelesaikan. SEMUA fitur termasuk preview Potong Kertas (dengan 2 kartu ukuran baru Task 15) terverifikasi hidup.
 - CATATAN BERULANG: setiap sandbox reset → jalankan ulang: `./node_modules/.bin/prisma generate --schema prisma/schema.prisma && node daemon.cjs start`.
+
+---
+Task ID: 17
+Agent: Main (Z.ai Code)
+Task: "di preview rincian harga cetakan buat yang lengkap semuanya detailnya berikut dengan gambar potong kertas. ukuran 1 halaman fit to desktop."
+
+Work Log:
+- Lingkungan dicek dulu: server hidup (HTTP 200), schema.prisma + client tetap sqlite, .daemon.log bersih (fix Task 16 bertahan).
+- Eksplorasi: preview "Rincian Harga Cetakan" di src/app/hitung-cetakan/page.tsx (dialog max-w-2xl 1 kolom, banyak field tidak ditampilkan: jumlah pesanan, setelan, mata, gramatur, harga/lembar, lembar dipakai, plat, lem, warna 2, harga/pcs); komponen CuttingDiagram (SVG) sudah ada di src/components/cutting-results.tsx dengan engine calculateCuts (src/lib/cutting-engine.ts).
+- Implementasi di hitung-cetakan/page.tsx:
+  1) PreviewDialog max-w-2xl → max-w-5xl; helper PvRow (baris spec ringkas) & PvMiniStat (badge statistik).
+  2) pv* baru: hargaPerLembar, jumlahPesanan, setelan, berapaMata, grammage, hargaPlat1/2, glueLength/PerCm, hargaPerPcs, ukuranKertas, ukuranPotongan, flag hasCetak2/hasFinishing/hasTambahan + pvCutResult (useMemo calculateCuts, mapping sama dengan computedPaper: paperLength→paperWidth param, paperWidth→paperHeight param, qty+setelan).
+  3) Konten preview diganti grid 3 kolom (lg): Kolom 1 Informasi Pesanan + Ukuran & Warna; Kolom 2 Bahan Kertas (jenis·gsm, harga/lembar, lembar dipakai, total) + Ongkos Cetak (mesin + sub "termasuk plat") + Finishing (breakdown) + Biaya Tambahan (packing, kirim, lem + detail cm×harga/cm, lem borongan, lain1/2); Kolom 3 Gambar Potong Kertas (CuttingDiagram + badge Potong/Lembar, Lembar Dipakai, Efisiensi %, Skenario) + Grand Total (Sub Total, Profit %, Harga/Pcs). Fallback placeholder jika dimensi tidak lengkap.
+  4) handlePreviewRiwayat kini memetakan jumlahPesanan, berapaMata, setelanKertas, glueLengthCm, glueCostPerCm, paperGrammage; editor preview menambah paperGrammage. PrintCalculation +paperGrammage?: number.
+- Optimasi fit: iterasi pertama masih scroll 112px → diagram 260→220px & box Sub Total terpisah digabung ke kartu Grand Total → scrollH 653 = clientH 653 (fit).
+- Verifikasi: ESLint 0 error; desktop 1280×800 fit 1 halaman tanpa scroll (grid 3×322px, tinggi kolom 289/332/~500, SVG 286×220, 6 potongan tampak); mobile 390×844 stack 1 kolom, scrollWidth 390 = clientWidth 390 (tanpa overflow horizontal), diagram+badge+Grand Total tampil; konsol/error browser kosong; banner PWA & dialog "Peringatan Keamanan" ditangani (non-bug); .daemon.log 0 error; DB baseline utuh documentHistory=22, riwayatCetakan=20, riwayatPotongKertas=20 (read-only, tanpa data uji). Screenshot: .zscripts/e2e-desktop-preview2.png, e2e-mobile-preview(-bottom).png.
+- Catatan: PDF (handlePdf) memakai buildPrintHtml terpisah sehingga tidak terpengaruh perubahan layout preview.
+
+Stage Summary:
+- Preview "Rincian Harga Cetakan" (jalur editor & riwayat) kini lengkap semua detail + gambar potong kertas SVG dari engine yang sama dengan perhitungan harga, fit 1 halaman desktop tanpa scroll (3 kolom), mobile stack rapi tanpa overflow. Dialog diperlebar ke max-w-5xl. Data riwayat preview kini membaca field yang sebelumnya tidak dipetakan.
