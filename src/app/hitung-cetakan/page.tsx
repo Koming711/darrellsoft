@@ -116,6 +116,8 @@ interface PrintCalculation {
   biayaLain1Label?: string
   biayaLain2Label?: string
   paperGrammage?: number
+  recordNumber?: string
+  recordDate?: string
 }
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors lg:py-1.5'
@@ -128,7 +130,7 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div onClick={(e) => e.stopPropagation()}
-        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-5xl w-full max-h-[95vh] sm:max-h-[92vh] flex flex-col">
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-6xl w-full max-h-[95vh] sm:max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
@@ -150,26 +152,34 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
   )
 }
 
-// Compact spec row for the rincian preview
-function PvRow({ label, value, sub, valueClass = 'text-slate-800' }: { label: string; value: React.ReactNode; sub?: React.ReactNode; valueClass?: string }) {
+// Field tile for the CRUD-style info grid
+function PvField({ label, value, accent = 'text-slate-800' }: { label: string; value: React.ReactNode; accent?: string }) {
   return (
-    <div className="flex items-start justify-between gap-2 py-[3.5px] border-b border-slate-200/70 last:border-b-0">
-      <span className="text-[10.5px] text-slate-500 leading-snug flex-shrink-0 max-w-[45%]">{label}</span>
-      <span className="text-right min-w-0">
-        {sub && <span className="block text-[9.5px] text-slate-400 leading-tight">{sub}</span>}
-        <span className={`block text-[11.5px] font-semibold leading-snug break-words ${valueClass}`}>{value}</span>
-      </span>
+    <div className="bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate">{label}</p>
+      <p className={`text-sm font-bold leading-snug break-words ${accent}`} title={typeof value === 'string' ? value : undefined}>{value}</p>
     </div>
   )
 }
 
-// Tiny stat badge under the cutting diagram
+// Stat tile under the cutting diagram
 function PvMiniStat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-md px-1.5 py-1.5 text-center min-w-0">
-      <p className="text-[8.5px] text-slate-400 uppercase tracking-wide truncate">{label}</p>
-      <p className="text-[11px] font-bold text-slate-700 truncate" title={typeof value === 'string' ? value : undefined}>{value}</p>
+    <div className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-center min-w-0">
+      <p className="text-[9.5px] text-slate-400 uppercase tracking-wide truncate">{label}</p>
+      <p className="text-sm font-extrabold text-slate-700 truncate" title={typeof value === 'string' ? value : undefined}>{value}</p>
     </div>
+  )
+}
+
+// Cost table row for the rincian biaya table
+function PvCost({ name, detail, amount }: { name: React.ReactNode; detail?: React.ReactNode; amount: React.ReactNode }) {
+  return (
+    <tr className="border-b border-slate-100 last:border-b-0">
+      <td className="py-1 pr-2 align-top text-xs font-semibold text-slate-700 leading-snug">{name}</td>
+      <td className="py-1 pr-2 align-top text-[10.5px] text-slate-400 leading-snug">{detail}</td>
+      <td className="py-1 pl-2 align-top text-right text-sm font-bold text-slate-700 tabular-nums whitespace-nowrap">{amount}</td>
+    </tr>
   )
 }
 
@@ -1361,6 +1371,7 @@ function HitungCetakanPage() {
       cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
       quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
       hargaPlat: formData.hargaPlat, paperId: formData.paperId, paperName: selectedPaper?.name || 'Custom', paperGrammage: selectedPaper?.grammage || 0,
+      recordNumber: '', recordDate: new Date().toISOString(),
       machineId: formData.machineId, machineName: selectedMachine?.machineName || '-',
       printingCost: calculatedCost, finishingId: selectedFinishings.join(','),
       finishingName: selectedFinishingItems.map(f => f.name).join(', '),
@@ -1724,6 +1735,8 @@ function HitungCetakanPage() {
       glueLengthCm: r.glueLengthCm?.toString() || '',
       glueCostPerCm: r.glueCostPerCm?.toString() || '',
       paperGrammage: parseInt(r.paperGrammage) || 0,
+      recordNumber: r.nomorUrut || '',
+      recordDate: r.createdAt || '',
       profitPercent: r.profitPercent || 0,
       biayaLain1Label: r.otherCostLabel || 'Biaya Bikin Piso',
       biayaLain2Label: r.otherCostLabel2 || 'Biaya'
@@ -2842,150 +2855,138 @@ function HitungCetakanPage() {
         >
           <div ref={previewRef} className="p-3 sm:p-4 bg-white">
             {/* Header */}
-            <div className="text-center pb-2.5 border-b-2 border-slate-200 mb-3">
+            <div className="text-center pb-2 border-b-2 border-slate-200 mb-2">
               <div className="flex items-center justify-center gap-2">
                 <Calculator className="w-5 h-5 text-blue-600" />
-                <h1 className="text-base sm:text-lg font-bold text-slate-900">Rincian Harga Cetakan</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900">Rincian Harga Cetakan</h1>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {pvPrintName} · {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              <p className="text-xs text-slate-500 mt-1">
+                <span className="font-semibold text-slate-600">{pvPrintName}</span>
+                {previewCalc.recordNumber ? <span> · No. {previewCalc.recordNumber}</span> : null}
+                <span> · {previewCalc.recordDate ? new Date(previewCalc.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:items-start">
-              {/* ===== KOLOM 1: INFORMASI + UKURAN & WARNA ===== */}
-              <div className="space-y-3">
-                <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-4.5 h-4.5 rounded bg-blue-100 flex items-center justify-center">
-                      <FileText className="w-3 h-3 text-blue-600" />
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:items-start">
+              {/* ===== KOLOM KIRI: INFORMASI + RINCIAN BIAYA ===== */}
+              <div className="lg:col-span-3 space-y-3">
+                {/* Informasi Pesanan - CRUD field grid */}
+                <div className="border border-slate-200 rounded-xl p-3 bg-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <Users className="w-3.5 h-3.5 text-blue-600" />
                     </div>
-                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">Informasi Pesanan</p>
+                    <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Informasi Pesanan</p>
                   </div>
-                  <PvRow label="Nama Customer" value={pvCustomerName} />
-                  <PvRow label="Nama Barang" value={pvPrintName} />
-                  <PvRow label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} />
-                  <PvRow label="Jumlah Cetakan" value={`${pvQuantity.toLocaleString('id-ID')} lbr${pvSetelan > 0 ? ` + ${pvSetelan} setelan` : ''}`} />
-                  {pvBerapaMata !== '' && pvBerapaMata !== '0' && <PvRow label="Berapa Mata" value={pvBerapaMata} />}
-                </div>
-
-                <div className="border border-slate-200 bg-slate-50/60 rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-4.5 h-4.5 rounded bg-slate-200 flex items-center justify-center">
-                      <Ruler className="w-3 h-3 text-slate-600" />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">Ukuran &amp; Warna</p>
-                  </div>
-                  <PvRow label="Ukuran Kertas" value={pvUkuranKertas} />
-                  <PvRow label="Ukuran Potongan" value={pvUkuranPotongan} />
-                  <PvRow label="Warna Cetak" value={`${previewCalc.warna || 0} warna${previewCalc.warnaKhusus && parseInt(previewCalc.warnaKhusus) > 0 ? ` + ${previewCalc.warnaKhusus} khusus` : ''}`} />
-                  {pvHasCetak2 && (
-                    <PvRow label="Warna Cetak 2" value={`${previewCalc.warna2 || 0} warna${previewCalc.warnaKhusus2 && parseInt(previewCalc.warnaKhusus2) > 0 ? ` + ${previewCalc.warnaKhusus2} khusus` : ''}`} />
-                  )}
-                </div>
-              </div>
-
-              {/* ===== KOLOM 2: RINCIAN BIAYA ===== */}
-              <div className="space-y-3">
-                {/* Bahan Kertas */}
-                <div className="border border-teal-100 bg-teal-50/40 rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-4.5 h-4.5 rounded bg-teal-100 flex items-center justify-center">
-                      <Layers className="w-3 h-3 text-teal-600" />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">Bahan Kertas</p>
-                  </div>
-                  <PvRow label="Jenis Kertas" value={pvGrammage > 0 ? `${previewCalc.paperName || '-'} · ${pvGrammage} gsm` : (previewCalc.paperName || '-')} />
-                  {pvHargaPerLembar > 0 && <PvRow label="Harga per Lembar" value={formatRp(pvHargaPerLembar)} />}
-                  {pvSheetsNeeded > 0 && <PvRow label="Lembar Dipakai" value={`${pvSheetsNeeded.toLocaleString('id-ID')} lembar`} />}
-                  <PvRow label="Total Harga Kertas" value={pvPaperPrice > 0 ? formatRp(pvPaperPrice) : '-'} valueClass="text-teal-700" />
-                </div>
-
-                {/* Ongkos Cetak */}
-                <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-4.5 h-4.5 rounded bg-blue-100 flex items-center justify-center">
-                      <Calculator className="w-3 h-3 text-blue-600" />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">{t('ongkos_cetak_label')}</p>
-                  </div>
-                  <PvRow
-                    label={previewCalc.machineName && previewCalc.machineName !== '-' ? previewCalc.machineName : 'Mesin 1'}
-                    value={formatRp(pvPrintingCost)}
-                    sub={pvHargaPlat1 > 0 ? `termasuk plat ${formatRp(pvHargaPlat1)}/lbr` : undefined}
-                  />
-                  {pvHasCetak2 && (
-                    <PvRow
-                      label={previewCalc.machineName2 && previewCalc.machineName2 !== '' ? previewCalc.machineName2 : 'Mesin 2'}
-                      value={formatRp(pvPrintingCost2)}
-                      sub={pvHargaPlat2 > 0 ? `termasuk plat ${formatRp(pvHargaPlat2)}/lbr` : undefined}
-                    />
-                  )}
-                </div>
-
-                {/* Finishing */}
-                {pvHasFinishing && (
-                  <div className="border border-rose-100 bg-rose-50/40 rounded-lg p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="w-4.5 h-4.5 rounded bg-rose-100 flex items-center justify-center">
-                        <Layers className="w-3 h-3 text-rose-600" />
-                      </div>
-                      <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">{t('finishing_label')}</p>
-                    </div>
-                    {previewCalc.finishingBreakdown && previewCalc.finishingBreakdown.length > 0 ? (
-                      <>
-                        {previewCalc.finishingBreakdown.map((fb, i) => (
-                          <PvRow key={i} label={fb.name} value={formatRp(fb.cost)} />
-                        ))}
-                        <PvRow label="Total Finishing" value={formatRp(pvCalc?.calculatedFinishingCost ?? 0)} valueClass="text-rose-700" />
-                      </>
-                    ) : (
-                      <PvRow label={previewCalc.finishingName} value={formatRp(pvFinishingCost)} />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <PvField label="Nama Customer" value={pvCustomerName} accent="text-blue-800" />
+                    <PvField label="Nama Barang" value={pvPrintName} accent="text-indigo-800" />
+                    <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
+                    <PvField label="Jumlah Cetakan" value={`${pvQuantity.toLocaleString('id-ID')} lbr${pvSetelan > 0 ? ` +${pvSetelan} setelan` : ''}`} />
+                    {pvBerapaMata !== '' && pvBerapaMata !== '0' && <PvField label="Berapa Mata" value={pvBerapaMata} />}
+                    <PvField label="Ukuran Kertas" value={pvUkuranKertas} accent="text-teal-800" />
+                    <PvField label="Ukuran Potongan" value={pvUkuranPotongan} />
+                    <PvField label="Warna Cetak" value={`${previewCalc.warna || 0} warna${previewCalc.warnaKhusus && parseInt(previewCalc.warnaKhusus) > 0 ? ` + ${previewCalc.warnaKhusus} khusus` : ''}`} />
+                    {pvHasCetak2 && (
+                      <PvField label="Warna Cetak 2" value={`${previewCalc.warna2 || 0} warna${previewCalc.warnaKhusus2 && parseInt(previewCalc.warnaKhusus2) > 0 ? ` + ${previewCalc.warnaKhusus2} khusus` : ''}`} />
                     )}
                   </div>
-                )}
+                </div>
 
-                {/* Biaya Tambahan */}
-                {pvHasTambahan && (
-                  <div className="border border-amber-100 bg-amber-50/40 rounded-lg p-2.5">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="w-4.5 h-4.5 rounded bg-amber-100 flex items-center justify-center">
-                        <Package className="w-3 h-3 text-amber-600" />
-                      </div>
-                      <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">Biaya Tambahan</p>
+                {/* Rincian Biaya - tabel CRUD */}
+                <div className="border border-slate-200 rounded-xl p-3 bg-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <Banknote className="w-3.5 h-3.5 text-emerald-600" />
                     </div>
-                    {pvPacking > 0 && <PvRow label="Ongkos Packing" value={formatRp(pvPacking)} />}
-                    {pvShipping > 0 && <PvRow label="Ongkos Kirim" value={formatRp(pvShipping)} />}
-                    {pvGlueCost > 0 && (
-                      <PvRow
-                        label="Ongkos Lem"
-                        value={formatRp(pvGlueCost)}
-                        sub={pvGlueLength > 0 && pvGluePerCm > 0 ? `${pvGlueLength} cm × ${formatRp(pvGluePerCm)}/cm` : undefined}
+                    <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Rincian Biaya</p>
+                  </div>
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2 w-[38%]">Keterangan</th>
+                        <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Rincian</th>
+                        <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pl-2 whitespace-nowrap">Jumlah (Rp)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <PvCost
+                        name={<span>Bahan Kertas{previewCalc.paperName ? <span className="text-slate-500"> — {previewCalc.paperName}</span> : null}{pvGrammage > 0 ? <span className="text-slate-400"> · {pvGrammage} gsm</span> : null}</span>}
+                        detail={pvHargaPerLembar > 0 && pvSheetsNeeded > 0 ? `${pvSheetsNeeded.toLocaleString('id-ID')} lbr × ${formatRp(pvHargaPerLembar)}` : undefined}
+                        amount={pvPaperPrice > 0 ? formatRp(pvPaperPrice) : '-'}
                       />
-                    )}
-                    {pvGlueBorongan > 0 && <PvRow label="Lem Borongan" value={formatRp(pvGlueBorongan)} />}
-                    {pvBiayaLain1 > 0 && <PvRow label={pvBiayaLain1Label} value={formatRp(pvBiayaLain1)} />}
-                    {pvBiayaLain2 > 0 && <PvRow label={pvBiayaLain2Label} value={formatRp(pvBiayaLain2)} />}
-                  </div>
-                )}
+                      <PvCost
+                        name={previewCalc.machineName && previewCalc.machineName !== '-' ? `Ongkos Cetak — ${previewCalc.machineName}` : 'Ongkos Cetak'}
+                        detail={`${previewCalc.warna || 0} warna${previewCalc.warnaKhusus && parseInt(previewCalc.warnaKhusus) > 0 ? ` + ${previewCalc.warnaKhusus} khusus` : ''}${pvHargaPlat1 > 0 ? ` · plat ${formatRp(pvHargaPlat1)}/lbr` : ''}`}
+                        amount={formatRp(pvPrintingCost)}
+                      />
+                      {pvHasCetak2 && (
+                        <PvCost
+                          name={previewCalc.machineName2 && previewCalc.machineName2 !== '' ? `Ongkos Cetak 2 — ${previewCalc.machineName2}` : 'Ongkos Cetak 2'}
+                          detail={`${previewCalc.warna2 || 0} warna${previewCalc.warnaKhusus2 && parseInt(previewCalc.warnaKhusus2) > 0 ? ` + ${previewCalc.warnaKhusus2} khusus` : ''}${pvHargaPlat2 > 0 ? ` · plat ${formatRp(pvHargaPlat2)}/lbr` : ''}`}
+                          amount={formatRp(pvPrintingCost2)}
+                        />
+                      )}
+                      {pvHasFinishing && previewCalc.finishingBreakdown && previewCalc.finishingBreakdown.length > 0
+                        ? previewCalc.finishingBreakdown.map((fb, i) => (
+                          <PvCost key={`fin-${i}`} name={`Finishing — ${fb.name}`} amount={formatRp(fb.cost)} />
+                        ))
+                        : (pvHasFinishing && <PvCost name={`Finishing — ${previewCalc.finishingName}`} amount={formatRp(pvFinishingCost)} />)}
+                      {pvPacking > 0 && <PvCost name="Ongkos Packing" amount={formatRp(pvPacking)} />}
+                      {pvShipping > 0 && <PvCost name="Ongkos Kirim" amount={formatRp(pvShipping)} />}
+                      {pvGlueCost > 0 && (
+                        <PvCost
+                          name="Ongkos Lem"
+                          detail={pvGlueLength > 0 && pvGluePerCm > 0 ? `${pvGlueLength} cm × ${formatRp(pvGluePerCm)}/cm` : undefined}
+                          amount={formatRp(pvGlueCost)}
+                        />
+                      )}
+                      {pvGlueBorongan > 0 && <PvCost name="Lem Borongan" amount={formatRp(pvGlueBorongan)} />}
+                      {pvBiayaLain1 > 0 && <PvCost name={pvBiayaLain1Label} amount={formatRp(pvBiayaLain1)} />}
+                      {pvBiayaLain2 > 0 && <PvCost name={pvBiayaLain2Label} amount={formatRp(pvBiayaLain2)} />}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-200">
+                        <td colSpan={2} className="pt-2 text-xs font-bold text-slate-600 uppercase tracking-wide">Sub Total</td>
+                        <td className="pt-2 text-right text-sm font-extrabold text-slate-800 tabular-nums">{formatRp(pvSubTotal)}</td>
+                      </tr>
+                      {pvProfitPercent > 0 && pvProfitAmount > 0 && (
+                        <tr>
+                          <td colSpan={2} className="pt-1.5 text-xs font-bold text-orange-600 uppercase tracking-wide">Profit ({pvProfitPercent}%)</td>
+                          <td className="pt-1.5 text-right text-sm font-extrabold text-orange-600 tabular-nums">{formatRp(pvProfitAmount)}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td colSpan={2} className="pt-2 text-sm font-extrabold text-slate-900 uppercase tracking-wide">Grand Total</td>
+                        <td className="pt-2 text-right text-lg font-extrabold text-emerald-600 tabular-nums">{formatRp(pvGrandTotal)}</td>
+                      </tr>
+                      {pvHargaPerPcs > 0 && (
+                        <tr>
+                          <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
+                          <td className="pt-1.5 text-right text-xs font-bold text-emerald-700 tabular-nums">{formatRp(pvHargaPerPcs)}</td>
+                        </tr>
+                      )}
+                    </tfoot>
+                  </table>
+                </div>
               </div>
 
-              {/* ===== KOLOM 3: GAMBAR POTONG + TOTAL ===== */}
-              <div className="space-y-3">
+              {/* ===== KOLOM KANAN: GAMBAR POTONG + TOTAL ===== */}
+              <div className="lg:col-span-2 space-y-3">
                 {/* Gambar Potong Kertas */}
-                <div className="border border-violet-100 bg-violet-50/40 rounded-lg p-2.5" data-hc="preview-diagram">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-4.5 h-4.5 rounded bg-violet-100 flex items-center justify-center">
-                      <Palette className="w-3 h-3 text-violet-600" />
+                <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center">
+                      <Palette className="w-3.5 h-3.5 text-violet-600" />
                     </div>
-                    <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">Gambar Potong Kertas</p>
+                    <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Gambar Potong Kertas</p>
                   </div>
                   {pvCutResult ? (
                     <>
-                      <div className="bg-white rounded-lg border border-slate-200 p-1.5">
-                        <CuttingDiagram results={pvCutResult} maxHeight="220px" />
+                      <div className="bg-white rounded-lg border border-slate-200 p-2">
+                        <CuttingDiagram results={pvCutResult} maxHeight="224px" />
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5 mt-2">
+                      <div className="grid grid-cols-2 gap-2 mt-2">
                         <PvMiniStat label="Potong / Lembar" value={pvCutResult.totalPieces.toLocaleString('id-ID')} />
                         <PvMiniStat label="Lembar Dipakai" value={pvCutResult.sheetsNeeded.toLocaleString('id-ID')} />
                         <PvMiniStat label="Efisiensi Kertas" value={`${pvCutResult.efficiency.toFixed(1)}%`} />
@@ -2993,8 +2994,8 @@ function HitungCetakanPage() {
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-8 text-[11px] text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white/60">
-                      <Ruler className="w-7 h-7 mx-auto mb-1.5 text-slate-300" />
+                    <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white/60">
+                      <Ruler className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                       Lengkapi ukuran kertas &amp; ukuran potongan
                       <br />untuk melihat gambar potong kertas
                     </div>
@@ -3002,22 +3003,22 @@ function HitungCetakanPage() {
                 </div>
 
                 {/* GRAND TOTAL */}
-                <div className="dark-surface bg-slate-900 text-white rounded-xl p-3.5 flex items-center justify-between">
+                <div className="dark-surface bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] text-slate-400">Grand Total</p>
-                    <p className="text-xl sm:text-2xl font-extrabold text-emerald-400">{formatRp(pvGrandTotal)}</p>
+                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">Grand Total</p>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400">{formatRp(pvGrandTotal)}</p>
                   </div>
-                  <div className="text-right text-[9.5px] text-slate-400 space-y-0.5">
-                    <p>Sub Total: {formatRp(pvSubTotal)}</p>
-                    {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): {formatRp(pvProfitAmount)}</p>}
-                    {pvHargaPerPcs > 0 && <p className="text-emerald-400/80">Harga/Pcs: {formatRp(pvHargaPerPcs)}</p>}
+                  <div className="text-right text-[10.5px] text-slate-400 space-y-0.5">
+                    <p>Sub Total: <span className="font-semibold text-slate-300">{formatRp(pvSubTotal)}</span></p>
+                    {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>}
+                    {pvHargaPerPcs > 0 && <p>Harga/Pcs: <span className="font-semibold text-emerald-300">{formatRp(pvHargaPerPcs)}</span></p>}
                   </div>
                 </div>
               </div>
             </div>
           </div>
               {/* Action Buttons */}
-              <div className="sticky bottom-0 bg-card border-t border-slate-200 p-4 flex gap-2">
+              <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
                 <button onClick={handlePrint}
                   className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
                   <Printer className="w-4 h-4" /> Cetak

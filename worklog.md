@@ -8408,3 +8408,21 @@ Work Log:
 
 Stage Summary:
 - Preview "Rincian Harga Cetakan" (jalur editor & riwayat) kini lengkap semua detail + gambar potong kertas SVG dari engine yang sama dengan perhitungan harga, fit 1 halaman desktop tanpa scroll (3 kolom), mobile stack rapi tanpa overflow. Dialog diperlebar ke max-w-5xl. Data riwayat preview kini membaca field yang sebelumnya tidak dipetakan.
+
+---
+Task ID: 18
+Agent: Main (Z.ai Code)
+Task: "preview kurang jelas. buaat lebih lengkap. crud dan ui"
+
+Work Log:
+- Rombak total tampilan preview "Rincian Harga Cetakan" (lanjutan Task 17) dari 3 kolom sempit ber-teks mini menjadi gaya CRUD yang jelas & besar:
+  1) Dialog max-w-5xl → max-w-6xl; grid lg:grid-cols-5 (kiri col-span-3, kanan col-span-2).
+  2) Helper baru: PvField (tile field CRUD: label uppercase 10px + value text-sm bold), PvCost (baris tabel biaya: Keterangan | Rincian | Jumlah), PvMiniStat diperbesar (text-sm). PvRow lama dihapus.
+  3) KIRI: kartu "Informasi Pesanan" (grid 2–3 kolom berisi 8–9 tile: customer, barang, jumlah pesanan, jumlah cetakan+setelan, mata, ukuran kertas, ukuran potongan, warna 1, warna 2) + kartu "Rincian Biaya" berupa TABEL dengan thead Keterangan/Rincian/Jumlah (Rp): Bahan Kertas (nama·gsm; "534 lbr × Rp 2.789"), Ongkos Cetak (mesin; warna + plat/lbr), Ongkos Cetak 2, tiap item Finishing, Packing, Kirim, Lem (cm × harga/cm), Lem Borongan, Biaya Lain 1–2; tfoot: Sub Total, Profit (%, orange), Grand Total (emerald text-lg), Harga per Pcs.
+  4) KANAN: kartu "Gambar Potong Kertas" (diagram SVG 224px + 4 stat tile: Potong/Lembar, Lembar Dipakai, Efisiensi, Skenario) + kartu Grand Total gelap (text-2xl/3xl; Sub Total, Profit, Harga/Pcs berwarna).
+  5) PrintCalculation +recordNumber/recordDate; riwayat preview kini menampilkan "No. <nomorUrut> · <tanggal record>" di subtitle (editor: tanggal hari ini).
+- Iterasi fit-to-1-page (viewport 800px): 722 → 720 → 696 → 682 = clientH 682 (fit!) via: PvCost py-1.5→py-1, PvField py-2→py-1.5, diagram 240→224px, tombol aksi p-4→p-3, header pb-3/mb-3→pb-2/mb-2, PvMiniStat py-2→py-1.5, kartu GT p-4→p-3.
+- Verifikasi: ESLint 0 error; desktop 1280×800 semua section ada & TANPA scroll (fit 1 halaman), dialog 1152px, diagram 396×224; mobile 390×844 tanpa overflow horizontal (390=390), 8 tile info 2 kolom, tabel jelas, diagram+GT tampil (scroll vertikal wajar); jalur editor: tombol Preview wajib printName+quantity (disabled saat kosong — perilaku benar, form pengguna tidak diutak-atik); browser errors kosong; .daemon.log 0 error; DB baseline utuh 22/20/20. Screenshot: e2e-desktop-crud3.png, e2e-mobile-crud.png, e2e-mobile-crud-bottom.png.
+
+Stage Summary:
+- Preview Rincian Harga Cetakan sekarang bergaya CRUD: tabel rincian biaya kolom Keterangan|Rincian|Jumlah (semua komponen biaya + rincian perhitungannya), grid field informasi teks besar, nomor urut & tanggal record (dari riwayat), gambar potong kertas lebih besar dengan statistik, Grand Total menonjol — tetap fit 1 halaman desktop tanpa scroll dan rapi di mobile.
