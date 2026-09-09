@@ -8357,3 +8357,19 @@ Work Log:
 Stage Summary:
 - Tampilan mobile 5 halaman riwayat (Invoice, Purchase Order, Surat Jalan, Potong Kertas, Hitung Cetakan) kini bergaya aplikasi CRUD: bar "Filter & Cari" collapsible dengan badge jumlah filter aktif (default terlipat di mobile, selalu terbuka di desktop), segmented periode 1 baris scrollable, kartu ringkasan statistik 2–3 kolom kompak — data list langsung terlihat di layar pertama tanpa scroll panjang. Semua fungsi CRUD (Buat/Backup/Restore, Lihat/Detail, Muat, Hapus, klik baris → preview, filter periode Dari/Sampai Tanggal, cari, reset) tetap berfungsi, desktop 100% tidak berubah.
 - File berubah: 1 komponen bersama (riwayat-period-filter.tsx: segmented scroll + RiwayatFilterCard baru + ringkasan kompak) & 5 halaman (ganti wrapper filter + grid ringkasan). ESLint 0/0, log bersih, DB tidak berubah.
+---
+Task ID: 15
+Agent: Main (Z.ai Code)
+Task: "di preview potong kertas, tambahkan ukuran potong dan ukuran kertas. fix"
+
+Work Log:
+- Lokasi: src/app/potong-kertas/page.tsx — PreviewDialog "Preview Potong Kertas" (dibuka via klik baris riwayat atau tombol Preview editor). Info Grid berisi 12 kartu (grid-cols-2 sm:grid-cols-3 lg:grid-cols-6).
+- Edit: (1) helper top-level fmtUkuran(w,h) → "W × H cm" / '-' jika kosong (terima string|number|null). (2) Grid lg:grid-cols-6 → lg:grid-cols-7 (14 kartu = tetap 2 baris rapat di desktop, tinggi halaman print/JPG tidak bertambah). (3) Dua kartu BARU disisipkan setelah Gramatur: "Ukuran Kertas" (paperWidth × paperHeight) & "Ukuran Potong" (cutWidth × cutHeight). Sumber nilai: mode preview riwayat = previewRiwayatRow (fallback previewRiwayatData/CuttingResult bila field row kosong); mode preview editor = state editor (paperWidth/paperHeight/cutWidth/cutHeight). Tidak ada perubahan state/handler/WhatsApp text.
+- ESLint src/app/potong-kertas/page.tsx → 0 error 0 warning; curl /potong-kertas → 200.
+- Verifikasi agent-browser READ-ONLY (admin/268899; dialog "Peringatan Keamanan" sesi ganda muncul lagi → "Paksa Logout Perangkat Lain"): tab Riwayat → klik baris PK/07/26/849947 → preview: 14 kartu, "Ukuran Kertas = 65 × 100 cm", "Ukuran Potong = 30 × 30 cm" — COCOK persis dgn DB (paperWidth=65, paperHeight=100, cutWidth=30, cutHeight=30, verifikasi query read-only). Desktop grid 7 kolom × 2 baris (eval gridTemplateColumns=7). Diagram potong + tombol Cetak/Edit/JPG→WA utuh.
+- Mobile 390×844: kartu Ukuran tampil, tanpa overflow halaman. Preview ditutup via tombol X → daftar riwayat utuh. Browser errors kosong; .daemon.log 0 error baru. DB baseline: documentHistory=22, riwayatPotongKertas=20 (tidak berubah).
+- Screenshot: tool-results/fix15-pk-preview-clean.jpg (desktop), fix15-pk-preview-desktop.jpg (tertutup dialog keamanan — dibuang manual via dismiss).
+- File berubah hanya: src/app/potong-kertas/page.tsx.
+
+Stage Summary:
+- Preview Potong Kertas kini menampilkan 14 kartu info termasuk 2 kartu baru "Ukuran Kertas" (mis. 65 × 100 cm) dan "Ukuran Potong" (mis. 30 × 30 cm), di posisi setelah Gramatur. Desktop tetap satu halaman penuh 2 baris (grid 7 kolom), mobile 2 kolom scrollable. Berlaku untuk preview dari riwayat maupun dari editor. Semua fungsi lain (print, JPG→WA, edit dari preview) tidak berubah.
