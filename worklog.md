@@ -8373,3 +8373,18 @@ Work Log:
 
 Stage Summary:
 - Preview Potong Kertas kini menampilkan 14 kartu info termasuk 2 kartu baru "Ukuran Kertas" (mis. 65 × 100 cm) dan "Ukuran Potong" (mis. 30 × 30 cm), di posisi setelah Gramatur. Desktop tetap satu halaman penuh 2 baris (grid 7 kolom), mobile 2 kolom scrollable. Berlaku untuk preview dari riwayat maupun dari editor. Semua fungsi lain (print, JPG→WA, edit dari preview) tidak berubah.
+---
+Task ID: 16
+Agent: Main (Z.ai Code)
+Task: "preview tidak muncul. fix" (kambuh: environment reset — server mati + prisma client salah provider)
+
+Work Log:
+- Diagnosis: port 3000 TIDAK ada listener, .daemon.log hilang → environment reset lagi (sama seperti Task 12). node_modules/.prisma/client/schema.prisma = "postgresql" (client di-regenerate provisioning dari versi git) padahal prisma/schema.prisma working tree = "sqlite" (fix Task 12 bertahan) & DATABASE_URL=file:...custom.db.
+- Integritas kode dicek dulu — SEMUA perubahan sebelumnya utuh: fmtUkuran di potong-kertas (Task 15) ada, RiwayatFilterCard di 6 file (Task 14) ada, ikon Eye preview hitung-cetakan tetap 0 (Task 13).
+- Fix: ./node_modules/.bin/prisma generate --schema prisma/schema.prisma → client "sqlite" terverifikasi. Runtime test OK (documentHistory=22). node daemon.cjs start (PID 1293).
+- Verifikasi browser: login admin/268899 (dialog "Versi Baru!" → Oke, Mengerti) → /potong-kertas → tab Riwayat → klik baris → PREVIEW MUNCUL: 14 kartu, Ukuran Kertas "65 × 100 cm", Ukuran Potong "30 × 30 cm". Tutup via X → daftar utuh. Browser errors kosong; .daemon.log 0 error. Route /, /login, /potong-kertas, /invoice, /hitung-cetakan semua 200. DB baseline: documentHistory=22, riwayatPotongKertas=20.
+- Tidak ada perubahan kode aplikasi.
+
+Stage Summary:
+- "Preview tidak muncul" bukan bug kode — environment reset mematikan dev server & menimpa prisma client dengan provider postgresql. Regenerate client sqlite + start daemon menyelesaikan. SEMUA fitur termasuk preview Potong Kertas (dengan 2 kartu ukuran baru Task 15) terverifikasi hidup.
+- CATATAN BERULANG: setiap sandbox reset → jalankan ulang: `./node_modules/.bin/prisma generate --schema prisma/schema.prisma && node daemon.cjs start`.
