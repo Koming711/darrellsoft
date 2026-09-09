@@ -8298,3 +8298,21 @@ Stage Summary:
 - Preview blank disebabkan 2 lapis: (1) dev server mati total setelah reset sandbox; (2) setelah dihidupkan, Prisma client salah provider (postgresql) karena schema.prisma versi git + regenerate otomatis saat provisioning, sehingga semua query DB gagal.
 - Permanen fix: schema.prisma kini provider "sqlite" di working tree (GESIKAN CATATAN: jika sandbox reset lagi, file ini bisa kembali ke versi git "postgresql" — regenerate client sqlite lagi bila error postgresql:// muncul).
 - Semua halaman terverifikasi hidup kembali dengan layout Task 11 utuh dan data baseline sama (documentHistory 22, riwayat PK admin 6 baris, total Rp 6.486.176).
+---
+Task ID: 13
+Agent: Main (Z.ai Code)
+Task: "dihalaman riwayat hitung cetakan. hapus icon preview di tabel"
+
+Work Log:
+- Baca src/app/hitung-cetakan/page.tsx (tabel riwayat desktop line ~2654-2717): kolom "Aksi" berisi 3 tombol ikon ghost h-8 w-8 — Eye "Preview", RotateCcw "Restore", Trash2 "Hapus"; klik baris → handlePreviewRiwayat (PreviewDialog "Detail Rincian Cetakan").
+- Edit SATU tempat: hapus tombol Button Eye "Preview" (variant ghost, h-8 w-8, hover:text-blue-600) dari sel Aksi tabel desktop. Restore + Hapus dipertahankan, stopPropagation sel tetap, klik baris → preview tetap berfungsi. Import Eye tetap (dipakai tombol Preview di tab Editor, tidak menjadi unused).
+- Tidak mengubah: kartu mobile (memang tidak punya ikon preview — hanya Muat/Hapus), struktur kolom "Aksi", handler, halaman lain (potong-kertas dsb tidak disentuh — permintaan spesifik hanya riwayat hitung cetakan).
+- ESLint src/app/hitung-cetakan/page.tsx → 0 error 0 warning. curl GET /hitung-cetakan → 200.
+- Verifikasi agent-browser READ-ONLY (admin/268899): tab Riwayat → eval tabel desktop: eyeBtns=0 (ikon preview HILANG), restoreBtns=8, hapusBtns=8, 8 baris data utuh, header kolom "Aksi" tetap. Klik baris → "Detail Rincian Cetakan" terbuka → tutup via tombol X dialog (bukan JS remove) → daftar tetap utuh.
+- Mobile 390×844: Muat/Hapus tampil, scrollWidth == clientWidth (tanpa overflow). Desktop 1280×800 juga tanpa overflow. Browser errors kosong; .daemon.log tidak ada error baru.
+- DB baseline TIDAK berubah (read-only): documentHistory=22, riwayatCetakan=20. Screenshot: tool-results/fix13-hc-desktop.jpg, fix13-hc-mobile.jpg.
+- File berubah hanya: src/app/hitung-cetakan/page.tsx (6 baris dihapus).
+
+Stage Summary:
+- Tabel riwayat Hitung Cetakan (desktop) tidak lagi menampilkan ikon Preview (Eye) di kolom Aksi — tersisa tombol Restore (emerald) dan Hapus (destructive). Cara melihat rincian kini via klik baris (perilaku sama seperti sebelumnya, baris tetap cursor-pointer).
+- Verifikasi penuh: ESLint 0/0, preview dialog tetap berfungsi, mobile & desktop tanpa overflow, log bersih, data baseline utuh.
