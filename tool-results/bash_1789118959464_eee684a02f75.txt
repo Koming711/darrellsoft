@@ -1,0 +1,806 @@
+     1→'use client'
+     2→
+     3→import { useCallback, useEffect, useState } from 'react'
+     4→import {
+     5→  ReceiptText, Wallet, Clock, TrendingUp, Plus, ChevronRight, Users, BadgePercent, Package,
+     6→  Truck, ClipboardList, AlarmClock, RefreshCw, CheckCircle2, Inbox,
+     7→} from 'lucide-react'
+     8→import { toast } from 'sonner'
+     9→import {
+    10→  Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, Tooltip as RTooltip, XAxis, YAxis,
+    11→} from 'recharts'
+    12→import { apiFetch } from '@/lib/client'
+    13→import { formatIDR, formatDate } from '@/lib/format'
+    14→import {
+    15→  STATUS_LABEL,
+    16→  TYPE_LABEL,
+    17→  ROLE_LABEL,
+    18→  type DashboardData,
+    19→  type InvoiceIntent,
+    20→  type InvoiceType,
+    21→  type SessionUser,
+    22→  type ViewKey,
+    23→} from '@/lib/types'
+    24→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    25→import { Button } from '@/components/ui/button'
+    26→import { Badge } from '@/components/ui/badge'
+    27→import { Skeleton } from '@/components/ui/skeleton'
+    28→import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
+    29→
+    30→/** Tanggal hari ini pada pukul 00:00 (untuk deteksi jatuh tempo). */
+    31→function startOfToday(): number {
+    32→  const n = new Date()
+    33→  return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime()
+    34→}
+    35→
+    36→/**
+    37→ * Badge status invoice. Warna (spesifikasi user):
+    38→ * Lunas → hijau, Belum Lunas → oranye, Jatuh Tempo → merah, Batal → abu.
+    39→ * `dueDate` opsional: BELUM_BAYAR + jatuh tempo terlewat → tampil "Jatuh Tempo" (merah).
+    40→ */
+    41→function StatusBadge({ status, dueDate }: { status: 'BELUM_BAYAR' | 'LUNAS' | 'BATAL'; dueDate?: string | null }) {
+    42→  if (status === 'BELUM_BAYAR' && dueDate && new Date(dueDate).getTime() < startOfToday()) {
+    43→    return (
+    44→      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[11px] shrink-0">
+    45→        Jatuh Tempo
+    46→      </Badge>
+    47→    )
+    48→  }
+    49→  const map = {
+    50→    BELUM_BAYAR: 'bg-amber-50 text-amber-700 border-amber-200',
+    51→    LUNAS: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    52→    BATAL: 'bg-stone-100 text-stone-500 border-stone-200',
+    53→  } as const
+    54→  return <Badge variant="outline" className={`${map[status]} text-[11px] shrink-0`}>{STATUS_LABEL[status]}</Badge>
+    55→}
+    56→
+    57→export { StatusBadge }
+    58→
+    59→/** Badge tipe invoice: Reguler = stone, DP = biru, Pelunasan = emerald (spesifikasi warna user) */
+    60→function TypeBadge({ type }: { type: InvoiceType }) {
+    61→  const map = {
+    62→    REGULER: 'bg-stone-50 text-stone-600 border-stone-300',
+    63→    DP: 'bg-sky-50 text-sky-700 border-sky-200',
+    64→    PELUNASAN: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    65→  } as const
+    66→  return <Badge variant="outline" className={`${map[type]} text-[11px] shrink-0`}>{TYPE_LABEL[type]}</Badge>
+    67→}
+    68→
+    69→export { TypeBadge }
+    70→
+    71→// ---------- util tampilan ----------
+    72→
+    73→/** Format ringkas utk sumbu grafik: 850rb / 1,2jt / 2M */
+    74→function compactIDR(v: number): string {
+    75→  const trim = (n: number) => {
+    76→    const s = n.toFixed(1)
+    77→    return s.endsWith('.0') ? s.slice(0, -2) : s
+    78→  }
+    79→  if (v >= 1_000_000_000) return `${trim(v / 1_000_000_000)}M`
+    80→  if (v >= 1_000_000) return `${trim(v / 1_000_000)}jt`
+    81→  if (v >= 1_000) return `${Math.round(v / 1_000)}rb`
+    82→  return `${Math.round(v)}`
+    83→}
+    84→
+    85→/** Tooltip kustom grafik batang */
+    86→function ChartTip({
+    87→  active,
+    88→  payload,
+    89→  label,
+    90→}: {
+    91→  active?: boolean
+    92→  payload?: Array<{ value?: number | string }>
+    93→  label?: string
+    94→}) {
+    95→  if (!active || !payload?.length) return null
+    96→  return (
+    97→    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-md">
+    98→      <p className="text-[11px] font-medium text-stone-500">{label}</p>
+    99→      <p className="text-sm font-semibold text-stone-900">{formatIDR(Number(payload[0]?.value ?? 0))}</p>
+   100→    </div>
+   101→  )
+   102→}
+   103→
+   104→const salesChartConfig = {
+   105→  penjualan: { label: 'Penjualan', color: '#059669' },
+   106→} satisfies ChartConfig
+   107→
+   108→const statusChartConfig = {
+   109→  lunas: { label: 'Lunas', color: '#059669' },
+   110→  belum: { label: 'Belum Bayar', color: '#d97706' },
+   111→  jatuhTempo: { label: 'Jatuh Tempo', color: '#dc2626' },
+   112→} satisfies ChartConfig
+   113→
+   114→interface DashboardViewProps {
+   115→  user: SessionUser
+   116→  onNavigate: (v: ViewKey, intent?: InvoiceIntent) => void
+   117→}
+   118→
+   119→export default function DashboardView({ user, onNavigate }: DashboardViewProps) {
+   120→  const [data, setData] = useState<DashboardData | null>(null)
+   121→  const [loading, setLoading] = useState(true)
+   122→  const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly')
+   123→  const canSeeFinance = user.role !== 'KASIR'
+   124→
+   125→  /** Muat ulang manual dari tombol refresh. */
+   126→  const refresh = useCallback(() => {
+   127→    setLoading(true)
+   128→    apiFetch<DashboardData>('/api/dashboard')
+   129→      .then(setData)
+   130→      .catch((e) => toast.error(e.message))
+   131→      .finally(() => setLoading(false))
+   132→  }, [])
+   133→
+   134→  // Pemuatan awal — tidak ada setState sinkron di body efek
+   135→  useEffect(() => {
+   136→    let cancelled = false
+   137→    apiFetch<DashboardData>('/api/dashboard')
+   138→      .then((d) => {
+   139→        if (!cancelled) setData(d)
+   140→      })
+   141→      .catch((e) => {
+   142→        if (!cancelled) toast.error(e.message)
+   143→      })
+   144→      .finally(() => {
+   145→        if (!cancelled) setLoading(false)
+   146→      })
+   147→    return () => {
+   148→      cancelled = true
+   149→    }
+   150→  }, [])
+   151→
+   152→  const s = data
+   153→  const hour = new Date().getHours()
+   154→  const greeting = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam'
+   155→  const todayLabel = new Intl.DateTimeFormat('id-ID', {
+   156→    weekday: 'long',
+   157→    day: 'numeric',
+   158→    month: 'long',
+   159→    year: 'numeric',
+   160→  }).format(new Date())
+   161→
+   162→  // Data donut status (hapus slice bernilai 0)
+   163→  const statusTotal = s ? s.status.lunas + s.status.belum + s.status.jatuhTempo : 0
+   164→  const statusData = s
+   165→    ? [
+   166→        { name: 'Lunas', value: s.status.lunas, fill: '#059669' },
+   167→        { name: 'Belum Bayar', value: s.status.belum, fill: '#d97706' },
+   168→        { name: 'Jatuh Tempo', value: s.status.jatuhTempo, fill: '#dc2626' },
+   169→      ].filter((d) => d.value > 0)
+   170→    : []
+   171→  const chartData = s ? (chartMode === 'monthly' ? s.monthly : s.daily) : []
+   172→  const chartTotal = chartData.reduce((a, b) => a + b.value, 0)
+   173→
+   174→  const maxCust = s?.topCustomers[0]?.total ?? 0
+   175→  const maxItem = s?.topItems[0]?.total ?? 0
+   176→
+   177→  return (
+   178→    <div className="space-y-5 md:space-y-6">
+   179→      {/* ===== Header ===== */}
+   180→      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+   181→        <div className="min-w-0">
+   182→          <div className="flex items-center gap-2 flex-wrap">
+   183→            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+   184→              {greeting}, {user.name.split(' ')[0]} 👋
+   185→            </h1>
+   186→            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px]">
+   187→              {ROLE_LABEL[user.role]}
+   188→            </Badge>
+   189→          </div>
+   190→          <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
+   191→        </div>
+   192→        <div className="flex items-center gap-2 w-full sm:w-auto">
+   193→          <Button
+   194→            variant="outline"
+   195→            size="icon"
+   196→            aria-label="Muat ulang data"
+   197→            onClick={refresh}
+   198→            disabled={loading}
+   199→            className="h-[44px] w-[44px] shrink-0 bg-white"
+   200→          >
+   201→            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+   202→          </Button>
+   203→          <Button
+   204→            onClick={() => onNavigate('invoices', { mode: 'create' })}
+   205→            className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
+   206→          >
+   207→            <Plus className="h-4 w-4" /> Buat Invoice
+   208→          </Button>
+   209→        </div>
+   210→      </div>
+   211→
+   212→      {/* ===== Kartu ringkasan keuangan ===== */}
+   213→      <div className={`grid grid-cols-2 gap-3 md:gap-4 ${canSeeFinance ? 'lg:grid-cols-4' : 'lg:grid-cols-4'}`}>
+   214→        {/* Penjualan bulan ini */}
+   215→        <Card className="p-0 gap-0">
+   216→          <CardContent className="p-4 md:p-5">
+   217→            {loading ? (
+   218→              <Skeleton className="h-16 w-full" />
+   219→            ) : (
+   220→              <>
+   221→                <div className="flex items-center gap-2 text-muted-foreground">
+   222→                  <ReceiptText className="h-4 w-4 text-emerald-600" />
+   223→                  <p className="text-xs font-medium">Penjualan Bulan Ini</p>
+   224→                </div>
+   225→                <p className="text-lg md:text-2xl font-bold mt-2">{formatIDR(s?.cards.revenue ?? 0)}</p>
+   226→                <p className="text-[11px] text-muted-foreground mt-1">{s?.cards.invoiceCount ?? 0} invoice aktif &amp; lunas</p>
+   227→              </>
+   228→            )}
+   229→          </CardContent>
+   230→        </Card>
+   231→
+   232→        {/* Pembayaran masuk (cash basis) */}
+   233→        <Card className="p-0 gap-0">
+   234→          <CardContent className="p-4 md:p-5">
+   235→            {loading ? (
+   236→              <Skeleton className="h-16 w-full" />
+   237→            ) : (
+   238→              <>
+   239→                <div className="flex items-center gap-2 text-muted-foreground">
+   240→                  <Wallet className="h-4 w-4 text-emerald-600" />
+   241→                  <p className="text-xs font-medium">Pembayaran Masuk</p>
+   242→                </div>
+   243→                <p className="text-lg md:text-2xl font-bold mt-2">{formatIDR(s?.cards.paidThisMonth ?? 0)}</p>
+   244→                <p className="text-[11px] text-muted-foreground mt-1">DP + pelunasan + reguler lunas</p>
+   245→              </>
+   246→            )}
+   247→          </CardContent>
+   248→        </Card>
+   249→
+   250→        {/* Piutang */}
+   251→        <button className="text-left" onClick={() => onNavigate('invoices')}>
+   252→          <Card className="p-0 gap-0 h-full transition-colors hover:border-amber-300">
+   253→            <CardContent className="p-4 md:p-5">
+   254→              {loading ? (
+   255→                <Skeleton className="h-16 w-full" />
+   256→              ) : (
+   257→                <>
+   258→                  <div className="flex items-center gap-2 text-muted-foreground">
+   259→                    <Clock className="h-4 w-4 text-amber-600" />
+   260→                    <p className="text-xs font-medium">Piutang</p>
+   261→                  </div>
+   262→                  <p className="text-lg md:text-2xl font-bold mt-2 text-amber-700">{formatIDR(s?.cards.unpaidTotal ?? 0)}</p>
+   263→                  <p className="text-[11px] text-muted-foreground mt-1">{s?.cards.unpaidCount ?? 0} invoice belum lunas</p>
+   264→                </>
+   265→              )}
+   266→            </CardContent>
+   267→          </Card>
+   268→        </button>
+   269→
+   270→        {/* Laba kotor (admin/manager) atau SJ aktif (kasir) */}
+   271→        {canSeeFinance ? (
+   272→          <button className="text-left" onClick={() => onNavigate('report-profit')}>
+   273→            <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300">
+   274→              <CardContent className="p-4 md:p-5">
+   275→                {loading ? (
+   276→                  <Skeleton className="h-16 w-full" />
+   277→                ) : (
+   278→                  <>
+   279→                    <div className="flex items-center gap-2 text-muted-foreground">
+   280→                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+   281→                      <p className="text-xs font-medium">Laba Kotor</p>
+   282→                    </div>
+   283→                    <p className="text-lg md:text-2xl font-bold mt-2">{formatIDR(s?.cards.margin ?? 0)}</p>
+   284→                    <p className="text-[11px] text-muted-foreground mt-1">
+   285→                      Biaya ops: {formatIDR(s?.cards.expenseThisMonth ?? 0)}
+   286→                    </p>
+   287→                  </>
+   288→                )}
+   289→              </CardContent>
+   290→            </Card>
+   291→          </button>
+   292→        ) : (
+   293→          <button className="text-left" onClick={() => onNavigate('surat-jalan')}>
+   294→            <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300">
+   295→              <CardContent className="p-4 md:p-5">
+   296→                {loading ? (
+   297→                  <Skeleton className="h-16 w-full" />
+   298→                ) : (
+   299→                  <>
+   300→                    <div className="flex items-center gap-2 text-muted-foreground">
+   301→                      <Truck className="h-4 w-4 text-emerald-600" />
+   302→                      <p className="text-xs font-medium">Surat Jalan Aktif</p>
+   303→                    </div>
+   304→                    <p className="text-lg md:text-2xl font-bold mt-2">{s?.ops.sjDikirim ?? 0}</p>
+   305→                    <p className="text-[11px] text-muted-foreground mt-1">berstatus dikirim</p>
+   306→                  </>
+   307→                )}
+   308→              </CardContent>
+   309→            </Card>
+   310→          </button>
+   311→        )}
+   312→      </div>
+   313→
+   314→      {/* ===== Grafik + Status ===== */}
+   315→      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
+   316→        <Card className="lg:col-span-3 p-0 gap-0">
+   317→          <CardHeader className="py-4 px-4 md:px-5">
+   318→            <div className="flex flex-row items-center justify-between gap-2">
+   319→              <div>
+   320→                <CardTitle className="text-sm">Grafik Penjualan</CardTitle>
+   321→                <p className="text-[11px] text-muted-foreground mt-0.5">
+   322→                  Total: <span className="font-semibold text-emerald-700">{formatIDR(chartTotal)}</span>
+   323→                </p>
+   324→              </div>
+   325→              <div className="flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-0.5">
+   326→                {(['monthly', 'daily'] as const).map((m) => (
+   327→                  <button
+   328→                    key={m}
+   329→                    onClick={() => setChartMode(m)}
+   330→                    aria-pressed={chartMode === m}
+   331→                    className={`px-2.5 h-7 rounded-md text-[11px] font-medium transition-colors ${
+   332→                      chartMode === m ? 'bg-white shadow-sm text-stone-900' : 'text-stone-500 hover:text-stone-700'
+   333→                    }`}
+   334→                  >
+   335→                    {m === 'monthly' ? '6 Bulan' : '14 Hari'}
+   336→                  </button>
+   337→                ))}
+   338→              </div>
+   339→            </div>
+   340→          </CardHeader>
+   341→          <CardContent className="px-2 md:px-4 pb-4">
+   342→            {loading ? (
+   343→              <Skeleton className="h-[240px] w-full mx-2" />
+   344→            ) : (
+   345→              <ChartContainer config={salesChartConfig} className="aspect-auto h-[240px] w-full">
+   346→                <BarChart data={chartData} margin={{ left: 4, right: 8, top: 8 }}>
+   347→                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e7e5e4" />
+   348→                  <XAxis
+   349→                    dataKey="label"
+   350→                    tickLine={false}
+   351→                    axisLine={false}
+   352→                    tickMargin={8}
+   353→                    fontSize={11}
+   354→                    stroke="#78716c"
+   355→                    interval="preserveStartEnd"
+   356→                  />
+   357→                  <YAxis
+   358→                    width={44}
+   359→                    tickLine={false}
+   360→                    axisLine={false}
+   361→                    fontSize={10}
+   362→                    stroke="#78716c"
+   363→                    tickFormatter={(v: number) => compactIDR(v)}
+   364→                  />
+   365→                  <RTooltip cursor={{ fill: 'rgba(5, 150, 105, 0.07)' }} content={<ChartTip />} />
+   366→                  <Bar dataKey="value" fill="#059669" radius={[6, 6, 0, 0]} maxBarSize={38} />
+   367→                </BarChart>
+   368→              </ChartContainer>
+   369→            )}
+   370→          </CardContent>
+   371→        </Card>
+   372→
+   373→        <Card className="lg:col-span-2 p-0 gap-0">
+   374→          <CardHeader className="py-4 px-4 md:px-5">
+   375→            <CardTitle className="text-sm">Status Invoice Bulan Ini</CardTitle>
+   376→          </CardHeader>
+   377→          <CardContent className="px-4 md:px-5 pb-5">
+   378→            {loading ? (
+   379→              <Skeleton className="h-[200px] w-full" />
+   380→            ) : statusTotal === 0 ? (
+   381→              <div className="flex flex-col items-center justify-center py-10 text-center">
+   382→                <Inbox className="h-10 w-10 text-stone-300 mx-auto mb-2" />
+   383→                <p className="text-sm text-muted-foreground">Belum ada invoice bulan ini.</p>
+   384→              </div>
+   385→            ) : (
+   386→              <>
+   387→                <div className="relative mx-auto h-[180px] w-full max-w-[240px]">
+   388→                  <ChartContainer config={statusChartConfig} className="h-[180px] w-full">
+   389→                    <PieChart>
+   390→                      <RTooltip content={<ChartTip />} />
+   391→                      <Pie
+   392→                        data={statusData}
+   393→                        dataKey="value"
+   394→                        nameKey="name"
+   395→                        innerRadius="62%"
+   396→                        outerRadius="88%"
+   397→                        paddingAngle={2}
+   398→                        strokeWidth={0}
+   399→                      >
+   400→                        {statusData.map((d) => (
+   401→                          <Cell key={d.name} fill={d.fill} />
+   402→                        ))}
+   403→                      </Pie>
+   404→                    </PieChart>
+   405→                  </ChartContainer>
+   406→                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+   407→                    <p className="text-2xl font-bold leading-none">{statusTotal}</p>
+   408→                    <p className="text-[11px] text-muted-foreground mt-1">invoice</p>
+   409→                  </div>
+   410→                </div>
+   411→                <ul className="mt-4 space-y-2">
+   412→                  {statusData.map((d) => (
+   413→                    <li key={d.name} className="flex items-center gap-2 text-sm">
+   414→                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.fill }} />
+   415→                      <span className="flex-1 text-stone-600">{d.name}</span>
+   416→                      <span className="font-semibold">{d.value}</span>
+   417→                      <span className="text-[11px] text-muted-foreground w-9 text-right">
+   418→                        {Math.round((d.value / statusTotal) * 100)}%
+   419→                      </span>
+   420→                    </li>
+   421→                  ))}
+   422→                </ul>
+   423→              </>
+   424→            )}
+   425→          </CardContent>
+   426→        </Card>
+   427→      </div>
+   428→
+   429→      {/* ===== Peringkat: Top pelanggan & produk terlaris ===== */}
+   430→      <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
+   431→        <Card className="p-0 gap-0">
+   432→          <CardHeader className="py-4 px-4 md:px-5">
+   433→            <CardTitle className="text-sm">Pelanggan Teratas Bulan Ini</CardTitle>
+   434→          </CardHeader>
+   435→          <CardContent className="px-4 md:px-5 pb-5">
+   436→            {loading ? (
+   437→              <div className="space-y-3">
+   438→                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+   439→              </div>
+   440→            ) : !s?.topCustomers.length ? (
+   441→              <p className="text-sm text-muted-foreground py-6 text-center">Belum ada penjualan bulan ini.</p>
+   442→            ) : (
+   443→              <ul className="space-y-3.5">
+   444→                {s.topCustomers.map((c, i) => (
+   445→                  <li key={c.customerId}>
+   446→                    <button
+   447→                      onClick={() => onNavigate('customers')}
+   448→                      className="w-full text-left group"
+   449→                    >
+   450→                      <div className="flex items-center gap-3">
+   451→                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+   452→                          i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500'
+   453→                        }`}>
+   454→                          {i + 1}
+   455→                        </span>
+   456→                        <div className="flex-1 min-w-0">
+   457→                          <p className="text-sm font-medium truncate group-hover:text-emerald-700 transition-colors">{c.name}</p>
+   458→                          <p className="text-[11px] text-muted-foreground">{c.count} invoice</p>
+   459→                        </div>
+   460→                        <p className="text-sm font-semibold shrink-0">{formatIDR(c.total)}</p>
+   461→                      </div>
+   462→                      <div className="mt-1.5 ml-9 h-1.5 rounded-full bg-stone-100 overflow-hidden">
+   463→                        <div
+   464→                          className="h-full rounded-full bg-emerald-500"
+   465→                          style={{ width: `${maxCust > 0 ? Math.max(4, (c.total / maxCust) * 100) : 4}%` }}
+   466→                        />
+   467→                      </div>
+   468→                    </button>
+   469→                  </li>
+   470→                ))}
+   471→              </ul>
+   472→            )}
+   473→          </CardContent>
+   474→        </Card>
+   475→
+   476→        <Card className="p-0 gap-0">
+   477→          <CardHeader className="py-4 px-4 md:px-5">
+   478→            <CardTitle className="text-sm">Produk Terlaris Bulan Ini</CardTitle>
+   479→          </CardHeader>
+   480→          <CardContent className="px-4 md:px-5 pb-5">
+   481→            {loading ? (
+   482→              <div className="space-y-3">
+   483→                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+   484→              </div>
+   485→            ) : !s?.topItems.length ? (
+   486→              <p className="text-sm text-muted-foreground py-6 text-center">Belum ada barang terjual bulan ini.</p>
+   487→            ) : (
+   488→              <ul className="space-y-3.5">
+   489→                {s.topItems.map((it, i) => (
+   490→                  <li key={it.name}>
+   491→                    <div>
+   492→                      <div className="flex items-center gap-3">
+   493→                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+   494→                          i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500'
+   495→                        }`}>
+   496→                          {i + 1}
+   497→                        </span>
+   498→                        <div className="flex-1 min-w-0">
+   499→                          <p className="text-sm font-medium truncate">{it.name}</p>
+   500→                          <p className="text-[11px] text-muted-foreground">
+   501→                            {it.qty} {it.unit} terjual
+   502→                          </p>
+   503→                        </div>
+   504→                        <p className="text-sm font-semibold shrink-0">{formatIDR(it.total)}</p>
+   505→                      </div>
+   506→                      <div className="mt-1.5 ml-9 h-1.5 rounded-full bg-stone-100 overflow-hidden">
+   507→                        <div
+   508→                          className="h-full rounded-full bg-amber-500"
+   509→                          style={{ width: `${maxItem > 0 ? Math.max(4, (it.total / maxItem) * 100) : 4}%` }}
+   510→                        />
+   511→                      </div>
+   512→                    </div>
+   513→                  </li>
+   514→                ))}
+   515→              </ul>
+   516→            )}
+   517→          </CardContent>
+   518→        </Card>
+   519→      </div>
+   520→
+   521→      {/* ===== Strip operasional ===== */}
+   522→      <section aria-label="Operasional">
+   523→        <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2">Operasional</p>
+   524→        <div className={`grid grid-cols-2 ${canSeeFinance ? 'lg:grid-cols-4' : ''} gap-3`}>
+   525→          <OpsCard
+   526→            loading={loading}
+   527→            icon={Truck}
+   528→            label="Surat Jalan Dikirim"
+   529→            value={`${s?.ops.sjDikirim ?? 0}`}
+   530→            hint="belum diterima"
+   531→            onClick={() => onNavigate('surat-jalan')}
+   532→          />
+   533→          {canSeeFinance && (
+   534→            <>
+   535→              <OpsCard
+   536→                loading={loading}
+   537→                icon={ClipboardList}
+   538→                label="PO Menunggu"
+   539→                value={`${s?.ops.poOpen ?? 0}`}
+   540→                hint="draft + dipesan"
+   541→                onClick={() => onNavigate('purchase-orders')}
+   542→              />
+   543→              <OpsCard
+   544→                loading={loading}
+   545→                icon={Wallet}
+   546→                label="Biaya Operasional"
+   547→                value={formatIDR(s?.cards.expenseThisMonth ?? 0)}
+   548→                hint="bulan ini"
+   549→                onClick={() => onNavigate('expenses')}
+   550→              />
+   551→            </>
+   552→          )}
+   553→          <OpsCard
+   554→            loading={loading}
+   555→            icon={AlarmClock}
+   556→            label="Jatuh Tempo ≤7 Hari"
+   557→            value={`${s?.cards.dueSoonCount ?? 0}`}
+   558→            hint="termasuk terlambat"
+   559→            onClick={() => onNavigate('invoices')}
+   560→            tone={s?.cards.dueSoonCount ? 'amber' : 'stone'}
+   561→          />
+   562→        </div>
+   563→      </section>
+   564→
+   565→      {/* ===== Invoice terbaru + Pengingat jatuh tempo ===== */}
+   566→      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
+   567→        <Card className="lg:col-span-3 p-0 gap-0">
+   568→          <CardHeader className="py-4 px-4 md:px-5">
+   569→            <div className="flex flex-row items-center justify-between gap-2">
+   570→              <CardTitle className="text-sm">Invoice Terbaru</CardTitle>
+   571→              <Button
+   572→                variant="ghost"
+   573→                size="sm"
+   574→                className="text-emerald-700 hover:text-emerald-800 h-8"
+   575→                onClick={() => onNavigate('invoices')}
+   576→              >
+   577→                Lihat semua <ChevronRight className="h-4 w-4" />
+   578→              </Button>
+   579→            </div>
+   580→          </CardHeader>
+   581→          <CardContent className="px-2 md:px-3 pb-3">
+   582→            {loading ? (
+   583→              <div className="space-y-2 px-2">
+   584→                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+   585→              </div>
+   586→            ) : !s?.recent?.length ? (
+   587→              <div className="text-center py-8 px-4">
+   588→                <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2" />
+   589→                <p className="text-sm text-muted-foreground">Belum ada invoice.</p>
+   590→                <Button
+   591→                  size="sm"
+   592→                  variant="outline"
+   593→                  className="mt-3"
+   594→                  onClick={() => onNavigate('invoices', { mode: 'create' })}
+   595→                >
+   596→                  <Plus className="h-4 w-4" /> Buat invoice pertama
+   597→                </Button>
+   598→              </div>
+   599→            ) : (
+   600→              <ul className="divide-y divide-stone-100 max-h-[420px] overflow-y-auto scrollbar-thin">
+   601→                {s.recent.map((inv) => (
+   602→                  <li key={inv.id}>
+   603→                    <button
+   604→                      onClick={() => onNavigate('invoices', { mode: 'detail', invoiceId: inv.id })}
+   605→                      className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 transition-colors text-left min-h-[52px]"
+   606→                    >
+   607→                      <div className="flex-1 min-w-0">
+   608→                        <p className="text-sm font-medium truncate">{inv.number}</p>
+   609→                        <p className="text-xs text-muted-foreground truncate">
+   610→                          {inv.customerName} · {formatDate(inv.date)}
+   611→                        </p>
+   612→                      </div>
+   613→                      <div className="text-right shrink-0">
+   614→                        <p className="text-sm font-semibold">{formatIDR(inv.total)}</p>
+   615→                      </div>
+   616→                      <div className="flex items-center gap-1.5 shrink-0">
+   617→                        {inv.type !== 'REGULER' && <TypeBadge type={inv.type} />}
+   618→                        <StatusBadge status={inv.status} />
+   619→                      </div>
+   620→                    </button>
+   621→                  </li>
+   622→                ))}
+   623→              </ul>
+   624→            )}
+   625→          </CardContent>
+   626→        </Card>
+   627→
+   628→        <Card className="lg:col-span-2 p-0 gap-0">
+   629→          <CardHeader className="py-4 px-4 md:px-5">
+   630→            <CardTitle className="text-sm flex items-center gap-2">
+   631→              <AlarmClock className="h-4 w-4 text-amber-600" /> Pengingat Jatuh Tempo
+   632→            </CardTitle>
+   633→          </CardHeader>
+   634→          <CardContent className="px-2 md:px-3 pb-3">
+   635→            {loading ? (
+   636→              <div className="space-y-2 px-2">
+   637→                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+   638→              </div>
+   639→            ) : !s?.dueSoon.length ? (
+   640→              <div className="text-center py-8 px-4">
+   641→                <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-2" />
+   642→                <p className="text-sm text-muted-foreground">Tidak ada tagihan jatuh tempo dalam 7 hari.</p>
+   643→              </div>
+   644→            ) : (
+   645→              <ul className="divide-y divide-stone-100">
+   646→                {s.dueSoon.map((d) => (
+   647→                  <li key={d.id}>
+   648→                    <button
+   649→                      onClick={() => onNavigate('invoices', { mode: 'detail', invoiceId: d.id })}
+   650→                      className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 transition-colors text-left min-h-[52px]"
+   651→                    >
+   652→                      <div className="flex-1 min-w-0">
+   653→                        <p className="text-sm font-medium truncate">{d.number}</p>
+   654→                        <p className="text-xs text-muted-foreground truncate">
+   655→                          {d.customerName} · tempo {formatDate(d.dueDate)}
+   656→                        </p>
+   657→                      </div>
+   658→                      <div className="text-right shrink-0">
+   659→                        <p className="text-sm font-semibold">{formatIDR(d.sisa)}</p>
+   660→                        {d.overdue ? (
+   661→                          <p className="text-[11px] font-medium text-red-600">
+   662→                            Terlambat {d.overdueDays} hari
+   663→                          </p>
+   664→                        ) : (
+   665→                          <p className="text-[11px] font-medium text-amber-600">
+   666→                            H-{Math.ceil((new Date(d.dueDate).getTime() - startOfToday()) / 86400000)}
+   667→                          </p>
+   668→                        )}
+   669→                      </div>
+   670→                    </button>
+   671→                  </li>
+   672→                ))}
+   673→              </ul>
+   674→            )}
+   675→          </CardContent>
+   676→        </Card>
+   677→      </div>
+   678→
+   679→      {/* ===== Menu pintas ===== */}
+   680→      <section aria-label="Menu pintas">
+   681→        <p className="text-[10px] uppercase tracking-wider text-stone-400 font-semibold mb-2">Menu Pintas</p>
+   682→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   683→          {user.role !== 'KASIR' && (
+   684→            <>
+   685→              <QuickLink
+   686→                icon={Users}
+   687→                title="Master Pelanggan"
+   688→                desc="Data & kontak pelanggan"
+   689→                onClick={() => onNavigate('customers')}
+   690→              />
+   691→              <QuickLink
+   692→                icon={BadgePercent}
+   693→                title="Harga Khusus"
+   694→                desc="Atur harga per pelanggan"
+   695→                onClick={() => onNavigate('pricing')}
+   696→              />
+   697→              <QuickLink
+   698→                icon={Package}
+   699→                title="Master Barang"
+   700→                desc="Harga standar & HPP"
+   701→                onClick={() => onNavigate('items')}
+   702→              />
+   703→            </>
+   704→          )}
+   705→          <QuickLink
+   706→            icon={ReceiptText}
+   707→            title="Riwayat Invoice"
+   708→            desc="Cari, export Excel/PDF, kirim WA"
+   709→            onClick={() => onNavigate('invoices')}
+   710→          />
+   711→          <QuickLink
+   712→            icon={Truck}
+   713→            title="Surat Jalan"
+   714→            desc="Dokumen pengiriman barang"
+   715→            onClick={() => onNavigate('surat-jalan')}
+   716→          />
+   717→          {user.role !== 'KASIR' && (
+   718→            <QuickLink
+   719→              icon={ClipboardList}
+   720→              title="Purchase Order"
+   721→              desc="Pesan barang ke supplier"
+   722→              onClick={() => onNavigate('purchase-orders')}
+   723→            />
+   724→          )}
+   725→        </div>
+   726→      </section>
+   727→    </div>
+   728→  )
+   729→}
+   730→
+   731→/** Kartu kecil operasional yang bisa diklik */
+   732→function OpsCard({
+   733→  icon: Icon,
+   734→  label,
+   735→  value,
+   736→  hint,
+   737→  onClick,
+   738→  loading,
+   739→  tone = 'emerald',
+   740→}: {
+   741→  icon: typeof Truck
+   742→  label: string
+   743→  value: string
+   744→  hint: string
+   745→  onClick: () => void
+   746→  loading?: boolean
+   747→  tone?: 'emerald' | 'amber'
+   748→}) {
+   749→  return (
+   750→    <button onClick={onClick} className="text-left">
+   751→      <Card
+   752→        className={`p-0 gap-0 h-full transition-colors ${
+   753→          tone === 'amber'
+   754→            ? 'hover:border-amber-300 hover:bg-amber-50/30'
+   755→            : 'hover:border-emerald-300 hover:bg-emerald-50/30'
+   756→        }`}
+   757→      >
+   758→        <CardContent className="p-4">
+   759→          {loading ? (
+   760→            <Skeleton className="h-12 w-full" />
+   761→          ) : (
+   762→            <div className="flex items-start gap-3">
+   763→              <div
+   764→                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+   765→                  tone === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
+   766→                }`}
+   767→              >
+   768→                <Icon className="h-4.5 w-4.5" />
+   769→              </div>
+   770→              <div className="min-w-0 flex-1">
+   771→                <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
+   772→                <p className="text-base md:text-lg font-bold mt-0.5 truncate">{value}</p>
+   773→                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{hint}</p>
+   774→              </div>
+   775→              <ChevronRight className="h-4 w-4 text-stone-300 shrink-0 mt-1" />
+   776→            </div>
+   777→          )}
+   778→        </CardContent>
+   779→      </Card>
+   780→    </button>
+   781→  )
+   782→}
+   783→
+   784→function QuickLink({ icon: Icon, title, desc, onClick }: {
+   785→  icon: typeof Users
+   786→  title: string
+   787→  desc: string
+   788→  onClick: () => void
+   789→}) {
+   790→  return (
+   791→    <button
+   792→      onClick={onClick}
+   793→      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50 min-h-[60px]"
+   794→    >
+   795→      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+   796→        <Icon className="h-4.5 w-4.5" />
+   797→      </div>
+   798→      <div className="flex-1 min-w-0">
+   799→        <p className="text-sm font-medium">{title}</p>
+   800→        <p className="text-xs text-muted-foreground truncate">{desc}</p>
+   801→      </div>
+   802→      <ChevronRight className="h-4 w-4 text-stone-400" />
+   803→    </button>
+   804→  )
+   805→}
+   806→

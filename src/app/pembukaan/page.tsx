@@ -3,25 +3,34 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  BarChart3,
-  Calculator,
+  AlarmClock,
+  BadgePercent,
+  CheckCircle2,
   ChevronRight,
+  ClipboardList,
   Clock,
+  Inbox,
+  Package,
   ReceiptText,
-  Scissors,
+  RefreshCw,
   Sparkles,
   Truck,
+  TrendingUp,
   Users,
-  RefreshCw,
-  AlertTriangle,
+  Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RTooltip,
   XAxis,
   YAxis,
 } from 'recharts'
@@ -31,6 +40,7 @@ import { formatRupiah } from '@/lib/format'
 import { startNavigation } from '@/components/navigation-progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
@@ -83,12 +93,53 @@ interface BerandaDueItem {
   data: Record<string, unknown> | null
 }
 
+interface BerandaDueSoonItem {
+  id: string
+  number: string
+  customerName: string
+  sisa: number
+  dueDate: string
+  overdue: boolean
+  overdueDays: number
+  data: Record<string, unknown> | null
+}
+
+interface BerandaTopCustomer {
+  name: string
+  count: number
+  total: number
+}
+
+interface BerandaTopItem {
+  name: string
+  qty: number
+  unit: string
+  total: number
+}
+
 interface BerandaData {
   user: { name: string; role: string }
   stats: BerandaStats
   chart: BerandaChartItem[]
   recent: BerandaInvoiceItem[]
   due: BerandaDueItem[]
+  cards: {
+    revenue: number
+    invoiceCount: number
+    paidThisMonth: number
+    unpaidTotal: number
+    unpaidCount: number
+    margin: number
+    expenseThisMonth: number
+    dueSoonCount: number
+  }
+  status: { lunas: number; belum: number; jatuhTempo: number }
+  monthly: { label: string; value: number }[]
+  daily: { label: string; value: number }[]
+  topCustomers: BerandaTopCustomer[]
+  topItems: BerandaTopItem[]
+  ops: { sjCount: number; poCount: number }
+  dueSoon: BerandaDueSoonItem[]
 }
 
 // Motivasi hari ini — deterministic (day-of-year based) to avoid hydration mismatch
@@ -122,14 +173,52 @@ function formatTanggalID(iso: string): string {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+/** Tanggal hari ini pada pukul 00:00 (untuk deteksi jatuh tempo). */
+function startOfToday(): number {
+  const n = new Date()
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime()
+}
+
+/** Format ringkas utk sumbu grafik: 850rb / 1,2jt / 2M */
+function compactIDR(v: number): string {
+  const trim = (n: number) => {
+    const s = n.toFixed(1)
+    return s.endsWith('.0') ? s.slice(0, -2) : s
+  }
+  if (v >= 1_000_000_000) return `${trim(v / 1_000_000_000)}M`
+  if (v >= 1_000_000) return `${trim(v / 1_000_000)}jt`
+  if (v >= 1_000) return `${Math.round(v / 1_000)}rb`
+  return `${Math.round(v)}`
+}
+
+/** Tooltip kustom grafik batang */
+function ChartTip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: Array<{ value?: number | string }>
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-md dark:border-zinc-700 dark:bg-zinc-800">
+      <p className="text-[11px] font-medium text-stone-500 dark:text-zinc-400">{label}</p>
+      <p className="text-sm font-semibold text-stone-900 dark:text-zinc-100">{formatRupiah(Number(payload[0]?.value ?? 0))}</p>
+    </div>
+  )
+}
+
 export default function PembukaanPage() {
   const router = useRouter()
   const [data, setData] = useState<BerandaData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly')
 
   // Popup pratinjau invoice A5
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewItem, setPreviewItem] = useState<BerandaInvoiceItem | BerandaDueItem | null>(null)
+  const [previewItem, setPreviewItem] = useState<BerandaInvoiceItem | BerandaDueItem | BerandaDueSoonItem | null>(null)
   const [previewScale, setPreviewScale] = useState(0.5)
   const [sendingPdf, setSendingPdf] = useState(false)
 
@@ -179,7 +268,7 @@ export default function PembukaanPage() {
     return () => window.removeEventListener('resize', updateInvScale)
   }, [])
 
-  const openPreview = (item: BerandaInvoiceItem | BerandaDueItem) => {
+  const openPreview = (item: BerandaInvoiceItem | BerandaDueItem | BerandaDueSoonItem | null) => {
     // Guard: tanpa data lengkap, popup akan kosong — info user
     if (!item?.data) {
       toast.info('Detail pratinjau tidak tersedia untuk invoice ini')
@@ -236,283 +325,562 @@ export default function PembukaanPage() {
     return DAFTAR_MOTIVASI[dayOfYear % DAFTAR_MOTIVASI.length]
   }, [])
 
-  const summaryCards = [
-    {
-      label: 'Total Penjualan',
-      value: s ? formatRupiah(s.stats.totalPenjualan) : 'Rp0',
-      hint: 'Semua invoice',
-      icon: BarChart3,
-      cardClass: 'border-stone-200 dark:border-zinc-800',
-      iconBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-      valueClass: 'text-stone-900 dark:text-stone-100',
-      path: '/laporan/penjualan',
-      aria: 'Buka Laporan Penjualan',
-    },
-    {
-      label: 'Total Piutang',
-      value: s ? formatRupiah(s.stats.totalPiutang) : 'Rp0',
-      hint: 'Sisa tagihan DP',
-      icon: Clock,
-      cardClass: 'border-amber-200 dark:border-amber-900',
-      iconBg: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-      valueClass: 'text-amber-700 dark:text-amber-400',
-      path: '/riwayat-pembayaran',
-      aria: 'Buka Riwayat Pembayaran',
-    },
-    {
-      label: 'Invoice Belum Lunas',
-      value: s ? String(s.stats.invoiceBelumLunas) : '0',
-      hint: 'Perlu ditindaklanjuti',
-      icon: ReceiptText,
-      cardClass: 'border-stone-200 dark:border-zinc-800',
-      iconBg: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-      valueClass: 'text-stone-900 dark:text-stone-100',
-      path: '/riwayat',
-      aria: 'Buka Riwayat Dokumen',
-    },
-    {
-      label: 'Total Pelanggan',
-      value: s ? String(s.stats.totalPelanggan) : '0',
-      hint: 'Master customer',
-      icon: Users,
-      cardClass: 'border-stone-200 dark:border-zinc-800',
-      iconBg: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
-      valueClass: 'text-stone-900 dark:text-stone-100',
-      path: '/master-customer',
-      aria: 'Buka Master Customer',
-    },
-  ]
+  // Kasir/demo tidak melihat data finansial (laba, biaya, PO)
+  const role = s?.user?.role ?? ''
+  const canSeeFinance = role !== 'user' && role !== 'demo'
 
-  const quickActions = [
-    { label: 'Potong Kertas', desc: 'Hitung pemakaian kertas', icon: Scissors, path: '/potong-kertas' },
-    { label: 'Hitung Cetakan', desc: 'Estimasi biaya cetak', icon: Calculator, path: '/hitung-cetakan' },
-    { label: 'Invoice', desc: 'Buat & kelola invoice', icon: ReceiptText, path: '/invoice' },
-    { label: 'Surat Jalan', desc: 'Dokumen pengiriman', icon: Truck, path: '/surat-jalan' },
-    { label: 'Master Customer', desc: 'Data pelanggan', icon: Users, path: '/master-customer' },
-    { label: 'Laporan Penjualan', desc: 'Rekap penjualan', icon: BarChart3, path: '/laporan/penjualan' },
-  ]
+  // Data donut status (hapus slice bernilai 0)
+  const statusTotal = s ? s.status.lunas + s.status.belum + s.status.jatuhTempo : 0
+  const statusData = s
+    ? [
+        { name: 'Lunas', value: s.status.lunas, fill: '#059669' },
+        { name: 'Belum Bayar', value: s.status.belum, fill: '#d97706' },
+        { name: 'Jatuh Tempo', value: s.status.jatuhTempo, fill: '#dc2626' },
+      ].filter((d) => d.value > 0)
+    : []
+  const chartData = s ? (chartMode === 'monthly' ? s.monthly : s.daily) : []
+  const chartTotal = chartData.reduce((a, b) => a + b.value, 0)
+
+  const maxCust = s?.topCustomers[0]?.total ?? 0
+  const maxItem = s?.topItems[0]?.total ?? 0
 
   return (
     <DashboardLayout title="Beranda">
       <div className="space-y-5 md:space-y-6">
-        {/* ===== HERO: greeting + role + tanggal ===== */}
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 p-5 md:p-7 text-white shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-lg md:text-2xl font-bold tracking-tight">
-              {greeting}
-              {s?.user?.name ? `, ${s.user.name}` : ''} 👋
-            </h1>
-            {s?.user?.role && (
-              <Badge className="bg-white/20 text-white border border-white/30 hover:bg-white/20">
-                {ROLE_LABEL[s.user.role] ?? s.user.role}
-              </Badge>
-            )}
+        {/* ===== Header: greeting + tanggal + refresh (TANPA tombol Buat Invoice) ===== */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
+                {greeting}
+                {s?.user?.name ? `, ${s.user.name}` : ''} 👋
+              </h1>
+              {s?.user?.role && (
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+                >
+                  {ROLE_LABEL[s.user.role] ?? s.user.role}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
           </div>
-          <p className="text-emerald-50/90 text-xs md:text-sm mt-1">{todayLabel}</p>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Muat ulang data"
+              onClick={refresh}
+              disabled={loading}
+              className="h-[44px] w-[44px] shrink-0 bg-white dark:bg-zinc-900"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
 
-          {/* Motivasi Hari Ini */}
-          <div className="mt-4 bg-white/10 border border-white/20 rounded-xl px-3.5 py-3 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-300/90 flex items-center justify-center shrink-0 mt-0.5">
-              <Sparkles className="w-4 h-4 text-amber-800" />
+        {/* ===== MOTIVASI HARI INI ===== */}
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 p-4 md:p-5 text-white shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-300/90 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-4.5 h-4.5 text-amber-800" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-50/80 mb-0.5">Motivasi Hari Ini</p>
-              <p className="text-[13px] sm:text-[15px] text-white font-bold italic leading-relaxed">&ldquo;{motivasiHariIni}&rdquo;</p>
+              <p className="text-[14px] sm:text-[16px] font-bold italic leading-relaxed">&ldquo;{motivasiHariIni}&rdquo;</p>
             </div>
           </div>
         </div>
 
-        {/* ===== RINGKASAN: 4 kartu ===== */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {loading
-            ? [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
-            : summaryCards.map((c) => (
-                <div key={c.label} className="h-full">
-                  <button
-                    onClick={() => navigate(c.path)}
-                    aria-label={c.aria}
-                    className="block w-full h-full text-left rounded-xl border bg-white dark:bg-zinc-900 p-4 transition-colors hover:border-emerald-300 dark:hover:border-emerald-800"
-                  >
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 ${c.iconBg}`}>
-                      <c.icon className="w-4.5 h-4.5" />
+        {/* ===== Kartu ringkasan keuangan ===== */}
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          {/* Penjualan bulan ini */}
+          <button className="text-left" onClick={() => navigate('/laporan/penjualan')} aria-label="Buka Laporan Penjualan">
+            <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+              <CardContent className="p-4 md:p-5">
+                {loading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <ReceiptText className="h-4 w-4 text-emerald-600" />
+                      <p className="text-xs font-medium">Penjualan Bulan Ini</p>
                     </div>
-                    <p className="text-[11px] font-medium text-muted-foreground leading-snug">{c.label}</p>
-                    <p className={`text-base md:text-xl font-bold mt-0.5 break-words leading-tight ${c.valueClass}`}>{c.value}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{c.hint}</p>
-                  </button>
-                </div>
-              ))}
+                    <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{formatRupiah(s?.cards.revenue ?? 0)}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">{s?.cards.invoiceCount ?? 0} invoice bulan ini</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </button>
+
+          {/* Pembayaran masuk (cash basis) */}
+          <button className="text-left" onClick={() => navigate('/riwayat-pembayaran')} aria-label="Buka Riwayat Pembayaran">
+            <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+              <CardContent className="p-4 md:p-5">
+                {loading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Wallet className="h-4 w-4 text-emerald-600" />
+                      <p className="text-xs font-medium">Pembayaran Masuk</p>
+                    </div>
+                    <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{formatRupiah(s?.cards.paidThisMonth ?? 0)}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">DP + pelunasan + reguler lunas</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </button>
+
+          {/* Piutang */}
+          <button className="text-left" onClick={() => navigate('/riwayat-pembayaran')} aria-label="Buka Riwayat Pembayaran">
+            <Card className="p-0 gap-0 h-full transition-colors hover:border-amber-300 dark:border-zinc-800 dark:hover:border-amber-900">
+              <CardContent className="p-4 md:p-5">
+                {loading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      <p className="text-xs font-medium">Piutang</p>
+                    </div>
+                    <p className="text-base md:text-2xl font-bold mt-2 text-amber-700 dark:text-amber-400">{formatRupiah(s?.cards.unpaidTotal ?? 0)}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">{s?.cards.unpaidCount ?? 0} invoice belum lunas</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </button>
+
+          {/* Laba kotor (admin/manager) atau Surat Jalan (kasir) */}
+          {canSeeFinance ? (
+            <button className="text-left" onClick={() => navigate('/laporan/rugi-laba')} aria-label="Buka Laporan Rugi Laba">
+              <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+                <CardContent className="p-4 md:p-5">
+                  {loading ? (
+                    <Skeleton className="h-16 w-full" />
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+                        <p className="text-xs font-medium">Laba Kotor</p>
+                      </div>
+                      <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{formatRupiah(s?.cards.margin ?? 0)}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Biaya ops: {formatRupiah(s?.cards.expenseThisMonth ?? 0)}
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </button>
+          ) : (
+            <button className="text-left" onClick={() => navigate('/surat-jalan')} aria-label="Buka Surat Jalan">
+              <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+                <CardContent className="p-4 md:p-5">
+                  {loading ? (
+                    <Skeleton className="h-16 w-full" />
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Truck className="h-4 w-4 text-emerald-600" />
+                        <p className="text-xs font-medium">Surat Jalan</p>
+                      </div>
+                      <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{s?.ops.sjCount ?? 0}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">dibuat bulan ini</p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </button>
+          )}
         </div>
 
-        {/* ===== GRAFIK AKTIVITAS 14 HARI ===== */}
-        <Card className="border-stone-200 dark:border-zinc-800">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <div className="min-w-0">
-                <CardTitle className="text-sm">Grafik Aktivitas 14 Hari</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Nilai invoice & pembayaran per hari</p>
+        {/* ===== Grafik + Status ===== */}
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
+          <Card className="lg:col-span-3 p-0 gap-0 dark:border-zinc-800">
+            <CardHeader className="py-4 px-4 md:px-5">
+              <div className="flex flex-row items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm">Grafik Penjualan</CardTitle>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Total: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{formatRupiah(chartTotal)}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+                  {(['monthly', 'daily'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setChartMode(m)}
+                      aria-pressed={chartMode === m}
+                      className={`px-2.5 h-7 rounded-md text-[11px] font-medium transition-colors ${
+                        chartMode === m
+                          ? 'bg-white shadow-sm text-stone-900 dark:bg-zinc-900 dark:text-zinc-100'
+                          : 'text-stone-500 hover:text-stone-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      {m === 'monthly' ? '6 Bulan' : '14 Hari'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 text-[10px] sm:text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Penjualan
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Pembayaran
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="px-2 pb-3">
-            {loading ? (
-              <Skeleton className="h-56 w-full rounded-lg" />
-            ) : (
-              <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={s?.chart ?? []} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gPenjualan" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gPembayaran" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#78716c' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: '#78716c' }}
-                      tickLine={false}
-                      axisLine={false}
-                      width={56}
-                      tickFormatter={(v: number) => (v >= 1_000_000 ? `${v / 1_000_000}jt` : v >= 1_000 ? `${v / 1_000}rb` : String(v))}
-                    />
-                    <Tooltip
-                      formatter={(value: number | string, name: string) => [formatRupiah(Number(value)), name === 'penjualan' ? 'Penjualan' : 'Pembayaran']}
-                      labelFormatter={(label: string) => `Hari: ${label}`}
-                      contentStyle={{ borderRadius: 10, border: '1px solid #e7e5e4', fontSize: 12 }}
-                    />
-                    <Area type="monotone" dataKey="penjualan" stroke="#10b981" strokeWidth={2} fill="url(#gPenjualan)" />
-                    <Area type="monotone" dataKey="pembayaran" stroke="#f59e0b" strokeWidth={2} fill="url(#gPembayaran)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="px-2 md:px-4 pb-4">
+              {loading ? (
+                <Skeleton className="h-[240px] w-full mx-2" />
+              ) : (
+                <div className="h-[240px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ left: 4, right: 8, top: 8 }}>
+                      <defs>
+                        <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e7e5e4" className="dark:opacity-20" />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        fontSize={11}
+                        stroke="#78716c"
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        width={48}
+                        tickLine={false}
+                        axisLine={false}
+                        fontSize={10}
+                        stroke="#78716c"
+                        tickFormatter={(v: number) => compactIDR(v)}
+                      />
+                      <RTooltip cursor={{ fill: 'rgba(5, 150, 105, 0.07)' }} content={<ChartTip />} />
+                      <Bar dataKey="value" fill="url(#gBar)" radius={[6, 6, 0, 0]} maxBarSize={38} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* ===== AKSI CEPAT: 6 kartu operasional ===== */}
-        <section aria-label="Aksi Cepat">
-          <h2 className="text-sm font-semibold mb-2.5">Aksi Cepat</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
-            {quickActions.map((a) => (
-              <div key={a.label} className="h-full">
-                <button
-                  onClick={() => navigate(a.path)}
-                  aria-label={`Buka ${a.label}`}
-                  className="block w-full h-full text-left rounded-xl border border-stone-200 bg-white p-3 sm:p-4 transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-emerald-800"
-                >
-                  <div className="flex items-start justify-between gap-2.5 sm:gap-3">
-                    <div className="w-8 h-8 sm:h-9 sm:w-9 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                      <a.icon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+          <Card className="lg:col-span-2 p-0 gap-0 dark:border-zinc-800">
+            <CardHeader className="py-4 px-4 md:px-5">
+              <CardTitle className="text-sm">Status Invoice Bulan Ini</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-5 pb-5">
+              {loading ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : statusTotal === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Inbox className="h-10 w-10 text-stone-300 mx-auto mb-2 dark:text-zinc-700" />
+                  <p className="text-sm text-muted-foreground">Belum ada invoice bulan ini.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="relative mx-auto h-[180px] w-full max-w-[240px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <RTooltip content={<ChartTip />} />
+                        <Pie data={statusData} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="88%" paddingAngle={2} strokeWidth={0}>
+                          {statusData.map((d) => (
+                            <Cell key={d.name} fill={d.fill} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <p className="text-2xl font-bold leading-none text-stone-900 dark:text-zinc-100">{statusTotal}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">invoice</p>
                     </div>
-                    <ChevronRight className="hidden sm:block w-4 h-4 text-stone-400 dark:text-zinc-600 shrink-0" aria-hidden="true" />
                   </div>
-                  <p className="text-xs sm:text-sm font-semibold mt-2.5 leading-snug">{a.label}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">{a.desc}</p>
-                </button>
-              </div>
-            ))}
+                  <ul className="mt-4 space-y-2">
+                    {statusData.map((d) => (
+                      <li key={d.name} className="flex items-center gap-2 text-sm">
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.fill }} />
+                        <span className="flex-1 text-stone-600 dark:text-zinc-300">{d.name}</span>
+                        <span className="font-semibold text-stone-900 dark:text-zinc-100">{d.value}</span>
+                        <span className="text-[11px] text-muted-foreground w-9 text-right">{Math.round((d.value / statusTotal) * 100)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ===== Peringkat: Top pelanggan & produk terlaris ===== */}
+        <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
+          <Card className="p-0 gap-0 dark:border-zinc-800">
+            <CardHeader className="py-4 px-4 md:px-5">
+              <CardTitle className="text-sm">Pelanggan Teratas Bulan Ini</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-5 pb-5">
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : !s?.topCustomers.length ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Belum ada penjualan bulan ini.</p>
+              ) : (
+                <ul className="space-y-3.5">
+                  {s.topCustomers.map((c, i) => (
+                    <li key={c.name}>
+                      <button onClick={() => navigate('/master-customer')} className="w-full text-left group" aria-label={`Buka Master Customer: ${c.name}`}>
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                              i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500 dark:bg-zinc-800 dark:text-zinc-400'
+                            }`}
+                          >
+                            {i + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">{c.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{c.count} invoice</p>
+                          </div>
+                          <p className="text-sm font-semibold shrink-0 text-stone-900 dark:text-zinc-100">{formatRupiah(c.total)}</p>
+                        </div>
+                        <div className="mt-1.5 ml-9 h-1.5 rounded-full bg-stone-100 overflow-hidden dark:bg-zinc-800">
+                          <div
+                            className="h-full rounded-full bg-emerald-500"
+                            style={{ width: `${maxCust > 0 ? Math.max(4, (c.total / maxCust) * 100) : 4}%` }}
+                          />
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="p-0 gap-0 dark:border-zinc-800">
+            <CardHeader className="py-4 px-4 md:px-5">
+              <CardTitle className="text-sm">Produk Terlaris Bulan Ini</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 md:px-5 pb-5">
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : !s?.topItems.length ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Belum ada barang terjual bulan ini.</p>
+              ) : (
+                <ul className="space-y-3.5">
+                  {s.topItems.map((it, i) => (
+                    <li key={it.name}>
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                              i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500 dark:bg-zinc-800 dark:text-zinc-400'
+                            }`}
+                          >
+                            {i + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{it.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {it.qty} {it.unit} terjual
+                            </p>
+                          </div>
+                          <p className="text-sm font-semibold shrink-0 text-stone-900 dark:text-zinc-100">{formatRupiah(it.total)}</p>
+                        </div>
+                        <div className="mt-1.5 ml-9 h-1.5 rounded-full bg-stone-100 overflow-hidden dark:bg-zinc-800">
+                          <div
+                            className="h-full rounded-full bg-amber-500"
+                            style={{ width: `${maxItem > 0 ? Math.max(4, (it.total / maxItem) * 100) : 4}%` }}
+                          />
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ===== Strip operasional ===== */}
+        <section aria-label="Operasional">
+          <p className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-zinc-500 font-semibold mb-2">Operasional</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <OpsCard
+              loading={loading}
+              icon={Truck}
+              label="Surat Jalan"
+              value={`${s?.ops.sjCount ?? 0}`}
+              hint="dibuat bulan ini"
+              onClick={() => navigate('/surat-jalan')}
+            />
+            {canSeeFinance && (
+              <>
+                <OpsCard
+                  loading={loading}
+                  icon={ClipboardList}
+                  label="Purchase Order"
+                  value={`${s?.ops.poCount ?? 0}`}
+                  hint="dibuat bulan ini"
+                  onClick={() => navigate('/purchase-order')}
+                />
+                <OpsCard
+                  loading={loading}
+                  icon={Wallet}
+                  label="Biaya Operasional"
+                  value={formatRupiah(s?.cards.expenseThisMonth ?? 0)}
+                  hint="bulan ini"
+                  onClick={() => navigate('/biaya-operasional')}
+                />
+              </>
+            )}
+            <OpsCard
+              loading={loading}
+              icon={AlarmClock}
+              label="Jatuh Tempo ≤7 Hari"
+              value={`${s?.cards.dueSoonCount ?? 0}`}
+              hint="termasuk terlambat"
+              onClick={() => navigate('/riwayat-pembayaran')}
+              tone={s?.cards.dueSoonCount ? 'amber' : 'stone'}
+            />
           </div>
         </section>
 
-        {/* ===== INVOICE TERBARU ===== */}
-        <Card className="border-stone-200 dark:border-zinc-800">
-          <CardHeader className="pb-1">
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <CardTitle className="text-sm">Invoice Terbaru</CardTitle>
-              <button
-                className="text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 text-xs font-medium h-8 inline-flex items-center gap-0.5"
-                onClick={() => navigate('/riwayat')}
-              >
-                Lihat semua <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent className="px-2 md:px-3 pb-3">
-            {loading ? (
-              <div className="space-y-2 px-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : !s?.recent?.length ? (
-              <div className="text-center py-8 px-4">
-                <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2 dark:text-zinc-700" />
-                <p className="text-sm text-muted-foreground">Belum ada invoice.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-stone-100 max-h-[420px] overflow-y-auto dark:divide-zinc-800">
-                {s.recent.map((inv) => (
-                  <li key={inv.id}>
-                    <button
-                      onClick={() => openPreview(inv)}
-                      className="w-full flex items-center gap-2.5 sm:gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 transition-colors text-left min-h-[52px] dark:hover:bg-zinc-800"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{inv.number}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {inv.customerName} · {formatTanggalID(inv.date)}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <p className="text-sm font-semibold tabular-nums">{formatRupiah(inv.total)}</p>
-                        <div className="flex items-center gap-1">
-                          {inv.type !== 'REGULER' && <TypeBadge type={inv.type} />}
-                          <StatusBadge status={inv.status} dueDate={inv.dueDate} />
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ===== JATUH TEMPO ===== */}
-        {!loading && (s?.due?.length ?? 0) > 0 && (
-          <Card className="border-amber-200 dark:border-amber-900">
-            <CardHeader className="pb-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <CardTitle className="text-sm">Jatuh Tempo</CardTitle>
-                <span className="text-xs text-muted-foreground">{s?.due.length} invoice perlu ditagih</span>
+        {/* ===== Invoice terbaru + Pengingat jatuh tempo ===== */}
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
+          <Card className="lg:col-span-3 p-0 gap-0 dark:border-zinc-800">
+            <CardHeader className="py-4 px-4 md:px-5">
+              <div className="flex flex-row items-center justify-between gap-2">
+                <CardTitle className="text-sm">Invoice Terbaru</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 h-8"
+                  onClick={() => navigate('/riwayat')}
+                >
+                  Lihat semua <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="px-2 md:px-3 pb-3">
-              <ul className="divide-y divide-amber-100 max-h-[320px] overflow-y-auto dark:divide-amber-950">
-                {s?.due.map((d) => (
-                  <li key={d.id}>
-                    <button
-                      onClick={() => openPreview(d)}
-                      className="w-full flex items-center gap-2.5 sm:gap-3 px-2 md:px-3 py-2.5 rounded-lg hover:bg-amber-50 transition-colors text-left dark:hover:bg-zinc-800"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{d.number}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {d.customerName} · jatuh tempo {formatTanggalID(d.dueDate)}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">{formatRupiah(d.sisa)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {loading ? (
+                <div className="space-y-2 px-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : !s?.recent?.length ? (
+                <div className="text-center py-8 px-4">
+                  <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2 dark:text-zinc-700" />
+                  <p className="text-sm text-muted-foreground">Belum ada invoice.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-stone-100 max-h-[420px] overflow-y-auto scrollbar-thin dark:divide-zinc-800">
+                  {s.recent.map((inv) => (
+                    <li key={inv.id}>
+                      <button
+                        onClick={() => openPreview(inv)}
+                        className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{inv.number}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {inv.customerName} · {formatTanggalID(inv.date)}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold tabular-nums">{formatRupiah(inv.total)}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {inv.type !== 'REGULER' && <TypeBadge type={inv.type} />}
+                          <StatusBadge status={inv.status} dueDate={inv.dueDate} />
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
-        )}
+
+          <Card className="lg:col-span-2 p-0 gap-0 dark:border-zinc-800">
+            <CardHeader className="py-4 px-4 md:px-5">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <AlarmClock className="h-4 w-4 text-amber-600" /> Pengingat Jatuh Tempo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-2 md:px-3 pb-3">
+              {loading ? (
+                <div className="space-y-2 px-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : !s?.dueSoon?.length ? (
+                <div className="text-center py-8 px-4">
+                  <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-2 dark:text-emerald-900" />
+                  <p className="text-sm text-muted-foreground">Tidak ada tagihan jatuh tempo dalam 7 hari.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-stone-100 dark:divide-zinc-800">
+                  {s.dueSoon.map((d) => (
+                    <li key={d.id}>
+                      <button
+                        onClick={() => openPreview(d)}
+                        className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{d.number}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {d.customerName} · tempo {formatTanggalID(d.dueDate)}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold tabular-nums">{formatRupiah(d.sisa)}</p>
+                          {d.overdue ? (
+                            <p className="text-[11px] font-medium text-red-600">Terlambat {d.overdueDays} hari</p>
+                          ) : (
+                            <p className="text-[11px] font-medium text-amber-600">
+                              H-{Math.ceil((new Date(`${d.dueDate}T00:00:00`).getTime() - startOfToday()) / 86400000)}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ===== Menu pintas ===== */}
+        <section aria-label="Menu Pintas">
+          <p className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-zinc-500 font-semibold mb-2">Menu Pintas</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {canSeeFinance && (
+              <>
+                <QuickLink icon={Users} title="Master Pelanggan" desc="Data & kontak pelanggan" onClick={() => navigate('/master-customer')} />
+                <QuickLink icon={BadgePercent} title="Harga Khusus" desc="Atur harga per pelanggan" onClick={() => navigate('/harga-khusus')} />
+                <QuickLink icon={Package} title="Master Barang" desc="Harga standar & HPP" onClick={() => navigate('/master-barang')} />
+              </>
+            )}
+            <QuickLink icon={ReceiptText} title="Riwayat Invoice" desc="Cari, export Excel/PDF, kirim WA" onClick={() => navigate('/riwayat')} />
+            <QuickLink icon={Truck} title="Surat Jalan" desc="Dokumen pengiriman barang" onClick={() => navigate('/surat-jalan')} />
+            {canSeeFinance && (
+              <QuickLink icon={ClipboardList} title="Purchase Order" desc="Pesan barang ke supplier" onClick={() => navigate('/purchase-order')} />
+            )}
+          </div>
+        </section>
 
         {/* ===== PREVIEW DIALOG — Invoice A5 popup ===== */}
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -578,16 +946,101 @@ export default function PembukaanPage() {
   )
 }
 
-/** Badge tipe invoice: DP = biru muda, lainnya emerald */
+/** Kartu kecil operasional yang bisa diklik */
+function OpsCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  onClick,
+  loading,
+  tone = 'emerald',
+}: {
+  icon: typeof Truck
+  label: string
+  value: string
+  hint: string
+  onClick: () => void
+  loading?: boolean
+  tone?: 'emerald' | 'amber' | 'stone'
+}) {
+  return (
+    <button onClick={onClick} className="text-left">
+      <Card
+        className={`p-0 gap-0 h-full transition-colors dark:border-zinc-800 ${
+          tone === 'amber'
+            ? 'hover:border-amber-300 hover:bg-amber-50/30 dark:hover:border-amber-900 dark:hover:bg-amber-950/20'
+            : tone === 'stone'
+              ? 'hover:border-stone-300 dark:hover:border-zinc-700'
+              : 'hover:border-emerald-300 hover:bg-emerald-50/30 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20'
+        }`}
+      >
+        <CardContent className="p-4">
+          {loading ? (
+            <Skeleton className="h-12 w-full" />
+          ) : (
+            <div className="flex items-start gap-3">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  tone === 'amber'
+                    ? 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
+                    : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400'
+                }`}
+              >
+                <Icon className="h-4.5 w-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
+                <p className="text-base md:text-lg font-bold mt-0.5 truncate text-stone-900 dark:text-zinc-100">{value}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{hint}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-stone-300 dark:text-zinc-600 shrink-0 mt-1" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </button>
+  )
+}
+
+function QuickLink({
+  icon: Icon,
+  title,
+  desc,
+  onClick,
+}: {
+  icon: typeof Users
+  title: string
+  desc: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50 min-h-[60px] dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20"
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-stone-900 dark:text-zinc-100">{title}</p>
+        <p className="text-xs text-muted-foreground truncate">{desc}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 text-stone-400 dark:text-zinc-600" />
+    </button>
+  )
+}
+
+/** Badge tipe invoice: DP = biru muda, lainnya stone */
 function TypeBadge({ type }: { type: string }) {
   const isDp = type === 'DP'
   return (
     <Badge
       variant="outline"
-      className={`text-[10px] px-1.5 py-0 ${
+      className={`text-[10px] px-1.5 py-0 shrink-0 ${
         isDp
           ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300'
-          : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300'
+          : 'border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
       }`}
     >
       {type}
@@ -595,11 +1048,24 @@ function TypeBadge({ type }: { type: string }) {
   )
 }
 
-/** Badge status: Lunas hijau, Belum Lunas oranye + info jatuh tempo */
+/**
+ * Badge status invoice. Warna (spesifikasi user):
+ * Lunas → hijau, Belum Lunas → oranye, Jatuh Tempo → merah.
+ */
 function StatusBadge({ status, dueDate }: { status: 'LUNAS' | 'BELUM'; dueDate: string }) {
+  if (status === 'BELUM' && dueDate && new Date(`${dueDate}T00:00:00`).getTime() < startOfToday()) {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-red-50 text-red-700 border-red-200 text-[10px] px-1.5 py-0 shrink-0 dark:bg-red-950 dark:text-red-300 dark:border-red-900"
+      >
+        Jatuh Tempo
+      </Badge>
+    )
+  }
   if (status === 'LUNAS') {
     return (
-      <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900 text-[10px] px-1.5 py-0">
+      <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900 text-[10px] px-1.5 py-0 shrink-0">
         Lunas
       </Badge>
     )
@@ -607,7 +1073,7 @@ function StatusBadge({ status, dueDate }: { status: 'LUNAS' | 'BELUM'; dueDate: 
   return (
     <Badge
       variant="outline"
-      className="bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-50 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 text-[10px] px-1.5 py-0"
+      className="bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-50 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 text-[10px] px-1.5 py-0 shrink-0"
       title={dueDate ? `Jatuh tempo ${dueDate}` : undefined}
     >
       Belum Lunas
