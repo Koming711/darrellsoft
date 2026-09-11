@@ -8609,3 +8609,28 @@ Stage Summary:
 - Kini Harga Modal & Profit TAMPIL UNTUK SEMUA AKUN (superadmin/admin/kasir) — sinkronisasi dua arah utuh; backend mengirim modal untuk semua role sehingga Edit juga terisi.
 - PWA kini auto-reload saat ada versi baru (controllerchange) + versi cache naik (v2/v42) → perangkat user akan memuat versi terbaru otomatis pada kunjungan berikutnya.
 - LIVE di www.darrellsoft.com (darrellsoft-phlirktev) & lokal.
+
+---
+Task ID: 32
+Agent: Main (Z.ai Code)
+Task: "tambahkan qty di halaman tambah barang"
+
+Work Log:
+- DB LOKAL: schema.prisma (prisma/ + root copy — CLI memuat ROOT schema, penyebab db push "already in sync" palsu sebelumnya) + kolom `qty Float @default(0)` di model Barang. `prisma db push` gagal mendeteksi diff → kolom ditambahkan via SQL langsung (ALTER TABLE "Barang" ADD COLUMN "qty" REAL NOT NULL DEFAULT 0) lalu sinkronkan root schema (cp prisma/schema.prisma schema.prisma) → push & generate sukses, barang lama qty=0.
+- BACKEND: types.ts Item +`qty: number`; API /api/items GET (map qty), POST (validasi qty ≥0, default 0, simpan ke kolom qty), /api/items/[id] PUT (qty opsional, validasi ≥0); semua response item menyertakan qty.
+- FRONTEND (items-view.tsx): (1) ItemFormState +qty; (2) dialog: baris Satuan | QTY (input id item-qty, type number, min 0, step any, placeholder 0), Harga Jual pindah full width — Modal & Profit tidak berubah; (3) handleSave validasi qty ("Qty tidak boleh negatif") + kirim qty di body POST/PUT; (4) openEdit mengisi qty dari DB; (5) tabel desktop: kolom "Qty" (text-center) setelah Satuan, nilai formatNum; (6) card mobile: "Qty: X" di baris info (flex-wrap anti overflow).
+- PWA: APP_VERSION '2026-09-11-v3', CACHE_NAME 'darrell-soft-v43' (auto clear-cache + controllerchange reload tetap aktif).
+- LINT: 5 file = 0 error.
+- RESTART DEV: wajib setelah prisma generate (client lama tanpa qty → POST 500 "Unknown argument qty"); dev server di-restart (node next dev via subshell double-fork agar persisten antar tool call).
+- E2E LOKAL desktop 1280x800 (superadmin → Budi Susanto → Tambah): field QTY tampil di popup; Modal 30000 + Jual 50000 → Profit otomatis 20000 (margin 40%); SIMPAN → tabel: ITM-001 | Barang Uji Qty | pcs | 25 | Rp50.000 | Rp30.000 ✓; Edit → qty terisi 25, ubah 40 tersimpan ✓; validasi qty=-5 → toast "Qty tidak boleh negatif" ✓ (insiden kecil: ref snapshot lama mengisi "-5" ke field Nama — diperbaiki nama, bukan bug app); Hapus → bersih.
+- E2E LOKAL mobile 390x844: popup stack penuh, Qty=7 + Modal 8000 + Jual 12000 → Profit 4000 (33,3%); simpan → card "Qty: 7" ✓; hapus → bersih; scrollW=390 tanpa overflow.
+- LOG & DB LOKAL: dev.log bersih; baseline 22/20/20 → tercatat 23/20/20 setelahnya karena 1 dokumen BARU INV/09/26/0001 (Budi Susanto, dibuat 14:02 UTC oleh aktivitas user asli — bukan sisa uji; tidak dihapus). Sisa barang uji = 0.
+- DEPLOY PERSIAPAN: build Vercel TIDAK menjalankan db push → kolom qty ditambahkan manual ke SUPABASE produksi via pg (scripts/add-qty-supabase.js: pooler aws-1-ap-southeast-1:6543, ALTER TABLE "Barang" ADD COLUMN "qty" DOUBLE PRECISION NOT NULL DEFAULT 0) — verifikasi information_schema: kolom ke-12 = qty ✓. (Trial pertama gagal EAUTHQUERY karena user pooler dobel-ref — diperbaiki.)
+- DEPLOY: .vercel link darrellsoft ✓ (tidak insiden), .env tetap sqlite, tanpa .env.local → prepare-build (postgresql) → vercel --prod --yes (darrellsoft-nkp3w7qp1, Ready, alias www.darrellsoft.com + 3 lainnya) → revert-schema (sqlite) ✓.
+- VERIFIKASI ONLINE (www.darrellsoft.com, superadmin): sw.js = darrell-soft-v43; localStorage app_version = 2026-09-11-v3; desktop: popup Tambah Barang tampil field QTY; uji end-to-end simpan "Uji Qty Online" qty=12 → tabel produksi menampilkan cell "12" ✓ (kolom qty Supabase berfungsi); dihapus → "0 barang untuk Budi Susanto" (produksi bersih); mobile 390: Qty=9 terisi, scrollW=390 tanpa overflow; console & page errors kosong. Screenshot: task32-dialog-d.png, task32-table-d.png, task32-dialog-m.png, task32-online-d.png, task32-online-m.png.
+
+Stage Summary:
+- Master Barang kini punya QTY (jumlah stok): input di popup Tambah/Edit Barang (berdampingan dengan Satuan), kolom tersendiri di tabel desktop & card mobile, tersimpan ke kolom DB `qty` (lokal SQLite + Supabase Postgres).
+- Harga Modal & Profit (Task 31) tetap utuh dengan sinkronisasi dua arah; validasi qty ≥ 0 di frontend & backend.
+- PWA versi v3/v43 → perangkat user auto-reload ke bundle baru pada kunjungan berikutnya.
+- LIVE di www.darrellsoft.com (darrellsoft-nkp3w7qp1); produksi bersih (data uji dihapus); pelajaran teknis: Prisma CLI memuat ROOT schema.prisma — jaga kedua schema tetap sinkron saat mengubah model.
