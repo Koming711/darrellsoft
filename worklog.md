@@ -8506,3 +8506,24 @@ Stage Summary:
 - items-view kompatibel mundur (props opsional) — pemanggil lain tidak rusak. Harga-khusus (mapRole serupa) MASIH PENDING konfirmasi user.
 - Arsip (11) dikonfirmasi snapshot lama 5 Sep; konten terkini aplikasi LEBIH BARU (superset) — tidak ada replacement dilakukan; motivasi beranda & mobile riwayat-pembayaran terverifikasi LIVE.
 - Master-barang fix LIVE di www.darrellsoft.com (deploy darrellsoft-cf6dojlhi) & lokal.
+
+---
+Task ID: 30
+Agent: Main (Z.ai Code)
+Task: "extract file ini. ganti conten beranda dengan file ini. hilangkan tombol buat invoice di halaman beranda. tambahkan motivasi hari ini." (upload workspace-8a0af2d8-48ec-4be3-84df-36e0081c93aa (4).tar)
+
+Work Log:
+- EXTRACT: upload/extract-30/ — arsip (4).tar (1.2MB, git repo snapshot) berisi struktur SPA lama; beranda versi arsip = src/components/views/dashboard-view.tsx (806 baris): header greeting+role+tanggal+refresh+tombol "Buat Invoice", 4 kartu keuangan, grafik batang toggle 6 Bulan/14 Hari + donut status invoice, Pelanggan Teratas + Produk Terlaris (progress bar), strip Operasional, Invoice Terbaru + Pengingat Jatuh Tempo, Menu Pintas.
+- ANALISIS: API /api/dashboard yang ada dipakai halaman /dashboard (struktur beda) — TIDAK disentuh. Terpilih: PERLUAS /api/beranda (backward compatible) dengan field baru.
+- API (/api/beranda/route.ts): + cards (revenue/invoiceCount/paidThisMonth bulan ini, unpaidTotal/unpaidCount, margin via snapshot modal per item fallback uangCapek — selaras rumus /api/laporan/rugi-laba, expenseThisMonth dari tabel Biaya, dueSoonCount), + status donut (lunas/belum/jatuhTempo bulan ini), + monthly (6 bulan), + daily (14 hari), + topCustomers/topItems (bulan ini, top 5), + ops (sjCount/poCount dari DocumentHistory bulan ini), + dueSoon (BELUM & tempo ≤7 hari, overdue/overdueDays, max 8). Fix bug precedence operator pada perhitungan margin.
+- FRONTEND (src/app/pembukaan/page.tsx rewrite penuh mengikuti desain arsip): header greeting+badge role+tanggal+tombol refresh 44px — TOMBOL "BUAT INVOICE" DIHAPUS (juga "Buat invoice pertama" di empty state); strip MOTIVASI HARI INI gradient emerald + Sparkles + quote italic (deterministik day-of-year, 12 quote); 4 kartu ringkasan (Penjualan Bulan Ini→/laporan/penjualan, Pembayaran Masuk→/riwayat-pembayaran, Piutang→/riwayat-pembayaran, Laba Kotor→/laporan/rugi-laba; kasir/demo melihat Surat Jalan sebagai gantinya); grafik batang toggle 6 Bulan/14 Hari + donut Status Invoice Bulan Ini; Pelanggan Teratas (klik→/master-customer) + Produk Terlaris; strip Operasional (SJ→/surat-jalan, PO→/purchase-order, Biaya→/biaya-operasional, Jatuh Tempo≤7→/riwayat-pembayaran); Invoice Terbaru + Pengingat Jatuh Tempo (klik→popup preview A5 + Kirim via WhatsApp, infrastruktur Task 26/27 dipertahankan: InvoicePreview+normalizeInvoiceData+fetchUserCompany+generateInvoicePdf); Menu Pintas 6 link (gating role: canSeeFinance = role bukan user/demo); dark mode classes lengkap; skeleton per-section.
+- Verifikasi LOKAL (localhost:3000): ESLint 2 file = 0 error; desktop 1280x800 login superadmin → beranda: greeting+badge+tanggal, MOTIVASI HARI INI tampil, buatInvoiceCount=0 (tombol hilang total), 4 kartu (Piutang Rp251.700.000 amber), grafik 6 Bulan (batang Jun, total Rp502.400.000) → toggle 14 Hari (Rp0, benar), donut "Belum ada invoice bulan ini" (benar), Pelanggan/Produk empty state, OPERASIONAL 4 kartu, Invoice Terbaru 3 baris (DP + Belum Lunas badge), klik INV/07/26/9002 → popup A5 lengkap + tombol Kirim via WhatsApp; Menu Pintas 6 link. Mobile 390x844: scrollW=390 tanpa overflow, semua section rapi, popup fit + WA full width. dev.log 0 error; baseline DB 22/20/20 utuh.
+- Catatan: dialog PWA "Install Darrell Soft" muncul saat E2E (bukan bug, di-close). Evaluasi body.innerText saat Fast Refresh rebuilding bisa false-negative — verifikasi ulang via DOM query: Motivasi & Menu Pintas ADA.
+- Belum dideploy (user belum minta deploy di pesan ini).
+
+Stage Summary:
+- Beranda (/pembukaan) DIGANTI dengan desain dari arsip (4).tar: lebih kaya dari versi lama — grafik batang toggle 6 Bulan/14 Hari, donut status invoice, peringkat pelanggan & produk, strip operasional, menu pintas — semua data nyata dari API /api/beranda yang diperluas backward-compatible (halaman lain tidak terpengaruh).
+- Tombol "Buat Invoice" DIHILANGKAN dari beranda (header + empty state) sesuai permintaan; pembuatan invoice tetap dari menu sidebar Invoice.
+- Motivasi Hari Ini tetap tersedia (strip gradient emerald di bawah greeting).
+- Popup pratinjau A5 + Kirim WhatsApp (fitur Task 26/27) dipertahankan di daftar Invoice Terbaru & Pengingat Jatuh Tempo.
+- LIVE di lokal; menunggu perintah deploy ke www.darrellsoft.com.
