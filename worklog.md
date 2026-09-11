@@ -8527,3 +8527,21 @@ Stage Summary:
 - Motivasi Hari Ini tetap tersedia (strip gradient emerald di bawah greeting).
 - Popup pratinjau A5 + Kirim WhatsApp (fitur Task 26/27) dipertahankan di daftar Invoice Terbaru & Pengingat Jatuh Tempo.
 - LIVE di lokal; menunggu perintah deploy ke www.darrellsoft.com.
+
+---
+Task ID: 30-b
+Agent: Main (Z.ai Code)
+Task: "lanjutkan. hilangkan tombol refresh di halaman beranda. deploy ke www.darrellsoft.com. token vcp_..." (kelanjutan Task 30)
+
+Work Log:
+- EDIT (src/app/pembukaan/page.tsx): tombol refresh (variant outline, aria-label "Muat ulang data", ikon RefreshCw) DIHAPUS dari header beranda; wrapper div kanan dihapus, header kini hanya greeting + badge role + tanggal. Fungsi refresh() DIPERTAHANKAN (dipakai muat awal via useEffect); import RefreshCw & Button tetap (RefreshCw masih dipakai spinner Kirim WhatsApp; Button dipakai tombol lihat semua).
+- LINT: bunx eslint src/app/pembukaan/page.tsx = 0 error.
+- E2E LOKAL: desktop 1280x800 (login superadmin → /pembukaan): refreshBtnCount=0, hasBuatInvoice=false, hasMotivasi=true, greeting "Selamat pagi, superadmin 👋" + tanggal; mobile 390x844: scrollW=390 tanpa overflow, kondisi sama. Screenshot: task30-refresh-d.png, task30-refresh-m.png.
+- LOG & DB: dev.log 30-40 baris terakhir bersih (tanpa error/fail); baseline DB utuh documentHistory=22, riwayatCetakan=20, riwayatPotongKertas=20.
+- DEPLOY: cek .vercel/project.json (darrellsoft, benar) → prepare-build.js (postgresql) → bunx vercel --prod --yes (READY, https://darrellsoft-72r959who-koming711s-projects.vercel.app, aliased ke https://www.darrellsoft.com) → revert-schema.js (sqlite, terverifikasi provider=sqlite).
+- VERIFIKASI ONLINE (www.darrellsoft.com/pembukaan, login superadmin): desktop 1280x800 — refreshBtnCount=0, hasBuatInvoice=false, hasMotivasi=true, data nyata (Piutang Rp2.750.000, grafik total Rp6.500.000); mobile 390x844 — scrollW=390 tanpa overflow, kondisi sama, layout + bottom nav rapi. Console/page errors: kosong. Screenshot: task30-online-d.png, task30-online-m.png.
+
+Stage Summary:
+- Tombol refresh DIHILANGKAN dari beranda (lokal + produksi www.darrellsoft.com LIVE). Beranda kini: greeting + badge role + tanggal → Motivasi Hari Ini → 4 kartu → grafik → donut → peringkat → operasional → invoice terbaru/jatuh tempo → menu pintas — TANPA tombol Buat Invoice & TANPA tombol refresh.
+- Muat data awal tetap otomatis (refresh() di useEffect), user tidak kehilangan fungsi apa pun.
+- Deploy darrellsoft-72r959who LIVE; schema lokal kembali sqlite; baseline DB 22/20/20 utuh.

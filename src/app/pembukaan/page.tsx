@@ -347,37 +347,23 @@ export default function PembukaanPage() {
   return (
     <DashboardLayout title="Beranda">
       <div className="space-y-5 md:space-y-6">
-        {/* ===== Header: greeting + tanggal + refresh (TANPA tombol Buat Invoice) ===== */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
-                {greeting}
-                {s?.user?.name ? `, ${s.user.name}` : ''} 👋
-              </h1>
-              {s?.user?.role && (
-                <Badge
-                  variant="outline"
-                  className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
-                >
-                  {ROLE_LABEL[s.user.role] ?? s.user.role}
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
+        {/* ===== Header: greeting + tanggal (TANPA tombol Buat Invoice & Refresh) ===== */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
+              {greeting}
+              {s?.user?.name ? `, ${s.user.name}` : ''} 👋
+            </h1>
+            {s?.user?.role && (
+              <Badge
+                variant="outline"
+                className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+              >
+                {ROLE_LABEL[s.user.role] ?? s.user.role}
+              </Badge>
+            )}
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Muat ulang data"
-              onClick={refresh}
-              disabled={loading}
-              className="h-[44px] w-[44px] shrink-0 bg-white dark:bg-zinc-900"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
         </div>
 
         {/* ===== MOTIVASI HARI INI ===== */}

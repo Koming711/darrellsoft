@@ -1,0 +1,1083 @@
+     1→'use client'
+     2→
+     3→import { useCallback, useEffect, useMemo, useState } from 'react'
+     4→import { useRouter } from 'next/navigation'
+     5→import {
+     6→  AlarmClock,
+     7→  BadgePercent,
+     8→  CheckCircle2,
+     9→  ChevronRight,
+    10→  ClipboardList,
+    11→  Clock,
+    12→  Inbox,
+    13→  Package,
+    14→  ReceiptText,
+    15→  RefreshCw,
+    16→  Sparkles,
+    17→  Truck,
+    18→  TrendingUp,
+    19→  Users,
+    20→  Wallet,
+    21→} from 'lucide-react'
+    22→import { toast } from 'sonner'
+    23→import {
+    24→  Area,
+    25→  AreaChart,
+    26→  Bar,
+    27→  BarChart,
+    28→  CartesianGrid,
+    29→  Cell,
+    30→  Pie,
+    31→  PieChart,
+    32→  ResponsiveContainer,
+    33→  Tooltip as RTooltip,
+    34→  XAxis,
+    35→  YAxis,
+    36→} from 'recharts'
+    37→import { DashboardLayout } from '@/components/dashboard-layout'
+    38→import { authFetch } from '@/lib/auth-fetch'
+    39→import { formatRupiah } from '@/lib/format'
+    40→import { startNavigation } from '@/components/navigation-progress'
+    41→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    42→import { Badge } from '@/components/ui/badge'
+    43→import { Button } from '@/components/ui/button'
+    44→import { Skeleton } from '@/components/ui/skeleton'
+    45→import {
+    46→  Dialog,
+    47→  DialogContent,
+    48→  DialogHeader,
+    49→  DialogTitle,
+    50→  DialogDescription,
+    51→} from '@/components/ui/dialog'
+    52→import { InvoicePreview } from '@/components/dokupro/invoice-preview'
+    53→import type { InvoiceData } from '@/lib/types'
+    54→import { normalizeInvoiceData } from '@/lib/normalize-invoice'
+    55→import { fetchUserCompany } from '@/lib/company-settings'
+    56→import { generateInvoicePdf, sharePdfViaWhatsApp } from '@/lib/generate-pdf'
+    57→
+    58→// ===== Types (sesuai respons GET /api/beranda) =====
+    59→interface BerandaStats {
+    60→  totalPenjualan: number
+    61→  totalPiutang: number
+    62→  invoiceBelumLunas: number
+    63→  totalPelanggan: number
+    64→}
+    65→
+    66→interface BerandaChartItem {
+    67→  tanggal: string
+    68→  label: string
+    69→  penjualan: number
+    70→  pembayaran: number
+    71→}
+    72→
+    73→interface BerandaInvoiceItem {
+    74→  id: string
+    75→  number: string
+    76→  date: string
+    77→  customerName: string
+    78→  total: number
+    79→  type: 'REGULER' | 'DP'
+    80→  status: 'LUNAS' | 'BELUM'
+    81→  dueDate: string
+    82→  data: Record<string, unknown> | null
+    83→}
+    84→
+    85→interface BerandaDueItem {
+    86→  id: string
+    87→  number: string
+    88→  date: string
+    89→  customerName: string
+    90→  total: number
+    91→  sisa: number
+    92→  dueDate: string
+    93→  data: Record<string, unknown> | null
+    94→}
+    95→
+    96→interface BerandaDueSoonItem {
+    97→  id: string
+    98→  number: string
+    99→  customerName: string
+   100→  sisa: number
+   101→  dueDate: string
+   102→  overdue: boolean
+   103→  overdueDays: number
+   104→  data: Record<string, unknown> | null
+   105→}
+   106→
+   107→interface BerandaTopCustomer {
+   108→  name: string
+   109→  count: number
+   110→  total: number
+   111→}
+   112→
+   113→interface BerandaTopItem {
+   114→  name: string
+   115→  qty: number
+   116→  unit: string
+   117→  total: number
+   118→}
+   119→
+   120→interface BerandaData {
+   121→  user: { name: string; role: string }
+   122→  stats: BerandaStats
+   123→  chart: BerandaChartItem[]
+   124→  recent: BerandaInvoiceItem[]
+   125→  due: BerandaDueItem[]
+   126→  cards: {
+   127→    revenue: number
+   128→    invoiceCount: number
+   129→    paidThisMonth: number
+   130→    unpaidTotal: number
+   131→    unpaidCount: number
+   132→    margin: number
+   133→    expenseThisMonth: number
+   134→    dueSoonCount: number
+   135→  }
+   136→  status: { lunas: number; belum: number; jatuhTempo: number }
+   137→  monthly: { label: string; value: number }[]
+   138→  daily: { label: string; value: number }[]
+   139→  topCustomers: BerandaTopCustomer[]
+   140→  topItems: BerandaTopItem[]
+   141→  ops: { sjCount: number; poCount: number }
+   142→  dueSoon: BerandaDueSoonItem[]
+   143→}
+   144→
+   145→// Motivasi hari ini — deterministic (day-of-year based) to avoid hydration mismatch
+   146→const DAFTAR_MOTIVASI = [
+   147→  'Kerja keras hari ini, hasilnya nikmat besok hari.',
+   148→  'Setiap langkah kecil mendekatkanmu pada tujuan besar.',
+   149→  'Jangan takut gagal, takutlah untuk tidak mencoba.',
+   150→  'Kesuksesan dimulai dari keberanian untuk memulai.',
+   151→  'Disiplin adalah jembatan antara tujuan dan pencapaian.',
+   152→  'Hari ini adalah kesempatan baru untuk menjadi lebih baik.',
+   153→  'Usaha kecil yang konsisten mengalahkan usaha besar yang sporadis.',
+   154→  'Fokus pada proses, hasil akan mengikuti.',
+   155→  'Jangan menunda pekerjaan hari ini sampai besok.',
+   156→  'Bermimpi besar, mulai dari yang kecil.',
+   157→  'Konsistensi adalah kunci dari semua keberhasilan.',
+   158→  'Waktu terbaik untuk memulai adalah sekarang.',
+   159→]
+   160→
+   161→const ROLE_LABEL: Record<string, string> = {
+   162→  superadmin: 'Super Admin',
+   163→  admin: 'Admin',
+   164→  manager: 'Manajer',
+   165→  user: 'Kasir',
+   166→  demo: 'Demo',
+   167→}
+   168→
+   169→function formatTanggalID(iso: string): string {
+   170→  if (!iso) return '-'
+   171→  const d = new Date(iso)
+   172→  if (Number.isNaN(d.getTime())) return iso
+   173→  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+   174→}
+   175→
+   176→/** Tanggal hari ini pada pukul 00:00 (untuk deteksi jatuh tempo). */
+   177→function startOfToday(): number {
+   178→  const n = new Date()
+   179→  return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime()
+   180→}
+   181→
+   182→/** Format ringkas utk sumbu grafik: 850rb / 1,2jt / 2M */
+   183→function compactIDR(v: number): string {
+   184→  const trim = (n: number) => {
+   185→    const s = n.toFixed(1)
+   186→    return s.endsWith('.0') ? s.slice(0, -2) : s
+   187→  }
+   188→  if (v >= 1_000_000_000) return `${trim(v / 1_000_000_000)}M`
+   189→  if (v >= 1_000_000) return `${trim(v / 1_000_000)}jt`
+   190→  if (v >= 1_000) return `${Math.round(v / 1_000)}rb`
+   191→  return `${Math.round(v)}`
+   192→}
+   193→
+   194→/** Tooltip kustom grafik batang */
+   195→function ChartTip({
+   196→  active,
+   197→  payload,
+   198→  label,
+   199→}: {
+   200→  active?: boolean
+   201→  payload?: Array<{ value?: number | string }>
+   202→  label?: string
+   203→}) {
+   204→  if (!active || !payload?.length) return null
+   205→  return (
+   206→    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 shadow-md dark:border-zinc-700 dark:bg-zinc-800">
+   207→      <p className="text-[11px] font-medium text-stone-500 dark:text-zinc-400">{label}</p>
+   208→      <p className="text-sm font-semibold text-stone-900 dark:text-zinc-100">{formatRupiah(Number(payload[0]?.value ?? 0))}</p>
+   209→    </div>
+   210→  )
+   211→}
+   212→
+   213→export default function PembukaanPage() {
+   214→  const router = useRouter()
+   215→  const [data, setData] = useState<BerandaData | null>(null)
+   216→  const [loading, setLoading] = useState(true)
+   217→  const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly')
+   218→
+   219→  // Popup pratinjau invoice A5
+   220→  const [previewOpen, setPreviewOpen] = useState(false)
+   221→  const [previewItem, setPreviewItem] = useState<BerandaInvoiceItem | BerandaDueItem | BerandaDueSoonItem | null>(null)
+   222→  const [previewScale, setPreviewScale] = useState(0.5)
+   223→  const [sendingPdf, setSendingPdf] = useState(false)
+   224→
+   225→  // Data toko milik user (fallback konten invoice lama yang tidak menyimpan company)
+   226→  const [userCompany, setUserCompany] = useState<Partial<InvoiceData['company']> | null>(null)
+   227→  useEffect(() => {
+   228→    let alive = true
+   229→    fetchUserCompany().then((c) => {
+   230→      if (alive) setUserCompany(c)
+   231→    })
+   232→    return () => {
+   233→      alive = false
+   234→    }
+   235→  }, [])
+   236→
+   237→  const refresh = useCallback(() => {
+   238→    setLoading(true)
+   239→    authFetch('/api/beranda')
+   240→      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Gagal memuat data'))))
+   241→      .then(setData)
+   242→      .catch((e) => toast.error(e instanceof Error ? e.message : 'Terjadi kesalahan'))
+   243→      .finally(() => setLoading(false))
+   244→  }, [])
+   245→
+   246→  useEffect(() => {
+   247→    refresh()
+   248→  }, [refresh])
+   249→
+   250→  // Scale A5 Invoice preview to fit inside a popup on both mobile & desktop
+   251→  useEffect(() => {
+   252→    const DESIGN_W = 576
+   253→    const DESIGN_H = DESIGN_W * (210 / 148)
+   254→    const updateInvScale = () => {
+   255→      const vw = window.innerWidth
+   256→      const vh = window.innerHeight
+   257→      const marginX = 24
+   258→      const marginY = 32
+   259→      const topPad = 48
+   260→      const btnArea = 56
+   261→      const availW = vw - marginX * 2
+   262→      const availH = vh - marginY * 2 - topPad - btnArea
+   263→      const sc = Math.min(availW / DESIGN_W, availH / DESIGN_H)
+   264→      setPreviewScale(Math.max(0.28, Math.min(0.85, sc)))
+   265→    }
+   266→    updateInvScale()
+   267→    window.addEventListener('resize', updateInvScale)
+   268→    return () => window.removeEventListener('resize', updateInvScale)
+   269→  }, [])
+   270→
+   271→  const openPreview = (item: BerandaInvoiceItem | BerandaDueItem | BerandaDueSoonItem | null) => {
+   272→    // Guard: tanpa data lengkap, popup akan kosong — info user
+   273→    if (!item?.data) {
+   274→      toast.info('Detail pratinjau tidak tersedia untuk invoice ini')
+   275→      return
+   276→    }
+   277→    setPreviewItem(item)
+   278→    setPreviewOpen(true)
+   279→  }
+   280→
+   281→  const previewData = useMemo<InvoiceData | null>(() => {
+   282→    if (!previewItem?.data) return null
+   283→    // Normalisasi data lama (dataJson tanpa key `company`) + fallback data toko user
+   284→    return normalizeInvoiceData(previewItem.data, userCompany)
+   285→  }, [previewItem, userCompany])
+   286→
+   287→  const handleSendPdf = useCallback(async () => {
+   288→    if (!previewData) return
+   289→    setSendingPdf(true)
+   290→    try {
+   291→      const blob = await generateInvoicePdf(previewData)
+   292→      const fileName = `Invoice_${previewData.nomor || 'draft'}.pdf`
+   293→      await sharePdfViaWhatsApp(blob, fileName, `Invoice ${previewData.nomor}`)
+   294→      toast.success('PDF dikirim via WhatsApp')
+   295→    } catch (err) {
+   296→      console.error(err)
+   297→      toast.error('Gagal mengirim PDF')
+   298→    } finally {
+   299→      setSendingPdf(false)
+   300→    }
+   301→  }, [previewData])
+   302→
+   303→  const navigate = useCallback(
+   304→    (path: string) => {
+   305→      startNavigation()
+   306→      router.push(path)
+   307→    },
+   308→    [router]
+   309→  )
+   310→
+   311→  const s = data
+   312→  const hour = new Date().getHours()
+   313→  const greeting = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam'
+   314→  const todayLabel = new Intl.DateTimeFormat('id-ID', {
+   315→    weekday: 'long',
+   316→    day: 'numeric',
+   317→    month: 'long',
+   318→    year: 'numeric',
+   319→  }).format(new Date())
+   320→
+   321→  // Motivasi deterministik berdasarkan day-of-year (hindari hydration mismatch)
+   322→  const motivasiHariIni = useMemo(() => {
+   323→    const today = new Date()
+   324→    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000)
+   325→    return DAFTAR_MOTIVASI[dayOfYear % DAFTAR_MOTIVASI.length]
+   326→  }, [])
+   327→
+   328→  // Kasir/demo tidak melihat data finansial (laba, biaya, PO)
+   329→  const role = s?.user?.role ?? ''
+   330→  const canSeeFinance = role !== 'user' && role !== 'demo'
+   331→
+   332→  // Data donut status (hapus slice bernilai 0)
+   333→  const statusTotal = s ? s.status.lunas + s.status.belum + s.status.jatuhTempo : 0
+   334→  const statusData = s
+   335→    ? [
+   336→        { name: 'Lunas', value: s.status.lunas, fill: '#059669' },
+   337→        { name: 'Belum Bayar', value: s.status.belum, fill: '#d97706' },
+   338→        { name: 'Jatuh Tempo', value: s.status.jatuhTempo, fill: '#dc2626' },
+   339→      ].filter((d) => d.value > 0)
+   340→    : []
+   341→  const chartData = s ? (chartMode === 'monthly' ? s.monthly : s.daily) : []
+   342→  const chartTotal = chartData.reduce((a, b) => a + b.value, 0)
+   343→
+   344→  const maxCust = s?.topCustomers[0]?.total ?? 0
+   345→  const maxItem = s?.topItems[0]?.total ?? 0
+   346→
+   347→  return (
+   348→    <DashboardLayout title="Beranda">
+   349→      <div className="space-y-5 md:space-y-6">
+   350→        {/* ===== Header: greeting + tanggal + refresh (TANPA tombol Buat Invoice) ===== */}
+   351→        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+   352→          <div className="min-w-0">
+   353→            <div className="flex items-center gap-2 flex-wrap">
+   354→              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
+   355→                {greeting}
+   356→                {s?.user?.name ? `, ${s.user.name}` : ''} 👋
+   357→              </h1>
+   358→              {s?.user?.role && (
+   359→                <Badge
+   360→                  variant="outline"
+   361→                  className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
+   362→                >
+   363→                  {ROLE_LABEL[s.user.role] ?? s.user.role}
+   364→                </Badge>
+   365→              )}
+   366→            </div>
+   367→            <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
+   368→          </div>
+   369→          <div className="flex items-center gap-2 w-full sm:w-auto">
+   370→            <Button
+   371→              variant="outline"
+   372→              size="icon"
+   373→              aria-label="Muat ulang data"
+   374→              onClick={refresh}
+   375→              disabled={loading}
+   376→              className="h-[44px] w-[44px] shrink-0 bg-white dark:bg-zinc-900"
+   377→            >
+   378→              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+   379→            </Button>
+   380→          </div>
+   381→        </div>
+   382→
+   383→        {/* ===== MOTIVASI HARI INI ===== */}
+   384→        <div className="rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 p-4 md:p-5 text-white shadow-sm">
+   385→          <div className="flex items-start gap-3">
+   386→            <div className="w-9 h-9 rounded-lg bg-amber-300/90 flex items-center justify-center shrink-0 mt-0.5">
+   387→              <Sparkles className="w-4.5 h-4.5 text-amber-800" />
+   388→            </div>
+   389→            <div className="min-w-0">
+   390→              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-50/80 mb-0.5">Motivasi Hari Ini</p>
+   391→              <p className="text-[14px] sm:text-[16px] font-bold italic leading-relaxed">&ldquo;{motivasiHariIni}&rdquo;</p>
+   392→            </div>
+   393→          </div>
+   394→        </div>
+   395→
+   396→        {/* ===== Kartu ringkasan keuangan ===== */}
+   397→        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+   398→          {/* Penjualan bulan ini */}
+   399→          <button className="text-left" onClick={() => navigate('/laporan/penjualan')} aria-label="Buka Laporan Penjualan">
+   400→            <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+   401→              <CardContent className="p-4 md:p-5">
+   402→                {loading ? (
+   403→                  <Skeleton className="h-16 w-full" />
+   404→                ) : (
+   405→                  <>
+   406→                    <div className="flex items-center gap-2 text-muted-foreground">
+   407→                      <ReceiptText className="h-4 w-4 text-emerald-600" />
+   408→                      <p className="text-xs font-medium">Penjualan Bulan Ini</p>
+   409→                    </div>
+   410→                    <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{formatRupiah(s?.cards.revenue ?? 0)}</p>
+   411→                    <p className="text-[11px] text-muted-foreground mt-1">{s?.cards.invoiceCount ?? 0} invoice bulan ini</p>
+   412→                  </>
+   413→                )}
+   414→              </CardContent>
+   415→            </Card>
+   416→          </button>
+   417→
+   418→          {/* Pembayaran masuk (cash basis) */}
+   419→          <button className="text-left" onClick={() => navigate('/riwayat-pembayaran')} aria-label="Buka Riwayat Pembayaran">
+   420→            <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+   421→              <CardContent className="p-4 md:p-5">
+   422→                {loading ? (
+   423→                  <Skeleton className="h-16 w-full" />
+   424→                ) : (
+   425→                  <>
+   426→                    <div className="flex items-center gap-2 text-muted-foreground">
+   427→                      <Wallet className="h-4 w-4 text-emerald-600" />
+   428→                      <p className="text-xs font-medium">Pembayaran Masuk</p>
+   429→                    </div>
+   430→                    <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{formatRupiah(s?.cards.paidThisMonth ?? 0)}</p>
+   431→                    <p className="text-[11px] text-muted-foreground mt-1">DP + pelunasan + reguler lunas</p>
+   432→                  </>
+   433→                )}
+   434→              </CardContent>
+   435→            </Card>
+   436→          </button>
+   437→
+   438→          {/* Piutang */}
+   439→          <button className="text-left" onClick={() => navigate('/riwayat-pembayaran')} aria-label="Buka Riwayat Pembayaran">
+   440→            <Card className="p-0 gap-0 h-full transition-colors hover:border-amber-300 dark:border-zinc-800 dark:hover:border-amber-900">
+   441→              <CardContent className="p-4 md:p-5">
+   442→                {loading ? (
+   443→                  <Skeleton className="h-16 w-full" />
+   444→                ) : (
+   445→                  <>
+   446→                    <div className="flex items-center gap-2 text-muted-foreground">
+   447→                      <Clock className="h-4 w-4 text-amber-600" />
+   448→                      <p className="text-xs font-medium">Piutang</p>
+   449→                    </div>
+   450→                    <p className="text-base md:text-2xl font-bold mt-2 text-amber-700 dark:text-amber-400">{formatRupiah(s?.cards.unpaidTotal ?? 0)}</p>
+   451→                    <p className="text-[11px] text-muted-foreground mt-1">{s?.cards.unpaidCount ?? 0} invoice belum lunas</p>
+   452→                  </>
+   453→                )}
+   454→              </CardContent>
+   455→            </Card>
+   456→          </button>
+   457→
+   458→          {/* Laba kotor (admin/manager) atau Surat Jalan (kasir) */}
+   459→          {canSeeFinance ? (
+   460→            <button className="text-left" onClick={() => navigate('/laporan/rugi-laba')} aria-label="Buka Laporan Rugi Laba">
+   461→              <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+   462→                <CardContent className="p-4 md:p-5">
+   463→                  {loading ? (
+   464→                    <Skeleton className="h-16 w-full" />
+   465→                  ) : (
+   466→                    <>
+   467→                      <div className="flex items-center gap-2 text-muted-foreground">
+   468→                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+   469→                        <p className="text-xs font-medium">Laba Kotor</p>
+   470→                      </div>
+   471→                      <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{formatRupiah(s?.cards.margin ?? 0)}</p>
+   472→                      <p className="text-[11px] text-muted-foreground mt-1">
+   473→                        Biaya ops: {formatRupiah(s?.cards.expenseThisMonth ?? 0)}
+   474→                      </p>
+   475→                    </>
+   476→                  )}
+   477→                </CardContent>
+   478→              </Card>
+   479→            </button>
+   480→          ) : (
+   481→            <button className="text-left" onClick={() => navigate('/surat-jalan')} aria-label="Buka Surat Jalan">
+   482→              <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
+   483→                <CardContent className="p-4 md:p-5">
+   484→                  {loading ? (
+   485→                    <Skeleton className="h-16 w-full" />
+   486→                  ) : (
+   487→                    <>
+   488→                      <div className="flex items-center gap-2 text-muted-foreground">
+   489→                        <Truck className="h-4 w-4 text-emerald-600" />
+   490→                        <p className="text-xs font-medium">Surat Jalan</p>
+   491→                      </div>
+   492→                      <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">{s?.ops.sjCount ?? 0}</p>
+   493→                      <p className="text-[11px] text-muted-foreground mt-1">dibuat bulan ini</p>
+   494→                    </>
+   495→                  )}
+   496→                </CardContent>
+   497→              </Card>
+   498→            </button>
+   499→          )}
+   500→        </div>
+   501→
+   502→        {/* ===== Grafik + Status ===== */}
+   503→        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
+   504→          <Card className="lg:col-span-3 p-0 gap-0 dark:border-zinc-800">
+   505→            <CardHeader className="py-4 px-4 md:px-5">
+   506→              <div className="flex flex-row items-center justify-between gap-2">
+   507→                <div>
+   508→                  <CardTitle className="text-sm">Grafik Penjualan</CardTitle>
+   509→                  <p className="text-[11px] text-muted-foreground mt-0.5">
+   510→                    Total: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{formatRupiah(chartTotal)}</span>
+   511→                  </p>
+   512→                </div>
+   513→                <div className="flex items-center gap-1 rounded-lg border border-stone-200 bg-stone-50 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+   514→                  {(['monthly', 'daily'] as const).map((m) => (
+   515→                    <button
+   516→                      key={m}
+   517→                      onClick={() => setChartMode(m)}
+   518→                      aria-pressed={chartMode === m}
+   519→                      className={`px-2.5 h-7 rounded-md text-[11px] font-medium transition-colors ${
+   520→                        chartMode === m
+   521→                          ? 'bg-white shadow-sm text-stone-900 dark:bg-zinc-900 dark:text-zinc-100'
+   522→                          : 'text-stone-500 hover:text-stone-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+   523→                      }`}
+   524→                    >
+   525→                      {m === 'monthly' ? '6 Bulan' : '14 Hari'}
+   526→                    </button>
+   527→                  ))}
+   528→                </div>
+   529→              </div>
+   530→            </CardHeader>
+   531→            <CardContent className="px-2 md:px-4 pb-4">
+   532→              {loading ? (
+   533→                <Skeleton className="h-[240px] w-full mx-2" />
+   534→              ) : (
+   535→                <div className="h-[240px] w-full">
+   536→                  <ResponsiveContainer width="100%" height="100%">
+   537→                    <BarChart data={chartData} margin={{ left: 4, right: 8, top: 8 }}>
+   538→                      <defs>
+   539→                        <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
+   540→                          <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+   541→                          <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
+   542→                        </linearGradient>
+   543→                      </defs>
+   544→                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e7e5e4" className="dark:opacity-20" />
+   545→                      <XAxis
+   546→                        dataKey="label"
+   547→                        tickLine={false}
+   548→                        axisLine={false}
+   549→                        tickMargin={8}
+   550→                        fontSize={11}
+   551→                        stroke="#78716c"
+   552→                        interval="preserveStartEnd"
+   553→                      />
+   554→                      <YAxis
+   555→                        width={48}
+   556→                        tickLine={false}
+   557→                        axisLine={false}
+   558→                        fontSize={10}
+   559→                        stroke="#78716c"
+   560→                        tickFormatter={(v: number) => compactIDR(v)}
+   561→                      />
+   562→                      <RTooltip cursor={{ fill: 'rgba(5, 150, 105, 0.07)' }} content={<ChartTip />} />
+   563→                      <Bar dataKey="value" fill="url(#gBar)" radius={[6, 6, 0, 0]} maxBarSize={38} />
+   564→                    </BarChart>
+   565→                  </ResponsiveContainer>
+   566→                </div>
+   567→              )}
+   568→            </CardContent>
+   569→          </Card>
+   570→
+   571→          <Card className="lg:col-span-2 p-0 gap-0 dark:border-zinc-800">
+   572→            <CardHeader className="py-4 px-4 md:px-5">
+   573→              <CardTitle className="text-sm">Status Invoice Bulan Ini</CardTitle>
+   574→            </CardHeader>
+   575→            <CardContent className="px-4 md:px-5 pb-5">
+   576→              {loading ? (
+   577→                <Skeleton className="h-[200px] w-full" />
+   578→              ) : statusTotal === 0 ? (
+   579→                <div className="flex flex-col items-center justify-center py-10 text-center">
+   580→                  <Inbox className="h-10 w-10 text-stone-300 mx-auto mb-2 dark:text-zinc-700" />
+   581→                  <p className="text-sm text-muted-foreground">Belum ada invoice bulan ini.</p>
+   582→                </div>
+   583→              ) : (
+   584→                <>
+   585→                  <div className="relative mx-auto h-[180px] w-full max-w-[240px]">
+   586→                    <ResponsiveContainer width="100%" height="100%">
+   587→                      <PieChart>
+   588→                        <RTooltip content={<ChartTip />} />
+   589→                        <Pie data={statusData} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="88%" paddingAngle={2} strokeWidth={0}>
+   590→                          {statusData.map((d) => (
+   591→                            <Cell key={d.name} fill={d.fill} />
+   592→                          ))}
+   593→                        </Pie>
+   594→                      </PieChart>
+   595→                    </ResponsiveContainer>
+   596→                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+   597→                      <p className="text-2xl font-bold leading-none text-stone-900 dark:text-zinc-100">{statusTotal}</p>
+   598→                      <p className="text-[11px] text-muted-foreground mt-1">invoice</p>
+   599→                    </div>
+   600→                  </div>
+   601→                  <ul className="mt-4 space-y-2">
+   602→                    {statusData.map((d) => (
+   603→                      <li key={d.name} className="flex items-center gap-2 text-sm">
+   604→                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.fill }} />
+   605→                        <span className="flex-1 text-stone-600 dark:text-zinc-300">{d.name}</span>
+   606→                        <span className="font-semibold text-stone-900 dark:text-zinc-100">{d.value}</span>
+   607→                        <span className="text-[11px] text-muted-foreground w-9 text-right">{Math.round((d.value / statusTotal) * 100)}%</span>
+   608→                      </li>
+   609→                    ))}
+   610→                  </ul>
+   611→                </>
+   612→              )}
+   613→            </CardContent>
+   614→          </Card>
+   615→        </div>
+   616→
+   617→        {/* ===== Peringkat: Top pelanggan & produk terlaris ===== */}
+   618→        <div className="grid grid-cols-1 gap-4 md:gap-6 md:grid-cols-2">
+   619→          <Card className="p-0 gap-0 dark:border-zinc-800">
+   620→            <CardHeader className="py-4 px-4 md:px-5">
+   621→              <CardTitle className="text-sm">Pelanggan Teratas Bulan Ini</CardTitle>
+   622→            </CardHeader>
+   623→            <CardContent className="px-4 md:px-5 pb-5">
+   624→              {loading ? (
+   625→                <div className="space-y-3">
+   626→                  {[1, 2, 3].map((i) => (
+   627→                    <Skeleton key={i} className="h-12 w-full" />
+   628→                  ))}
+   629→                </div>
+   630→              ) : !s?.topCustomers.length ? (
+   631→                <p className="text-sm text-muted-foreground py-6 text-center">Belum ada penjualan bulan ini.</p>
+   632→              ) : (
+   633→                <ul className="space-y-3.5">
+   634→                  {s.topCustomers.map((c, i) => (
+   635→                    <li key={c.name}>
+   636→                      <button onClick={() => navigate('/master-customer')} className="w-full text-left group" aria-label={`Buka Master Customer: ${c.name}`}>
+   637→                        <div className="flex items-center gap-3">
+   638→                          <span
+   639→                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+   640→                              i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500 dark:bg-zinc-800 dark:text-zinc-400'
+   641→                            }`}
+   642→                          >
+   643→                            {i + 1}
+   644→                          </span>
+   645→                          <div className="flex-1 min-w-0">
+   646→                            <p className="text-sm font-medium truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">{c.name}</p>
+   647→                            <p className="text-[11px] text-muted-foreground">{c.count} invoice</p>
+   648→                          </div>
+   649→                          <p className="text-sm font-semibold shrink-0 text-stone-900 dark:text-zinc-100">{formatRupiah(c.total)}</p>
+   650→                        </div>
+   651→                        <div className="mt-1.5 ml-9 h-1.5 rounded-full bg-stone-100 overflow-hidden dark:bg-zinc-800">
+   652→                          <div
+   653→                            className="h-full rounded-full bg-emerald-500"
+   654→                            style={{ width: `${maxCust > 0 ? Math.max(4, (c.total / maxCust) * 100) : 4}%` }}
+   655→                          />
+   656→                        </div>
+   657→                      </button>
+   658→                    </li>
+   659→                  ))}
+   660→                </ul>
+   661→              )}
+   662→            </CardContent>
+   663→          </Card>
+   664→
+   665→          <Card className="p-0 gap-0 dark:border-zinc-800">
+   666→            <CardHeader className="py-4 px-4 md:px-5">
+   667→              <CardTitle className="text-sm">Produk Terlaris Bulan Ini</CardTitle>
+   668→            </CardHeader>
+   669→            <CardContent className="px-4 md:px-5 pb-5">
+   670→              {loading ? (
+   671→                <div className="space-y-3">
+   672→                  {[1, 2, 3].map((i) => (
+   673→                    <Skeleton key={i} className="h-12 w-full" />
+   674→                  ))}
+   675→                </div>
+   676→              ) : !s?.topItems.length ? (
+   677→                <p className="text-sm text-muted-foreground py-6 text-center">Belum ada barang terjual bulan ini.</p>
+   678→              ) : (
+   679→                <ul className="space-y-3.5">
+   680→                  {s.topItems.map((it, i) => (
+   681→                    <li key={it.name}>
+   682→                      <div>
+   683→                        <div className="flex items-center gap-3">
+   684→                          <span
+   685→                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+   686→                              i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500 dark:bg-zinc-800 dark:text-zinc-400'
+   687→                            }`}
+   688→                          >
+   689→                            {i + 1}
+   690→                          </span>
+   691→                          <div className="flex-1 min-w-0">
+   692→                            <p className="text-sm font-medium truncate">{it.name}</p>
+   693→                            <p className="text-[11px] text-muted-foreground">
+   694→                              {it.qty} {it.unit} terjual
+   695→                            </p>
+   696→                          </div>
+   697→                          <p className="text-sm font-semibold shrink-0 text-stone-900 dark:text-zinc-100">{formatRupiah(it.total)}</p>
+   698→                        </div>
+   699→                        <div className="mt-1.5 ml-9 h-1.5 rounded-full bg-stone-100 overflow-hidden dark:bg-zinc-800">
+   700→                          <div
+   701→                            className="h-full rounded-full bg-amber-500"
+   702→                            style={{ width: `${maxItem > 0 ? Math.max(4, (it.total / maxItem) * 100) : 4}%` }}
+   703→                          />
+   704→                        </div>
+   705→                      </div>
+   706→                    </li>
+   707→                  ))}
+   708→                </ul>
+   709→              )}
+   710→            </CardContent>
+   711→          </Card>
+   712→        </div>
+   713→
+   714→        {/* ===== Strip operasional ===== */}
+   715→        <section aria-label="Operasional">
+   716→          <p className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-zinc-500 font-semibold mb-2">Operasional</p>
+   717→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   718→            <OpsCard
+   719→              loading={loading}
+   720→              icon={Truck}
+   721→              label="Surat Jalan"
+   722→              value={`${s?.ops.sjCount ?? 0}`}
+   723→              hint="dibuat bulan ini"
+   724→              onClick={() => navigate('/surat-jalan')}
+   725→            />
+   726→            {canSeeFinance && (
+   727→              <>
+   728→                <OpsCard
+   729→                  loading={loading}
+   730→                  icon={ClipboardList}
+   731→                  label="Purchase Order"
+   732→                  value={`${s?.ops.poCount ?? 0}`}
+   733→                  hint="dibuat bulan ini"
+   734→                  onClick={() => navigate('/purchase-order')}
+   735→                />
+   736→                <OpsCard
+   737→                  loading={loading}
+   738→                  icon={Wallet}
+   739→                  label="Biaya Operasional"
+   740→                  value={formatRupiah(s?.cards.expenseThisMonth ?? 0)}
+   741→                  hint="bulan ini"
+   742→                  onClick={() => navigate('/biaya-operasional')}
+   743→                />
+   744→              </>
+   745→            )}
+   746→            <OpsCard
+   747→              loading={loading}
+   748→              icon={AlarmClock}
+   749→              label="Jatuh Tempo ≤7 Hari"
+   750→              value={`${s?.cards.dueSoonCount ?? 0}`}
+   751→              hint="termasuk terlambat"
+   752→              onClick={() => navigate('/riwayat-pembayaran')}
+   753→              tone={s?.cards.dueSoonCount ? 'amber' : 'stone'}
+   754→            />
+   755→          </div>
+   756→        </section>
+   757→
+   758→        {/* ===== Invoice terbaru + Pengingat jatuh tempo ===== */}
+   759→        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">
+   760→          <Card className="lg:col-span-3 p-0 gap-0 dark:border-zinc-800">
+   761→            <CardHeader className="py-4 px-4 md:px-5">
+   762→              <div className="flex flex-row items-center justify-between gap-2">
+   763→                <CardTitle className="text-sm">Invoice Terbaru</CardTitle>
+   764→                <Button
+   765→                  variant="ghost"
+   766→                  size="sm"
+   767→                  className="text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 h-8"
+   768→                  onClick={() => navigate('/riwayat')}
+   769→                >
+   770→                  Lihat semua <ChevronRight className="h-4 w-4" />
+   771→                </Button>
+   772→              </div>
+   773→            </CardHeader>
+   774→            <CardContent className="px-2 md:px-3 pb-3">
+   775→              {loading ? (
+   776→                <div className="space-y-2 px-2">
+   777→                  {[1, 2, 3, 4].map((i) => (
+   778→                    <Skeleton key={i} className="h-12 w-full" />
+   779→                  ))}
+   780→                </div>
+   781→              ) : !s?.recent?.length ? (
+   782→                <div className="text-center py-8 px-4">
+   783→                  <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2 dark:text-zinc-700" />
+   784→                  <p className="text-sm text-muted-foreground">Belum ada invoice.</p>
+   785→                </div>
+   786→              ) : (
+   787→                <ul className="divide-y divide-stone-100 max-h-[420px] overflow-y-auto scrollbar-thin dark:divide-zinc-800">
+   788→                  {s.recent.map((inv) => (
+   789→                    <li key={inv.id}>
+   790→                      <button
+   791→                        onClick={() => openPreview(inv)}
+   792→                        className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
+   793→                      >
+   794→                        <div className="flex-1 min-w-0">
+   795→                          <p className="text-sm font-medium truncate">{inv.number}</p>
+   796→                          <p className="text-xs text-muted-foreground truncate">
+   797→                            {inv.customerName} · {formatTanggalID(inv.date)}
+   798→                          </p>
+   799→                        </div>
+   800→                        <div className="text-right shrink-0">
+   801→                          <p className="text-sm font-semibold tabular-nums">{formatRupiah(inv.total)}</p>
+   802→                        </div>
+   803→                        <div className="flex items-center gap-1.5 shrink-0">
+   804→                          {inv.type !== 'REGULER' && <TypeBadge type={inv.type} />}
+   805→                          <StatusBadge status={inv.status} dueDate={inv.dueDate} />
+   806→                        </div>
+   807→                      </button>
+   808→                    </li>
+   809→                  ))}
+   810→                </ul>
+   811→              )}
+   812→            </CardContent>
+   813→          </Card>
+   814→
+   815→          <Card className="lg:col-span-2 p-0 gap-0 dark:border-zinc-800">
+   816→            <CardHeader className="py-4 px-4 md:px-5">
+   817→              <CardTitle className="text-sm flex items-center gap-2">
+   818→                <AlarmClock className="h-4 w-4 text-amber-600" /> Pengingat Jatuh Tempo
+   819→              </CardTitle>
+   820→            </CardHeader>
+   821→            <CardContent className="px-2 md:px-3 pb-3">
+   822→              {loading ? (
+   823→                <div className="space-y-2 px-2">
+   824→                  {[1, 2, 3].map((i) => (
+   825→                    <Skeleton key={i} className="h-12 w-full" />
+   826→                  ))}
+   827→                </div>
+   828→              ) : !s?.dueSoon?.length ? (
+   829→                <div className="text-center py-8 px-4">
+   830→                  <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-2 dark:text-emerald-900" />
+   831→                  <p className="text-sm text-muted-foreground">Tidak ada tagihan jatuh tempo dalam 7 hari.</p>
+   832→                </div>
+   833→              ) : (
+   834→                <ul className="divide-y divide-stone-100 dark:divide-zinc-800">
+   835→                  {s.dueSoon.map((d) => (
+   836→                    <li key={d.id}>
+   837→                      <button
+   838→                        onClick={() => openPreview(d)}
+   839→                        className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
+   840→                      >
+   841→                        <div className="flex-1 min-w-0">
+   842→                          <p className="text-sm font-medium truncate">{d.number}</p>
+   843→                          <p className="text-xs text-muted-foreground truncate">
+   844→                            {d.customerName} · tempo {formatTanggalID(d.dueDate)}
+   845→                          </p>
+   846→                        </div>
+   847→                        <div className="text-right shrink-0">
+   848→                          <p className="text-sm font-semibold tabular-nums">{formatRupiah(d.sisa)}</p>
+   849→                          {d.overdue ? (
+   850→                            <p className="text-[11px] font-medium text-red-600">Terlambat {d.overdueDays} hari</p>
+   851→                          ) : (
+   852→                            <p className="text-[11px] font-medium text-amber-600">
+   853→                              H-{Math.ceil((new Date(`${d.dueDate}T00:00:00`).getTime() - startOfToday()) / 86400000)}
+   854→                            </p>
+   855→                          )}
+   856→                        </div>
+   857→                      </button>
+   858→                    </li>
+   859→                  ))}
+   860→                </ul>
+   861→              )}
+   862→            </CardContent>
+   863→          </Card>
+   864→        </div>
+   865→
+   866→        {/* ===== Menu pintas ===== */}
+   867→        <section aria-label="Menu Pintas">
+   868→          <p className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-zinc-500 font-semibold mb-2">Menu Pintas</p>
+   869→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   870→            {canSeeFinance && (
+   871→              <>
+   872→                <QuickLink icon={Users} title="Master Pelanggan" desc="Data & kontak pelanggan" onClick={() => navigate('/master-customer')} />
+   873→                <QuickLink icon={BadgePercent} title="Harga Khusus" desc="Atur harga per pelanggan" onClick={() => navigate('/harga-khusus')} />
+   874→                <QuickLink icon={Package} title="Master Barang" desc="Harga standar & HPP" onClick={() => navigate('/master-barang')} />
+   875→              </>
+   876→            )}
+   877→            <QuickLink icon={ReceiptText} title="Riwayat Invoice" desc="Cari, export Excel/PDF, kirim WA" onClick={() => navigate('/riwayat')} />
+   878→            <QuickLink icon={Truck} title="Surat Jalan" desc="Dokumen pengiriman barang" onClick={() => navigate('/surat-jalan')} />
+   879→            {canSeeFinance && (
+   880→              <QuickLink icon={ClipboardList} title="Purchase Order" desc="Pesan barang ke supplier" onClick={() => navigate('/purchase-order')} />
+   881→            )}
+   882→          </div>
+   883→        </section>
+   884→
+   885→        {/* ===== PREVIEW DIALOG — Invoice A5 popup ===== */}
+   886→        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+   887→          <DialogContent
+   888→            className="max-w-none w-auto overflow-hidden p-2 pt-10 gap-0 [&_button]:cursor-default"
+   889→            style={{
+   890→              width: `${576 * previewScale + 16}px`,
+   891→              maxHeight: `calc(100dvh - 32px)`,
+   892→            }}
+   893→            aria-label="Pratinjau Invoice"
+   894→          >
+   895→            <DialogHeader className="sr-only">
+   896→              <DialogTitle>Pratinjau Invoice</DialogTitle>
+   897→              <DialogDescription>Preview detail invoice dalam format A5</DialogDescription>
+   898→            </DialogHeader>
+   899→
+   900→            {previewData && (
+   901→              <div className="flex flex-col items-center gap-3">
+   902→                <div
+   903→                  style={{
+   904→                    width: `${576 * previewScale}px`,
+   905→                    height: `${576 * (210 / 148) * previewScale}px`,
+   906→                    overflow: 'hidden',
+   907→                    flexShrink: 0,
+   908→                  }}
+   909→                >
+   910→                  <div
+   911→                    style={{
+   912→                      width: 576,
+   913→                      height: 576 * (210 / 148),
+   914→                      transform: `scale(${previewScale})`,
+   915→                      transformOrigin: 'top left',
+   916→                    }}
+   917→                  >
+   918→                    <div className="bg-white" style={{ width: 576, height: 576 * (210 / 148) }}>
+   919→                      <div className="a5-preview-scaler">
+   920→                        <InvoicePreview data={previewData} />
+   921→                      </div>
+   922→                    </div>
+   923→                  </div>
+   924→                </div>
+   925→
+   926→                <button
+   927→                  onClick={handleSendPdf}
+   928→                  disabled={sendingPdf}
+   929→                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
+   930→                >
+   931→                  {sendingPdf ? (
+   932→                    <RefreshCw className="w-4 h-4 animate-spin" />
+   933→                  ) : (
+   934→                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+   935→                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+   936→                    </svg>
+   937→                  )}
+   938→                  Kirim via WhatsApp
+   939→                </button>
+   940→              </div>
+   941→            )}
+   942→          </DialogContent>
+   943→        </Dialog>
+   944→      </div>
+   945→    </DashboardLayout>
+   946→  )
+   947→}
+   948→
+   949→/** Kartu kecil operasional yang bisa diklik */
+   950→function OpsCard({
+   951→  icon: Icon,
+   952→  label,
+   953→  value,
+   954→  hint,
+   955→  onClick,
+   956→  loading,
+   957→  tone = 'emerald',
+   958→}: {
+   959→  icon: typeof Truck
+   960→  label: string
+   961→  value: string
+   962→  hint: string
+   963→  onClick: () => void
+   964→  loading?: boolean
+   965→  tone?: 'emerald' | 'amber' | 'stone'
+   966→}) {
+   967→  return (
+   968→    <button onClick={onClick} className="text-left">
+   969→      <Card
+   970→        className={`p-0 gap-0 h-full transition-colors dark:border-zinc-800 ${
+   971→          tone === 'amber'
+   972→            ? 'hover:border-amber-300 hover:bg-amber-50/30 dark:hover:border-amber-900 dark:hover:bg-amber-950/20'
+   973→            : tone === 'stone'
+   974→              ? 'hover:border-stone-300 dark:hover:border-zinc-700'
+   975→              : 'hover:border-emerald-300 hover:bg-emerald-50/30 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20'
+   976→        }`}
+   977→      >
+   978→        <CardContent className="p-4">
+   979→          {loading ? (
+   980→            <Skeleton className="h-12 w-full" />
+   981→          ) : (
+   982→            <div className="flex items-start gap-3">
+   983→              <div
+   984→                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+   985→                  tone === 'amber'
+   986→                    ? 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
+   987→                    : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400'
+   988→                }`}
+   989→              >
+   990→                <Icon className="h-4.5 w-4.5" />
+   991→              </div>
+   992→              <div className="min-w-0 flex-1">
+   993→                <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
+   994→                <p className="text-base md:text-lg font-bold mt-0.5 truncate text-stone-900 dark:text-zinc-100">{value}</p>
+   995→                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{hint}</p>
+   996→              </div>
+   997→              <ChevronRight className="h-4 w-4 text-stone-300 dark:text-zinc-600 shrink-0 mt-1" />
+   998→            </div>
+   999→          )}
+  1000→        </CardContent>
+  1001→      </Card>
+  1002→    </button>
+  1003→  )
+  1004→}
+  1005→
+  1006→function QuickLink({
+  1007→  icon: Icon,
+  1008→  title,
+  1009→  desc,
+  1010→  onClick,
+  1011→}: {
+  1012→  icon: typeof Users
+  1013→  title: string
+  1014→  desc: string
+  1015→  onClick: () => void
+  1016→}) {
+  1017→  return (
+  1018→    <button
+  1019→      onClick={onClick}
+  1020→      className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50 min-h-[60px] dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20"
+  1021→    >
+  1022→      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+  1023→        <Icon className="h-4.5 w-4.5" />
+  1024→      </div>
+  1025→      <div className="flex-1 min-w-0">
+  1026→        <p className="text-sm font-medium text-stone-900 dark:text-zinc-100">{title}</p>
+  1027→        <p className="text-xs text-muted-foreground truncate">{desc}</p>
+  1028→      </div>
+  1029→      <ChevronRight className="h-4 w-4 text-stone-400 dark:text-zinc-600" />
+  1030→    </button>
+  1031→  )
+  1032→}
+  1033→
+  1034→/** Badge tipe invoice: DP = biru muda, lainnya stone */
+  1035→function TypeBadge({ type }: { type: string }) {
+  1036→  const isDp = type === 'DP'
+  1037→  return (
+  1038→    <Badge
+  1039→      variant="outline"
+  1040→      className={`text-[10px] px-1.5 py-0 shrink-0 ${
+  1041→        isDp
+  1042→          ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300'
+  1043→          : 'border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+  1044→      }`}
+  1045→    >
+  1046→      {type}
+  1047→    </Badge>
+  1048→  )
+  1049→}
+  1050→
+  1051→/**
+  1052→ * Badge status invoice. Warna (spesifikasi user):
+  1053→ * Lunas → hijau, Belum Lunas → oranye, Jatuh Tempo → merah.
+  1054→ */
+  1055→function StatusBadge({ status, dueDate }: { status: 'LUNAS' | 'BELUM'; dueDate: string }) {
+  1056→  if (status === 'BELUM' && dueDate && new Date(`${dueDate}T00:00:00`).getTime() < startOfToday()) {
+  1057→    return (
+  1058→      <Badge
+  1059→        variant="outline"
+  1060→        className="bg-red-50 text-red-700 border-red-200 text-[10px] px-1.5 py-0 shrink-0 dark:bg-red-950 dark:text-red-300 dark:border-red-900"
+  1061→      >
+  1062→        Jatuh Tempo
+  1063→      </Badge>
+  1064→    )
+  1065→  }
+  1066→  if (status === 'LUNAS') {
+  1067→    return (
+  1068→      <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900 text-[10px] px-1.5 py-0 shrink-0">
+  1069→        Lunas
+  1070→      </Badge>
+  1071→    )
+  1072→  }
+  1073→  return (
+  1074→    <Badge
+  1075→      variant="outline"
+  1076→      className="bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-50 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900 text-[10px] px-1.5 py-0 shrink-0"
+  1077→      title={dueDate ? `Jatuh tempo ${dueDate}` : undefined}
+  1078→    >
+  1079→      Belum Lunas
+  1080→    </Badge>
+  1081→  )
+  1082→}
+  1083→
