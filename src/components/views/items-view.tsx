@@ -64,12 +64,26 @@ interface ItemFormState {
   unit: string
   standardPrice: string
   hpp: string
+  /** Bidang praktis: saat diisi → Harga Jual otomatis = Harga Modal + Profit */
+  profit: string
   keterangan: string
   isActive: boolean
 }
 
 const EMPTY_FORM: ItemFormState = {
-  name: '', unit: 'pcs', standardPrice: '', hpp: '', keterangan: '', isActive: true,
+  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', keterangan: '', isActive: true,
+}
+
+function toNum(v: string): number | null {
+  if (v.trim() === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function profitOf(jual: string, modal: string): string {
+  const j = toNum(jual)
+  const m = toNum(modal)
+  return j !== null && m !== null ? String(j - m) : ''
 }
 
 function ActiveBadge({ active }: { active: boolean }) {
@@ -149,18 +163,20 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
   const openEdit = (it: Item) => {
     setEditing(it)
+    const modalStr = it.hpp != null ? String(it.hpp) : ''
     setForm({
       name: it.name,
       unit: it.unit,
       standardPrice: String(it.standardPrice),
-      hpp: it.hpp != null ? String(it.hpp) : '',
+      hpp: modalStr,
+      profit: profitOf(String(it.standardPrice), modalStr),
       keterangan: it.keterangan ?? '',
       isActive: it.isActive,
     })
     setDialogOpen(true)
   }
 
-  // Profit = harga jual − HPP; Margin = profit / harga jual × 100
+  // Profit = harga jual − harga modal; Margin = profit / harga jual × 100
   const marginInfo = (() => {
     const std = Number(form.standardPrice)
     const hpp = Number(form.hpp)
@@ -171,6 +187,38 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     const margin = (profit / std) * 100
     return { profit, margin, negative: margin < 0 }
   })()
+
+  /* Sinkronisasi dua arah: Jual ↔ Profit dengan Modal sebagai dasar.
+   - Ubah Harga Jual → Profit = Jual − Modal
+   - Ubah Harga Modal → Profit mengikuti Jual; bila Jual kosong tapi Profit terisi → Jual = Modal + Profit
+   - Ubah Profit → Jual = Modal + Profit */
+  const setJual = (v: string) => {
+    setForm((f) => ({ ...f, standardPrice: v, profit: profitOf(v, f.hpp) }))
+  }
+  const setModal = (v: string) => {
+    setForm((f) => {
+      const jual = toNum(f.standardPrice)
+      const modal = toNum(v)
+      if (jual !== null && modal !== null) {
+        return { ...f, hpp: v, profit: String(jual - modal) }
+      }
+      const profit = toNum(f.profit)
+      if (profit !== null && modal !== null) {
+        return { ...f, hpp: v, standardPrice: String(modal + profit) }
+      }
+      return { ...f, hpp: v, profit: f.standardPrice !== '' || f.profit === '' ? '' : f.profit }
+    })
+  }
+  const setProfit = (v: string) => {
+    setForm((f) => {
+      const modal = toNum(f.hpp)
+      const profit = toNum(v)
+      if (modal !== null && profit !== null) {
+        return { ...f, profit: v, standardPrice: String(modal + profit) }
+      }
+      return { ...f, profit: v }
+    })
+  }
 
   const handleSave = async () => {
     const std = Number(form.standardPrice)
@@ -568,28 +616,49 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   min={0}
                   step="any"
                   value={form.standardPrice}
-                  onChange={(e) => setForm((f) => ({ ...f, standardPrice: e.target.value }))}
+                  onChange={(e) => setJual(e.target.value)}
                   placeholder="0"
                 />
               </div>
             </div>
             {showHpp && (
               <div className="grid gap-1.5">
-                <Label htmlFor="item-hpp">HPP / Harga Pokok (Rp)</Label>
-                <Input
-                  id="item-hpp"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step="any"
-                  value={form.hpp}
-                  onChange={(e) => setForm((f) => ({ ...f, hpp: e.target.value }))}
-                  placeholder="0"
-                />
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="item-modal">Harga Modal (Rp)</Label>
+                    <Input
+                      id="item-modal"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step="any"
+                      value={form.hpp}
+                      onChange={(e) => setModal(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="item-profit">Profit (Rp)</Label>
+                    <Input
+                      id="item-profit"
+                      type="number"
+                      inputMode="numeric"
+                      step="any"
+                      value={form.profit}
+                      onChange={(e) => setProfit(e.target.value)}
+                      placeholder="Otomatis dari Harga Jual − Modal"
+                      className={marginInfo?.negative ? 'text-red-600' : ''}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Isi Modal + Profit → Harga Jual terisi otomatis. Isi Harga Jual → Profit terhitung sendiri.
+                </p>
                 {marginInfo && (
                   <div className={`text-xs rounded-md px-2 py-1.5 ${marginInfo.negative ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
                     Profit: <span className="font-semibold">{formatIDR(marginInfo.profit)}</span>
                     {' '}(Margin: {formatNum(marginInfo.margin, 1)}%)
+                    {marginInfo.negative ? ' — rugi! Harga Jual lebih kecil dari Modal.' : ''}
                   </div>
                 )}
               </div>
