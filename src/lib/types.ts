@@ -271,6 +271,8 @@ export interface Item {
   standardPrice: number
   /** null = disembunyikan untuk role kasir */
   hpp: number | null
+  /** Jumlah stok barang (default 0) */
+  qty: number
   keterangan: string
   isActive: boolean
   createdAt: string

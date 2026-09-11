@@ -12,8 +12,8 @@ function toNumber(v: unknown): number | null {
 }
 
 /**
- * PUT /api/items/:id — update barang (nama, satuan, harga jual, HPP, keterangan, status aktif).
- * Body: { name?, unit?, standardPrice?, hpp?, keterangan?, isActive? }
+ * PUT /api/items/:id — update barang (nama, satuan, harga jual, HPP, qty, keterangan, status aktif).
+ * Body: { name?, unit?, standardPrice?, hpp?, qty?, keterangan?, isActive? }
  */
 export async function PUT(
   request: NextRequest,
@@ -40,6 +40,7 @@ export async function PUT(
       satuan?: string
       jual?: number
       modal?: number
+      qty?: number
       keterangan?: string
       isActive?: boolean
     } = {}
@@ -69,6 +70,13 @@ export async function PUT(
       }
       data.modal = hpp
     }
+    if (body.qty !== undefined) {
+      const qty = body.qty === null || body.qty === '' ? 0 : toNumber(body.qty)
+      if (qty === null || qty < 0) {
+        return NextResponse.json({ error: 'Qty tidak valid (min 0)' }, { status: 400 })
+      }
+      data.qty = qty
+    }
     if (body.keterangan !== undefined) {
       data.keterangan = typeof body.keterangan === 'string' ? body.keterangan.trim().slice(0, 500) : ''
     }
@@ -89,6 +97,7 @@ export async function PUT(
         unit: item.satuan,
         standardPrice: item.jual,
         hpp: item.modal,
+        qty: item.qty,
         keterangan: item.keterangan,
         isActive: item.isActive,
         createdAt: item.createdAt.toISOString(),

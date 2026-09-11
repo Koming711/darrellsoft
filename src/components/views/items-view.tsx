@@ -66,12 +66,14 @@ interface ItemFormState {
   hpp: string
   /** Bidang praktis: saat diisi → Harga Jual otomatis = Harga Modal + Profit */
   profit: string
+  /** Jumlah stok barang */
+  qty: string
   keterangan: string
   isActive: boolean
 }
 
 const EMPTY_FORM: ItemFormState = {
-  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', keterangan: '', isActive: true,
+  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', qty: '', keterangan: '', isActive: true,
 }
 
 function toNum(v: string): number | null {
@@ -171,6 +173,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       standardPrice: String(it.standardPrice),
       hpp: modalStr,
       profit: profitOf(String(it.standardPrice), modalStr),
+      qty: String(it.qty ?? 0),
       keterangan: it.keterangan ?? '',
       isActive: it.isActive,
     })
@@ -236,6 +239,11 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       toast.error('HPP tidak boleh negatif')
       return
     }
+    const qtyNum = form.qty.trim() === '' ? 0 : Number(form.qty)
+    if (!Number.isFinite(qtyNum) || qtyNum < 0) {
+      toast.error('Qty tidak boleh negatif')
+      return
+    }
     setSaving(true)
     try {
       const body = {
@@ -243,6 +251,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         unit: form.unit,
         standardPrice: std,
         hpp: hppNum,
+        qty: qtyNum,
         keterangan: form.keterangan.trim(),
         ...(editing ? { isActive: form.isActive } : { customerId: customerId !== 'all' ? customerId : undefined }),
       }
@@ -430,6 +439,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
                   <TableHead className="text-center">Satuan</TableHead>
+                  <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Keterangan</TableHead>
@@ -443,6 +453,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
                     <TableCell className="font-medium">{it.name}</TableCell>
                     <TableCell className="text-center">{it.unit}</TableCell>
+                    <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatIDR(it.standardPrice)}</TableCell>
                     {showHpp && (
                       <TableCell className="text-right whitespace-nowrap">
@@ -526,8 +537,9 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   </div>
                   <ActiveBadge active={it.isActive} />
                 </div>
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   <p className="text-muted-foreground">Satuan: <span className="font-medium text-stone-700">{it.unit}</span></p>
+                  <p className="text-muted-foreground">Qty: <span className="font-semibold text-stone-700">{formatNum(it.qty)}</span></p>
                   <p className="text-muted-foreground">Harga Jual: <span className="font-semibold text-stone-700">{formatIDR(it.standardPrice)}</span></p>
                 </div>
                 {showHpp && (
@@ -609,18 +621,31 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="item-qty">Qty</Label>
                 <Input
-                  id="item-price"
+                  id="item-qty"
                   type="number"
                   inputMode="numeric"
                   min={0}
                   step="any"
-                  value={form.standardPrice}
-                  onChange={(e) => setJual(e.target.value)}
+                  value={form.qty}
+                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
                   placeholder="0"
                 />
               </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
+              <Input
+                id="item-price"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step="any"
+                value={form.standardPrice}
+                onChange={(e) => setJual(e.target.value)}
+                placeholder="0"
+              />
             </div>
             {showHpp && (
               <div className="grid gap-1.5">
