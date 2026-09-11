@@ -105,7 +105,8 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const canAdd = canAddProp ?? canManage
   const canEditItem = canEditProp ?? canManage
   const canDelete = canDeleteProp ?? canManage
-  const showHpp = user.role !== 'KASIR'
+  // Harga Modal & Profit tampil untuk SEMUA role (permintaan owner — sebelumnya disembunyikan untuk KASIR)
+  const showHpp = true
 
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
@@ -241,7 +242,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         name: form.name.trim(),
         unit: form.unit,
         standardPrice: std,
-        hpp: showHpp ? hppNum : null,
+        hpp: hppNum,
         keterangan: form.keterangan.trim(),
         ...(editing ? { isActive: form.isActive } : { customerId: customerId !== 'all' ? customerId : undefined }),
       }
