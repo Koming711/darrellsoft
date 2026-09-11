@@ -8463,3 +8463,25 @@ Stage Summary:
 - Beranda baru, Riwayat Pembayaran, sub-permission master customer, bold potong kertas, preview hitung cetakan — semuanya LIVE di www.darrellsoft.com dan lokal
 - Infrastruktur dipulihkan: schema sqlite, prisma client sqlite, .vercel link darrellsoft, daemon jalan, baseline DB 22/20/20 utuh
 - Catatan risiko: environment bisa rollback lagi (sudah 2x kejadian). Disarankan commit checkpoint manual berkala (git add -A && git commit) setelah sesi besar agar pemulihan cepat
+
+---
+Task ID: 28
+Agent: Main (Z.ai Code)
+Task: "dihalaman riwayat pembayaran. rapihkan tampilan mobile yang crud dan ui" + "lanjutkan. deploy ke www.darrellsoft.com"
+
+Work Log:
+- Redesign mobile-only (desktop tabel TIDAK diubah) src/app/riwayat-pembayaran/page.tsx — 9 edit:
+  1) Strip ringkasan: ikon Wallet dalam lingkaran amber-100 + nilai Total Piutang truncate + 2 chip kanan ("N Invoice DP" sky / "N Pelunasan" emerald) menggantikan teks polos.
+  2) Judul section "Daftar Invoice DP" & "Transaksi Pelunasan" diberi chip jumlah record (rounded-full stone-100, hidden saat loading/kosong).
+  3) Kartu mobile DP: border-l-4 aksen status (amber=Belum Lunas, emerald=Lunas), baris 1 nomor bold+badge DP|StatusBadge, baris 2 nama pelanggan (ikon User) & tanggal (ikon CalendarDays) di baris sendiri, baris 3 divider dashed + grid 3 kolom TOTAL/DP/SISA (label uppercase 10px, nilai 13px semibold tabular-nums) + chevron kanan; hover shadow-sm + active feedback; dark mode lengkap.
+  4) Kartu mobile pelunasan: aksen emerald konsisten, tanggal + ref "DP INV/..." mono, divider dashed + baris "NOMINAL PELUNASAN" vs nominal emerald bold 16px.
+  5) Skeleton mobile disesuaikan tinggi kartu baru (h-40 DP, h-28 pelunasan).
+  6) Tombol "Kirim via WhatsApp" di popup preview: h-11 (44px touch target), rounded-xl, font-semibold.
+- Verifikasi LOKAL (localhost:3000): ESLint 0 error; mobile 390x844 scrollW=390 tanpa overflow, 3 kartu DP + 3 kartu pelunasan render, klik kartu DP & pelunasan → popup A5 + tombol WA 44px tanpa "Application error"; desktop 1280x800 tabel utuh (kartu mobile display:none), klik baris → popup OK; dev.log bersih; baseline DB utuh documentHistory=22, riwayatCetakan=20, riwayatPotongKertas=20. Screenshot: .zscripts/task28-m-top.png, task28-m-bottom.png, task28-m-popup-dp.png, task28-m-popup-pel.png, task28-d-top.png, task28-d-popup.png.
+- DEPLOY (3 kali karena rollback environment lagi): (1) deploy pertama NYASAR ke proyek "my-project" — .vercel/project.json ter-rollback ke projectName "my-project"; (2) relink `vercel link --project darrellsoft` (project.json pulih prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB; CLI buat .env.local berisi VERCEL_OIDC_TOKEN — tidak berbahaya), deploy ke-2 terlanjur pakai schema SQLITE karena revert-schema dijalankan sebelum relink → langsung diperbaiki; (3) deploy ke-3 dengan urutan benar prepare-build (postgresql) → vercel --prod --yes → revert-schema (sqlite lokal pulih) → SUKSES.
+- Verifikasi ONLINE (www.darrellsoft.com): mobile 390 scrollW=390, wallet icon + chip "3 Invoice DP"/"0 Pelunasan", 3 kartu DP dengan aksen status benar (amber INV/07/26/0003 Belum Lunas, emerald INV/07/26/0004 Lunas SISA Rp0 hijau), klik kartu → popup preview + WA (waH 49.5px) tanpa crash; pelunasan 0 data → empty state tampil (benar); desktop 1280 tabel DP utuh + chip section + popup OK; browser errors kosong. Screenshot: task28-online-m-top.png, task28-online-m-popup.png, task28-online-d.png, task28-online-d-popup.png.
+
+Stage Summary:
+- Halaman Riwayat Pembayaran versi mobile kini bergaya CRUD dashboard yang rapi: strip piutang ber-ikon & chip, judul section ber-hit count, kartu DP/pelunasan beraksen status (amber/emerald) dengan hierarki info (nomor → pelanggan/tanggal → ringkasan nominal), touch target ≥44px, dark mode konsisten — desktop tidak berubah.
+- LIVE di www.darrellsoft.com (deploy darrellsoft-ike2jkmye) dan lokal.
+- Catatan risiko: environment rollback lagi (ke-3 kali) — kali ini .vercel link + isu urutan schema saat deploy; urutan deploy yang benar SELALU prepare-build → vercel → revert-schema, cek .vercel/project.json SEBELUM deploy.
