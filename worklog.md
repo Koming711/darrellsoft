@@ -8567,3 +8567,22 @@ Stage Summary:
 - Tersimpan ke kolom `modal` yang sudah ada (tanpa migrasi DB); kompatibel dengan data lama (paperbowl/ongkir punya modal); profit tidak disimpan terpisah (selalu derivable = jual−modal) — tidak ada duplikasi sumber kebenaran.
 - Role kasir/user/demo tetap tidak melihat Modal & Profit (desain izin dipertahankan).
 - LIVE di www.darrellsoft.com (deploy darrellsoft-dr7ji0biv) & lokal; baseline DB utuh 22/20/20.
+
+---
+Task ID: 31-b
+Agent: Main (Z.ai Code)
+Task: "dihalaman tambah barang. apabila diklik tombol tambah maka muncul popup tambah barang, tambahkan harga modal dan profit di popup tambah barang. fix"
+
+Work Log:
+- ANALISIS: field Harga Modal & Profit SUDAH ADA di popup Tambah Barang sejak Task 31 (satu-satunya dialog "Tambah Barang" di codebase = items-view.tsx; terverifikasi grep). User melihat versi lama → penyebab: PWA service worker (public/sw.js) memakai stale-while-revalidate untuk aset JS (cached disajikan duluan) + APP_VERSION ('2026-09-07-v1') dan CACHE_NAME ('darrell-soft-v40') tidak dinaikkan saat deploy Task 31 → user PWA/browser dapat bundle lama saat load pertama setelah deploy.
+- FIX CACHE BUSTER: APP_VERSION '2026-09-07-v1' → '2026-09-11-v1' (src/components/service-worker-registration.tsx — user lama otomatis clear cache + unregister SW + hard reload); CACHE_NAME 'darrell-soft-v40' → 'darrell-soft-v41' (public/sw.js — cache lama terhapus di activate).
+- INSIDEN DEPLOY: environment reset membuat .vercel/project.json ter-relink ke project BARU "my-project" (prj_X6q5G8K8..., dibuat 13:10, tanpa domain/alias) → deploy pertama tak sengaja ke sana (darrellsoft AMAN, tidak tertimpa; my-project = scaffold kosong tanpa alias). Perbaikan: `vercel link --yes --project darrellsoft` → link kembali benar (prj_ZoKYf7ej9...) → deploy ulang sukses. Side-effect relink: .env.local dibuat Vercel CLI (isi VERCEL_OIDC_TOKEN saja) → dipindah ke /tmp agar dev lokal tetap sqlite (.env DATABASE_URL=file: terverifikasi).
+- VERIFIKASI LOKAL: lint 2 file = 0 error; login superadmin → master-barang → pilih Budi Susanto → klik Tambah → popup "Tambah Barang" berisi Harga Modal (Rp) + Profit (Rp) + hint; dev.log bersih. Catatan: klik tombol sering tertutup overlay Radix select (div.absolute.inset-0) → digunakan klik via JS eval; sekali terjadi client-side exception akibat penghapusan node DOM React via eval (bukan bug aplikasi; hilang setelah reload).
+- DEPLOY FINAL: prepare-build (postgresql) → vercel --prod --yes ke project darrellsoft (darrellsoft-fsbensuw3, Ready, alias www.darrellsoft.com) → revert-schema (sqlite). sw.js online = darrell-soft-v41; localStorage app_version di browser segar = 2026-09-11-v1.
+- VERIFIKASI ONLINE (www.darrellsoft.com, login superadmin): master-barang → pilih Budi Susanto → klik Tambah → POPUP TAMBAH BARANG menampilkan field: Nama Barang, Satuan, Harga Jual, HARGA MODAL (Rp), PROFIT (Rp) placeholder "Otomatis dari Harga Jual − Modal", hint sinkronisasi, Keterangan (screenshot task31b-online-popup.png). Dialog ditutup TANPA simpan (produksi bersih).
+
+Stage Summary:
+- Popup Tambah Barang PASTI menampilkan Harga Modal & Profit bagi semua user — cache PWA dipaksa refresh (APP_VERSION 2026-09-11-v1 + CACHE v41): user lama otomatis hard-reload saat kunjungan berikutnya.
+- Fitur inti (sinkronisasi dua arah Modal+Profit↔Jual, margin info, gating kasir) dari Task 31 tetap utuh dan LIVE.
+- Insiden deploy ke project salah ditangani (darrellsoft aman); link .vercel kembali ke darrellsoft; .env.local sisa relink dipindah agar dev lokal tetap sqlite.
+- Baseline DB utuh; produksi bersih (popup uji tidak disimpan).
