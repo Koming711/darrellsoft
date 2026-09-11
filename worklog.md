@@ -8545,3 +8545,25 @@ Stage Summary:
 - Tombol refresh DIHILANGKAN dari beranda (lokal + produksi www.darrellsoft.com LIVE). Beranda kini: greeting + badge role + tanggal → Motivasi Hari Ini → 4 kartu → grafik → donut → peringkat → operasional → invoice terbaru/jatuh tempo → menu pintas — TANPA tombol Buat Invoice & TANPA tombol refresh.
 - Muat data awal tetap otomatis (refresh() di useEffect), user tidak kehilangan fungsi apa pun.
 - Deploy darrellsoft-72r959who LIVE; schema lokal kembali sqlite; baseline DB 22/20/20 utuh.
+
+---
+Task ID: 31
+Agent: Main (Z.ai Code)
+Task: "dihalaman tambah barang tambahkan harga modal dan profit. fix. deploy"
+
+Work Log:
+- TEMUAN: dialog Tambah Barang (src/components/views/items-view.tsx) sudah punya field "HPP / Harga Pokok" yang tersimpan ke kolom DB `modal` — konsepnya sama dengan Harga Modal, tapi labelnya tidak familiar & Profit hanya teks info (tidak bisa diinput). API POST/PUT /api/items SUDAH mendukung hpp → tidak perlu ubah backend/DB.
+- EDIT (items-view.tsx): (1) label "HPP / Harga Pokok (Rp)" diganti "Harga Modal (Rp)" (id item-modal); (2) field input BARU "Profit (Rp)" (id item-profit) berdampingan dengan Modal; (3) SINKRONISASI DUA ARAH via helper setJual/setModal/setProfit + profitOf(): isi Modal+Profit → Harga Jual otomatis = Modal+Profit; isi Harga Jual → Profit otomatis = Jual−Modal; ubah Modal saat Jual terisi → Profit mengikuti; openEdit mengisi profit awal = Jual−Modal; (4) hint edukatif "Isi Modal + Profit → Harga Jual terisi otomatis…"; (5) baris margin: Profit: Rp X (Margin: Y%) merah + peringatan rugi bila Jual < Modal, input profit merah bila negatif; (6) form state +profit (ItemFormState, EMPTY_FORM, openEdit).
+- IZIN: field Modal & Profit tetap tersembunyi untuk role KASIR/user/demo (showHpp, desain izin lama dipertahankan — kasir tidak melihat biaya).
+- LINT: bunx eslint src/components/views/items-view.tsx = 0 error.
+- E2E LOKAL desktop 1280x800 (superadmin → /master-barang → pilih Budi Susanto → Tambah): semua field ADA (item-name/unit/price/modal/profit/keterangan); uji sinkron: Modal 10000+Profit 5000 → Jual otomatis 15000 ✓; Jual 20000 → Profit otomatis 10000 ✓; Modal 12000 → Profit otomatis 8000, Jual tetap 20000 ✓; margin "Profit: Rp 8.000 (Margin: 40%)" ✓; SIMPAN → item tampil di daftar (ITM-001, Jual Rp20.000, HPP Rp12.000 — modal TERSIMPAN di DB) ✓; Edit → profit terisi otomatis 8000 ✓; Hapus → item uji terhapus, toast sukses ✓ (DB kembali bersih).
+- E2E LOKAL mobile 390x844: dialog stack penuh (semua input w=308), scrollW=390 tanpa overflow, Simpan/Batal full width.
+- LOG & DB: dev.log bersih; baseline documentHistory=22, riwayatCetakan=20, riwayatPotongKertas=20 utuh; tabel barang = 2 data lama milik akun lain (paperbowl 720ml, ongkir — dibuat 8 Sep), barang uji dihapus net-zero.
+- DEPLOY: .vercel/project.json (darrellsoft, benar) → prepare-build (postgresql) → vercel --prod --yes (darrellsoft-dr7ji0biv, status Ready, alias www.darrellsoft.com + darrellsoft.vercel.app + darrellsoft.com) → revert-schema (sqlite terverifikasi).
+- VERIFIKASI ONLINE (www.darrellsoft.com, login superadmin): desktop — dialog Tambah Barang punya Harga Modal + Profit; sinkron Modal 10000+Profit 5000 → Jual 15000 ✓, Jual 20000 → Profit 10000 ✓, margin "Profit: Rp 10.000 (Margin: 50%)" ✓; dialog DITUTUP TANPA simpan (data produksi bersih); mobile 390 — field Modal+Profit tampil full width, scrollW=390 tanpa overflow. Console error kosong. Screenshot: task31-dialog-d.png, task31-dialog-m.png, task31-online-dialog.png, task31-online-m.png.
+
+Stage Summary:
+- Dialog Tambah Barang (dan Edit Barang) kini punya field HARGA MODAL & PROFIT eksplisit dengan sinkronisasi dua arah: Modal+Profit→Jual otomatis, Jual→Profit otomatis — alur input harga jadi fleksibel sesuai cara user berpikir.
+- Tersimpan ke kolom `modal` yang sudah ada (tanpa migrasi DB); kompatibel dengan data lama (paperbowl/ongkir punya modal); profit tidak disimpan terpisah (selalu derivable = jual−modal) — tidak ada duplikasi sumber kebenaran.
+- Role kasir/user/demo tetap tidak melihat Modal & Profit (desain izin dipertahankan).
+- LIVE di www.darrellsoft.com (deploy darrellsoft-dr7ji0biv) & lokal; baseline DB utuh 22/20/20.
