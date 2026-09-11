@@ -75,6 +75,13 @@ const menuItems = [
     section: 'dokumen',
   },
   {
+    titleKey: 'riwayat_pembayaran' as TranslationKey,
+    href: '/riwayat-pembayaran',
+    icon: Banknote,
+    featureId: 'invoice',
+    section: 'dokumen',
+  },
+  {
     titleKey: 'surat_jalan' as TranslationKey,
     href: '/surat-jalan',
     icon: Truck,

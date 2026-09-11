@@ -1980,7 +1980,7 @@ function CalculatorPage() {
                           <TableCell className="hidden xl:table-cell text-muted-foreground whitespace-nowrap">{r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}</TableCell>
                           <TableCell className="hidden xl:table-cell text-muted-foreground whitespace-nowrap">{r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}</TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}</TableCell>
-                          <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</TableCell>
+                          <TableCell className="text-right tabular-nums font-bold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
@@ -2018,7 +2018,7 @@ function CalculatorPage() {
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
                         <p className="text-muted-foreground truncate">Kertas: <span className="font-medium text-stone-700">{r.paperName || '-'}</span></p>
                         <p className="text-muted-foreground text-right sm:text-left">Jml: <span className="font-medium text-stone-700">{parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}</span></p>
-                        <p className="text-muted-foreground col-span-2">Total: <span className="font-medium text-stone-700">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</span></p>
+                        <p className="text-muted-foreground col-span-2">Total: <span className="font-bold text-stone-700">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</span></p>
                       </div>
                       <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
                         <Button

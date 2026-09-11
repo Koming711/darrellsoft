@@ -124,13 +124,13 @@ const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm 
 const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
 
-// Preview Dialog Component (centered, scrollable)
+// Preview Dialog Component (mobile: centered modal; desktop lg: FULL-SCREEN one page)
 function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 lg:p-0" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div onClick={(e) => e.stopPropagation()}
-        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-6xl w-full max-h-[95vh] sm:max-h-[92vh] flex flex-col">
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
@@ -138,13 +138,13 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
             </div>
-            <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-2">{title}</span>
+            <span className="text-[22px] font-bold text-slate-700 ml-2 leading-tight truncate">{title}</span>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch">
+        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch lg:overflow-hidden lg:min-h-0 lg:flex lg:flex-col">
           {children}
         </div>
       </div>
@@ -157,7 +157,7 @@ function PvField({ label, value, accent = 'text-slate-800' }: { label: string; v
   return (
     <div className="bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 min-w-0">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate">{label}</p>
-      <p className={`text-sm font-bold leading-snug break-words ${accent}`} title={typeof value === 'string' ? value : undefined}>{value}</p>
+      <p className={`text-base font-bold leading-snug break-words ${accent}`} title={typeof value === 'string' ? value : undefined}>{value}</p>
     </div>
   )
 }
@@ -167,7 +167,7 @@ function PvMiniStat({ label, value }: { label: string; value: React.ReactNode })
   return (
     <div className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-center min-w-0">
       <p className="text-[9.5px] text-slate-400 uppercase tracking-wide truncate">{label}</p>
-      <p className="text-sm font-extrabold text-slate-700 truncate" title={typeof value === 'string' ? value : undefined}>{value}</p>
+      <p className="text-base font-extrabold text-slate-700 truncate" title={typeof value === 'string' ? value : undefined}>{value}</p>
     </div>
   )
 }

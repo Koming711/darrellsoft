@@ -507,6 +507,14 @@
   color: #000;
 }
 
+/* A5 preview scaler — menskalakan konten 148mm (≈559.37px @96dpi)
+   agar pas memenuhi kotak desain 576px di popup pratinjau */
+.a5-preview-scaler {
+  width: 576px;
+  transform: scale(1.02973);
+  transform-origin: top left;
+}
+
 /* Screen-level document border styles */
 .print-divider {
   border-bottom: 2px solid #000000;

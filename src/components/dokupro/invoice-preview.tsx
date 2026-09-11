@@ -1,6 +1,7 @@
 'use client';
 
 import type { InvoiceData } from '@/lib/types';
+import { DEFAULT_COMPANY } from '@/lib/types';
 import { formatRupiah, formatTanggal } from '@/lib/format';
 import { terbilang } from '@/lib/terbilang';
 
@@ -12,7 +13,11 @@ interface InvoicePreviewProps {
 }
 
 export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: InvoicePreviewProps) {
-  const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
+  // Fallback defensif: data lama/backup lama bisa tanpa key `company`
+  const company = data.company ?? { ...DEFAULT_COMPANY };
+  const items = Array.isArray(data.items) ? data.items : [];
+  const client = data.client ?? { nama: '', kontak: '', alamat: '' };
+  const subtotal = items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
   const dpPercent = data.dp || 0;
@@ -22,9 +27,9 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       ? data.dpAmount
       : total * (dpPercent / 100);
   const sisa = total - dpAmount;
-  const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
+  const companyInitials = (company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
-  const itemCount = data.items.length;
+  const itemCount = items.length;
 
   return (
     <div
@@ -49,7 +54,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             style={{
               width: '10mm',
               height: '10mm',
-              border: data.company.logo ? 'none' : '2px solid #000',
+              border: company.logo ? 'none' : '2px solid #000',
               borderRadius: '2px',
               display: 'flex',
               alignItems: 'center',
@@ -57,36 +62,36 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               fontWeight: 'bold',
               fontSize: '12pt',
               flexShrink: 0,
-              color: data.company.logo ? 'inherit' : '#000',
+              color: company.logo ? 'inherit' : '#000',
             }}
           >
-            {data.company.logo ? (
-              <img src={data.company.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            {company.logo ? (
+              <img src={company.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
               <span>{companyInitials}</span>
             )}
           </div>
           <div className="company-info">
             <p className="company-name" style={{ fontSize: '11pt', fontWeight: 'bold', color: '#000', margin: 0 }}>
-              {data.company.nama || ''}
+              {company.nama || ''}
             </p>
-            {data.company.alamat && (
-              <p style={{ fontSize: '7pt', color: '#555', margin: '0.5mm 0 0' }}>{data.company.alamat}</p>
+            {company.alamat && (
+              <p style={{ fontSize: '7pt', color: '#555', margin: '0.5mm 0 0' }}>{company.alamat}</p>
             )}
-            {(data.company.telepon || data.company.email) && (
+            {(company.telepon || company.email) && (
               <p style={{ fontSize: '7pt', color: '#555', margin: '0.3mm 0 0' }}>
-                {data.company.telepon && <span>{data.company.telepon}</span>}
-                {data.company.telepon && data.company.email && <span> | </span>}
-                {data.company.email && <span>{data.company.email}</span>}
+                {company.telepon && <span>{company.telepon}</span>}
+                {company.telepon && company.email && <span> | </span>}
+                {company.email && <span>{company.email}</span>}
               </p>
             )}
-            {(data.company.bankName || data.company.bankName2) && (
+            {(company.bankName || company.bankName2) && (
               <p style={{ fontSize: '6.5pt', color: '#555', margin: '0.3mm 0 0' }}>
-                {data.company.bankName && (
-                  <span>{data.company.bankName} {data.company.bankAccount} a.n. {data.company.bankHolder}</span>
+                {company.bankName && (
+                  <span>{company.bankName} {company.bankAccount} a.n. {company.bankHolder}</span>
                 )}
-                {data.company.bankName2 && (
-                  <span style={{ marginLeft: '3mm' }}>{data.company.bankName2} {data.company.bankAccount2} a.n. {data.company.bankHolder2}</span>
+                {company.bankName2 && (
+                  <span style={{ marginLeft: '3mm' }}>{company.bankName2} {company.bankAccount2} a.n. {company.bankHolder2}</span>
                 )}
               </p>
             )}
@@ -140,13 +145,13 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             Kepada Yth :
           </p>
           <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>
-            {data.client.nama || '-'}
+            {client.nama || '-'}
           </p>
-          {data.client.kontak && (
-            <p style={{ fontSize: '7.5pt', color: '#555', margin: '0.3mm 0 0' }}>{data.client.kontak}</p>
+          {client.kontak && (
+            <p style={{ fontSize: '7.5pt', color: '#555', margin: '0.3mm 0 0' }}>{client.kontak}</p>
           )}
-          {data.client.alamat && (
-            <p style={{ fontSize: '7.5pt', color: '#555', margin: '0.3mm 0 0' }}>{data.client.alamat}</p>
+          {client.alamat && (
+            <p style={{ fontSize: '7.5pt', color: '#555', margin: '0.3mm 0 0' }}>{client.alamat}</p>
           )}
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -191,7 +196,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           </tr>
         </thead>
         <tbody>
-          {data.items.map((item, i) => (
+          {items.map((item, i) => (
             <tr key={item.id} style={{ height: '8mm' }}>
               <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{item.qty}</td>
               <td style={{ padding: '0 1mm', verticalAlign: 'top', color: '#000', whiteSpace: 'pre-line' }}>{item.deskripsi || ''}</td>

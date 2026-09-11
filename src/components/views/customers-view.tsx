@@ -65,8 +65,20 @@ function ActiveBadge({ active }: { active: boolean }) {
     : <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200 text-[11px] shrink-0">Nonaktif</Badge>
 }
 
-export default function CustomersView({ user }: { user: SessionUser }) {
-  const canManage = user.role !== 'KASIR'
+export default function CustomersView({
+  user,
+  canAdd = false,
+  canEdit = false,
+  canDelete = false,
+}: {
+  user: SessionUser
+  /** Izin Tambah (Matriks Hak Akses: master-customer-tambah; superadmin selalu boleh) */
+  canAdd?: boolean
+  /** Izin Edit + Aktifkan/Nonaktifkan (master-customer-edit) */
+  canEdit?: boolean
+  /** Izin Hapus (master-customer-hapus) */
+  canDelete?: boolean
+}) {
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -214,8 +226,8 @@ export default function CustomersView({ user }: { user: SessionUser }) {
           </div>
           <Button
             onClick={openCreate}
-            disabled={!canManage}
-            title={canManage ? 'Tambah pelanggan' : 'Hanya Admin/Manager yang dapat menambah'}
+            disabled={!canAdd}
+            title={canAdd ? 'Tambah pelanggan' : 'Anda tidak memiliki izin menambah pelanggan'}
             className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" /> Tambah
@@ -260,7 +272,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9"
-                          disabled={!canManage}
+                          disabled={!canEdit}
                           onClick={() => openEdit(c)}
                           aria-label={`Edit ${c.name}`}
                           title="Edit"
@@ -272,7 +284,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9"
-                            disabled={!canManage}
+                            disabled={!canEdit}
                             onClick={() => void handleToggleActive(c)}
                             aria-label={c.isActive ? `Nonaktifkan ${c.name}` : `Aktifkan ${c.name}`}
                             title={c.isActive ? 'Nonaktifkan' : 'Aktifkan'}
@@ -284,7 +296,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9 text-destructive hover:text-destructive"
-                          disabled={!canManage}
+                          disabled={!canDelete}
                           onClick={() => setDeleteTarget(c)}
                           aria-label={`Hapus ${c.name}`}
                           title="Hapus"
@@ -333,7 +345,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                     variant="outline"
                     size="sm"
                     className="flex-1 min-h-[44px]"
-                    disabled={!canManage}
+                    disabled={!canEdit}
                     onClick={() => openEdit(c)}
                   >
                     <Pencil className="h-4 w-4" /> Edit
@@ -343,7 +355,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                       variant="outline"
                       size="sm"
                       className="flex-1 min-h-[44px]"
-                      disabled={!canManage}
+                      disabled={!canEdit}
                       onClick={() => void handleToggleActive(c)}
                     >
                       {c.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
@@ -354,7 +366,7 @@ export default function CustomersView({ user }: { user: SessionUser }) {
                     variant="outline"
                     size="sm"
                     className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
-                    disabled={!canManage}
+                    disabled={!canDelete}
                     onClick={() => setDeleteTarget(c)}
                   >
                     <Trash2 className="h-4 w-4" /> Hapus

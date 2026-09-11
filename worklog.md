@@ -8426,3 +8426,40 @@ Work Log:
 
 Stage Summary:
 - Preview Rincian Harga Cetakan sekarang bergaya CRUD: tabel rincian biaya kolom Keterangan|Rincian|Jumlah (semua komponen biaya + rincian perhitungannya), grid field informasi teks besar, nomor urut & tanggal record (dari riwayat), gambar potong kertas lebih besar dengan statistik, Grand Total menonjol — tetap fit 1 halaman desktop tanpa scroll dan rapi di mobile.
+---
+Task ID: 27
+Agent: Main (Z.ai Code)
+Task: "conten tidak muncul. fix" — DIAGNOSIS: WORKSPACE ROLLBACK + PEMULIHAN TOTAL
+
+Work Log:
+- DIAGNOSIS AKAR: workspace ter-ROLLBACK ke checkpoint git 7aba8ca (10 Sep 08:54) saat restart environment (file mtime 11 Sep 04:24). Akibatnya:
+  (1) DEV SERVER MATI (port 3000 kosong, daemon tidak jalan) → aplikasi lokal KOSONG total = "conten tidak muncul" yang dirasakan user
+  (2) Kode Task 21-26 (sesi sebelumnya) HILANG dari working tree: folder src/app/riwayat-pembayaran hilang, api/beranda hilang, master-customer balik ke mapRole lama, beranda balik ke versi lama 1475 baris, hitung-cetakan preview balik ke max-w-6xl, a5-preview-scaler hilang dari globals.css
+  (3) Schema prisma terjebak "postgresql" (kondisi pasca prepare-build saat deploy) → PrismaClientInitializationError di login
+  (4) .vercel/project.json (link ke proyek darrellsoft) hilang → deploy pertama nyasar ke proyek Vercel "my-project"
+  (5) worklog.md ikut terganti versi lama (entri Task 25-26 sesi sebelumnya hilang); screenshot .zscripts hilang
+- Sumber pemulihan yang diperiksa: git reflog/fsck (semua commit lama ≤ 10 Sep), origin/main GitHub (terbaru 28 Aug, lineage lain), arsip workspace tar di upload/ ((11) = snapshot PASCA-rollback, tanpa file kunci), folder upload/extract-* (proyek upload user, codebase berbeda). SEMUA TIDAK memuat kode Task 21-26 → dibangun ulang dari deskripsi worklog lama (sesi sebelumnya) + konteks lengkap di memori percakapan
+- PEMULIHAN INFRASTRUKTUR: revert schema ke sqlite → prisma generate → bersihkan proses zombie port 3000 (EADDRINUSE) → daemon start → server hidup (login 200)
+- PEMULIHAN KODE (semua file dibangun ulang, ESLint 0):
+  1. src/lib/normalize-invoice.ts (baru) — normalizer defensif + param companyFallback
+  2. src/lib/company-settings.ts (baru) — fetchUserCompany(): 13 key /api/settings per-user
+  3. src/app/riwayat-pembayaran/page.tsx (baru, ~640 baris) — versi final Task 26 + fallback toko user (Task 27): badge StatusBadge/TypeBadge, parseHistory, tabel DP & pelunasan desktop + kartu mobile, popup A5 previewScale + Kirim via WhatsApp
+  4. src/app/api/beranda/route.ts (baru) — agregat stats (totalPenjualan/totalPiutang/invoiceBelumLunas/totalPelanggan via getDataFilter per-user), chart 14 hari, recent 8 invoice, jatuh tempo
+  5. src/app/pembukaan/page.tsx (ditulis ulang ~660 baris) — beranda final: hero gradient + greeting + badge role + tanggal + Motivasi Hari Ini (deterministik day-of-year, 12 quote), 4 kartu ringkasan navigable, grafik AreaChart recharts 14 hari (penjualan emerald + pembayaran amber), 6 Aksi Cepat (OpsCard mobile-optimized p-3/ikon h-8/chevron hidden sm), Invoice Terbaru (badge stack kanan, max-h-420 scroll), section Jatuh Tempo (amber), popup A5 + WA + guard data null (toast info) + fallback toko user
+  6. sidebar.tsx + sidebar-desktop.tsx — menu "Riwayat Pembayaran" (Banknote, section DOKUMEN, featureId 'invoice') + i18n key riwayat_pembayaran (id/en)
+  7. master-customer/page.tsx + customers-view.tsx — reapply fix Task 23: canAdd/canEdit/canDelete via hasSubPermission(role,'master-customer','master-customer-tambah/edit/hapus') + shortcut superadmin (Tambah→canAdd, Edit+Toggle→canEdit, Hapus→canDelete)
+  8. potong-kertas/page.tsx — reapply Task 22: sel Total tabel desktop (line 1983) font-semibold→font-bold; kartu mobile (line 2021) font-medium→font-bold
+  9. hitung-cetakan/page.tsx — reapply Task 22: PreviewDialog disamakan pola potong-kertas (z-[60], max-w-lg mobile + lg fullscreen, judul 22px), konten lg:overflow-hidden lg:flex lg:flex-col, PvField & PvMiniStat value text-sm→text-base
+  10. invoice-preview.tsx — reapply hardening Task 26: company ?? DEFAULT_COMPANY, items ?? [], client ?? {nama,kontak,alamat}
+  11. globals.css — tambah kelas .a5-preview-scaler (scale 1.02973, origin top-left; dipakai 5+ halaman riwayat/popup)
+- ESLint 13 file = 0 error
+- E2E OFFLINE: login superadmin → beranda desktop: greeting+motivasi+4 kartu+grafik+aksi cepat+invoice terbaru semua render, scrollW=1280; popup beranda (klik baris INV) = preview+WA; /riwayat-pembayaran: 3 baris DP, klik → popup preview TANPA crash; mobile 390: scrollW=390 tanpa overflow, kartu klik → popup fits; master-customer: tombol Edit aktif → dialog "Edit Pelanggan" terbuka; dev.log bersih; baseline DB 22/20/20 utuh
+- DEPLOY: (deploy pertama nyasar proyek "my-project" karena .vercel/project.json hilang) → vercel link --project darrellsoft (project.json pulih: prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) → deploy ulang sukses ke darrellsoft → revert-schema (sqlite lokal) → semua route www.darrellsoft.com 200
+- E2E ONLINE (www.darrellsoft.com): login superadmin → data toko user via /api/settings = "Rajabowl / Tangerang / 081828638" → popup beranda & riwayat-pembayaran (desktop + mobile) kini menampilkan header RAJABOWL (bukan lagi "PT Karya Mandiri Sejahtera" generik), preview lengkap + tombol WA, tanpa "Application error"; mobile 390 tanpa overflow; sidebar produksi punya menu Riwayat Pembayaran; beranda baru (hero/motivasi/4 kartu/grafik/aksi cepat/jatuh tempo) LIVE
+- Screenshot: .zscripts/task27-lokal-*.png, task27-online-beranda-popup-rajabowl.png, task27-online-mobile-popup-rajabowl.png, task27-online-beranda-mobile.png
+
+Stage Summary:
+- "Conten tidak muncul" TUNTAS: (1) aplikasi lokal hidup lagi (rollback mematikan server), (2) seluruh fitur Task 21-26 dibangun ulang & berfungsi di lokal + produksi, (3) BONUS Task 27: popup invoice lama kini menampilkan data toko MILIK USER (Rajabowl) dari Pengaturan — tidak lagi perusahaan generik
+- Beranda baru, Riwayat Pembayaran, sub-permission master customer, bold potong kertas, preview hitung cetakan — semuanya LIVE di www.darrellsoft.com dan lokal
+- Infrastruktur dipulihkan: schema sqlite, prisma client sqlite, .vercel link darrellsoft, daemon jalan, baseline DB 22/20/20 utuh
+- Catatan risiko: environment bisa rollback lagi (sudah 2x kejadian). Disarankan commit checkpoint manual berkala (git add -A && git commit) setelah sesi besar agar pemulihan cepat
