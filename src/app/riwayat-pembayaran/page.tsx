@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Banknote, ChevronRight, Layers, RefreshCw } from 'lucide-react'
+import { Banknote, CalendarDays, ChevronRight, Layers, RefreshCw, User, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { authFetch, getAuthHeaders } from '@/lib/auth-fetch'
@@ -334,23 +334,38 @@ export default function RiwayatPembayaranPage() {
         {loading ? (
           <Skeleton className="h-20 w-full rounded-xl" />
         ) : (
-          <div className="rounded-xl border border-stone-200 bg-white p-4 md:p-5 flex items-center justify-between gap-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-xl border border-stone-200 bg-white p-4 md:p-5 flex items-center gap-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950" aria-hidden="true">
+              <Wallet className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+            </div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground">Total Piutang</p>
-              <p className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1">
+              <p className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-400 mt-0.5 truncate">
                 {formatRupiah(totalPiutang)}
               </p>
             </div>
-            <p className="text-xs text-muted-foreground text-right shrink-0">
-              {dpOnly.length} invoice DP · {settlementOnly.length} pelunasan
-            </p>
+            <div className="ml-auto flex flex-col items-end gap-1.5 shrink-0">
+              <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300">
+                {dpOnly.length} Invoice DP
+              </span>
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                {settlementOnly.length} Pelunasan
+              </span>
+            </div>
           </div>
         )}
 
         {/* ===== Bagian 1: Daftar Invoice DP ===== */}
         <section aria-label="Daftar Invoice DP" className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold">Daftar Invoice DP</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">Daftar Invoice DP</h2>
+              {!loading && dpOnly.length > 0 && (
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {dpOnly.length}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Invoice pesanan dengan uang muka (DP) dan sisa tagihannya.
             </p>
@@ -427,7 +442,7 @@ export default function RiwayatPembayaranPage() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {loading ? (
-              [1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
+              [1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)
             ) : dpOnly.length === 0 ? (
               <div className="rounded-xl border border-stone-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"><DpEmptyState /></div>
             ) : (
@@ -438,32 +453,48 @@ export default function RiwayatPembayaranPage() {
                   aria-label={`Buka invoice DP ${inv.nomor}`}
                   className="w-full text-left"
                 >
-                  <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-2.5 transition-colors active:bg-stone-50 hover:border-emerald-300 dark:border-zinc-800 dark:bg-zinc-900 dark:active:bg-zinc-800 dark:hover:border-emerald-800">
-                    <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`rounded-xl border border-l-4 bg-white p-4 space-y-2.5 transition-all active:bg-stone-50 hover:shadow-sm dark:bg-zinc-900 dark:active:bg-zinc-800 ${
+                      inv.lunas
+                        ? 'border-stone-200 border-l-emerald-500 dark:border-zinc-800 dark:border-l-emerald-600'
+                        : 'border-stone-200 border-l-amber-500 dark:border-zinc-800 dark:border-l-amber-600'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-sm font-semibold truncate">{inv.nomor}</p>
+                        <p className="text-sm font-bold truncate">{inv.nomor}</p>
                         <TypeBadge type="DP" />
                       </div>
                       <StatusBadge status={inv.lunas ? 'LUNAS' : 'BELUM_BAYAR'} dueDate={inv.tanggalJatuhTempo || null} />
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {inv.customerName} · {formatDateID(inv.tanggal)}
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <p className="text-[11px] text-muted-foreground">Total</p>
-                        <p className="font-medium whitespace-nowrap">{formatRupiah(inv.total)}</p>
+                    <div className="min-w-0 space-y-1">
+                      <p className="flex items-center gap-1.5 text-sm font-medium min-w-0">
+                        <User className="h-3.5 w-3.5 shrink-0 text-stone-400 dark:text-zinc-500" aria-hidden="true" />
+                        <span className="truncate">{inv.customerName}</span>
+                      </p>
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        {formatDateID(inv.tanggal)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="grid flex-1 grid-cols-3 gap-2 border-t border-dashed border-stone-200 pt-2.5 dark:border-zinc-800">
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
+                          <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap">{formatRupiah(inv.total)}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">DP</p>
+                          <p className="text-[13px] font-semibold tabular-nums whitespace-nowrap">{formatRupiah(inv.dpAmount)}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Sisa</p>
+                          <p className={`text-[13px] font-bold tabular-nums whitespace-nowrap ${sisaClass(inv.sisa)}`}>
+                            {formatRupiah(inv.sisa)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[11px] text-muted-foreground">DP</p>
-                        <p className="font-medium whitespace-nowrap">{formatRupiah(inv.dpAmount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-muted-foreground">Sisa</p>
-                        <p className={`font-semibold whitespace-nowrap ${sisaClass(inv.sisa)}`}>
-                          {formatRupiah(inv.sisa)}
-                        </p>
-                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-stone-300 dark:text-zinc-600" aria-hidden="true" />
                     </div>
                   </div>
                 </button>
@@ -475,7 +506,14 @@ export default function RiwayatPembayaranPage() {
         {/* ===== Bagian 2: Transaksi Pelunasan ===== */}
         <section aria-label="Transaksi Pelunasan" className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold">Transaksi Pelunasan</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">Transaksi Pelunasan</h2>
+              {!loading && settlementOnly.length > 0 && (
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {settlementOnly.length}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Pembayaran pelunasan atas invoice DP.
             </p>
@@ -542,7 +580,7 @@ export default function RiwayatPembayaranPage() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {loading ? (
-              [1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
+              [1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
             ) : settlementOnly.length === 0 ? (
               <div className="rounded-xl border border-stone-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"><SettlementEmptyState /></div>
             ) : (
@@ -553,19 +591,21 @@ export default function RiwayatPembayaranPage() {
                   aria-label={`Buka transaksi pelunasan ${inv.nomor}`}
                   className="w-full text-left"
                 >
-                  <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-2 transition-colors active:bg-stone-50 hover:border-emerald-300 dark:border-zinc-800 dark:bg-zinc-900 dark:active:bg-zinc-800 dark:hover:border-emerald-800">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold truncate">{inv.nomor}</p>
+                  <div className="rounded-xl border border-l-4 border-stone-200 border-l-emerald-500 bg-white p-4 space-y-2 transition-all active:bg-stone-50 hover:shadow-sm dark:border-zinc-800 dark:border-l-emerald-600 dark:bg-zinc-900 dark:active:bg-zinc-800">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-bold truncate">{inv.nomor}</p>
                       <StatusBadge status={inv.lunas ? 'LUNAS' : 'BELUM_BAYAR'} dueDate={inv.tanggalJatuhTempo || null} />
                     </div>
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-xs text-muted-foreground truncate">
-                        {formatDateID(inv.tanggal)}
-                        {inv.referensiNomor ? ` · DP ${inv.referensiNomor}` : ''}
-                      </span>
-                      <span className="font-semibold text-emerald-700 whitespace-nowrap dark:text-emerald-400">
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{formatDateID(inv.tanggal)}</span>
+                      {inv.referensiNomor ? <span className="font-mono truncate">· DP {inv.referensiNomor}</span> : null}
+                    </p>
+                    <div className="flex items-end justify-between gap-2 border-t border-dashed border-stone-200 pt-2.5 dark:border-zinc-800">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nominal Pelunasan</p>
+                      <p className="text-base font-bold tabular-nums whitespace-nowrap text-emerald-700 dark:text-emerald-400">
                         {formatRupiah(inv.nominal)}
-                      </span>
+                      </p>
                     </div>
                   </div>
                 </button>
@@ -618,7 +658,7 @@ export default function RiwayatPembayaranPage() {
                 <button
                   onClick={handleSendPdf}
                   disabled={sendingPdf}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-medium transition-colors flex-shrink-0"
+                  className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 cursor-default text-white text-sm font-semibold transition-colors flex-shrink-0"
                 >
                   {sendingPdf ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
