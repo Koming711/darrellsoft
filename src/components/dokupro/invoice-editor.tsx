@@ -140,12 +140,13 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       .then((data) => {
         if (cancelled) return;
         const rows = Array.isArray(data?.items) ? data.items : [];
-        setBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null }) => ({
+        setBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
           id: r.id,
           name: r.name,
           unit: r.unit || 'pcs',
           standardPrice: r.standardPrice || 0,
           hpp: r.hpp ?? null,
+          qty: r.qty || 0,
         })));
       })
       .catch(() => { if (!cancelled) setBarangList([]); });
@@ -362,8 +363,11 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     setClientDropdownOpen(false);
   };
 
-  // Pilih barang dari dropdown Master Barang customer → isi deskripsi +
-  // harga satuan + harga modal otomatis (semuanya tetap bisa diedit manual).
+  // Pilih barang dari dropdown Master Barang customer → isi deskripsi, SATUAN,
+  // QTY (otomatis = qty Master Barang, mis. 10.000 → invoice 10.000) & harga
+  // satuan otomatis. Harga satuan TERKUNCI (tidak bisa diedit manual) dan
+  // harga modal tetap tersimpan diam-diam (snapshot laporan rugi laba) TANPA
+  // ditampilkan di halaman Buat Invoice sesuai permintaan owner.
   const handlePickBarang = (itemIndex: number, barang: BarangOption) => {
     setInvoice((prev) => ({
       ...prev,
@@ -373,6 +377,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               ...it,
               deskripsi: barang.name,
               satuan: barang.unit || it.satuan || 'pcs',
+              qty: barang.qty > 0 ? barang.qty : it.qty,
               harga: barang.standardPrice || 0,
               modal: barang.hpp ?? 0,
             }
@@ -660,7 +665,6 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           items={invoice.items}
           onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
           showPrice
-          showModal
           barangOptions={barangList}
           emptyBarangMessage={
             invoice.client.nama.trim()
@@ -699,22 +703,9 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               />
             </div>
           )}
-          <div className="space-y-1.5 mt-3">
-            <Label className="text-xs">Profit</Label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={invoice.uangCapek ? invoice.uangCapek.toLocaleString('id-ID') : ''}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
-                const num = raw === '' ? 0 : Number(raw) || 0
-                setInvoice((prev) => ({ ...prev, uangCapek: num }))
-              }}
-              readOnly={!!invoice.referensi}
-              placeholder="0"
-              className={`text-sm ${invoice.referensi ? 'bg-slate-50 cursor-not-allowed' : ''}`}
-            />
-          </div>
+          {/* Field HARGA MODAL & PROFIT DIHAPUS dari halaman Buat Invoice
+              sesuai permintaan owner — modal tetap tersimpan diam-diam
+              sebagai snapshot saat barang dipilih dari Master Barang. */}
           <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
             <p className="text-sm text-emerald-800">
               Total: <span className="font-bold">{formatRupiah(total)}</span>

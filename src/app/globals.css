@@ -235,8 +235,17 @@
 }
 
 /* Placeholder overrides */
+
+/* Tulisan petunjuk (placeholder) di dalam kotak isi dibuat abu-abu muda
+   untuk SEMUA input & textarea — permintaan owner. */
+input::placeholder,
+textarea::placeholder {
+  color: #cbd5e1; /* slate-300 — abu-abu muda */
+  opacity: 1;
+}
+
 .dark .placeholder\:text-slate-400::placeholder {
-  color: #64748b !important;
+  color: #cbd5e1 !important; /* abu-abu muda juga di mode gelap */
 }
 
 /* Input/Select bg overrides */

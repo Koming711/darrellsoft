@@ -8634,3 +8634,27 @@ Stage Summary:
 - Harga Modal & Profit (Task 31) tetap utuh dengan sinkronisasi dua arah; validasi qty ≥ 0 di frontend & backend.
 - PWA versi v3/v43 → perangkat user auto-reload ke bundle baru pada kunjungan berikutnya.
 - LIVE di www.darrellsoft.com (darrellsoft-nkp3w7qp1); produksi bersih (data uji dihapus); pelajaran teknis: Prisma CLI memuat ROOT schema.prisma — jaga kedua schema tetap sinkron saat mengubah model.
+
+---
+Task ID: 33
+Agent: Main (Z.ai Code)
+Task: "di master barang, apabila qty 10000 maka qty di invoice juga harus 10000 juga. dihalaman buat invoice baru. apabila nama barang menggunakan master barang, maka harga satuan tidak bisa diedit dan harga modal dan profit dihapus dari halaman buat invoice baru. untuk tulisan petunjuk di dalam kotak isi dibuat warna abu abu muda. tulisan harga di kotak total harga melawati kotak yang ada. fix"
+
+Work Log:
+- QTY OTOMATIS: BarangOption (items-fields.tsx) +field `qty`; invoice-editor.tsx memetakan `qty: r.qty || 0` dari GET /api/items; handlePickBarang kini mengisi `qty: barang.qty > 0 ? barang.qty : it.qty` — pilih barang master qty 10000 → kotak Qty invoice langsung 10.000 (fallback pickBarang di items-fields ikut diisi qty).
+- HARGA SATUAN TERKUNCI: aturan "nama barang = nama salah satu barang master customer" → input Harga Satuan readOnly + bg-slate-50 + cursor-not-allowed + title "Harga satuan otomatis dari Master Barang — tidak bisa diedit"; menyala otomatis saat barang dipilih dari dropdown (dan saat edit invoice lama dengan nama yang sama), lepas otomatis bila nama diketik/diubah manual.
+- HAPUS MODAL & PROFIT DI BUAT INVOICE: prop `showModal` dihapus dari pemakaian ItemsFields di invoice-editor (kolom Harga Modal per item hilang; grid jadi 3 kolom Qty|Harga Satuan|Total Harga); input "Profit" (uangCapek) di kartu Informasi Tambahan DIHAPUS. Modal tetap disimpan diam-diam sebagai snapshot (modal: barang.hpp ?? 0 saat pick) untuk laporan rugi laba — tidak ditampilkan di halaman.
+- PLACEHOLDER ABU-ABU MUDA: globals.css tambah rule global `input::placeholder, textarea::placeholder { color:#cbd5e1 (slate-300); opacity:1 }` + dark override placeholder:text-slate-400 dinaikkan ke #cbd5e1 — semua tulisan petunjuk di kotak isi kini abu-abu muda di seluruh aplikasi (light & dark).
+- OVERFLOW TOTAL HARGA: kotak Total Harga (items-fields.tsx) diberi `overflow-hidden` + angka dibungkus `<span className="min-w-0 truncate">` + `tabular-nums` — angka raksasa (mis. 250.000.000 atau lebih panjang) terpotong ellipsis di dalam kotak, title menampilkan angka penuh saat hover; TIDAK meluber lagi.
+- PWA: APP_VERSION '2026-09-11-v3' → '2026-09-11-v4'; CACHE_NAME 'darrell-soft-v43' → 'darrell-soft-v44' (auto clear cache + controllerchange reload tetap aktif).
+- LINT: 4 file = 0 error.
+- E2E LOKAL desktop 1280x800 (superadmin → /invoice → Buat Invoice → customer Budi Susanto → dropdown barang → pilih "Uji Qty Invoice" [barang uji qty=10000, jual=25000, modal=10000]): Qty otomatis "10.000" ✓; Harga Satuan "25.000" readOnly=true ✓; qty masih bisa diedit manual (ubah ke 5 lalu kembali 10000) ✓; label "Harga Modal" & "Profit" = TIDAK ADA ✓ (label tersisa Qty/Harga Satuan/Total Harga); Total Harga "250.000.000" DI DALAM kotak tanpa overflow ✓; placeholder rgb(203,213,225)=#cbd5e1 ✓. Mobile 390x844: qty "10.000", harga RO, noModal/noProfit, total tanpa overflow, scrollW=390 tanpa overflow horizontal ✓. Barang uji DIHAPUS (net-zero).
+- LOG & DB LOKAL: dev.log bersih; baseline documentHistory=23 (22 + 1 dokumen INV/09/26/0002-an milik aktivitas user asli, dicatat sejak Task 32), riwayatCetakan=20, riwayatPotongKertas=20; sisa barang uji = 0. Invoice TIDAK disimpan (dialog alur uji tidak pernah di-Simpan → nomor invoice 0002 tidak terpakai).
+- DEPLOY: .vercel/project.json = darrellsoft (benar) → prepare-build (postgresql) → vercel --prod --yes (darrellsoft-1xbcp72l2, Ready) → revert-schema (sqlite). sw.js online = darrell-soft-v44; localStorage app_version = 2026-09-11-v4.
+- VERIFIKASI ONLINE (www.darrellsoft.com, login superadmin): barang uji dibuat via API (qty=10000) → /invoice → Buat Invoice → pilih Budi Susanto → pilih "Uji Qty Invoice": qty="10.000", harga="25.000" readOnly, Harga Modal & Profit TIDAK ADA, Total "250.000.000" tanpa overflow, placeholder #cbd5e1 ✓. Barang uji DIHAPUS (delete 200, produksi bersih). Screenshot: task33-invoice-d.png, task33-invoice-m.png, task33-online-invoice.png.
+
+Stage Summary:
+- Halaman Buat Invoice kini: pilih barang dari Master Barang → QTY otomatis ikut (10000 → 10000), Harga Satuan otomatis & TERKUNCI (tidak bisa diedit), TANPA field Harga Modal & Profit (modal tetap tersimpan diam-diam untuk laporan rugi laba).
+- Semua tulisan petunjuk (placeholder) di kotak isi = abu-abu muda (#cbd5e1) di seluruh aplikasi.
+- Kotak Total Harga anti-overflow (truncate ellipsis, angka penuh via title).
+- LIVE di www.darrellsoft.com (darrellsoft-1xbcp72l2) & lokal; produksi & DB lokal bersih dari data uji.
