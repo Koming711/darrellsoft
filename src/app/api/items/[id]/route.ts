@@ -81,7 +81,6 @@ export async function PUT(
 
     const item = await db.barang.update({ where: { id }, data })
 
-    const isKasir = user.role === 'user' || user.role === 'demo'
     return NextResponse.json({
       item: {
         id: item.id,
@@ -89,7 +88,7 @@ export async function PUT(
         name: item.nama,
         unit: item.satuan,
         standardPrice: item.jual,
-        hpp: isKasir ? null : item.modal,
+        hpp: item.modal,
         keterangan: item.keterangan,
         isActive: item.isActive,
         createdAt: item.createdAt.toISOString(),

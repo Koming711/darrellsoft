@@ -6,7 +6,7 @@ import { sanitizeError } from '@/lib/api-error'
 /**
  * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
  * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, keterangan, isActive, createdAt }.
- * hpp disembunyikan (null) untuk role kasir (user/demo).
+ * hpp (harga modal) dikirim untuk SEMUA role (permintaan owner; sebelumnya dinol-kan untuk kasir).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
  * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
  */
@@ -39,14 +39,13 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await db.barang.findMany({ where, orderBy: { nama: 'asc' } })
-    const isKasir = user.role === 'user' || user.role === 'demo'
     const items = rows.map((it) => ({
       id: it.id,
       code: it.kode,
       name: it.nama,
       unit: it.satuan,
       standardPrice: it.jual,
-      hpp: isKasir ? null : it.modal,
+      hpp: it.modal,
       keterangan: it.keterangan,
       isActive: it.isActive,
       createdAt: it.createdAt.toISOString(),
@@ -118,7 +117,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const isKasir = user.role === 'user' || user.role === 'demo'
     return NextResponse.json({
       item: {
         id: item.id,
@@ -126,7 +124,7 @@ export async function POST(request: NextRequest) {
         name: item.nama,
         unit: item.satuan,
         standardPrice: item.jual,
-        hpp: isKasir ? null : item.modal,
+        hpp: item.modal,
         keterangan: item.keterangan,
         isActive: item.isActive,
         createdAt: item.createdAt.toISOString(),

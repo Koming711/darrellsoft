@@ -8586,3 +8586,26 @@ Stage Summary:
 - Fitur inti (sinkronisasi dua arah Modal+Profit↔Jual, margin info, gating kasir) dari Task 31 tetap utuh dan LIVE.
 - Insiden deploy ke project salah ditangani (darrellsoft aman); link .vercel kembali ke darrellsoft; .env.local sisa relink dipindah agar dev lokal tetap sqlite.
 - Baseline DB utuh; produksi bersih (popup uji tidak disimpan).
+
+---
+Task ID: 31-c
+Agent: Main (Z.ai Code)
+Task: "tetap tidak muncul harga modal dan profit." (keluhan berulang — akar masalah sebenarnya ditemukan)
+
+Work Log:
+- REPRODUKSI BERHASIL: daftar user DB = superadmin (role superadmin), admin (role admin), aming (role user). Pengujian per akun terhadap popup Tambah Barang: superadmin ✓ tampil, admin ✓ tampil, **aming (role 'user') ✗ TIDAK tampil** — persis keluhan user.
+- AKAR MASALAH: src/app/master-barang/page.tsx `mapRole()` memetakan role 'user'/'demo' → 'KASIR', lalu items-view `showHpp = user.role !== 'KASIR'` menyembunyikan Harga Modal & Profit untuk semua akun ber-role user/demo. Verifikasi superadmin sebelumnya selalu lolos karena role-nya 'ADMIN'. (Bukan cache semata — cache hanya memperparah.)
+- FIX FRONTEND (items-view.tsx): `const showHpp = true` (dengan komentar permintaan owner) — Harga Modal, Profit, hint sinkronisasi, baris margin, dan kolom HPP tabel kini tampil untuk SEMUA role; payload handleSave mengirim hpp tanpa gating (`hpp: hppNum`).
+- FIX BACKEND (api/items/route.ts + api/items/[id]/route.ts): hapus nulling `isKasir` pada GET/POST/PUT — kolom `modal` kini dikirim untuk semua role, sehingga dialog EDIT akun role user juga terisi Modal & Profit.
+- FIX PWA AUTO-UPDATE (service-worker-registration.tsx): tambah listener `controllerchange` → reload otomatis SEKALI saat service worker baru mengambil alih (guard `hadController` + flag `refreshing` agar tidak loop) — mencegah user PWA yang sudah terbuka tetap memakai bundle lama; APP_VERSION → '2026-09-11-v2'; sw.js CACHE_NAME → 'darrell-soft-v42'.
+- LINT: 4 file = 0 error.
+- E2E LOKAL (khususnya akun aming role user): popup Tambah Barang = Harga Modal (Rp) + Profit (Rp) + hint TAMPIL; Modal 7000 + Profit 3000 → Jual otomatis 10000; SIMPAN → tersimpan ITM-002 "Uji Kasir" Jual Rp10.000 **HPP Rp7.000** (sebelumnya modal dinol-kan untuk role ini); Hapus → bersih. Mobile 390 (aming): field full width 308px, scrollW=390 tanpa overflow. Desktop admin juga dicek ✓ (tampil).
+- LOG & DB: dev.log bersih; baseline 22/20/20 utuh (barang uji dihapus).
+- DEPLOY: project link darrellsoft benar → prepare-build → vercel --prod --yes (darrellsoft-phlirktev, Ready, alias www.darrellsoft.com + 3 lainnya) → revert-schema (sqlite). sw.js online = v42.
+- VERIFIKASI ONLINE (www.darrellsoft.com) **LOGIN SEBAGAI aming (role 'user')**: master-barang → pilih pelanggan "Achai" → klik Tambah → POPUP menampilkan Harga Modal (Rp) & Profit (Rp) + hint + placeholder "Otomatis dari Harga Jual − Modal"; localStorage app_version = 2026-09-11-v2; dialog ditutup TANPA simpan (produksi bersih). Screenshot: task31c-online-aming.png, task31c-m-aming.png.
+
+Stage Summary:
+- PENYEBAB SESUNGGUHNYA: akun user ber-role 'user' (kasir) — field Modal & Profit disembunyikan oleh mapRole + showHpp. BUKAN bug tampilan umum; verifikasi lama selalu pakai superadmin sehingga lolos.
+- Kini Harga Modal & Profit TAMPIL UNTUK SEMUA AKUN (superadmin/admin/kasir) — sinkronisasi dua arah utuh; backend mengirim modal untuk semua role sehingga Edit juga terisi.
+- PWA kini auto-reload saat ada versi baru (controllerchange) + versi cache naik (v2/v42) → perangkat user akan memuat versi terbaru otomatis pada kunjungan berikutnya.
+- LIVE di www.darrellsoft.com (darrellsoft-phlirktev) & lokal.

@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-11-v1'
+const APP_VERSION = '2026-09-11-v2'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -90,6 +90,17 @@ export function ServiceWorkerRegistration() {
 
     // Register service worker (only after version check passes)
     if ('serviceWorker' in navigator) {
+      // Saat service worker BARU mengambil alih kontrol (terjadi setelah deploy),
+      // muat ulang halaman SEKALI agar user selalu mendapat kode terbaru —
+      // ini yang mencegah "popup lama tetap muncul" di PWA yang sudah terbuka.
+      const hadController = !!navigator.serviceWorker.controller
+      let refreshing = false
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing || !hadController) return
+        refreshing = true
+        window.location.reload()
+      })
+
       const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
