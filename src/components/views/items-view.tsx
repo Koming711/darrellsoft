@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
   Package, Pencil, Plus, Search, Trash2, Users, X,
 } from 'lucide-react'
@@ -78,8 +78,19 @@ function ActiveBadge({ active }: { active: boolean }) {
     : <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200 text-[11px] shrink-0">Nonaktif</Badge>
 }
 
-export default function ItemsView({ user }: { user: SessionUser }) {
+interface ItemsViewProps {
+  user: SessionUser
+  /** Izin granular Matriks Hak Akses (master-barang-tambah/edit/hapus); undefined = fallback role lama */
+  canAdd?: boolean
+  canEdit?: boolean
+  canDelete?: boolean
+}
+
+export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditProp, canDelete: canDeleteProp }: ItemsViewProps) {
   const canManage = user.role !== 'KASIR'
+  const canAdd = canAddProp ?? canManage
+  const canEditItem = canEditProp ?? canManage
+  const canDelete = canDeleteProp ?? canManage
   const showHpp = user.role !== 'KASIR'
 
   const [items, setItems] = useState<Item[]>([])
@@ -232,9 +243,10 @@ export default function ItemsView({ user }: { user: SessionUser }) {
   const hasResults = items.length > 0
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
   // Tambah/Edit hanya tampil saat pelanggan spesifik dipilih — bukan "Semua Barang"
-  const showCrud = canManage && customerId !== 'all'
+  const showTambah = canAdd && customerId !== 'all'
+  const showEdit = canEditItem && customerId !== 'all'
   // Hapus SELALU tampil di tabel (selaras Master Pelanggan), termasuk mode "Semua Barang"
-  const showHapus = canManage
+  const showHapus = canDelete
   const countLabel = loading
     ? 'Memuat data…'
     : selectedCustomerName
@@ -260,7 +272,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
               className="pl-9 min-h-[44px]"
             />
           </div>
-          {showCrud && (
+          {showTambah && (
             <Button
               onClick={openCreate}
               title="Tambah barang untuk pelanggan ini"
@@ -313,6 +325,11 @@ export default function ItemsView({ user }: { user: SessionUser }) {
               </SelectContent>
             </Select>
           </div>
+          {canAdd && customerId === 'all' && (
+            <p className="text-xs text-muted-foreground lg:ml-auto self-center">
+              Pilih nama pelanggan untuk menambah / mengelola barang
+            </p>
+          )}
           {customerId !== 'all' && selectedCustomerName && (
             <div className="flex items-center gap-2 lg:ml-auto">
               <Badge
@@ -342,7 +359,20 @@ export default function ItemsView({ user }: { user: SessionUser }) {
             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
         ) : !hasResults ? (
-          <EmptyState filtered={query !== ''} customerName={selectedCustomerName} />
+          <EmptyState
+            filtered={query !== ''}
+            customerName={selectedCustomerName}
+            action={
+              showTambah && !query ? (
+                <Button
+                  onClick={openCreate}
+                  className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px]"
+                >
+                  <Plus className="h-4 w-4" /> Tambah Barang
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="max-h-96 overflow-y-auto scrollbar-thin">
             <Table>
@@ -355,7 +385,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Keterangan</TableHead>
                   <TableHead>Status</TableHead>
-                  {(showCrud || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
+                  {(showEdit || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -379,10 +409,10 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                       </span>
                     </TableCell>
                     <TableCell><ActiveBadge active={it.isActive} /></TableCell>
-                    {(showCrud || showHapus) && (
+                    {(showEdit || showHapus) && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {showCrud && (
+                          {showEdit && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -422,7 +452,20 @@ export default function ItemsView({ user }: { user: SessionUser }) {
         {loading ? (
           [1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full rounded-xl" />)
         ) : !hasResults ? (
-          <EmptyState filtered={query !== ''} customerName={selectedCustomerName} />
+          <EmptyState
+            filtered={query !== ''}
+            customerName={selectedCustomerName}
+            action={
+              showTambah && !query ? (
+                <Button
+                  onClick={openCreate}
+                  className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
+                >
+                  <Plus className="h-4 w-4" /> Tambah Barang
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           items.map((it) => (
             <Card key={it.id} className="p-0 gap-0">
@@ -448,9 +491,9 @@ export default function ItemsView({ user }: { user: SessionUser }) {
                     Keterangan: <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
-                {(showCrud || showHapus) && (
+                {(showEdit || showHapus) && (
                   <div className="flex gap-2 pt-1">
-                    {showCrud && (
+                    {showEdit && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -618,7 +661,7 @@ export default function ItemsView({ user }: { user: SessionUser }) {
   )
 }
 
-function EmptyState({ filtered, customerName }: { filtered: boolean; customerName?: string | null }) {
+function EmptyState({ filtered, customerName, action }: { filtered: boolean; customerName?: string | null; action?: ReactNode }) {
   return (
     <div className="text-center py-12 px-4">
       <Package className="h-10 w-10 text-stone-300 mx-auto mb-2" />
@@ -629,9 +672,10 @@ function EmptyState({ filtered, customerName }: { filtered: boolean; customerNam
         {filtered
           ? 'Coba kata kunci lain.'
           : customerName
-            ? `Pilih "Semua Barang" untuk melihat semua, atau tambah barang saat pelanggan ini dipilih.`
+            ? `Tambahkan barang pertama untuk pelanggan ini, atau pilih "Semua Barang" untuk melihat semua.`
             : 'Pilih nama pelanggan di kotak "Pilih Pelanggan" untuk menambah atau mengelola barang.'}
       </p>
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   )
 }
