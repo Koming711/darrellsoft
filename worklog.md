@@ -8485,3 +8485,24 @@ Stage Summary:
 - Halaman Riwayat Pembayaran versi mobile kini bergaya CRUD dashboard yang rapi: strip piutang ber-ikon & chip, judul section ber-hit count, kartu DP/pelunasan beraksen status (amber/emerald) dengan hierarki info (nomor → pelanggan/tanggal → ringkasan nominal), touch target ≥44px, dark mode konsisten — desktop tidak berubah.
 - LIVE di www.darrellsoft.com (deploy darrellsoft-ike2jkmye) dan lokal.
 - Catatan risiko: environment rollback lagi (ke-3 kali) — kali ini .vercel link + isu urutan schema saat deploy; urutan deploy yang benar SELALU prepare-build → vercel → revert-schema, cek .vercel/project.json SEBELUM deploy.
+
+---
+Task ID: 29
+Agent: Main (Z.ai Code)
+Task: "di halaman master barang, tombol tambah barang hilang. harusnya apabila sdh diklik nama pelanggan maka muncul tombol tambah barang. fix" + pesan IM: "extract file ini. ganti semua conten dengan file ini. tambahkan motivasi hari ini di halaman beranda. dihalaman riwayat pembayaran. rapihkan tampilan mobile yang crud dan ui" (upload workspace (11).tar.001/.002)
+
+Work Log:
+- REPRODUKSI: superadmin lokal /master-barang → tombol Tambah memang disembunyikan saat "Semua Barang" (by design), dan MUNCUL setelah pelanggan dipilih via dropdown → flow dasar OK. DB lokal 0 barang → tabel selalu empty-state (Edit/Hapus 0 baris — wajar). Diagnosis tambahan: gating lama `canManage = mapRole(role)!=='KASIR'` menyembunyikan tombol untuk role 'user'/'demo'/'kasir' meski pelanggan dipilih & meski Matriks Hak Akses mengizinkan; item warisan "fix pola mapRole identik di master-barang & harga-khusus" (pola Task 23 master-customer).
+- FIX (2 file):
+  1) src/app/master-barang/page.tsx — replika pola Task 23 master-customer: canAdd/canEdit/canDelete granular via hasSubPermission(role,'master-barang','master-barang-tambah/edit/hapus') + shortcut superadmin (case-insensitive) + fallback role kosong/tak dikenal = akses penuh (anti-regresi); props dipass ke ItemsView.
+  2) src/components/views/items-view.tsx — props opsional canAdd/canEdit/canDelete (fallback perilaku lama bila tidak dipass); showCrud dipecah showTambah/showEdit/showHapus; hint baru di kotak filter "Pilih nama pelanggan untuk menambah / mengelola barang" (saat Semua Barang & boleh tambah); EmptyState dapat action node → tombol emerald "Tambah Barang" TAMPIL DI DALAM EMPTY STATE tepat setelah pelanggan dipilih (desktop + mobile); teks hint empty state diperjelas.
+- ARSIP UPLOAD (11).tar.001/.002 diekstrak (gzip split, 92MB) → snapshot workspace 5 Sep LAMA: TANPA folder riwayat-pembayaran, beranda versi lama 1475 baris, items-view identik dgn sekarang. Kesimpulan: pesan "ganti semua conten dengan file ini" = instruksi lama yang SUDAH diproses di sesi sebelumnya (Task 26-27 membangun ulang beranda/riwayat sesuai desain arsip + lebih baru); replace penuh akan MENGHAPUS Task 21-28 → tidak dilakukan (anti-regress). "Motivasi Hari Ini" sudah ada di beranda (Task 27) & mobile riwayat-pembayaran sudah rapi (Task 28) — keduanya LIVE.
+- Verifikasi LOKAL: ESLint 0; desktop: Semua Barang → hint + tanpa Tambah; pilih Budi Susanto → 2 tombol Tambah (header + empty state), dialog "Tambah Barang — Kode otomatis, untuk Budi Susanto" terbuka (ditutup TANPA simpan); mobile 390 scrollW=390, kedua tombol tampak jelas; beranda Motivasi Hari Ini ada; dev.log bersih; baseline DB 22/20/20 utuh. Screenshot: task29-d-empty-add.png, task29-m-empty-add.png, task29-motivasi.png.
+- DEPLOY: cek .vercel/project.json DULU (darrellsoft, benar) → prepare-build (postgresql) → vercel --prod --yes (darrellsoft-cf6dojlhi) → revert-schema (sqlite) — urutan benar sekali jalan.
+- Verifikasi ONLINE (www.darrellsoft.com): mobile 390 login superadmin → /master-barang → hint tampil, pilih "Budi Susanto" → tambahHeader TRUE + tambahEmpty TRUE, klik tombol empty state → dialog Tambah Barang terbuka, tanpa crash; desktop 1280 tanpa overflow & tanpa crash; console errors kosong. Screenshot: task29-online-m.png, task29-online-d.png.
+
+Stage Summary:
+- Tombol Tambah Barang kini MUNCUL setelah pelanggan dipilih — di 2 tempat sekaligus (header dekat pencarian + di dalam empty state) — mustahil terlewat; izin mengikuti Matriks Hak Akses (superadmin selalu bisa; role lain sesuai sub-permission master-barang-*); hint edukatif saat "Semua Barang".
+- items-view kompatibel mundur (props opsional) — pemanggil lain tidak rusak. Harga-khusus (mapRole serupa) MASIH PENDING konfirmasi user.
+- Arsip (11) dikonfirmasi snapshot lama 5 Sep; konten terkini aplikasi LEBIH BARU (superset) — tidak ada replacement dilakukan; motivasi beranda & mobile riwayat-pembayaran terverifikasi LIVE.
+- Master-barang fix LIVE di www.darrellsoft.com (deploy darrellsoft-cf6dojlhi) & lokal.
