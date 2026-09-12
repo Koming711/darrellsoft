@@ -8853,3 +8853,20 @@ Work Log:
 
 Stage Summary:
 - Misteri 90MB terjawab & diperbaiki: .git 90M → 38M via gc; .gitignore diperkuat agar screenshot/artefak tidak menumpuk lagi. Riwayat git aman utuh.
+
+---
+Task ID: 55
+Agent: Main (Z.ai Code)
+Task: "push github. deploy"
+
+Work Log:
+- PRA-CEK GIT: remote origin = github.com/Koming711/darrellsoft (token auth di URL), branch main, working tree bersih (auto-commit 162059f sudah menangkap worklog+gitignore).
+- TEMUAN DIVERGENSI: push awal ditolak (behind remote). Analisis: GitHub main punya 15+ commit lineage LAIN yang tak ada di lokal (feat Laporan Invoice DP, fix auth redirect, fix 404 laporan routes, tukar posisi tab Pelunasan, worklog task2 tsb — dari sesi kerja lain), common ancestor ffaffc7. Lokal = basis produksi berjalan (Task 43-54).
+- PENYELESAIAN TANPA KEHILANGAN DATA: (1) buat & push branch backup/origin-main-20260912 = snapshot lineage GitHub lama (fitur2 tsb tetap tersimpan & bisa di-merge nanti); (2) git push --force-with-lease=main:f11d449 origin main → main GitHub kini = lokal (162059f). Produksi TIDAK terpengaruh (deploy via Vercel CLI, bukan git-connected).
+- DEPLOY: prepare-build (schema→postgresql) → vercel --prod --yes (deployment darrellsoft-je5v8so4o…) → revert-schema (sqlite terverifikasi).
+- VERIFIKASI PRODUKSI: sw.js = darrell-soft-v55 ✓; / = 200 ✓; chunk /hitung-cetakan memuat marker "Harga Jual per Pcs" ✓; E2E browser beranda 1280×800: 22 img / 0 broken, scrollW=1280, tanpa "Application error" ✓.
+- LOKAL: / = 200; baseline DB utuh [23,20,20,3,3,132].
+
+Stage Summary:
+- GitHub main = kondisi lokal terkini (identik produksi); lineage GitHub lama aman di branch backup/origin-main-20260912 (berisi feat Laporan Invoice DP + fix auth redirect + fix 404 laporan + lainnya yang belum ada di lokal/produksi).
+- Produksi redeploy sukses, semua fitur verifikasi lolos. OPSI BERIKUTNYA bila diminta: merge fitur dari branch backup ke main (perlu QA konflik di page.tsx/dashboard-layout/invoice tabs).
