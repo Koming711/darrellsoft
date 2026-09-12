@@ -8703,3 +8703,19 @@ Stage Summary:
 - Halaman Hitung Cetakan kini menampilkan pasangan harga per lembar yang utuh: "Harga Modal" (SubTotal÷Jml Pesanan) tepat di bawah "Sub Total" (desktop & mobile), dan label per-harga jual diperjelas jadi "Harga Jual per Pcs" di 6 lokasi (summary, tabel riwayat, preview, WhatsApp).
 - Kalkulasi TIDAK berubah sama sekali (hanya tampilan & label) — riwayat lama & preview cetak tetap kompatibel.
 - LIVE hanya di LOKAL; produksi belum diubah (menunggu keputusan deploy dari user karena basis lokal lebih lama dari produksi).
+
+---
+Task ID: 46-b
+Agent: Main (Z.ai Code)
+Task: Verifikasi ulang Task 43 (hitung cetakan: Harga Modal di bawah Sub Total + rename Harga Jual per Pcs) di sesi baru
+
+Work Log:
+- KONFIRMASI: perubahan Task 43 sudah lengkap di file (helper summaryHargaModalPerlembar line 1760; kartu "Harga Modal" mobile line 2277 & desktop line 2571; "Harga Jual per Pcs" 6 lokasi line 1415/2323/2617/2765/2982/3031; 0 sisa label lama).
+- E2E ULANG desktop 1280×800 (form diisi via JS: Jumlah Pesanan 1000 + Ongkos Packing 100000 + Cetak Brp Mata 2): summary Sub Total Rp 100.000 → Harga Modal Rp 100 (tepat di bawah) → Profit 50% Rp 50.000 → Total Rp 150.000 → Harga Jual per Pcs Rp 150 ✓; scrollW=1280 tanpa overflow; screenshot task46-verif-d.png.
+- E2E ULANG mobile 390×844: urutan kartu sama & benar, scrollW=390, screenshot task46-verif-m.png; form di-Reset setelahnya (TIDAK pernah klik Simpan/Preview/WhatsApp).
+- bunx eslint src/app/hitung-cetakan/page.tsx = 0 error; dev.log bersih (semua 200, tanpa error).
+- Baseline DB utuh: DocumentHistory=23, RiwayatCetakan=20, RiwayatPotongKertas=20, Barang=3, BarangCustomer=3, Customer=132.
+- TIDAK ADA deploy (produksi masih v53 berisi Task 34–41; basis lokal sw v44).
+
+Stage Summary:
+- Task 43 SELESAI & terverifikasi ulang penuh di basis restore; kalkulasi tidak berubah (hanya tampilan/label); menunggu keputusan user soal deploy.
