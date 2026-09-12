@@ -42,6 +42,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -751,7 +752,7 @@ export default function PembukaanPage() {
                   variant="ghost"
                   size="sm"
                   className="text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 h-8"
-                  onClick={() => navigate('/riwayat')}
+                  onClick={() => navigate('/invoice')}
                 >
                   Lihat semua <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -770,30 +771,59 @@ export default function PembukaanPage() {
                   <p className="text-sm text-muted-foreground">Belum ada invoice.</p>
                 </div>
               ) : (
-                <ul className="divide-y divide-stone-100 max-h-[420px] overflow-y-auto scrollbar-thin dark:divide-zinc-800">
-                  {s.recent.map((inv) => (
-                    <li key={inv.id}>
-                      <button
-                        onClick={() => openPreview(inv)}
-                        className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{inv.number}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {inv.customerName} · {formatTanggalID(inv.date)}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold tabular-nums">{formatRupiah(inv.total)}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {inv.type !== 'REGULER' && <TypeBadge type={inv.type} />}
-                          <StatusBadge status={inv.status} dueDate={inv.dueDate} />
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                // Tabel invoice terbaru — klik baris → Detail Invoice.
+                // Mobile: kolom ringkas (Nomor+pelanggan | Status | Total);
+                // sm+ tampil Tanggal, md+ tampil Pelanggan & panah.
+                <div className="rounded-lg border border-stone-200 dark:border-zinc-800 overflow-hidden">
+                  <div className="max-h-[420px] overflow-y-auto scrollbar-thin">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-stone-50 dark:bg-zinc-800">
+                        <TableRow className="bg-stone-50 hover:bg-stone-50 dark:bg-zinc-800 dark:hover:bg-zinc-800">
+                          <TableHead>Nomor</TableHead>
+                          <TableHead className="hidden md:table-cell">Pelanggan</TableHead>
+                          <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="hidden sm:table-cell w-8"><span className="sr-only">Buka detail</span></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {s.recent.map((inv) => (
+                          <TableRow
+                            key={inv.id}
+                            tabIndex={0}
+                            onClick={() => navigate(`/invoice?detail=${inv.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                navigate(`/invoice?detail=${inv.id}`)
+                              }
+                            }}
+                            aria-label={`Buka detail invoice ${inv.number}`}
+                            className="cursor-pointer"
+                          >
+                            <TableCell className="font-medium whitespace-nowrap">
+                              {inv.number}
+                              <span className="block md:hidden text-[11px] font-normal text-muted-foreground max-w-[150px] truncate">{inv.customerName}</span>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell max-w-44 truncate text-muted-foreground">{inv.customerName}</TableCell>
+                            <TableCell className="hidden sm:table-cell whitespace-nowrap text-muted-foreground">{formatTanggalID(inv.date)}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1.5">
+                                {inv.type !== 'REGULER' && <TypeBadge type={inv.type} />}
+                                <StatusBadge status={inv.status} dueDate={inv.dueDate} />
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">{formatRupiah(inv.total)}</TableCell>
+                            <TableCell className="hidden sm:table-cell pr-2">
+                              <ChevronRight className="h-4 w-4 text-stone-400 dark:text-zinc-500" aria-hidden="true" />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -860,7 +890,7 @@ export default function PembukaanPage() {
                 <QuickLink icon={Package} title="Master Barang" desc="Harga standar & HPP" onClick={() => navigate('/master-barang')} />
               </>
             )}
-            <QuickLink icon={ReceiptText} title="Riwayat Invoice" desc="Cari, export Excel/PDF, kirim WA" onClick={() => navigate('/riwayat')} />
+            <QuickLink icon={ReceiptText} title="Riwayat Invoice" desc="Cari, export Excel/PDF, kirim WA" onClick={() => navigate('/invoice')} />
             <QuickLink icon={Truck} title="Surat Jalan" desc="Dokumen pengiriman barang" onClick={() => navigate('/surat-jalan')} />
             {canSeeFinance && (
               <QuickLink icon={ClipboardList} title="Purchase Order" desc="Pesan barang ke supplier" onClick={() => navigate('/purchase-order')} />

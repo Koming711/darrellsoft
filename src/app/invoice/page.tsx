@@ -31,6 +31,9 @@ import {
   Ban,
   ArchiveRestore,
   Eye,
+  ChevronRight,
+  FileSpreadsheet,
+  ReceiptText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -46,7 +49,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -72,11 +74,7 @@ import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import {
-  RiwayatPeriodFilter,
-  RiwayatFilterCard,
-  RiwayatSummaryCard,
   riwayatDateRange,
-  riwayatPeriodText,
   type RiwayatPeriod,
 } from '@/components/dokupro/riwayat-period-filter'
 
@@ -100,10 +98,6 @@ type RiwayatTab = 'invoice' | 'pembayaran' | 'sampah'
 function getTodayStr(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatRupiahShort(n: number): string {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
 }
 
 // --- Parse dataJson for document info ---
@@ -453,11 +447,8 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
       <Button size="sm" onClick={() => router.push(`/surat-jalan?invoiceId=${id}`)} className="bg-orange-600 hover:bg-orange-700 min-h-[36px]">
         <Truck className="mr-1.5 h-3.5 w-3.5" /> Surat Jalan
       </Button>
-      {status !== 'lunas' && status !== 'batal' && (
-        <Button size="sm" onClick={() => setLunasOpen(true)} className="bg-violet-600 hover:bg-violet-700 min-h-[36px]">
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Tandai Lunas
-        </Button>
-      )}
+      {/* Tombol Tandai Lunas dipindah ke kotak info ringkas (info pembayaran)
+          agar terlihat jelas di halaman detail — permintaan owner. */}
       {status !== 'batal' && (
         <Button size="sm" variant="outline" onClick={() => setBatalOpen(true)} className="border-amber-300 text-amber-700 hover:bg-amber-50 min-h-[36px]">
           <Ban className="mr-1.5 h-3.5 w-3.5" /> Batal
@@ -471,13 +462,22 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
 
   return (
     <div>
-      {/* Header — Kembali + judul "Detail Invoice" + status */}
-      <div className="flex items-center gap-2 mb-3 print:hidden">
+      {/* Header — Kembali + judul "Detail Invoice" + tipe dokumen.
+          Tulisan status "Lunas"/"Belum Lunas" DIHAPUS sesuai permintaan owner;
+          yang tersisa: badge Batal (jika dibatalkan) + badge tipe dokumen. */}
+      <div className="flex items-center gap-2 mb-3 print:hidden flex-wrap">
         <Button onClick={onBack} variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
           <ArrowLeft className="w-3.5 h-3.5" /> Kembali
         </Button>
         <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Detail Invoice</h2>
-        <StatusBadge status={status} />
+        {info && status === 'batal' && <StatusBadge status={status} />}
+        {/* Invoice DP → detail juga bertanda DP; pelunasan → bertanda Pelunasan */}
+        {info && !info.isPelunasan && info.dpPercent > 0 && (
+          <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-[11px] shrink-0">Invoice DP</Badge>
+        )}
+        {info && info.isPelunasan && (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[11px] shrink-0">Invoice Pelunasan</Badge>
+        )}
       </div>
 
       {loading ? (
@@ -517,6 +517,16 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
                 DP ({info.dpPercent}%): {formatRupiah(info.dp)} · Sisa: <span className={cn('font-semibold', info.lunas ? 'text-emerald-600' : 'text-red-600')}>{formatRupiah(info.sisa)}</span>
                 {info.lunas && info.tanggalPelunasan ? ` · Dibayar ${formatTanggalShort(info.tanggalPelunasan)}` : ''}
               </p>
+            )}
+            {/* Tombol Tandai Lunas — menonjol di kotak info detail invoice
+                (permintaan owner); tanpa tulisan status "Lunas/Belum Lunas". */}
+            {status !== 'lunas' && status !== 'batal' && (
+              <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-xs text-muted-foreground">Pembayaran invoice ini belum diterima penuh.</p>
+                <Button size="sm" onClick={() => setLunasOpen(true)} className="bg-violet-600 hover:bg-violet-700 min-h-[36px]">
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Tandai Lunas
+                </Button>
+              </div>
             )}
           </div>
 
@@ -609,6 +619,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const [sampahLoading, setSampahLoading] = useState(false)
   const [sampahActionId, setSampahActionId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<RiwayatTab>('invoice')
+  const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus>('all')
   const [dateFrom, setDateFrom] = useState('')
@@ -618,6 +629,13 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const [year, setYear] = useState<number | null>(new Date().getFullYear())
   const [purgeTarget, setPurgeTarget] = useState<HistoryEntry | null>(null)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
+  const [exportLoading, setExportLoading] = useState(false)
+
+  // Cari dengan debounce 300ms (gaya Riwayat Invoice: ketik → otomatis difilter)
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput.trim()), 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -666,12 +684,11 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
 
   const allHistory = useMemo(() => [...invoiceHistory, ...pelunasanHistory], [invoiceHistory, pelunasanHistory])
 
-  // Periode efektif (rentang tanggal yyyy-mm-dd, inklusif) dari mode periode yang dipilih
+  // Periode efektif (rentang tanggal yyyy-mm-dd, inklusif) dari Dari/Sampai tanggal
   const eff = useMemo(
     () => riwayatDateRange(period, dateFrom, dateTo, month, year),
     [period, dateFrom, dateTo, month, year]
   )
-  const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
 
   // Filter pencarian + status + rentang tanggal efektif (inklusif)
   const matchesFilters = useCallback((entry: HistoryEntry) => {
@@ -691,6 +708,14 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const dpInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice' && matchesFilters(e)), [allHistory, matchesFilters])
   const pelunasanInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice-pelunasan' && matchesFilters(e)), [allHistory, matchesFilters])
 
+  // Daftar gabungan (invoice + invoice pelunasan) — satu tabel, terbaru di atas
+  const combinedList = useMemo(
+    () => [...dpInvoices, ...pelunasanInvoices].sort(
+      (a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
+    ),
+    [dpInvoices, pelunasanInvoices]
+  )
+
   // Riwayat Pembayaran — semua invoice (DP/pelunasan) yang sudah lunas & punya tanggal bayar
   const pembayaranList = useMemo(() => {
     return allHistory
@@ -699,29 +724,59 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
       .sort((a, b) => (b.info.tanggalPelunasan || '').localeCompare(a.info.tanggalPelunasan || ''))
   }, [allHistory])
 
-  // Ringkasan invoice terfilter (kartu statistik)
-  const invoiceSummary = useMemo(() => {
+  // Ringkasan daftar terfilter (subjudul header, gaya Riwayat Invoice)
+  const listSummary = useMemo(() => {
     let total = 0
-    let lunas = 0
-    let belum = 0
-    for (const entry of dpInvoices) {
-      const info = parseDocInfo(entry)
-      total += info.totalHarga
-      const st = getInvoiceStatus(info)
-      if (st === 'lunas') lunas += 1
-      else if (st === 'belum') belum += 1
+    for (const entry of combinedList) {
+      total += parseDocInfo(entry).totalHarga
     }
-    return { count: dpInvoices.length, total, lunas, belum }
-  }, [dpInvoices])
+    return { count: combinedList.length, total }
+  }, [combinedList])
 
-  const filtersActive = period !== 'all' || statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+  const filtersActive = statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
 
   const resetFilters = () => {
-    setPeriod('all')
     setStatusFilter('all')
     setDateFrom('')
     setDateTo('')
+    setSearchInput('')
     setSearchQuery('')
+  }
+
+  // Export Excel — unduh daftar invoice terfilter (mengikuti filter aktif)
+  const handleExportExcel = async () => {
+    setExportLoading(true)
+    try {
+      const p = new URLSearchParams()
+      if (searchQuery.trim()) p.set('q', searchQuery.trim())
+      if (statusFilter !== 'all') p.set('status', statusFilter)
+      if (dateFrom) p.set('from', dateFrom)
+      if (dateTo) p.set('to', dateTo)
+      const qs = p.toString()
+      const res = await authFetch(`/api/export/invoices${qs ? `?${qs}` : ''}`)
+      if (!res.ok) {
+        let errMsg = 'Gagal export riwayat invoice'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) { toast.error('Data export kosong'); return }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? decodeURIComponent(match[1]) : `Riwayat-Invoice-${getTodayStr()}.xlsx`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('File Excel berhasil diunduh')
+    } catch (e) {
+      console.error('Export error:', e)
+      toast.error('Gagal export riwayat invoice')
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   // === Sampah actions ===
@@ -818,24 +873,59 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
     return docType
   }
 
-  const hasResults = dpInvoices.length > 0 || pelunasanInvoices.length > 0
+  const hasResults = combinedList.length > 0
 
   return (
     <>
       <div className="space-y-5">
-        {/* Header — gaya Laporan Penjualan */}
+        {/* === TABS: Riwayat Invoice | Riwayat Pembayaran | Sampah === */}
+        {/* Diletakkan DI ATAS judul sesuai permintaan — tab pertama yang terlihat.
+            Mobile memakai label PENDEK + padding kecil agar KETIGA tab selalu
+            muat tanpa scroll horizontal (sebelumnya tab "Sampah" terpotong
+            di luar layar 390px). Label penuh tampil mulai sm+. */}
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
+          {([
+            { key: 'invoice' as const, label: 'Riwayat Invoice', short: 'Invoice', icon: <FileText className="w-3.5 h-3.5" /> },
+            { key: 'pembayaran' as const, label: 'Riwayat Pembayaran', short: 'Pembayaran', icon: <Wallet className="w-3.5 h-3.5" /> },
+            { key: 'sampah' as const, label: 'Sampah', short: 'Sampah', icon: <Trash2 className="w-3.5 h-3.5" /> },
+          ]).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={cn(
+                'px-2.5 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap flex-shrink-0',
+                activeTab === t.key
+                  ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                  : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+              )}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                {t.icon}
+                <span className="sm:hidden">{t.short}</span>
+                <span className="hidden sm:inline">{t.label}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Header — gaya Riwayat Invoice */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Invoice</h1>
-            <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {loading ? 'Memuat data…' : `${listSummary.count} invoice · Total ${formatRupiah(listSummary.total)}`}
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               onClick={onCreate}
               title="Buat invoice baru"
               className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
             >
               <Plus className="h-4 w-4" /> Buat Invoice
+            </Button>
+            <Button onClick={handleExportExcel} variant="outline" disabled={exportLoading} title="Export daftar invoice ke Excel" aria-label="Export daftar invoice ke Excel" className="min-h-[44px] flex-1 sm:flex-none">
+              {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />} Export Excel
             </Button>
             <Button onClick={handleBackup} variant="outline" disabled={backupLoading === 'backup'} title="Backup riwayat invoice" className="min-h-[44px] flex-1 sm:flex-none">
               {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />} Backup
@@ -846,296 +936,158 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
           </div>
         </div>
 
-        {/* === TABS: Riwayat Invoice | Riwayat Pembayaran | Sampah === */}
-        <div className="flex items-center gap-2 overflow-x-auto">
-          {([
-            { key: 'invoice' as const, label: 'Riwayat Invoice', icon: <FileText className="w-3.5 h-3.5" /> },
-            { key: 'pembayaran' as const, label: 'Riwayat Pembayaran', icon: <Wallet className="w-3.5 h-3.5" /> },
-            { key: 'sampah' as const, label: 'Sampah', icon: <Trash2 className="w-3.5 h-3.5" /> },
-          ]).map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={cn(
-                'px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap flex-shrink-0',
-                activeTab === t.key
-                  ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-                  : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-              )}
-            >
-              <span className="inline-flex items-center gap-1.5">{t.icon}{t.label}</span>
-            </button>
-          ))}
-        </div>
-
         {/* ================= TAB: RIWAYAT INVOICE ================= */}
         {activeTab === 'invoice' && (
           <>
-            {/* Filter: periode + status + cari — mobile collapsible */}
-            <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
-                <RiwayatPeriodFilter
-                  idPrefix="riwayat-invoice"
-                  period={period}
-                  onChangePeriod={setPeriod}
-                  from={dateFrom}
-                  to={dateTo}
-                  onFromChange={setDateFrom}
-                  onToChange={setDateTo}
-                  month={month}
-                  onMonthChange={setMonth}
-                  year={year}
-                  onYearChange={setYear}
+            {/* Filter bar — selalu tampil: Cari | Status | Dari | Sampai */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                <Input
+                  id="riwayat-invoice-search"
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Cari nomor / pelanggan…"
+                  aria-label="Cari invoice"
+                  className="pl-9 min-h-[44px]"
                 />
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="riwayat-invoice-status">Status</Label>
-                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
-                      <SelectTrigger id="riwayat-invoice-status" aria-label="Filter status" className="w-full min-h-[44px]">
-                        <SelectValue placeholder="Semua Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Status</SelectItem>
-                        <SelectItem value="lunas">Lunas</SelectItem>
-                        <SelectItem value="belum">Belum Lunas</SelectItem>
-                        <SelectItem value="batal">Batal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="riwayat-invoice-search">Cari</Label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
-                      <Input
-                        id="riwayat-invoice-search"
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Cari nomor, pelanggan, atau barang…"
-                        aria-label="Cari"
-                        className="pl-9 min-h-[44px]"
-                      />
-                    </div>
-                  </div>
-                  {filtersActive && (
-                    <div className="flex items-end">
-                      <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
-                        <X className="h-3.5 w-3.5" /> Reset Filter
-                      </Button>
-                    </div>
-                  )}
+              </div>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
+                <SelectTrigger aria-label="Filter status invoice" className="w-full sm:w-40 min-h-[44px]">
+                  <SelectValue placeholder="Semua Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="lunas">Lunas</SelectItem>
+                  <SelectItem value="belum">Belum Lunas</SelectItem>
+                  <SelectItem value="batal">Batal</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Dari tanggal"
+                title="Dari tanggal"
+                className="w-full sm:w-40 min-h-[44px]"
+              />
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Sampai tanggal"
+                title="Sampai tanggal"
+                className="w-full sm:w-40 min-h-[44px]"
+              />
+              {filtersActive && (
+                <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
+                  <X className="h-3.5 w-3.5" /> Reset
+                </Button>
+              )}
+            </div>
+
+            {/* Daftar — satu tabel gabungan (invoice + pelunasan), klik baris → Detail */}
+            {loading ? (
+              <>
+                <div className="hidden md:block rounded-xl border border-stone-200 bg-white p-4 space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
-            </RiwayatFilterCard>
-
-            {/* Ringkasan — gaya Laporan Penjualan */}
-            {loading ? (
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-                <RiwayatSummaryCard label="Jumlah Invoice" value={invoiceSummary.count} note={`${pelunasanInvoices.length} invoice pelunasan`} />
-                <RiwayatSummaryCard label="Total Nilai Invoice" value={formatRupiah(invoiceSummary.total)} />
-                <RiwayatSummaryCard label="Sudah Lunas" value={invoiceSummary.lunas} valueClass="text-emerald-700" />
-                <RiwayatSummaryCard label="Belum Lunas" value={invoiceSummary.belum} valueClass="text-amber-700" />
-              </div>
-            )}
-
-            {loading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
+                <div className="md:hidden space-y-3">
+                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+                </div>
+              </>
             ) : !hasResults ? (
-              <EmptyState filtered={filtersActive} />
+              <div className="rounded-xl border border-dashed border-stone-300 bg-white text-center py-12 px-4">
+                <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2" />
+                <p className="text-sm font-medium">{filtersActive ? 'Tidak ada invoice yang cocok' : 'Belum ada invoice'}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {filtersActive ? 'Ubah kata kunci atau filter pencarian.' : 'Buat invoice pertama Anda dengan tombol "+ Buat Invoice".'}
+                </p>
+              </div>
             ) : (
               <>
-                {/* === SECTION: INVOICE === */}
-                {dpInvoices.length > 0 && (
-                  <section className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-violet-600 shrink-0" />
-                      <h2 className="text-sm font-semibold tracking-tight">Invoice</h2>
-                      <Badge variant="outline" className="text-[11px] text-muted-foreground border-stone-200">{dpInvoices.length}</Badge>
-                    </div>
-
-                    {/* Desktop table — klik baris → Detail Invoice */}
-                    <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
-                      <div className="max-h-96 overflow-y-auto scrollbar-thin">
-                        <Table>
-                          <TableHeader className="sticky top-0 z-10 bg-stone-50">
-                            <TableRow className="bg-stone-50 hover:bg-stone-50">
-                              <TableHead className="w-10">No.</TableHead>
-                              <TableHead className="w-0 min-w-0">No. Invoice</TableHead>
-                              <TableHead>Tanggal</TableHead>
-                              <TableHead>Customer</TableHead>
-                              <TableHead>Nama Barang</TableHead>
-                              <TableHead className="text-right">Qty</TableHead>
-                              <TableHead className="text-right">Item</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
-                              <TableHead className="text-center">Status</TableHead>
-                              <TableHead className="text-center">Aksi</TableHead>
+                {/* Desktop table — klik baris → Detail Invoice */}
+                <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
+                  <div className="max-h-96 overflow-y-auto scrollbar-thin">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-stone-50">
+                        <TableRow className="bg-stone-50 hover:bg-stone-50">
+                          <TableHead>Nomor</TableHead>
+                          <TableHead>Tanggal</TableHead>
+                          <TableHead>Pelanggan</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-center">Jumlah Item</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="w-10"><span className="sr-only">Buka detail</span></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {combinedList.slice(0, 100).map((entry) => {
+                          const info = parseDocInfo(entry)
+                          const st = getInvoiceStatus(info)
+                          return (
+                            <TableRow
+                              key={entry.id}
+                              tabIndex={0}
+                              onClick={() => onOpenDetail(entry.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  onOpenDetail(entry.id)
+                                }
+                              }}
+                              aria-label={`Buka invoice ${entry.nomor || ''}`}
+                              className="cursor-pointer"
+                            >
+                              <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
+                              <TableCell className="whitespace-nowrap text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
+                              <TableCell className="max-w-48 truncate">{entry.pihakKedua || '-'}</TableCell>
+                              <TableCell><StatusBadge status={st} /></TableCell>
+                              <TableCell className="text-center tabular-nums">{info.itemCount || '-'}</TableCell>
+                              <TableCell className="text-right font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
+                              <TableCell>
+                                <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden="true" />
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {dpInvoices.slice(0, 100).map((entry, i) => {
-                              const info = parseDocInfo(entry)
-                              const st = getInvoiceStatus(info)
-                              return (
-                                <TableRow
-                                  key={entry.id}
-                                  className="cursor-pointer hover:bg-stone-50"
-                                  onClick={() => onOpenDetail(entry.id)}
-                                >
-                                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                                  <TableCell className="font-mono text-xs whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
-                                  <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
-                                  <TableCell className="max-w-56 truncate">{entry.pihakKedua || '-'}</TableCell>
-                                  <TableCell className="max-w-44 text-muted-foreground" title={info.namaBarang}>
-                                    <span className="truncate block">{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</span>
-                                  </TableCell>
-                                  <TableCell className="text-right tabular-nums text-muted-foreground">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
-                                  <TableCell className="text-right tabular-nums text-muted-foreground">{info.itemCount > 0 ? info.itemCount : '-'}</TableCell>
-                                  <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
-                                  <TableCell className="text-center"><StatusBadge status={st} /></TableCell>
-                                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Lihat" aria-label={`Lihat ${entry.nomor || 'invoice'}`} onClick={() => onOpenDetail(entry.id)}>
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
 
-                    {/* Mobile cards — klik kartu → Detail Invoice */}
-                    <div className="md:hidden space-y-3">
-                      {dpInvoices.slice(0, 100).map((entry) => {
-                        const info = parseDocInfo(entry)
-                        const st = getInvoiceStatus(info)
-                        return (
-                          <Card
-                            key={entry.id}
-                            className="p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors"
-                            onClick={() => onOpenDetail(entry.id)}
-                          >
-                            <CardContent className="p-4 space-y-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
-                                <StatusBadge status={st} />
-                              </div>
-                              <p className="text-sm">
-                                <span className="text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · </span>
-                                <span className="font-medium">{entry.pihakKedua || '-'}</span>
-                              </p>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
-                                <p className="text-muted-foreground">Qty: <span className="font-medium text-stone-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</span></p>
-                                <p className="text-muted-foreground">Item: <span className="font-medium text-stone-700">{info.itemCount > 0 ? info.itemCount : '-'}</span></p>
-                                <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</span></p>
-                              </div>
-                              <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
-                                <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); onOpenDetail(entry.id) }}>
-                                  <Eye className="h-3.5 w-3.5" /> Detail
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  </section>
-                )}
-
-                {/* === SECTION: INVOICE PELUNASAN === */}
-                {pelunasanInvoices.length > 0 && (
-                  <section className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-amber-600 shrink-0" />
-                      <h2 className="text-sm font-semibold tracking-tight">Invoice Pelunasan</h2>
-                      <Badge variant="outline" className="text-[11px] text-muted-foreground border-stone-200">{pelunasanInvoices.length}</Badge>
-                    </div>
-
-                    {/* Desktop table — klik baris → Detail Invoice */}
-                    <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
-                      <div className="max-h-96 overflow-y-auto scrollbar-thin">
-                        <Table>
-                          <TableHeader className="sticky top-0 z-10 bg-stone-50">
-                            <TableRow className="bg-stone-50 hover:bg-stone-50">
-                              <TableHead className="w-10">No.</TableHead>
-                              <TableHead className="w-0 min-w-0">No. Invoice</TableHead>
-                              <TableHead>Ref. Invoice DP</TableHead>
-                              <TableHead>Tanggal</TableHead>
-                              <TableHead>Customer</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
-                              <TableHead className="text-center">Status</TableHead>
-                              <TableHead className="text-center">Aksi</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {pelunasanInvoices.slice(0, 100).map((entry, i) => {
-                              const info = parseDocInfo(entry)
-                              const st = getInvoiceStatus(info)
-                              return (
-                                <TableRow
-                                  key={entry.id}
-                                  className="cursor-pointer hover:bg-stone-50"
-                                  onClick={() => onOpenDetail(entry.id)}
-                                >
-                                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                                  <TableCell className="font-mono text-xs whitespace-nowrap w-px">{entry.nomor || '-'}</TableCell>
-                                  <TableCell className="text-violet-700 whitespace-nowrap">{info.referensiInvoiceNomor || '-'}</TableCell>
-                                  <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
-                                  <TableCell className="max-w-56 truncate">{entry.pihakKedua || '-'}</TableCell>
-                                  <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
-                                  <TableCell className="text-center"><StatusBadge status={st} /></TableCell>
-                                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Lihat" aria-label={`Lihat ${entry.nomor || 'invoice'}`} onClick={() => onOpenDetail(entry.id)}>
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-
-                    {/* Mobile cards */}
-                    <div className="md:hidden space-y-3">
-                      {pelunasanInvoices.slice(0, 100).map((entry) => {
-                        const info = parseDocInfo(entry)
-                        const st = getInvoiceStatus(info)
-                        return (
-                          <Card
-                            key={entry.id}
-                            className="p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors"
-                            onClick={() => onOpenDetail(entry.id)}
-                          >
-                            <CardContent className="p-4 space-y-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
-                                <StatusBadge status={st} />
-                              </div>
-                              <p className="text-sm">
-                                <span className="text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · </span>
-                                <span className="font-medium">{entry.pihakKedua || '-'}</span>
-                              </p>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
-                                <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{formatRupiah(info.totalHarga)}</span></p>
-                                {info.referensiInvoiceNomor && <p className="text-muted-foreground">Ref: <span className="font-medium text-stone-700">{info.referensiInvoiceNomor}</span></p>}
-                              </div>
-                              <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
-                                <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); onOpenDetail(entry.id) }}>
-                                  <Eye className="h-3.5 w-3.5" /> Detail
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  </section>
-                )}
+                {/* Mobile cards — klik kartu → Detail Invoice */}
+                <div className="md:hidden space-y-3">
+                  {combinedList.slice(0, 100).map((entry) => {
+                    const info = parseDocInfo(entry)
+                    const st = getInvoiceStatus(info)
+                    return (
+                      <button
+                        key={entry.id}
+                        onClick={() => onOpenDetail(entry.id)}
+                        aria-label={`Buka invoice ${entry.nomor || ''}`}
+                        className="w-full text-left"
+                      >
+                        <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-2 transition-colors active:bg-stone-50 hover:border-stone-300">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{entry.nomor || '-'}</p>
+                              <p className="text-xs text-muted-foreground truncate">{entry.pihakKedua || '-'}</p>
+                            </div>
+                            <StatusBadge status={st} />
+                          </div>
+                          <div className="flex items-center justify-between gap-2 text-sm">
+                            <span className="text-muted-foreground">
+                              {entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · {info.itemCount || 0} item
+                            </span>
+                            <span className="font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</span>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </>
             )}
           </>
@@ -1367,10 +1319,29 @@ export default function InvoicePage() {
   const [createMode, setCreateMode] = useState<'regular' | 'dp' | 'pelunasan'>('regular')
   const [detailId, setDetailId] = useState<string | null>(null)
 
+  // Deep-link dari Beranda: /invoice?detail=<id> → langsung buka Detail Invoice.
+  // Dibaca sekali saat mount (client-side) agar tidak butuh Suspense tambahan.
+  useEffect(() => {
+    try {
+      const d = new URLSearchParams(window.location.search).get('detail')
+      if (d) setDetailId(d)
+    } catch {
+      // abaikan — query tidak valid
+    }
+  }, [])
+
+  // Tutup detail + bersihkan query param agar refresh tidak membuka detail lagi.
+  const closeDetail = () => {
+    setDetailId(null)
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', '/invoice')
+    }
+  }
+
   return (
     <DashboardLayout title="Invoice" subtitle="Buat invoice dengan pratinjau langsung dan cetak A5">
       {detailId ? (
-        <DetailInvoiceView id={detailId} onBack={() => setDetailId(null)} />
+        <DetailInvoiceView id={detailId} onBack={closeDetail} />
       ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
@@ -1385,26 +1356,29 @@ export default function InvoicePage() {
             </Button>
             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Invoice Baru</h2>
           </div>
-          {/* Sub-tab jenis invoice: Regular / DP / Pelunasan */}
-          <div className="flex items-center gap-2 mb-3 print:hidden overflow-x-auto">
-            {([
-              { key: 'regular' as const, label: 'Regular', icon: <FileText className="w-3.5 h-3.5" /> },
-              { key: 'dp' as const, label: 'DP', icon: <Banknote className="w-3.5 h-3.5" /> },
-              { key: 'pelunasan' as const, label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" /> },
-            ]).map(m => (
-              <button
-                key={m.key}
-                onClick={() => setCreateMode(m.key)}
-                className={cn(
-                  'px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap flex-shrink-0',
-                  createMode === m.key
-                    ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-                    : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                )}
-              >
-                <span className="inline-flex items-center gap-1.5">{m.icon}{m.label}</span>
-              </button>
-            ))}
+          {/* Sub-tab jenis invoice: Regular / DP / Pelunasan.
+              TANPA wrapper lebar/padding tambahan → margin kiri/kanan tab =
+              margin <main> (p-4 mobile / lg:p-8 desktop), SAMA dengan halaman
+              lain dan SEJAJAR dengan kotak editor (matchPageMargins). */}
+          <div className="mb-3 flex items-center gap-2 overflow-x-auto print:hidden">
+              {([
+                { key: 'regular' as const, label: 'Regular', icon: <FileText className="w-3.5 h-3.5" /> },
+                { key: 'dp' as const, label: 'DP', icon: <Banknote className="w-3.5 h-3.5" /> },
+                { key: 'pelunasan' as const, label: 'Pelunasan', icon: <Wallet className="w-3.5 h-3.5" /> },
+              ]).map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => setCreateMode(m.key)}
+                  className={cn(
+                    'px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors whitespace-nowrap flex-shrink-0',
+                    createMode === m.key
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                      : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1.5">{m.icon}{m.label}</span>
+                </button>
+              ))}
           </div>
           <Suspense fallback={null}>
             {createMode === 'pelunasan' ? (
