@@ -8658,3 +8658,27 @@ Stage Summary:
 - Semua tulisan petunjuk (placeholder) di kotak isi = abu-abu muda (#cbd5e1) di seluruh aplikasi.
 - Kotak Total Harga anti-overflow (truncate ellipsis, angka penuh via title).
 - LIVE di www.darrellsoft.com (darrellsoft-1xbcp72l2) & lokal; produksi & DB lokal bersih dari data uji.
+
+---
+Task ID: 45
+Agent: Main (Z.ai Code)
+Task: "extract file ini. ganti semua konten dengan file ini." (workspace-7ffcedf3-407d-422f-86e5-302ee85c0164 (12).tar.001/.002/.003 — restore penuh workspace)
+
+Work Log:
+- UPLOAD: 3 file split-gzip (±104 MB) di /home/z/my-project/upload/ → digabung `cat *.tar.001 .002 .003 | tar -xzf -` ke /tmp/ws12 (±1,5 GB uncompressed, termasuk .git; TANPA node_modules/.next).
+- FORENSIK KONDISI LAMA (pra-restore): disk lama = kondisi franken TIDAK konsisten — schema.prisma KEHILANGAN field `qty` di model Barang (bakal merusak fitur master barang), worklog mentok Task 31, api/items versi lama, TAPI items-view.tsx sudah era Task 41 + sw v54 + sisa implementasi Task 44 (hak-akses CRUD 1047 baris) dari sesi sebelumnya yang sandbox-nya hilang. Arsip (12) = snapshot KONSISTEN era Task 33 (11 Sep 14:56, sw v44, worklog lengkap s.d. Task 33, schema PUNYA `qty`).
+- BACKUP kondisi lama: /tmp/backup-pre-restore12-20260912-142234.tar.gz (99 MB, exclude node_modules/.next/upload/skills) — berisi juga 5 screenshot task44-*.png & commit git 174b866 hari ini.
+- REPLACE: rsync -a --delete dari /tmp/ws12/ → /home/z/my-project/ dengan exclude runtime: node_modules, .next, skills, upload, .vercel, dev.log, next-env.d.ts. Semua konten user (src, prisma, db, public, scripts, backups, worklog, .git, screenshot-screenshot era 31–33) kini = isi arsip.
+- VERIFIKASI PASCA: package.json & bun.lock & .env identik (tak perlu install ulang); git HEAD = 2428f9c (histori arsip), status bersih; prisma/schema.prisma == schema.prisma; `prisma db push` = sinkron tanpa perubahan; bunx eslint 11 file src yang berubah = 0 error.
+- DEV SERVER: proses dari bash tool mati tiap panggilan → solusi persisten: `node daemon.cjs start` (double-fork detached, auto-restart) → Ready 11.6s, port 3000 hidup lintas panggilan.
+- E2E LOKAL desktop 1280×800 (superadmin): dialog "Peringatan Keamanan akun dipakai perangkat lain" muncul sekali (sesi browser lama vs registry device DB baru) → Logout dari Sini → login ulang sukses; beranda penuh (greeting, motivasi, 4 kartu: Piutang Rp251.700.000, grafik Rp502.400.000 — DATA ASLI arsip); Master Barang: alur pilih pelanggan OK, dialog Tambah Barang punya Satuan+Qty (Task 33 ✓) & Harga Modal+Profit sinkron (Task 31 ✓), dialog ditutup TANPA simpan; Hak Akses (/administrasi/hak-akses): Mode Super Admin + Daftar Role (7 role, Tambah Role) + Matriks checkbox × tombol Edit ✓; Hitung Cetakan: form + master bahan asli termuat ✓.
+- E2E LOKAL mobile 390×844: /pembukaan, /administrasi/hak-akses, /master-barang → scrollW=390 semua (tanpa overflow horizontal), konten & bottom nav rapi. Console & dev.log bersih (tanpa error; hanya warning cross-origin preview bawaan platform).
+- BASELINE DB LOKAL (db/custom.db, isi arsip 11 Sep 14:45): DocumentHistory=23, RiwayatCetakan=20, RiwayatPotongKertas=20, Barang=3, BarangCustomer=3, Customer=132 — konsisten dengan catatan Task 33 (23/20/20).
+- TIDAK ADA deploy (restore lokal saja). TIDAK ADA data uji dibuat (baseline utuh).
+
+Stage Summary:
+- Workspace kini = salinan persis arsip (12): kode + DB + git + worklog era Task 33 (11 Sep 14:56), sw v44 / APP_VERSION 2026-09-11-v4.
+- Kondisi franken lama (schema tanpa qty, worklog 31, sisa Task 44 semi-jadi) DIHAPUS dari proyek; salinan aman di /tmp/backup-pre-restore12-20260912-142234.tar.gz.
+- PERINGATAN DEPLOY: produksi www.darrellsoft.com saat ini masih versi BARU (sw v53, berisi Task 34–41). Bila suatu saat deploy dari basis ini, WAJIB bump versi melewati v53 (mis. darrell-soft-v54 & APP_VERSION berikutnya) agar PWA client mau refresh — jangan deploy dengan v44.
+- PENDING (perlu konfirmasi user, dikerjakan di basis baru bila masih diinginkan): Task 43 (hitung-cetakan: tambah baris "Harga Modal" di bawah Sub Total + rename "Harga per Pcs"→"Harga Jual per Pcs") dan Task 44 (halaman hak akses: tampilan fitur jadi CRUD dengan UI/UX lebih baik — implementasi lamanya ada di backup).
+- Dev server: `node daemon.cjs start` adalah cara start yang persisten di sandbox ini (bun run dev biasa mati saat sesi bash berakhir).
