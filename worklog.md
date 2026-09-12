@@ -8810,3 +8810,19 @@ Work Log:
 Stage Summary:
 - Workspace bersih: 2.6G → 2.1G. Semua file tabel merah Task 50 terhapus tanpa regresi (E2E desktop+mobile lolos, gambar produk 0 broken, baseline DB utuh, log bersih).
 - Untuk download workspace ringkas tetap gunakan tar exclude node_modules/.next/.git (upload/ adalah mount point kosong, tidak menambah ukuran berarti).
+
+---
+Task ID: 52
+Agent: Main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com. token vcp_...SS"
+
+Work Log:
+- PRA-CEK: .vercel/project.json = darrellsoft ✓; schema.prisma = sqlite ✓; lokal / = 200 ✓; produksi sebelum deploy = sw.js darrell-soft-v55. Kondisi lokal = superset produksi (Task 43/44/48/49 sudah live sejak Task 49; Task 50-51 hanya menghapus file tak terpakai, tanpa perubahan kode).
+- DEPLOY: node scripts/prepare-build.js (schema→postgresql, 2 lokasi) → bunx vercel --prod --yes (build 39s, deployment darrellsoft-qps175gty…, Ready in 1m, aliased https://www.darrellsoft.com) → node scripts/revert-schema.js (schema→sqlite terverifikasi). Lokal tetap 200 setelah revert.
+- VERIFIKASI PRODUKSI: sw.js = darrell-soft-v55 ✓; https://www.darrellsoft.com/ = 200 ✓; chunk /hitung-cetakan baru (0ea90b312a497a82.js, build turbopack baru) memuat marker "Harga Jual per Pcs" ✓.
+- E2E PRODUKSI (agent-browser, desktop 1280×800): beranda render scrollW=1280, 22 img / 0 broken ✓; /hitung-cetakan (sesi aktif) menampilkan Sub Total + Harga Modal + Harga Jual per Pcs + Riwayat, tanpa "Application error" ✓. /tmp/task52-prod-hitung-d.png.
+- LOKAL SETELAH DEPLOY: 0 error di log terakhir; baseline DB utuh [23,20,20,3,3,132]; / = 200.
+
+Stage Summary:
+- www.darrellsoft.com redeploy sukses dengan basis kode identik lokal (termasuk hasil pembersihan Task 51: public/ tanpa .bak/fitur-*/dus-makanan → aset tidak terpakai tidak lagi ter-deploy).
+- Semua fitur terverifikasi live: Task 43+48 (baris ringkasan selalu tampil), Task 49 (margin seragam), Task 51 (aset bersih). Tidak ada deploy tertunda; lokal & produksi selaras (sw v55 / APP v15).
