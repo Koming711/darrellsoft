@@ -8742,3 +8742,21 @@ Stage Summary:
 - Basis lokal kini = lineage LENGKAP (Task 33 arsip + 34–41 + 43 penuh + 44) + sw v55/APP v15 — superset dari produksi v54.
 - Produksi v54 saat ini: baris "Harga Modal" SUDAH tampil, label lama "Harga per Pcs/Harga/Pcs" BELUM terganti, Task 44 belum ada.
 - Bila nanti diminta deploy: langsung aman (tanpa regresi) — prepare-build → vercel --prod → revert-schema, lalu verifikasi sw.js v55 + marker "Harga Jual per Pcs" di chunk produksi.
+
+---
+Task ID: 48
+Agent: Main (Z.ai Code)
+Task: "dihalaman hitung cetakan, tampilkan juga harga modal dibawah subtotal. dan harga jual per pcs dibawah total walau belum diisi. fix"
+
+Work Log:
+- Ubah 4 titik di src/app/hitung-cetakan/page.tsx (versi merge Task 47): hapus kondisional render baris "Harga Modal" (mobile lama: summaryJumlahPesanan>0; desktop sama) dan baris "Harga Jual per Pcs" di kartu Total (mobile lama: summaryQuantity>0 && hasGrandTotal; desktop sama) → kedua baris kini SELALU tampil (nilai "Rp 0" saat belum diisi, konsisten dgn Sub Total).
+- Warna baris "Harga Jual per Pcs" dibuat adaptif: saat hasGrandTotal → emerald-100/white di kartu emerald; saat kosong → slate-600 di kartu slate-300 (border slate-400/50) agar tetap terbaca. Baris "Harga Modal" netral (slate) sama seperti Sub Total.
+- LINT: bunx eslint = 0 error.
+- E2E LOKAL desktop 1280×800: kondisi KOSONG → Sub Total Rp 0 | Harga Modal Rp 0 | Profit Rp 0 | Total Rp 0 | Harga Jual per Pcs Rp 0 ✓ (semua baris tampil); kondisi TERISI (JP 1000 + Packing 100rb + Mata 2) → Rp 100.000 | Rp 100 | Rp 50.000 | Rp 150.000 | Rp 150 ✓; scrollW=1280. task48-hitung-d.png.
+- E2E LOKAL mobile 390×844: kedua kondisi sama benar, scrollW=390. task48-hitung-m.png. Form di-Reset setelahnya (tanpa Simpan/Preview/WhatsApp).
+- dev.log bersih; baseline DB utuh [23,20,20,3,3,132].
+- DEPLOY: tidak dilakukan (instruksi user sebelumnya: "jangan deploy"). Perubahan hanya di lokal; produksi masih v54 (baris Harga Modal tampil hanya saat terisi, tanpa rename).
+
+Stage Summary:
+- Hitung Cetakan kini selalu menampilkan 5 baris ringkasan: Sub Total → Harga Modal → Profit → Total → Harga Jual per Pcs (kosong = Rp 0), desktop & mobile.
+- Siap deploy kapan pun diminta (sw v55 / APP v15 sudah lebih tinggi dari produksi v14; tanpa regresi karena basis sudah merge lineage penuh).
