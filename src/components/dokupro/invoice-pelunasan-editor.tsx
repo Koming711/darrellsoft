@@ -394,7 +394,6 @@ export function InvoicePelunasanEditor() {
     <DocumentEditorLayout
       title="Invoice Pelunasan"
       previewMode="inline-bottom"
-      formColumns={2}
       previewMaxWidth={560}
       previewContent={
         invoiceData ? (

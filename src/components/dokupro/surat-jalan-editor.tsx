@@ -255,7 +255,6 @@ export function SuratJalanEditor() {
       <DocumentEditorLayout
         title="Surat Jalan"
         previewMode="inline-bottom"
-        formColumns={2}
         previewMaxWidth={575}
         previewContent={<SuratJalanPreview data={sj} />}
         actions={
