@@ -8839,3 +8839,17 @@ Work Log:
 
 Stage Summary:
 - backups/ = fitur hidup aplikasi (bukan sampah): auto-backup berjalan otomatis + self-cleanup 30 file. Aman secara teknis dihapus tapi tidak disarankan; data pengaman restore. Kandidat aman hapus: hanya 2 folder invoice-gabungan-backup-20260713-* (~0.9M).
+
+---
+Task ID: 54
+Agent: Main (Z.ai Code)
+Task: "kenapa workspace masih 90mb?"
+
+Work Log:
+- DIAGNOSA: 90MB = folder .git (riwayat versi git). Bedah git count-objects: 1853 loose objects 62.23 MiB (belum dipadatkan) + 3 pack 26.51 MiB. Penyebab: auto-commit per task → worklog.md berubah tiap commit (blob ~0.8MB per versi), screenshot PNG verifikasi besar ikut ter-commit (content-verify.png 2.7MB, task*-*.png, restore12-*.png, dll), tanpa gc antar sesi.
+- FIX 1: git gc --aggressive --prune=now → 1 pack 36.67 MiB, .git 90M → 38M (turun ~52M). Riwayat & kemampuan revert TETAP UTUH (tidak ada history rewrite).
+- FIX 2 (pencegahan): .gitignore +10 baris — /*.png (root), /task39b-screenshots/, /tool-results/, /custom.db.backup, /watchdog*.sh, /.daemon.log, /backups/invoice-gabungan-backup-*/ → artefak verifikasi tidak lagi masuk commit. Committed 0e8bde1.
+- Sisa workspace 2.1G = node_modules 1.4G (wajib) + .next 524M (cache) + .git 38M + skills 61M (sistem) + kode+aset ~20M. Tidak ada perubahan kode aplikasi → tanpa lint/E2E/deploy.
+
+Stage Summary:
+- Misteri 90MB terjawab & diperbaiki: .git 90M → 38M via gc; .gitignore diperkuat agar screenshot/artefak tidak menumpuk lagi. Riwayat git aman utuh.
