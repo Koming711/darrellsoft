@@ -1,7 +1,10 @@
 'use client'
 
-import { Plus, Edit, Save, X, Trash2, MessageCircle, Loader2 } from 'lucide-react'
-import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
+import {
+  Plus, Save, Trash2, MessageCircle, Loader2, ChevronDown,
+  CheckCheck, Ban, RotateCcw, ShieldCheck, LayoutGrid, Calculator, Database, Settings2,
+} from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, useMemo, type ComponentType, type ReactNode } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +17,6 @@ import { getAuthUser } from '@/lib/auth'
 import { saveAllPermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { useLanguage } from '@/contexts/language-context'
-import { TranslationKey } from '@/lib/i18n'
 import { SIMPLE_FEATURES as SHARED_SIMPLE_FEATURES, GROUP_FEATURES as SHARED_GROUP_FEATURES, buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults'
 
 interface SubPermission {
@@ -86,19 +88,38 @@ function getRoleColor(roleId: string): string {
   }
 }
 
-// ===== OPTIMIZED: Memoized CheckboxCell outside component =====
-const CheckboxCell = memo(function CheckboxCell({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled: boolean }) {
-  return (
-    <div className="flex items-center justify-center">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={onChange}
-        disabled={disabled}
-        className="h-5 w-5 rounded border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 data-[state=checked]:text-white"
-      />
-    </div>
-  )
-})
+// ===== KATEGORI FITUR — layout baru: fitur dikelompokkan agar mudah dipindai =====
+const CAT_HALAMAN = ['dashboard', 'pembukaan', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order', 'laporan']
+const CAT_HITUNG = ['potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas']
+const CAT_ADMIN = ['hak-akses', 'pengguna', 'pengaturan']
+
+const FEATURE_DESC: Record<string, string> = {
+  'dashboard': 'Ringkasan aktivitas & statistik bisnis',
+  'pembukaan': 'Beranda operasional harian',
+  'riwayat': 'Riwayat dokumen & hasil hitung',
+  'invoice': 'Buat & cetak invoice (fitur PRO)',
+  'surat-jalan': 'Buat & cetak surat jalan (fitur PRO)',
+  'purchase-order': 'Purchase order pembelian (fitur PRO)',
+  'laporan': 'Laporan ringkasan transaksi',
+  'potong-kertas': 'Kalkulasi pemotongan kertas',
+  'hitung-cetakan': 'Kalkulasi biaya & harga cetakan',
+  'hitung-finishing': 'Kalkulasi biaya finishing',
+  'hitung-ongkos-cetak': 'Kalkulasi ongkos cetak',
+  'hitung-harga-kertas': 'Kalkulasi harga kertas',
+  'hak-akses': 'Kelola role & hak akses fitur',
+  'pengguna': 'Kelola pengguna, pembeli & calon pembeli',
+  'pengaturan': 'Pengaturan aplikasi & data perusahaan',
+}
+
+/** Warna checkbox CRUD mengikuti jenis operasi (lihat/tambah/edit/hapus/konversi) */
+function subColorClass(subId: string): string {
+  if (subId.includes('lihat')) return 'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600'
+  if (subId.includes('tambah')) return 'data-[state=checked]:bg-teal-600 data-[state=checked]:border-teal-600'
+  if (subId.includes('edit')) return 'data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500'
+  if (subId.includes('hapus')) return 'data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600'
+  if (subId.includes('konversi')) return 'data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600'
+  return 'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600'
+}
 
 // ===== Helper: persist custom_roles metadata to DB (fire-and-forget) =====
 // Ensures custom roles survive page reload even before user clicks "Simpan".
@@ -117,150 +138,147 @@ async function persistCustomRoles(roles: Role[]) {
   }
 }
 
-// ===== OPTIMIZED: Memoized PermissionMatrix — does NOT re-render when =====
-// unrelated parent state (newRoleName, demoDays, waApiKey, etc.) changes.
-// Only re-renders when roles/isEditing change or when toggling permissions.
-interface PermissionMatrixProps {
-  roles: Role[]
-  isEditing: boolean
-  onToggleSimple: (roleId: string, featureId: string) => void
-  onToggleSub: (roleId: string, featureId: string, subId: string) => void
-  onToggleGroupAllAll: (featureId: string) => void
-  onToggleGroupAll: (roleId: string, featureId: string) => void
-  onDeleteRole: (roleId: string) => void
-  t: (key: TranslationKey) => string
+// ===== Presentational: kategori fitur =====
+function FeatureCategory({ icon: Icon, title, desc, children }: {
+  icon: ComponentType<{ className?: string }>
+  title: string
+  desc?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="mb-6 last:mb-0" aria-label={title}>
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-slate-800 leading-tight">{title}</h3>
+          {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
+        </div>
+        <div className="flex-1 h-px bg-slate-100 ml-2" />
+      </div>
+      <div className="rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden bg-card">
+        {children}
+      </div>
+    </section>
+  )
 }
 
-const PermissionMatrix = memo(function PermissionMatrix({
-  roles, isEditing,
-  onToggleSimple, onToggleSub, onToggleGroupAllAll, onToggleGroupAll, onDeleteRole,
-  t,
-}: PermissionMatrixProps) {
-  // Pre-compute feature maps for O(1) lookups — local to matrix, recomputed only when roles change
-  const roleFeatureMaps = useMemo(() => {
-    return roles.map(role => {
-      const map = new Map<string, FeaturePermission>()
-      for (const f of role.features) map.set(f.featureId, f)
-      return { roleId: role.id, map }
-    })
-  }, [roles])
-
-  const getFeature = useCallback((roleId: string, featureId: string): FeaturePermission | undefined => {
-    const entry = roleFeatureMaps.find(r => r.roleId === roleId)
-    return entry?.map.get(featureId)
-  }, [roleFeatureMaps])
-
+// ===== Presentational: baris fitur sederhana (akses halaman on/off) =====
+function SimpleFeatureRow({ name, desc, checked, disabled, onChange }: {
+  name: string
+  desc?: string
+  checked: boolean
+  disabled: boolean
+  onChange: () => void
+}) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[700px]">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-200">
-            <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 min-w-[220px] sticky left-0 bg-slate-50 z-10">Fitur</th>
-            {roles.map((role) => (
-              <th key={role.id} className="px-4 py-3 text-center min-w-[110px]">
-                <div className="flex flex-col items-center gap-1.5">
-                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${getRoleColor(role.id)}`}>{role.name}</span>
-                  {isEditing && role.id !== 'superadmin' && role.id !== 'admin' && !role.isSystem && (
-                    <button type="button" onClick={() => onDeleteRole(role.id)} className="text-[10px] text-red-400 hover:text-red-600">{t('hapus')}</button>
-                  )}
-                  {role.id === 'superadmin' && <span className="text-[10px] text-red-500 font-medium">Tidak dapat diubah</span>}
-                </div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {SIMPLE_FEATURES.map((feature) => (
-            <tr key={feature.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-              <td className="px-4 py-3 sticky left-0 bg-card z-10"><span className="text-sm font-medium text-slate-800">{feature.name}</span></td>
-              {roles.map((role) => {
-                const fp = getFeature(role.id, feature.id)
-                return (
-                  <td key={role.id} className="px-4 py-3">
-                    <CheckboxCell
-                      checked={fp?.allowed || false}
-                      onChange={() => onToggleSimple(role.id, feature.id)}
-                      disabled={!isEditing || role.id === 'superadmin'}
-                    />
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-          {GROUP_FEATURES.map((group) => (
-            <React.Fragment key={group.id}>
-              {/* Group Header Row */}
-              <tr className="border-b border-slate-200 bg-slate-100/80">
-                <td className="px-4 py-2.5 sticky left-0 bg-slate-100/80 z-10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{group.name}</span>
-                    {isEditing && (
-                      <button type="button" onClick={() => onToggleGroupAllAll(group.id)} className="text-[10px] font-medium text-slate-400 hover:text-slate-700">Semua Role</button>
-                    )}
-                  </div>
-                </td>
-                {roles.map((role) => {
-                  const fp = getFeature(role.id, group.id)
-                  const allCount = fp?.subPermissions?.length || 0
-                  const allowedCount = fp?.subPermissions?.filter(s => s.allowed).length || 0
-                  return (
-                    <td key={role.id} className="px-4 py-2.5">
-                      <div className="flex items-center justify-center gap-2">
-                        {isEditing && role.id !== 'superadmin' && (
-                          <button type="button" onClick={() => onToggleGroupAll(role.id, group.id)} className="text-[10px] font-medium text-slate-400 hover:text-slate-700 underline underline-offset-2">Semua</button>
-                        )}
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${allowedCount === allCount && allCount > 0 ? 'bg-emerald-100 text-emerald-700' : allowedCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
-                          {allowedCount}/{allCount}
-                        </span>
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-              {/* Sub-permission rows (always visible) */}
-              {group.subPermissions.map((sp) => (
-                <tr key={sp.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="px-4 py-2.5 pl-8 sticky left-0 bg-card z-10">
-                    <span className="text-sm text-slate-600">{sp.name}</span>
-                  </td>
-                  {roles.map((role) => {
-                    const fp = getFeature(role.id, group.id)
-                    const sub = fp?.subPermissions?.find(s => s.id === sp.id)
-                    return (
-                      <td key={role.id} className="px-4 py-2.5">
-                        <CheckboxCell
-                          checked={sub?.allowed || false}
-                          onChange={() => onToggleSub(role.id, group.id, sp.id)}
-                          disabled={!isEditing || role.id === 'superadmin'}
-                        />
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-slate-50/60 transition-colors">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-800">{name}</p>
+        {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
+      </div>
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        className="shrink-0"
+        aria-label={`Akses ${name}`}
+      />
     </div>
   )
-})
+}
+
+// ===== Presentational: kartu fitur CRUD (group) =====
+function GroupFeatureCard({ groupName, subs, editable, expanded, onToggleExpand, onToggleSub, onSetAll }: {
+  groupName: string
+  subs: SubPermission[]
+  editable: boolean
+  expanded: boolean
+  onToggleExpand: () => void
+  onToggleSub: (subId: string) => void
+  onSetAll: (value: boolean) => void
+}) {
+  const total = subs.length
+  const allowedCount = subs.filter(s => s.allowed).length
+  const all = total > 0 && allowedCount === total
+  const some = allowedCount > 0 && !all
+  const allowedNames = subs.filter(s => s.allowed).map(s => s.name).join(' · ')
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+        aria-expanded={expanded}
+      >
+        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${all ? 'bg-emerald-500' : some ? 'bg-amber-400' : 'bg-slate-300'}`} aria-hidden />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-slate-800">{groupName}</p>
+          <p className="text-xs text-slate-400 mt-0.5 truncate">
+            {allowedCount === 0 ? 'Tidak ada akses' : allowedNames}
+          </p>
+        </div>
+        <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${all ? 'bg-emerald-100 text-emerald-700' : some ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
+          {allowedCount}/{total}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+      {expanded && (
+        <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operasi CRUD</p>
+            {editable && (
+              <button
+                type="button"
+                onClick={() => onSetAll(!all)}
+                className="text-[11px] font-medium text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
+              >
+                {all ? 'Kosongkan' : 'Pilih Semua'}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+            {subs.map(sp => (
+              <div key={sp.id} className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white transition-colors">
+                <Checkbox
+                  id={`perm-${sp.id}`}
+                  checked={sp.allowed}
+                  onCheckedChange={() => onToggleSub(sp.id)}
+                  disabled={!editable}
+                  className={`h-5 w-5 rounded border-slate-300 data-[state=checked]:text-white ${subColorClass(sp.id)}`}
+                />
+                <Label htmlFor={`perm-${sp.id}`} className="text-sm text-slate-700 font-normal cursor-pointer flex-1 min-w-0">
+                  {sp.name}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function HakAksesPage() {
   const { t } = useLanguage()
   const currentUser = getAuthUser()
   const isSuperAdmin = currentUser?.role === 'superadmin'
 
-  // === ROLES STATE — initialized with defaults so page renders instantly ===
+  // === ROLES STATE — live edits + snapshot terakhir tersimpan (untuk deteksi perubahan) ===
   const [roles, setRoles] = useState<Role[]>(DEFAULT_ROLES)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editRoles, setEditRoles] = useState<Role[]>(DEFAULT_ROLES)
+  const [savedRoles, setSavedRoles] = useState<Role[]>(DEFAULT_ROLES)
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('admin')
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(GROUP_FEATURES.map(g => g.id)))
+
+  // === DIALOG STATE ===
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
-  const [newRoleName, setNewRoleName] = useState('')
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(GROUP_FEATURES.map(g => g.id)))
-  const [dataLoaded, setDataLoaded] = useState(false)
 
   // === AKUN DEMO STATE ===
   const [demoDays, setDemoDays] = useState('')
@@ -353,7 +371,7 @@ export default function HakAksesPage() {
           }
 
           setRoles(loadedRoles)
-          setEditRoles(JSON.parse(JSON.stringify(loadedRoles)))
+          setSavedRoles(JSON.parse(JSON.stringify(loadedRoles)))
         }
       } catch (err) {
         console.error('Failed to load settings:', err)
@@ -379,47 +397,117 @@ export default function HakAksesPage() {
     }
   }
 
-  // === DERIVED STATE: display roles based on editing mode ===
-  const displayRoles = isEditing ? editRoles : roles
+  // === DERIVED STATE ===
+  const selectedRole = roles.find(r => r.id === selectedRoleId) ?? roles[0]
+  const isSuperAdminRole = selectedRole?.id === 'superadmin'
+  const activeCount = selectedRole ? selectedRole.features.filter(f => f.allowed).length : 0
+  const totalCount = selectedRole?.features.length ?? 0
 
-  // NOTE: roleFeatureMaps & getFeature moved into <PermissionMatrix> (memoized).
-  // Parent no longer recomputes them on every keystroke in unrelated inputs.
+  // Deteksi perubahan belum disimpan (bandingkan live vs snapshot)
+  const isDirty = useMemo(
+    () => JSON.stringify(roles) !== JSON.stringify(savedRoles),
+    [roles, savedRoles]
+  )
 
-  // === ROLE HANDLERS ===
-  const handleEditToggle = useCallback(() => {
-    if (!dataLoaded) return
-    if (!isEditing) setEditRoles(JSON.parse(JSON.stringify(roles)))
-    setIsEditing(prev => !prev)
-  }, [dataLoaded, isEditing, roles])
+  // === FEATURE LOOKUP untuk role terpilih ===
+  const getFeature = useCallback((featureId: string): FeaturePermission | undefined => {
+    return selectedRole?.features.find(f => f.featureId === featureId)
+  }, [selectedRole])
 
-  const handleSave = useCallback(async () => {
-    const cleanedRoles = editRoles.map(role =>
-      role.id === 'superadmin' ? (roles.find(r => r.id === 'superadmin') || role) : role
-    )
-    setRoles(JSON.parse(JSON.stringify(cleanedRoles)))
-    setEditRoles(JSON.parse(JSON.stringify(cleanedRoles)))
-    setIsEditing(false)
+  // === PERMISSION MUTATORS (langsung edit, tanpa mode edit — sticky bar yang menyimpan) ===
+  const toggleSimplePermission = useCallback((roleId: string, featureId: string) => {
+    if (roleId === 'superadmin') return
+    setRoles(prev => prev.map(role =>
+      role.id === roleId
+        ? { ...role, features: role.features.map(f => f.featureId === featureId ? { ...f, allowed: !f.allowed } : f) }
+        : role
+    ))
+  }, [])
 
-    // Build permission data for all roles
-    const permData: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
-    for (const role of cleanedRoles) {
-      const features: Record<string, boolean> = {}
-      const subPermissions: Record<string, Record<string, boolean>> = {}
-      for (const f of role.features) {
-        features[f.featureId] = f.allowed
-        if (f.subPermissions) {
-          const subs: Record<string, boolean> = {}
-          for (const sp of f.subPermissions) {
-            subs[sp.id] = sp.allowed
-          }
-          subPermissions[f.featureId] = subs
-        }
+  const toggleSubPermission = useCallback((roleId: string, featureId: string, subId: string) => {
+    if (roleId === 'superadmin') return
+    setRoles(prev => prev.map(role => {
+      if (role.id !== roleId) return role
+      return {
+        ...role,
+        features: role.features.map(f => {
+          if (f.featureId !== featureId || !f.subPermissions) return f
+          const subs = f.subPermissions.map(sp => sp.id === subId ? { ...sp, allowed: !sp.allowed } : sp)
+          return { ...f, subPermissions: subs, allowed: subs.some(s => s.allowed) }
+        }),
       }
-      permData[role.id] = { features, subPermissions }
-    }
+    }))
+  }, [])
 
-    // Save to database
+  const setGroupAll = useCallback((roleId: string, featureId: string, value: boolean) => {
+    if (roleId === 'superadmin') return
+    setRoles(prev => prev.map(role => {
+      if (role.id !== roleId) return role
+      return {
+        ...role,
+        features: role.features.map(f => {
+          if (f.featureId !== featureId || !f.subPermissions) return f
+          return { ...f, subPermissions: f.subPermissions.map(sp => ({ ...sp, allowed: value })), allowed: value }
+        }),
+      }
+    }))
+  }, [])
+
+  const setRoleAll = useCallback((roleId: string, value: boolean) => {
+    if (roleId === 'superadmin') return
+    setRoles(prev => prev.map(role => {
+      if (role.id !== roleId) return role
+      return {
+        ...role,
+        features: role.features.map(f => ({
+          ...f,
+          allowed: value,
+          subPermissions: f.subPermissions?.map(sp => ({ ...sp, allowed: value })),
+        })),
+      }
+    }))
+  }, [])
+
+  const resetRoleDefault = useCallback((roleId: string) => {
+    if (roleId === 'superadmin') return
+    setRoles(prev => prev.map(role =>
+      role.id === roleId ? { ...role, features: buildDefaultFeatures(role.id) } : role
+    ))
+    toast.info('Role direset ke pengaturan default — jangan lupa Simpan')
+  }, [])
+
+  const toggleGroupExpand = useCallback((groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }, [])
+
+  // === SIMPAN / BATAL ===
+  const handleSave = useCallback(async () => {
+    setSaveLoading(true)
     try {
+      // Build permission data for all roles
+      const permData: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
+      for (const role of roles) {
+        const features: Record<string, boolean> = {}
+        const subPermissions: Record<string, Record<string, boolean>> = {}
+        for (const f of role.features) {
+          features[f.featureId] = f.allowed
+          if (f.subPermissions) {
+            const subs: Record<string, boolean> = {}
+            for (const sp of f.subPermissions) {
+              subs[sp.id] = sp.allowed
+            }
+            subPermissions[f.featureId] = subs
+          }
+        }
+        permData[role.id] = { features, subPermissions }
+      }
+
+      // Save to database
       const saveRes = await authFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -432,7 +520,7 @@ export default function HakAksesPage() {
       }
 
       // Also persist custom role metadata (id/name/color) so custom roles survive page reload
-      const customRolesMeta = cleanedRoles
+      const customRolesMeta = roles
         .filter(r => !DEFAULT_ROLES.find(dr => dr.id === r.id))
         .map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
       await authFetch('/api/settings', {
@@ -440,32 +528,42 @@ export default function HakAksesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(customRolesMeta) })
       })
+
+      // Save to localStorage for immediate sidebar update
+      saveAllPermissions(permData)
+
+      setSavedRoles(JSON.parse(JSON.stringify(roles)))
+      toast.success('Hak akses berhasil disimpan!')
     } catch (err) {
       toast.error('Gagal menyimpan ke database')
-      return
+    } finally {
+      setSaveLoading(false)
     }
+  }, [roles])
 
-    // Save to localStorage for immediate use
-    saveAllPermissions(permData)
+  const handleCancel = useCallback(() => {
+    setRoles(JSON.parse(JSON.stringify(savedRoles)))
+  }, [savedRoles])
 
-    toast.success('Hak akses berhasil disimpan!')
-  }, [editRoles, roles])
-
+  // === ROLE HANDLERS ===
   const handleAddRole = useCallback(() => {
-    if (!newRoleName.trim()) { toast.error('Nama role wajib diisi'); return }
+    const name = newRoleName.trim()
+    if (!name) { toast.error('Nama role wajib diisi'); return }
+    if (roles.some(r => r.name.toLowerCase() === name.toLowerCase())) {
+      toast.error('Nama role sudah digunakan'); return
+    }
     const newRole: Role = {
-      id: Date.now().toString(), name: newRoleName.trim(),
+      id: Date.now().toString(), name,
       color: 'bg-slate-100 text-slate-700', features: buildDefaultFeatures('new'),
     }
-    // Compute the new full roles list so we can persist custom_roles metadata immediately
     const nextRoles = [...roles, newRole]
-    setEditRoles(prev => [...prev, newRole])
+    // Metadata role otomatis dipersist; permission-nya masih default (belum "dirty")
     setRoles(nextRoles)
+    setSavedRoles(JSON.parse(JSON.stringify(nextRoles)))
+    setSelectedRoleId(newRole.id)
     setNewRoleName('')
     setDialogOpen(false)
-    toast.success('Role baru ditambahkan')
-    // Auto-persist custom_roles to DB so the role survives page reload
-    // even before the user clicks "Simpan" on the permission matrix.
+    toast.success(`Role "${name}" ditambahkan`)
     void persistCustomRoles(nextRoles)
   }, [newRoleName, roles])
 
@@ -481,14 +579,11 @@ export default function HakAksesPage() {
   const confirmDeleteRole = useCallback(async () => {
     if (!roleToDelete) return
     const roleId = roleToDelete.id
-    // Compute next roles list (after deletion) for immediate persist
     const nextRoles = roles.filter(r => r.id !== roleId)
     setRoles(nextRoles)
-    setEditRoles(prev => prev.filter(r => r.id !== roleId))
+    setSavedRoles(JSON.parse(JSON.stringify(nextRoles)))
+    if (selectedRoleId === roleId) setSelectedRoleId(nextRoles[0]?.id ?? '')
 
-    // Immediately persist custom_roles metadata from the in-memory list
-    // (fire-and-forget) so deletion survives reload even if the GET-then-POST
-    // block below races with another settings write.
     void persistCustomRoles(nextRoles)
 
     // Clean up permissions in database (role_permissions)
@@ -512,58 +607,7 @@ export default function HakAksesPage() {
     setDeleteDialogOpen(false)
     setRoleToDelete(null)
     toast.success(`Role "${roleToDelete.name}" berhasil dihapus`)
-  }, [roleToDelete, roles])
-
-  // ===== OPTIMIZED: Stable callbacks with useCallback =====
-  const toggleSimplePermission = useCallback((roleId: string, featureId: string) => {
-    if (roleId === 'superadmin') return
-    setEditRoles(prev => prev.map(role =>
-      role.id === roleId ? { ...role, features: role.features.map(f => f.featureId === featureId ? { ...f, allowed: !f.allowed } : f) } : role
-    ))
-  }, [])
-
-  const toggleSubPermission = useCallback((roleId: string, featureId: string, subId: string) => {
-    if (roleId === 'superadmin') return
-    setEditRoles(prev => prev.map(role =>
-      role.id === roleId ? {
-        ...role,
-        features: role.features.map(f => {
-          if (f.featureId !== featureId || !f.subPermissions) return f
-          const updatedSubs = f.subPermissions.map(sp => sp.id === subId ? { ...sp, allowed: !sp.allowed } : sp)
-          return { ...f, subPermissions: updatedSubs, allowed: updatedSubs.some(s => s.allowed) }
-        })
-      } : role
-    ))
-  }, [])
-
-  const toggleGroupAllAll = useCallback((featureId: string) => {
-    setEditRoles(prev => prev.map(role => {
-      if (role.id === 'superadmin') return role
-      return {
-        ...role,
-        features: role.features.map(f => {
-          if (f.featureId !== featureId || !f.subPermissions) return f
-          const anyAllowed = f.subPermissions.some(s => s.allowed)
-          return { ...f, subPermissions: f.subPermissions.map(sp => ({ ...sp, allowed: !anyAllowed })), allowed: !anyAllowed }
-        })
-      }
-    }))
-  }, [])
-
-  const toggleGroupAll = useCallback((roleId: string, featureId: string) => {
-    if (roleId === 'superadmin') return
-    setEditRoles(prev => prev.map(role => {
-      if (role.id !== roleId) return role
-      return {
-        ...role,
-        features: role.features.map(f => {
-          if (f.featureId !== featureId || !f.subPermissions) return f
-          const anyAllowed = f.subPermissions.some(s => s.allowed)
-          return { ...f, subPermissions: f.subPermissions.map(sp => ({ ...sp, allowed: !anyAllowed })), allowed: !anyAllowed }
-        })
-      }
-    }))
-  }, [])
+  }, [roleToDelete, roles, selectedRoleId])
 
   // === DEMO HANDLER ===
   const handleSaveDemo = useCallback(async () => {
@@ -608,6 +652,25 @@ export default function HakAksesPage() {
     toast.success('Pengaturan keamanan berhasil disimpan!')
   }, [autoLogoutMin, logoutWarningSec, singleDevice])
 
+  // === Render helper: fitur sederhana per kategori ===
+  const renderSimpleFeatures = (ids: string[]) => {
+    return ids.map(fid => {
+      const def = SIMPLE_FEATURES.find(f => f.id === fid)
+      if (!def) return null
+      const fp = getFeature(fid)
+      return (
+        <SimpleFeatureRow
+          key={fid}
+          name={def.name}
+          desc={FEATURE_DESC[fid]}
+          checked={fp?.allowed || false}
+          disabled={isSuperAdminRole}
+          onChange={() => selectedRole && toggleSimplePermission(selectedRole.id, fid)}
+        />
+      )
+    })
+  }
+
   return (
     <DashboardLayout title={t('hak_akses')} subtitle={t('subtitle_hak_akses')}>
       {/* Super Admin Notice */}
@@ -620,83 +683,143 @@ export default function HakAksesPage() {
         </div>
       )}
 
-      {/* ==================== SECTION 1: DAFTAR ROLE ==================== */}
+      {/* ==================== SECTION 1: ROLE & HAK AKSES FITUR ==================== */}
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="p-4 lg:p-6 border-b border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Daftar Role</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Kelola daftar role yang tersedia dalam sistem</p>
+              <h2 className="text-lg font-bold text-slate-800">Role &amp; Hak Akses Fitur</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Pilih role, lalu atur akses halaman &amp; operasi CRUD untuk setiap fitur</p>
             </div>
             <Button onClick={() => setDialogOpen(true)} size="sm" className="gap-2">
               <Plus className="w-4 h-4" />
               Tambah Role
             </Button>
           </div>
-        </div>
-        <div className="p-4 lg:p-6">
-          <div className="flex flex-wrap gap-3">
-            {roles.map((role) => (
-              <div
-                key={role.id}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border ${getRoleColor(role.id)} border-current/20 ${role.isSystem ? '' : 'pr-1.5'}`}
-              >
-                <span className="text-sm font-bold capitalize">{role.name}</span>
-                {role.isSystem && (
-                  <span className="text-[10px] font-medium opacity-70">Sistem</span>
-                )}
-                {!role.isSystem && (
+
+          {/* Role selector chips */}
+          <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Pilih role">
+            {roles.map((role) => {
+              const active = selectedRole?.id === role.id
+              return (
+                <div
+                  key={role.id}
+                  className={`inline-flex items-center gap-1 rounded-full border transition-colors ${
+                    active
+                      ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-400'
+                      : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
                   <button
                     type="button"
-                    onClick={() => handleDeleteRole(role.id)}
-                    className="ml-1 p-1 rounded-lg hover:bg-red-500/15 transition-colors text-red-500 hover:text-red-700"
-                    title={t('hapus_role')}
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setSelectedRoleId(role.id)}
+                    className={`flex items-center gap-1.5 pl-3.5 pr-3 py-1.5 text-sm font-semibold rounded-full focus-visible:outline-none ${
+                      active ? 'text-emerald-900' : 'text-slate-600'
+                    }`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {role.name}
+                    {role.isSystem && (
+                      <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-px rounded-full ${getRoleColor(role.id)}`}>
+                        Sistem
+                      </span>
+                    )}
                   </button>
-                )}
-              </div>
-            ))}
+                  {!role.isSystem && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRole(role.id)}
+                      className="mr-1.5 p-1 rounded-full hover:bg-red-100 transition-colors text-slate-400 hover:text-red-600 focus-visible:outline-none"
+                      title={t('hapus_role')}
+                      aria-label={`${t('hapus_role')} ${role.name}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
-      </div>
 
-      {/* ==================== SECTION 2: MATRIKS HAK AKSES FITUR ==================== */}
-      <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-        <div className="p-4 lg:p-6 border-b border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">Matriks Hak Akses Fitur</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Atur akses pengguna untuk setiap fitur aplikasi</p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {isEditing ? (
-                <>
-                  <Button onClick={handleSave} size="sm" className="gap-2"><Save className="w-4 h-4" />{t('simpan')}</Button>
-                  <Button onClick={handleEditToggle} variant="outline" size="sm" className="gap-2"><X className="w-4 h-4" />{t('batal')}</Button>
-                </>
-              ) : (
-                <Button onClick={handleEditToggle} size="sm" className="gap-2" disabled={!dataLoaded}><Edit className="w-4 h-4" />{t('edit')}</Button>
+        {/* Editor hak akses role terpilih */}
+        {selectedRole && (
+          <div className="p-4 lg:p-6">
+            {/* Ringkasan + aksi cepat */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                <span className={`px-3 py-1 rounded-full text-sm font-bold ${getRoleColor(selectedRole.id)}`}>
+                  {selectedRole.name}
+                </span>
+                <span className="text-xs text-slate-500">
+                  <span className="font-bold text-slate-700">{activeCount}</span> dari {totalCount} fitur aktif
+                </span>
+              </div>
+              {!isSuperAdminRole && (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setRoleAll(selectedRole.id, true)} className="gap-1.5 h-8 text-xs">
+                    <CheckCheck className="w-3.5 h-3.5" />Beri Semua
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setRoleAll(selectedRole.id, false)} className="gap-1.5 h-8 text-xs">
+                    <Ban className="w-3.5 h-3.5" />Kosongkan
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => resetRoleDefault(selectedRole.id)} className="gap-1.5 h-8 text-xs">
+                    <RotateCcw className="w-3.5 h-3.5" />Reset Default
+                  </Button>
+                </div>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Permissions Matrix — memoized so it does NOT re-render on every keystroke
-            in unrelated inputs (newRoleName, demoDays, waApiKey, etc.) */}
-        <PermissionMatrix
-          roles={displayRoles}
-          isEditing={isEditing}
-          onToggleSimple={toggleSimplePermission}
-          onToggleSub={toggleSubPermission}
-          onToggleGroupAllAll={toggleGroupAllAll}
-          onToggleGroupAll={toggleGroupAll}
-          onDeleteRole={handleDeleteRole}
-          t={t}
-        />
+            {/* Info khusus superadmin */}
+            {isSuperAdminRole && (
+              <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <ShieldCheck className="h-5 w-5 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-800">
+                  Super Admin memiliki akses penuh ke seluruh fitur &amp; operasi CRUD. Hak akses ini tidak dapat diubah.
+                </p>
+              </div>
+            )}
+
+            {/* Kategori: Halaman Utama & Transaksi */}
+            <FeatureCategory icon={LayoutGrid} title="Halaman Utama & Transaksi" desc="Akses halaman utama & alur dokumen">
+              {renderSimpleFeatures(CAT_HALAMAN)}
+            </FeatureCategory>
+
+            {/* Kategori: Hitung & Kalkulasi */}
+            <FeatureCategory icon={Calculator} title="Hitung & Kalkulasi" desc="Kalkulator produksi & harga">
+              {renderSimpleFeatures(CAT_HITUNG)}
+            </FeatureCategory>
+
+            {/* Kategori: Master Data (CRUD) */}
+            <FeatureCategory icon={Database} title="Master Data — Operasi CRUD" desc="Atur aksi Lihat / Tambah / Edit / Hapus untuk setiap fitur. Fitur tanpa akses tidak tampil di menu role ini.">
+              {GROUP_FEATURES.map((group) => {
+                const fp = selectedRole.features.find(f => f.featureId === group.id)
+                const subs = fp?.subPermissions || []
+                return (
+                  <GroupFeatureCard
+                    key={group.id}
+                    groupName={group.name}
+                    subs={subs}
+                    editable={!isSuperAdminRole}
+                    expanded={expandedGroups.has(group.id)}
+                    onToggleExpand={() => toggleGroupExpand(group.id)}
+                    onToggleSub={(subId) => selectedRole && toggleSubPermission(selectedRole.id, group.id, subId)}
+                    onSetAll={(value) => selectedRole && setGroupAll(selectedRole.id, group.id, value)}
+                  />
+                )
+              })}
+            </FeatureCategory>
+
+            {/* Kategori: Administrasi */}
+            <FeatureCategory icon={Settings2} title="Administrasi" desc="Pengelolaan sistem & pengguna">
+              {renderSimpleFeatures(CAT_ADMIN)}
+            </FeatureCategory>
+          </div>
+        )}
       </div>
 
-      {/* ==================== SECTION 3 & 4: AKUN DEMO + KEAMANAN ==================== */}
+      {/* ==================== SECTION 2: AKUN DEMO + KEAMANAN ==================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* AKUN DEMO */}
         <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -810,7 +933,7 @@ export default function HakAksesPage() {
         </div>
       </div>
 
-      {/* ==================== SECTION 5: WHATSAPP API ==================== */}
+      {/* ==================== SECTION 3: WHATSAPP API ==================== */}
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="p-4 lg:p-6 border-b border-slate-200">
           <div className="flex items-center gap-2">
@@ -851,6 +974,36 @@ export default function HakAksesPage() {
         </div>
       </div>
 
+      {/* ==================== STICKY SAVE BAR (muncul saat ada perubahan) ==================== */}
+      {isDirty && (
+        <div
+          className="sticky z-40 mb-4 bottom-[calc(3.75rem_+_env(safe-area-inset-bottom,0px))] lg:bottom-0"
+          data-sticky-savebar
+        >
+          <div className="rounded-xl border border-amber-300 bg-white/95 backdrop-blur shadow-lg shadow-amber-100/50 dark:bg-zinc-900/95 dark:border-amber-800 overflow-hidden">
+            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <Save className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-zinc-100">Perubahan belum disimpan</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">Simpan untuk menerapkan hak akses ke seluruh pengguna</p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={handleCancel} disabled={saveLoading}>
+                  {t('batal')}
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={saveLoading || !dataLoaded} className="gap-2 min-w-[160px]">
+                  {saveLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4" />Simpan Perubahan</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Role Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
@@ -875,7 +1028,7 @@ export default function HakAksesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Tambah Role Baru</DialogTitle>
-            <DialogDescription>Masukkan nama role baru untuk ditambahkan ke tabel hak akses</DialogDescription>
+            <DialogDescription>Masukkan nama role baru untuk ditambahkan ke daftar hak akses</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>

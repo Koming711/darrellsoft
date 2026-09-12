@@ -584,8 +584,8 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
       {/* Dialog create / edit */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin">
+          <DialogHeader className="pr-8">
             <DialogTitle>{editing ? 'Edit Barang' : 'Tambah Barang'}</DialogTitle>
             <DialogDescription>
               {editing
@@ -595,7 +595,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   : 'Kode barang dibuat otomatis oleh sistem.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
+          <div className="grid gap-3 sm:gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="item-name">Nama Barang <span className="text-destructive">*</span></Label>
               <Input
@@ -606,7 +606,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 autoComplete="off"
               />
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="grid gap-1.5">
                 <Label htmlFor="item-unit">Satuan</Label>
                 <Select value={form.unit} onValueChange={(v) => setForm((f) => ({ ...f, unit: v }))}>
@@ -649,7 +649,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             </div>
             {showHpp && (
               <div className="grid gap-1.5">
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="grid gap-1.5">
                     <Label htmlFor="item-modal">Harga Modal (Rp)</Label>
                     <Input
@@ -715,7 +715,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               </div>
             )}
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 border-t border-stone-100 pt-3 mt-1">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="min-h-[44px]">
               Batal
             </Button>

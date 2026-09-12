@@ -27,8 +27,6 @@ export interface BarangOption {
   unit: string;
   standardPrice: number;
   hpp: number | null;
-  /** Stok/jumlah default dari Master Barang — otomatis mengisi Qty saat dipilih. */
-  qty: number;
 }
 
 interface ItemsFieldsProps {
@@ -93,7 +91,7 @@ export function ItemsFields({
       onPickBarang(index, barang);
       return;
     }
-    // Fallback tanpa onPickBarang: isi langsung (qty ikut dari Master Barang)
+    // Fallback tanpa onPickBarang: isi langsung
     onChange(
       items.map((item, i) =>
         i === index
@@ -101,7 +99,6 @@ export function ItemsFields({
               ...item,
               deskripsi: barang.name,
               satuan: barang.unit || item.satuan || 'pcs',
-              qty: barang.qty > 0 ? barang.qty : item.qty,
               harga: barang.standardPrice || 0,
               ...(showModal ? { modal: barang.hpp ?? 0 } : {}),
             }
@@ -237,11 +234,7 @@ export function ItemsFields({
                       const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
                       updateItem(item.id, 'harga', raw === '' ? 0 : Number(raw) || 0)
                     }}
-                    /* Nama barang diambil dari Master Barang → harga satuan
-                       TERKUNCI (tidak bisa diedit manual) sesuai permintaan owner. */
-                    readOnly={!!barangOptions?.some((b) => b.name === item.deskripsi)}
-                    title={barangOptions?.some((b) => b.name === item.deskripsi) ? 'Harga satuan otomatis dari Master Barang — tidak bisa diedit' : undefined}
-                    className={`text-sm ${barangOptions?.some((b) => b.name === item.deskripsi) ? 'bg-slate-50 cursor-not-allowed text-slate-500' : ''}`}
+                    className="text-sm"
                   />
                 </div>
               )}
@@ -263,12 +256,8 @@ export function ItemsFields({
               {showPrice && (
                 <div className="space-y-1">
                   <Label className="text-xs">Total Harga</Label>
-                  <div className="flex h-9 w-full items-center overflow-hidden rounded-md border border-input bg-muted/50 px-3 py-2 text-sm font-medium tabular-nums text-emerald-700">
-                    {/* min-w-0 + truncate: angka panjang terpotong dengan ellipsis,
-                        tidak meluber keluar kotak. */}
-                    <span className="min-w-0 truncate" title={(item.qty * item.harga).toLocaleString('id-ID')}>
-                      {(item.qty * item.harga).toLocaleString('id-ID')}
-                    </span>
+                  <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm font-medium text-emerald-700">
+                    {(item.qty * item.harga).toLocaleString('id-ID')}
                   </div>
                 </div>
               )}

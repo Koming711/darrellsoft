@@ -8719,3 +8719,26 @@ Work Log:
 
 Stage Summary:
 - Task 43 SELESAI & terverifikasi ulang penuh di basis restore; kalkulasi tidak berubah (hanya tampilan/label); menunggu keputusan user soal deploy.
+
+---
+Task ID: 47
+Agent: Main (Z.ai Code)
+Task: "belum berubah juga. check and fix" (Task 43 belum terlihat user) → investigasi + merge lineage + selesaikan Task 43 penuh. Deploy DIBATALKAN user ("jangan deploy. lanjutkan").
+
+Work Log:
+- INVESTIGASI: dev preview otomatis bersih (IS_DEV unregister SW + hapus cache tiap load) → user pasti melihat produksi. Curl produksi: sw.js = darrell-soft-v54, APP_VERSION = 2026-09-12-v14 (bukan v53 seperti catatan lama) → sesi yang hilang sempat deploy v54.
+- FORENSIK CHUNK PRODUKSI (17 chunk halaman /hitung-cetakan): chunk cbda57134eee4157.js memuat "Harga Modal" 1× + "Sub Total" 2×, TAPI "Harga Jual per Pcs" 0×, "Harga per Pcs" 1×, "Harga/Pcs" 2× → produksi v54 = Task 34–41 + Task 43 PARSIAL (baris Harga Modal sudah live, rename BELUM).
+- KONFIRMASI BACKUP: /tmp/backup…tar.gz (franken pra-restore) = lineage Task 34–41 + Task 44 (hak-akses CRUD 1047 brs) TANPA rename; schema backup hanya kekurangan `qty Float @default(0)`; package.json identik; daftar file src identik; 12 file beda isi.
+- MERGE TANPA REGRESI: rsync src backup → proyek, lalu kembalikan 4 file versi arsip yang lebih baru: api/items/route.ts + [id]/route.ts (qty + hpp semua role), src/lib/types.ts (+qty), src/app/globals.css (placeholder owner). Schema tetap versi arsip (punya qty). DB lokal tidak disentuh.
+- TASK 43 DISELESAIKAN DI FILE MERGE (hitung-cetakan 3086 brs): baris "Harga Modal" (summaryHargaModal = SubTotal÷JmlPesanan) sudah ada di bawah Sub Total (mobile 2273–2278, desktop 2565) → tinggal RENAME 6 lokasi: WhatsApp (1415), kartu Total mobile (2321), kartu Total desktop (2613), header tabel riwayat (2761), tfoot preview (2978), kotak preview gelap (3027) → "Harga Jual per Pcs"/"Harga Jual/Pcs". Grep: 0 sisa label lama.
+- PWA BUMP: public/sw.js v44→darrell-soft-v55; APP_VERSION 2026-09-12-v14→v15 (melewati produksi v14) → siap deploy kapan pun tanpa regresi.
+- LINT: bunx eslint 11 file = 0 error.
+- E2E LOKAL desktop 1280×800 (superadmin): Hitung Cetakan (JP 1000 + Packing 100rb + Mata 2): Sub Total Rp100.000 → Harga Modal Rp100 → Profit 50% Rp50.000 → Total Rp150.000 → Harga Jual per Pcs Rp150 ✓ scrollW=1280; Master Barang (pilih Budi Susanto → dialog Tambah Barang): Nama/Satuan/Qty/Harga Jual/Harga Modal/Profit lengkap ✓; Hak Akses (Task 44): "Role & Hak Akses Fitur", 7 role, Tambah Role, "26 dari 26 fitur aktif", Beri Semua/Kosongkan/Reset Default ✓; smoke /invoice (6 invoice, Backup/Restore) & /pembukaan OK, login "superadmin 👋".
+- E2E LOKAL mobile 390×844: urutan kartu summary sama & benar, scrollW=390; Hak Akses scrollW=390 tanpa overflow. Screenshot: task47-hitung-d/m.png, task47-hakakses-d/m.png. Form selalu di-Reset, tidak pernah Simpan/Preview/WhatsApp.
+- dev.log bersih (semua 200); baseline DB utuh [23,20,20,3,3,132].
+- DEPLOY: DIBATALKAN — user: "jangan deploy. lanjutkan". Produksi tidak diubah.
+
+Stage Summary:
+- Basis lokal kini = lineage LENGKAP (Task 33 arsip + 34–41 + 43 penuh + 44) + sw v55/APP v15 — superset dari produksi v54.
+- Produksi v54 saat ini: baris "Harga Modal" SUDAH tampil, label lama "Harga per Pcs/Harga/Pcs" BELUM terganti, Task 44 belum ada.
+- Bila nanti diminta deploy: langsung aman (tanpa regresi) — prepare-build → vercel --prod → revert-schema, lalu verifikasi sw.js v55 + marker "Harga Jual per Pcs" di chunk produksi.

@@ -1757,7 +1757,7 @@ function HitungCetakanPage() {
   const summaryQuantity = parseInt(formData.quantity) || 0
   const summaryJumlahPesanan = parseInt(formData.jumlahPesanan) || 0
   const summaryHargaPerlembar = summaryJumlahPesanan > 0 ? summaryGrandTotal / summaryJumlahPesanan : 0
-  const summaryHargaModalPerlembar = summaryJumlahPesanan > 0 ? summarySubTotal / summaryJumlahPesanan : 0
+  const summaryHargaModal = summaryJumlahPesanan > 0 ? summarySubTotal / summaryJumlahPesanan : 0
 
   // Form validation: require essential fields before buttons can be used
   const isFormValid = !!(
@@ -2270,15 +2270,13 @@ function HitungCetakanPage() {
                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Sub Total</span>
                     <span className="text-base font-bold text-black dark:text-white">Rp {Math.round(summarySubTotal).toLocaleString('id-ID')}</span>
                   </div>
-                </div>
-                {summaryJumlahPesanan > 0 && (
-                  <div className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Harga Modal</span>
-                      <span className="text-base font-bold text-black dark:text-white">Rp {summaryHargaModalPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                  {summaryJumlahPesanan > 0 && (
+                    <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-200 dark:border-zinc-700">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Harga Modal</span>
+                      <span className="text-sm font-semibold text-black dark:text-white">Rp {Math.round(summaryHargaModal).toLocaleString('id-ID')}</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" /><span className="text-xs font-medium text-black dark:text-white">Profit</span>
@@ -2564,15 +2562,13 @@ function HitungCetakanPage() {
                     <span className="text-[12px] font-medium text-slate-600">Sub Total</span>
                     <span className="text-sm font-bold text-slate-700">Rp {Math.round(summarySubTotal).toLocaleString('id-ID')}</span>
                   </div>
-                </div>
-                {summaryJumlahPesanan > 0 && (
-                  <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[12px] font-medium text-slate-600">Harga Modal</span>
-                      <span className="text-sm font-bold text-slate-700">Rp {summaryHargaModalPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                  {summaryJumlahPesanan > 0 && (
+                    <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-slate-200">
+                      <span className="text-[11px] font-medium text-slate-600">Harga Modal</span>
+                      <span className="text-[12px] font-semibold text-slate-700">Rp {Math.round(summaryHargaModal).toLocaleString('id-ID')}</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className={`p-1.5 rounded-lg ${summaryProfitAmount > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-100 border border-slate-200'}`}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1"><Percent className={`w-3 h-3 ${summaryProfitAmount > 0 ? 'text-amber-600' : 'text-slate-400'}`} /><span className={`text-[10px] font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-400'}`}>Profit</span>
