@@ -8682,3 +8682,24 @@ Stage Summary:
 - PERINGATAN DEPLOY: produksi www.darrellsoft.com saat ini masih versi BARU (sw v53, berisi Task 34–41). Bila suatu saat deploy dari basis ini, WAJIB bump versi melewati v53 (mis. darrell-soft-v54 & APP_VERSION berikutnya) agar PWA client mau refresh — jangan deploy dengan v44.
 - PENDING (perlu konfirmasi user, dikerjakan di basis baru bila masih diinginkan): Task 43 (hitung-cetakan: tambah baris "Harga Modal" di bawah Sub Total + rename "Harga per Pcs"→"Harga Jual per Pcs") dan Task 44 (halaman hak akses: tampilan fitur jadi CRUD dengan UI/UX lebih baik — implementasi lamanya ada di backup).
 - Dev server: `node daemon.cjs start` adalah cara start yang persisten di sandbox ini (bun run dev biasa mati saat sesi bash berakhir).
+
+---
+Task ID: 46
+Agent: Main (Z.ai Code)
+Task: "dihalaman hitung cetakan, tambahkan harga modal dibawah subtotal. dan ganti harga per pcs jadi harga jual per pcs. fix" (Task 43 lama — dikerjakan ulang di basis hasil restore Task 45)
+
+Work Log:
+- ANALISIS (src/app/hitung-cetakan/page.tsx, 3090 baris versi arsip): model hitung = summarySubTotal (kertas+ongkos cetak 1&2+finishing+packing+kirim+bіауа lain 1&2+lem) → Profit % → summaryGrandTotal; Harga Per Pcs lama = GrandTotal ÷ JumlahPesanan. Kosakata aplikasi: pasangan Modal↔Jual per unit (seperti Master Barang). Tidak ada nilai modal sama sekali sebelumnya.
+- TAMBAH "Harga Modal" DI BAWAH Sub Total (2 lokasi, gaya kartu konsisten): (1) summary MOBILE (lg:hidden, ~line 2274) kartu putih baru di bawah kartu Sub Total; (2) summary DESKTOP (kolom kanan, ~line 2568) kartu slate-50 baru di bawah kartu Sub Total. Nilai = summaryHargaModalPerlembar = SubTotal ÷ JumlahPesanan (helper baru line 1760, denominatorsama dengan Harga Jual per Pcs → pasangan Modal vs Jual per lembar, tanpa duplikasi angka Sub Total). Tampil kondisional saat Jumlah Pesanan > 0; format toLocaleString id-ID maximumFractionDigits 0.
+- RENAME "Harga per Pcs/Harga Per Pcs/Harga/Pcs" → "Harga Jual per Pcs"/"Harga Jual/Pcs" (6 lokasi): summary mobile (kartu Total), summary desktop (kartu Total), header tabel Daftar Hitungan (tab Riwayat, "Harga Jual/Pcs"), tfoot preview cetak ("Harga Jual per Pcs (N lbr)"), kotak Grand Total preview ("Harga Jual/Pcs:"), teks WhatsApp ("Harga Jual/Pcs:"). Print HTML (buildPrintHtml) memang tidak menampilkan harga/pcs — tidak diubah. Verifikasi grep: 0 sisa label lama.
+- TIDAK diubah: preview cetak & PDF (customer-facing) TIDAK diberi baris Harga Modal (biaya produksi tidak boleh bocor ke customer).
+- LINT: bunx eslint src/app/hitung-cetakan/page.tsx = 0 error.
+- E2E LOKAL desktop 1280×800 (superadmin): isi Jumlah Pesanan 1000 + Cetak Berapa Mata 2 (Jumlah Cetakan auto = 500, ternyata readOnly = ceil(JP÷Mata)) + Ongkos Packing 100000 → summary: Sub Total Rp 100.000 → Harga Modal Rp 100 tepat di bawahnya ✓ → Profit 50% Rp 50.000 → Total Rp 150.000 → Harga Jual per Pcs Rp 150 ✓ (150.000÷1000). Screenshot task46-hitung-d.png, task46-hitung-d2.png. Tab Riwayat: superadmin 0 riwayat (scoped per user, baseline 20 milik akun lain — bukan bug); header tabel terverifikasi via kode.
+- E2E LOKAL mobile 390×844: urutan kartu sama (Sub Total → Harga Modal → Profit → Total Hitung Cetakan → Harga Jual per Pcs Rp 150), scrollW=390 tanpa overflow, bottom nav rapi. Screenshot task46-hitung-m.png.
+- LOG & DB: dev.log bersih (semua 200); form di-RESET tanpa pernah klik Simpan/Preview/WhatsApp → baseline DB UTUH: RiwayatCetakan=20, DocumentHistory=23, RiwayatPotongKertas=20; sisa data uji 0.
+- TIDAK ADA deploy: produksi www.darrellsoft.com masih v53 (fitur Task 34–41), basis lokal kini era Task 33 (sw v44). Deploy sekarang = REGRESI produksi. Bila user minta deploy: WAJIB bump PWA melewati v53 (mis. darrell-soft-v54 / APP_VERSION 2026-09-12-v15) dan sadar bahwa fitur Task 34–41 (versi lokal hilang setelah restore) akan hilang dari produksi juga.
+
+Stage Summary:
+- Halaman Hitung Cetakan kini menampilkan pasangan harga per lembar yang utuh: "Harga Modal" (SubTotal÷Jml Pesanan) tepat di bawah "Sub Total" (desktop & mobile), dan label per-harga jual diperjelas jadi "Harga Jual per Pcs" di 6 lokasi (summary, tabel riwayat, preview, WhatsApp).
+- Kalkulasi TIDAK berubah sama sekali (hanya tampilan & label) — riwayat lama & preview cetak tetap kompatibel.
+- LIVE hanya di LOKAL; produksi belum diubah (menunggu keputusan deploy dari user karena basis lokal lebih lama dari produksi).
