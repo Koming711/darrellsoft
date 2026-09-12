@@ -8760,3 +8760,21 @@ Work Log:
 Stage Summary:
 - Hitung Cetakan kini selalu menampilkan 5 baris ringkasan: Sub Total → Harga Modal → Profit → Total → Harga Jual per Pcs (kosong = Rp 0), desktop & mobile.
 - Siap deploy kapan pun diminta (sw v55 / APP v15 sudah lebih tinggi dari produksi v14; tanpa regresi karena basis sudah merge lineage penuh).
+
+---
+Task ID: 49
+Agent: Main (Z.ai Code)
+Task: "tampilan dihalaman invoice baru buat margin kiri dan kanan sama dengan halaman lainnya. check and fix. deploy"
+
+Work Log:
+- DIAGNOSA (ukur DOM di browser): DashboardLayout <main> = p-4/lg:p-8 (mobile 16px, desktop 240px dari tepi window setelah sidebar). Buat Invoice memakai DocumentEditorLayout yang menambah container sendiri: px-3 md:px-6 + mx-auto max-w-[1600px] + wrapper mx-auto max-w-5xl/3xl → form masuk ±24px lebih dalam dari baris tab & halaman lain (desktop formBoxLeft=264 vs tab 240; makin lebar window makin besar offset akibat centering).
+- FIX (src/components/dokupro/document-editor-layout.tsx, ketiga branch inline-bottom/popup/inline): container → "py-3 md:py-4 print:p-0" (hapus mx-auto, max-w-[1600px], px-3, md:px-6); wrapper form → "space-y-3 lg:space-y-5 print-hidden"; wrapper actions → "mt-4 space-y-3 print:hidden" (hapus mx-auto + max-w-5xl/3xl). Prop formColumns & variabel wideForm dihapus (hanya untuk pemilihan max-w); formColumns={2} dihapus dari 4 editor (invoice, pelunasan, surat-jalan, PO). Konten editor kini rata penuh dengan <main> = margin sama persis dgn halaman lain; pratinjau A5 tetap ter-center oleh wrapper sendiri.
+- LINT: 5 file terkait = 0 error.
+- E2E LOKAL desktop 1280×800: Buat Invoice tabLeft=240 = formBoxLeft=240, tepi kanan konten 1248 = tepi kanan riwayat ✓; Buat Surat Jalan & Buat PO & Pelunasan: formBoxLeft=240 semua, tanpa "Application error", scrollW=1280 ✓. Mobile 390×844: tab/kotak form/Kembali semua left=16 ✓, scrollW=390. task49-invoice-d/m.png.
+- dev.log bersih; baseline DB utuh [23,20,20,3,3,132].
+- DEPLOY (diminta user): node scripts/prepare-build.js (schema→postgresql) → bunx vercel --prod --yes (deployment darrellsoft-ctg2zufhc…) → node scripts/revert-schema.js (schema→sqlite). Produksi kini sw.js = darrell-soft-v55 + APP_VERSION 2026-09-12-v15 → semua PWA client akan auto-refresh (localStorage version check + SW update).
+- VERIFIKASI PRODUKSI (www.darrellsoft.com): sw.js = darrell-soft-v55 200 OK; chunk /hitung-cetakan memuat "Harga Jual per Pcs" ✓, APP_VERSION v15 ✓, class lama "max-w-[1600px]" 0 ✓. E2E browser produksi (login superadmin, tutup dialog "Versi Baru!"): /hitung-cetakan kondisi kosong menampilkan Sub Total Rp 0 → Harga Modal Rp 0 → Profit → Total Rp 0 → Harga Jual per Pcs Rp 0 ✓ (Task 43+48 live); /invoice → Buat Invoice desktop tabLeft=240=formBoxLeft sejajar ✓ + mobile 390 left=16 sejajar ✓ scrollW=390. task49-prod-invoice-d.png.
+
+Stage Summary:
+- SEMUA task tertunda kini LIVE di produksi: Task 43 penuh (Harga Modal + Harga Jual per Pcs), Task 44 (hak akses CRUD), Task 48 (baris selalu tampil walau kosong), Task 49 (margin Buat Invoice & seluruh document editor seragam dgn halaman lain).
+- Produksi & lokal kini sama-sama versi v55 / APP v15 (lokal = superset tapi tanpa perbedaan tampilan yang tersisa). Tidak ada deploy yang tertunda.

@@ -408,7 +408,6 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       <DocumentEditorLayout
         title="Invoice"
         previewMode="inline-bottom"
-        formColumns={2}
         previewMaxWidth={560}
         previewContent={
           hasPreviewData ? (

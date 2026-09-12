@@ -308,7 +308,6 @@ export function PurchaseOrderEditor() {
       <DocumentEditorLayout
         title="Purchase Order"
         previewMode="inline-bottom"
-        formColumns={2}
         previewMaxWidth={560}
         previewContent={<PurchaseOrderPreview data={po} />}
         actions={
