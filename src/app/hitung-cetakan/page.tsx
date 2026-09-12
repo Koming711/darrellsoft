@@ -1412,7 +1412,7 @@ function HitungCetakanPage() {
       })
     }
     msg += `\n*Grand Total: ${rp(summaryGrandTotal)}*\n`
-    if (summaryJumlahPesanan > 0) msg += `Harga/Pcs: ${rp(summaryGrandTotal / summaryJumlahPesanan)}\n`
+    if (summaryJumlahPesanan > 0) msg += `Harga Jual/Pcs: ${rp(summaryGrandTotal / summaryJumlahPesanan)}\n`
     msg += `\nTerima kasih`
 
     const encoded = encodeURIComponent(msg)
@@ -1757,6 +1757,7 @@ function HitungCetakanPage() {
   const summaryQuantity = parseInt(formData.quantity) || 0
   const summaryJumlahPesanan = parseInt(formData.jumlahPesanan) || 0
   const summaryHargaPerlembar = summaryJumlahPesanan > 0 ? summaryGrandTotal / summaryJumlahPesanan : 0
+  const summaryHargaModalPerlembar = summaryJumlahPesanan > 0 ? summarySubTotal / summaryJumlahPesanan : 0
 
   // Form validation: require essential fields before buttons can be used
   const isFormValid = !!(
@@ -2270,6 +2271,14 @@ function HitungCetakanPage() {
                     <span className="text-base font-bold text-black dark:text-white">Rp {Math.round(summarySubTotal).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
+                {summaryJumlahPesanan > 0 && (
+                  <div className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Harga Modal</span>
+                      <span className="text-base font-bold text-black dark:text-white">Rp {summaryHargaModalPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" /><span className="text-xs font-medium text-black dark:text-white">Profit</span>
@@ -2311,7 +2320,7 @@ function HitungCetakanPage() {
                   </div>
                   {summaryQuantity > 0 && hasGrandTotal && (
                     <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-white/30">
-                      <span className="text-xs font-medium text-emerald-100">Harga Per Pcs</span>
+                      <span className="text-xs font-medium text-emerald-100">Harga Jual per Pcs</span>
                       <span className="text-[23px] font-semibold text-white">Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                     </div>
                   )}
@@ -2556,6 +2565,14 @@ function HitungCetakanPage() {
                     <span className="text-sm font-bold text-slate-700">Rp {Math.round(summarySubTotal).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
+                {summaryJumlahPesanan > 0 && (
+                  <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[12px] font-medium text-slate-600">Harga Modal</span>
+                      <span className="text-sm font-bold text-slate-700">Rp {summaryHargaModalPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                    </div>
+                  </div>
+                )}
                 <div className={`p-1.5 rounded-lg ${summaryProfitAmount > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-100 border border-slate-200'}`}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1"><Percent className={`w-3 h-3 ${summaryProfitAmount > 0 ? 'text-amber-600' : 'text-slate-400'}`} /><span className={`text-[10px] font-medium ${summaryProfitAmount > 0 ? 'text-amber-800' : 'text-slate-400'}`}>Profit</span>
@@ -2597,7 +2614,7 @@ function HitungCetakanPage() {
                   </div>
                   {summaryQuantity > 0 && hasGrandTotal && (
                     <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-white/30">
-                      <span className="text-[11px] font-medium text-emerald-100">Harga Per Pcs</span>
+                      <span className="text-[11px] font-medium text-emerald-100">Harga Jual per Pcs</span>
                       <span className="text-[17px] font-semibold text-white">Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                     </div>
                   )}
@@ -2745,7 +2762,7 @@ function HitungCetakanPage() {
                       <TableHead className="text-right">Profit</TableHead>
                       <TableHead className="hidden xl:table-cell">Finishing</TableHead>
                       <TableHead className="text-right">Jml</TableHead>
-                      <TableHead className="text-right">Harga/Pcs</TableHead>
+                      <TableHead className="text-right">Harga Jual/Pcs</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
@@ -2962,7 +2979,7 @@ function HitungCetakanPage() {
                       </tr>
                       {pvHargaPerPcs > 0 && (
                         <tr>
-                          <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
+                          <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga Jual per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
                           <td className="pt-1.5 text-right text-xs font-bold text-emerald-700 tabular-nums">{formatRp(pvHargaPerPcs)}</td>
                         </tr>
                       )}
@@ -3011,7 +3028,7 @@ function HitungCetakanPage() {
                   <div className="text-right text-[10.5px] text-slate-400 space-y-0.5">
                     <p>Sub Total: <span className="font-semibold text-slate-300">{formatRp(pvSubTotal)}</span></p>
                     {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>}
-                    {pvHargaPerPcs > 0 && <p>Harga/Pcs: <span className="font-semibold text-emerald-300">{formatRp(pvHargaPerPcs)}</span></p>}
+                    {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-emerald-300">{formatRp(pvHargaPerPcs)}</span></p>}
                   </div>
                 </div>
               </div>
