@@ -8794,3 +8794,19 @@ Work Log:
 Stage Summary:
 - File besar TIDAK TERPAKAI siap hapus (~472M): upload/ 444M, tool-results/ 16M, artefak root ~9M, public/*.bak+fitur-*+dus-makanan ~1.9M, root components/+lib/ ~1.2M, custom.db.backup 228K. Tambah .next 575M (cache regenerable, hapus hanya saat dev server mati) → total potensi ~1.05G (2.6G → ~1.55G).
 - node_modules (1.4G), .git (90M), skills (61M), .zscripts, db/, backups/, worklog.md WAJIB ada. Saran download ringkas: tar dengan exclude node_modules/.next/upload/tool-results/.git → arsip ~15-20M.
+
+---
+Task ID: 51
+Agent: Main (Z.ai Code)
+Task: "hapus file besar tidak terpakai (tabel merah)" (lanjutan Task 50)
+
+Work Log:
+- HAPUS selesai: upload/ (isi 444M dibersihkan; folder tersisa 4.5K karena upload/ = mount point environment, "Device or resource busy" saat rmdir — wajar, isi aman terhapus), tool-results/ 16M, task39b-screenshots/ 444K, 56 PNG artefak verifikasi di root (~5.5M: content-verify.png 2.7M, task30-49-*.png, restore12-*.png, dll), watchdog.sh + watchdog-loop.sh, custom.db.backup 228K, 8 file public/*.bak* (~1.3M), 7 file public/fitur-*.jpeg + dus-makanan.jpg (~680K), root components/ 820K + lib/ 352K (duplikat pra-restrukturisasi).
+- Catatan: rm pertama timeout 120s (banyak file kecil di upload/extract-14) → diulang bertahap dengan timeout besar; EADDRINUSE sekali di log karena percobaan start ganda, server akhirnya hidup normal.
+- VERIFIKASI: workspace 2.6G → 2.1G (hemat ~500M; sisa besar = node_modules 1.4G, .next 524M, .git 90M, skills 61M — semua wajib/sistem). public/ sisa hanya aset aktif. Baseline DB utuh [23,20,20,3,3,132]. Dev server hidup (HTTP 200).
+- E2E agent-browser: desktop 1280×800 beranda scrollW=1280, 22 img / 0 broken, 11 aset produk/logo/hero loaded ✓; /hitung-cetakan render + label Harga Modal/Harga Jual per Pcs/Sub Total ✓ tanpa "Application error"; mobile 390×844 beranda scrollW=390, 22 img / 0 broken ✓, /hitung-cetakan ✓. Screenshot /tmp/task51-hitung-d.png, /tmp/task51-hitung-m.png.
+- dev.log 400 baris terakhir: 0 request 404, 0 referensi aset terhapus (fitur-*/.bak/dus-makanan), 0 error aplikasi. Tidak ada perubahan kode → tanpa lint/deploy. worklog.md TIDAK diubah isinya (hanya append).
+
+Stage Summary:
+- Workspace bersih: 2.6G → 2.1G. Semua file tabel merah Task 50 terhapus tanpa regresi (E2E desktop+mobile lolos, gambar produk 0 broken, baseline DB utuh, log bersih).
+- Untuk download workspace ringkas tetap gunakan tar exclude node_modules/.next/.git (upload/ adalah mount point kosong, tidak menambah ukuran berarti).
