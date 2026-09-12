@@ -2270,12 +2270,10 @@ function HitungCetakanPage() {
                     <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Sub Total</span>
                     <span className="text-base font-bold text-black dark:text-white">Rp {Math.round(summarySubTotal).toLocaleString('id-ID')}</span>
                   </div>
-                  {summaryJumlahPesanan > 0 && (
-                    <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-200 dark:border-zinc-700">
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Harga Modal</span>
-                      <span className="text-sm font-semibold text-black dark:text-white">Rp {Math.round(summaryHargaModal).toLocaleString('id-ID')}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center mt-1 pt-1 border-t border-slate-200 dark:border-zinc-700">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Harga Modal</span>
+                    <span className="text-sm font-semibold text-black dark:text-white">Rp {Math.round(summaryHargaModal).toLocaleString('id-ID')}</span>
+                  </div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700">
                   <div className="flex justify-between items-center">
@@ -2316,12 +2314,10 @@ function HitungCetakanPage() {
                     <span className={`text-xs font-semibold ${hasGrandTotal ? 'text-white' : 'text-slate-500'}`}>Total Hitung Cetakan</span>
                     <span className={`text-[26px] font-semibold ${hasGrandTotal ? 'text-white' : 'text-slate-500'}`}>Rp {Math.round(summaryGrandTotal).toLocaleString('id-ID')}</span>
                   </div>
-                  {summaryQuantity > 0 && hasGrandTotal && (
-                    <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-white/30">
-                      <span className="text-xs font-medium text-emerald-100">Harga Jual per Pcs</span>
-                      <span className="text-[23px] font-semibold text-white">Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                  )}
+                  <div className={`flex justify-between items-center mt-1.5 pt-1.5 border-t ${hasGrandTotal ? 'border-white/30' : 'border-slate-400/50'}`}>
+                    <span className={`text-xs font-medium ${hasGrandTotal ? 'text-emerald-100' : 'text-slate-600'}`}>Harga Jual per Pcs</span>
+                    <span className={`text-[23px] font-semibold ${hasGrandTotal ? 'text-white' : 'text-slate-600'}`}>Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                  </div>
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-1 space-y-0.5">
@@ -2562,12 +2558,10 @@ function HitungCetakanPage() {
                     <span className="text-[12px] font-medium text-slate-600">Sub Total</span>
                     <span className="text-sm font-bold text-slate-700">Rp {Math.round(summarySubTotal).toLocaleString('id-ID')}</span>
                   </div>
-                  {summaryJumlahPesanan > 0 && (
-                    <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-slate-200">
-                      <span className="text-[11px] font-medium text-slate-600">Harga Modal</span>
-                      <span className="text-[12px] font-semibold text-slate-700">Rp {Math.round(summaryHargaModal).toLocaleString('id-ID')}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-slate-200">
+                    <span className="text-[11px] font-medium text-slate-600">Harga Modal</span>
+                    <span className="text-[12px] font-semibold text-slate-700">Rp {Math.round(summaryHargaModal).toLocaleString('id-ID')}</span>
+                  </div>
                 </div>
                 <div className={`p-1.5 rounded-lg ${summaryProfitAmount > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-slate-100 border border-slate-200'}`}>
                   <div className="flex justify-between items-center">
@@ -2608,12 +2602,10 @@ function HitungCetakanPage() {
                     <span className={`text-[10px] font-semibold ${hasGrandTotal ? 'text-emerald-100' : 'text-slate-500'}`}>Total</span>
                     <span className={`text-[20px] font-semibold ${hasGrandTotal ? 'text-white' : 'text-slate-500'}`}>Rp {Math.round(summaryGrandTotal).toLocaleString('id-ID')}</span>
                   </div>
-                  {summaryQuantity > 0 && hasGrandTotal && (
-                    <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-white/30">
-                      <span className="text-[11px] font-medium text-emerald-100">Harga Jual per Pcs</span>
-                      <span className="text-[17px] font-semibold text-white">Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                  )}
+                  <div className={`flex justify-between items-center mt-0.5 pt-0.5 border-t ${hasGrandTotal ? 'border-white/30' : 'border-slate-400/50'}`}>
+                    <span className={`text-[11px] font-medium ${hasGrandTotal ? 'text-emerald-100' : 'text-slate-600'}`}>Harga Jual per Pcs</span>
+                    <span className={`text-[17px] font-semibold ${hasGrandTotal ? 'text-white' : 'text-slate-600'}`}>Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                  </div>
                 </div>
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-0.5 space-y-0.5">
