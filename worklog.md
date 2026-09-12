@@ -8826,3 +8826,16 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com redeploy sukses dengan basis kode identik lokal (termasuk hasil pembersihan Task 51: public/ tanpa .bak/fitur-*/dus-makanan → aset tidak terpakai tidak lagi ter-deploy).
 - Semua fitur terverifikasi live: Task 43+48 (baris ringkasan selalu tampil), Task 49 (margin seragam), Task 51 (aset bersih). Tidak ada deploy tertunda; lokal & produksi selaras (sw v55 / APP v15).
+
+---
+Task ID: 53
+Agent: Main (Z.ai Code)
+Task: "auto-backup di delete apakah aman?" (pertanyaan, tanpa perubahan)
+
+Work Log:
+- Investigasi kode: folder backups/ = penyimpanan AKTIF fitur Backup & Restore aplikasi. Dibuat otomatis oleh dashboard-layout.tsx (trigger POST /api/database/auto-backup saat due) → auto-backup-*.json + .xlsx; ditampilkan di UI Pengaturan (GET /api/database/backups); bisa di-Restore dari file itu (restore route baca backups/); bisa dihapus per-file via DELETE endpoint (ada di UI); aplikasi otomatis membersihkan sendiri (cleanupOldBackups keep 30 file auto-backup terbaru).
+- Isi backups/ (1.8M total): 16 pasang auto-backup json+xlsx (2026-06-26 s/d 2026-09-12, terbaru auto-backup-2026-09-12T14-41-02), 4 backup manual xlsx 2026-06-01, 2 folder invoice-gabungan-backup-20260713-* (~956K, salinan kode task lama — bukan data, 0 referensi di aplikasi).
+- Kesimpulan ke user: hapus auto-backup tidak merusak aplikasi (folder & jadwal dibuat ulang otomatis), TAPI menghilangkan jaring pengaman restore server-side; ukuran kecil (1.8M) → penghapusan tidak berdampak ke ukuran workspace. Rekomendasi: sisakan; opsional hapus 2 folder invoice-gabungan-backup (aman). Tidak ada file diubah/dihapus pada task ini.
+
+Stage Summary:
+- backups/ = fitur hidup aplikasi (bukan sampah): auto-backup berjalan otomatis + self-cleanup 30 file. Aman secara teknis dihapus tapi tidak disarankan; data pengaman restore. Kandidat aman hapus: hanya 2 folder invoice-gabungan-backup-20260713-* (~0.9M).
