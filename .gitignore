@@ -58,3 +58,12 @@ server.log
 /backup-*.tar.gz
 *.tar
 *.tar.gz
+
+# Verifikasi E2E & artefak sesi (jangan menumpuk di riwayat git)
+/*.png
+/task39b-screenshots/
+/tool-results/
+/custom.db.backup
+/watchdog*.sh
+/.daemon.log
+/backups/invoice-gabungan-backup-*/
