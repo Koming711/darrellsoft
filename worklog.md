@@ -8778,3 +8778,19 @@ Work Log:
 Stage Summary:
 - SEMUA task tertunda kini LIVE di produksi: Task 43 penuh (Harga Modal + Harga Jual per Pcs), Task 44 (hak akses CRUD), Task 48 (baris selalu tampil walau kosong), Task 49 (margin Buat Invoice & seluruh document editor seragam dgn halaman lain).
 - Produksi & lokal kini sama-sama versi v55 / APP v15 (lokal = superset tapi tanpa perbedaan tampilan yang tersisa). Tidak ada deploy yang tertunda.
+
+---
+Task ID: 50
+Agent: Main (Z.ai Code)
+Task: "download workspace besar. check file besar yang tidak terpakai."
+
+Work Log:
+- ANALISIS UKURAN: total workspace 2.6G = node_modules 1.4G, .next 575M, upload 444M, .git 90M, skills 61M (folder sistem), tool-results 16M, public 8.2M, src 4M, artefak PNG root + task39b-screenshots ~9M, .zscripts 1.9M (sistem), backups 1.8M, db 1.4M.
+- VERIFIKASI REFERENSI KODE: upload/ = 0 referensi di src/scripts/config (isi: arsip tar upload multi-part workspace-*.tar.001/002 ~300M + folder extract-* sementara 80M+); tool-results/ = artefak sesi agent (dump read + screenshot task lama) 0 referensi; root components/ (820K) & lib/ (352K) = duplikat lama pra-restrukturisasi (tsconfig @/* → src/*, 0 import ke root folder); watchdog*.sh = artefak sesi lama.
+- VERIFIKASI public/: TERPAKAI (jangan sentuh) = paperbowl.png & dus-donut.jpg (beranda), pdf.worker.min.mjs (generate-pdf), logo-ds.png (8 lokasi), hero-printing.png, 7 gambar produk (dus-kue/hampers/kantong-kebab/dus-ayam-geprek/lunchbox-paper/paperbag/hampers-lebaran), icon-192/512 + maskable + apple-touch-icon (manifest.json + layout metadata), sw.js, manifest.json, robots.txt, favicon. TIDAK TERPAKAI = 8 file .bak (kantong-kebab.bak/.bak2/.bak3/.bak4, hampers.bak/.bak.task46, dus-ayam-geprek.bak/.bak2) ~1.26M — ikut ter-deploy ke produksi, 7 file fitur-*.jpeg/fitur-small-*/fitur-image ~360K, dus-makanan.jpg 320K.
+- VERIFIKASI DB (db/custom.db via python3 sqlite3): tidak ada path gambar fitur/dus-makanan/.bak di tabel mana pun (satu-satunya match 'fitur' = teks demo_message). backups/ = hasil fitur Backup & Restore aplikasi → JANGAN dihapus.
+- Keputusan: TIDAK menghapus/mengubah apa pun (user hanya meminta check); laporan + rekomendasi diserahkan. Tidak ada perubahan kode → tanpa lint/E2E/deploy. Baseline DB utuh [23,20,20,3,3,132].
+
+Stage Summary:
+- File besar TIDAK TERPAKAI siap hapus (~472M): upload/ 444M, tool-results/ 16M, artefak root ~9M, public/*.bak+fitur-*+dus-makanan ~1.9M, root components/+lib/ ~1.2M, custom.db.backup 228K. Tambah .next 575M (cache regenerable, hapus hanya saat dev server mati) → total potensi ~1.05G (2.6G → ~1.55G).
+- node_modules (1.4G), .git (90M), skills (61M), .zscripts, db/, backups/, worklog.md WAJIB ada. Saran download ringkas: tar dengan exclude node_modules/.next/upload/tool-results/.git → arsip ~15-20M.
