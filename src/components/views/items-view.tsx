@@ -386,10 +386,13 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const activeCount = items.filter((it) => it.isActive).length
   const inactiveCount = items.length - activeCount
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
-  // CRUD penuh: Tambah/Edit/Duplikat tersedia di SEMUA mode (termasuk "Semua Barang").
-  // Barang umum (tanpa pelanggan) juga bisa dikelola; pelanggan dipilih di dalam form.
+  // Tambah tersedia di SEMUA mode (termasuk "Semua Barang"); pelanggan dipilih di dalam form.
+  // Edit & Duplikat hanya tampil saat pelanggan spesifik dipilih ( disembunyikan di mode "Semua Barang").
   const showTambah = canAdd
-  const showEdit = canEditItem
+  const showDuplicate = canAdd && customerId !== 'all'
+  const showEdit = canEditItem && customerId !== 'all'
+  // Switch status aktif mengikuti izin edit dan tetap tersedia di semua mode (bukan tombol edit).
+  const showToggle = canEditItem
   // Hapus SELALU tampil di tabel (selaras Master Pelanggan), termasuk mode "Semua Barang"
   const showHapus = canDelete
   const countLabel = loading
@@ -485,7 +488,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
           </div>
           {customerId === 'all' && (
             <p className="text-xs text-muted-foreground lg:ml-auto self-center">
-              Gunakan tombol Tambah untuk barang umum atau per pelanggan
+              Gunakan tombol Tambah untuk barang umum atau per pelanggan; pilih pelanggan untuk mengedit / menduplikat
             </p>
           )}
           {customerId !== 'all' && selectedCustomerName && (
@@ -545,26 +548,25 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 <TableRow className="bg-stone-50 hover:bg-stone-50">
                   <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
-                  <TableHead className="text-center">Satuan</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Keterangan</TableHead>
                   <TableHead>Status</TableHead>
-                  {(showTambah || showEdit || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
+                  {(showDuplicate || showEdit || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((it) => (
                   <TableRow key={it.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
+                    {/* Kolom Satuan dihapus — satuan tetap bisa diatur lewat form */}
                     <TableCell className="font-medium">
                       <div className="min-w-0 space-y-1">
                         <span className="block truncate" title={it.name}>{it.name}</span>
                         <CustomerChips customers={it.customers} />
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">{it.unit}</TableCell>
                     <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatIDR(it.standardPrice)}</TableCell>
                     {showHpp && (
@@ -582,7 +584,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {showEdit && (
+                        {showToggle && (
                           <Switch
                             checked={it.isActive}
                             disabled={togglingId === it.id}
@@ -594,10 +596,10 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                         <ActiveBadge active={it.isActive} />
                       </div>
                     </TableCell>
-                    {(showTambah || showEdit || showHapus) && (
+                    {(showDuplicate || showEdit || showHapus) && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {showTambah && (
+                          {showDuplicate && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -674,7 +676,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     <CustomerChips customers={it.customers} />
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
-                    {showEdit && (
+                    {showToggle && (
                       <Switch
                         checked={it.isActive}
                         disabled={togglingId === it.id}
@@ -687,7 +689,6 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                  <p className="text-muted-foreground">Satuan: <span className="font-medium text-stone-700">{it.unit}</span></p>
                   <p className="text-muted-foreground">Qty: <span className="font-semibold text-stone-700">{formatNum(it.qty)}</span></p>
                   <p className="text-muted-foreground">Harga Jual: <span className="font-semibold text-stone-700">{formatIDR(it.standardPrice)}</span></p>
                 </div>
@@ -701,9 +702,9 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     Keterangan: <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
-                {(showTambah || showEdit || showHapus) && (
+                {(showDuplicate || showEdit || showHapus) && (
                   <div className="flex gap-2 pt-1">
-                    {showTambah && (
+                    {showDuplicate && (
                       <Button
                         variant="outline"
                         size="sm"
