@@ -11,9 +11,18 @@ function toNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** Validasi data URL foto: harus image/* dan ≤ ~700 ribu karakter (base64 dari ≤300KB JPG). Return null jika tidak valid. */
+function validatePhotoUrl(v: unknown): string | null {
+  if (typeof v !== 'string' || !v.startsWith('data:image/')) return null
+  if (v.length > 700_000) return null
+  return v
+}
+
 /**
- * PUT /api/items/:id — update barang (nama, satuan, harga jual, HPP, qty, keterangan, status aktif).
- * Body: { name?, unit?, standardPrice?, hpp?, qty?, keterangan?, isActive? }
+ * PUT /api/items/:id — update barang (nama, satuan, harga jual, HPP, qty, keterangan, status aktif, foto).
+ * Body: { name?, unit?, standardPrice?, hpp?, qty?, keterangan?, isActive?, photoUrl? }
+ * photoUrl: null = hapus foto; data URL JPEG (≤300KB hasil kompresi client) = ganti foto;
+ * undefined = foto tidak diubah (dipakai toggle status cepat).
  */
 export async function PUT(
   request: NextRequest,
@@ -43,6 +52,7 @@ export async function PUT(
       qty?: number
       keterangan?: string
       isActive?: boolean
+      photoUrl?: string | null
     } = {}
 
     if (body.name !== undefined) {
@@ -86,6 +96,17 @@ export async function PUT(
       }
       data.isActive = body.isActive
     }
+    if (body.photoUrl !== undefined) {
+      if (body.photoUrl === null || body.photoUrl === '') {
+        data.photoUrl = null
+      } else {
+        const p = validatePhotoUrl(body.photoUrl)
+        if (p === null) {
+          return NextResponse.json({ error: 'Foto barang tidak valid (maks 300KB, format data URL JPEG)' }, { status: 400 })
+        }
+        data.photoUrl = p
+      }
+    }
 
     const item = await db.barang.update({ where: { id }, data })
 
@@ -100,6 +121,7 @@ export async function PUT(
         qty: item.qty,
         keterangan: item.keterangan,
         isActive: item.isActive,
+        photoUrl: item.photoUrl,
         createdAt: item.createdAt.toISOString(),
       },
     })

@@ -76,6 +76,7 @@ model Barang {
   modal      Float    @default(0)
   jual       Float    @default(0)
   keterangan String   @default("")
+  photoUrl   String?
   isActive   Boolean  @default(true)
   userId     String?
   createdAt  DateTime @default(now())

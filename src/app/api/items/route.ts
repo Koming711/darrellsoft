@@ -5,7 +5,7 @@ import { sanitizeError } from '@/lib/api-error'
 
 /**
  * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
- * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, qty, keterangan, isActive, createdAt, customers[] }.
+ * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, qty, keterangan, isActive, createdAt, photoUrl, customers[] }.
  * hpp (harga modal) dikirim untuk SEMUA role (permintaan owner; sebelumnya dinol-kan untuk kasir).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
  * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       qty: it.qty,
       keterangan: it.keterangan,
       isActive: it.isActive,
+      photoUrl: it.photoUrl,
       createdAt: it.createdAt.toISOString(),
       customers: it.registrations.map((r) => ({
         id: r.customer.id,
@@ -80,9 +81,10 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/items — tambah barang. Kode otomatis ITM-xxx (unik per user).
- * Body: { name, unit, standardPrice, hpp, qty?, keterangan?, customerId? }
+ * Body: { name, unit, standardPrice, hpp, qty?, keterangan?, customerId?, photoUrl? }
  * customerId → barang otomatis terdaftar (BarangCustomer) untuk customer tsb,
  * harga khusus awal = standardPrice (harga jual).
+ * photoUrl = data URL JPEG (hasil kompresi sisi client ≤300KB); opsional.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -114,6 +116,16 @@ export async function POST(request: NextRequest) {
     const unit = typeof body.unit === 'string' && body.unit.trim() ? body.unit.trim() : 'pcs'
     const keterangan = typeof body.keterangan === 'string' ? body.keterangan.trim().slice(0, 500) : ''
 
+    // Foto barang (opsional): data URL JPEG hasil kompresi sisi client
+    let photoUrl: string | null = null
+    if (body.photoUrl !== undefined && body.photoUrl !== null && body.photoUrl !== '') {
+      const p = validatePhotoUrl(body.photoUrl)
+      if (p === null) {
+        return NextResponse.json({ error: 'Foto barang tidak valid (maks 300KB, format data URL JPEG)' }, { status: 400 })
+      }
+      photoUrl = p
+    }
+
     // Pilih customer (opsional) — barang akan didaftarkan untuk customer tsb
     const customerId = typeof body.customerId === 'string' ? body.customerId.trim() : ''
     if (customerId) {
@@ -125,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     const code = await nextCode(user.id)
     const item = await db.barang.create({
-      data: { userId: user.id, kode: code, nama: name, satuan: unit, qty, jual: standardPrice, modal: hpp, keterangan },
+      data: { userId: user.id, kode: code, nama: name, satuan: unit, qty, jual: standardPrice, modal: hpp, keterangan, photoUrl },
     })
 
     if (customerId) {
@@ -147,6 +159,7 @@ export async function POST(request: NextRequest) {
         qty: item.qty,
         keterangan: item.keterangan,
         isActive: item.isActive,
+        photoUrl: item.photoUrl,
         createdAt: item.createdAt.toISOString(),
       },
     })
@@ -163,6 +176,13 @@ function toNumber(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
   const n = typeof v === 'number' ? v : Number(v)
   return Number.isFinite(n) ? n : null
+}
+
+/** Validasi data URL foto: harus image/* dan ≤ ~700 ribu karakter (base64 dari ≤300KB JPG). Return null jika tidak valid. */
+function validatePhotoUrl(v: unknown): string | null {
+  if (typeof v !== 'string' || !v.startsWith('data:image/')) return null
+  if (v.length > 700_000) return null
+  return v
 }
 
 /** Kode ITM-xxx unik per user: mulai dari count+1, loop sampai unik. */
