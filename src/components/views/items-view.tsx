@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
-  Copy, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
+  Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -70,12 +70,14 @@ interface ItemFormState {
   qty: string
   keterangan: string
   isActive: boolean
+  /** Foto barang (data URL JPEG hasil kompresi ≤300KB); '' = tanpa foto */
+  photoUrl: string
   /** Pelanggan tujuan saat create/duplicate ('none' = barang umum); tidak dipakai saat edit */
   customerId: string
 }
 
 const EMPTY_FORM: ItemFormState = {
-  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', qty: '', keterangan: '', isActive: true, customerId: 'none',
+  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', qty: '', keterangan: '', isActive: true, photoUrl: '', customerId: 'none',
 }
 
 function toNum(v: string): number | null {
@@ -88,6 +90,61 @@ function profitOf(jual: string, modal: string): string {
   const j = toNum(jual)
   const m = toNum(modal)
   return j !== null && m !== null ? String(j - m) : ''
+}
+
+/** Target ukuran maksimal foto barang setelah kompresi. */
+const PHOTO_MAX_BYTES = 300 * 1024
+
+/** Hitung jumlah byte dari data URL (base64). */
+function dataUrlBytes(dataUrl: string): number {
+  const b64 = dataUrl.split(',')[1] ?? ''
+  return Math.floor((b64.length * 3) / 4)
+}
+
+/** Format byte agar mudah dibaca (KB / MB). */
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+/**
+ * Kompres gambar apa pun (JPG/PNG/WebP) menjadi data URL JPEG ≤300KB:
+ * mulai dari sisi terpanjang 1600px + quality 0.85, turunkan quality,
+ * lalu perkecil dimensi sampai target tercapai. Latar putih untuk PNG transparan.
+ */
+async function compressImageToJpegDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('File harus berupa gambar (JPG/PNG/WebP)')
+  }
+  const bitmap = await createImageBitmap(file)
+  try {
+    const longest = Math.max(bitmap.width, bitmap.height)
+    let scale = Math.min(1, 1600 / longest)
+    let quality = 0.85
+    let out = ''
+    for (let attempt = 0; attempt < 14; attempt++) {
+      const w = Math.max(1, Math.round(bitmap.width * scale))
+      const h = Math.max(1, Math.round(bitmap.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas tidak didukung browser ini')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, w, h)
+      ctx.drawImage(bitmap, 0, 0, w, h)
+      out = canvas.toDataURL('image/jpeg', quality)
+      if (dataUrlBytes(out) <= PHOTO_MAX_BYTES) return out
+      if (quality > 0.45) {
+        quality = Math.max(0.45, quality - 0.1)
+      } else {
+        scale *= 0.85
+      }
+    }
+    return out
+  } finally {
+    bitmap.close?.()
+  }
 }
 
 function ActiveBadge({ active }: { active: boolean }) {
@@ -170,6 +227,12 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Foto barang: input file tersembunyi + status kompresi
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  // Popup foto barang (klik baris tabel / kartu)
+  const [viewPhoto, setViewPhoto] = useState<Item | null>(null)
+
   useEffect(() => {
     const t = setTimeout(() => setQuery(searchInput.trim()), 300)
     return () => clearTimeout(t)
@@ -208,7 +271,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     setDialogOpen(true)
   }
 
-  /** Duplikat: buka form Tambah terisi data barang sumber (kode baru dibuat otomatis). */
+  /** Duplikat: buka form Tambah terisi data barang sumber (kode baru dibuat otomatis, foto ikut). */
   const openDuplicate = (it: Item) => {
     setEditing(null)
     setDuplicateFrom(it)
@@ -222,6 +285,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       qty: String(it.qty ?? 0),
       keterangan: it.keterangan ?? '',
       isActive: true,
+      photoUrl: it.photoUrl ?? '',
       customerId: it.customers && it.customers.length > 0 ? it.customers[0].id : (customerId !== 'all' ? customerId : 'none'),
     })
     setDialogOpen(true)
@@ -240,9 +304,27 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       qty: String(it.qty ?? 0),
       keterangan: it.keterangan ?? '',
       isActive: it.isActive,
+      photoUrl: it.photoUrl ?? '',
       customerId: 'none',
     })
     setDialogOpen(true)
+  }
+
+  /** Upload + kompres otomatis foto barang ke JPEG ≤300KB (dijalankan di browser). */
+  const onPhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // reset agar file yang sama bisa dipilih ulang
+    if (!file) return
+    setPhotoBusy(true)
+    try {
+      const dataUrl = await compressImageToJpegDataUrl(file)
+      setForm((f) => ({ ...f, photoUrl: dataUrl }))
+      toast.success(`Foto dikompres ke JPG (${formatBytes(dataUrlBytes(dataUrl))})`)
+    } catch (err) {
+      toast.error(errText(err))
+    } finally {
+      setPhotoBusy(false)
+    }
   }
 
   // Profit = harga jual − harga modal; Margin = profit / harga jual × 100
@@ -319,6 +401,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         hpp: hppNum,
         qty: qtyNum,
         keterangan: form.keterangan.trim(),
+        photoUrl: form.photoUrl || null,
         ...(editing
           ? { isActive: form.isActive }
           : { customerId: form.customerId !== 'none' ? form.customerId : undefined }),
@@ -558,7 +641,12 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               </TableHeader>
               <TableBody>
                 {items.map((it) => (
-                  <TableRow key={it.id}>
+                  <TableRow
+                    key={it.id}
+                    className="cursor-pointer"
+                    title="Klik baris untuk melihat foto barang"
+                    onClick={() => setViewPhoto(it)}
+                  >
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
                     {/* Kolom Satuan dihapus — satuan tetap bisa diatur lewat form */}
                     <TableCell className="font-medium">
@@ -582,7 +670,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                         {it.keterangan || '-'}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
                         {showToggle && (
                           <Switch
@@ -597,7 +685,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                       </div>
                     </TableCell>
                     {(showDuplicate || showEdit || showHapus) && (
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           {showDuplicate && (
                             <Button
@@ -670,10 +758,21 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             <Card key={it.id} className="p-0 gap-0">
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 space-y-1">
+                  <div
+                    className="min-w-0 space-y-1 cursor-pointer"
+                    onClick={() => setViewPhoto(it)}
+                    title="Ketuk untuk melihat foto barang"
+                  >
                     <p className="font-medium truncate" title={it.name}>{it.name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{it.code}</p>
                     <CustomerChips customers={it.customers} />
+                    {it.photoUrl && (
+                      <img
+                        src={it.photoUrl}
+                        alt={`Foto ${it.name}`}
+                        className="mt-1 h-14 w-14 rounded-md border border-stone-200 object-cover"
+                      />
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     {showToggle && (
@@ -766,6 +865,65 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 placeholder="Nama barang / layanan"
                 autoComplete="off"
               />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-photo">Foto Barang</Label>
+              <input
+                ref={photoInputRef}
+                id="item-photo"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => void onPhotoChange(e)}
+                disabled={photoBusy}
+              />
+              {form.photoUrl ? (
+                <div className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50/50 p-2.5">
+                  <img
+                    src={form.photoUrl}
+                    alt="Preview foto barang"
+                    className="h-16 w-16 shrink-0 rounded-md border border-stone-200 object-cover"
+                  />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-xs font-medium text-stone-700">JPG · {formatBytes(dataUrlBytes(form.photoUrl))}</p>
+                    <p className="text-[11px] text-emerald-600">Terkompres otomatis ≤ 300KB</p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={photoBusy}
+                      >
+                        Ganti Foto
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setForm((f) => ({ ...f, photoUrl: '' }))}
+                        disabled={photoBusy}
+                      >
+                        Hapus Foto
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={photoBusy}
+                  className="flex min-h-[72px] w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-stone-300 bg-white p-3 text-center transition-colors hover:bg-stone-50 disabled:opacity-60"
+                >
+                  <ImagePlus className="h-5 w-5 text-stone-400" aria-hidden="true" />
+                  <span className="text-xs text-muted-foreground">
+                    {photoBusy ? 'Mengompres foto…' : 'Klik untuk pilih foto (otomatis JPG ≤ 300KB)'}
+                  </span>
+                </button>
+              )}
             </div>
             {!editing && (
               <div className="grid gap-1.5">
@@ -938,6 +1096,31 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               {saving ? 'Menyimpan…' : 'Simpan'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog lihat foto barang (klik baris tabel / kartu) */}
+      <Dialog open={!!viewPhoto} onOpenChange={(o) => { if (!o) setViewPhoto(null) }}>
+        <DialogContent className="sm:max-w-md p-4 sm:p-6 gap-3">
+          <DialogHeader className="pr-8">
+            <DialogTitle>Foto Barang</DialogTitle>
+            <DialogDescription>
+              {viewPhoto ? `${viewPhoto.code} — ${viewPhoto.name}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {viewPhoto?.photoUrl ? (
+            <img
+              src={viewPhoto.photoUrl}
+              alt={`Foto ${viewPhoto.name}`}
+              className="max-h-[55vh] w-full rounded-lg border border-stone-200 bg-white object-contain"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-stone-300 bg-stone-50/50 py-10 text-center">
+              <ImagePlus className="h-8 w-8 text-stone-300" aria-hidden="true" />
+              <p className="text-sm font-medium text-stone-600">Belum ada foto untuk barang ini</p>
+              <p className="text-xs text-muted-foreground">Foto bisa ditambahkan lewat tombol Edit.</p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

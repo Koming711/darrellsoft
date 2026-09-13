@@ -283,6 +283,8 @@ export interface Item {
   keterangan: string
   isActive: boolean
   createdAt: string
+  /** Foto barang (data URL JPEG hasil kompresi ≤300KB); null = belum ada foto */
+  photoUrl?: string | null
   /** Daftar pelanggan pemilik registrasi barang (kosong = barang umum) */
   customers?: ItemCustomerRef[]
 }

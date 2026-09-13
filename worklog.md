@@ -8906,3 +8906,20 @@ Work Log:
 
 Stage Summary:
 - Master Barang: kolom Satuan dihapus dari tabel desktop & kartu mobile (field form tetap, data satuan tetap terkirim ke dokumen); icon Duplikat & Edit kini hanya tampil saat pelanggan spesifik dipilih — di mode "Semua Barang" keduanya disembunyikan, sementara Tambah, switch Aktif/Nonaktif, dan Hapus tetap tersedia. Terverifikasi E2E desktop+mobile, baseline DB utuh.
+
+---
+Task ID: 65
+Agent: Main (Z.ai Code)
+Task: "master barang — form tambah barang: upload foto/file yang otomatis di-compress jadi ≤300KB JPG; klik baris tabel → popup foto barang. check dan fix"
+
+Work Log:
+- SCHEMA: model Barang + kolom photoUrl String? (foto = data URL JPEG). TEMUAN PENTING: project memelihara DUA schema (root schema.prisma + prisma/schema.prisma; keduanya dipakai prepare-build/revert-script saat deploy). File root versi tar LAMA (tanpa photoUrl) membuat prisma CLI membaca schema lama → db:push "already in sync" + PrismaClientValidationError "Unknown argument photoUrl" (POST /api/items 500). FIX: cp prisma/schema.prisma → schema.prisma (root) + bunx prisma generate + ALTER TABLE manual (db push tidak menambah karena schema lama; kolom nullable aman, data utuh) + restart daemon (kill next dev yatim pemegang port 3000 — pola insiden Task 63; daemon start bersih PID 8646).
+- API: GET /api/items & POST/PUT items/[id] kini mengirim/menerima photoUrl (validasi data:image/* ≤700k char ≈ base64 dari ≤300KB JPG; PUT: null/'' = hapus foto, undefined = tidak diubah — aman utk toggle switch cepat). TYPES: Item.photoUrl?: string | null.
+- FRONTEND (items-view.tsx): helper compressImageToJpegDataUrl (canvas browser: sisi terpanjang 1600px mulai quality 0.85 → turunkan quality → perkecil dimensi, iteratif hingga ≤300KB; latar putih utk PNG transparan); form Tambah/Edit/Duplikat kini punya blok "Foto Barang" (dropzone klik-pilih, preview + ukuran KB + badge "Terkompres otomatis ≤ 300KB", tombol Ganti Foto & Hapus Foto, input file sr-only id=item-photo); toast sukses menampilkan ukuran hasil; Duplikat ikut menyalin foto; handleSave kirim photoUrl (null bila kosong).
+- POPUP FOTO: klik baris tabel desktop (TableRow onClick, cursor-pointer + title hint) → Dialog "Foto Barang" (kode — nama, img object-contain max-h-55vh; tanpa foto → placeholder "Belum ada foto untuk barang ini"). Kartu mobile: area nama/kode/klik-able + thumbnail 56px bila ada foto, ketuk → popup sama. Sel Status & Aksi desktop pakai stopPropagation agar switch/hapus/duplikat/edit tidak memicu popup.
+- ESLINT (items-view, types, api items ×2) 0 error 0 warning (3 directive img unused dihapus — rule tidak aktif).
+- E2E agent-browser (superadmin; data uji dibuat lalu DIHAPUS via UI): UPLOAD dus-donut.jpg 1.284KB → preview "JPG · 275 KB / Terkompres otomatis ≤ 300KB" (282.033 byte, data:image/jpeg) → simpan OK. KLIK BARIS → popup "ITM-001 — Uji Foto 65" + img JPEG 275KB ✓. MOBILE 390×844: kartu menampilkan thumbnail 275KB, ketuk nama → popup img JPEG ✓, scrollW=390=viewport. FORM HAPUS FOTO: upload → Hapus Foto → dropzone kembali → simpan barang tanpa foto ✓. KLIK BARIS barang tanpa foto → popup placeholder "Belum ada foto untuk barang ini" ✓. HandleDelete switch tak memicu popup ✓ (stopPropagation). Bukti: /tmp/e2e65-desktop-popup-foto.png, /tmp/e2e65-desktop-popup-kosong.png, /tmp/e2e65-mobile-kartu-thumb.png, /tmp/e2e65-mobile-popup.png.
+- BASELINE DB UTUH setelah cleanup: 23/20/20, Barang=3, BarangCustomer=3, Customer=132, denganFoto=0. Log daemon pasca-fix 0 error (semua 500 lama hanya sebelum restart, baris <1351). TANPA deploy (tidak diminta).
+
+Stage Summary:
+- Master Barang: foto barang tersimpan di DB (photoUrl, data URL JPEG) dengan kompresi otomatis browser ≤300KB di form Tambah/Edit/Duplikat (preview + ganti/hapus), dan klik baris tabel (desktop) / area nama kartu (mobile) membuka popup foto — placeholder bila belum ada. Akar bug "Data tidak valid" = dua schema.prisma tidak sinkron (root lama); kini keduanya identik dan client ter-generate ulang. Baseline DB & log bersih.
