@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
-  Package, Pencil, Plus, Search, Trash2, Users, X,
+  Copy, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
 import { formatIDR, formatNum } from '@/lib/format'
-import { UNIT_OPTIONS, type Item, type SessionUser } from '@/lib/types'
+import { UNIT_OPTIONS, type Item, type ItemCustomerRef, type SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -70,10 +70,12 @@ interface ItemFormState {
   qty: string
   keterangan: string
   isActive: boolean
+  /** Pelanggan tujuan saat create/duplicate ('none' = barang umum); tidak dipakai saat edit */
+  customerId: string
 }
 
 const EMPTY_FORM: ItemFormState = {
-  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', qty: '', keterangan: '', isActive: true,
+  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', qty: '', keterangan: '', isActive: true, customerId: 'none',
 }
 
 function toNum(v: string): number | null {
@@ -92,6 +94,43 @@ function ActiveBadge({ active }: { active: boolean }) {
   return active
     ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] shrink-0">Aktif</Badge>
     : <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200 text-[11px] shrink-0">Nonaktif</Badge>
+}
+
+/** Chips nama pelanggan — tampil di bawah/di samping nama barang (barang umum = label "Umum"). */
+function CustomerChips({ customers }: { customers?: ItemCustomerRef[] }) {
+  if (!customers || customers.length === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-stone-400">
+        <User className="h-3 w-3 shrink-0" aria-hidden="true" /> Umum (tanpa pelanggan)
+      </span>
+    )
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {customers.map((c) => (
+        <Badge
+          key={c.id}
+          variant="outline"
+          className="bg-stone-50 text-stone-600 border-stone-200 text-[10px] gap-1 max-w-[200px] font-normal"
+          title={c.companyName ? `${c.name} — ${c.companyName}` : c.name}
+        >
+          <User className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <span className="truncate">{c.name}</span>
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+/** Kartu ringkasan kecil (Total / Aktif / Nonaktif). */
+function StatCard({ label, value, tone = 'default' }: { label: string; value: number; tone?: 'default' | 'emerald' | 'stone' }) {
+  const toneCls = tone === 'emerald' ? 'text-emerald-600' : tone === 'stone' ? 'text-stone-500' : 'text-stone-800'
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center md:text-left">
+      <p className="text-[11px] font-medium text-muted-foreground leading-tight">{label}</p>
+      <p className={`text-lg md:text-xl font-bold leading-tight mt-0.5 ${toneCls}`}>{value}</p>
+    </div>
+  )
 }
 
 interface ItemsViewProps {
@@ -121,8 +160,12 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Item | null>(null)
+  /** Sumber duplikasi (mode salin) — null saat create/edit biasa */
+  const [duplicateFrom, setDuplicateFrom] = useState<Item | null>(null)
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  /** ID barang yang sedang di-toggle status aktifnya (switch di tabel) */
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -160,12 +203,33 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
   const openCreate = () => {
     setEditing(null)
-    setForm(EMPTY_FORM)
+    setDuplicateFrom(null)
+    setForm({ ...EMPTY_FORM, customerId: customerId !== 'all' ? customerId : 'none' })
+    setDialogOpen(true)
+  }
+
+  /** Duplikat: buka form Tambah terisi data barang sumber (kode baru dibuat otomatis). */
+  const openDuplicate = (it: Item) => {
+    setEditing(null)
+    setDuplicateFrom(it)
+    const modalStr = it.hpp != null ? String(it.hpp) : ''
+    setForm({
+      name: it.name,
+      unit: it.unit,
+      standardPrice: String(it.standardPrice),
+      hpp: modalStr,
+      profit: profitOf(String(it.standardPrice), modalStr),
+      qty: String(it.qty ?? 0),
+      keterangan: it.keterangan ?? '',
+      isActive: true,
+      customerId: it.customers && it.customers.length > 0 ? it.customers[0].id : (customerId !== 'all' ? customerId : 'none'),
+    })
     setDialogOpen(true)
   }
 
   const openEdit = (it: Item) => {
     setEditing(it)
+    setDuplicateFrom(null)
     const modalStr = it.hpp != null ? String(it.hpp) : ''
     setForm({
       name: it.name,
@@ -176,6 +240,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       qty: String(it.qty ?? 0),
       keterangan: it.keterangan ?? '',
       isActive: it.isActive,
+      customerId: 'none',
     })
     setDialogOpen(true)
   }
@@ -246,6 +311,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     }
     setSaving(true)
     try {
+      const formCustomerName = customers.find((c) => c.id === form.customerId)?.name
       const body = {
         name: form.name.trim(),
         unit: form.unit,
@@ -253,9 +319,10 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         hpp: hppNum,
         qty: qtyNum,
         keterangan: form.keterangan.trim(),
-        ...(editing ? { isActive: form.isActive } : { customerId: customerId !== 'all' ? customerId : undefined }),
+        ...(editing
+          ? { isActive: form.isActive }
+          : { customerId: form.customerId !== 'none' ? form.customerId : undefined }),
       }
-      const selectedCustomer = customers.find((c) => c.id === customerId)
       if (editing) {
         await apiFetch<{ item: Item }>(`/api/items/${editing.id}`, {
           method: 'PUT',
@@ -268,8 +335,8 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
           body: JSON.stringify(body),
         })
         toast.success(
-          selectedCustomer
-            ? `Barang berhasil ditambahkan untuk ${selectedCustomer.name}`
+          formCustomerName
+            ? `Barang berhasil ditambahkan untuk ${formCustomerName}`
             : 'Barang berhasil ditambahkan'
         )
       }
@@ -298,11 +365,31 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     }
   }
 
+  /** Toggle status aktif cepat dari tabel/kartu (tanpa membuka dialog edit). */
+  const toggleActive = async (it: Item) => {
+    setTogglingId(it.id)
+    try {
+      await apiFetch<{ item: Item }>(`/api/items/${it.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isActive: !it.isActive }),
+      })
+      setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, isActive: !x.isActive } : x)))
+      toast.success(`${it.name} ${!it.isActive ? 'diaktifkan' : 'dinonaktifkan'}`)
+    } catch (e) {
+      toast.error(errText(e))
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
   const hasResults = items.length > 0
+  const activeCount = items.filter((it) => it.isActive).length
+  const inactiveCount = items.length - activeCount
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
-  // Tambah/Edit hanya tampil saat pelanggan spesifik dipilih — bukan "Semua Barang"
-  const showTambah = canAdd && customerId !== 'all'
-  const showEdit = canEditItem && customerId !== 'all'
+  // CRUD penuh: Tambah/Edit/Duplikat tersedia di SEMUA mode (termasuk "Semua Barang").
+  // Barang umum (tanpa pelanggan) juga bisa dikelola; pelanggan dipilih di dalam form.
+  const showTambah = canAdd
+  const showEdit = canEditItem
   // Hapus SELALU tampil di tabel (selaras Master Pelanggan), termasuk mode "Semua Barang"
   const showHapus = canDelete
   const countLabel = loading
@@ -330,15 +417,28 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               className="pl-9 min-h-[44px]"
             />
           </div>
-          {showTambah && (
+          <div className="flex items-center gap-2">
             <Button
-              onClick={openCreate}
-              title="Tambah barang untuk pelanggan ini"
-              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
+              variant="outline"
+              size="icon"
+              onClick={() => void load()}
+              disabled={loading}
+              aria-label="Muat ulang data"
+              title="Muat ulang"
+              className="min-h-[44px] w-11 shrink-0"
             >
-              <Plus className="h-4 w-4" /> Tambah
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-          )}
+            {showTambah && (
+              <Button
+                onClick={openCreate}
+                title="Tambah barang baru"
+                className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
+              >
+                <Plus className="h-4 w-4" /> Tambah
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -383,9 +483,9 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               </SelectContent>
             </Select>
           </div>
-          {canAdd && customerId === 'all' && (
+          {customerId === 'all' && (
             <p className="text-xs text-muted-foreground lg:ml-auto self-center">
-              Pilih nama pelanggan untuk menambah / mengelola barang
+              Gunakan tombol Tambah untuk barang umum atau per pelanggan
             </p>
           )}
           {customerId !== 'all' && selectedCustomerName && (
@@ -409,6 +509,13 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
           )}
         </div>
       </section>
+
+      {/* Ringkasan cepat */}
+      <div className="grid grid-cols-3 gap-2 md:gap-3" aria-label="Ringkasan barang">
+        <StatCard label="Total Barang" value={items.length} />
+        <StatCard label="Aktif" value={activeCount} tone="emerald" />
+        <StatCard label="Nonaktif" value={inactiveCount} tone="stone" />
+      </div>
 
       {/* Desktop table */}
       <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
@@ -444,14 +551,19 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
                   <TableHead>Keterangan</TableHead>
                   <TableHead>Status</TableHead>
-                  {(showEdit || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
+                  {(showTambah || showEdit || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((it) => (
                   <TableRow key={it.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
-                    <TableCell className="font-medium">{it.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="min-w-0 space-y-1">
+                        <span className="block truncate" title={it.name}>{it.name}</span>
+                        <CustomerChips customers={it.customers} />
+                      </div>
+                    </TableCell>
                     <TableCell className="text-center">{it.unit}</TableCell>
                     <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatIDR(it.standardPrice)}</TableCell>
@@ -468,10 +580,35 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                         {it.keterangan || '-'}
                       </span>
                     </TableCell>
-                    <TableCell><ActiveBadge active={it.isActive} /></TableCell>
-                    {(showEdit || showHapus) && (
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {showEdit && (
+                          <Switch
+                            checked={it.isActive}
+                            disabled={togglingId === it.id}
+                            onCheckedChange={() => void toggleActive(it)}
+                            aria-label={`${it.isActive ? 'Nonaktifkan' : 'Aktifkan'} ${it.name}`}
+                            className="data-[state=checked]:bg-emerald-600"
+                          />
+                        )}
+                        <ActiveBadge active={it.isActive} />
+                      </div>
+                    </TableCell>
+                    {(showTambah || showEdit || showHapus) && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {showTambah && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={() => openDuplicate(it)}
+                              aria-label={`Duplikat ${it.name}`}
+                              title="Duplikat"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          )}
                           {showEdit && (
                             <Button
                               variant="ghost"
@@ -531,11 +668,23 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             <Card key={it.id} className="p-0 gap-0">
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{it.name}</p>
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-medium truncate" title={it.name}>{it.name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{it.code}</p>
+                    <CustomerChips customers={it.customers} />
                   </div>
-                  <ActiveBadge active={it.isActive} />
+                  <div className="flex flex-col items-end gap-1.5">
+                    {showEdit && (
+                      <Switch
+                        checked={it.isActive}
+                        disabled={togglingId === it.id}
+                        onCheckedChange={() => void toggleActive(it)}
+                        aria-label={`${it.isActive ? 'Nonaktifkan' : 'Aktifkan'} ${it.name}`}
+                        className="data-[state=checked]:bg-emerald-600"
+                      />
+                    )}
+                    <ActiveBadge active={it.isActive} />
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   <p className="text-muted-foreground">Satuan: <span className="font-medium text-stone-700">{it.unit}</span></p>
@@ -552,8 +701,19 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     Keterangan: <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
-                {(showEdit || showHapus) && (
+                {(showTambah || showEdit || showHapus) && (
                   <div className="flex gap-2 pt-1">
+                    {showTambah && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 min-h-[44px]"
+                        onClick={() => openDuplicate(it)}
+                        aria-label={`Duplikat ${it.name}`}
+                      >
+                        <Copy className="h-4 w-4" /> Duplikat
+                      </Button>
+                    )}
                     {showEdit && (
                       <Button
                         variant="outline"
@@ -586,12 +746,12 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin">
           <DialogHeader className="pr-8">
-            <DialogTitle>{editing ? 'Edit Barang' : 'Tambah Barang'}</DialogTitle>
+            <DialogTitle>{editing ? 'Edit Barang' : duplicateFrom ? 'Duplikat Barang' : 'Tambah Barang'}</DialogTitle>
             <DialogDescription>
               {editing
                 ? `Kode ${editing.code} — perbarui data barang.`
-                : selectedCustomerName
-                  ? `Kode barang dibuat otomatis. Barang akan didaftarkan untuk ${selectedCustomerName}.`
+                : duplicateFrom
+                  ? `Salinan dari ${duplicateFrom.code} — ${duplicateFrom.name}. Kode baru dibuat otomatis.`
                   : 'Kode barang dibuat otomatis oleh sistem.'}
             </DialogDescription>
           </DialogHeader>
@@ -606,6 +766,56 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 autoComplete="off"
               />
             </div>
+            {!editing && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="item-customer">Untuk Pelanggan</Label>
+                {customerId !== 'all' ? (
+                  <>
+                    <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))} disabled>
+                      <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.filter((c) => c.id === customerId).map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Mengikuti filter pelanggan aktif di atas.</p>
+                  </>
+                ) : (
+                  <>
+                    <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
+                      <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
+                        <SelectValue placeholder="Pilih pelanggan (opsional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
+                        {customers.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      Barang umum bisa didaftarkan ke pelanggan kapan saja lewat halaman Harga Khusus.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+            {editing && (
+              <div className="grid gap-1.5">
+                <Label>Pelanggan Terdaftar</Label>
+                <CustomerChips customers={editing.customers} />
+                <p className="text-[11px] text-muted-foreground">
+                  Kelola harga khusus per pelanggan di halaman Harga Khusus.
+                </p>
+              </div>
+            )}
             <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="grid gap-1.5">
                 <Label htmlFor="item-unit">Satuan</Label>
@@ -768,7 +978,7 @@ function EmptyState({ filtered, customerName, action }: { filtered: boolean; cus
           ? 'Coba kata kunci lain.'
           : customerName
             ? `Tambahkan barang pertama untuk pelanggan ini, atau pilih "Semua Barang" untuk melihat semua.`
-            : 'Pilih nama pelanggan di kotak "Pilih Pelanggan" untuk menambah atau mengelola barang.'}
+            : 'Klik "Tambah Barang" untuk membuat barang umum atau per pelanggan, atau pilih pelanggan untuk memfilter.'}
       </p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>

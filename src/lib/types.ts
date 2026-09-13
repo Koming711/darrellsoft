@@ -263,6 +263,13 @@ export interface Customer {
   createdAt: string
 }
 
+/** Referensi pelanggan yang mendaftarkan barang (dari BarangCustomer → Customer). */
+export interface ItemCustomerRef {
+  id: string
+  name: string
+  companyName: string | null
+}
+
 export interface Item {
   id: string
   code: string
@@ -276,6 +283,8 @@ export interface Item {
   keterangan: string
   isActive: boolean
   createdAt: string
+  /** Daftar pelanggan pemilik registrasi barang (kosong = barang umum) */
+  customers?: ItemCustomerRef[]
 }
 
 export interface PriceRow {

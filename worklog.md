@@ -8870,3 +8870,23 @@ Work Log:
 Stage Summary:
 - GitHub main = kondisi lokal terkini (identik produksi); lineage GitHub lama aman di branch backup/origin-main-20260912 (berisi feat Laporan Invoice DP + fix auth redirect + fix 404 laporan + lainnya yang belum ada di lokal/produksi).
 - Produksi redeploy sukses, semua fitur verifikasi lolos. OPSI BERIKUTNYA bila diminta: merge fitur dari branch backup ke main (perlu QA konflik di page.tsx/dashboard-layout/invoice tabs).
+
+---
+Task ID: 63
+Agent: Main (Z.ai Code)
+Task: Halaman Master Barang — tambahkan nama pelanggan di nama barang + buat lebih CRUD dan UI lebih baik.
+
+Work Log:
+- BACKEND (src/app/api/items/route.ts GET): include registrations → customer; tiap item kini membawa `customers: [{id, name, companyName}]` (pemilik registrasi BarangCustomer; kosong = barang umum).
+- TYPES (src/lib/types.ts): interface baru `ItemCustomerRef` + field opsional `Item.customers`.
+- FRONTEND (src/components/views/items-view.tsx):
+  1) NAMA PELANGGAN DI NAMA BARANG: komponen `CustomerChips` — chip ikon User per pelanggan di bawah nama barang (desktop & mobile); barang tanpa registrasi = label "Umum (tanpa pelanggan)". Chip juga tampil di dialog Edit ("Pelanggan Terdaftar").
+  2) CRUD LEBIH LENGKAP: tombol Tambah kini SELALU tampil (termasuk mode "Semua Barang") dengan field "Untuk Pelanggan" di form (opsi "Barang umum" atau pilih pelanggan; terkunci mengikuti filter saat filter pelanggan aktif); tombol DUPLIKAT per baris (form Tambah terisi data sumber, pelanggan pertama sumber ikut, kode baru otomatis); SWITCH AKTIF cepat di kolom Status/kartu mobile (PUT isActive tanpa buka dialog, optimistic update + toast); tombol Muat Ulang di toolbar.
+  3) UI: 3 kartu ringkasan (Total Barang / Aktif / Nonaktif); sel Nama dua baris (nama + chips); kartu mobile dengan switch + chips + 3 tombol aksi; EmptyState baru.
+- VERIFIKASI E2E (agent-browser, data uji dibuat lalu DIHAPUS semua): login superadmin → /master-barang (list memang kosong utk superadmin: 3 barang DB milik user-admin/tenant lain — perilaku data, bukan regresi). CREATE "Uji CRUD 63" + pelanggan Budi Susanto (profit otomatis 5000) → baris tampil chip "Budi Susanto" ✓; TOGGLE switch → Nonaktif → Aktif ✓; EDIT nama → "Pelanggan Terdaftar" chip di dialog + nama berubah ✓; DUPLIKAT → "Salinan dari ITM-001", pelanggan terbawa, 2 baris ✓; DELETE ×2 via AlertDialog ✓. Bukti visual: /tmp/e2e63-desktop-chips.png (chip Jaya Wijaya + stat cards + 3 aksi) & /tmp/e2e63-mobile.png (card chip "Umum" + Duplikat/Edit/Hapus).
+- RESPONSIVE: desktop 1280×800 & mobile 390×844 tanpa overflow horizontal (scrollWidth = viewport); touch target ≥44px.
+- INSIDEN INFRA (dipulihkan): sesi browser lama meninggalkan proses next dev yatim pemegang lock .next → daemon gagal start berulang → semua proses next lama di-kill → daemon start bersih (PID 3778), GET / 200, log mengalir normal.
+- ESLint (items-view/types/api items) 0 error; log daemon 0 error; BASELINE DB utuh setelah cleanup: Barang=3, BarangCustomer=3, Customer=132 (23/20/20 untuk DocumentHistory/RiwayatCetakan/RiwayatPotongKertas). TANPA deploy (tidak diminta).
+
+Stage Summary:
+- Master Barang kini menampilkan nama pelanggan langsung di nama barang (chip), CRUD penuh di semua mode (Tambah + pilih pelanggan, Duplikat, Edit, Hapus, Toggle Aktif cepat, Muat Ulang), dan UI lebih rapi (stat ringkasan, chips, kartu mobile). Semua uji CRUD lulus dan database kembali ke baseline persis.
