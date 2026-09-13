@@ -5,10 +5,11 @@ import { sanitizeError } from '@/lib/api-error'
 
 /**
  * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
- * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, qty, keterangan, isActive, createdAt }.
+ * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, qty, keterangan, isActive, createdAt, customers[] }.
  * hpp (harga modal) dikirim untuk SEMUA role (permintaan owner; sebelumnya dinol-kan untuk kasir).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
  * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
+ * customers[] = daftar pelanggan pemilik registrasi barang (untuk ditampilkan di nama barang).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +39,15 @@ export async function GET(request: NextRequest) {
       where.id = { in: regs.map((r) => r.barangId) }
     }
 
-    const rows = await db.barang.findMany({ where, orderBy: { nama: 'asc' } })
+    const rows = await db.barang.findMany({
+      where,
+      orderBy: { nama: 'asc' },
+      include: {
+        registrations: {
+          include: { customer: { select: { id: true, name: true, companyName: true } } },
+        },
+      },
+    })
     const items = rows.map((it) => ({
       id: it.id,
       code: it.kode,
@@ -50,6 +59,11 @@ export async function GET(request: NextRequest) {
       keterangan: it.keterangan,
       isActive: it.isActive,
       createdAt: it.createdAt.toISOString(),
+      customers: it.registrations.map((r) => ({
+        id: r.customer.id,
+        name: r.customer.name,
+        companyName: r.customer.companyName,
+      })),
     }))
     return NextResponse.json(
       { items },
