@@ -8890,3 +8890,19 @@ Work Log:
 
 Stage Summary:
 - Master Barang kini menampilkan nama pelanggan langsung di nama barang (chip), CRUD penuh di semua mode (Tambah + pilih pelanggan, Duplikat, Edit, Hapus, Toggle Aktif cepat, Muat Ulang), dan UI lebih rapi (stat ringkasan, chips, kartu mobile). Semua uji CRUD lulus dan database kembali ke baseline persis.
+
+---
+Task ID: 64
+Agent: Main (Z.ai Code)
+Task: "di halaman master barang, delete kolom satuan, apabila pilih pelanggan yang dipilih semua barang maka icon duplikat dan icon edit dihilangkan. fi"
+
+Work Log:
+- KOLOM SATUAN DIHAPUS (src/components/views/items-view.tsx): TableHead+TableCell "Satuan" di tabel desktop dihapus; baris "Satuan:" di kartu mobile dihapus. Field Satuan di FORM Tambah/Edit TETAP ADA (sengaja — permintaan hanya "kolom"; nilai satuan masih dipakai invoice/surat jalan/dokumen lain dan tetap bisa diatur lewat form).
+- ICON DUPLIKAT & EDIT DISEMBUNYIKAN DI MODE "SEMUA BARANG": flag baru showDuplicate = canAdd && customerId !== 'all' dan showEdit = canEditItem && customerId !== 'all' (sebelumnya tampil di semua mode). Kolom header Aksi kini bergantung showDuplicate||showEdit||showHapus. Flag showToggle dipisah (switch status aktif tetap tersedia di SEMUA mode, bukan tombol edit). showTambah (tombol Tambah header + EmptyState) tetap di semua mode sesuai Task 63.
+- TEKS BANTUAN mode "Semua Barang" diperbarui: "…; pilih pelanggan untuk mengedit / menduplikat" agar perilaku baru jelas bagi pengguna.
+- ESLint items-view.tsx 0 error.
+- E2E agent-browser (login superadmin, data uji dibuat lalu DIHAPUS lewat UI): buat "Uji Satuan 64" utk pelanggan Budi Susanto (Harga Jual 10000, profit otomatis). MODE SEMUA BARANG: header tabel = Kode/Nama/Qty/Harga Jual/HPP/Keterangan/Status/Aksi (tanpa Satuan) ✓; baris hanya punya tombol Hapus + switch (Duplikat & Edit TIDAK tampil) ✓. MODE PELANGGAN (Budi Susanto): Duplikat & Edit MUNCUL kembali, Hapus tetap, tetap tanpa kolom Satuan ✓. Dialog Edit ("Pelanggan Terdaftar") & Duplikat ("Salinan dari ITM-001") terbuka-normal. MOBILE 390×844: kartu tanpa "Satuan:", tanpa Duplikat/Edit di mode Semua Barang, ketiganya tampil saat pelanggan dipilih; scrollWidth=390=viewport ✓; desktop scrollWidth=1280=viewport ✓. Bukti: /tmp/e2e64-desktop-pelanggan.png, /tmp/e2e64-desktop-semua.png, /tmp/e2e64-mobile-semua.png, /tmp/e2e64-mobile-pelanggan.png.
+- CLEANUP: barang uji dihapus via tombol Hapus (AlertDialog) → list kembali kosong; BASELINE DB UTUH: DocumentHistory=23, RiwayatCetakan=20, RiwayatPotongKertas=20, Barang=3, BarangCustomer=3, Customer=132. Log daemon bersih (0 error; DELETE /api/items/... 200). TANPA deploy (tidak diminta).
+
+Stage Summary:
+- Master Barang: kolom Satuan dihapus dari tabel desktop & kartu mobile (field form tetap, data satuan tetap terkirim ke dokumen); icon Duplikat & Edit kini hanya tampil saat pelanggan spesifik dipilih — di mode "Semua Barang" keduanya disembunyikan, sementara Tambah, switch Aktif/Nonaktif, dan Hapus tetap tersedia. Terverifikasi E2E desktop+mobile, baseline DB utuh.
