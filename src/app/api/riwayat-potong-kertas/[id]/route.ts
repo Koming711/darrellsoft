@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
+import { validatePhotoDataUrl } from '@/lib/image-compress'
 
 export async function PUT(
   request: NextRequest,
@@ -44,6 +45,7 @@ export async function PUT(
         jumlahPesanan: body.jumlahPesanan ?? item.jumlahPesanan,
         berapaMata: body.berapaMata ?? item.berapaMata,
         resultData: body.resultData ?? item.resultData,
+        photoUrl: body.photoUrl === undefined ? item.photoUrl : validatePhotoDataUrl(body.photoUrl),
       }
     })
 

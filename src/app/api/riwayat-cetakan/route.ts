@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 import { generateHitungCetakanNumber, previewHitungCetakanNumber } from '@/lib/doc-number'
+import { validatePhotoDataUrl } from '@/lib/image-compress'
 
 export async function GET(request: NextRequest) {
   try {
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
         profitPercent: body.profitPercent || 0,
         profitAmount: body.profitAmount || 0,
         grandTotal: body.grandTotal || 0,
+        photoUrl: validatePhotoDataUrl(body.photoUrl),
         userId: user?.id || null,
       }
     })

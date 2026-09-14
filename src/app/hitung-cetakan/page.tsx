@@ -17,6 +17,7 @@ import { DashboardLayout } from '@/components/dashboard-layout'
 import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { Button } from '@/components/ui/button'
+import { PhotoUpload } from '@/components/photo-upload'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
@@ -293,6 +294,8 @@ function HitungCetakanPage() {
 
   // Riwayat hitung cetakan (full list)
   const [savingRiwayat, setSavingRiwayat] = useState(false)
+  // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
+  const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
   const [riwayatCetakanList, setRiwayatCetakanList] = useState<any[]>([])
   const [riwayatLoading, setRiwayatLoading] = useState(true)
@@ -1468,12 +1471,13 @@ function HitungCetakanPage() {
       otherCostLabel: biayaLain1Label, otherCostLabel2: biayaLain2Label,
       glueCost: calculatedGlueCost, glueBorongan: calculatedGlueBoronganSheet,
       glueLengthCm: formData.glueLengthCm, glueCostPerCm: formData.glueCostPerCm,
-      subTotal, profitPercent, profitAmount, grandTotal
+      subTotal, profitPercent, profitAmount, grandTotal, photoUrl
     }
   }
 
   const resetFormForRiwayat = () => {
     setRestoredRiwayatId(null)
+    setPhotoUrl('')
     clearStorage()
     setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
@@ -1603,6 +1607,7 @@ function HitungCetakanPage() {
 
   const handleRestoreRiwayat = (r: any) => {
     setRestoredRiwayatId(r.id)
+    setPhotoUrl(r.photoUrl || '')
     setActiveTab('editor')
     const rQty = parseInt(r.quantity) || 0
     // Restore ongkos lem input asli dari DB jika ada, jika tidak fallback dari total
@@ -2333,6 +2338,9 @@ function HitungCetakanPage() {
                   {summaryBiayaLain2 > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">{biayaLain2Label}</span><span className="text-slate-800 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
                 </div>
               </div>
+              <div className="px-3 pb-2 lg:hidden">
+                <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
+              </div>
               <div className="lg:hidden px-3 pb-3 flex flex-col sm:flex-row gap-2">
                 <Button onClick={handleCheck} className="flex-1 h-10 text-sm bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-4 h-4 mr-1.5" /> Cek</Button>
                 <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!hasGrandTotal || savingRiwayat} className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-sm">{restoredRiwayatId ? <><RefreshCw className={`w-4 h-4 mr-1.5 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update Riwayat'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat'}</Button>
@@ -2622,6 +2630,7 @@ function HitungCetakanPage() {
                 </div>
               </div>
               <div className="px-2.5 pb-2 flex flex-col gap-1.5">
+                <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
                 <Button onClick={handleCheck} className="w-full h-8 text-[11px] font-semibold bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-3.5 h-3.5 mr-1" /> Cek Kelengkapan</Button>
                 <div className="grid grid-cols-2 gap-1.5">
                   <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!hasGrandTotal || savingRiwayat} className="h-8 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[11px] font-semibold">{restoredRiwayatId ? <><RefreshCw className={`w-3.5 h-3.5 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>

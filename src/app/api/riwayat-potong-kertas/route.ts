@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 import { generatePotongKertasNumber, previewPotongKertasNumber } from '@/lib/doc-number'
+import { validatePhotoDataUrl } from '@/lib/image-compress'
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         jumlahPesanan: body.jumlahPesanan || '',
         berapaMata: body.berapaMata || '',
         resultData: body.resultData || '',
+        photoUrl: validatePhotoDataUrl(body.photoUrl),
         userId: user?.id || null,
       }
     })

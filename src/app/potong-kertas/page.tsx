@@ -20,6 +20,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
 import { Button } from '@/components/ui/button'
+import { PhotoUpload } from '@/components/photo-upload'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -294,6 +295,8 @@ function CalculatorPage() {
 
   // Riwayat states
   const [savingRiwayat, setSavingRiwayat] = useState(false)
+  // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
+  const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
   const [needsRecalc, setNeedsRecalc] = useState(false)
   const justCalculatedRef = useRef(false)
@@ -771,10 +774,12 @@ function CalculatorPage() {
     strategy: results?.strategy || '',
     jumlahPesanan: jumlahPesanan || '',
     berapaMata: berapaMata || '',
+    photoUrl,
   })
 
   const resetFormForRiwayat = () => {
     setRestoredRiwayatId(null)
+    setPhotoUrl('')
     setNeedsRecalc(false)
     restoreDoneRef.current = false
     setPaperWidth('')
@@ -1627,6 +1632,11 @@ function CalculatorPage() {
               </div>
             </div>
 
+          </div>
+
+          {/* Foto Lampiran */}
+          <div className="bg-card rounded-xl border border-slate-200 p-2.5">
+            <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
           </div>
 
           {/* Action Buttons */}

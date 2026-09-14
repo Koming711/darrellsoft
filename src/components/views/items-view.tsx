@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
-  Camera, Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
+  Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhotoUpload } from '@/components/photo-upload'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -92,60 +93,7 @@ function profitOf(jual: string, modal: string): string {
   return j !== null && m !== null ? String(j - m) : ''
 }
 
-/** Target ukuran maksimal foto barang setelah kompresi. */
-const PHOTO_MAX_BYTES = 300 * 1024
-
-/** Hitung jumlah byte dari data URL (base64). */
-function dataUrlBytes(dataUrl: string): number {
-  const b64 = dataUrl.split(',')[1] ?? ''
-  return Math.floor((b64.length * 3) / 4)
-}
-
-/** Format byte agar mudah dibaca (KB / MB). */
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`
-}
-
-/**
- * Kompres gambar apa pun (JPG/PNG/WebP) menjadi data URL JPEG ≤300KB:
- * mulai dari sisi terpanjang 1600px + quality 0.85, turunkan quality,
- * lalu perkecil dimensi sampai target tercapai. Latar putih untuk PNG transparan.
- */
-async function compressImageToJpegDataUrl(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('File harus berupa gambar (JPG/PNG/WebP)')
-  }
-  const bitmap = await createImageBitmap(file)
-  try {
-    const longest = Math.max(bitmap.width, bitmap.height)
-    let scale = Math.min(1, 1600 / longest)
-    let quality = 0.85
-    let out = ''
-    for (let attempt = 0; attempt < 14; attempt++) {
-      const w = Math.max(1, Math.round(bitmap.width * scale))
-      const h = Math.max(1, Math.round(bitmap.height * scale))
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Canvas tidak didukung browser ini')
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, w, h)
-      ctx.drawImage(bitmap, 0, 0, w, h)
-      out = canvas.toDataURL('image/jpeg', quality)
-      if (dataUrlBytes(out) <= PHOTO_MAX_BYTES) return out
-      if (quality > 0.45) {
-        quality = Math.max(0.45, quality - 0.1)
-      } else {
-        scale *= 0.85
-      }
-    }
-    return out
-  } finally {
-    bitmap.close?.()
-  }
-}
+/** Helper foto (kompres ≤300KB JPG + format byte) kini di @/lib/image-compress + komponen @/components/photo-upload. */
 
 function ActiveBadge({ active }: { active: boolean }) {
   return active
@@ -227,10 +175,6 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Foto barang: input file tersembunyi + status kompresi
-  const photoInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
-  const [photoBusy, setPhotoBusy] = useState(false)
   // Popup foto barang (klik baris tabel / kartu)
   const [viewPhoto, setViewPhoto] = useState<Item | null>(null)
 
@@ -311,22 +255,6 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     setDialogOpen(true)
   }
 
-  /** Upload + kompres otomatis foto barang ke JPEG ≤300KB (dijalankan di browser). */
-  const onPhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = '' // reset agar file yang sama bisa dipilih ulang
-    if (!file) return
-    setPhotoBusy(true)
-    try {
-      const dataUrl = await compressImageToJpegDataUrl(file)
-      setForm((f) => ({ ...f, photoUrl: dataUrl }))
-      toast.success(`Foto dikompres ke JPG (${formatBytes(dataUrlBytes(dataUrl))})`)
-    } catch (err) {
-      toast.error(errText(err))
-    } finally {
-      setPhotoBusy(false)
-    }
-  }
 
   // Profit = harga jual − harga modal; Margin = profit / harga jual × 100
   const marginInfo = (() => {
@@ -867,105 +795,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 autoComplete="off"
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-photo">Foto Barang</Label>
-              <input
-                ref={photoInputRef}
-                id="item-photo"
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(e) => void onPhotoChange(e)}
-                disabled={photoBusy}
-              />
-              <input
-                ref={cameraInputRef}
-                id="item-camera"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                onChange={(e) => void onPhotoChange(e)}
-                disabled={photoBusy}
-                aria-label="Ambil foto dengan kamera"
-              />
-              {form.photoUrl ? (
-                <div className="rounded-lg border border-stone-200 bg-stone-50/50 p-2.5">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={form.photoUrl}
-                      alt="Preview foto barang"
-                      className="h-16 w-16 shrink-0 rounded-md border border-stone-200 object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-stone-700">JPG · {formatBytes(dataUrlBytes(form.photoUrl))}</p>
-                      <p className="mt-0.5 text-[11px] text-emerald-600">Terkompres otomatis ≤ 300KB</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-full px-2 text-xs"
-                      onClick={() => photoInputRef.current?.click()}
-                      disabled={photoBusy}
-                    >
-                      Ganti Foto
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-full px-2 text-xs"
-                      onClick={() => cameraInputRef.current?.click()}
-                      disabled={photoBusy}
-                    >
-                      <Camera className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                      Kamera
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-full px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setForm((f) => ({ ...f, photoUrl: '' }))}
-                      disabled={photoBusy}
-                    >
-                      Hapus Foto
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => photoInputRef.current?.click()}
-                      disabled={photoBusy}
-                      className="flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-stone-300 bg-white p-3 text-center transition-colors hover:bg-stone-50 disabled:opacity-60"
-                    >
-                      <ImagePlus className="h-5 w-5 text-stone-400" aria-hidden="true" />
-                      <span className="text-xs text-muted-foreground">
-                        {photoBusy ? 'Mengompres foto…' : 'Pilih File'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      disabled={photoBusy}
-                      className="flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-stone-300 bg-white p-3 text-center transition-colors hover:bg-stone-50 disabled:opacity-60"
-                    >
-                      <Camera className="h-5 w-5 text-stone-400" aria-hidden="true" />
-                      <span className="text-xs text-muted-foreground">
-                        {photoBusy ? 'Mengompres foto…' : 'Kamera'}
-                      </span>
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Otomatis dikompres ke JPG ≤ 300KB</p>
-                </div>
-              )}
-            </div>
+            <PhotoUpload value={form.photoUrl} onChange={(v) => setForm((f) => ({ ...f, photoUrl: v }))} label="Foto Barang" />
             {!editing && (
               <div className="grid gap-1.5">
                 <Label htmlFor="item-customer">Untuk Pelanggan</Label>

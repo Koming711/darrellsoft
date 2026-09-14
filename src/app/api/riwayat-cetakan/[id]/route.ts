@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
+import { validatePhotoDataUrl } from '@/lib/image-compress'
 
 export async function PUT(
   request: NextRequest,
@@ -68,6 +69,7 @@ export async function PUT(
         profitPercent: body.profitPercent ?? item.profitPercent,
         profitAmount: body.profitAmount ?? item.profitAmount,
         grandTotal: body.grandTotal ?? item.grandTotal,
+        photoUrl: body.photoUrl === undefined ? item.photoUrl : validatePhotoDataUrl(body.photoUrl),
       }
     })
 

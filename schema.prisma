@@ -250,6 +250,7 @@ model RiwayatCetakan {
   profitPercent      Float
   profitAmount       Float
   grandTotal         Float
+  photoUrl           String?
   userId             String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -336,6 +337,7 @@ model RiwayatPotongKertas {
   jumlahPesanan String   @default("")
   berapaMata    String   @default("")
   resultData    String   @default("")
+  photoUrl      String?
   userId        String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
