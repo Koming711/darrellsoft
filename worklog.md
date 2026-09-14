@@ -9173,3 +9173,31 @@ Work Log:
 Stage Summary:
 - Detail Rincian Cetakan kini lebih informatif & profesional: badge tipe, nomor dokumen, info pesanan/mata, sub total menonjol, harga per pcs, dan hasil Cetak identik dialog
 - Produksi v63 live; tidak ada data uji tertinggal (lokal & produksi bersih)
+
+---
+Task ID: 75-b
+Agent: Main
+Task: Rubah TOTAL tampilan Detail Rincian Cetakan + CRUD (Ubah) — "tulisan dibawah ada yang kepotong"
+
+Work Log:
+- Diagnosis akar masalah: target user selama ini = PreviewDialog "Detail Rincian Cetakan" di halaman hitung-cetakan (bukan dialog riwayat-content.tsx yang diperbaiki Task 73) — judul persis "Detail Rincian Cetakan"
+- Teks kepotong: Grand Total footer pakai truncate; label PvField & nilai PvMiniStat truncate; 4 tombol whitespace-nowrap flex-1 di 390px
+- "preview tidak muncul": foto lampiran (photoUrl) TIDAK PERNAH dirender di dialog detail (handlePreview & handlePreviewRiwayat tidak mengirim photoUrl ke previewCalc)
+- Redesign total mode lihat: header dokumen gradient gelap (badge "Rincian Harga Cetakan", No. dokumen mono, tanggal, nama barang extrabold break-words, customer), strip statistik 3 kartu (Harga/Pcs, Sub Total, Profit), section FOTO LAMPIRAN (img klik → tab baru), Informasi Pesanan, Rincian Biaya, Gambar Potong Kertas
+- Footer baru: Grand Total strip (break-all, tanpa truncate, kolom kanan max-w-52%); tombol grid grid-cols-2 mobile (Cetak|PDF / Ubah|Restore / Hapus col-span-2) & sm:grid-cols-5 1 baris desktop; preview non-riwayat = Cetak|PDF saja
+- CRUD Update: state isEditingPreview/editForm/savingEdit; startEditRiwayat mengisi form dari previewCalc; 34 input dalam 7 EditSection (Informasi, Ukuran & Warna, Bahan Kertas, Ongkos Cetak 1&2, Finishing & Tambahan, Profit); Sub Total/Profit/Grand Total dihitung live; saveEditRiwayat → PUT /api/riwayat-cetakan/[id] → toast → refresh preview + list lokal + notifyDataChange
+- Komponen baru: EditField (label + input Rp prefix), EditSection; PvField/PvMiniStat truncate→leading-tight/break-words; footer dialog jadi conditional (mode lihat vs mode ubah: Batal | Simpan Perubahan)
+- riwayat-content.tsx: truncate→break-words pada nilai Nama Customer & Nama Cetakan
+- PWA bump v63→v64 + APP_VERSION '2026-09-14-v9'; lint 0 error; commit aad91e6; push
+- Deploy darrellsoft (switch project.json → prepare-build → vercel --prod → restore): sw.js produksi = darrell-soft-v64, homepage 200
+- E2E lokal desktop 1280x800: dialog baru render, 2 tombol editor / 5 tombol riwayat tanpa clipping, hOverflow false
+- E2E lokal mobile 390x844: grid tombol 2x2+1 (y=688/732/776), tanpa overflow, grand total tanpa clipped; mode Ubah 34 input render baik (screenshot)
+- E2E produksi: simpan riwayat uji → detail (5 tombol) → Ubah → Total Harga Kertas 31.200→40.000 → live Grand 45.240→58.000 → Simpan → toast "Riwayat berhasil diperbarui!" → view terupdate (Rp 193/pcs); Hapus → confirm → toast "Riwayat berhasil dihapus", API produksi kembali []
+- Foto lampiran terverifikasi tampil di dialog (data URL uji lokal, terhapus bersama record uji)
+
+Stage Summary:
+- Detail Rincian Cetakan (hitung-cetakan) redesign TOTAL: header dokumen gelap gaya invoice + strip statistik + foto lampiran + tombol rapi (tanpa teks terpotong di mobile & desktop)
+- CRUD lengkap di dialog: Read (detail), Update (Ubah — 34 field, total otomatis), Delete (Hapus), Restore — memakai PUT /api/riwayat-cetakan/[id] yang sudah ada
+- "tulisan dibawah kepotong" FIXED: semua truncate dihilangkan (break-words/break-all), tombol grid 2 kolom mobile
+- "preview tidak muncul" FIXED: Foto Lampiran kini dirender di detail (photoUrl ikut ke previewCalc)
+- Produksi v64 live & terverifikasi; lokal & produksi bersih tanpa data uji (riwayat lokal = 20 = baseline)
