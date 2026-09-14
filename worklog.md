@@ -9127,3 +9127,27 @@ Stage Summary:
 - Produksi kini v61 dengan seluruh perubahan Task 72 & 73; SW akan memaksa refresh cache browser user
 - Konvensi deploy BARU: sebelum deploy produksi, pastikan .vercel/project.json menunjuk project darrellsoft (backup/restore my-project setelahnya)
 - Data uji produksi tidak meninggalkan jejak; DB produksi riwayat superadmin kembali kosong
+
+---
+Task ID: 74
+Agent: Main
+Task: Fix "preview tidak muncul" — popup install PWA menyerap klik user
+
+Work Log:
+- Investigasi: kode riwayat-content & mobile-table benar (onRowClick diteruskan ke kartu & baris)
+- elementFromPoint di posisi kartu mobile menghasilkan header popup install (div.relative px-4 pt-5 pb-4 text-center) — bukan kartu!
+- Akar masalah: install-prompt.tsx menampilkan modal fullscreen (fixed inset-0 z-[10000] + backdrop bg-black/60 blur) 5.5 detik setelah halaman dibuka; klik pertama user di mana pun terserap overlay untuk menutup popup, sehingga klik baris/kartu riwayat "tidak berfungsi"
+- Bukti: tanpa popup, klik nyata koordinat kartu -> dialog preview TERBUKA
+- Fix: ubah popup install jadi banner non-blocking di bawah layar (fixed bottom-[calc(68px+env(safe-area-inset-bottom))] sm:bottom-4, z-[40] di bawah dialog z-50, tanpa overlay/backdrop, tanpa fixed inset-0)
+- FAB install z-[9998] -> z-[40]; installSuccess modal -> banner non-blocking
+- E2E lokal mobile 390: banner tampil y=512, kartu y=281, elementFromPoint = kartu; klik nyata kartu saat banner tampil -> preview TERBUKA; tombol X menutup banner + FAB muncul
+- E2E desktop 1280: banner 280px tengah bawah, scrollWidth 1280 (tanpa overflow)
+- Bump PWA v62 + APP_VERSION '2026-09-14-v7'; lint 0 error; commit afcb4d4; push
+- Deploy ke project darrellsoft (switch project.json -> vercel --prod -> restore) — sw.js produksi = darrell-soft-v62
+- E2E produksi mobile: banner tampil, elemen di atas kartu = H3 kartu; klik nyata -> dialog preview terbuka (screenshot /tmp/prod-v62-preview.png)
+- Data uji produksi cmu15f3be0000l20457dm3psy dihapus (API kembali [])
+
+Stage Summary:
+- Akar masalah "preview tidak muncul" = popup install PWA fullscreen yang menyerap klik; kini banner non-blocking
+- Produksi v62 live; klik baris/kartu membuka Detail Rincian Cetakan walau banner install tampil
+- Konvensi deploy tercatat: switch .vercel/project.json ke darrellsoft saat deploy produksi
