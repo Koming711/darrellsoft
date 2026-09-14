@@ -890,48 +890,50 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 aria-label="Ambil foto dengan kamera"
               />
               {form.photoUrl ? (
-                <div className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50/50 p-2.5">
-                  <img
-                    src={form.photoUrl}
-                    alt="Preview foto barang"
-                    className="h-16 w-16 shrink-0 rounded-md border border-stone-200 object-cover"
-                  />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-xs font-medium text-stone-700">JPG · {formatBytes(dataUrlBytes(form.photoUrl))}</p>
-                    <p className="text-[11px] text-emerald-600">Terkompres otomatis ≤ 300KB</p>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2 text-xs"
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={photoBusy}
-                      >
-                        Ganti Foto
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2 text-xs"
-                        onClick={() => cameraInputRef.current?.click()}
-                        disabled={photoBusy}
-                      >
-                        <Camera className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                        Kamera
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setForm((f) => ({ ...f, photoUrl: '' }))}
-                        disabled={photoBusy}
-                      >
-                        Hapus Foto
-                      </Button>
+                <div className="rounded-lg border border-stone-200 bg-stone-50/50 p-2.5">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={form.photoUrl}
+                      alt="Preview foto barang"
+                      className="h-16 w-16 shrink-0 rounded-md border border-stone-200 object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-stone-700">JPG · {formatBytes(dataUrlBytes(form.photoUrl))}</p>
+                      <p className="mt-0.5 text-[11px] text-emerald-600">Terkompres otomatis ≤ 300KB</p>
                     </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full px-2 text-xs"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoBusy}
+                    >
+                      Ganti Foto
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full px-2 text-xs"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={photoBusy}
+                    >
+                      <Camera className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                      Kamera
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setForm((f) => ({ ...f, photoUrl: '' }))}
+                      disabled={photoBusy}
+                    >
+                      Hapus Foto
+                    </Button>
                   </div>
                 </div>
               ) : (
