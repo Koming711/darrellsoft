@@ -9079,3 +9079,25 @@ Work Log:
 
 Stage Summary:
 - Sasaran UI yang benar sudah diperbaiki: di TAB "Riwayat" halaman Hitung Cetakan, icon/tombol restore dihapus dari baris & kartu (hanya Hapus), klik baris/kartu membuka dialog "Detail Rincian Cetakan" yang kini memiliki 4 tombol: Cetak, PDF, Restore, Hapus. Restore memuat data ke editor (lengkap dengan foto & label biaya), Hapus menghapus dengan konfirmasi dan menutup dialog. Preview dari editor tidak terpengaruh (tetap Cetak/PDF). Terverifikasi E2E desktop+mobile, baseline DB utuh.
+
+---
+Task ID: 73
+Agent: Main
+Task: Dialog Detail Rincian Cetakan — semua tombol aksi dalam 1 baris + rapikan tampilan
+
+Work Log:
+- Ubah layout tombol aksi dialog detail dari grid 2x2 menjadi flex 1 baris (Cetak | PDF | Restore | Hapus) dengan flex-1 min-w-0 per tombol
+- Tombol responsif: py-2.5 sm:py-3, text-xs sm:text-sm, icon shrink-0, whitespace-nowrap — tinggi seragam 44px di semua viewport
+- Rapikan header dialog: border-b pemisah, px konsisten, tambah DialogDescription sr-only (aksesibilitas Radix)
+- Seragamkan kotak "Informasi Cetakan" ke skema netral (bg-slate-50 border-slate-200, label slate-500, nilai slate-800 + truncate) — sebelumnya campur blue/indigo/purple/slate
+- Container konten p-4 sm:p-5 space-y-4; sticky action bar px-4 py-3 sm:px-5
+- Samakan styling tombol mode non-detailOnRowClick (3 tombol flex) agar konsisten
+- E2E desktop 1280x800: 4 tombol sejajar y=711 semua, w=109 seragam; header/info/ringkasan rapi (screenshot /tmp/e2e73-desktop-detail-top.png & -detail.png)
+- E2E mobile 390x844: 4 tombol sejajar y=761 semua, w=83 seragam, scrollWidth 390 = innerWidth (tanpa overflow); screenshot /tmp/e2e73-mobile-detail.png & -detail-top.png
+- Uji tombol Hapus dari dialog: confirm -> DELETE 200 -> dialog tertutup otomatis, data uji bersih (DB kembali baseline 20)
+- bunx eslint 0 error; dev.log bersih tanpa error runtime
+
+Stage Summary:
+- Semua tombol aksi dialog Detail Rincian Cetakan kini dalam 1 baris rapi di desktop & mobile
+- Tampilan dialog lebih rapi: header terpisah border, informasi cetakan seragam netral, spacing konsisten
+- Fungsionalitas Cetak/PDF/Restore/Hapus tetap utuh; data uji tidak meninggalkan jejak
