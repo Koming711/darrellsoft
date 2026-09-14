@@ -8943,3 +8943,22 @@ Work Log:
 
 Stage Summary:
 - DEPLOY SELESAI: Task 63+64+65 + PWA v56 LIVE di www.darrellsoft.com (deployment darrellsoft-lubjxss7s, Ready in 1m, alias www.darrellsoft.com terverifikasi via sw.js v56). Schema lokal pulih ke sqlite (2 file), prisma client regenerate, dev server 200, GitHub main sinkron (be07dcd). Link .vercel/project.json dipulihkan sebelum deploy (mencegah nyasar proyek). Tidak ada perubahan struktur DB produksi baru (kolom photoUrl sudah ada di Supabase sebelumnya).
+
+---
+Task ID: 67
+Agent: Main (Z.ai Code)
+Task: "di online halaman master barang, tambah barang tidak bisa. dihalaman tambah barang, tambahkan camera di foto barang. daftar barang yang sudah di input hilang (di online) check and fix"
+
+Work Log:
+- DIAGNOSIS AKAR (produksi): kolom photoUrl TIDAK ADA di Postgres Supabase (Task 65 hanya ALTER TABLE di SQLite lokal — bug deploy) → GET/POST /api/items error Prisma kolom tak dikenal → 500 → daftar barang "hilang" + tambah barang gagal. Data TIDAK hilang: 6 barang milik user "aming" (cmptzbbqj0001l804fpa7zg2k) utuh.
+- FIX DB PRODUKSI: vercel env pull .env.production.local (di-gitignore .env*) → script bun+pg via pooler ap-southeast-1 → ALTER TABLE "Barang" ADD COLUMN IF NOT EXISTS "photoUrl" TEXT → kolom terverifikasi ada; Total Barang=6, denganFoto=0.
+- VERIFIKASI PRODUKSI PULIH: curl login superadmin (cookie) → GET /api/items 200 (list superadmin memang kosong — isolasi per-user, bukan regresi); GET dengan identitas aming (header x-user-id/role) → 200 + 6 barang tampil (Five Monkey, Rendy, Ongkir ke expedisi, Widayana wisnu, Ongkir ke expedisi, The cups); POST uji "Uji Fix 67" (akun superadmin) → 200 ITM-001 → DELETE → 200 (produksi bersih, sisa 0).
+- FITUR KAMERA (src/components/views/items-view.tsx): icon Camera; cameraInputRef + input file sr-only id=item-camera (accept="image/*", capture="environment" → kamera belakang di HP; desktop fallback file picker); onChange memakai onPhotoChange yang sama (kompres JPEG ≤300KB); UI: dropzone kosong kini 2 tombol berdampingan "Pilih File" + "Kamera" (min-h 72px, grid-cols-2) + hint "Otomatis dikompres ke JPG ≤ 300KB"; saat sudah ada foto: tombol "Kamera" ditambahkan di samping Ganti Foto/Hapus Foto.
+- ESLINT 0 error. E2E LOKAL (agent-browser, superadmin lokal): form Tambah → tombol Pilih File + Kamera tampil, #item-camera capture="environment" ✓; upload PNG 54KB → toast "Foto dikompres ke JPG (11 KB)" → preview + Ganti/Kamera/Hapus ✓; simpan "Uji Kamera 67" (harga 10000) → baris muncul ✓; klik baris → popup "Foto Barang" dengan img data:image/jpeg ✓ (bukti /tmp/e2e67-desktop-popup.png); Hapus via AlertDialog ✓ (list kembali kosong). MOBILE 390×844: kedua tombol tampil, scrollW=390=viewport ✓ (bukti /tmp/e2e67-mobile-kamera.png). Data uji dibersihkan.
+- CATATAN DB LOKAL: baseline kini Barang=4/BarangCustomer=4/Customer=132 (data user asli non-uji: "paperbowl 720ml" ×2, "ongkir", "pb tes" — muncul sejak sesi sebelumnya, BUKAN artefak uji; tidak disentuh). DH=23, RC=20, RPK=20 utuh.
+- PWA BUMP v56→v57 + APP_VERSION '2026-09-14-v2'; commit d73b135; push origin main (be07dcd..d73b135).
+- DEPLOY: prepare-build (postgresql, 2 schema) → vercel --prod --yes (darrellsoft, Ready in 2m) → revert-schema (sqlite, 2 schema) + prisma generate → lokal GET / 200; produksi GET / 200, sw.js = darrell-soft-v57 (fitur kamera LIVE), GET /api/items aming tetap 200.
+- KETERBATASAN: password superadmin PRODUKSI ≠ lokal (login UI produksi tidak bisa diuji langsung) — verifikasi produksi via HTTP status, sw.js v57, API items, dan DB information_schema (semua lulus).
+
+Stage Summary:
+- Produksi PULIH: akar masalah = kolom photoUrl belum ditambahkan ke DB Supabase saat deploy Task 65; kini kolom ada (ALTER TABLE IF NOT EXISTS), 6 barang user kembali tampil, dan tambah barang berfungsi (POST/DELETE 200 terverifikasi). Fitur baru LIVE: tombol KAMERA di blok Foto Barang (form Tambah/Edit/Duplikat) dengan kompresi JPEG ≤300KB yang sama, PWA v57 memaksa refresh client. Tanpa artefak data tertinggal di lokal maupun produksi.
