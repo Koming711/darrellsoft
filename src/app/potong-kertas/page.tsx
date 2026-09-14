@@ -22,7 +22,7 @@ import { notifyDataChange } from '@/lib/data-sync'
 import { Button } from '@/components/ui/button'
 import { PhotoUpload } from '@/components/photo-upload'
 import { openWhatsApp } from '@/lib/whatsapp-business'
-import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA4 } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
@@ -155,99 +155,18 @@ function PreviewDialog({ children, footer, onClose, title }: { children: React.R
 }
 
 /**
- * Build an off-screen 2-column A5-landscape layout from the preview content.
+ * Convert a Blob into a data URL.
  *
- * Structure (A5 landscape, 210 × 148 mm ratio):
- *   ┌────────────────────────────────────────┐
- *   │         Preview Potong Kertas          │  ← full-width header
- *   ├───────────────────┬────────────────────┤
- *   │  LEFT (details)   │  RIGHT (cutting)   │
- *   │  - Info grid      │  - Diagram potong  │
- *   │  - Strategi       │  - Cara potong     │
- *   │                   │  - Detail per blok │
- *   └───────────────────┴────────────────────┘
- *
- * The pieces are cloned from the live preview DOM, so the JPG always matches
- * what the user sees on screen. The holder is attached off-screen so the
- * layout is rendered (measurable) before capture. Caller MUST remove the
- * returned holder from the DOM after capture.
+ * Used to embed the captured preview image into the print window HTML
+ * (no object-URL lifecycle issues, works synchronously inside the popup).
  */
-function buildA5LandscapeLayout(source: HTMLElement): HTMLElement {
-  const W = 1122
-  const H = Math.round(W * 148 / 210) // ≈ 791 → A5 landscape ratio
-
-  const layout = document.createElement('div')
-  layout.style.cssText = [
-    `width: ${W}px`,
-    `min-height: ${H}px`,
-    'background: #ffffff',
-    'box-sizing: border-box',
-    'padding: 24px 28px',
-    'display: flex',
-    'flex-direction: column',
-    'gap: 14px',
-  ].join(';')
-
-  // Sections are located by data-pk attributes — robust against DOM restructuring
-  const pick = (name: string) => source.querySelector<HTMLElement>(`[data-pk="${name}"]`)
-  const header = pick('header')
-  const grid = pick('grid')
-  const strategy = pick('strategy')
-  const diagram = pick('diagram')
-  const steps = pick('steps')
-  const blocks = pick('blocks')
-
-  // Full-width header
-  if (header) {
-    const h = header.cloneNode(true) as HTMLElement
-    h.style.marginBottom = '0'
-    h.style.flexShrink = '0'
-    layout.appendChild(h)
-  }
-
-  // Two-column body
-  const body = document.createElement('div')
-  body.style.cssText = 'flex: 1; display: flex; gap: 16px; align-items: flex-start;'
-
-  // LEFT column: details (info grid + strategy)
-  const left = document.createElement('div')
-  left.setAttribute('data-col', 'left')
-  left.style.cssText = 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;'
-  if (grid) {
-    const g = grid.cloneNode(true) as HTMLElement
-    g.style.marginBottom = '0'
-    // Force 2 cards per row regardless of Tailwind sm: breakpoint
-    g.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))'
-    left.appendChild(g)
-  }
-  if (strategy) {
-    const s = strategy.cloneNode(true) as HTMLElement
-    s.style.marginBottom = '0'
-    left.appendChild(s)
-  }
-
-  // RIGHT column: cutting (diagram + cara potong + detail per blok)
-  const right = document.createElement('div')
-  right.setAttribute('data-col', 'right')
-  right.style.cssText = 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;'
-  ;[diagram, steps, blocks].forEach((part) => {
-    if (!part) return
-    const p = part.cloneNode(true) as HTMLElement
-    p.style.marginBottom = '0'
-    right.appendChild(p)
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
+    reader.readAsDataURL(blob)
   })
-
-  body.appendChild(left)
-  body.appendChild(right)
-  layout.appendChild(body)
-
-  // Off-screen holder so the layout is actually rendered (dimensions measurable)
-  const holder = document.createElement('div')
-  holder.setAttribute('data-a5-layout-holder', '1')
-  holder.style.cssText = 'position: fixed; top: 0; left: -99999px; z-index: -1; background: #ffffff; overflow: visible; width: auto; height: auto;'
-  holder.appendChild(layout)
-  document.body.appendChild(holder)
-  return holder
 }
 
 function CalculatorPage() {
@@ -359,6 +278,7 @@ function CalculatorPage() {
   const [previewRiwayatInfo, setPreviewRiwayatInfo] = useState<{ customer: string; paper: string; jumlahPesanan: string; berapaMata: string; setelanKertas: string }>({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
   const [previewRiwayatRow, setPreviewRiwayatRow] = useState<any>(null)
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   // Auto-persist form data to localStorage
@@ -973,7 +893,14 @@ function CalculatorPage() {
     // Try resultData from riwayat first
     if (r.resultData) {
       try {
-        resultData = JSON.parse(r.resultData)
+        const parsed = JSON.parse(r.resultData)
+        // Abaikan resultData format lama (tanpa paperWidth / koordinat blok x)
+        // supaya dihitung ulang oleh cutting engine — diagram potong tidak rusak (viewBox NaN)
+        if (parsed && typeof parsed.paperWidth === 'number' && parsed.paperWidth > 0
+          && Array.isArray(parsed.blocks) && parsed.blocks.length > 0
+          && typeof parsed.blocks[0].x === 'number') {
+          resultData = parsed
+        }
       } catch {}
     }
 
@@ -1142,224 +1069,48 @@ function CalculatorPage() {
     }
   }
 
-  // Build SVG diagram HTML for print/PDF/WhatsApp
-  const buildDiagramHtml = useCallback((overrideResult?: CuttingResult) => {
-    const r = overrideResult || results
-    if (!r) return ''
-    const scale = 5.94
-    const pw = r.paperWidth
-    const ph = r.paperHeight
-    const svgW = pw * scale
-    const svgH = ph * scale
-
-    const gradients = [
-      { id: 'pg1', c1: '#dbeafe', c2: '#bfdbfe' },
-      { id: 'pg2', c1: '#d1fae5', c2: '#a7f3d0' },
-      { id: 'pg3', c1: '#fef3c7', c2: '#fde68a' },
-      { id: 'pg4', c1: '#fecaca', c2: '#fca5a5' },
-      { id: 'pg5', c1: '#e9d5ff', c2: '#d8b4fe' },
-    ]
-    const strokeColors = ['#93c5fd', '#6ee7b7', '#fcd34d', '#fca5a5', '#c4b5fd']
-
-    let defsInner = gradients.map(g =>
-      `<linearGradient id="${g.id}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${g.c1}"/><stop offset="100%" stop-color="${g.c2}"/></linearGradient>`
-    ).join('')
-
-    let wasteRects = ''
-    r.blocks.forEach((block: any, bi: number) => {
-      if (block.wasteWidth > 0.01) {
-        wasteRects += `<rect x="${(block.x + block.usedWidth) * scale}" y="${block.y * scale}" width="${block.wasteWidth * scale}" height="${block.usedHeight * scale}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" rx="1"/>`
-        if (block.wasteHeight > 0.01) {
-          wasteRects += `<rect x="${(block.x + block.usedWidth) * scale}" y="${(block.y + block.usedHeight) * scale}" width="${block.wasteWidth * scale}" height="${block.wasteHeight * scale}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" rx="1"/>`
-        }
-      }
-      if (block.wasteHeight > 0.01) {
-        wasteRects += `<rect x="${block.x * scale}" y="${(block.y + block.usedHeight) * scale}" width="${block.usedWidth * scale}" height="${block.wasteHeight * scale}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" rx="1"/>`
-      }
-    })
-
-    let cutLines = ''
-    if (r.blocks.length > 1 && r.cutPosition !== undefined) {
-      cutLines += `<line x1="${r.cutPosition * scale}" y1="0" x2="${r.cutPosition * scale}" y2="${svgH}" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.8"/>`
-    }
-    if (r.blocks.length > 1 && r.cutPositionY !== undefined) {
-      cutLines += `<line x1="0" y1="${r.cutPositionY * scale}" x2="${svgW}" y2="${r.cutPositionY * scale}" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.8"/>`
-    }
-
-    let pieceGroups = ''
-    r.blocks.forEach((block: any, bi: number) => {
-      const bx = block.x * scale
-      const by = block.y * scale
-      const pieceW = block.pieceWidth * scale
-      const pieceH = block.pieceHeight * scale
-      const gId = gradients[bi % gradients.length].id
-      const sCol = strokeColors[bi % strokeColors.length]
-      let num = 1
-      for (let i = 0; i < block.horizontal; i++) {
-        for (let j = 0; j < block.vertical; j++) {
-          const cx = bx + i * pieceW + pieceW / 2
-          const cy = by + j * pieceH + pieceH / 2
-          const cr = Math.max(4, Math.min(pieceW, pieceH) / 4)
-          pieceGroups += `<g><rect x="${bx + i * pieceW + 1}" y="${by + j * pieceH + 1}" width="${pieceW - 3}" height="${pieceH - 3}" fill="url(#${gId})" stroke="${sCol}" stroke-width="1.5"/><circle cx="${cx}" cy="${cy}" r="${cr}" fill="white" opacity="0.9"/><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="500" fill="#64748b">${num++}</text></g>`
-        }
-      }
-    })
-
-    return `<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet" style="display:block;max-width:100%;max-height:130mm;border:1px solid #cbd5e1;border-radius:2px;background:linear-gradient(to bottom right,#fff,#f8fafc);"><defs>${defsInner}</defs><rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#f1f5f9" opacity="0.3"/><rect x="0" y="0" width="${svgW}" height="${svgH}" fill="none" stroke="#94a3b8" stroke-width="4" rx="2"/>${cutLines}${wasteRects}${pieceGroups}</svg>`
-  }, [results])
-
-  // Build the full print/PDF body HTML
-  const buildFullPrintHtml = useCallback((overrideResult?: CuttingResult, overrideCustomer?: string, overridePaper?: string, overrideJumlahPesanan?: string, overrideBerapaMata?: string, overrideSetelanKertas?: string) => {
-    const r = overrideResult || results
-    if (!r) return ''
-    const svgDiagram = buildDiagramHtml(r)
-
-    const stepsHtml = r.steps.map((step: string, idx: number) =>
-      `<div style="display:flex;align-items:flex-start;gap:5px;padding:3px 0;">
-        <div style="flex-shrink:0;width:17px;height:17px;background:#2563eb;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${idx + 1}</div>
-        <span style="font-size:10px;color:#475569;padding-top:1px;line-height:1.4;">${step}</span>
-      </div>`
-    ).join('')
-
-    const blockColors = [
-      { bg: '#eff6ff', border: '#bfdbfe', badgeBg: '#dbeafe', badgeText: '#1d4ed8', name: '#1e40af', detail: '#2563eb' },
-      { bg: '#ecfdf5', border: '#a7f3d0', badgeBg: '#d1fae5', badgeText: '#047857', name: '#065f46', detail: '#059669' },
-      { bg: '#fffbeb', border: '#fde68a', badgeBg: '#fef3c7', badgeText: '#b45309', name: '#92400e', detail: '#d97706' },
-      { bg: '#fff1f2', border: '#fca5a5', badgeBg: '#fecaca', badgeText: '#b91c1c', name: '#991b1b', detail: '#dc2626' },
-      { bg: '#faf5ff', border: '#d8b4fe', badgeBg: '#e9d5ff', badgeText: '#7e22ce', name: '#6b21a8', detail: '#9333ea' },
-    ]
-
-    const blocksHtml = r.blocks.map((block: any, idx: number) => {
-      const c = blockColors[idx % 5]
-      return `<div style="border:1px solid ${c.border};background:${c.bg};border-radius:5px;padding:4px 6px;margin-bottom:3px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px;">
-          <span style="font-size:10px;font-weight:700;color:${c.name};">${block.name}</span>
-          <span style="padding:1px 6px;background:${c.badgeBg};color:${c.badgeText};border-radius:10px;font-size:8px;font-weight:600;">${block.pieces} pcs</span>
-        </div>
-        <div style="display:flex;gap:10px;font-size:9px;color:${c.detail};">
-          <span>Ukuran: <b>${block.width.toFixed(1)}×${block.height.toFixed(1)}</b></span>
-          <span>Layout: <b>${block.horizontal}×${block.vertical}${block.rotated ? ' (90°)' : ''}</b></span>
-        </div>
-      </div>`
-    }).join('')
-
-    const infoDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-    const customerLabel = overrideCustomer || selectedCustomer?.name || printName || '-'
-    const paperLabel = overridePaper || selectedPaper?.name || restoredPaperName || 'Custom'
-    const jpLabel = overrideJumlahPesanan || jumlahPesanan || '-'
-    const bmLabel = overrideBerapaMata || berapaMata || '-'
-    const skLabel = overrideSetelanKertas || setelanKertas || '0'
-
-    return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Potong Kertas</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box;}
-  @page{size:A4;margin:5mm;}
-  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#1e293b;width:210mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .page{width:100%;padding:2mm 3mm;}
-  @media print{body{width:210mm;}.page{padding:0;}}
-</style>
-</head><body>
-<div class="page">
-
-  <!-- HEADER -->
-  <div style="text-align:center;margin-bottom:4mm;padding-bottom:3mm;border-bottom:2px solid #e2e8f0;">
-    <div style="font-size:14pt;font-weight:700;color:#0f172a;">Potong Kertas</div>
-    <div style="font-size:9pt;color:#64748b;margin-top:1mm;">${customerLabel} · ${paperLabel} · ${infoDate}</div>
-  </div>
-
-  <!-- INFO GRID -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm;margin-bottom:3mm;">
-    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#0284c7;font-weight:500;">Jumlah Pesanan</div>
-      <div style="font-size:13pt;font-weight:700;color:#0369a1;">${jpLabel}</div>
-    </div>
-    <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#7c3aed;font-weight:500;">Cetak Berapa Mata</div>
-      <div style="font-size:13pt;font-weight:700;color:#6d28d9;">${bmLabel}</div>
-    </div>
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#2563eb;font-weight:500;">Jumlah Cetakan</div>
-      <div style="font-size:13pt;font-weight:700;color:#1d4ed8;">${r.quantity} <span style="font-size:8pt;font-weight:400;">lembar</span></div>
-    </div>
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#d97706;font-weight:500;">Insit Kertas</div>
-      <div style="font-size:13pt;font-weight:700;color:#b45309;">${skLabel}</div>
-    </div>
-    <div style="background:#faf5ff;border:1px solid #d8b4fe;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#7e22ce;font-weight:500;">Potongan / Lembar</div>
-      <div style="font-size:13pt;font-weight:700;color:#6d28d9;">${r.totalPieces} <span style="font-size:8pt;font-weight:400;">lembar</span></div>
-    </div>
-    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#059669;font-weight:500;">Lembar Kertas</div>
-      <div style="font-size:13pt;font-weight:700;color:#047857;">${r.sheetsNeeded} <span style="font-size:8pt;font-weight:400;">lembar</span></div>
-    </div>
-    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#ea580c;font-weight:500;">Total Harga Kertas</div>
-      <div style="font-size:12pt;font-weight:700;color:#c2410c;">Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}</div>
-    </div>
-    <div style="background:#fff1f2;border:1px solid #fca5a5;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#e11d48;font-weight:500;">Harga / Lembar</div>
-      <div style="font-size:13pt;font-weight:700;color:#be123c;">Rp ${Math.round(r.pricePerSheet || 0).toLocaleString('id-ID')}</div>
-    </div>
-    <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:4px;padding:2.5mm 3mm;">
-      <div style="font-size:7.5pt;color:#0d9488;font-weight:500;">Efisiensi Bahan</div>
-      <div style="font-size:13pt;font-weight:700;color:#0f766e;">${Math.round(r.efficiency * 10) / 10}%</div>
-    </div>
-  </div>
-
-  <!-- STRATEGY -->
-  <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;padding:2mm 3mm;margin-bottom:3mm;text-align:center;">
-    <span style="font-size:7.5pt;font-weight:700;color:#3730a3;">Strategi Optimasi: </span>
-    <span style="font-size:10pt;font-weight:700;color:#4338ca;">${r.strategy}</span>
-  </div>
-
-  <!-- DIAGRAM -->
-  <div style="text-align:center;margin-bottom:3mm;">
-    ${svgDiagram}
-  </div>
-
-  <!-- STEPS + BLOCKS side by side -->
-  <div style="display:flex;gap:4mm;align-items:flex-start;">
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:9pt;font-weight:700;color:#334155;margin-bottom:1.5mm;">Cara Potong:</div>
-      ${stepsHtml}
-    </div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:9pt;font-weight:700;color:#334155;margin-bottom:1.5mm;">Detail per Blok:</div>
-      ${blocksHtml}
-    </div>
-  </div>
-
-</div>
-</body></html>`
-  }, [results, selectedCustomer, selectedPaper, restoredPaperName, printName, jumlahPesanan, berapaMata, setelanKertas, buildDiagramHtml])
-
-  const handlePrint = () => {
+  // Cetak: hasil cetak = sama persis dengan isi popup preview, di-fit ke halaman A5 portrait (148 × 210 mm)
+  const handlePrint = async () => {
     const activeResults = previewRiwayatData || results
     if (!activeResults) return
-    const isPreview = !!previewRiwayatData
-    const html = buildFullPrintHtml(
-      activeResults,
-      isPreview ? previewRiwayatInfo.customer : undefined,
-      isPreview ? previewRiwayatInfo.paper : undefined,
-      isPreview ? previewRiwayatInfo.jumlahPesanan : undefined,
-      isPreview ? previewRiwayatInfo.berapaMata : undefined,
-      isPreview ? previewRiwayatInfo.setelanKertas : undefined,
-    )
-    if (!html) return
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) {
-      toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
-      return
+    // Pastikan popup preview terbuka agar hasil cetak identik dengan yang dilihat user
+    if (!previewRef.current) {
+      setPreviewOpen(true)
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      if (!previewRef.current) return
     }
-    printWindow.document.write(html)
-    printWindow.document.close()
-    printWindow.onload = () => {
-      printWindow.print()
+    const el = previewRef.current
+    setIsPrinting(true)
+    try {
+      // Capture preview apa adanya → gambar 100% sama dengan tampilan preview
+      const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
+      const dataUrl = await blobToDataUrl(blob)
+      const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'potong-kertas'))
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>Potong Kertas ${custLabel}</title>
+<style>
+  @page { size: A5 portrait; margin: 5mm; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+</style></head>
+<body><img src="${dataUrl}" alt="Preview Potong Kertas" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+        return
+      }
+      printWindow.document.write(html)
+      printWindow.document.close()
+    } catch (err) {
+      console.error('Print error:', err)
+      toast.error('Gagal menyiapkan cetakan')
+    } finally {
+      setIsPrinting(false)
     }
   }
 
+  // JPG: hasil gambar = sama persis dengan isi popup preview, dibingkai kanvas A4 portrait (bentuk popup preview)
   const handleJpg = async () => {
     const el = previewRef.current
     if (!el) return
@@ -1367,13 +1118,10 @@ function CalculatorPage() {
     if (!activeResults) return
 
     setIsGeneratingJpg(true)
-    let holder: HTMLElement | null = null
     try {
-      // 2-column A5 landscape layout: details left, cutting right
-      holder = buildA5LandscapeLayout(el)
-      const rawBlob = await captureElementAsJpg(holder.firstChild as HTMLElement)
-      // Fit the composed layout onto an A5 LANDSCAPE canvas (210 × 148 mm)
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
+      const rawBlob = await captureElementAsJpg(el)
+      // Kanvas A4 portrait (210 × 297 mm) — bentuknya sama dengan popup preview
+      const blob = await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'preview'))
       const fileName = `potong-kertas-${(custLabel || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
 
@@ -1394,7 +1142,6 @@ function CalculatorPage() {
       console.error('JPG generation error:', err)
       toast.error('Gagal menghasilkan gambar JPG')
     } finally {
-      if (holder && holder.parentElement) holder.parentElement.removeChild(holder)
       setIsGeneratingJpg(false)
     }
   }
@@ -1674,9 +1421,9 @@ function CalculatorPage() {
                 className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('preview')}>
                 {t('preview')}
               </button>
-              <button onClick={handlePrint} disabled={!results || needsRecalc}
+              <button onClick={handlePrint} disabled={isPrinting || !results || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('cetak')}>
-                <Printer className="w-3.5 h-3.5" />
+                {isPrinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
                 {t('cetak')}
               </button>
               <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
@@ -2067,9 +1814,9 @@ function CalculatorPage() {
           title="Preview Potong Kertas"
           footer={
             <div className="bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2">
-              <button onClick={handlePrint}
-                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
-                <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
+              <button onClick={handlePrint} disabled={isPrinting}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+                {isPrinting ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} {t('cetak')}
               </button>
               {previewRiwayatRow && (
                 <button onClick={handleEditFromPreview}

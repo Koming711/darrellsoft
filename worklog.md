@@ -9268,3 +9268,29 @@ Work Log:
 Stage Summary:
 - KEDUA dialog detail (riwayat-content.tsx + hitung-cetakan/page.tsx) kini konsisten: tombol kecil 1 baris [Cetak · JPG · Edit], tanpa PDF & Hapus di dialog, JPG A4 portrait identik preview langsung kirim WA/unduh, Grand Total orange
 - Produksi belum dideploy (menunggu permintaan user)
+
+---
+Task ID: 78
+Agent: Z.ai Code (main)
+Task: Di popup preview potong kertas — tombol JPG menghasilkan gambar yang sama persis dengan preview, dan tombol Cetak mencetak hasil yang sama persis dengan preview dengan ukuran fit to A5.
+
+Work Log:
+- Baca ulang src/app/potong-kertas/page.tsx (popup PreviewDialog A4 portrait rasio 210:297, previewRef, handlePrint lama pakai buildFullPrintHtml template terpisah, handleJpg lama pakai buildA5LandscapeLayout 2 kolom A5 landscape).
+- src/lib/capture-jpg.ts: captureElementAsJpg sekarang menerima opts { pixelRatio } (default 2; cetak pakai 3 agar ~270 DPI di A5).
+- handleJpg baru: captureElementAsJpg(previewRef) langsung → fitBlobToA4(portrait, marginPct 3) → shareJpgToWhatsApp (HP=share WA, desktop=unduh). Hasil JPG = isi preview 100% sama, bingkai kanvas A4 (bentuk popup).
+- handlePrint baru: kalau popup belum terbuka (jalur editor) → setPreviewOpen(true) + tunggu render; capture preview (pixelRatio 3) → blobToDataUrl → window.open template cetak dengan @page { size: A5 portrait; margin: 5mm }, img object-fit: contain (fit 1 halaman A5, auto window.print() saat img onload).
+- Hapus kode lama tak terpakai: buildA5LandscapeLayout, buildFullPrintHtml, buildDiagramHtml (±300 baris); import fitBlobToA5 → fitBlobToA4; tambah helper blobToDataUrl + state isPrinting (spinner di tombol Cetak popup & editor, disabled saat proses).
+- FIX BONUS (bug lama): handlePreviewRiwayat mengabaikan resultData format lama (tanpa paperWidth/koordinat blok x) → hitung ulang via cutting engine; sebelumnya diagram SVG viewBox "0 0 NaN NaN" (kotak kosong) di preview/JPG/cetak untuk riwayat ber-format lama.
+- Lint: bunx eslint kedua file → 0 error.
+- E2E desktop 1280×800: login superadmin → /potong-kertas → tab Riwayat → buka preview dari kartu tes → JPG: blob final 1240×1754 (rasio 0.7070 = A4), render overlay = isi identik preview termasuk diagram 3×3 → Cetak: stub window.open, HTML berisi "@page { size: A5 portrait; margin: 5mm }" + <img data:image/jpeg> 1590×2691 (preview @3x) object-fit contain → jalur editor (hitung dulu): Cetak otomatis buka preview lalu siapkan HTML A5 ✓.
+- E2E mobile 390×844: popup preview tampil fit A4, footer [Cetak|Edit|JPG → WA] 1 baris; JPG blob 1240×1754 isi identik; print HTML A5 + img 1071×2670; scrollWidth 390 = viewport (desktop 1280 = viewport).
+- Bersih-bersih: hapus baris riwayat tes cmu16wcke0005nfcjup4hj901 (baseline RiwayatPotongKertas kembali 20), hapus localStorage test keys, browser ditutup.
+- dev.log bersih (hanya request 200 normal).
+
+Stage Summary:
+- Tombol JPG popup potong kertas: gambar A4 portrait 1240×1754 px, isi 100% sama dengan preview (termasuk diagram potong).
+- Tombol Cetak popup: mencetak gambar preview persis, fit 1 halaman A5 portrait (148×210 mm, margin 5mm, contain).
+- Tombol Cetak editor kini membuka popup preview lalu mencetak format yang sama (A5).
+- Kode cetak/cetak-lama template terpisah dihapus; satu sumber kebenaran = isi preview.
+- Bug diagram kosong (viewBox NaN) untuk riwayat resultData format lama diperbaiki via recalculasi otomatis.
+- Produksi belum di-deploy (lokal; PWA lokal masih v64 + perubahan Task 76/77/78 belum commit/deploy).
