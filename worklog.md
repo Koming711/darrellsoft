@@ -9246,3 +9246,25 @@ Stage Summary:
 - Dialog Detail Riwayat Cetakan kini 3 tombol kecil 1 baris: Cetak · JPG · Edit (tanpa PDF & Hapus; Edit = fungsi restore)
 - Tombol JPG menghasilkan gambar A4 portrait (1240×1754@150DPI) identik preview dialog, mobile langsung share ke WhatsApp / desktop unduh otomatis
 - fitBlobToA4 jadi helper reusable di capture-jpg.ts; produksi belum dideploy (tunggu permintaan user)
+
+---
+Task ID: 78
+Agent: Z.ai Code (main)
+Task: Identifikasi screenshot user (dialog lama) + terapkan perubahan yang sama di dialog "Detail Rincian Cetakan" halaman Hitung Cetakan (hitung-cetakan/page.tsx)
+
+Work Log:
+- Screenshot user (pastied_image_1789395207073.png) teridentifikasi: dialog "Detail Rincian Cetakan" di src/app/hitung-cetakan/page.tsx (PreviewDialog custom, dibuka saat klik riwayat dari dalam halaman Hitung Cetakan) — BERBEDA dari dialog riwayat-content.tsx yang diubah di Task 76/77; di screenshot tombol masih lama: Cetak/PDF/Restore/Hapus grid 2x2 besar + Grand Total gelap
+- Terapkan treatment sama seperti Task 77 di dialog ini:
+  - handlePdf (jsPDF + iframe buildPrintHtml) DIHAPUS → handleJpg: captureElementAsJpg(previewRef) → fitBlobToA4 (A4 portrait 210×297mm) → shareJpgToWhatsApp (HP=share WA, desktop=unduh); state isGeneratingPdf→isGeneratingJpg; import Pencil + capture-jpg + share-jpg
+  - Tombol Hapus DIHAPUS dari dialog footer (handleDeleteRiwayat tetap dipakai tombol hapus di list riwayat halaman tersebut)
+  - Restore→Edit: label "Edit" + ikon Pencil, fungsi handleRestoreRiwayat sama persis; hanya tampil saat previewRiwayatRecord (preview dari riwayat)
+  - Tombol kecil 1 baris: grid-cols-2→flex gap-2, py-3→py-1.5 sm:py-2, text-xs/sm→text-[11px]/sm:text-xs, ikon w-4→w-3.5
+- Grand Total blok dialog ini juga di-orange-kan (dark-surface bg-slate-900+emerald → gradient orange-500→600, angka putih, label orange-100) — menyamakan Task 76 karena screenshot user menunjukkan dialog inilah yang dimaksud
+- ESLint: 0 error
+- E2E desktop 1280×800 (data tes TEST-E2E HC-JPG superadmin, tab Riwayat di hitung-cetakan): preview terbuka → tombol [Cetak, JPG, Edit] 1 baris y=676 h=32px, tanpa PDF/Hapus; Grand Total orange gradient + angka putih; klik JPG → blob image/jpeg 107KB 1240×1754 A4 ✓; render viewer = konten identik preview dgn blok orange ✓
+- E2E mobile 390×844: dialog tombol [Cetak, JPG, Edit] 1 baris y=781 h=29 maxRight 369≤390, scrollW 390; tombol "Hapus" y=666 adalah tombol LIST riwayat di belakang (bukan dialog, memang tetap ada); klik JPG → blob 1240×1754 A4 ✓ (202KB)
+- Cleanup: data tes dihapus (count 1), total riwayat kembali 20 baseline
+
+Stage Summary:
+- KEDUA dialog detail (riwayat-content.tsx + hitung-cetakan/page.tsx) kini konsisten: tombol kecil 1 baris [Cetak · JPG · Edit], tanpa PDF & Hapus di dialog, JPG A4 portrait identik preview langsung kirim WA/unduh, Grand Total orange
+- Produksi belum dideploy (menunggu permintaan user)

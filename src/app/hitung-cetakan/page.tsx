@@ -10,7 +10,9 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil } from 'lucide-react'
+import { captureElementAsJpg, fitBlobToA4 } from '@/lib/capture-jpg'
+import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -436,7 +438,7 @@ function HitungCetakanPage() {
   const [previewRiwayatRecord, setPreviewRiwayatRecord] = useState<any>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const waWindowRef = useRef<Window | null>(null)
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   // ===== Mode Ubah (CRUD Update) untuk detail rincian dari riwayat =====
 
   // === localStorage persistence ===
@@ -1310,65 +1312,29 @@ function HitungCetakanPage() {
     pw.onload = () => setTimeout(() => pw.print(), 200)
   }
 
-  const handlePdf = async () => {
-    if (!previewCalc) return
-    setIsGeneratingPdf(true)
+  const handleJpg = async () => {
+    const el = previewRef.current
+    if (!el || !previewCalc) return
+    setIsGeneratingJpg(true)
     try {
-      const { jsPDF } = await import('jspdf')
-      // A4 portrait: 210mm x 297mm
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfW = pdf.internal.pageSize.getWidth() // 210
-      const pdfH = pdf.internal.pageSize.getHeight() // 297
-      const margin = 8
-      const contentW = pdfW - margin * 2
-      const contentH = pdfH - margin * 2
-
-      // Render HTML to canvas via hidden iframe at A4 pixel dimensions
-      const a4PxW = 794 // ~210mm at 96dpi
-      const a4PxH = 1123 // ~297mm at 96dpi
-      const iframe = document.createElement('iframe')
-      iframe.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${a4PxW}px;height:${a4PxH}px;border:none;`
-      document.body.appendChild(iframe)
-      const iframeDoc = iframe.contentDocument!
-      iframeDoc.open()
-      iframeDoc.write(buildPrintHtml(previewCalc))
-      iframeDoc.close()
-
-      await new Promise(resolve => setTimeout(resolve, 600))
-
-      const { toCanvas } = await import('html-to-image')
-      const canvas = await toCanvas(iframeDoc.body, {
-        backgroundColor: '#ffffff',
-        pixelRatio: 3,
-        width: a4PxW,
-        height: iframeDoc.body.scrollHeight,
-        canvasWidth: a4PxW * 3,
-        canvasHeight: iframeDoc.body.scrollHeight * 3,
-      })
-
-      document.body.removeChild(iframe)
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const imgW = contentW
-      const imgH = (canvas.height * imgW) / canvas.width
-
-      // Scale to fit A4 portrait in 1 page
-      if (imgH <= contentH) {
-        const offsetX = margin + (contentW - imgW) / 2
-        pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH)
-      } else {
-        const scaledW = (contentH * imgW) / imgH
-        const offsetX = margin + (contentW - scaledW) / 2
-        pdf.addImage(imgData, 'JPEG', offsetX, margin, scaledW, contentH)
+      // Gambar identik dengan isi preview dialog, dikomposisi ke kanvas A4 portrait (210 × 297 mm)
+      const rawBlob = await captureElementAsJpg(el)
+      const blob = await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
+      const custLabel = (previewCalc.customerName || previewCalc.printName || 'preview')
+      const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
+      const result = await shareJpgToWhatsApp({ blob, fileName, documentLabel: 'Rincian Harga Cetakan' })
+      if (result.status === 'shared') {
+        toast.success('Gambar JPG dikirim ke WhatsApp')
+      } else if (result.status === 'downloaded') {
+        toast.success('JPG diunduh ke perangkat', { description: 'File JPG telah disimpan ke folder Downloads.' })
+      } else if (result.status === 'error') {
+        toast.error(result.error || 'Gagal memproses JPG')
       }
-
-      pdf.save(`rincian-${previewCalc.printName}-${Date.now()}.pdf`)
-      toast.success('PDF berhasil diunduh!')
     } catch (e) {
-      console.error('PDF error:', e)
-      toast.error('Gagal menghasilkan PDF')
+      console.error('JPG generation error:', e)
+      toast.error('Gagal menghasilkan gambar JPG')
     }
-    finally { setIsGeneratingPdf(false) }
+    finally { setIsGeneratingJpg(false) }
   }
 
   const handlePreview = () => {
@@ -3098,41 +3064,35 @@ function HitungCetakanPage() {
                 </div>
 
                 {/* GRAND TOTAL */}
-                <div className="dark-surface bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center justify-between shadow-lg shadow-orange-500/25">
                   <div>
-                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">Grand Total</p>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400">{formatRp(pvGrandTotal)}</p>
+                    <p className="text-[11px] text-orange-100 uppercase tracking-wide">Grand Total</p>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-white">{formatRp(pvGrandTotal)}</p>
                   </div>
-                  <div className="text-right text-[10.5px] text-slate-400 space-y-0.5">
-                    <p>Sub Total: <span className="font-semibold text-slate-300">{formatRp(pvSubTotal)}</span></p>
-                    {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>}
-                    {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-emerald-300">{formatRp(pvHargaPerPcs)}</span></p>}
+                  <div className="text-right text-[10.5px] text-orange-100/90 space-y-0.5">
+                    <p>Sub Total: <span className="font-semibold text-white">{formatRp(pvSubTotal)}</span></p>
+                    {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-white">{formatRp(pvProfitAmount)}</span></p>}
+                    {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-white">{formatRp(pvHargaPerPcs)}</span></p>}
                   </div>
                 </div>
               </div>
             </div>
           </div>
-              {/* Action Buttons — Restore & Hapus hanya saat preview dari riwayat */}
-              <div className={`sticky bottom-0 bg-card border-t border-slate-200 p-3 ${previewRiwayatRecord ? 'grid grid-cols-2 gap-2' : 'flex gap-2'}`}>
-                <button onClick={handlePrint}
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                  <Printer className="w-4 h-4" /> Cetak
+              {/* Action Buttons — kecil 1 baris: Cetak · JPG · Edit (Edit hanya saat preview dari riwayat) */}
+              <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
+                <button onClick={handlePrint} title="Cetak rincian"
+                  className="flex-1 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                  <Printer className="w-3.5 h-3.5" /> Cetak
                 </button>
-                <button onClick={handlePdf} disabled={isGeneratingPdf}
-                  className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
-                  {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
+                <button onClick={handleJpg} disabled={isGeneratingJpg} title="Kirim gambar JPG ukuran A4 (WhatsApp / unduh)"
+                  className="flex-1 flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                  {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5" /> JPG</>}
                 </button>
                 {previewRiwayatRecord && (
-                  <>
-                    <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <RotateCcw className="w-4 h-4" /> Restore
-                    </button>
-                    <button onClick={async () => { const ok = await handleDeleteRiwayat(previewRiwayatRecord.id); if (ok) { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) } }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <Trash2 className="w-4 h-4" /> Hapus
-                    </button>
-                  </>
+                  <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }} title="Edit perhitungan di kalkulator"
+                    className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
                 )}
               </div>
         </PreviewDialog>
