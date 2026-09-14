@@ -455,11 +455,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
                       <p className="text-[10px] text-slate-500 font-medium">Nama Customer</p>
-                      <p className="text-sm font-bold text-slate-800 truncate">{previewItem.customerName || '-'}</p>
+                      <p className="text-sm font-bold text-slate-800 break-words">{previewItem.customerName || '-'}</p>
                     </div>
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
                       <p className="text-[10px] text-slate-500 font-medium">Nama Cetakan</p>
-                      <p className="text-sm font-bold text-slate-800 truncate">{previewItem.printName || '-'}</p>
+                      <p className="text-sm font-bold text-slate-800 break-words">{previewItem.printName || '-'}</p>
                     </div>
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
                       <p className="text-[10px] text-slate-500 font-medium">Jumlah Cetakan</p>
