@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darrell-soft-v57';
+const CACHE_NAME = 'darrell-soft-v58';
 const STATIC_ASSETS = [
   '/icon-192x192.png',
   '/icon-512x512.png',
