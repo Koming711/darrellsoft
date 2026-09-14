@@ -13,6 +13,7 @@ export default function RiwayatHitungCetakanPage() {
         title={t('riwayat_hitung_cetakan')}
         subtitle={t('subtitle_riwayat_hitung_cetakan')}
         defaultFilterType="Hitung Cetakan"
+        detailOnRowClick
       />
     </DashboardLayout>
   )

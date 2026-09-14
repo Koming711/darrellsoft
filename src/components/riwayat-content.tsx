@@ -57,11 +57,14 @@ interface RiwayatContentProps {
   subtitle: string
   defaultFilterType: 'all' | 'Hitung Cetakan' | 'Potong Kertas'
   enableRowPreview?: boolean
+  /** Klik baris/kartu → dialog detail rincian; icon restore dihilangkan dari baris; dialog detail mendapat tombol Restore & Hapus */
+  detailOnRowClick?: boolean
 }
 
-export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPreview = false }: RiwayatContentProps) {
+export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPreview = false, detailOnRowClick = false }: RiwayatContentProps) {
   const { t } = useLanguage()
   const router = useRouter()
+  const rowClickDetail = enableRowPreview || detailOnRowClick
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState(defaultFilterType)
   const [histories, setHistories] = useState<RiwayatItem[]>([])
@@ -138,8 +141,8 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     setPreviewOpen(true)
   }
 
-  const handleDelete = async (item: RiwayatItem) => {
-    if (!confirm('Beneran mau dihapus nih?')) return
+  const handleDelete = async (item: RiwayatItem): Promise<boolean> => {
+    if (!confirm('Beneran mau dihapus nih?')) return false
     try {
       const res = await authFetch(`/api/riwayat-cetakan/${item.id}`, {
         method: 'DELETE',
@@ -150,11 +153,13 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
         // Optimistic update: remove from state immediately
         setHistories(prev => prev.filter(h => h.id !== item.id))
         notifyDataChange('riwayat-cetakan')
-      } else {
-        toast.error('Gagal menghapus riwayat')
+        return true
       }
+      toast.error('Gagal menghapus riwayat')
+      return false
     } catch {
       toast.error('Gagal menghapus riwayat')
+      return false
     }
   }
 
@@ -358,35 +363,39 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
             keyField="id"
             onDelete={handleDelete}
             showAsButtons={true}
-            onRowClick={enableRowPreview ? handlePreview : undefined}
+            onRowClick={rowClickDetail ? handlePreview : undefined}
             emptyMessage="Belum ada riwayat perhitungan"
             emptyIcon={<History className="w-12 h-12 mx-auto text-slate-400" />}
             extraActions={(item: RiwayatItem) => (
               <div className="flex items-center gap-1">
-                {!enableRowPreview && (
+                {!rowClickDetail && (
                   <button onClick={() => handlePreview(item)} title={t('preview')}
                     className="p-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors">
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                 )}
-                <button onClick={() => handleRestore(item)} title={t('restore_ke_hitung')}
-                  className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors">
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
+                {!detailOnRowClick && (
+                  <button onClick={() => handleRestore(item)} title={t('restore_ke_hitung')}
+                    className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
             mobileCardActions={(item: RiwayatItem) => (
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                {!enableRowPreview && (
+                {!rowClickDetail && (
                   <button onClick={() => handlePreview(item)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors">
                     <Eye className="w-3.5 h-3.5" /> Preview
                   </button>
                 )}
-                <button onClick={() => handleRestore(item)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors">
-                  <RotateCcw className="w-3.5 h-3.5" /> Restore
-                </button>
+                {!detailOnRowClick && (
+                  <button onClick={() => handleRestore(item)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors">
+                    <RotateCcw className="w-3.5 h-3.5" /> Restore
+                  </button>
+                )}
                 <button onClick={() => handleDelete(item)}
                   className="py-2 px-3 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
@@ -755,19 +764,42 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
               </div>
 
               {/* Action Buttons */}
-              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4 flex gap-3">
-                <button onClick={handlePrint}
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                  <Printer className="w-4 h-4" /> Cetak
-                </button>
-                <button onClick={() => handleRestore(previewItem)}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                  <RotateCcw className="w-4 h-4" /> Restore
-                </button>
-                <button onClick={handlePdf} disabled={isGeneratingPdf}
-                  className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
-                  {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
-                </button>
+              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4">
+                {detailOnRowClick ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={handlePrint}
+                      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <Printer className="w-4 h-4" /> Cetak
+                    </button>
+                    <button onClick={handlePdf} disabled={isGeneratingPdf}
+                      className="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
+                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
+                    </button>
+                    <button onClick={() => handleRestore(previewItem)}
+                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <RotateCcw className="w-4 h-4" /> Restore
+                    </button>
+                    <button onClick={async () => { if (!previewItem) return; const ok = await handleDelete(previewItem); if (ok) setPreviewOpen(false) }}
+                      className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <Trash2 className="w-4 h-4" /> Hapus
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button onClick={handlePrint}
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <Printer className="w-4 h-4" /> Cetak
+                    </button>
+                    <button onClick={() => handleRestore(previewItem)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <RotateCcw className="w-4 h-4" /> Restore
+                    </button>
+                    <button onClick={handlePdf} disabled={isGeneratingPdf}
+                      className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
+                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
