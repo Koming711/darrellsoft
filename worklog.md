@@ -9045,3 +9045,20 @@ Work Log:
 
 Stage Summary:
 - Tombol "Simpan ke Master Barang" kini hanya bisa dipakai SEKALI per versi data: setelah simpan tombol terkunci ("Sudah Tersimpan di Master") dan baru bisa dipakai lagi setelah ada perubahan data — mencegah barang duplikat. Halaman Riwayat Hitung Cetakan: icon restore dihapus dari baris; klik baris/kartu membuka dialog detail rincian cetakan lengkap dengan tombol Restore dan Hapus (grid 2×2: Cetak/PDF/Restore/Hapus). Halaman riwayat potong kertas tidak berubah. Terverifikasi E2E desktop+mobile, baseline DB utuh.
+
+---
+Task ID: 72 (verifikasi ulang + fix lanjutan)
+Agent: Main (Z.ai Code)
+Task: Verifikasi ulang Task 72 setelah sesi terputus — kunci tombol Simpan ke Master Barang, hapus icon restore di baris riwayat, klik baris → detail rincian + tombol Restore & Hapus. Menemukan & memperbaiki gap kecil pada restore (jumlahPesanan & berapaMata tidak dikirim).
+
+Work Log:
+- KONFIRMASI KODE: seluruh implementasi Task 72 sudah ada di commit 24eeadb (savedItemSnapshot/itemSaveLocked di hitung-cetakan/page.tsx; detailOnRowClick di riwayat-content.tsx + riwayat-hitung-cetakan/page.tsx; dialog detail 4 tombol Cetak/PDF/Restore/Hapus).
+- ESLINT 3 file: 0 error.
+- E2E DESKTOP 1280×800 (superadmin): (a) KUNCI — form diisi (Budi Susanto, "Uji Verif 72", jumlahPesanan 10, Biaya Bikin Piso 50000) → total 75.000 → klik "Simpan ke Master Barang" → toast ITM-001 tersimpan → tombol langsung disabled=true + label "Sudah Tersimpan di Master" + title tooltip ✓; ubah qty 10→11 → tombol enable kembali + label normal ✓; barang uji dihapus via API (200), Barang kembali 6. (b) RIWAYAT — baris: rotate-ccw=0, trash=2, eye=0, cursor=pointer, scrollW=1280 ✓; klik baris "Uji Detail 72" → dialog "Detail Riwayat Cetakan"/"Rincian Harga Cetakan" dengan section INFORMASI CETAKAN/HARGA BAHAN KERTAS/ONGKOS CETAK/BIAYA TAMBAHAN/RINGKASAN/GRAND TOTAL (Sub Total 235.000 + Profit 117.500 = 352.500, hitungan benar) + 4 tombol Cetak/PDF/Restore/Hapus ✓; Restore → navigasi ke /hitung-cetakan dengan form terisi; Hapus → confirm "Beneran mau dihapus nih?" → accept → toast sukses, dialog tertutup otomatis, baris hilang ✓; delete via icon trash baris juga sukses ✓.
+- FIX LANJUTAN (src/components/riwayat-content.tsx +4): handleRestore selama ini tidak mengirim param jumlahPesanan & berapaMata padahal efek restore di hitung-cetakan/page.tsx membacanya (line 610/612) → harga jual/pcs tidak bisa dihitung ulang setelah restore. Ditambahkan `if (item.jumlahPesanan) params.set(...)` + `if (item.berapaMata) params.set(...)` di handleRestore + field jumlahPesanan/berapaMata di interface RiwayatItem (GET API sudah mengembalikan keduanya). Ulang E2E: Restore dari detail kini mengisi Jumlah Pesanan=100 dan "Harga Jual per Pcs" terhitung ✓. Berlaku juga untuk restore flow lama (icon) di riwayat potong kertas — file sama.
+- E2E MOBILE 390×844: kartu hanya punya 1 tombol red (trash, 38×30) — preview & restore hilang ✓; klik kartu → dialog detail 4 tombol, Hapus rect 201–373 (dalam 390, tidak terpotong) ✓; Hapus dari detail → confirm → accept → list kosong, dialog tertutup, scrollW=390 ✓. Bukti: /tmp/e2e72-rev-desktop-detail.png, /tmp/e2e72-rev-mobile-detail.png.
+- DATA: 3 riwayat uji dibuat via API, semuanya dihapus via UI (2 desktop + 1 mobile) — superadmin list kembali kosong; BASELINE UTUH: Barang=6 (termasuk "buzz" & "brosur" data user asli), RiwayatCetakan=20, RiwayatPotongKertas=20, Customer=132. dev.log bersih (0 error app).
+- TANPA deploy (tidak diminta); tanpa bump PWA.
+
+Stage Summary:
+- Task 72 terverifikasi penuh di desktop & mobile: tombol "Simpan ke Master Barang" terkunci setelah 1x simpan dan terbuka lagi saat ada perubahan data; baris riwayat hitung cetakan tanpa icon restore (delete tetap); klik baris/kartu membuka dialog "Detail Riwayat Cetakan" lengkap dengan tombol Restore & Hapus (Cetak/PDF/Restore/Hapus). Bonus fix: Restore kini juga mengembalikan Jumlah Pesanan & Cetak Brp Mata sehingga harga jual/pcs bisa dihitung ulang. Baseline DB utuh tanpa artefak uji.
