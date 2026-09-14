@@ -8962,3 +8962,18 @@ Work Log:
 
 Stage Summary:
 - Produksi PULIH: akar masalah = kolom photoUrl belum ditambahkan ke DB Supabase saat deploy Task 65; kini kolom ada (ALTER TABLE IF NOT EXISTS), 6 barang user kembali tampil, dan tambah barang berfungsi (POST/DELETE 200 terverifikasi). Fitur baru LIVE: tombol KAMERA di blok Foto Barang (form Tambah/Edit/Duplikat) dengan kompresi JPEG ≤300KB yang sama, PWA v57 memaksa refresh client. Tanpa artefak data tertinggal di lokal maupun produksi.
+
+---
+Task ID: 68
+Agent: Main (Z.ai Code)
+Task: "di tampilan mobile. dihalaman tambah barang, apabila sudah diisi foto barang, rapihkan tampilannya supaya jangan terpotong tombolnya, fix"
+
+Work Log:
+- AKAR: preview foto (sudah diisi) menaruh 3 tombol (Ganti Foto/Kamera/Hapus Foto) dalam satu flex baris di kolom sempit di samping thumbnail 64px — di mobile 390px kolom hanya ~230px sementara 3 tombol butuh ~300px → tombol Hapus terpotong tepi dialog.
+- FIX (src/components/views/items-view.tsx): preview dipecah 2 zona — baris atas thumbnail + info "JPG · size / Terkompres otomatis ≤ 300KB"; baris bawah tombol dalam `grid grid-cols-3 gap-2` FULL-WIDTH (masing-masing h-8 w-full text-xs) → di mobile tiap tombol ~95px, sejajar rapi; desktop tetap 3 kolom proporsional.
+- ESLINT 0 error. E2E LOKAL agent-browser: MOBILE 390×844 form Tambah + upload PNG 54KB → toast "JPG (11 KB)"; pengukuran getBoundingClientRect: Ganti Foto 44–139, Kamera 147–243, Hapus Foto 251–346 vs dialog 16–374 → semua tombol UTUH (margin 28px), lebar seragam 95px, scrollW=390=viewport ✓ (bukti /tmp/e2e68-mobile-preview.png — visual rapi, tidak terpotong). DESKTOP 1280×800: hapusRight=860 < dlgRight=896, scrollW=1280 ✓ (bukti /tmp/e2e68-desktop-preview.png). Foto hanya di state form (tidak disimpan) → DB lokal tak berubah.
+- PWA BUMP v57→v58 + APP_VERSION '2026-09-14-v3'; commit 8568374; push origin main (d73b135..8568374).
+- DEPLOY: prepare-build (postgresql, 2 schema) → vercel --prod --yes (Ready in 2m) → revert-schema (sqlite, 2 schema) + prisma generate → lokal 200; produksi GET / 200 + sw.js = darrell-soft-v58 (fix LIVE).
+
+Stage Summary:
+- Preview foto barang yang sudah terisi kini rapi di semua ukuran layar: info foto + thumbnail di baris atas, 3 tombol (Ganti Foto/Kamera/Hapus Foto) grid 3 kolom full-width di baris bawah — terverifikasi terukur tidak terpotong di mobile 390px maupun desktop, tanpa overflow horizontal. LIVE di produksi via PWA v58.
