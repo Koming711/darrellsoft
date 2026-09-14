@@ -11,6 +11,7 @@
  */
 
 export type DataEntity =
+  | 'items'
   | 'papers'
   | 'printing-costs'
   | 'finishings'
