@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote, Pencil } from 'lucide-react'
-import { captureElementAsJpg, fitBlobToA4 } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA4, fitBlobToA5 } from '@/lib/capture-jpg'
+import { RincianCetakanPreview, mapRiwayatToRincianData } from '@/components/rincian-cetakan-preview'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useRouter } from 'next/navigation'
 import { MobileTable } from '@/components/mobile-table'
@@ -48,6 +49,16 @@ interface RiwayatItem {
   glueCost: number
   glueBorongan: number
   otherCost: number
+  otherCost2: number
+  otherCostLabel: string
+  otherCostLabel2: string
+  setelanKertas: string
+  warna2: string
+  warnaKhusus2: string
+  hargaPlat2: number
+  glueLengthCm: string
+  glueCostPerCm: string
+  photoUrl?: string | null
   subTotal: number
   profitPercent: number
   profitAmount: number
@@ -65,6 +76,16 @@ interface RiwayatContentProps {
   detailOnRowClick?: boolean
 }
 
+/** Convert a Blob into a data URL (untuk embed gambar preview di jendela cetak). */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPreview = false, detailOnRowClick = false }: RiwayatContentProps) {
   const { t } = useLanguage()
   const router = useRouter()
@@ -80,6 +101,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
+  // Data preview "Detail Rincian Cetakan" (identik dengan preview editor) untuk item hitung_cetakan
+  const previewRincian = useMemo(
+    () => (previewItem && previewItem.type === 'hitung_cetakan' ? mapRiwayatToRincianData(previewItem) : null),
+    [previewItem]
+  )
 
   useEffect(() => {
     fetchRiwayat()
@@ -173,15 +199,35 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
   const handlePrint = async () => {
     const el = previewRef.current
     if (!el || !previewItem) return
+    const isHC = previewItem.type === 'hitung_cetakan'
     setIsPrinting(true)
     try {
-      // Render dialog ke gambar agar hasil cetak identik dengan tampilan dialog
-      const { toCanvas } = await import('html-to-image')
-      const canvas = await toCanvas(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const pw = window.open('', '_blank')
-      if (!pw) { toast.error('Popup diblokir'); return }
-      pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview - ${previewItem.printName}</title>
+      if (isHC) {
+        // Hitung Cetakan: hasil cetak = sama persis dengan isi preview, di-fit ke halaman A5 landscape (210 × 148 mm)
+        const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
+        const dataUrl = await blobToDataUrl(blob)
+        const custLabel = (previewItem.customerName || previewItem.printName || 'rincian-cetakan')
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>Rincian Harga Cetakan ${custLabel}</title>
+<style>
+  @page { size: A5 landscape; margin: 5mm; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+</style></head>
+<body><img src="${dataUrl}" alt="Detail Rincian Cetakan" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
+        const pw = window.open('', '_blank')
+        if (!pw) { toast.error('Popup diblokir'); return }
+        pw.document.write(html)
+        pw.document.close()
+      } else {
+        // Potong Kertas: render dialog ke gambar agar hasil cetak identik dengan tampilan dialog
+        const { toCanvas } = await import('html-to-image')
+        const canvas = await toCanvas(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
+        const imgData = canvas.toDataURL('image/jpeg', 0.95)
+        const pw = window.open('', '_blank')
+        if (!pw) { toast.error('Popup diblokir'); return }
+        pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview - ${previewItem.printName}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           @page { size: A4; margin: 10mm; }
@@ -189,7 +235,8 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
           img { width: 100%; display: block; }
         </style>
       </head><body><img src="${imgData}" onload="setTimeout(function(){window.print()},200)" /></body></html>`)
-      pw.document.close()
+        pw.document.close()
+      }
     } catch {
       toast.error('Gagal menyiapkan cetakan')
     } finally {
@@ -202,9 +249,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     if (!el || !previewItem) return
     setIsGeneratingJpg(true)
     try {
-      // Gambar identik dengan isi preview dialog, dikomposisi ke kanvas A4 portrait (210 × 297 mm)
+      // Hitung Cetakan: A5 landscape (210 × 148 mm) · Potong Kertas: A4 portrait (210 × 297 mm) — isi 100% sama dengan preview
       const rawBlob = await captureElementAsJpg(el)
-      const blob = await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
+      const blob = previewItem.type === 'hitung_cetakan'
+        ? await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
+        : await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = (previewItem.customerName || previewItem.printName || 'preview')
       const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
       const result = await shareJpgToWhatsApp({ blob, fileName, documentLabel: 'Rincian Harga Cetakan' })
@@ -410,11 +459,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
 
       {/* ===== PREVIEW DIALOG ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
+        <DialogContent className={previewItem && isItemHitungCetak(previewItem) ? 'sm:max-w-4xl max-h-[92vh] overflow-y-auto p-0' : 'max-w-2xl max-h-[92vh] overflow-y-auto p-0'}>
           <DialogHeader className="px-4 sm:px-5 pt-4 pb-3 border-b border-slate-200">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5 text-violet-600" />
-              Detail Riwayat Cetakan
+              {previewItem && isItemHitungCetak(previewItem) ? 'Detail Rincian Cetakan' : 'Detail Riwayat Cetakan'}
             </DialogTitle>
             <DialogDescription className="sr-only">
               Rincian perhitungan cetakan beserta tombol aksi
@@ -423,6 +472,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
 
           {previewItem && (
             <>
+              {isItemHitungCetak(previewItem) ? (
+                <div ref={previewRef} className="p-3 sm:p-4 bg-white">
+                  <RincianCetakanPreview data={previewRincian} />
+                </div>
+              ) : (
               <div ref={previewRef} className="p-4 sm:p-5 bg-white space-y-4">
                 {/* Header */}
                 <div className="text-center pb-3 border-b-2 border-slate-200">
@@ -788,15 +842,16 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Action Buttons — kecil, 1 baris: Cetak · JPG · Edit */}
               <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 sm:px-5">
                 <div className="flex gap-2">
-                  <button onClick={handlePrint} disabled={isPrinting} title="Cetak rincian"
+                  <button onClick={handlePrint} disabled={isPrinting} title={previewItem && isItemHitungCetak(previewItem) ? 'Cetak rincian (fit A5 landscape, sama persis dengan preview)' : 'Cetak rincian'}
                     className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
                     {isPrinting ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-3.5 h-3.5 shrink-0" /> Cetak</>}
                   </button>
-                  <button onClick={handleJpg} disabled={isGeneratingJpg} title="Kirim gambar JPG ukuran A4 (WhatsApp / unduh)"
+                  <button onClick={handleJpg} disabled={isGeneratingJpg} title={previewItem && isItemHitungCetak(previewItem) ? 'Kirim gambar JPG A5 landscape (WhatsApp / unduh)' : 'Kirim gambar JPG ukuran A4 (WhatsApp / unduh)'}
                     className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
                     {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 shrink-0" /> JPG</>}
                   </button>
