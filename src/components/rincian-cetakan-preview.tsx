@@ -12,10 +12,11 @@
  * dari kedua tempat identik.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Calculator, Users, Banknote, Palette, Ruler, Image as ImageIcon } from 'lucide-react'
 import { calculateCuts } from '@/lib/cutting-engine'
 import { CuttingDiagram } from '@/components/cutting-results'
+import { PhotoLightbox } from '@/components/photo-lightbox'
 
 /** Bentuk data yang dibutuhkan preview (kompatibel dengan PrintCalculation di halaman editor). */
 export interface RincianCetakanData {
@@ -200,6 +201,7 @@ function PvCost({ name, detail, amount }: { name: React.ReactNode; detail?: Reac
 
 export function RincianCetakanPreview({ data }: { data: RincianCetakanData | null }) {
   const d = data
+  const [photoZoom, setPhotoZoom] = useState(false)
 
   // Preview summary values - derived from data for consistent display
   const pvCustomerName = d?.customerName || '-'
@@ -392,9 +394,20 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
                 <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Foto Lampiran</p>
               </div>
               <div className="bg-white rounded-lg border border-slate-200 p-2 flex justify-center">
-                <img src={d.photoUrl} alt="Foto Lampiran" className="max-h-64 w-auto max-w-full rounded object-contain" />
+                <button
+                  type="button"
+                  onClick={() => setPhotoZoom(true)}
+                  aria-label="Perbesar foto lampiran"
+                  title="Klik untuk perbesar foto"
+                  className="inline-flex cursor-zoom-in rounded transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <img src={d.photoUrl} alt="Foto Lampiran" className="max-h-64 w-auto max-w-full rounded object-contain" />
+                </button>
               </div>
             </div>
+          )}
+          {d.photoUrl && (
+            <PhotoLightbox src={d.photoUrl} open={photoZoom} onOpenChange={setPhotoZoom} />
           )}
         </div>
 
