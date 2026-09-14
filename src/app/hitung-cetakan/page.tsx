@@ -295,6 +295,8 @@ function HitungCetakanPage() {
   // Riwayat hitung cetakan (full list)
   const [savingRiwayat, setSavingRiwayat] = useState(false)
   const [savingItem, setSavingItem] = useState(false)
+  // Snapshot payload terakhir yang BERHASIL disimpan ke Master Barang — tombol terkunci sampai ada perubahan data
+  const [savedItemSnapshot, setSavedItemSnapshot] = useState<string | null>(null)
   // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
   const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
@@ -1568,6 +1570,7 @@ function HitungCetakanPage() {
         toast.success(`Barang "${name}"${code} tersimpan ke Master Barang`, {
           description: `Jual Rp ${Math.round(summaryHargaPerlembar).toLocaleString('id-ID')}/pcs · Modal Rp ${Math.round(summaryHargaModal).toLocaleString('id-ID')}/pcs${custMatch ? ` · Pelanggan: ${custMatch.name}` : ''}`,
         })
+        setSavedItemSnapshot(itemSavePayload)
         notifyDataChange('items')
       } else {
         const err = await res.json().catch(() => null)
@@ -1827,6 +1830,18 @@ function HitungCetakanPage() {
 
   // Grand total is 0 = no calculation yet
   const hasGrandTotal = summaryGrandTotal > 0
+
+  // Payload barang yang dikirim ke Master Barang — dipakai juga untuk mendeteksi perubahan data (kunci tombol simpan)
+  const itemSavePayload = JSON.stringify({
+    name: formData.printName.trim(),
+    standardPrice: Math.round(summaryHargaPerlembar),
+    hpp: Math.round(summaryHargaModal),
+    qty: summaryJumlahPesanan,
+    keterangan: `Dari Hitung Cetakan · Total: Rp ${Math.round(summaryGrandTotal).toLocaleString('id-ID')} · Modal/pcs: Rp ${Math.round(summaryHargaModal).toLocaleString('id-ID')}`,
+    customerId: (customers.find((c) => c.name.toLowerCase() === formData.customerName.trim().toLowerCase()) || { id: '' }).id,
+    photoUrl,
+  })
+  const itemSaveLocked = savedItemSnapshot !== null && savedItemSnapshot === itemSavePayload
 
   // Check popup state
   const [checkOpen, setCheckOpen] = useState(false)
@@ -2400,7 +2415,7 @@ function HitungCetakanPage() {
                 <Button onClick={resetForm} variant="outline" className="flex-1 h-10 text-sm"><RotateCcw className="w-4 h-4 mr-1.5" /> Reset</Button>
               </div>
               <div className="lg:hidden px-3 pb-3">
-                <Button onClick={handleSaveToMaster} disabled={!hasGrandTotal || savingItem} className="w-full h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-400"><Package className="w-4 h-4 mr-1.5" /> {savingItem ? 'Menyimpan...' : 'Simpan ke Master Barang'}</Button>
+                <Button onClick={handleSaveToMaster} disabled={!hasGrandTotal || savingItem || itemSaveLocked} title={itemSaveLocked ? 'Sudah tersimpan — ubah data untuk bisa menyimpan lagi' : undefined} className="w-full h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-400"><Package className="w-4 h-4 mr-1.5" /> {itemSaveLocked ? 'Sudah Tersimpan di Master' : savingItem ? 'Menyimpan...' : 'Simpan ke Master Barang'}</Button>
               </div>
               </div>{/* end mobile-only wrapper */}
             </div>{/* end column 1 card */}
@@ -2696,7 +2711,7 @@ function HitungCetakanPage() {
                   <Button onClick={handlePreview} disabled={!hasGrandTotal} className="h-8 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3.5 h-3.5 mr-1" /> Preview</Button>
                   <Button onClick={handleWhatsApp} disabled={!hasGrandTotal} className="h-8 text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp</Button>
                 </div>
-                <Button onClick={handleSaveToMaster} disabled={!hasGrandTotal || savingItem} className="w-full h-8 text-[11px] font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-400"><Package className="w-3.5 h-3.5 mr-1" /> {savingItem ? 'Menyimpan...' : 'Simpan ke Master Barang'}</Button>
+                <Button onClick={handleSaveToMaster} disabled={!hasGrandTotal || savingItem || itemSaveLocked} title={itemSaveLocked ? 'Sudah tersimpan — ubah data untuk bisa menyimpan lagi' : undefined} className="w-full h-8 text-[11px] font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-400"><Package className="w-3.5 h-3.5 mr-1" /> {itemSaveLocked ? 'Sudah Tersimpan di Master' : savingItem ? 'Menyimpan...' : 'Simpan ke Master Barang'}</Button>
                 <Button onClick={resetForm} variant="outline" className="w-full h-8 text-[11px] font-semibold"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Form</Button>
               </div>
             </div>
