@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote } from 'lucide-react'
+import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote, Pencil } from 'lucide-react'
+import { captureElementAsJpg, fitBlobToA4 } from '@/lib/capture-jpg'
+import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useRouter } from 'next/navigation'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
@@ -75,7 +77,7 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
   // Preview
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewItem, setPreviewItem] = useState<RiwayatItem | null>(null)
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
@@ -195,29 +197,30 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     }
   }
 
-  const handlePdf = async () => {
+  const handleJpg = async () => {
     const el = previewRef.current
-    if (!el) return
-    setIsGeneratingPdf(true)
+    if (!el || !previewItem) return
+    setIsGeneratingJpg(true)
     try {
-      const { toCanvas } = await import('html-to-image')
-      const canvas = await toCanvas(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const { jsPDF } = await import('jspdf')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfW = pdf.internal.pageSize.getWidth()
-      const pdfH = pdf.internal.pageSize.getHeight()
-      const margin = 8
-      const cw = pdfW - margin * 2
-      const ih = (canvas.height * cw) / canvas.width
-      const maxH = pdfH - margin * 2
-      let fw = cw, fh = ih
-      if (fh > maxH) { fw = (maxH * cw) / ih; fh = maxH }
-      pdf.addImage(imgData, 'JPEG', margin + (cw - fw) / 2, margin, fw, fh)
-      pdf.save(`riwayat-${Date.now()}.pdf`)
-      toast.success('PDF berhasil diunduh!')
-    } catch { toast.error('Gagal menghasilkan PDF') }
-    finally { setIsGeneratingPdf(false) }
+      // Gambar identik dengan isi preview dialog, dikomposisi ke kanvas A4 portrait (210 × 297 mm)
+      const rawBlob = await captureElementAsJpg(el)
+      const blob = await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
+      const custLabel = (previewItem.customerName || previewItem.printName || 'preview')
+      const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
+      const result = await shareJpgToWhatsApp({ blob, fileName, documentLabel: 'Rincian Harga Cetakan' })
+      if (result.status === 'shared') {
+        toast.success('Gambar JPG dikirim ke WhatsApp')
+      } else if (result.status === 'downloaded') {
+        toast.success('JPG diunduh ke perangkat', { description: 'File JPG telah disimpan ke folder Downloads.' })
+      } else if (result.status === 'error') {
+        toast.error(result.error || 'Gagal memproses JPG')
+      }
+    } catch (err) {
+      console.error('JPG generation error:', err)
+      toast.error('Gagal menghasilkan gambar JPG')
+    } finally {
+      setIsGeneratingJpg(false)
+    }
   }
 
   const filteredHistories = histories.filter(h => {
@@ -786,43 +789,22 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons — kecil, 1 baris: Cetak · JPG · Edit */}
               <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 sm:px-5">
-                {detailOnRowClick ? (
-                  <div className="flex gap-2 sm:gap-3">
-                    <button onClick={handlePrint} disabled={isPrinting}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      {isPrinting ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-4 h-4 shrink-0" /> Cetak</>}
-                    </button>
-                    <button onClick={handlePdf} disabled={isGeneratingPdf}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
-                    </button>
-                    <button onClick={() => handleRestore(previewItem)}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      <RotateCcw className="w-4 h-4 shrink-0" /> Restore
-                    </button>
-                    <button onClick={async () => { if (!previewItem) return; const ok = await handleDelete(previewItem); if (ok) setPreviewOpen(false) }}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      <Trash2 className="w-4 h-4 shrink-0" /> Hapus
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 sm:gap-3">
-                    <button onClick={handlePrint} disabled={isPrinting}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      {isPrinting ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-4 h-4 shrink-0" /> Cetak</>}
-                    </button>
-                    <button onClick={() => handleRestore(previewItem)}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      <RotateCcw className="w-4 h-4 shrink-0" /> Restore
-                    </button>
-                    <button onClick={handlePdf} disabled={isGeneratingPdf}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <button onClick={handlePrint} disabled={isPrinting} title="Cetak rincian"
+                    className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                    {isPrinting ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-3.5 h-3.5 shrink-0" /> Cetak</>}
+                  </button>
+                  <button onClick={handleJpg} disabled={isGeneratingJpg} title="Kirim gambar JPG ukuran A4 (WhatsApp / unduh)"
+                    className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                    {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 shrink-0" /> JPG</>}
+                  </button>
+                  <button onClick={() => handleRestore(previewItem)} title="Edit perhitungan di kalkulator"
+                    className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                    <Pencil className="w-3.5 h-3.5 shrink-0" /> Edit
+                  </button>
+                </div>
               </div>
             </>
           )}

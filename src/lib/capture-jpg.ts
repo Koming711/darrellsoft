@@ -314,3 +314,63 @@ export async function fitBlobToA5(
     )
   })
 }
+
+/**
+ * Fit a captured image onto an A4 canvas (210 × 297 mm) with white margins,
+ * contained & centered. Default portrait — like a physical A4 sheet.
+ */
+export async function fitBlobToA4(
+  blob: Blob,
+  opts?: { dpi?: number; marginPct?: number; quality?: number; orientation?: 'portrait' | 'landscape' }
+): Promise<Blob> {
+  const dpi = opts?.dpi ?? 150
+  const marginPct = opts?.marginPct ?? 3
+  const quality = opts?.quality ?? 0.95
+  const orientation = opts?.orientation ?? 'portrait'
+
+  const img = await loadImageElement(blob)
+  if (!img.width || !img.height) {
+    throw new Error('Captured image has invalid dimensions')
+  }
+
+  // A4: short edge = 210mm, long edge = 297mm
+  const shortEdge = Math.round((210 / MM_PER_INCH) * dpi) // 1240 @ 150 DPI
+  const longEdge = Math.round((297 / MM_PER_INCH) * dpi)  // 1754 @ 150 DPI
+
+  const isLandscape = orientation === 'landscape'
+  const canvasW = isLandscape ? longEdge : shortEdge
+  const canvasH = isLandscape ? shortEdge : longEdge
+
+  const canvas = document.createElement('canvas')
+  canvas.width = canvasW
+  canvas.height = canvasH
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 2D context unavailable')
+
+  // White background
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvasW, canvasH)
+
+  // Contain-fit with margin, centered
+  const margin = Math.round(Math.min(canvasW, canvasH) * (marginPct / 100))
+  const availW = canvasW - margin * 2
+  const availH = canvasH - margin * 2
+  const scale = Math.min(availW / img.width, availH / img.height)
+  const drawW = Math.max(1, Math.round(img.width * scale))
+  const drawH = Math.max(1, Math.round(img.height * scale))
+  const dx = Math.round((canvasW - drawW) / 2)
+  const dy = Math.round((canvasH - drawH) / 2)
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, dx, dy, drawW, drawH)
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => { if (b && b.size > 0) resolve(b); else reject(new Error('Failed to encode A4 JPG')) },
+      'image/jpeg',
+      quality
+    )
+  })
+}
