@@ -8977,3 +8977,24 @@ Work Log:
 
 Stage Summary:
 - Preview foto barang yang sudah terisi kini rapi di semua ukuran layar: info foto + thumbnail di baris atas, 3 tombol (Ganti Foto/Kamera/Hapus Foto) grid 3 kolom full-width di baris bawah — terverifikasi terukur tidak terpotong di mobile 390px maupun desktop, tanpa overflow horizontal. LIVE di produksi via PWA v58.
+
+---
+Task ID: 69
+Agent: Main (Z.ai Code)
+Task: "dihalaman hitung cetakan dan halaman potong kertas. tambahkan upload foto dan camera dan otomatis di compress jadi 300kb. seperti di master barang."
+
+Work Log:
+- REFACTOR BERSAMA: helper kompresi dipindah ke src/lib/image-compress.ts (PHOTO_MAX_BYTES, dataUrlBytes, formatBytes, compressImageToJpegDataUrl, validatePhotoDataUrl untuk server); komponen reusable baru src/components/photo-upload.tsx (Pilih File + Kamera capture="environment", kompres JPEG ≤300KB, preview 2 zona + grid 3 tombol rapi ala Task 68, toast ukuran hasil). items-view.tsx di-refactor memakai keduanya (helper + UI foto lokal dihapus; import Camera/ImagePlus di-cleanup; perilaku & tampilan identik).
+- SCHEMA (prisma/schema.prisma + root schema.prisma, keduanya identik): kolom photoUrl String? di model RiwayatCetakan & RiwayatPotongKertas.
+- API: POST /api/riwayat-cetakan & /api/riwayat-potong-kertas menerima photoUrl (validatePhotoDataUrl: data:image/* ≤700k char; invalid/kosong → null); PUT [id] keduanya: undefined = tidak diubah, string valid = ganti, null/''/invalid = null. GET otomatis mengembalikan photoUrl (findMany penuh).
+- HITUNG CETAKAN (page.tsx): state photoUrl + buildRiwayatPayload kirim photoUrl; resetFormForRiwayat setPhotoUrl(''); handleRestoreRiwayat(r) setPhotoUrl(r.photoUrl||''); UI blok "Foto Lampiran" di 2 lokasi tombol simpan (panel mobile lg:hidden px-3 + panel ringkas desktop px-2.5).
+- POTONG KERTAS (page.tsx): state photoUrl + buildPayload kirim photoUrl; resetFormForRiwayat setPhotoUrl(''); UI card "Foto Lampiran" sebelum Action Buttons (satu lokasi, semua viewport).
+- DB LOKAL: ALTER TABLE "RiwayatCetakan"/"RiwayatPotongKertas" ADD COLUMN photoUrl TEXT + prisma generate + restart dev server bersih via daemon (insiden: bun run dev via nohup/setsid mati sendiri saat sesi shell berakhir → pola baru WAJIB pakai node daemon.cjs start; false-negative "Port FREE" pada daemon status sudah dikenal, cek via curl).
+- DB PRODUKSI (SEBELUM deploy, pelajaran Task 67): ALTER TABLE kedua tabel di Supabase via pooler → photoUrl ditambahkan; data utuh (RiwayatCetakan=110, RiwayatPotongKertas=127).
+- ESLINT 9 file 0 error 0 warning. E2E LOKAL (agent-browser superadmin; data uji API dibuat lalu DIHAPUS; baseline RC=20/RPK=20/Barang=4/Customer=132 utuh): HITUNG CETAKAN desktop 1280 — blok Foto Lampiran tampil, upload PNG 54KB → toast "JPG (11 KB)", preview 3 tombol dalam viewport (hapus right 1226<1280) ✓; API uji POST 201 (photoUrl tersimpan) → GET photoUrl ✓ → DELETE 200 ✓. POTONG KERTAS desktop — upload ✓, tombol utuh (634<656) ✓; API uji POST/GET/DELETE ✓. MOBILE 390×844: potong-kertas preview utuh (hapus 352<374, scrollW=390) ✓; hitung-cetakan dropzone 2 tombol tampil (361<374) + upload preview utuh (hapus 350<374, scrollW=390) ✓. Bukti: /tmp/e2e69-cetakan-desktop.png, /tmp/e2e69-potong-desktop.png, /tmp/e2e69-cetakan-mobile.png, /tmp/e2e69-potong-mobile.png.
+- PWA BUMP v58→v59 + APP_VERSION '2026-09-14-v4'; commit 006e4e6; push origin main (8568374..006e4e6).
+- DEPLOY: prepare-build (postgresql, 2 schema) → vercel --prod --yes (Ready in 2m) → revert-schema (sqlite, 2 schema) + prisma generate → lokal 200; produksi 200 + sw.js = darrell-soft-v59.
+- VERIFIKASI PRODUKSI end-to-end (akun superadmin): RC POST 201 (photoUrl tersimpan) → GET photoUrl ✓ → DELETE 200; RPK POST 201 → GET photoUrl ✓ → DELETE 200. Produksi bersih tanpa artefak.
+
+Stage Summary:
+- Fitur foto (upload file + kamera, kompresi otomatis JPEG ≤300KB) kini ada di TIGA halaman: Master Barang, Hitung Cetakan, dan Potong Kertas — memakai satu komponen reusable (photo-upload) + satu lib (image-compress), tampilan seragam dan rapi di mobile/desktop. Foto ikut tersimpan di riwayat perhitungan (kolom photoUrl) dan terkirim balik saat restore/update. DB Supabase disiapkan SEBELUM deploy (pelajaran Task 67) sehingga tidak ada 500. LIVE via PWA v59; produksi & lokal bersih dari data uji.
