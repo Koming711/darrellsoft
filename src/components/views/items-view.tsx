@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
-  Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
+  Camera, Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -229,6 +229,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
   // Foto barang: input file tersembunyi + status kompresi
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [photoBusy, setPhotoBusy] = useState(false)
   // Popup foto barang (klik baris tabel / kartu)
   const [viewPhoto, setViewPhoto] = useState<Item | null>(null)
@@ -877,6 +878,17 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 onChange={(e) => void onPhotoChange(e)}
                 disabled={photoBusy}
               />
+              <input
+                ref={cameraInputRef}
+                id="item-camera"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => void onPhotoChange(e)}
+                disabled={photoBusy}
+                aria-label="Ambil foto dengan kamera"
+              />
               {form.photoUrl ? (
                 <div className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50/50 p-2.5">
                   <img
@@ -902,6 +914,17 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => cameraInputRef.current?.click()}
+                        disabled={photoBusy}
+                      >
+                        <Camera className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                        Kamera
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => setForm((f) => ({ ...f, photoUrl: '' }))}
                         disabled={photoBusy}
@@ -912,17 +935,33 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   </div>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  disabled={photoBusy}
-                  className="flex min-h-[72px] w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-stone-300 bg-white p-3 text-center transition-colors hover:bg-stone-50 disabled:opacity-60"
-                >
-                  <ImagePlus className="h-5 w-5 text-stone-400" aria-hidden="true" />
-                  <span className="text-xs text-muted-foreground">
-                    {photoBusy ? 'Mengompres foto…' : 'Klik untuk pilih foto (otomatis JPG ≤ 300KB)'}
-                  </span>
-                </button>
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoBusy}
+                      className="flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-stone-300 bg-white p-3 text-center transition-colors hover:bg-stone-50 disabled:opacity-60"
+                    >
+                      <ImagePlus className="h-5 w-5 text-stone-400" aria-hidden="true" />
+                      <span className="text-xs text-muted-foreground">
+                        {photoBusy ? 'Mengompres foto…' : 'Pilih File'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={photoBusy}
+                      className="flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-stone-300 bg-white p-3 text-center transition-colors hover:bg-stone-50 disabled:opacity-60"
+                    >
+                      <Camera className="h-5 w-5 text-stone-400" aria-hidden="true" />
+                      <span className="text-xs text-muted-foreground">
+                        {photoBusy ? 'Mengompres foto…' : 'Kamera'}
+                      </span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Otomatis dikompres ke JPG ≤ 300KB</p>
+                </div>
               )}
             </div>
             {!editing && (
