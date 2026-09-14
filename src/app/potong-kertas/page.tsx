@@ -110,15 +110,15 @@ function fmtUkuran(w?: string | number | null, h?: string | number | null): stri
 }
 
 // Preview Dialog Component (centered, scrollable)
-function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+function PreviewDialog({ children, footer, onClose, title }: { children: React.ReactNode; footer?: React.ReactNode; onClose: () => void; title: string }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 lg:p-0" onClick={onClose}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" />
-      {/* Dialog - centered modal on mobile; FULL-SCREEN one page without scroll on desktop (lg) */}
+      {/* Dialog - header tetap di atas, konten SELALU bisa discroll (mobile & desktop), footer tetap di bawah */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0"
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
@@ -134,10 +134,13 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        {/* Content: scrollable on mobile, fixed one-page layout on desktop (no scroll) */}
-        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch lg:overflow-hidden lg:min-h-0 lg:flex lg:flex-col">
+        {/* Content: SELALU scrollable — tidak ada lagi konten terpotong */}
+        <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain -webkit-overflow-scrolling-touch">
           {children}
         </div>
+        {footer && (
+          <div className="flex-shrink-0">{footer}</div>
+        )}
       </div>
     </div>
   )
@@ -2054,9 +2057,27 @@ function CalculatorPage() {
         <PreviewDialog
           onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
           title="Preview Potong Kertas"
+          footer={
+            <div className="bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2">
+              <button onClick={handlePrint}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+                <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
+              </button>
+              {previewRiwayatRow && (
+                <button onClick={handleEditFromPreview}
+                  className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+                  <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Edit
+                </button>
+              )}
+              <button onClick={handleJpg} disabled={isGeneratingJpg}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
+                {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> JPG → WA</>}
+              </button>
+            </div>
+          }
         >
-          {/* Preview Content (rendered for print & JPG capture) — one full page, no scroll on desktop */}
-          <div ref={previewRef} className="p-2 sm:p-4 bg-white lg:flex-1 lg:min-h-0 lg:px-4 lg:py-2 lg:flex lg:flex-col lg:gap-2.5 lg:overflow-hidden">
+          {/* Preview Content (rendered for print & JPG capture) — selalu bisa discroll bila melebihi layar */}
+          <div ref={previewRef} className="p-2 sm:p-4 bg-white lg:px-4 lg:py-2">
             {/* Header */}
             <div data-pk="header" className="text-center mb-3 pb-2 border-b-2 border-slate-200 lg:mb-0 lg:shrink-0">
               <h1 className="text-[22px] font-bold text-slate-900">Preview Potong Kertas</h1>
@@ -2176,24 +2197,6 @@ function CalculatorPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Action buttons at bottom of dialog (sticky on mobile, fixed row on desktop; single row) */}
-          <div className="sticky bottom-0 bg-card border-t border-slate-200 p-2 sm:p-4 flex gap-1.5 sm:gap-2 flex-shrink-0">
-            <button onClick={handlePrint}
-              className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
-              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cetak')}
-            </button>
-            {previewRiwayatRow && (
-              <button onClick={handleEditFromPreview}
-                className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
-                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Edit
-              </button>
-            )}
-            <button onClick={handleJpg} disabled={isGeneratingJpg}
-              className="flex-1 min-w-0 flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-colors text-xs sm:text-sm">
-              {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> JPG → WA</>}
-            </button>
           </div>
         </PreviewDialog>
       )}

@@ -125,13 +125,15 @@ const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm 
 const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
 
-// Preview Dialog Component (mobile: centered modal; desktop lg: FULL-SCREEN one page)
-function PreviewDialog({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+// Preview Dialog Component
+// Struktur: header tetap di atas, konten SELALU bisa discroll (mobile & desktop), footer tetap di bawah.
+// Footer (Grand Total + tombol aksi) TIDAK ikut scroll — angka penting tidak pernah terpotong lagi.
+function PreviewDialog({ children, footer, onClose, title }: { children: React.ReactNode; footer?: React.ReactNode; onClose: () => void; title: string }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 lg:p-0" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div onClick={(e) => e.stopPropagation()}
-        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0">
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
@@ -145,9 +147,14 @@ function PreviewDialog({ children, onClose, title }: { children: React.ReactNode
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 overscroll-contain -webkit-overflow-scrolling-touch lg:overflow-hidden lg:min-h-0 lg:flex lg:flex-col">
+        <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain -webkit-overflow-scrolling-touch">
           {children}
         </div>
+        {footer && (
+          <div className="flex-shrink-0">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -2935,15 +2942,58 @@ function HitungCetakanPage() {
         <PreviewDialog
           onClose={() => { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
           title="Detail Rincian Cetakan"
-        >
-          <div ref={previewRef} className="p-3 sm:p-4 bg-white">
-            {/* Header */}
-            <div className="text-center pb-2 border-b-2 border-slate-200 mb-2">
-              <div className="flex items-center justify-center gap-2">
-                <Calculator className="w-5 h-5 text-blue-600" />
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900">Rincian Harga Cetakan</h1>
+          footer={
+            <div className="bg-card">
+              {/* Grand Total — SELALU terlihat (tidak ikut scroll) */}
+              <div className="dark-surface bg-slate-900 text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Grand Total</p>
+                  <p className="text-lg sm:text-2xl font-extrabold text-emerald-400 truncate">{formatRp(pvGrandTotal)}</p>
+                </div>
+                <div className="text-right text-[9px] sm:text-[11px] text-slate-400 leading-relaxed shrink-0">
+                  <p>Sub Total: <span className="font-semibold text-slate-200">{formatRp(pvSubTotal)}</span></p>
+                  {pvProfitPercent > 0 && pvProfitAmount > 0 && (
+                    <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>
+                  )}
+                  {pvHargaPerPcs > 0 && (
+                    <p className="font-semibold text-emerald-300">≈ {formatRp(pvHargaPerPcs)} /pcs</p>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              {/* Tombol aksi — SELALU terlihat (tidak ikut scroll) */}
+              <div className="flex gap-2 sm:gap-3 p-2.5 sm:p-3">
+                <button onClick={handlePrint}
+                  className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                  <Printer className="w-4 h-4 shrink-0" /> Cetak
+                </button>
+                <button onClick={handlePdf} disabled={isGeneratingPdf}
+                  className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                  {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
+                </button>
+                {previewRiwayatRecord && (
+                  <>
+                    <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <RotateCcw className="w-4 h-4 shrink-0" /> Restore
+                    </button>
+                    <button onClick={async () => { const ok = await handleDeleteRiwayat(previewRiwayatRecord.id); if (ok) { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) } }}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <Trash2 className="w-4 h-4 shrink-0" /> Hapus
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          }>
+          <div ref={previewRef} className="p-3 sm:p-4 bg-white space-y-3">
+            {/* Header dokumen */}
+            <div className="text-center pb-2.5 border-b-2 border-slate-200">
+              <div className="inline-flex items-center gap-1.5 mb-1.5 px-3 py-0.5 rounded-full bg-blue-50 border border-blue-100">
+                <Calculator className="w-3 h-3 text-blue-600" />
+                <span className="text-[9px] font-bold text-blue-700 uppercase tracking-wider">Hitung Cetakan</span>
+              </div>
+              <h1 className="text-base sm:text-xl font-bold text-slate-900">Rincian Harga Cetakan</h1>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
                 <span className="font-semibold text-slate-600">{pvPrintName}</span>
                 {previewCalc.recordNumber ? <span> · No. {previewCalc.recordNumber}</span> : null}
                 <span> · {previewCalc.recordDate ? new Date(previewCalc.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
@@ -2951,8 +3001,8 @@ function HitungCetakanPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:items-start">
-              {/* ===== KOLOM KIRI: INFORMASI + RINCIAN BIAYA ===== */}
-              <div className="lg:col-span-3 space-y-3">
+              {/* ===== INFORMASI PESANAN — CRUD field grid (lebar penuh) ===== */}
+              <div className="lg:col-span-5">
                 {/* Informasi Pesanan - CRUD field grid */}
                 <div className="border border-slate-200 rounded-xl p-3 bg-white">
                   <div className="flex items-center gap-2 mb-2">
@@ -2961,7 +3011,7 @@ function HitungCetakanPage() {
                     </div>
                     <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Informasi Pesanan</p>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                     <PvField label="Nama Customer" value={pvCustomerName} accent="text-blue-800" />
                     <PvField label="Nama Barang" value={pvPrintName} accent="text-indigo-800" />
                     <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
@@ -2975,7 +3025,10 @@ function HitungCetakanPage() {
                     )}
                   </div>
                 </div>
+              </div>
 
+              {/* ===== KOLOM KIRI: RINCIAN BIAYA ===== */}
+              <div className="lg:col-span-3">
                 {/* Rincian Biaya - tabel CRUD */}
                 <div className="border border-slate-200 rounded-xl p-3 bg-white">
                   <div className="flex items-center gap-2 mb-2">
@@ -3033,29 +3086,13 @@ function HitungCetakanPage() {
                         <td colSpan={2} className="pt-2 text-xs font-bold text-slate-600 uppercase tracking-wide">Sub Total</td>
                         <td className="pt-2 text-right text-sm font-extrabold text-slate-800 tabular-nums">{formatRp(pvSubTotal)}</td>
                       </tr>
-                      {pvProfitPercent > 0 && pvProfitAmount > 0 && (
-                        <tr>
-                          <td colSpan={2} className="pt-1.5 text-xs font-bold text-orange-600 uppercase tracking-wide">Profit ({pvProfitPercent}%)</td>
-                          <td className="pt-1.5 text-right text-sm font-extrabold text-orange-600 tabular-nums">{formatRp(pvProfitAmount)}</td>
-                        </tr>
-                      )}
-                      <tr>
-                        <td colSpan={2} className="pt-2 text-sm font-extrabold text-slate-900 uppercase tracking-wide">Grand Total</td>
-                        <td className="pt-2 text-right text-lg font-extrabold text-emerald-600 tabular-nums">{formatRp(pvGrandTotal)}</td>
-                      </tr>
-                      {pvHargaPerPcs > 0 && (
-                        <tr>
-                          <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga Jual per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
-                          <td className="pt-1.5 text-right text-xs font-bold text-emerald-700 tabular-nums">{formatRp(pvHargaPerPcs)}</td>
-                        </tr>
-                      )}
                     </tfoot>
                   </table>
                 </div>
               </div>
 
-              {/* ===== KOLOM KANAN: GAMBAR POTONG + TOTAL ===== */}
-              <div className="lg:col-span-2 space-y-3">
+              {/* ===== KOLOM KANAN: GAMBAR POTONG ===== */}
+              <div className="lg:col-span-2">
                 {/* Gambar Potong Kertas */}
                 <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
                   <div className="flex items-center gap-2 mb-2">
@@ -3085,44 +3122,9 @@ function HitungCetakanPage() {
                   )}
                 </div>
 
-                {/* GRAND TOTAL */}
-                <div className="dark-surface bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">Grand Total</p>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400">{formatRp(pvGrandTotal)}</p>
-                  </div>
-                  <div className="text-right text-[10.5px] text-slate-400 space-y-0.5">
-                    <p>Sub Total: <span className="font-semibold text-slate-300">{formatRp(pvSubTotal)}</span></p>
-                    {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>}
-                    {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-emerald-300">{formatRp(pvHargaPerPcs)}</span></p>}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
-              {/* Action Buttons — Restore & Hapus hanya saat preview dari riwayat */}
-              <div className={`sticky bottom-0 bg-card border-t border-slate-200 p-3 ${previewRiwayatRecord ? 'grid grid-cols-2 gap-2' : 'flex gap-2'}`}>
-                <button onClick={handlePrint}
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                  <Printer className="w-4 h-4" /> Cetak
-                </button>
-                <button onClick={handlePdf} disabled={isGeneratingPdf}
-                  className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
-                  {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
-                </button>
-                {previewRiwayatRecord && (
-                  <>
-                    <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <RotateCcw className="w-4 h-4" /> Restore
-                    </button>
-                    <button onClick={async () => { const ok = await handleDeleteRiwayat(previewRiwayatRecord.id); if (ok) { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) } }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <Trash2 className="w-4 h-4" /> Hapus
-                    </button>
-                  </>
-                )}
-              </div>
         </PreviewDialog>
       )}
 
