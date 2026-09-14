@@ -119,9 +119,16 @@ function waitForLayoutSettle(): Promise<void> {
  * output on local and production regardless of screen size or transform scale.
  *
  * @param element - The HTMLElement to capture (should have data-document-preview)
+ * @param opts.pixelRatio - Device-pixel multiplier for output sharpness. Default 2.
+ *                          Use 3 for print-quality captures (≈270 DPI on A5).
  * @returns JPG Blob
  */
-export async function captureElementAsJpg(element: HTMLElement): Promise<Blob> {
+export async function captureElementAsJpg(
+  element: HTMLElement,
+  opts?: { pixelRatio?: number }
+): Promise<Blob> {
+  const pixelRatio = opts?.pixelRatio ?? 2
+
   // 1. Wait for web fonts to be ready (critical for consistent text rendering)
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready } catch {}
@@ -195,7 +202,7 @@ export async function captureElementAsJpg(element: HTMLElement): Promise<Blob> {
     //    captured image dimensions ALWAYS match the true content size.
     const dataUrl = await toJpeg(clone, {
       quality: 0.95,
-      pixelRatio: 2,
+      pixelRatio,
       backgroundColor: '#ffffff',
       cacheBust: true,
       skipFonts: false,
