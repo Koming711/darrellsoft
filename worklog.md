@@ -9201,3 +9201,25 @@ Stage Summary:
 - "tulisan dibawah kepotong" FIXED: semua truncate dihilangkan (break-words/break-all), tombol grid 2 kolom mobile
 - "preview tidak muncul" FIXED: Foto Lampiran kini dirender di detail (photoUrl ikut ke previewCalc)
 - Produksi v64 live & terverifikasi; lokal & produksi bersih tanpa data uji (riwayat lokal = 20 = baseline)
+
+---
+Task ID: 76
+Agent: Z.ai Code (main)
+Task: Rubah blok Grand Total di halaman detail rincian cetakan jadi warna orange
+
+Work Log:
+- Lokasi blok: src/components/riwayat-content.tsx baris 773-786 (dialog "Detail Riwayat Cetakan", bagian === GRAND TOTAL ===)
+- Sebelum: `dark-surface bg-slate-900` (hitam) + angka `text-emerald-400` (hijau) + label `text-slate-400`
+- Sesudah: `bg-gradient-to-r from-orange-500 to-orange-600` + shadow-lg shadow-orange-500/25; label `text-orange-100`, angka `text-white` (text-2xl font-extrabold), /pcs `text-orange-100`, ringkasan kanan `text-orange-100/90`; class dark-surface dihapus (bukan surface gelap lagi)
+- Cek globals.css: tidak ada override html.dark untuk bg/text orange → aman di light & dark mode
+- ESLint src/components/riwayat-content.tsx: 0 error
+- E2E: buat 1 data riwayat tes milik superadmin via Prisma (printName TEST-E2E Grand Total) → login superadmin/268899 → /riwayat-hitung-cetakan → klik baris (pointer event) → dialog "Detail Riwayat Cetakan" terbuka
+- Verifikasi computed style: backgroundImage linear-gradient(to right, orange-500→orange-600), borderRadius 14px, amountColor rgb(255,255,255)
+- Screenshot desktop 1280x800 (/tmp/e2e-gt-desktop.png) + mobile 390x844 (/tmp/e2e-gt-mobile.png): blok orange full-width, teks putih terbaca, tidak clipped
+- Mobile scrollWidth 390 = innerWidth 390 (tanpa h-scroll)
+- Cleanup: data tes dihapus via deleteMany (count 1), baseline riwayat lokal kembali 20
+
+Stage Summary:
+- Blok Grand Total di dialog Detail Riwayat Cetakan kini orange gradient (orange-500→orange-600) dengan angka putih
+- Terverifikasi E2E desktop + mobile, tanpa data uji tersisa; dev.log bersih
+- Catatan: dialog ini dipakai bersama riwayat-hitung-cetakan & riwayat-potong-kertas (RiwayatContent shared); blok serupa di hitung-cetakan/page.tsx:3101 TIDAK diubah (bukan halaman yang dimaksud)
