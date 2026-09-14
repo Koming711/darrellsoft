@@ -9151,3 +9151,25 @@ Stage Summary:
 - Akar masalah "preview tidak muncul" = popup install PWA fullscreen yang menyerap klik; kini banner non-blocking
 - Produksi v62 live; klik baris/kartu membuka Detail Rincian Cetakan walau banner install tampil
 - Konvensi deploy tercatat: switch .vercel/project.json ke darrellsoft saat deploy produksi
+
+---
+Task ID: 75
+Agent: Main
+Task: Upgrade UI/UX halaman Detail Rincian Cetakan
+
+Work Log:
+- Header konten: tambah badge pill tipe dokumen (HITUNG CETAKAN / POTONG KERTAS dengan icon), nomor urut (No. HC/09/26/xxxx font-mono) di bawah judul & tanggal
+- Informasi Cetakan: tambah kotak "Jumlah Pesanan" (pcs) & "Berapa Mata" (mata) — tampil kondisional bila ada datanya
+- Ringkasan Harga: baris Sub Total dibuat menonjol (border-t-2, bg-slate-100/70, text-sm bold/extrabold)
+- Grand Total: tambah harga per pcs "≈ Rp x /pcs" (grandTotal / jumlahPesanan) di bawah nominal — info jual per potong langsung terlihat
+- handlePrint dirombak: dari salin innerHTML (hasil cetak polos tanpa CSS) -> render canvas via html-to-image lalu window cetak berisi <img> A4 — hasil cetak kini identik dengan tampilan dialog
+- Tombol Cetak dapat loading state (isPrinting, disabled + spinner "Cetak...") di kedua mode
+- E2E lokal desktop: badge/nomor/info baru tampil; Sub Total & /pcs tampil; tombol Cetak membuka tab "Preview - ..." berisi img full-width (canvas) lalu auto window.print
+- E2E lokal mobile 390: semua elemen baru tampil, scrollWidth 390 = innerWidth (tanpa overflow); tombol Hapus dari dialog bekerja (data uji terhapus)
+- Bump PWA v63 + APP_VERSION '2026-09-14-v8'; lint 0 error; commit 8dfa8c7; push
+- Deploy ke darrellsoft: sw.js produksi = darrell-soft-v63, homepage 200
+- E2E produksi desktop: badgeTipe/nomorUrut/jumlahPesanan/berapaMata/perPcs/tombolSatuBaris semua true (screenshot /tmp/prod-v63-uiux.png); tombol Hapus menghapus data uji produksi (API kembali [])
+
+Stage Summary:
+- Detail Rincian Cetakan kini lebih informatif & profesional: badge tipe, nomor dokumen, info pesanan/mata, sub total menonjol, harga per pcs, dan hasil Cetak identik dialog
+- Produksi v63 live; tidak ada data uji tertinggal (lokal & produksi bersih)
