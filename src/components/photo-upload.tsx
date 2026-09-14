@@ -5,6 +5,7 @@ import { Camera, ImagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { PhotoLightbox } from '@/components/photo-lightbox'
 import { compressImageToJpegDataUrl, dataUrlBytes, formatBytes } from '@/lib/image-compress'
 
 interface PhotoUploadProps {
@@ -27,6 +28,7 @@ export function PhotoUpload({ value, onChange, disabled = false, label = 'Foto' 
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  const [zoom, setZoom] = useState(false)
   const lock = busy || disabled
 
   const handleChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -71,11 +73,19 @@ export function PhotoUpload({ value, onChange, disabled = false, label = 'Foto' 
       {value ? (
         <div className="rounded-lg border border-stone-200 bg-stone-50/50 p-2.5">
           <div className="flex items-center gap-3">
-            <img
-              src={value}
-              alt="Preview foto"
-              className="h-16 w-16 shrink-0 rounded-md border border-stone-200 object-cover"
-            />
+            <button
+              type="button"
+              onClick={() => setZoom(true)}
+              aria-label="Perbesar foto"
+              title="Klik untuk perbesar foto"
+              className="shrink-0 cursor-zoom-in rounded-md transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <img
+                src={value}
+                alt="Preview foto"
+                className="h-16 w-16 rounded-md border border-stone-200 object-cover"
+              />
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-stone-700">JPG · {formatBytes(dataUrlBytes(value))}</p>
               <p className="mt-0.5 text-[11px] text-emerald-600">Terkompres otomatis ≤ 300KB</p>
@@ -114,6 +124,7 @@ export function PhotoUpload({ value, onChange, disabled = false, label = 'Foto' 
               Hapus Foto
             </Button>
           </div>
+          {zoom && <PhotoLightbox src={value} open={zoom} onOpenChange={setZoom} />}
         </div>
       ) : (
         <div className="space-y-1.5">
