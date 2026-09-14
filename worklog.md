@@ -9223,3 +9223,26 @@ Stage Summary:
 - Blok Grand Total di dialog Detail Riwayat Cetakan kini orange gradient (orange-500→orange-600) dengan angka putih
 - Terverifikasi E2E desktop + mobile, tanpa data uji tersisa; dev.log bersih
 - Catatan: dialog ini dipakai bersama riwayat-hitung-cetakan & riwayat-potong-kertas (RiwayatContent shared); blok serupa di hitung-cetakan/page.tsx:3101 TIDAK diubah (bukan halaman yang dimaksud)
+
+---
+Task ID: 77
+Agent: Z.ai Code (main)
+Task: Detail rincian harga cetakan — tombol PDF→JPG (kirim gambar A4 identik preview), hapus tombol Hapus, Restore→Edit (fungsi sama), tombol kecil 1 baris
+
+Work Log:
+- src/lib/capture-jpg.ts: tambah helper export `fitBlobToA4(blob, opts)` — komposisi gambar ke kanvas A4 portrait 210×297mm (1240×1754 @150DPI), contain-fit + margin putih, pola sama dengan fitBlobToA5
+- src/components/riwayat-content.tsx:
+  - handlePdf (jsPDF) DIHAPUS, diganti handleJpg: captureElementAsJpg(previewRef) → fitBlobToA4 → shareJpgToWhatsApp (mobile=share WhatsApp, desktop=unduh langsung) — sama persis dengan pola JPG→WA halaman potong-kertas
+  - State isGeneratingPdf → isGeneratingJpg; import Pencil (lucide), captureElementAsJpg/fitBlobToA4, shareJpgToWhatsApp
+  - Blok tombol: ternary detailOnRowClick dihilangkan (kedua branch kini identik) → 1 baris kecil: Cetak (biru, Printer) · JPG (rose, FileImage) · Edit (emerald, Pencil, onClick=handleRestore — fungsi restore ke kalkulator sama persis, hanya label/ikon diganti)
+  - Tombol Hapus DIHAPUS dari dialog (handleDelete tetap dipakai tombol hapus di baris list + MobileTable onDelete)
+  - Ukuran tombol: py-1.5 sm:py-2, text-[11px] sm:text-xs, ikon w-3.5 h-3.5 (sebelumnya py-2.5 sm:py-3 text-xs sm:text-sm ikon w-4)
+- ESLint kedua file: 0 error
+- E2E desktop 1280×800 (data tes TEST-E2E JPG milik superadmin): dialog detail → 3 tombol [Cetak, JPG, Edit], 1 baris (y sama), tinggi 32px, tanpa PDF/Hapus/Restore; klik JPG → patch URL.createObjectURL menangkap blob: image/jpeg 187KB 1240×1754 px = rasio 0.7070 ≈ A4 (0.7071); viewer render = konten SAMA PERSIS preview (header, informasi, kertas, profit, ringkasan, blok Grand Total orange) tanpa terpotong
+- E2E mobile 390×844: 3 tombol 1 baris tinggi 29px, maxRight 373 ≤ 382, scrollWidth 390; klik JPG → blob 1240×1754 A4 ✓
+- Cleanup: data tes dihapus (deleteMany count 1), total riwayat kembali 20 (baseline)
+
+Stage Summary:
+- Dialog Detail Riwayat Cetakan kini 3 tombol kecil 1 baris: Cetak · JPG · Edit (tanpa PDF & Hapus; Edit = fungsi restore)
+- Tombol JPG menghasilkan gambar A4 portrait (1240×1754@150DPI) identik preview dialog, mobile langsung share ke WhatsApp / desktop unduh otomatis
+- fitBlobToA4 jadi helper reusable di capture-jpg.ts; produksi belum dideploy (tunggu permintaan user)
