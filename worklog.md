@@ -537,7 +537,7 @@ Agent: Main
 Task: Deploy no-API JPG download fix to www.darrellsoft.com
 
 Work Log:
-- User provided Vercel token: vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr
+- User provided Vercel token: vcp_[REDACTED-EXPIRED]
 - Verified Prisma schema is sqlite (local dev)
 - Vercel build command in vercel.json automatically swaps sqlite→postgresql via scripts/prepare-build.js
 - Ran: npx vercel --prod --yes --token <provided>
@@ -663,7 +663,7 @@ Agent: Main
 Task: Deploy current project state to www.darrellsoft.com (Vercel production)
 
 Work Log:
-- User provided Vercel token: vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr
+- User provided Vercel token: vcp_[REDACTED-EXPIRED]
 - Discovered `.vercel/project.json` was missing (not present after the Task 18 archive restore), so the local dir was not linked to the Vercel project.
 - Listed Vercel projects with token → confirmed `darrellsoft` project exists (Latest Production URL: https://www.darrellsoft.com, updated 20h ago).
 - Ran `npx vercel link --project darrellsoft --yes --token <token>` → linked ~/my-project to koming711s-projects/darrellsoft.
@@ -1169,7 +1169,7 @@ Agent: Main
 Task: Deploy landing page updates (Tasks 25-29) to production www.darrellsoft.com
 
 Work Log:
-- User authorized deployment: "deploy ke www.darrellsoft.com. token vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr"
+- User authorized deployment: "deploy ke www.darrellsoft.com. token vcp_[REDACTED-EXPIRED]"
 - Ran: cd /home/z/my-project && npx vercel --prod --yes --token "<token>"
 - Build: 39s, Deployment: ~1m, aliased to https://www.darrellsoft.com
 - Production HTTP/2 200 response confirmed via curl.
@@ -6422,7 +6422,7 @@ Agent: Main
 Task: Deploy to www.darrellsoft.com using Vercel token
 
 Work Log:
-- User requested deploy to www.darrellsoft.com with token vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr.
+- User requested deploy to www.darrellsoft.com with token vcp_[REDACTED-EXPIRED].
 - Discovered .vercel/project.json was missing (lost during Task 8 full-content tar replacement). Recreated it with projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, orgId team_QBdS4SJeRhBe19sMKMlDvqsj, buildCommand "node scripts/prepare-build.js && npx prisma generate && npx next build", installCommand "bun install".
 - Verified token validity via curl https://api.vercel.com/v2/user → HTTP 200 (user: koming711, defaultTeamId matches orgId).
 - Step 1: Ran `node scripts/prepare-build.js` → swapped prisma/schema.prisma AND root schema.prisma from provider="sqlite" to provider="postgresql". The script also transforms DATABASE_URL from Supabase direct connection (IPv6) to pooler transaction mode (port 6543) for Vercel IPv4 compatibility.
@@ -6742,7 +6742,7 @@ Agent: Main
 Task: Deploy aplikasi ke www.darrellsoft.com (Vercel production)
 
 Work Log:
-- Token Vercel diberikan user: vcp_6x0P7LdvyUkmyncFkKsyhwgnBNWGhFZaJCo6RSjytnbhzMim6j04FyHr (user: koming711)
+- Token Vercel diberikan user: vcp_[REDACTED-EXPIRED] (user: koming711)
 - Domain darrellsoft.com sudah terdaftar di akun Vercel (Third Party registrar, 60d old)
 - Verify schema.prisma punya model DocumentCounter (tabel baru dari task invoice-number-counter) — HARUS di-push ke DB production supaya fitur counter persisten jalan di production.
 - Stop local dev server (kill PID next-server/next-dev) untuk hindari konflik prisma client saat swap schema.

@@ -109,32 +109,40 @@ function fmtUkuran(w?: string | number | null, h?: string | number | null): stri
   return `${W || '-'} × ${H || '-'} cm`
 }
 
-// Preview Dialog Component (centered, scrollable)
+// Preview Dialog Component — popup berbentuk lembar A4 (rasio 210 × 297 mm, portrait), fit ke viewport
 function PreviewDialog({ children, footer, onClose, title }: { children: React.ReactNode; footer?: React.ReactNode; onClose: () => void; title: string }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 lg:p-0" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" />
-      {/* Dialog - header tetap di atas, konten SELALU bisa discroll (mobile & desktop), footer tetap di bawah */}
+      {/* Dialog ukuran A4 (portrait 210:297) — lebar menyesuaikan tinggi layar agar proporsi A4 selalu terjaga */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden lg:max-w-none lg:max-h-none lg:h-full lg:rounded-none lg:border-0"
+        className="relative bg-card rounded-xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden"
+        style={{
+          width: 'min(92vw, calc(94vh * 210 / 297))',
+          aspectRatio: '210 / 297',
+          maxHeight: '94vh',
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-slate-50 rounded-t-xl select-none flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex gap-1 flex-shrink-0">
               <div className="w-2.5 h-2.5 rounded-full bg-red-400 cursor-pointer" onClick={onClose} />
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
             </div>
-            <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-2">{title}</span>
+            <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-1 sm:ml-2 truncate">{title}</span>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <span className="hidden sm:inline-flex items-center rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[9px] font-bold text-slate-500">A4 · 210 × 297 mm</span>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
         </div>
-        {/* Content: SELALU scrollable — tidak ada lagi konten terpotong */}
+        {/* Content: bisa discroll bila konten melebihi lembar A4 */}
         <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain -webkit-overflow-scrolling-touch">
           {children}
         </div>
@@ -2077,95 +2085,95 @@ function CalculatorPage() {
           }
         >
           {/* Preview Content (rendered for print & JPG capture) — selalu bisa discroll bila melebihi layar */}
-          <div ref={previewRef} className="p-2 sm:p-4 bg-white lg:px-4 lg:py-2">
+          <div ref={previewRef} className="p-3 sm:p-4 bg-white">
             {/* Header */}
-            <div data-pk="header" className="text-center mb-3 pb-2 border-b-2 border-slate-200 lg:mb-0 lg:shrink-0">
+            <div data-pk="header" className="text-center mb-3 pb-2 border-b-2 border-slate-200">
               <h1 className="text-[22px] font-bold text-slate-900">Preview Potong Kertas</h1>
             </div>
 
             {/* Info Grid */}
-            <div data-pk="grid" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-1.5 sm:gap-2 mb-3 lg:mb-0 lg:shrink-0">
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+            <div data-pk="grid" className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-3">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Customer</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Nama Bahan</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white truncate">{previewRiwayatData ? previewRiwayatInfo.paper : (selectedPaper?.name || restoredPaperName || 'Custom')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Gramatur</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{previewRiwayatData ? (previewRiwayatRow?.grammage ? `${previewRiwayatRow.grammage} gsm` : '-') : (grammage ? `${grammage} gsm` : '-')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Ukuran Kertas</p>
-                <p className="text-base sm:text-xl lg:text-sm font-bold text-black dark:text-white">{previewRiwayatData
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{previewRiwayatData
                   ? fmtUkuran(previewRiwayatRow?.paperWidth || previewRiwayatData.paperWidth, previewRiwayatRow?.paperHeight || previewRiwayatData.paperHeight)
                   : fmtUkuran(paperWidth, paperHeight)}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Ukuran Potong</p>
-                <p className="text-base sm:text-xl lg:text-sm font-bold text-black dark:text-white">{previewRiwayatData
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{previewRiwayatData
                   ? fmtUkuran(previewRiwayatRow?.cutWidth || previewRiwayatData.cutWidth, previewRiwayatRow?.cutHeight || previewRiwayatData.cutHeight)
                   : fmtUkuran(cutWidth, cutHeight)}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Pesanan</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.jumlahPesanan : jumlahPesanan) || '-'}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium"><span className="sm:hidden">Cetak Brp Mata</span><span className="hidden sm:inline">Cetak Berapa Mata</span></p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.berapaMata : berapaMata) || '-'}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Jumlah Cetakan</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{previewRiwayatData?.quantity || results?.quantity || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Insit Kertas</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{(previewRiwayatData ? previewRiwayatInfo.setelanKertas : setelanKertas) || '0'}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Potongan / Lembar</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{previewRiwayatData?.totalPieces || results?.totalPieces || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Lembar Kertas</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">{previewRiwayatData?.sheetsNeeded || results?.sheetsNeeded || 0} <span className="text-[9px] sm:text-xs font-normal">lembar</span></p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Total Harga Kertas</p>
-                <p className="text-lg sm:text-[24px] lg:text-base font-bold text-black dark:text-white">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">Rp {Math.round(previewRiwayatData?.totalPrice || results?.totalPrice || 0).toLocaleString('id-ID')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga / Lembar</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
               </div>
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-3 lg:p-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 sm:p-2.5">
                 <p className="text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium">Harga/Lembar Setelah Dipotong</p>
-                <p className="text-base sm:text-xl lg:text-base font-bold text-black dark:text-white">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+                <p className="text-sm sm:text-base font-bold text-black dark:text-white">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
               </div>
             </div>
 
             {/* Strategy */}
-            <div data-pk="strategy" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 mb-3 lg:mb-0 lg:shrink-0">
+            <div data-pk="strategy" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-2 mb-3">
               <p className="text-[8px] sm:text-[10px] text-slate-600 dark:text-slate-400 font-medium text-center">Strategi Optimasi</p>
               <p className="text-[11px] sm:text-sm font-bold text-black dark:text-white text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
             </div>
 
-            {/* Diagram | Cara Potong + Detail per Blok — berdampingan di desktop (1 halaman tanpa scroll) */}
+            {/* Diagram full-width, di bawahnya Cara Potong + Detail per Blok berdampingan (mengikuti layout cetak A4) */}
             {(previewRiwayatData || results) && (
-              <div className="lg:flex-1 lg:min-h-0 lg:grid lg:grid-cols-2 lg:gap-4">
+              <>
                 {/* Diagram */}
-                <div data-pk="diagram" className="mb-3 w-full lg:mb-0 lg:min-h-0">
+                <div data-pk="diagram" className="mb-3 w-full">
                   <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
-                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="45vh" />
+                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="34vh" />
                   </div>
                 </div>
 
                 {/* Steps + Block Details */}
-                <div className="lg:min-h-0 lg:overflow-y-auto">
-                  <div data-pk="steps" className="mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                  <div data-pk="steps" className="mb-3 sm:mb-0">
                     <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Cara Potong:</h3>
                     <div className="space-y-1 sm:space-y-1.5">
                       {(previewRiwayatData || results)!.steps.map((step, idx) => (
@@ -2177,11 +2185,11 @@ function CalculatorPage() {
                     </div>
                   </div>
 
-                  <div data-pk="blocks" className="mb-2 lg:mb-0">
+                  <div data-pk="blocks" className="mb-2 sm:mb-0">
                     <h3 className="text-[11px] sm:text-xs font-bold text-slate-700 mb-1.5">Detail per Blok:</h3>
                     <div className="space-y-1.5 sm:space-y-2">
                       {(previewRiwayatData || results)!.blocks.map((block: any, idx: number) => (
-                        <div key={idx} className="border border-slate-200 rounded-lg p-2 sm:p-3 lg:p-2">
+                        <div key={idx} className="border border-slate-200 rounded-lg p-2 sm:p-2.5">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-slate-800">{block.name}</span>
                             <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] sm:text-[10px] font-semibold">{block.pieces} lembar</span>
@@ -2195,7 +2203,7 @@ function CalculatorPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </PreviewDialog>
