@@ -8923,3 +8923,20 @@ Work Log:
 
 Stage Summary:
 - Master Barang: foto barang tersimpan di DB (photoUrl, data URL JPEG) dengan kompresi otomatis browser ≤300KB di form Tambah/Edit/Duplikat (preview + ganti/hapus), dan klik baris tabel (desktop) / area nama kartu (mobile) membuka popup foto — placeholder bila belum ada. Akar bug "Data tidak valid" = dua schema.prisma tidak sinkron (root lama); kini keduanya identik dan client ter-generate ulang. Baseline DB & log bersih.
+
+---
+Task ID: 66
+Agent: Main (Z.ai Code)
+Task: "deploy" — terbitkan Task 63+64+65 (Master Barang: chip nama pelanggan + CRUD, hapus kolom Satuan, sembunyikan Duplikat/Edit di mode Semua Barang, foto barang ≤300KB JPG + popup foto saat klik baris) ke produksi Vercel www.darrellsoft.com.
+
+Work Log:
+- KONFIRMASI Task 65 SUDAH SELESAI di sesi sebelumnya (worklog Task 65 lengkap: implementasi + E2E + baseline utuh); 4 commit lokal (083e90e, 003a5ac, 6e5a607, e3248ff) memuat Task 62–65.
+- PRA-FLIGHT: ESLint items-view/types/api items ×2 + service-worker-registration = 0 error; kedua schema (root + prisma/) provider = "sqlite" (bersih, belum ter-swap); dev server hidup (next-server PID 1202, GET / 200; EADDRINUSE di baris 2-3 dev.log hanya artefak startup ganda, tanpa error lain).
+- FIX INFRA: folder .vercel/ HILANG (risiko deploy nyasar ke proyek lain — pola insiden terdokumentasi) → dibuat ulang .vercel/project.json (projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, orgId team_QBdS4SJeRhBe19sMKMlDvqsj, project darrellsoft) sesuai catatan worklog sebelumnya.
+- PWA BUMP: public/sw.js CACHE_NAME darrell-soft-v55 → v56; APP_VERSION '2026-09-12-v15' → '2026-09-14-v1' (service-worker-registration.tsx) agar client PWA auto-refresh pasca deploy. Commit be07dcd; lint 0 error.
+- GIT: push origin main 162059f..be07dcd (5 commit: Task 62–65 + bump PWA) → GitHub main sinkron dengan lokal.
+- BLOCKER: CLI Vercel "Logged out" — token TIDAK ditemukan di mana pun (~/.local/share/com.vercel.cli/config.json hanya telemetri; tanpa auth.json; tanpa env VERCEL_TOKEN; deploy.sh tanpa token; worklog selalu redact token). Menunggu user memberikan VERCEL_TOKEN (pola historis: "DEPLOYMENT PENDING: needs Vercel token").
+- URUTAN deploy siap dijalankan begitu token ada: node scripts/prepare-build.js (sqlite→postgresql) → bunx vercel --prod --yes --token <TOKEN> → node scripts/revert-schema.js (sqlite) → verifikasi www.darrellsoft.com HTTP 200 + sw.js = darrell-soft-v56.
+
+Stage Summary:
+- Semua pra-syarat deploy selesai; kode produksi siap (Task 63+64+65 + bump PWA v56) dan GitHub sudah sinkron. Deploy BLOKIR hanya karena token Vercel tidak tersedia di sesi ini — begitu token diberikan, deploy 1 langkah sesuai urutan aman yang terdokumentasi.
