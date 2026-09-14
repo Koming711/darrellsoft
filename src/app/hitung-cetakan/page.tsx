@@ -294,6 +294,7 @@ function HitungCetakanPage() {
 
   // Riwayat hitung cetakan (full list)
   const [savingRiwayat, setSavingRiwayat] = useState(false)
+  const [savingItem, setSavingItem] = useState(false)
   // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
   const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
@@ -1531,6 +1532,53 @@ function HitungCetakanPage() {
     setSavingRiwayat(false)
   }
 
+  // Simpan perhitungan aktif sebagai barang baru di Master Barang
+  // (nama cetakan → nama barang, harga jual/pcs → jual, modal/pcs → modal, jumlah pesanan → qty, foto lampiran → foto barang)
+  const handleSaveToMaster = async () => {
+    const name = formData.printName.trim()
+    if (!name) {
+      toast.error('Isi Nama Cetakan dulu sebelum menyimpan ke Master Barang')
+      return
+    }
+    if (summaryHargaPerlembar <= 0) {
+      toast.error('Total masih 0 — lengkapi perhitungan (qty & biaya) dulu')
+      return
+    }
+    setSavingItem(true)
+    try {
+      const custMatch = customers.find((c) => c.name.toLowerCase() === formData.customerName.trim().toLowerCase())
+      const body: Record<string, unknown> = {
+        name,
+        unit: 'pcs',
+        standardPrice: Math.round(summaryHargaPerlembar),
+        hpp: Math.round(summaryHargaModal),
+        qty: summaryJumlahPesanan,
+        keterangan: `Dari Hitung Cetakan · Total: Rp ${Math.round(summaryGrandTotal).toLocaleString('id-ID')} · Modal/pcs: Rp ${Math.round(summaryHargaModal).toLocaleString('id-ID')}`,
+      }
+      if (custMatch) body.customerId = custMatch.id
+      if (photoUrl) body.photoUrl = photoUrl
+      const res = await fetcher('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const data = await res.json().catch(() => null)
+        const code = data?.item?.code ? ` (${data.item.code})` : ''
+        toast.success(`Barang "${name}"${code} tersimpan ke Master Barang`, {
+          description: `Jual Rp ${Math.round(summaryHargaPerlembar).toLocaleString('id-ID')}/pcs · Modal Rp ${Math.round(summaryHargaModal).toLocaleString('id-ID')}/pcs${custMatch ? ` · Pelanggan: ${custMatch.name}` : ''}`,
+        })
+        notifyDataChange('items')
+      } else {
+        const err = await res.json().catch(() => null)
+        toast.error(err?.error || 'Gagal menyimpan ke Master Barang')
+      }
+    } catch {
+      toast.error('Gagal menyimpan ke Master Barang')
+    }
+    setSavingItem(false)
+  }
+
   const handleInvoice = async () => {
     if (!hasGrandTotal) {
       toast.error('Hitung terlebih dahulu sampai total muncul!')
@@ -2064,6 +2112,11 @@ function HitungCetakanPage() {
                 </div>
               </div>
 
+              {/* Mobile-only: Foto Lampiran — di atas kotak Ongkos Cetak */}
+              <div className="px-3 pb-2 lg:hidden">
+                <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
+              </div>
+
               {/* Mobile-only: Ongkos Cetak + Ongkos Cetak 2 (desktop has its own column) */}
               <div className="lg:hidden">
               {/* Section 3: Ongkos Cetak */}
@@ -2338,9 +2391,6 @@ function HitungCetakanPage() {
                   {summaryBiayaLain2 > 0 && <div className="flex justify-between text-xs"><span className="text-slate-800">{biayaLain2Label}</span><span className="text-slate-800 font-medium">{formatRp(summaryBiayaLain2)}</span></div>}
                 </div>
               </div>
-              <div className="px-3 pb-2 lg:hidden">
-                <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
-              </div>
               <div className="lg:hidden px-3 pb-3 flex flex-col sm:flex-row gap-2">
                 <Button onClick={handleCheck} className="flex-1 h-10 text-sm bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-4 h-4 mr-1.5" /> Cek</Button>
                 <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!hasGrandTotal || savingRiwayat} className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-sm">{restoredRiwayatId ? <><RefreshCw className={`w-4 h-4 mr-1.5 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update Riwayat'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat'}</Button>
@@ -2349,12 +2399,21 @@ function HitungCetakanPage() {
                 <Button onClick={handleWhatsApp} disabled={!hasGrandTotal} className="flex-1 h-10 text-sm bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-4 h-4 mr-1.5" /> WhatsApp</Button>
                 <Button onClick={resetForm} variant="outline" className="flex-1 h-10 text-sm"><RotateCcw className="w-4 h-4 mr-1.5" /> Reset</Button>
               </div>
+              <div className="lg:hidden px-3 pb-3">
+                <Button onClick={handleSaveToMaster} disabled={!hasGrandTotal || savingItem} className="w-full h-10 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-400"><Package className="w-4 h-4 mr-1.5" /> {savingItem ? 'Menyimpan...' : 'Simpan ke Master Barang'}</Button>
+              </div>
               </div>{/* end mobile-only wrapper */}
             </div>{/* end column 1 card */}
           </div>{/* end COLUMN 1 */}
 
           {/* ========== COLUMN 2: ONGKOS CETAK (Desktop Only) ========== */}
           <div className="hidden lg:flex flex-col flex-1 flex-shrink-0 gap-3">
+            {/* Foto Lampiran — di atas kotak Ongkos Cetak */}
+            <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="px-2.5 py-2.5">
+                <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
+              </div>
+            </div>
             <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               {/* Ongkos Cetak */}
               <SectionHeader icon={<Calculator className="w-3.5 h-3.5 text-purple-600" />} label={t('ongkos_cetak_label')} />
@@ -2630,7 +2689,6 @@ function HitungCetakanPage() {
                 </div>
               </div>
               <div className="px-2.5 pb-2 flex flex-col gap-1.5">
-                <PhotoUpload value={photoUrl} onChange={setPhotoUrl} label="Foto Lampiran" />
                 <Button onClick={handleCheck} className="w-full h-8 text-[11px] font-semibold bg-cyan-600 hover:bg-cyan-700 text-white"><ClipboardCheck className="w-3.5 h-3.5 mr-1" /> Cek Kelengkapan</Button>
                 <div className="grid grid-cols-2 gap-1.5">
                   <Button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!hasGrandTotal || savingRiwayat} className="h-8 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-[11px] font-semibold">{restoredRiwayatId ? <><RefreshCw className={`w-3.5 h-3.5 mr-1 ${savingRiwayat ? 'animate-spin' : ''}`} /> {savingRiwayat ? 'Updating...' : 'Update'}</> : savingRiwayat ? 'Menyimpan...' : 'Simpan'}</Button>
@@ -2638,6 +2696,7 @@ function HitungCetakanPage() {
                   <Button onClick={handlePreview} disabled={!hasGrandTotal} className="h-8 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-400"><Eye className="w-3.5 h-3.5 mr-1" /> Preview</Button>
                   <Button onClick={handleWhatsApp} disabled={!hasGrandTotal} className="h-8 text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:bg-slate-400"><MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp</Button>
                 </div>
+                <Button onClick={handleSaveToMaster} disabled={!hasGrandTotal || savingItem} className="w-full h-8 text-[11px] font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-400"><Package className="w-3.5 h-3.5 mr-1" /> {savingItem ? 'Menyimpan...' : 'Simpan ke Master Barang'}</Button>
                 <Button onClick={resetForm} variant="outline" className="w-full h-8 text-[11px] font-semibold"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Form</Button>
               </div>
             </div>
