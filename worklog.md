@@ -9062,3 +9062,20 @@ Work Log:
 
 Stage Summary:
 - Task 72 terverifikasi penuh di desktop & mobile: tombol "Simpan ke Master Barang" terkunci setelah 1x simpan dan terbuka lagi saat ada perubahan data; baris riwayat hitung cetakan tanpa icon restore (delete tetap); klik baris/kartu membuka dialog "Detail Riwayat Cetakan" lengkap dengan tombol Restore & Hapus (Cetak/PDF/Restore/Hapus). Bonus fix: Restore kini juga mengembalikan Jumlah Pesanan & Cetak Brp Mata sehingga harga jual/pcs bisa dihitung ulang. Baseline DB utuh tanpa artefak uji.
+
+---
+Task ID: 72-c (fix sasaran UI yang benar)
+Agent: Main (Z.ai Code)
+Task: "masih belum berubah. tombol restore dan hapus belum muncul. icon restore juga belum di delete di halaman riwayat hitung cetakan. check and fix" — screenshot user menunjukkan TAB "Riwayat" di dalam halaman Hitung Cetakan (Editor | Riwayat), BUKAN halaman /riwayat-hitung-cetakan yang kemarin diubah.
+
+Work Log:
+- AKAR MASALAH: ada DUA UI "riwayat hitung cetakan" — (1) halaman mandiri /riwayat-hitung-cetakan (sudah diperbaiki di Task 72), dan (2) TAB "Riwayat" di dalam /hitung-cetakan (activeTab==='riwayat') dengan tabel/kartu + dialog "Detail Rincian Cetakan" (PreviewDialog custom, tanpa role=dialog) milik sendiri yang BELUM diubah. User memakai yang (2).
+- FIX (src/app/hitung-cetakan/page.tsx, 7 edit): (a) state previewRiwayatRecord menyimpan record asli saat preview dari riwayat (handlePreviewRiwayat setPreviewRiwayatRecord(r)); (b) icon Restore DIHAPUS dari kolom Aksi tabel desktop (tinggal icon Hapus); (c) tombol "Muat" (restore) DIHAPUS dari kartu mobile (tinggal Hapus flex-1); (d) dialog "Detail Rincian Cetakan" kini grid 2×2: Cetak, PDF, Restore (emerald), Hapus (merah) — kondisional previewRiwayatRecord, sehingga preview dari tombol Preview EDITOR tetap hanya Cetak/PDF; (e) handleDeleteRiwayat return boolean — Hapus dari detail menutup dialog hanya bila sukses; (f) onClose dialog membersihkan previewRiwayatRecord; (g) Restore dari detail memanggil handleRestoreRiwayat (sudah built-in: switch tab editor + toast + isi form + foto).
+- ESLINT: 0 error.
+- E2E DESKTOP 1280×800 (superadmin, 1 riwayat uji dibuat via API lalu DIHAPUS via UI): tab Riwayat — baris restoreIconBtn=0, hapusIconBtn=1, scrollW=1280 ✓; klik baris → dialog "Detail Rincian Cetakan"/"Rincian Harga Cetakan" (Uji Tab 72) dengan section INFORMASI PESANAN/RINCIAN BIAYA/GAMBAR POTONG KERTAS/GRAND TOTAL + 4 tombol Cetak/PDF/Restore/Hapus (Hapus bottom 788<800) ✓; Restore → toast "Data berhasil di-restore dari riwayat!", dialog tertutup, pindah tab Editor, form terisi (Budi Susanto/Uji Tab 72/jumlahPesanan 200) ✓; Preview dari tombol Preview EDITOR → hanya Cetak+PDF (kondisional benar) ✓. Bukti /tmp/e2e72b-desktop-detail.png.
+- E2E MOBILE 390×844: kartu hanya tombol Hapus (Muat=0) ✓; klik kartu → dialog 4 tombol (Cetak 21–191, Hapus 199–369 < 390, semuaDalam390=true) ✓; Hapus → confirm "Beneran mau dihapus nih?" → accept → toast sukses, dialog tertutup, list kosong "Belum ada riwayat hitung cetakan" ✓. Bukti /tmp/e2e72b-mobile-detail.png.
+- BASELINE UTUH: Barang=6, RiwayatCetakan=20, RiwayatPotongKertas=20, Customer=132, sisa data uji=0. dev.log bersih. Tanpa deploy (tidak diminta); tanpa bump PWA.
+- CATATAN: preview panel user memakai dev server lokal (localhost:3000) — perubahan langsung terlihat setelah refresh; perubahan Task 72 sebelumnya (halaman /riwayat-hitung-cetakan + kunci tombol Simpan Master) tetap berlaku.
+
+Stage Summary:
+- Sasaran UI yang benar sudah diperbaiki: di TAB "Riwayat" halaman Hitung Cetakan, icon/tombol restore dihapus dari baris & kartu (hanya Hapus), klik baris/kartu membuka dialog "Detail Rincian Cetakan" yang kini memiliki 4 tombol: Cetak, PDF, Restore, Hapus. Restore memuat data ke editor (lengkap dengan foto & label biaya), Hapus menghapus dengan konfirmasi dan menutup dialog. Preview dari editor tidak terpengaruh (tetap Cetak/PDF). Terverifikasi E2E desktop+mobile, baseline DB utuh.

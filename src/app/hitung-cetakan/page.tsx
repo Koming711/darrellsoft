@@ -423,6 +423,8 @@ function HitungCetakanPage() {
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewCalc, setPreviewCalc] = useState<PrintCalculation | null>(null)
+  // Record riwayat asli di balik preview — null = preview dari editor (tanpa tombol Restore/Hapus)
+  const [previewRiwayatRecord, setPreviewRiwayatRecord] = useState<any>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const waWindowRef = useRef<Window | null>(null)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
@@ -1722,8 +1724,8 @@ function HitungCetakanPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleDeleteRiwayat = async (id: string) => {
-    if (!confirm('Beneran mau dihapus nih?')) return
+  const handleDeleteRiwayat = async (id: string): Promise<boolean> => {
+    if (!confirm('Beneran mau dihapus nih?')) return false
     try {
       const res = await fetcher(`/api/riwayat-cetakan/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       if (res.ok) {
@@ -1731,8 +1733,11 @@ function HitungCetakanPage() {
         notifyDataChange('riwayat-cetakan')
         if (restoredRiwayatId === id) setRestoredRiwayatId(null)
         fetchRiwayatCetakan()
-      } else { toast.error('Gagal menghapus riwayat') }
-    } catch { toast.error('Gagal menghapus riwayat') }
+        return true
+      }
+      toast.error('Gagal menghapus riwayat')
+      return false
+    } catch { toast.error('Gagal menghapus riwayat'); return false }
   }
 
   const handlePreviewRiwayat = (r: any) => {
@@ -1798,6 +1803,7 @@ function HitungCetakanPage() {
       biayaLain2Label: r.otherCostLabel2 || 'Biaya'
     }
     setPreviewCalc(previewData)
+    setPreviewRiwayatRecord(r)
     setPreviewOpen(true)
   }
 
@@ -2865,9 +2871,6 @@ function HitungCetakanPage() {
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-600" title="Restore" aria-label="Restore" onClick={() => handleRestoreRiwayat(r)}>
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Hapus" aria-label="Hapus" onClick={() => handleDeleteRiwayat(r.id)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -2912,14 +2915,6 @@ function HitungCetakanPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
-                        onClick={(e) => { e.stopPropagation(); handleRestoreRiwayat(r) }}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" /> Muat
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
                         className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
                         onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
                       >
@@ -2938,7 +2933,7 @@ function HitungCetakanPage() {
       {/* ===== PREVIEW DIALOG ===== */}
       {previewOpen && previewCalc && (
         <PreviewDialog
-          onClose={() => { setPreviewOpen(false); setPreviewCalc(null) }}
+          onClose={() => { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
           title="Detail Rincian Cetakan"
         >
           <div ref={previewRef} className="p-3 sm:p-4 bg-white">
@@ -3105,8 +3100,8 @@ function HitungCetakanPage() {
               </div>
             </div>
           </div>
-              {/* Action Buttons */}
-              <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
+              {/* Action Buttons — Restore & Hapus hanya saat preview dari riwayat */}
+              <div className={`sticky bottom-0 bg-card border-t border-slate-200 p-3 ${previewRiwayatRecord ? 'grid grid-cols-2 gap-2' : 'flex gap-2'}`}>
                 <button onClick={handlePrint}
                   className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
                   <Printer className="w-4 h-4" /> Cetak
@@ -3115,6 +3110,18 @@ function HitungCetakanPage() {
                   className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
                   {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
                 </button>
+                {previewRiwayatRecord && (
+                  <>
+                    <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <RotateCcw className="w-4 h-4" /> Restore
+                    </button>
+                    <button onClick={async () => { const ok = await handleDeleteRiwayat(previewRiwayatRecord.id); if (ok) { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) } }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <Trash2 className="w-4 h-4" /> Hapus
+                    </button>
+                  </>
+                )}
               </div>
         </PreviewDialog>
       )}
