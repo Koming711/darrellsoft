@@ -9013,3 +9013,19 @@ Work Log:
 
 Stage Summary:
 - Halaman Hitung Cetakan: blok "Foto Lampiran" kini berada tepat di atas kotak Ongkos Cetak (desktop = kartu pertama kolom kanan; mobile = di atas section Ongkos Cetak) dengan preview rapi 3 tombol yang tidak terpotong. Tombol baru "Simpan ke Master Barang" menyimpan perhitungan aktif sebagai barang Master Barang lengkap (nama, harga jual/pcs, modal/pcs, qty, pelanggan terdaftar, dan foto lampiran sebagai foto barang) — terverifikasi E2E desktop+mobile, data uji dibersihkan, baseline DB utuh.
+
+---
+Task ID: 71
+Agent: Main (Z.ai Code)
+Task: "deploy" — terbitkan Task 70 (Foto Lampiran di atas kotak Ongkos Cetak + tombol Simpan ke Master Barang di Hitung Cetakan) ke produksi www.darrellsoft.com.
+
+Work Log:
+- PRA-FLIGHT: kode Task 70 sudah ter-commit otomatis (f8bfcfa: hitung-cetakan/page.tsx +67, data-sync.ts +1, worklog; 96e7dbc: worklog+daemon); lokal ahead 2 dari origin; kedua schema provider = "sqlite" (bersih); dev server 200.
+- PWA BUMP: public/sw.js v59 → darrell-soft-v60; APP_VERSION '2026-09-14-v4' → '2026-09-14-v5' (service-worker-registration.tsx) agar client auto-refresh; lint 0 error; commit 3b48430; push origin main 006e4e6..3b48430 (3 commit: Task 70 + bump).
+- DEPLOY: node scripts/prepare-build.js (postgresql, 2 schema terverifikasi) → bunx vercel --prod --yes --token (deployment darrellsoft-415ggebqx, status ● Ready) → node scripts/revert-schema.js (sqlite, 2 schema) + bunx prisma generate → lokal GET / 200.
+- TANPA perubahan DB produksi: Task 70 hanya memakai endpoint & kolom eksisting (POST /api/items + Barang.photoUrl sudah ada sejak Task 67; tidak ada model/kolom baru).
+- VERIFIKASI PRODUKSI: https://www.darrellsoft.com/ = 200; manifest.json = 200; sw.js online = darrell-soft-v60 (deploy baru LIVE). Smoke test API (cookie login superadmin): login 200, GET /api/items 200, POST uji "Uji Deploy 70" → tersimpan (ITM-001, jual 7500/modal 5000/qty 10) → DELETE 200 → pencarian kembali kosong (produksi bersih tanpa artefak).
+- Sinkron akhir: origin/main = lokal (0 commit ahead).
+
+Stage Summary:
+- Task 70 LIVE di www.darrellsoft.com via PWA v60: blok Foto Lampiran kini di atas kotak Ongkos Cetak (desktop & mobile) dan tombol "Simpan ke Master Barang" menyimpan perhitungan Hitung Cetakan sebagai barang lengkap (nama, harga jual/pcs, modal/pcs, qty, pelanggan, foto). Produksi terverifikasi HTTP + API end-to-end dan bersih dari data uji; schema lokal pulih sqlite; GitHub sinkron.
