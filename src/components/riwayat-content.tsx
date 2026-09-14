@@ -25,6 +25,8 @@ interface RiwayatItem {
   cutWidth: string
   cutHeight: string
   quantity: string
+  jumlahPesanan: string
+  berapaMata: string
   warna: string
   warnaKhusus: string
   machineName: string
@@ -111,6 +113,8 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     if (item.cutWidth) params.set('cutWidth', item.cutWidth)
     if (item.cutHeight) params.set('cutHeight', item.cutHeight)
     if (item.quantity) params.set('quantity', item.quantity)
+    if (item.jumlahPesanan) params.set('jumlahPesanan', item.jumlahPesanan)
+    if (item.berapaMata) params.set('berapaMata', item.berapaMata)
     if (item.totalPaperPrice) params.set('totalPaperPrice', item.totalPaperPrice.toString())
     if (item.profitPercent) params.set('profitPercent', item.profitPercent.toString())
     params.set('restoredFromRiwayat', '1')
