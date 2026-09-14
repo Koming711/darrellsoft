@@ -76,6 +76,7 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewItem, setPreviewItem] = useState<RiwayatItem | null>(null)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -167,37 +168,31 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     }
   }
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const el = previewRef.current
     if (!el || !previewItem) return
-    const pw = window.open('', '_blank')
-    if (!pw) { toast.error('Popup diblokir'); return }
-    pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview - ${previewItem.printName}</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4; margin: 10mm; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; }
-        .header { text-align: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
-        .header h1 { font-size: 16px; font-weight: 700; color: #0f172a; }
-        .header p { font-size: 10px; color: #64748b; margin-top: 2px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
-        .cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 6px 8px; }
-        .cell .lbl { font-size: 8px; color: #64748b; font-weight: 500; }
-        .cell .val { font-size: 12px; font-weight: 700; color: #0f172a; }
-        .cell .val.grn { color: #059669; }
-        .cell .val.red { color: #e11d48; }
-        .row { display: flex; gap: 6px; margin-bottom: 6px; }
-        .row .full { flex: 1; }
-        .breakdown { background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px; padding: 6px 8px; margin-bottom: 8px; }
-        .breakdown-title { font-size: 9px; font-weight: 700; color: #991b1b; margin-bottom: 3px; }
-        .breakdown-text { font-size: 9px; color: #7f1d1d; white-space: pre-line; }
-        .total-bar { background: #0f172a; color: white; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
-        .total-bar .lbl { font-size: 9px; color: #94a3b8; }
-        .total-bar .val { font-size: 16px; font-weight: 800; color: #22c55e; }
-      </style>
-    </head><body>${el.innerHTML}</body></html>`)
-    pw.document.close()
-    pw.onload = () => pw.print()
+    setIsPrinting(true)
+    try {
+      // Render dialog ke gambar agar hasil cetak identik dengan tampilan dialog
+      const { toCanvas } = await import('html-to-image')
+      const canvas = await toCanvas(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const pw = window.open('', '_blank')
+      if (!pw) { toast.error('Popup diblokir'); return }
+      pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview - ${previewItem.printName}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          @page { size: A4; margin: 10mm; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; }
+          img { width: 100%; display: block; }
+        </style>
+      </head><body><img src="${imgData}" onload="setTimeout(function(){window.print()},200)" /></body></html>`)
+      pw.document.close()
+    } catch {
+      toast.error('Gagal menyiapkan cetakan')
+    } finally {
+      setIsPrinting(false)
+    }
   }
 
   const handlePdf = async () => {
@@ -428,19 +423,25 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
               <div ref={previewRef} className="p-4 sm:p-5 bg-white space-y-4">
                 {/* Header */}
                 <div className="text-center pb-3 border-b-2 border-slate-200">
-                  <div className="flex items-center justify-center gap-2 mb-1">
+                  <div className="inline-flex items-center justify-center gap-1.5 mb-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
                     {isItemHitungCetak(previewItem) ? (
-                      <Calculator className="w-5 h-5 text-blue-600" />
+                      <Calculator className="w-3.5 h-3.5 text-blue-600" />
                     ) : (
-                      <Scissors className="w-5 h-5 text-teal-600" />
+                      <Scissors className="w-3.5 h-3.5 text-teal-600" />
                     )}
-                    <h1 className="text-lg font-bold text-slate-900">
-                      {isItemHitungCetak(previewItem) ? 'Rincian Harga Cetakan' : 'Rincian Potong Kertas'}
-                    </h1>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                      {isItemHitungCetak(previewItem) ? 'Hitung Cetakan' : 'Potong Kertas'}
+                    </span>
                   </div>
+                  <h1 className="text-lg font-bold text-slate-900">
+                    {isItemHitungCetak(previewItem) ? 'Rincian Harga Cetakan' : 'Rincian Potong Kertas'}
+                  </h1>
                   <p className="text-xs text-slate-500 mt-1">
                     {previewItem.printName} · {formatDate(previewItem.createdAt)}
                   </p>
+                  {previewItem.nomorUrut && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono tracking-wide">No. {previewItem.nomorUrut}</p>
+                  )}
                 </div>
 
                 {/* === INFORMASI CETAKAN === */}
@@ -475,6 +476,18 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                           {previewItem.warna || 0} warna
                           {previewItem.warnaKhusus && parseInt(previewItem.warnaKhusus) > 0 ? ` + ${previewItem.warnaKhusus} khusus` : ''}
                         </p>
+                      </div>
+                    )}
+                    {previewItem.jumlahPesanan && parseInt(previewItem.jumlahPesanan) > 0 && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                        <p className="text-[10px] text-slate-500 font-medium">Jumlah Pesanan</p>
+                        <p className="text-sm font-bold text-slate-800">{parseInt(previewItem.jumlahPesanan).toLocaleString('id-ID')} <span className="text-xs font-normal text-slate-400">pcs</span></p>
+                      </div>
+                    )}
+                    {previewItem.berapaMata && parseInt(previewItem.berapaMata) > 0 && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                        <p className="text-[10px] text-slate-500 font-medium">Berapa Mata</p>
+                        <p className="text-sm font-bold text-slate-800">{previewItem.berapaMata} <span className="text-xs font-normal text-slate-400">mata</span></p>
                       </div>
                     )}
                   </div>
@@ -750,9 +763,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                         <span className="text-xs font-semibold text-orange-700">{formatRp(previewItem.profitAmount)}</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between px-3 py-2">
-                      <span className="text-xs font-medium text-slate-500">Sub Total</span>
-                      <span className="text-xs font-bold text-slate-700">{formatRp(previewItem.subTotal)}</span>
+                    <div className="flex items-center justify-between px-3 py-2.5 border-t-2 border-slate-200 bg-slate-100/70">
+                      <span className="text-sm font-bold text-slate-700">Sub Total</span>
+                      <span className="text-sm font-extrabold text-slate-900">{formatRp(previewItem.subTotal)}</span>
                     </div>
                   </div>
                 </div>
@@ -762,6 +775,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                   <div>
                     <p className="text-xs text-slate-400">Grand Total</p>
                     <p className="text-2xl font-extrabold text-emerald-400">{formatRp(previewItem.grandTotal)}</p>
+                    {previewItem.jumlahPesanan && parseInt(previewItem.jumlahPesanan) > 0 && previewItem.grandTotal > 0 && (
+                      <p className="text-[11px] text-emerald-300 font-semibold mt-0.5">≈ {formatRp(Math.round(previewItem.grandTotal / parseInt(previewItem.jumlahPesanan)))} /pcs</p>
+                    )}
                   </div>
                   <div className="text-right text-[10px] text-slate-400 space-y-0.5">
                     <p>Sub Total: {formatRp(previewItem.subTotal)}</p>
@@ -774,9 +790,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
               <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 sm:px-5">
                 {detailOnRowClick ? (
                   <div className="flex gap-2 sm:gap-3">
-                    <button onClick={handlePrint}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      <Printer className="w-4 h-4 shrink-0" /> Cetak
+                    <button onClick={handlePrint} disabled={isPrinting}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      {isPrinting ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-4 h-4 shrink-0" /> Cetak</>}
                     </button>
                     <button onClick={handlePdf} disabled={isGeneratingPdf}
                       className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
@@ -793,9 +809,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                   </div>
                 ) : (
                   <div className="flex gap-2 sm:gap-3">
-                    <button onClick={handlePrint}
-                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
-                      <Printer className="w-4 h-4 shrink-0" /> Cetak
+                    <button onClick={handlePrint} disabled={isPrinting}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      {isPrinting ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-4 h-4 shrink-0" /> Cetak</>}
                     </button>
                     <button onClick={() => handleRestore(previewItem)}
                       className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
