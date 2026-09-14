@@ -128,6 +128,21 @@ const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm 
 const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
 
+/**
+ * Convert a Blob into a data URL.
+ *
+ * Used to embed the captured preview image into the print window HTML
+ * (no object-URL lifecycle issues, works synchronously inside the popup).
+ */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 // Preview Dialog Component
 // Struktur: header tetap di atas, konten SELALU bisa discroll (mobile & desktop), footer tetap di bawah.
 // Footer (Grand Total + tombol aksi) TIDAK ikut scroll — angka penting tidak pernah terpotong lagi.
@@ -439,6 +454,7 @@ function HitungCetakanPage() {
   const previewRef = useRef<HTMLDivElement>(null)
   const waWindowRef = useRef<Window | null>(null)
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
   // ===== Mode Ubah (CRUD Update) untuk detail rincian dari riwayat =====
 
   // === localStorage persistence ===
@@ -888,428 +904,33 @@ function HitungCetakanPage() {
     setCalculatedCost(calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost)
   }, [selectedMachine, selectedMachine2, selectedFinishingItems, formData.quantity, formData.jumlahPesanan, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.cutWidth, formData.cutHeight, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost])
 
-  const buildPrintHtml = (calc: PrintCalculation) => {
-    const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`
-    const fmtQ = (s: string) => parseInt(s || '0').toLocaleString('id-ID')
-    const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-
-    const paperPrice = calc.totalPaperPrice || ((parseFloat(calc.pricePerSheet) || 0) * (parseInt(calc.quantity) || 0))
-    const biayaLain1 = parseFloat(calc.biayaLain1) || 0
-    const biayaLain2 = parseFloat(calc.biayaLain2) || 0
-    const packing = parseFloat(calc.packingCost) || 0
-    const shipping = parseFloat(calc.shippingCost) || 0
-    const glueCost = calc.calculatedGlueCost || 0
-    const glueBorongan = calc.calculatedGlueBoronganSheet || 0
-    const subTotal = paperPrice + (calc.calculatedPrintingCost || 0) + (calc.calculatedPrintingCost2 || 0) + (calc.calculatedFinishingCost || 0) + packing + shipping + biayaLain1 + biayaLain2 + glueCost + glueBorongan
-    const profitAmt = subTotal * (profitPercent / 100)
-    const grandTotal = subTotal + profitAmt
-
-    let sections = ''
-
-    // === INFORMASI CETAKAN ===
-    const warnaText = `${calc.warna || 0} warna${calc.warnaKhusus && parseInt(calc.warnaKhusus) > 0 ? ` + ${calc.warnaKhusus} khusus` : ''}`
-    const ukuranText = calc.cutWidth && calc.cutHeight ? `${calc.cutWidth} × ${calc.cutHeight} cm` : (calc.paperLength && calc.paperWidth ? `${calc.paperLength} × ${calc.paperWidth} cm` : '-')
-
-    sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon blue">ℹ</div>
-        <span>Informasi Cetakan</span>
-      </div>
-      <div class="info-grid">
-        <div class="info-card blue">
-          <div class="info-label">Nama Customer</div>
-          <div class="info-value">${calc.customerName || '-'}</div>
-        </div>
-        <div class="info-card indigo">
-          <div class="info-label">Nama Barang</div>
-          <div class="info-value">${calc.printName || '-'}</div>
-        </div>
-        <div class="info-card purple">
-          <div class="info-label">Jumlah Cetakan</div>
-          <div class="info-value">${fmtQ(calc.quantity)} <small>lembar</small></div>
-        </div>
-        <div class="info-card slate">
-          <div class="info-label">Ukuran Potongan</div>
-          <div class="info-value">${ukuranText}</div>
-        </div>
-        <div class="info-card slate">
-          <div class="info-label">Warna Cetak</div>
-          <div class="info-value">${warnaText}</div>
-        </div>
-        <div class="info-card slate">
-          <div class="info-label">Mesin</div>
-          <div class="info-value">${calc.machineName || '-'}</div>
-        </div>
-      </div>
-    </div>`
-
-    // === HARGA BAHAN KERTAS ===
-    if (paperPrice > 0) {
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon teal">📄</div>
-        <span>Harga Bahan Kertas</span>
-      </div>
-      <div class="cost-card teal">
-        <span class="cost-label">${calc.paperName || '-'}</span>
-        <span class="cost-value teal">${rp(paperPrice)}</span>
-      </div>
-    </div>`
-    }
-
-    // === ONGKOS CETAK ===
-    if (calc.calculatedPrintingCost > 0) {
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon blue">🔢</div>
-        <span>Ongkos Cetak</span>
-      </div>
-      <div class="cost-card blue">
-        <span class="cost-label">Total Ongkos Cetak</span>
-        <span class="cost-value blue">${rp(calc.calculatedPrintingCost)}</span>
-      </div>
-    </div>`
-    }
-
-    // === ONGKOS CETAK 2 ===
-    if (calc.calculatedPrintingCost2 > 0) {
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon fuchsia">🔢</div>
-        <span>Ongkos Cetak 2</span>
-      </div>
-      <div class="cost-card fuchsia">
-        <span class="cost-label">Total Ongkos Cetak 2</span>
-        <span class="cost-value fuchsia">${rp(calc.calculatedPrintingCost2)}</span>
-      </div>
-    </div>`
-    }
-
-    // === FINISHING ===
-    if (calc.finishingBreakdown && calc.finishingBreakdown.length > 0) {
-      const finRows = calc.finishingBreakdown.map(fb =>
-        `<div class="fin-row"><span>${fb.name}</span><span class="fin-price">${rp(fb.cost)}</span></div>`
-      ).join('')
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon rose">✂</div>
-        <span>Finishing</span>
-      </div>
-      <div class="fin-card">
-        ${finRows}
-        <div class="fin-total">
-          <span>Total Finishing</span>
-          <span class="fin-total-price">${rp(calc.calculatedFinishingCost)}</span>
-        </div>
-      </div>
-    </div>`
-    } else if (calc.finishingName && calc.calculatedFinishingCost > 0) {
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon rose">✂</div>
-        <span>Finishing</span>
-      </div>
-      <div class="cost-card rose">
-        <span class="cost-label">${calc.finishingName}</span>
-        <span class="cost-value rose">${rp(calc.calculatedFinishingCost)}</span>
-      </div>
-    </div>`
-    }
-
-    // === BIAYA TAMBAHAN ===
-    const extras = [
-      { name: 'Ongkos Packing', val: packing },
-      { name: 'Ongkos Kirim', val: shipping },
-      { name: 'Ongkos Lem', val: glueCost },
-      { name: 'Lem Borongan', val: glueBorongan },
-    ]
-    if (biayaLain1 > 0) extras.push({ name: calc.biayaLain1Label || 'Biaya Bikin Piso', val: biayaLain1 })
-    if (biayaLain2 > 0) extras.push({ name: calc.biayaLain2Label || 'Biaya', val: biayaLain2 })
-    const filteredExtras = extras.filter(e => e.val > 0)
-    if (filteredExtras.length > 0) {
-      const extraRows = filteredExtras.map(e =>
-        `<div class="extra-item"><div class="extra-icon">💰</div><div class="extra-text"><div class="extra-label">${e.name}</div><div class="extra-price">${rp(e.val)}</div></div></div>`
-      ).join('')
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon amber">💰</div>
-        <span>Biaya Tambahan</span>
-      </div>
-      <div class="extra-grid">${extraRows}</div>
-    </div>`
-    }
-
-    // === PROFIT ===
-    if (profitPercent > 0 && profitAmt > 0) {
-      sections += `
-    <div class="section">
-      <div class="section-header">
-        <div class="section-icon orange">%</div>
-        <span>Profit</span>
-      </div>
-      <div class="cost-card orange">
-        <span class="cost-label">Profit (${profitPercent}%)</span>
-        <span class="cost-value orange">${rp(Math.round(profitAmt))}</span>
-      </div>
-    </div>`
-    }
-
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${calc.printName}</title>
-      <style>
-        @page { size: A4 portrait; margin: 12mm 15mm; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
-          color: #1e293b;
-          font-size: 11px;
-          line-height: 1.4;
-          width: 210mm;
-          min-height: 297mm;
-        }
-        @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .page { page-break-after: avoid; }
-        }
-        .page {
-          padding: 0;
-        }
-        .header {
-          text-align: center;
-          padding-bottom: 10px;
-          border-bottom: 2px solid #e2e8f0;
-          margin-bottom: 10px;
-        }
-        .header h1 {
-          font-size: 18px;
-          font-weight: 800;
-          color: #0f172a;
-          letter-spacing: -0.3px;
-        }
-        .header p {
-          font-size: 10px;
-          color: #64748b;
-          margin-top: 3px;
-        }
-        .section {
-          margin-bottom: 8px;
-        }
-        .section-header {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-bottom: 5px;
-        }
-        .section-header span {
-          font-size: 11px;
-          font-weight: 700;
-          color: #334155;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .section-icon {
-          width: 20px;
-          height: 20px;
-          border-radius: 5px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: 700;
-        }
-        .section-icon.blue { background: #dbeafe; color: #2563eb; }
-        .section-icon.teal { background: #ccfbf1; color: #0d9488; }
-        .section-icon.fuchsia { background: #fae8ff; color: #c026d3; }
-        .section-icon.rose { background: #ffe4e6; color: #e11d48; }
-        .section-icon.amber { background: #fef3c7; color: #d97706; }
-        .section-icon.orange { background: #ffedd5; color: #ea580c; }
-        .info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 4px;
-        }
-        .info-card {
-          border-radius: 6px;
-          padding: 6px 8px;
-        }
-        .info-card.blue { background: #eff6ff; border: 1px solid #bfdbfe; }
-        .info-card.indigo { background: #eef2ff; border: 1px solid #c7d2fe; }
-        .info-card.purple { background: #faf5ff; border: 1px solid #e9d5ff; }
-        .info-card.slate { background: #f8fafc; border: 1px solid #e2e8f0; }
-        .info-label {
-          font-size: 8px;
-          font-weight: 500;
-          color: #64748b;
-          margin-bottom: 1px;
-        }
-        .info-card.blue .info-label { color: #3b82f6; }
-        .info-card.indigo .info-label { color: #6366f1; }
-        .info-card.purple .info-label { color: #a855f7; }
-        .info-value {
-          font-size: 12px;
-          font-weight: 700;
-          color: #334155;
-        }
-        .info-card.blue .info-value { color: #1e40af; }
-        .info-card.indigo .info-value { color: #3730a3; }
-        .info-card.purple .info-value { color: #7e22ce; }
-        .info-value small {
-          font-size: 9px;
-          font-weight: 400;
-          color: #a855f7;
-        }
-        .cost-card {
-          border-radius: 6px;
-          padding: 8px 10px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .cost-card.teal { background: #f0fdfa; border: 1px solid #99f6e4; }
-        .cost-card.blue { background: #eff6ff; border: 1px solid #bfdbfe; }
-        .cost-card.fuchsia { background: #fdf4ff; border: 1px solid #f0abfc; }
-        .cost-card.rose { background: #fff1f2; border: 1px solid #fecdd3; }
-        .cost-card.orange { background: #fff7ed; border: 1px solid #fed7aa; }
-        .cost-label {
-          font-size: 12px;
-          font-weight: 700;
-          color: #334155;
-        }
-        .cost-card.teal .cost-label { color: #115e59; }
-        .cost-card.blue .cost-label { color: #1e40af; }
-        .cost-card.fuchsia .cost-label { color: #a21caf; }
-        .cost-card.rose .cost-label { color: #9f1239; }
-        .cost-card.orange .cost-label { color: #ea580c; }
-        .cost-value {
-          font-size: 15px;
-          font-weight: 800;
-        }
-        .cost-value.teal { color: #0f766e; }
-        .cost-value.blue { color: #1d4ed8; }
-        .cost-value.fuchsia { color: #c026d3; }
-        .cost-value.rose { color: #be123c; }
-        .cost-value.orange { color: #c2410c; }
-        .fin-card {
-          background: #fff1f2;
-          border: 1px solid #fecdd3;
-          border-radius: 6px;
-          padding: 8px 10px;
-        }
-        .fin-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 2px 0;
-          font-size: 11px;
-          color: #9f1239;
-        }
-        .fin-price {
-          font-weight: 700;
-          color: #be123c;
-        }
-        .fin-total {
-          border-top: 1px solid #fecdd3;
-          margin-top: 4px;
-          padding-top: 5px;
-          display: flex;
-          justify-content: space-between;
-        }
-        .fin-total span:first-child {
-          font-size: 10px;
-          font-weight: 700;
-          color: #e11d48;
-          text-transform: uppercase;
-        }
-        .fin-total-price {
-          font-size: 13px;
-          font-weight: 800;
-          color: #be123c;
-        }
-        .extra-grid {
-          background: #fffbeb;
-          border: 1px solid #fde68a;
-          border-radius: 6px;
-          padding: 8px 10px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 6px;
-        }
-        .extra-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .extra-icon {
-          font-size: 14px;
-        }
-        .extra-label {
-          font-size: 9px;
-          color: #b45309;
-        }
-        .extra-price {
-          font-size: 12px;
-          font-weight: 700;
-          color: #92400e;
-        }
-        .grand-total {
-          background: #0f172a;
-          color: white;
-          border-radius: 10px;
-          padding: 14px 16px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 6px;
-        }
-        .grand-total-label {
-          font-size: 11px;
-          color: #94a3b8;
-        }
-        .grand-total-value {
-          font-size: 24px;
-          font-weight: 800;
-          color: #34d399;
-        }
-        .grand-total-detail {
-          text-align: right;
-          font-size: 9px;
-          color: #94a3b8;
-          line-height: 1.7;
-        }
-      </style>
-    </head><body>
-      <div class="page">
-        <div class="header">
-          <h1>Rincian Harga Cetakan</h1>
-          <p>${calc.printName} · ${now}</p>
-        </div>
-        ${sections}
-        <div class="grand-total">
-          <div>
-            <div class="grand-total-label">Grand Total</div>
-            <div class="grand-total-value">${rp(Math.round(grandTotal))}</div>
-          </div>
-          <div class="grand-total-detail">
-            <div>Sub Total: ${rp(Math.round(subTotal))}</div>
-            ${profitAmt > 0 ? `<div>Profit: ${rp(Math.round(profitAmt))}</div>` : ''}
-          </div>
-        </div>
-      </div>
-    </body></html>`
-  }
-
-  const handlePrint = () => {
-    if (!previewCalc) { toast.error('Preview tidak tersedia'); return }
-    const pw = window.open('', '_blank')
-    if (!pw) { toast.error('Popup diblokir'); return }
-    pw.document.write(buildPrintHtml(previewCalc))
-    pw.document.close()
-    pw.onload = () => setTimeout(() => pw.print(), 200)
+  // Cetak: hasil cetak = sama persis dengan isi dialog Detail Rincian Cetakan, di-fit ke halaman A5 portrait (148 × 210 mm)
+  const handlePrint = async () => {
+    const el = previewRef.current
+    if (!el || !previewCalc) { toast.error('Preview tidak tersedia'); return }
+    setIsPrinting(true)
+    try {
+      // Capture preview apa adanya → gambar 100% sama dengan tampilan dialog
+      const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
+      const dataUrl = await blobToDataUrl(blob)
+      const custLabel = (previewCalc.customerName || previewCalc.printName || 'rincian-cetakan')
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>Rincian Harga Cetakan ${custLabel}</title>
+<style>
+  @page { size: A5 portrait; margin: 5mm; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+</style></head>
+<body><img src="${dataUrl}" alt="Detail Rincian Cetakan" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
+      const pw = window.open('', '_blank')
+      if (!pw) { toast.error('Popup diblokir'); return }
+      pw.document.write(html)
+      pw.document.close()
+    } catch (e) {
+      console.error('Print error:', e)
+      toast.error('Gagal menyiapkan cetakan')
+    } finally { setIsPrinting(false) }
   }
 
   const handleJpg = async () => {
@@ -3080,9 +2701,9 @@ function HitungCetakanPage() {
           </div>
               {/* Action Buttons — kecil 1 baris: Cetak · JPG · Edit (Edit hanya saat preview dari riwayat) */}
               <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
-                <button onClick={handlePrint} title="Cetak rincian"
-                  className="flex-1 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
-                  <Printer className="w-3.5 h-3.5" /> Cetak
+                <button onClick={handlePrint} disabled={isPrinting} title="Cetak rincian (fit A5, sama persis dengan preview)"
+                  className="flex-1 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
+                  {isPrinting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />} Cetak
                 </button>
                 <button onClick={handleJpg} disabled={isGeneratingJpg} title="Kirim gambar JPG ukuran A4 (WhatsApp / unduh)"
                   className="flex-1 flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
