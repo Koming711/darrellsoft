@@ -9101,3 +9101,29 @@ Stage Summary:
 - Semua tombol aksi dialog Detail Rincian Cetakan kini dalam 1 baris rapi di desktop & mobile
 - Tampilan dialog lebih rapi: header terpisah border, informasi cetakan seragam netral, spacing konsisten
 - Fungsionalitas Cetak/PDF/Restore/Hapus tetap utuh; data uji tidak meninggalkan jejak
+
+---
+Task ID: 73-b
+Agent: Main
+Task: Diagnosis "belum berubah" — deploy Task 72-73 ke produksi www.darrellsoft.com
+
+Work Log:
+- Diagnosis akar masalah: kode lokal sudah benar (E2E lulus), tapi user melihat produksi
+- Investigasi teliti: hanya ada 1 komponen dialog detail (riwayat-content.tsx), tidak ada duplikat/rute alternatif
+- curl https://www.darrellsoft.com/sw.js -> CACHE_NAME masih darrell-soft-v60 (kode lama)
+- `vercel alias ls` membongkar akar masalah sejati: www.darrellsoft.com adalah domain milik project VERCEL "darrellsoft" (terakhir deploy 8 jam lalu = v60), sedangkan `.vercel/project.json` lokal menunjuk project "my-project" — sehingga `bunx vercel --prod` selalu salah target (deploy ke my-project, bukan darrellsoft)
+- Bump PWA: public/sw.js v60 -> v61 + APP_VERSION service-worker-registration.tsx '2026-09-14-v5' -> '2026-09-14-v6' (commit ebad22d), lint 0 error
+- Deploy pertama (ke my-project) tidak mempengaruhi domain produksi; perbaiki dengan switch project.json sementara ke darrellsoft (projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB via API Vercel) lalu deploy ulang -> sukses; project.json dikembalikan ke my-project, schema reverted ke sqlite + prisma generate
+- Verifikasi produksi: sw.js CACHE_NAME = darrell-soft-v61, last-modified 11:00 GMT, homepage 200
+- Verifikasi chunk produksi 62ba9162f9df595e.js mengandung string baru Task 73 ("Rincian perhitungan cetakan beserta tombol aksi")
+- E2E produksi desktop 1280x800 (login superadmin): icon restore di baris = 0; klik baris -> dialog detail dengan 4 tombol Cetak|PDF|Restore|Hapus sejajar 1 baris (y=711 seragam, w=109, h=44); screenshot /tmp/prod-detail-desktop.png
+- E2E produksi mobile 390x844: 4 tombol sejajar y=761, satuBaris=true, scrollWidth 390 = innerWidth (tanpa overflow); screenshot /tmp/prod-detail-mobile.png
+- localStorage produksi app_version = '2026-09-14-v6' (SW baru terpasang, cache lama ter-invalidate)
+- Data uji produksi dibuat via API lalu dihapus via tombol Hapus di dialog (DELETE sukses, API kembali [])
+- git push origin main sukses (3b48430..ebad22d, 7 commit termasuk Task 72+73+v61)
+
+Stage Summary:
+- AKAR MASALAH: deploy selama ini salah target project Vercel (my-project vs darrellsoft) — www.darrellsoft.com milik project "darrellsoft"
+- Produksi kini v61 dengan seluruh perubahan Task 72 & 73; SW akan memaksa refresh cache browser user
+- Konvensi deploy BARU: sebelum deploy produksi, pastikan .vercel/project.json menunjuk project darrellsoft (backup/restore my-project setelahnya)
+- Data uji produksi tidak meninggalkan jejak; DB produksi riwayat superadmin kembali kosong
