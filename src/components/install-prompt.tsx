@@ -241,18 +241,15 @@ export function InstallPrompt() {
   // Show success message after install
   if (installSuccess) {
     return (
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setInstallSuccess(false)} />
-        <div
-          className="relative bg-white rounded-2xl shadow-2xl max-w-[240px] w-full overflow-hidden text-center py-6 px-5"
-          style={{ animation: 'installPopIn 0.3s ease-out forwards' }}
-        >
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
-            <Download className="w-5 h-5 text-blue-700" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">{t.installed_title}</h3>
-          <p className="text-[10px] text-slate-500 mt-1">{t.installed_desc}</p>
+      <div
+        className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[40] bg-white rounded-2xl shadow-2xl max-w-[240px] w-[calc(100%-1.5rem)] overflow-hidden text-center py-6 px-5 border border-slate-200"
+        style={{ animation: 'installPopIn 0.3s ease-out forwards' }}
+      >
+        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+          <Download className="w-5 h-5 text-blue-700" />
         </div>
+        <h3 className="text-sm font-bold text-slate-800">{t.installed_title}</h3>
+        <p className="text-[10px] text-slate-500 mt-1">{t.installed_desc}</p>
         <style>{`
           @keyframes installPopIn {
             0% { opacity: 0; transform: scale(0.9); }
@@ -271,7 +268,7 @@ export function InstallPrompt() {
       {showFab && (
         <button
           onClick={() => { setDismissed(false); setShowPrompt(true); setShowManualInstall(false); sessionStorage.removeItem('install_dismissed'); }}
-          className="fixed bottom-4 right-4 z-[9998] w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+          className="fixed bottom-4 right-4 z-[40] w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           style={{ background: 'linear-gradient(135deg, #074290, #0a5eb8)' }}
           title={t.install_app}
         >
@@ -280,13 +277,10 @@ export function InstallPrompt() {
       )}
 
       {showPrompt && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4" onClick={handleDismiss}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative bg-white rounded-2xl shadow-2xl max-w-[280px] w-full overflow-hidden"
-            style={{ animation: 'installPopIn 0.3s ease-out forwards' }}
-          >
+        <div
+          className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[40] bg-white rounded-2xl shadow-2xl max-w-[280px] w-[calc(100%-1.5rem)] overflow-hidden border border-slate-200"
+          style={{ animation: 'installPopIn 0.3s ease-out forwards' }}
+        >
             {/* Header */}
             <div className="relative px-4 pt-5 pb-4 text-center" style={{ background: 'linear-gradient(135deg, #074290, #0a5eb8)' }}>
               <button
@@ -383,8 +377,6 @@ export function InstallPrompt() {
                 </button>
               )}
             </div>
-          </div>
-
           <style>{`
             @keyframes installPopIn {
               0% { opacity: 0; transform: scale(0.9); }
