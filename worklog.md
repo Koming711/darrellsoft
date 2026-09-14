@@ -9313,3 +9313,28 @@ Stage Summary:
 - Dialog Detail Rincian Cetakan (hitung-cetakan): JPG = gambar identik preview di kanvas A4 portrait 1240×1754; Cetak = gambar identik preview fit 1 halaman A5 portrait (148×210 mm, margin 5mm, contain, cetak otomatis).
 - Template cetak lama (buildPrintHtml) dihapus — satu sumber kebenaran = isi dialog preview (konsisten dengan potong-kertas Task 78).
 - Produksi belum di-deploy (lokal; PWA lokal masih v64 + perubahan Task 76/77/78/79 belum commit/deploy).
+
+---
+Task ID: 80
+Agent: Z.ai Code (main)
+Task: (a) Halaman riwayat hitung cetakan — klik baris → dialog "Detail Rincian Cetakan" yang sama persis dengan preview di halaman editor Hitung Cetakan; (b) tombol Cetak & JPG → hasil sama dengan preview dalam bentuk A5 landscape; (c) lanjutan: tambahkan foto lampiran di preview Detail Rincian Cetakan.
+
+Work Log:
+- Audit struktur: preview editor di src/app/hitung-cetakan/page.tsx (markup + derivasi pv* + helper PvField/PvMiniStat/PvCost + CuttingDiagram) vs dialog lama di src/components/riwayat-content.tsx (markup berbeda total). API /api/riwayat-cetakan mengembalikan seluruh kolom Prisma (termasuk photoUrl, setelanKertas, warna2, otherCost2, dll).
+- Buat komponen bersama src/components/rincian-cetakan-preview.tsx = SATU SUMBER KEBENARAN preview: interface RincianCetakanData (kompatibel PrintCalculation), mapper mapRiwayatToRincianData (identik mapping handlePreviewRiwayat editor), helper PvField/PvMiniStat/PvCost, dan komponen RincianCetakanPreview (markup 100% sama dengan preview editor: header, Informasi Pesanan, Rincian Biaya + tabel biaya, Gambar Potong Kertas + CuttingDiagram + 4 mini stat, Grand Total orange, Harga per Pcs).
+- Editor hitung-cetakan: hapus ±120 baris (blok pv*, 3 helper Pv*, markup preview) → diganti <RincianCetakanPreview data={previewCalc} />; import CuttingDiagram/Ruler dibersihkan. Jalur preview editor & jalur riwayat-editor kini render komponen yang sama dengan dialog halaman riwayat.
+- Halaman riwayat (riwayat-content.tsx): untuk item type hitung_cetakan → body dialog diganti wrapper p-3 sm:p-4 + <RincianCetakanPreview data={previewRincian} /> (previewRincian = useMemo(mapRiwayatToRincianData(previewItem))); item potong kertas tetap markup lama. DialogTitle dinamis "Detail Rincian Cetakan" (HC) / "Detail Riwayat Cetakan" (PK); DialogContent HC → sm:max-w-4xl (fix: sm:max-w-lg bawaan shadcn menimpa max-w-4xl biasa). RiwayatItem interface +10 field (setelanKertas, warna2, warnaKhusus2, hargaPlat2, otherCost2, otherCostLabel/2, glueLengthCm, glueCostPerCm, photoUrl).
+- A5 LANDSCAPE: editor handlePrint @page A5 portrait → A5 landscape; editor handleJpg fitBlobToA4 portrait → fitBlobToA5 { orientation: 'landscape', marginPct: 3 }. riwayat-content handlePrint bercabang: HC = captureElementAsJpg @pixelRatio 3 → blobToDataUrl → window.open @page { size: A5 landscape; margin: 5mm } + img object-fit: contain + auto print; PK = jalur lama (A4). handleJpg bercabang: HC = fitBlobToA5 landscape, PK = fitBlobToA4 portrait. Title tombol dinamis.
+- FOTO LAMPIRAN (permintaan lanjutan): RincianCetakanData + mapper + markup baru — kartu "Foto Lampiran" (ikon Image amber) di kolom kiri setelah Rincian Biaya, <img> max-h-64 object-contain, hanya muncul jika photoUrl ada. Karena capture = isi preview, foto otomatis ikut ke JPG & Cetak. Editor (handlePreview & handlePreviewRiwayat) sudah lama mengirim photoUrl.
+- Lint: bunx eslint 3 file → 0 error 0 warning.
+- E2E desktop 1280×800: login superadmin → baris tes via Prisma (cmu1vew5a0000nf2di0uuk9go, TES-A5L-80, field lengkap + photoUrl data URL 320×200) → /riwayat-hitung-cetakan → klik baris → dialog 896px, grid 5 kolom (3/2), semua section editor ada (Informasi Pesanan, Rincian Biaya, Gambar Potong Kertas + stats, Grand Total 1.765.500, Sub Total 1.605.000, Profit 10%) + FOTO LAMPIRAN img loaded 320×200 → JPG: raw 1788×2040 → final 1240×874 (rasio 1.4188 = A5 landscape) → Cetak: HTML berisi @page { size: A5 landscape; margin: 5mm } + img 895KB (preview @3x berisi foto) object-fit contain + auto window.print() → regresi editor: /hitung-cetakan tab Riwayat → dialog sama + foto tampil.
+- E2E mobile 390×844: dialog foto tampil, grid collapse 1 kolom, scrollWidth 390 = viewport; JPG final 1240×874 (raw 712×3252 di-contain ke kanvas landscape).
+- Bersih-bersih: baris tes TES-A5L-80 dihapus. Baseline tercatat 21 — row ke-21 (HC/09/26/0001 "buzzin", Siti Rohana, photoUrl 165KB) adalah data ASLI user (userId cmq365l8x..., dibuat 06:25 WIB saat E2E berjalan) → TIDAK dihapus. PWA lokal masih v64.
+- dev.log bersih (hanya 200 normal + "Verify session error" benign lama).
+
+Stage Summary:
+- Dialog detail di halaman Riwayat Hitung Cetakan kini 100% identik dengan preview editor (komponen bersama, satu sumber kebenaran) termasuk foto lampiran.
+- Tombol Cetak & JPG (dialog riwayat hitung cetakan + dialog editor): output = isi preview persis, di-fit A5 LANDSCAPE (210×148 mm, margin 5mm, contain; JPG 1240×874 @150DPI).
+- Foto lampiran kini tampil di preview Detail Rincian Cetakan (editor & riwayat) dan otomatis ikut tercetak/ter-JPG.
+- Potong kertas tidak berubah (riwayat PK: JPG A4 portrait + cetak A4; popup PK Task 78: A5 portrait).
+- Produksi belum di-deploy (lokal; Task 76-80 belum commit/deploy).
