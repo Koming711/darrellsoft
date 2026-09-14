@@ -771,15 +771,15 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                 </div>
 
                 {/* === GRAND TOTAL === */}
-                <div className="dark-surface bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-4 flex items-center justify-between shadow-lg shadow-orange-500/25">
                   <div>
-                    <p className="text-xs text-slate-400">Grand Total</p>
-                    <p className="text-2xl font-extrabold text-emerald-400">{formatRp(previewItem.grandTotal)}</p>
+                    <p className="text-xs text-orange-100">Grand Total</p>
+                    <p className="text-2xl font-extrabold text-white">{formatRp(previewItem.grandTotal)}</p>
                     {previewItem.jumlahPesanan && parseInt(previewItem.jumlahPesanan) > 0 && previewItem.grandTotal > 0 && (
-                      <p className="text-[11px] text-emerald-300 font-semibold mt-0.5">≈ {formatRp(Math.round(previewItem.grandTotal / parseInt(previewItem.jumlahPesanan)))} /pcs</p>
+                      <p className="text-[11px] text-orange-100 font-semibold mt-0.5">≈ {formatRp(Math.round(previewItem.grandTotal / parseInt(previewItem.jumlahPesanan)))} /pcs</p>
                     )}
                   </div>
-                  <div className="text-right text-[10px] text-slate-400 space-y-0.5">
+                  <div className="text-right text-[10px] text-orange-100/90 space-y-0.5">
                     <p>Sub Total: {formatRp(previewItem.subTotal)}</p>
                     {previewItem.profitAmount > 0 && <p>Profit: {formatRp(previewItem.profitAmount)}</p>}
                   </div>
