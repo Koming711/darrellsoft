@@ -9294,3 +9294,22 @@ Stage Summary:
 - Kode cetak/cetak-lama template terpisah dihapus; satu sumber kebenaran = isi preview.
 - Bug diagram kosong (viewBox NaN) untuk riwayat resultData format lama diperbaiki via recalculasi otomatis.
 - Produksi belum di-deploy (lokal; PWA lokal masih v64 + perubahan Task 76/77/78 belum commit/deploy).
+
+---
+Task ID: 79
+Agent: Z.ai Code (main)
+Task: Dialog "Detail Rincian Cetakan" (buka data riwayat dari dalam halaman Hitung Cetakan) — tombol JPG hasil = sama persis dengan preview; tombol Cetak hasil = sama persis dengan preview, dicetak fit to A5.
+
+Work Log:
+- Audit src/app/hitung-cetakan/page.tsx: tombol JPG dialog sudah memakai captureElementAsJpg(previewRef) + fitBlobToA4 portrait (pola Task 77) → tidak perlu diubah. Tombol Cetak masih pakai buildPrintHtml (template HTML terpisah, format beda dari preview).
+- Hapus buildPrintHtml (±413 baris, template cetak lama) via script Python dengan marker unik; sisipkan helper blobToDataUrl (module level).
+- handlePrint baru: captureElementAsJpg(previewRef, { pixelRatio: 3 }) → blobToDataUrl → window.open template cetak @page { size: A5 portrait; margin: 5mm }, img object-fit: contain (fit 1 halaman A5, auto window.print() saat img onload). State isPrinting baru + tombol Cetak dialog disabled/spinner saat proses.
+- Lint: bunx eslint → 0 error.
+- E2E desktop 1280×800: login superadmin → /hitung-cetakan → tab Riwayat → buka kartu tes (baris riwayat superadmin dibuat via Prisma: cmu1d0yom0000nfq5rzn953b8) → dialog "Detail Rincian Cetakan" tampil (2 kolom, Grand Total orange, footer [Cetak|JPG|Edit]) → JPG: blob final 1240×1754 (rasio 0.7070 = A4), overlay render = isi identik preview → Cetak: stub window.open, HTML berisi "@page { size: A5 portrait; margin: 5mm }" + <img data:image/jpeg> 3840×2004 (isi preview @3x) object-fit contain, title "Rincian Harga Cetakan CV Maju Jaya Printing".
+- E2E mobile 390×844: dialog tampil benar (footer sticky 1 baris); JPG blob 1240×1754 isi identik; print HTML A5 + img 1116×4197; scrollWidth 390 = viewport (desktop 1280 = viewport).
+- Bersih-bersih: hapus baris tes (baseline RiwayatCetakan kembali 20), browser ditutup, dev.log bersih tanpa error.
+
+Stage Summary:
+- Dialog Detail Rincian Cetakan (hitung-cetakan): JPG = gambar identik preview di kanvas A4 portrait 1240×1754; Cetak = gambar identik preview fit 1 halaman A5 portrait (148×210 mm, margin 5mm, contain, cetak otomatis).
+- Template cetak lama (buildPrintHtml) dihapus — satu sumber kebenaran = isi dialog preview (konsisten dengan potong-kertas Task 78).
+- Produksi belum di-deploy (lokal; PWA lokal masih v64 + perubahan Task 76/77/78/79 belum commit/deploy).
