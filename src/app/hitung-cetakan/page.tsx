@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Camera, Pencil, Save } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Ruler, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save } from 'lucide-react'
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -192,40 +192,6 @@ function PvCost({ name, detail, amount }: { name: React.ReactNode; detail?: Reac
   )
 }
 
-// Input kecil untuk mode Ubah (CRUD Update) di dialog Detail Rincian Cetakan
-function EditField({ label, value, onChange, type = 'text', placeholder, prefix }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; prefix?: string }) {
-  return (
-    <div className="min-w-0">
-      <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1 block leading-tight">{label}</label>
-      <div className="relative">
-        {prefix && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 pointer-events-none">{prefix}</span>}
-        <input
-          type={type}
-          inputMode={type === 'number' ? 'decimal' : undefined}
-          min={type === 'number' ? 0 : undefined}
-          step={type === 'number' ? 'any' : undefined}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={`w-full border border-slate-300 rounded-lg py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 transition-colors ${prefix ? 'pl-8 pr-2' : 'px-2.5'}`}
-        />
-      </div>
-    </div>
-  )
-}
-
-// Section wrapper untuk form Ubah
-function EditSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 bg-slate-50/70 border-b border-slate-100">
-        {icon}
-        <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">{title}</p>
-      </div>
-      <div className="p-3">{children}</div>
-    </div>
-  )
-}
 
 export default function HitungCetakanPageWrapper() {
   return (
@@ -472,9 +438,6 @@ function HitungCetakanPage() {
   const waWindowRef = useRef<Window | null>(null)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   // ===== Mode Ubah (CRUD Update) untuk detail rincian dari riwayat =====
-  const [isEditingPreview, setIsEditingPreview] = useState(false)
-  const [editForm, setEditForm] = useState<Record<string, string> | null>(null)
-  const [savingEdit, setSavingEdit] = useState(false)
 
   // === localStorage persistence ===
   const loadFromStorage = () => {
@@ -1856,117 +1819,6 @@ function HitungCetakanPage() {
     setPreviewOpen(true)
   }
 
-  // ===== CRUD: Ubah (Update) riwayat langsung dari dialog Detail Rincian Cetakan =====
-  const startEditRiwayat = () => {
-    if (!previewCalc) return
-    setEditForm({
-      customerName: previewCalc.customerName || '',
-      printName: previewCalc.printName && previewCalc.printName !== '-' ? previewCalc.printName : '',
-      jumlahPesanan: previewCalc.jumlahPesanan || '0',
-      berapaMata: previewCalc.berapaMata || '0',
-      quantity: previewCalc.quantity || '0',
-      setelanKertas: previewCalc.setelanKertas || '0',
-      paperLength: previewCalc.paperLength || '',
-      paperWidth: previewCalc.paperWidth || '',
-      cutWidth: previewCalc.cutWidth || '',
-      cutHeight: previewCalc.cutHeight || '',
-      warna: previewCalc.warna || '0',
-      warnaKhusus: previewCalc.warnaKhusus || '0',
-      warna2: previewCalc.warna2 || '0',
-      warnaKhusus2: previewCalc.warnaKhusus2 || '0',
-      paperName: previewCalc.paperName && previewCalc.paperName !== '-' ? previewCalc.paperName : '',
-      paperGrammage: previewCalc.paperGrammage ? previewCalc.paperGrammage.toString() : '0',
-      pricePerSheet: previewCalc.pricePerSheet || '0',
-      totalPaperPrice: (previewCalc.totalPaperPrice || 0).toString(),
-      machineName: previewCalc.machineName && previewCalc.machineName !== '-' ? previewCalc.machineName : '',
-      hargaPlat: previewCalc.hargaPlat || '0',
-      ongkosCetak: (previewCalc.calculatedPrintingCost || 0).toString(),
-      machineName2: previewCalc.machineName2 || '',
-      hargaPlat2: previewCalc.hargaPlat2 || '0',
-      ongkosCetak2: (previewCalc.calculatedPrintingCost2 || 0).toString(),
-      finishingCost: (previewCalc.calculatedFinishingCost || 0).toString(),
-      packingCost: previewCalc.packingCost || '0',
-      shippingCost: previewCalc.shippingCost || '0',
-      glueCost: (previewCalc.calculatedGlueCost || 0).toString(),
-      glueBorongan: (previewCalc.calculatedGlueBoronganSheet || 0).toString(),
-      biayaLain1: previewCalc.biayaLain1 || '0',
-      biayaLain1Label: previewCalc.biayaLain1Label || 'Biaya',
-      biayaLain2: previewCalc.biayaLain2 || '0',
-      biayaLain2Label: previewCalc.biayaLain2Label || 'Biaya',
-      profitPercent: String(previewCalc.profitPercent ?? 0)
-    })
-    setIsEditingPreview(true)
-  }
-
-  const editField = (key: string) => (value: string) => {
-    setEditForm(prev => (prev ? { ...prev, [key]: value } : prev))
-  }
-
-  const saveEditRiwayat = async () => {
-    if (!previewRiwayatRecord || !editForm) return
-    if (!editForm.printName || !editForm.printName.trim()) { toast.error('Nama Barang wajib diisi'); return }
-    setSavingEdit(true)
-    try {
-      const body = {
-        printName: editForm.printName.trim(),
-        customerName: editForm.customerName || '',
-        paperName: editForm.paperName || '',
-        paperGrammage: editForm.paperGrammage || '0',
-        paperLength: editForm.paperLength || '',
-        paperWidth: editForm.paperWidth || '',
-        cutWidth: editForm.cutWidth || '',
-        cutHeight: editForm.cutHeight || '',
-        quantity: editForm.quantity || '0',
-        jumlahPesanan: editForm.jumlahPesanan || '',
-        berapaMata: editForm.berapaMata || '',
-        setelanKertas: editForm.setelanKertas || '',
-        warna: editForm.warna || '0',
-        warnaKhusus: editForm.warnaKhusus || '0',
-        machineName: editForm.machineName || '',
-        hargaPlat: parseFloat(editForm.hargaPlat) || 0,
-        ongkosCetak: parseFloat(editForm.ongkosCetak) || 0,
-        machineName2: editForm.machineName2 || '',
-        warna2: editForm.warna2 || '0',
-        warnaKhusus2: editForm.warnaKhusus2 || '0',
-        hargaPlat2: parseFloat(editForm.hargaPlat2) || 0,
-        ongkosCetak2: parseFloat(editForm.ongkosCetak2) || 0,
-        totalPaperPrice: parseFloat(editForm.totalPaperPrice) || 0,
-        pricePerSheet: parseFloat(editForm.pricePerSheet) || 0,
-        finishingCost: parseFloat(editForm.finishingCost) || 0,
-        packingCost: parseFloat(editForm.packingCost) || 0,
-        shippingCost: parseFloat(editForm.shippingCost) || 0,
-        glueCost: parseFloat(editForm.glueCost) || 0,
-        glueBorongan: parseFloat(editForm.glueBorongan) || 0,
-        otherCost: parseFloat(editForm.biayaLain1) || 0,
-        otherCost2: parseFloat(editForm.biayaLain2) || 0,
-        otherCostLabel: editForm.biayaLain1Label || 'Biaya',
-        otherCostLabel2: editForm.biayaLain2Label || 'Biaya',
-        subTotal: Math.round(editSubTotal),
-        profitPercent: parseFloat(editForm.profitPercent) || 0,
-        profitAmount: Math.round(editProfitAmount),
-        grandTotal: Math.round(editGrandTotal)
-      }
-      const res = await authFetch(`/api/riwayat-cetakan/${previewRiwayatRecord.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify(body)
-      })
-      if (!res.ok) { toast.error('Gagal menyimpan perubahan'); return }
-      const updated = await res.json()
-      toast.success('Riwayat berhasil diperbarui!')
-      setIsEditingPreview(false)
-      setEditForm(null)
-      // Refresh preview dengan data terbaru + update daftar riwayat lokal
-      handlePreviewRiwayat(updated)
-      setRiwayatCetakanList(prev => prev.map(it => (it.id === updated.id ? { ...it, ...updated } : it)))
-      notifyDataChange('riwayat-cetakan')
-      fetchRiwayatCetakan()
-    } catch {
-      toast.error('Gagal menyimpan perubahan')
-    } finally {
-      setSavingEdit(false)
-    }
-  }
 
   // Summary values
   const summaryPacking = parseFloat(formData.packingCost) || 0
@@ -2128,23 +1980,6 @@ function HitungCetakanPage() {
   const pvSheetsNeeded = pvCutResult?.sheetsNeeded ?? (pvHargaPerLembar > 0 && pvPaperPrice > 0 ? Math.ceil(pvPaperPrice / pvHargaPerLembar) : 0)
   const pvHasCetak2 = (pvCalc?.machineName2 && pvCalc.machineName2 !== '') || pvPrintingCost2 > 0
   const pvHasFinishing = (pvCalc?.finishingName && pvCalc.finishingName !== '') || (pvCalc?.finishingBreakdown && pvCalc.finishingBreakdown.length > 0)
-  const pvHasTambahan = pvPacking > 0 || pvShipping > 0 || pvGlueCost > 0 || pvGlueBorongan > 0 || pvBiayaLain1 > 0 || pvBiayaLain2 > 0
-  // ===== Ringkasan live untuk mode Ubah (CRUD) =====
-  const editProfitPct = parseFloat(editForm?.profitPercent || '0') || 0
-  const editSubTotal = editForm
-    ? (parseFloat(editForm.totalPaperPrice) || 0) +
-      (parseFloat(editForm.ongkosCetak) || 0) +
-      (parseFloat(editForm.ongkosCetak2) || 0) +
-      (parseFloat(editForm.finishingCost) || 0) +
-      (parseFloat(editForm.packingCost) || 0) +
-      (parseFloat(editForm.shippingCost) || 0) +
-      (parseFloat(editForm.glueCost) || 0) +
-      (parseFloat(editForm.glueBorongan) || 0) +
-      (parseFloat(editForm.biayaLain1) || 0) +
-      (parseFloat(editForm.biayaLain2) || 0)
-    : 0
-  const editProfitAmount = editSubTotal * (editProfitPct / 100)
-  const editGrandTotal = editSubTotal + editProfitAmount
 
   return (
     <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
@@ -3110,245 +2945,26 @@ function HitungCetakanPage() {
       {/* ===== PREVIEW DIALOG ===== */}
       {previewOpen && previewCalc && (
         <PreviewDialog
-          onClose={() => { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null); setIsEditingPreview(false); setEditForm(null) }}
+          onClose={() => { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
           title="Detail Rincian Cetakan"
-          footer={isEditingPreview && editForm ? (
-            /* ===== FOOTER MODE UBAH (CRUD) ===== */
-            <div className="bg-card">
-              <div className="bg-slate-900 text-white px-3 sm:px-4 py-2 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Grand Total Baru</p>
-                  <p className="text-lg sm:text-2xl font-extrabold text-emerald-400 break-all leading-tight">{formatRp(editGrandTotal)}</p>
-                </div>
-                <div className="text-right text-[9px] sm:text-[11px] text-slate-400 leading-relaxed max-w-[52%]">
-                  <p className="break-words">Sub Total: <span className="font-semibold text-slate-200">{formatRp(editSubTotal)}</span></p>
-                  <p className="break-words">Profit ({editProfitPct}%): <span className="font-semibold text-orange-300">{formatRp(editProfitAmount)}</span></p>
-                </div>
+        >
+          <div ref={previewRef} className="p-3 sm:p-4 bg-white">
+            {/* Header */}
+            <div className="text-center pb-2 border-b-2 border-slate-200 mb-2">
+              <div className="flex items-center justify-center gap-2">
+                <Calculator className="w-5 h-5 text-blue-600" />
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900">Rincian Harga Cetakan</h1>
               </div>
-              <div className="grid grid-cols-2 gap-2 p-2.5 sm:p-3">
-                <button onClick={() => { setIsEditingPreview(false); setEditForm(null) }}
-                  className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                  <X className="w-4 h-4 shrink-0" /> Batal
-                </button>
-                <button onClick={saveEditRiwayat} disabled={savingEdit}
-                  className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                  {savingEdit ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" /> Menyimpan...</> : <><Save className="w-4 h-4 shrink-0" /> Simpan Perubahan</>}
-                </button>
-              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                <span className="font-semibold text-slate-600">{pvPrintName}</span>
+                {previewCalc.recordNumber ? <span> · No. {previewCalc.recordNumber}</span> : null}
+                <span> · {previewCalc.recordDate ? new Date(previewCalc.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              </p>
             </div>
-          ) : (
-            /* ===== FOOTER MODE LIHAT — Grand Total selalu terlihat, tanpa teks terpotong ===== */
-            <div className="bg-card">
-              <div className="dark-surface bg-slate-900 text-white px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Grand Total</p>
-                  <p className="text-lg sm:text-2xl font-extrabold text-emerald-400 break-all leading-tight">{formatRp(pvGrandTotal)}</p>
-                </div>
-                <div className="text-right text-[9px] sm:text-[11px] text-slate-400 leading-relaxed max-w-[52%]">
-                  <p className="break-words">Sub Total: <span className="font-semibold text-slate-200">{formatRp(pvSubTotal)}</span></p>
-                  {pvProfitPercent > 0 && pvProfitAmount > 0 && (
-                    <p className="break-words">Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>
-                  )}
-                  {pvHargaPerPcs > 0 && (
-                    <p className="font-semibold text-emerald-300">≈ {formatRp(pvHargaPerPcs)} /pcs</p>
-                  )}
-                </div>
-              </div>
-              {/* Tombol aksi — grid 2 kolom di mobile (tidak ada teks kepotong), 1 baris di desktop */}
-              <div className="p-2.5 sm:p-3">
-                {previewRiwayatRecord ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <button onClick={handlePrint}
-                      className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      <Printer className="w-4 h-4 shrink-0" /> Cetak
-                    </button>
-                    <button onClick={handlePdf} disabled={isGeneratingPdf}
-                      className="flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
-                    </button>
-                    <button onClick={startEditRiwayat}
-                      className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      <Pencil className="w-4 h-4 shrink-0" /> Ubah
-                    </button>
-                    <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null); setIsEditingPreview(false); setEditForm(null) }}
-                      className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      <RotateCcw className="w-4 h-4 shrink-0" /> Restore
-                    </button>
-                    <button onClick={async () => { const ok = await handleDeleteRiwayat(previewRiwayatRecord.id); if (ok) { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null); setIsEditingPreview(false); setEditForm(null) } }}
-                      className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      <Trash2 className="w-4 h-4 shrink-0" /> Hapus
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={handlePrint}
-                      className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      <Printer className="w-4 h-4 shrink-0" /> Cetak
-                    </button>
-                    <button onClick={handlePdf} disabled={isGeneratingPdf}
-                      className="flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-colors">
-                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}>
-          {isEditingPreview && editForm ? (
-            <div className="p-3 sm:p-4 bg-white space-y-3">
-              {/* Header mode ubah */}
-              <div className="rounded-2xl bg-gradient-to-br from-violet-600 via-violet-700 to-purple-900 text-white p-4 relative overflow-hidden">
-                <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
-                <div className="relative flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Pencil className="w-5 h-5" /></div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-violet-200">Mode Ubah · CRUD</p>
-                    <h2 className="text-base sm:text-lg font-extrabold leading-tight break-words">{pvPrintName}</h2>
-                  </div>
-                </div>
-                <p className="relative text-[11px] text-violet-100/90 mt-2.5 leading-relaxed">Ubah data di bawah lalu klik <span className="font-bold">Simpan Perubahan</span>. Sub Total, Profit, dan Grand Total dihitung ulang otomatis.</p>
-              </div>
-
-              <EditSection title="Informasi Pesanan" icon={<div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center"><Users className="w-3.5 h-3.5 text-blue-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <EditField label="Nama Customer" value={editForm.customerName || ''} onChange={editField('customerName')} />
-                  <EditField label="Nama Barang" value={editForm.printName || ''} onChange={editField('printName')} />
-                  <EditField label="Jumlah Pesanan" type="number" value={editForm.jumlahPesanan || '0'} onChange={editField('jumlahPesanan')} />
-                  <EditField label="Cetak Berapa Mata" type="number" value={editForm.berapaMata || '0'} onChange={editField('berapaMata')} />
-                  <EditField label="Jumlah Cetakan" type="number" value={editForm.quantity || '0'} onChange={editField('quantity')} />
-                  <EditField label="Insit Kertas" type="number" value={editForm.setelanKertas || '0'} onChange={editField('setelanKertas')} />
-                </div>
-              </EditSection>
-
-              <EditSection title="Ukuran & Warna" icon={<div className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center"><Ruler className="w-3.5 h-3.5 text-teal-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <EditField label="Uk. Bahan P (cm)" type="number" value={editForm.paperLength || ''} onChange={editField('paperLength')} />
-                  <EditField label="Uk. Bahan L (cm)" type="number" value={editForm.paperWidth || ''} onChange={editField('paperWidth')} />
-                  <EditField label="Uk. Potong P (cm)" type="number" value={editForm.cutWidth || ''} onChange={editField('cutWidth')} />
-                  <EditField label="Uk. Potong L (cm)" type="number" value={editForm.cutHeight || ''} onChange={editField('cutHeight')} />
-                  <EditField label="Warna Cetak" type="number" value={editForm.warna || '0'} onChange={editField('warna')} />
-                  <EditField label="Warna Khusus" type="number" value={editForm.warnaKhusus || '0'} onChange={editField('warnaKhusus')} />
-                  <EditField label="Warna Cetak 2" type="number" value={editForm.warna2 || '0'} onChange={editField('warna2')} />
-                  <EditField label="Warna Khusus 2" type="number" value={editForm.warnaKhusus2 || '0'} onChange={editField('warnaKhusus2')} />
-                </div>
-              </EditSection>
-
-              <EditSection title="Bahan Kertas" icon={<div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center"><FileText className="w-3.5 h-3.5 text-emerald-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <EditField label="Nama Bahan" value={editForm.paperName || ''} onChange={editField('paperName')} />
-                  <EditField label="Grammage (gsm)" type="number" value={editForm.paperGrammage || '0'} onChange={editField('paperGrammage')} />
-                  <EditField label="Harga / Lembar" type="number" prefix="Rp" value={editForm.pricePerSheet || '0'} onChange={editField('pricePerSheet')} />
-                  <EditField label="Total Harga Kertas" type="number" prefix="Rp" value={editForm.totalPaperPrice || '0'} onChange={editField('totalPaperPrice')} />
-                </div>
-              </EditSection>
-
-              <EditSection title="Ongkos Cetak" icon={<div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center"><Calculator className="w-3.5 h-3.5 text-violet-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <EditField label="Nama Mesin" value={editForm.machineName || ''} onChange={editField('machineName')} />
-                  <EditField label="Total Ongkos Cetak" type="number" prefix="Rp" value={editForm.ongkosCetak || '0'} onChange={editField('ongkosCetak')} />
-                  <EditField label="Harga Plat" type="number" prefix="Rp" value={editForm.hargaPlat || '0'} onChange={editField('hargaPlat')} />
-                </div>
-              </EditSection>
-
-              <EditSection title="Ongkos Cetak 2" icon={<div className="w-6 h-6 rounded-lg bg-fuchsia-100 flex items-center justify-center"><Calculator className="w-3.5 h-3.5 text-fuchsia-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <EditField label="Nama Mesin 2" value={editForm.machineName2 || ''} onChange={editField('machineName2')} />
-                  <EditField label="Total Ongkos Cetak 2" type="number" prefix="Rp" value={editForm.ongkosCetak2 || '0'} onChange={editField('ongkosCetak2')} />
-                  <EditField label="Harga Plat 2" type="number" prefix="Rp" value={editForm.hargaPlat2 || '0'} onChange={editField('hargaPlat2')} />
-                </div>
-              </EditSection>
-
-              <EditSection title="Finishing & Biaya Tambahan" icon={<div className="w-6 h-6 rounded-lg bg-rose-100 flex items-center justify-center"><Layers className="w-3.5 h-3.5 text-rose-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <EditField label="Total Finishing" type="number" prefix="Rp" value={editForm.finishingCost || '0'} onChange={editField('finishingCost')} />
-                  <EditField label="Ongkos Packing" type="number" prefix="Rp" value={editForm.packingCost || '0'} onChange={editField('packingCost')} />
-                  <EditField label="Ongkos Kirim" type="number" prefix="Rp" value={editForm.shippingCost || '0'} onChange={editField('shippingCost')} />
-                  <EditField label="Ongkos Lem" type="number" prefix="Rp" value={editForm.glueCost || '0'} onChange={editField('glueCost')} />
-                  <EditField label="Lem Borongan" type="number" prefix="Rp" value={editForm.glueBorongan || '0'} onChange={editField('glueBorongan')} />
-                  <EditField label="Nama Biaya Lain 1" value={editForm.biayaLain1Label || 'Biaya'} onChange={editField('biayaLain1Label')} />
-                  <EditField label="Biaya Lain 1" type="number" prefix="Rp" value={editForm.biayaLain1 || '0'} onChange={editField('biayaLain1')} />
-                  <EditField label="Nama Biaya Lain 2" value={editForm.biayaLain2Label || 'Biaya'} onChange={editField('biayaLain2Label')} />
-                  <EditField label="Biaya Lain 2" type="number" prefix="Rp" value={editForm.biayaLain2 || '0'} onChange={editField('biayaLain2')} />
-                </div>
-              </EditSection>
-
-              <EditSection title="Profit" icon={<div className="w-6 h-6 rounded-lg bg-orange-100 flex items-center justify-center"><Percent className="w-3.5 h-3.5 text-orange-600" /></div>}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  <EditField label="Profit (%)" type="number" value={editForm.profitPercent || '0'} onChange={editField('profitPercent')} />
-                </div>
-              </EditSection>
-
-              {/* Ringkasan live */}
-              <div className="bg-slate-900 rounded-xl p-3.5 text-white flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold">Grand Total Baru</p>
-                  <p className="text-xl font-extrabold text-emerald-400 break-all leading-tight">{formatRp(editGrandTotal)}</p>
-                </div>
-                <div className="text-right text-[10px] sm:text-[11px] text-slate-400 leading-relaxed max-w-[52%]">
-                  <p className="break-words">Sub Total: <span className="font-semibold text-slate-200">{formatRp(editSubTotal)}</span></p>
-                  <p className="break-words">Profit ({editProfitPct}%): <span className="font-semibold text-orange-300">{formatRp(editProfitAmount)}</span></p>
-                </div>
-              </div>
-            </div>
-          ) : (
-          <div ref={previewRef} className="p-3 sm:p-4 bg-white space-y-3">
-            {/* ===== HEADER DOKUMEN BARU — gradient gelap gaya invoice ===== */}
-            <div className="dark-surface rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white p-4 relative overflow-hidden">
-              <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-emerald-500/10 pointer-events-none" />
-              <div className="absolute -bottom-16 -left-10 w-36 h-36 rounded-full bg-emerald-400/5 pointer-events-none" />
-              <div className="relative">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[9px] font-bold uppercase tracking-wider text-emerald-300">
-                    <Calculator className="w-3 h-3 shrink-0" /> Rincian Harga Cetakan
-                  </span>
-                  <div className="text-right">
-                    {previewCalc.recordNumber && <p className="font-mono text-[10px] text-slate-300 leading-tight">No. {previewCalc.recordNumber}</p>}
-                    <p className="text-[10px] text-slate-400 leading-tight">
-                      {previewCalc.recordDate ? new Date(previewCalc.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-                <h1 className="text-lg sm:text-2xl font-extrabold mt-2.5 leading-snug break-words">{pvPrintName}</h1>
-                <p className="text-xs text-slate-300 mt-1 flex items-center gap-1.5 min-w-0">
-                  <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="break-words">{pvCustomerName}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* ===== STRIP STATISTIK ===== */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="border border-slate-200 rounded-xl px-2 py-2.5 text-center bg-white min-w-0">
-                <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 leading-tight">Harga / Pcs</p>
-                <p className="text-sm sm:text-lg font-extrabold text-slate-800 break-all leading-tight mt-1">{pvHargaPerPcs > 0 ? formatRp(pvHargaPerPcs) : '-'}</p>
-              </div>
-              <div className="border border-slate-200 rounded-xl px-2 py-2.5 text-center bg-white min-w-0">
-                <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 leading-tight">Sub Total</p>
-                <p className="text-sm sm:text-lg font-extrabold text-slate-800 break-all leading-tight mt-1">{formatRp(pvSubTotal)}</p>
-              </div>
-              <div className="border border-orange-200 bg-orange-50/60 rounded-xl px-2 py-2.5 text-center min-w-0">
-                <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-400 leading-tight">Profit {pvProfitPercent > 0 ? `(${pvProfitPercent}%)` : ''}</p>
-                <p className="text-sm sm:text-lg font-extrabold text-orange-600 break-all leading-tight mt-1">{formatRp(pvProfitAmount)}</p>
-              </div>
-            </div>
-
-            {/* ===== FOTO LAMPIRAN — sekarang MUNCUL di detail (fix "preview tidak muncul") ===== */}
-            {previewCalc.photoUrl && (
-              <div className="border border-sky-200 bg-sky-50/50 rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-lg bg-sky-100 flex items-center justify-center"><Camera className="w-3.5 h-3.5 text-sky-600" /></div>
-                  <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Foto Lampiran</p>
-                </div>
-                <a href={previewCalc.photoUrl} target="_blank" rel="noreferrer" className="block group">
-                  <img src={previewCalc.photoUrl} alt={`Foto lampiran ${pvPrintName}`} className="w-full max-h-64 sm:max-h-80 object-contain rounded-lg border border-sky-200 bg-white group-hover:opacity-90 transition-opacity" />
-                  <p className="text-[10px] text-sky-500 text-center mt-1">Klik foto untuk memperbesar</p>
-                </a>
-              </div>
-            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:items-start">
-              {/* ===== INFORMASI PESANAN — CRUD field grid (lebar penuh) ===== */}
-              <div className="lg:col-span-5">
+              {/* ===== KOLOM KIRI: INFORMASI + RINCIAN BIAYA ===== */}
+              <div className="lg:col-span-3 space-y-3">
                 {/* Informasi Pesanan - CRUD field grid */}
                 <div className="border border-slate-200 rounded-xl p-3 bg-white">
                   <div className="flex items-center gap-2 mb-2">
@@ -3357,7 +2973,7 @@ function HitungCetakanPage() {
                     </div>
                     <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Informasi Pesanan</p>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <PvField label="Nama Customer" value={pvCustomerName} accent="text-blue-800" />
                     <PvField label="Nama Barang" value={pvPrintName} accent="text-indigo-800" />
                     <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
@@ -3371,10 +2987,7 @@ function HitungCetakanPage() {
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* ===== KOLOM KIRI: RINCIAN BIAYA ===== */}
-              <div className="lg:col-span-3">
                 {/* Rincian Biaya - tabel CRUD */}
                 <div className="border border-slate-200 rounded-xl p-3 bg-white">
                   <div className="flex items-center gap-2 mb-2">
@@ -3432,13 +3045,29 @@ function HitungCetakanPage() {
                         <td colSpan={2} className="pt-2 text-xs font-bold text-slate-600 uppercase tracking-wide">Sub Total</td>
                         <td className="pt-2 text-right text-sm font-extrabold text-slate-800 tabular-nums">{formatRp(pvSubTotal)}</td>
                       </tr>
+                      {pvProfitPercent > 0 && pvProfitAmount > 0 && (
+                        <tr>
+                          <td colSpan={2} className="pt-1.5 text-xs font-bold text-orange-600 uppercase tracking-wide">Profit ({pvProfitPercent}%)</td>
+                          <td className="pt-1.5 text-right text-sm font-extrabold text-orange-600 tabular-nums">{formatRp(pvProfitAmount)}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td colSpan={2} className="pt-2 text-sm font-extrabold text-slate-900 uppercase tracking-wide">Grand Total</td>
+                        <td className="pt-2 text-right text-lg font-extrabold text-emerald-600 tabular-nums">{formatRp(pvGrandTotal)}</td>
+                      </tr>
+                      {pvHargaPerPcs > 0 && (
+                        <tr>
+                          <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga Jual per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
+                          <td className="pt-1.5 text-right text-xs font-bold text-emerald-700 tabular-nums">{formatRp(pvHargaPerPcs)}</td>
+                        </tr>
+                      )}
                     </tfoot>
                   </table>
                 </div>
               </div>
 
-              {/* ===== KOLOM KANAN: GAMBAR POTONG ===== */}
-              <div className="lg:col-span-2">
+              {/* ===== KOLOM KANAN: GAMBAR POTONG + TOTAL ===== */}
+              <div className="lg:col-span-2 space-y-3">
                 {/* Gambar Potong Kertas */}
                 <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
                   <div className="flex items-center gap-2 mb-2">
@@ -3468,10 +3097,44 @@ function HitungCetakanPage() {
                   )}
                 </div>
 
+                {/* GRAND TOTAL */}
+                <div className="dark-surface bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">Grand Total</p>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400">{formatRp(pvGrandTotal)}</p>
+                  </div>
+                  <div className="text-right text-[10.5px] text-slate-400 space-y-0.5">
+                    <p>Sub Total: <span className="font-semibold text-slate-300">{formatRp(pvSubTotal)}</span></p>
+                    {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-orange-300">{formatRp(pvProfitAmount)}</span></p>}
+                    {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-emerald-300">{formatRp(pvHargaPerPcs)}</span></p>}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          )}
+              {/* Action Buttons — Restore & Hapus hanya saat preview dari riwayat */}
+              <div className={`sticky bottom-0 bg-card border-t border-slate-200 p-3 ${previewRiwayatRecord ? 'grid grid-cols-2 gap-2' : 'flex gap-2'}`}>
+                <button onClick={handlePrint}
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                  <Printer className="w-4 h-4" /> Cetak
+                </button>
+                <button onClick={handlePdf} disabled={isGeneratingPdf}
+                  className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
+                  {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
+                </button>
+                {previewRiwayatRecord && (
+                  <>
+                    <button onClick={() => { handleRestoreRiwayat(previewRiwayatRecord); setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <RotateCcw className="w-4 h-4" /> Restore
+                    </button>
+                    <button onClick={async () => { const ok = await handleDeleteRiwayat(previewRiwayatRecord.id); if (ok) { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) } }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-colors">
+                      <Trash2 className="w-4 h-4" /> Hapus
+                    </button>
+                  </>
+                )}
+              </div>
         </PreviewDialog>
       )}
 
