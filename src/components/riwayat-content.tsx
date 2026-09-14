@@ -5,7 +5,7 @@ import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Lo
 import { useRouter } from 'next/navigation'
 import { MobileTable } from '@/components/mobile-table'
 import { useLanguage } from '@/contexts/language-context'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -413,16 +413,19 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
       {/* ===== PREVIEW DIALOG ===== */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
-          <DialogHeader className="p-4 pb-0">
+          <DialogHeader className="px-4 sm:px-5 pt-4 pb-3 border-b border-slate-200">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5 text-violet-600" />
               Detail Riwayat Cetakan
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Rincian perhitungan cetakan beserta tombol aksi
+            </DialogDescription>
           </DialogHeader>
 
           {previewItem && (
             <>
-              <div ref={previewRef} className="p-4 bg-white space-y-3">
+              <div ref={previewRef} className="p-4 sm:p-5 bg-white space-y-4">
                 {/* Header */}
                 <div className="text-center pb-3 border-b-2 border-slate-200">
                   <div className="flex items-center justify-center gap-2 mb-1">
@@ -449,26 +452,26 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                     <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Informasi Cetakan</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-2.5">
-                      <p className="text-[10px] text-blue-500 font-medium">Nama Customer</p>
-                      <p className="text-sm font-bold text-blue-800">{previewItem.customerName || '-'}</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                      <p className="text-[10px] text-slate-500 font-medium">Nama Customer</p>
+                      <p className="text-sm font-bold text-slate-800 truncate">{previewItem.customerName || '-'}</p>
                     </div>
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2.5">
-                      <p className="text-[10px] text-indigo-500 font-medium">Nama Cetakan</p>
-                      <p className="text-sm font-bold text-indigo-800">{previewItem.printName || '-'}</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                      <p className="text-[10px] text-slate-500 font-medium">Nama Cetakan</p>
+                      <p className="text-sm font-bold text-slate-800 truncate">{previewItem.printName || '-'}</p>
                     </div>
-                    <div className="bg-purple-50 border border-purple-100 rounded-lg p-2.5">
-                      <p className="text-[10px] text-purple-500 font-medium">Jumlah Cetakan</p>
-                      <p className="text-sm font-bold text-purple-800">{parseInt(previewItem.quantity || '0').toLocaleString('id-ID')} <span className="text-xs font-normal text-purple-500">lembar</span></p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                      <p className="text-[10px] text-slate-500 font-medium">Jumlah Cetakan</p>
+                      <p className="text-sm font-bold text-slate-800">{parseInt(previewItem.quantity || '0').toLocaleString('id-ID')} <span className="text-xs font-normal text-slate-400">lembar</span></p>
                     </div>
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
                       <p className="text-[10px] text-slate-500 font-medium">Ukuran Potongan</p>
-                      <p className="text-sm font-bold text-slate-700">{previewItem.cutWidth && previewItem.cutHeight ? `${previewItem.cutWidth} × ${previewItem.cutHeight} cm` : '-'}</p>
+                      <p className="text-sm font-bold text-slate-800">{previewItem.cutWidth && previewItem.cutHeight ? `${previewItem.cutWidth} × ${previewItem.cutHeight} cm` : '-'}</p>
                     </div>
                     {isItemHitungCetak(previewItem) && (
                       <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
                         <p className="text-[10px] text-slate-500 font-medium">Warna Cetak</p>
-                        <p className="text-sm font-bold text-slate-700">
+                        <p className="text-sm font-bold text-slate-800">
                           {previewItem.warna || 0} warna
                           {previewItem.warnaKhusus && parseInt(previewItem.warnaKhusus) > 0 ? ` + ${previewItem.warnaKhusus} khusus` : ''}
                         </p>
@@ -768,39 +771,39 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
               </div>
 
               {/* Action Buttons */}
-              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4">
+              <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 sm:px-5">
                 {detailOnRowClick ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="flex gap-2 sm:gap-3">
                     <button onClick={handlePrint}
-                      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <Printer className="w-4 h-4" /> Cetak
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <Printer className="w-4 h-4 shrink-0" /> Cetak
                     </button>
                     <button onClick={handlePdf} disabled={isGeneratingPdf}
-                      className="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
-                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
                     </button>
                     <button onClick={() => handleRestore(previewItem)}
-                      className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <RotateCcw className="w-4 h-4" /> Restore
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <RotateCcw className="w-4 h-4 shrink-0" /> Restore
                     </button>
                     <button onClick={async () => { if (!previewItem) return; const ok = await handleDelete(previewItem); if (ok) setPreviewOpen(false) }}
-                      className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <Trash2 className="w-4 h-4" /> Hapus
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <Trash2 className="w-4 h-4 shrink-0" /> Hapus
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-3">
+                  <div className="flex gap-2 sm:gap-3">
                     <button onClick={handlePrint}
-                      className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <Printer className="w-4 h-4" /> Cetak
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <Printer className="w-4 h-4 shrink-0" /> Cetak
                     </button>
                     <button onClick={() => handleRestore(previewItem)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">
-                      <RotateCcw className="w-4 h-4" /> Restore
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      <RotateCcw className="w-4 h-4 shrink-0" /> Restore
                     </button>
                     <button onClick={handlePdf} disabled={isGeneratingPdf}
-                      className="flex-1 flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-xl transition-colors">
-                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4" /> PDF</>}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm whitespace-nowrap transition-colors">
+                      {isGeneratingPdf ? <><Loader2 className="w-4 h-4 shrink-0 animate-spin" />PDF...</> : <><FileImage className="w-4 h-4 shrink-0" /> PDF</>}
                     </button>
                   </div>
                 )}
