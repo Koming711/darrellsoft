@@ -336,7 +336,12 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
     if (!data) return
     setJpgGenerating(true)
     try {
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+      // Capture elemen .a5-page (layout tetap 148mm di SEMUA perangkat) — bukan
+      // wrapper scaler yang lebarnya mengikuti layar (desktop ±670px, mobile ±350px).
+      // Menangkap wrapper membuat hasil JPG mobile berbeda dari desktop; dengan
+      // .a5-page, capture selalu identik → hasil mobile = desktop (acuan: desktop).
+      const previewEl = (document.querySelector('#document-preview .a5-page')
+        || document.querySelector('[data-document-preview]')) as HTMLElement
       if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
       // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait 300 DPI (1748 × 2480 px),
       // identik dengan pratinjau di layar
@@ -366,7 +371,10 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
   // di-fit ke halaman A5 portrait (148 × 210 mm)
   const handlePrint = async () => {
     if (!data) return
-    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+    // Sama seperti handleJpg: capture .a5-page (148mm tetap) agar hasil cetak
+    // mobile identik dengan desktop, apa pun lebar layar.
+    const previewEl = (document.querySelector('#document-preview .a5-page')
+      || document.querySelector('[data-document-preview]')) as HTMLElement
     if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
     setIsPrinting(true)
     try {
