@@ -9410,3 +9410,17 @@ Stage Summary:
 - Popup Preview Potong Kertas kini menampilkan kartu Foto Lampiran (dari form editor ATAU dari baris riwayat saat preview riwayat), bisa diklik untuk perbesar (lightbox).
 - Foto otomatis ikut ke output JPG (A4 portrait 1240×1754) dan Cetak (A5 portrait, margin 5mm) karena capture = isi preview — satu sumber kebenaran dengan layar.
 - www.darrellsoft.com live dengan PWA v66 (Task 76–83 lengkap).
+
+---
+Task ID: 84
+Agent: Z.ai Code (main)
+Task: (DIBATALKAN oleh user) Dialog Detail Rincian Cetakan — hapus kotak Grand Total + besarkan teks Grand Total +2px.
+
+Work Log:
+- Perubahan sempat diimplementasikan di src/components/rincian-cetakan-preview.tsx: kotak orange Grand Total dihapus, tfoot Grand Total label text-sm→text-base & nilai text-lg→text-xl; lint 0 error.
+- E2E desktop terverifikasi sebelum pembatalan (dialog "Detail Rincian Cetakan" via /riwayat-hitung-cetakan, data uji superadmin HC/09/26/0015): elemen gradien orange = 0, label 16px, nilai 20px, dialog fit (754<800), flow JPG OK (2 blob image/jpeg 282KB→172KB, capture tanpa kotak).
+- User kirim "cancel perintah terakhir" → src/components/rincian-cetakan-preview.tsx direstore PERSIS ke kondisi Task 83 (git checkout 673153e -- <file>): kotak Grand Total orange & ukuran teks lama (text-sm/text-lg) kembali, byte-identik dengan live PWA v66.
+- Data uji cmu1zyqmr0003nfhxdj83xwor (HC/09/26/0015) dihapus via DELETE /api/riwayat-cetakan/[id] (200) → superadmin kembali 0 baris; baseline HC=21, PK=20 utuh. dev.log bersih tanpa error.
+
+Stage Summary:
+- TIDAK ada perubahan kode yang bertahan & TIDAK ada deploy — www.darrellsoft.com tetap PWA v66 dengan kotak Grand Total orange di dialog Detail Rincian Cetakan (kondisi persis sebelum permintaan).
