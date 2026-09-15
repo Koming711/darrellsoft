@@ -1471,6 +1471,10 @@ function CalculatorPage() {
               if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
               params.set('fromPotongKertas', '1')
               params.set('reset', '1')
+              // Foto lampiran ikut dibawa ke editor Hitung Cetakan.
+              // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
+              if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)
+              else sessionStorage.removeItem('pk-to-hc-photoUrl')
               router.push(`/hitung-cetakan?${params.toString()}`)
               // Simpan riwayat di background (non-blocking)
               if (results && !isDataSameAsAnyRiwayat()) {

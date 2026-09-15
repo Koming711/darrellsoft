@@ -629,6 +629,16 @@ function HitungCetakanPage() {
     if (finishingNamesParam && finishingNamesParam !== '-') window.__restoreFinishingNames = finishingNamesParam
     if (pricePerSheetParam) window.__restorePricePerSheet = pricePerSheetParam
 
+    // Foto lampiran dari editor Potong Kertas (dikirim via sessionStorage
+    // saat tombol "Hitung Cetakan Lengkap" diklik)
+    if (fromPotong === '1') {
+      const pkPhoto = sessionStorage.getItem('pk-to-hc-photoUrl')
+      if (pkPhoto) {
+        setPhotoUrl(pkPhoto)
+        sessionStorage.removeItem('pk-to-hc-photoUrl')
+      }
+    }
+
     setPrefilled(true)
     // Bersihkan URL params setelah dibaca
     window.history.replaceState({}, '', '/hitung-cetakan')
