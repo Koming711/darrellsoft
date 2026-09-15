@@ -67,7 +67,7 @@ import {
 } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
-import { captureElementAsJpg } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { syncLinkedPelunasan } from '@/lib/sync-pelunasan'
 import { useDokuproStore } from '@/lib/store'
@@ -247,6 +247,16 @@ function EmptyState({ filtered, title, desc }: { filtered: boolean; title?: stri
 // ada DI ATAS pratinjau. Pratinjau A5 ber-outline, +20% (desktop),
 // full-width di mobile.
 // ============================================================
+/** Blob JPG → data URL (untuk <img> di jendela cetak). */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
   const router = useRouter()
   const resetDocument = useDokuproStore((s) => s.resetDocument)
@@ -254,6 +264,7 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [jpgGenerating, setJpgGenerating] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
   const [updating, setUpdating] = useState(false)
 
   // Dialog konfirmasi
@@ -327,7 +338,10 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
-      const blob = await captureElementAsJpg(previewEl)
+      // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait (148 × 210 mm),
+      // identik dengan pratinjau di layar
+      const rawBlob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
       const phone = data.client?.kontak || ''
       const result = await shareJpgToWhatsApp({
@@ -346,6 +360,37 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
     } finally {
       setJpgGenerating(false)
     }
+  }
+
+  // Cetak: hasil cetak = sama persis dengan pratinjau di layar, hi-res (3x),
+  // di-fit ke halaman A5 portrait (148 × 210 mm)
+  const handlePrint = async () => {
+    if (!data) return
+    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+    if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
+    setIsPrinting(true)
+    try {
+      // Capture pratinjau apa adanya → gambar 100% sama dengan tampilan layar
+      const blob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
+      const dataUrl = await blobToDataUrl(blob)
+      const label = (data.nomor || 'invoice').replace(/\//g, '-')
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><title>Invoice ${label}</title>
+<style>
+  @page { size: A5 portrait; margin: 5mm; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+</style></head>
+<body><img src="${dataUrl}" alt="Detail Invoice" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
+      const pw = window.open('', '_blank')
+      if (!pw) { toast.error('Popup diblokir'); return }
+      pw.document.write(html)
+      pw.document.close()
+    } catch (e) {
+      console.error('Print error:', e)
+      toast.error('Gagal menyiapkan cetakan')
+    } finally { setIsPrinting(false) }
   }
 
   // Tandai Lunas — invoice dinyatakan lunas penuh hari ini (+ sinkron PEL)
@@ -438,8 +483,8 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
 
   const actionButtons = (
     <div className="flex flex-wrap gap-2 print:hidden">
-      <Button size="sm" onClick={() => { toast.dismiss(); const origTitle = document.title; document.title = ' '; setTimeout(() => { window.print(); document.title = origTitle }, 100) }} className="bg-emerald-600 hover:bg-emerald-700 min-h-[36px]">
-        <Printer className="mr-1.5 h-3.5 w-3.5" /> Cetak
+      <Button size="sm" onClick={handlePrint} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 min-h-[36px]">
+        {isPrinting ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Cetak...</> : <><Printer className="mr-1.5 h-3.5 w-3.5" /> Cetak</>}
       </Button>
       <Button size="sm" onClick={handleJpg} disabled={jpgGenerating} className="bg-green-600 hover:bg-green-700 min-h-[36px]">
         {jpgGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> JPG...</> : <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>}
