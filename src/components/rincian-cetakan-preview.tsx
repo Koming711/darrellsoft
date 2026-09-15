@@ -8,8 +8,8 @@
  *  2. Halaman Riwayat Hitung Cetakan (dialog detail saat baris/kartu diklik)
  *
  * Isi markup 100% sama dengan preview editor (Informasi Pesanan, Rincian Biaya,
- * Gambar Potong Kertas + diagram, Grand Total orange) sehingga hasil JPG/Cetak
- * dari kedua tempat identik.
+ * Gambar Potong Kertas + diagram) sehingga hasil JPG/Cetak dari kedua tempat identik.
+ * Grand Total hanya tampil sebagai baris tfoot tabel Rincian Biaya (tanpa kotak).
  */
 
 import { useMemo, useState } from 'react'
@@ -371,8 +371,8 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
                   </tr>
                 )}
                 <tr>
-                  <td colSpan={2} className="pt-2 text-sm font-extrabold text-slate-900 uppercase tracking-wide">Grand Total</td>
-                  <td className="pt-2 text-right text-lg font-extrabold text-emerald-600 tabular-nums">{formatRp(pvGrandTotal)}</td>
+                  <td colSpan={2} className="pt-2 text-base font-extrabold text-slate-900 uppercase tracking-wide">Grand Total</td>
+                  <td className="pt-2 text-right text-xl font-extrabold text-emerald-600 tabular-nums">{formatRp(pvGrandTotal)}</td>
                 </tr>
                 {pvHargaPerPcs > 0 && (
                   <tr>
@@ -411,7 +411,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
           )}
         </div>
 
-        {/* ===== KOLOM KANAN: GAMBAR POTONG + TOTAL ===== */}
+        {/* ===== KOLOM KANAN: GAMBAR POTONG KERTAS ===== */}
         <div className="lg:col-span-2 space-y-3">
           {/* Gambar Potong Kertas */}
           <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
@@ -440,19 +440,6 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
                 <br />untuk melihat gambar potong kertas
               </div>
             )}
-          </div>
-
-          {/* GRAND TOTAL */}
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center justify-between shadow-lg shadow-orange-500/25">
-            <div>
-              <p className="text-[11px] text-orange-100 uppercase tracking-wide">Grand Total</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-white">{formatRp(pvGrandTotal)}</p>
-            </div>
-            <div className="text-right text-[10.5px] text-orange-100/90 space-y-0.5">
-              <p>Sub Total: <span className="font-semibold text-white">{formatRp(pvSubTotal)}</span></p>
-              {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-white">{formatRp(pvProfitAmount)}</span></p>}
-              {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-white">{formatRp(pvHargaPerPcs)}</span></p>}
-            </div>
           </div>
         </div>
       </div>
