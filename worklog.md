@@ -9424,3 +9424,50 @@ Work Log:
 
 Stage Summary:
 - TIDAK ada perubahan kode yang bertahan & TIDAK ada deploy — www.darrellsoft.com tetap PWA v66 dengan kotak Grand Total orange di dialog Detail Rincian Cetakan (kondisi persis sebelum permintaan).
+
+---
+Task ID: 85
+Agent: Z.ai Code (main)
+Task: Popup preview Potong Kertas — klik "Edit" langsung menuju tab editor Potong Kertas, foto lampiran ikut terisi di editor.
+
+Work Log:
+- Audit: potong-kertas/page.tsx — handleEditFromPreview memanggil handleRestore(row) (satu-satunya call site) lalu menutup popup; handleRestore sudah setActiveTab('editor') di AKHIR alur async, tapi TIDAK pernah me-restore photoUrl.
+- Fix 2 titik: (1) handleEditFromPreview → setActiveTab('editor') SEKARANG (segera, tanpa menunggu kalkulasi async); (2) handleRestore → setPhotoUrl(r.photoUrl || '') — foto lampiran baris riwayat ikut terisi ke PhotoUpload editor.
+- Lint potong-kertas/page.tsx → 0 error.
+- E2E desktop 1280×800 (superadmin, data uji dibuat via form: TES-85 PK EDIT, kertas custom 100×65, potongan 24×15, harga/lembar 300, pesanan 100, mata 4 → qty auto 25, foto tes 400×300 di-injek): Simpan Riwayat OK → tab Riwayat → klik baris → popup (kartu Foto Lampiran img 400px + tombol Edit) → klik Edit → tab Editor AKTIF (bg-blue-600), form terisi lengkap (nama/gramatur/harga/pesanan/mata/100/65/24/15), THUMBNAIL FOTO MUNCUL di editor (img data URL 400px), popup tertutup, toast "Data berhasil di-restore dari riwayat!".
+- E2E mobile 390×844: kartu → popup (foto ada) → Edit → tab editor aktif + foto muncul, scrollWidth 390 = viewport.
+- Bersih-bersih: row uji TES-85 PK EDIT dihapus via DELETE API → superadmin kembali 0 baris (baseline PK=20 utuh).
+
+Stage Summary:
+- Edit dari popup preview Potong Kertas kini LANGSUNG membuka tab editor dengan seluruh data + FOTO LAMPIRAN terisi — siap dilanjutkan/update riwayat.
+
+---
+Task ID: 86
+Agent: Z.ai Code (main)
+Task: Halaman Detail Invoice — hasil CETAK & JPG disamakan dengan pratinjau layar (WYSIWYG), hi-res, fit A5. Follow-up user: di mobile hasil tidak fit A5 + minta hi-res.
+
+Work Log:
+- Audit invoice/page.tsx (DetailInvoiceView): Cetak = window.print() mentah (mencetak seluruh halaman — di mobile berantakan, bukan pratinjau); JPG = captureElementAsJpg default (2x, tanpa fit) — root cause laporan user "desktop kelihatan fit, mobile tidak".
+- Implement (pola sama dengan hitung-cetakan/potong-kertas): (1) handlePrint baru — capture [data-document-preview] @pixelRatio 3 → blobToDataUrl → window.open + document.write `@page { size: A5 portrait; margin: 5mm }` + img object-fit contain + auto print, title "Invoice <nomor>"; (2) handleJpg — capture @3x → fitBlobToA5 portrait; tombol Cetak jadi async dengan state isPrinting (spinner + disabled).
+- Follow-up user (mobile tidak fit + hi-res): fitBlobToA5 dinaikkan ke dpi: 300 → output final 1748×2480 px (300 DPI, teks tajam); capture @3x (raw 1677×2382 mobile / 2010×2853 desktop) — captureElementAsJpg imun transform scale & overflow (scrollWidth/Height), jadi hasil desktop = mobile.
+- Lint invoice/page.tsx → 0 error.
+- E2E desktop 1280×800 (invoice baseline superadmin INV/07/26/9002, read-only): JPG → raw 2010×2853 @3x → final 1748×2480 (A5 portrait 300 DPI, 217KB) ✓; Cetak → HTML @page A5 portrait margin 5mm + img 2010×2853 (272KB, rasio 0.7045) + auto window.print ✓.
+- E2E mobile 390×844: pratinjau + tombol tampil, JPG → final 1748×2480 ✓, Cetak → @page A5 portrait + img 1677×2382 ✓, scrollWidth 390 = viewport ✓. Screenshot /tmp/e2e86-mobile-invoice.png.
+- Tidak ada data tes baru (invoice baseline dipakai read-only); dev.log bersih.
+
+Stage Summary:
+- Detail Invoice: Cetak & JPG kini 100% identik dengan pratinjau layar di desktop MAUPUN mobile, hi-res (@3x capture; JPG final A5 portrait 300 DPI 1748×2480), fit kertas A5 portrait margin 5mm.
+
+---
+Task ID: DEPLOY-85-86
+Agent: Z.ai Code (main)
+Task: Deploy ke www.darrellsoft.com (lanjutan permintaan user "check and fix. deploy").
+
+Work Log:
+- Bump PWA: public/sw.js darrell-soft-v66 → darrell-soft-v67; APP_VERSION '2026-09-15-v2' → '2026-09-15-v3'.
+- Commit 85d2be8 "Task 85-86: Edit popup PK langsung ke tab editor + foto ikut; cetak & JPG detail invoice WYSIWYG hi-res fit A5 (300 DPI) + PWA v67".
+- INSIDEN: deploy pertama masuk proyek SALAH — .vercel/project.json menunjuk "my-project" (prj_X6q5G8K8xP40zSSFcCAGI9hFYBNq) lagi (kasus sama seperti DEPLOY-81-82); deployment my-project-rj5fok8ew READY tapi tanpa domain www.darrellsoft.com (tidak berdampak ke user). Fix: re-link `npx vercel link --project darrellsoft --yes` (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) + .env.local hasil link dipindah ke .env.local.vercel-backup (proteksi dev server) → deploy ulang → Production darrellsoft-oca7cbg93-... READY.
+- Verifikasi produksi: www.darrellsoft.com/sw.js = darrell-soft-v67 ✓; homepage & /invoice & /potong-kertas HTTP 200 ✓; chunk produksi /invoice berisi marker "A5 portrait" + "Surat Jalan" (kode cetak/JPG baru live) ✓; chunk /potong-kertas berisi `photoUrl||""` tanpa optional-chaining (fix restore foto live) ✓.
+
+Stage Summary:
+- www.darrellsoft.com live PWA v67: (1) Edit popup Potong Kertas → langsung tab editor + foto ikut; (2) Detail Invoice cetak & JPG WYSIWYG hi-res fit A5 portrait 300 DPI di desktop & mobile.
