@@ -950,6 +950,8 @@ function CalculatorPage() {
 
   const handleEditFromPreview = () => {
     if (previewRiwayatRow) handleRestore(previewRiwayatRow)
+    // Langsung pindah ke tab editor (tidak menunggu kalkulasi async selesai)
+    setActiveTab('editor')
     setPreviewOpen(false)
     setPreviewRiwayatData(null)
     setPreviewRiwayatRow(null)
@@ -971,6 +973,8 @@ function CalculatorPage() {
     setPricePerSheet(r.pricePerSheet?.toString() || '')
     setJumlahPesanan(r.jumlahPesanan || '')
     setBerapaMata(r.berapaMata || '')
+    // Foto lampiran ikut di-restore ke editor
+    setPhotoUrl(r.photoUrl || '')
 
     // Set paper selection
     let restoredPaper = null
