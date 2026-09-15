@@ -9390,3 +9390,23 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com kini menjalankan Task 76–82 (PWA v65): blok Grand Total orange, rincian PDF→JPG, popup potong kertas A5 portrait, preview detail riwayat HC identik editor + A5 landscape, popup foto lampiran (lightbox) di editor HC & PK, dan transfer foto lampiran PK → HC via "Hitung Cetakan Lengkap".
+
+---
+Task ID: 83
+Agent: Z.ai Code (main)
+Task: Popup preview Potong Kertas — tambahkan foto lampiran. Lalu deploy.
+
+Work Log:
+- potong-kertas/page.tsx: tambah kartu "Foto Lampiran" (ikon Image amber, gaya konsisten preview HC) di akhir isi previewRef popup Preview Potong Kertas (setelah Diagram + Cara Potong/Detail per Blok), img max-h-48 (mobile) / max-h-64 (desktop) object-contain, dibungkus button klik → PhotoLightbox (Task 81) — konsisten bisa diperbesar.
+- Sumber foto dinamis: previewPhotoUrl = previewRiwayatData ? previewRiwayatRow?.photoUrl : photoUrl → kartu muncul baik di mode editor (foto di form) maupun mode preview riwayat (foto baris riwayat, kolom photoUrl sudah tersimpan sejak lama).
+- Karena capture JPG/Cetak = isi previewRef, foto otomatis ikut ke output: JPG (capture @2x → fitBlobToA4 portrait 1240×1754) dan Cetak (capture @3x → window.open @page A5 portrait margin 5mm). Lightbox render portal body — tidak ikut ter-capture.
+- Lint → 0 error 0 warning.
+- E2E desktop 1280×800 (login superadmin, foto tes 400×300 di-injek): isi form → Hitung Potongan → Preview → kartu "Foto Lampiran" tampil (img 400×300) → klik foto → PhotoLightbox terbuka DI ATAS overlay A4 (imgOnTop via elementFromPoint) → Esc menutup lightbox, preview tetap. JPG → WA: blob 1240×1754 (A4 portrait, 170KB) ✓. Cetak: stub window.open → HTML berisi @page { size: A5 portrait; margin: 5mm } + img 1590×4434 @3x (570KB, termasuk foto) ✓.
+- E2E mobile 390×844: preview tampil + kartu foto ada, klik foto → lightbox fit viewport, scrollWidth 390 = viewport.
+- DB tetap baseline (HC=21, PK=20) — Preview/JPG/Cetak tidak menyimpan riwayat. dev.log 0 error.
+- Deploy: sw.js v65 → v66, APP_VERSION '2026-09-15-v1' → '2026-09-15-v2', commit 673153e, `npx vercel --prod --yes --token <TOKEN>` → sukses. Verifikasi produksi: homepage 200 (1.01s), /sw.js = darrell-soft-v66, /potong-kertas 200, chunk 5fc812753a2bac98.js berisi marker "Perbesar foto lampiran" + "sm:max-h-64" (kartu foto preview PK live).
+
+Stage Summary:
+- Popup Preview Potong Kertas kini menampilkan kartu Foto Lampiran (dari form editor ATAU dari baris riwayat saat preview riwayat), bisa diklik untuk perbesar (lightbox).
+- Foto otomatis ikut ke output JPG (A4 portrait 1240×1754) dan Cetak (A5 portrait, margin 5mm) karena capture = isi preview — satu sumber kebenaran dengan layar.
+- www.darrellsoft.com live dengan PWA v66 (Task 76–83 lengkap).
