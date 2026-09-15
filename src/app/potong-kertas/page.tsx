@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X } from 'lucide-react'
+import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X, Image as ImageIcon } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -21,6 +21,7 @@ import { fetcher } from '@/lib/fetcher'
 import { notifyDataChange } from '@/lib/data-sync'
 import { Button } from '@/components/ui/button'
 import { PhotoUpload } from '@/components/photo-upload'
+import { PhotoLightbox } from '@/components/photo-lightbox'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { captureElementAsJpg, fitBlobToA4 } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -277,6 +278,9 @@ function CalculatorPage() {
   const [previewRiwayatData, setPreviewRiwayatData] = useState<CuttingResult | null>(null)
   const [previewRiwayatInfo, setPreviewRiwayatInfo] = useState<{ customer: string; paper: string; jumlahPesanan: string; berapaMata: string; setelanKertas: string }>({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
   const [previewRiwayatRow, setPreviewRiwayatRow] = useState<any>(null)
+  const [pkPhotoZoom, setPkPhotoZoom] = useState(false)
+  // Foto lampiran aktif untuk popup preview: mode riwayat pakai photoUrl baris riwayat, mode editor pakai foto di form
+  const previewPhotoUrl = previewRiwayatData ? ((previewRiwayatRow?.photoUrl as string) || '') : photoUrl
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -1813,6 +1817,7 @@ function CalculatorPage() {
 
       {/* ===== PREVIEW DIALOG ===== */}
       {previewOpen && (
+        <>
         <PreviewDialog
           onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
           title="Preview Potong Kertas"
@@ -1956,8 +1961,35 @@ function CalculatorPage() {
                 </div>
               </>
             )}
+
+            {/* Foto Lampiran — ikut tampil di JPG/Cetak karena capture = isi preview */}
+            {previewPhotoUrl && (
+              <div data-pk="photo" className="border border-slate-200 dark:border-zinc-700 rounded-lg p-2.5 bg-white dark:bg-zinc-900 mt-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-amber-100 flex items-center justify-center">
+                    <ImageIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600" />
+                  </div>
+                  <p className="text-[11px] sm:text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Foto Lampiran</p>
+                </div>
+                <div className="bg-white dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-700 p-2 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setPkPhotoZoom(true)}
+                    aria-label="Perbesar foto lampiran"
+                    title="Klik untuk perbesar foto"
+                    className="inline-flex cursor-zoom-in rounded transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <img src={previewPhotoUrl} alt="Foto Lampiran" className="max-h-48 sm:max-h-64 w-auto max-w-full rounded object-contain" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </PreviewDialog>
+        {previewPhotoUrl && (
+          <PhotoLightbox src={previewPhotoUrl} open={pkPhotoZoom} onOpenChange={setPkPhotoZoom} />
+        )}
+        </>
       )}
     </DashboardLayout>
   )
