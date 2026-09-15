@@ -338,10 +338,10 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
     try {
       const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
       if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
-      // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait (148 × 210 mm),
+      // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait 300 DPI (1748 × 2480 px),
       // identik dengan pratinjau di layar
       const rawBlob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3, dpi: 300 })
       const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
       const phone = data.client?.kontak || ''
       const result = await shareJpgToWhatsApp({
