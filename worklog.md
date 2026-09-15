@@ -9471,3 +9471,20 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com live PWA v67: (1) Edit popup Potong Kertas → langsung tab editor + foto ikut; (2) Detail Invoice cetak & JPG WYSIWYG hi-res fit A5 portrait 300 DPI di desktop & mobile.
+
+---
+Task ID: 86b
+Agent: Z.ai Code (main)
+Task: Halaman detail invoice — hasil JPG & Cetak di online mobile tidak sama dengan desktop (acuan: desktop). Fix + deploy.
+
+Work Log:
+- Root cause: handleJpg/handlePrint men-capture `[data-document-preview]` = WRAPPER scaler (`[data-preview-scaler]`, border+radius) yang lebarnya mengikuti layar via transform scale (desktop ±670px, mobile ±150px visual). Di mobile, clone terkunci 559px (scrollWidth) sementara anak `.a5-page` masih memuat inline `transform: scale(0.268)` → JPG/cetak mobile = invoice mungil di pojok + ruang putih besar → berbeda total dari desktop.
+- Fix (src/app/invoice/page.tsx): handleJpg & handlePrint kini men-capture `#document-preview .a5-page` (layout tetap 148mm ≈559px di SEMUA perangkat, transform di-reset otomatis oleh captureElementAsJpg pada clone) + fallback selector lama. Hasil capture deterministik 559×794 @3x = 1677×2382 px di desktop & mobile → JPG (fitBlobToA5 300 DPI 1748×2480) & cetak identik.
+- E2E agent-browser: desktop 1280×800 & mobile 390×844 login superadmin → detail INV/07/26/9002 (cmroaaik50002te79wo4wqdx1). JPG: toast "tersimpan ke perangkat" di keduanya. Cetak: popup img naturalW 1677×naturalH 2382 di keduanya (identik). bodyScrollWidth 390 = clientWidth (no horizontal scroll). Console & page errors: bersih.
+- Lint: bunx eslint src/app/invoice/page.tsx → 0 problem (baseline error lain tidak tersentuh).
+- Deploy: sw.js v67→v68 + APP_VERSION 2026-09-15-v4 → commit 60fc78e → vercel --prod sukses; www.darrellsoft.com 200; prod sw.js = v68 terverifikasi.
+
+Stage Summary:
+- Hasil JPG & Cetak detail invoice kini identik antara mobile & desktop (acuan desktop), hi-res 3x (≈300 DPI), fit A5 portrait.
+- Commit: 60fc78e; PWA v68 live di produksi.
+- File berubah: src/app/invoice/page.tsx (selector capture), public/sw.js, src/components/service-worker-registration.tsx.
