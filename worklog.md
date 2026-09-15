@@ -9338,3 +9338,55 @@ Stage Summary:
 - Foto lampiran kini tampil di preview Detail Rincian Cetakan (editor & riwayat) dan otomatis ikut tercetak/ter-JPG.
 - Potong kertas tidak berubah (riwayat PK: JPG A4 portrait + cetak A4; popup PK Task 78: A5 portrait).
 - Produksi belum di-deploy (lokal; Task 76-80 belum commit/deploy).
+
+---
+Task ID: 81
+Agent: Z.ai Code (main)
+Task: Editor Hitung Cetakan & editor Potong Kertas — klik gambar foto lampiran → popup gambar tersebut (lightbox).
+
+Work Log:
+- Buat komponen bersama src/components/photo-lightbox.tsx: Dialog (Radix/shadcn) menampilkan gambar utuh object-contain (max 70vh), judul "Foto Lampiran", deskripsi sr-only "Pratinjau gambar ukuran penuh" (dipakai sebagai marker E2E), tombol tutup bawaan + Esc + klik luar.
+- PhotoUpload (src/components/photo-upload.tsx): thumbnail 64×64 dibungkus button (aria-label "Perbesar foto", cursor-zoom-in, focus ring) → buka PhotoLightbox. Sekali tambang untuk SEMUA pemakai PhotoUpload: editor Hitung Cetakan, editor Potong Kertas, Master Barang.
+- RincianCetakanPreview (src/components/rincian-cetakan-preview.tsx): img Foto Lampiran di preview dibungkus button (aria-label "Perbesar foto lampiran") → PhotoLightbox; berlaku di preview editor HC, dialog detail riwayat HC, dan dialog riwayat di editor. Lightbox render via portal body — capture JPG/Cetak tidak terpengaruh (diverifikasi: lightbox z-50 tetap tampil di atas overlay detail editor z-[60] karena stacking context; IMG = elementFromPoint).
+- Lint 5 file → 0 error 0 warning.
+- E2E desktop 1280×800 (login superadmin): HC editor — foto tes 400×300 di-injek via DataTransfer ke input file → thumbnail muncul → klik → lightbox terbuka (img 400×300 data:jpeg, title "Foto Lampiran") → Esc menutup lightbox saja. Preview/detail dialog (tab Riwayat editor, baris tes TES-81-POPUP FOTO via Prisma userId user-superadmin) — foto di preview diklik → lightbox tampil di atas overlay detail (screenshot), Esc menutup lightbox, overlay tetap. PK editor — injek foto → klik thumbnail → lightbox OK. Popup cetak tidak sengaja terpicu 1× saat cari tombol (title mengandung kata "preview") — flow print tetap bekerja (tab about:blank terbuka & auto-close), tidak ada regresi Task 80.
+- E2E mobile 390×844: PK & HC — lightbox terbuka, img fit viewport (tidak terpotong), scrollWidth 390 = viewport.
+- Bersih-bersih: baris tes HC (cmu1w9txw..., TES-81-POPUP FOTO) dihapus → HC kembali 21 (baseline: 20 + 1 data asli user "buzzin" HC/09/26/0001).
+- Catatan operasional: dev server sempat mati 2× saat E2E — dihidupkan ulang permanen via `node daemon.cjs restart` (mekanisme resmi proyek, PID tersimpan di .daemon.pid).
+
+Stage Summary:
+- Klik gambar foto lampiran (thumbnail upload & foto di preview rincian) di editor Hitung Cetakan dan editor Potong Kertas kini membuka popup gambar ukuran penuh; popup responsif di desktop & mobile, Esc/klik luar/tombol X menutup.
+- Satu komponen PhotoLightbox dipakai bersama → perilaku konsisten di semua halaman yang memakai PhotoUpload + preview rincian cetakan.
+
+---
+Task ID: 82
+Agent: Z.ai Code (main)
+Task: Editor Potong Kertas — jika ada foto lampiran dan tombol "Hitung Cetakan Lengkap" diklik, foto lampiran ikut muncul di editor Hitung Cetakan.
+
+Work Log:
+- Audit alur: tombol "Hitung Cetakan Lengkap" (potong-kertas/page.tsx ~line 1444) membangun URLSearchParams lalu router.push('/hitung-cetakan?...'). Data URL foto (≤300KB ≈ 400KB base64) terlalu besar untuk query string (batas header Node ~16KB) → diputuskan memakai sessionStorage sebagai jembatan.
+- potong-kertas/page.tsx: sebelum router.push — jika photoUrl ada → sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl), jika kosong → removeItem (anti data basi).
+- hitung-cetakan/page.tsx (useEffect restore URL params): hanya saat fromPotongKertas=1 → baca sessionStorage 'pk-to-hc-photoUrl' → setPhotoUrl(pkPhoto) → removeItem (dikonsumsi sekali). Tidak mengganggu jalur restoredFromRiwayat.
+- Lint → 0 error.
+- E2E end-to-end (desktop): PK editor — foto tes di-injek → pilih kertas "Custom (Input Manual)" → isi Harga/Lembar 300, Jumlah Pesanan 100, Mata 4, Kertas 100×65, Potongan 24×15 → "Hitung Potongan" → hasil muncul, tombol transfer enabled → klik "Hitung Cetakan Lengkap" → navigasi ke /hitung-cetakan, form terisi (100/4/25/100/65/24/15/300), THUMBNAIL FOTO LAMPIRAN MUNCUL (img 400×300 loaded), sessionStorage terkonsumsi (kosong). Klik thumbnail → popup gambar OK (screenshot). Mobile 390×844 → popup OK, scrollWidth 390.
+- Bersih-bersih: 1 baris riwayat-potong-kertas tes superadmin (cmu1wr481..., tercipta otomatis background saat transfer) dihapus → PK kembali 20 (baseline). HC 21 (baseline).
+
+Stage Summary:
+- Foto lampiran editor Potong Kertas kini IKUT terbawa ke editor Hitung Cetakan saat klik "Hitung Cetakan Lengkap" (via sessionStorage, sekali konsumsi, tidak membebani URL).
+- Thumbnail foto di HC editor bisa langsung diklik → popup (Task 81), sehingga user langsung bisa melihat foto yang terbawa.
+
+---
+Task ID: DEPLOY-81-82
+Agent: Z.ai Code (main)
+Task: Deploy ke www.darrellsoft.com (token diberikan user).
+
+Work Log:
+- PWA bump: public/sw.js CACHE_NAME darrell-soft-v64 → darrell-soft-v65; APP_VERSION '2026-09-14-v9' → '2026-09-15-v1' (service-worker-registration.tsx).
+- Commit 26cb682 "Task 81-82: popup foto lampiran (lightbox) ... + PWA v65" (termasuk auto-commit b98ab55e yang sudah memuat komponen lightbox & Task 76-80 sebelumnya).
+- .vercel/project.json sempat menunjuk proyek salah ("my-project") → re-link: `npx vercel link --project darrellsoft --yes --token <TOKEN>` → prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB (darrellsoft).
+- Deploy: `npx vercel --prod --yes --token <TOKEN>` → ✓ Ready in 1m (URL darrellsoft-btc5u53wm-koming711s-projects.vercel.app, alias www.darrellsoft.com).
+- Verifikasi produksi: homepage HTTP 200 (1.17s); /sw.js = darrell-soft-v65 ✓; /hitung-cetakan & /potong-kertas HTTP 200; chunk produksi berisi marker fitur baru: 'pk-to-hc-photoUrl' (1d2e1000c6b65741.js), 'Perbesar foto' + 'Pratinjau gambar ukuran penuh' (8a6e5a6e8d1d8d32.js) ✓.
+- dev.log & .daemon.log bersih tanpa error; seluruh data tes E2E dihapus (HC=21 baseline, PK=20 baseline).
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan Task 76–82 (PWA v65): blok Grand Total orange, rincian PDF→JPG, popup potong kertas A5 portrait, preview detail riwayat HC identik editor + A5 landscape, popup foto lampiran (lightbox) di editor HC & PK, dan transfer foto lampiran PK → HC via "Hitung Cetakan Lengkap".
