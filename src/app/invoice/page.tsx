@@ -385,10 +385,12 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
       const previewEl = (document.querySelector('#document-preview .a5-page')
         || document.querySelector('[data-document-preview]')) as HTMLElement
       if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
-      // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait 300 DPI (1748 × 2480 px),
-      // identik dengan pratinjau di layar
+      // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait 300 DPI (1748 × 2480 px).
+      // marginPct: 0 — capture .a5-page SUDAH mengandung margin pratinjau (padding
+      // 8mm atas/bawah, 10mm kiri/kanan), jadi TIDAK ada margin tambahan: hasil JPG
+      // punya margin yang sama persis dengan pratinjau di layar.
       const rawBlob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3, dpi: 300 })
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 0, dpi: 300 })
       const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
       const phone = data.client?.kontak || ''
       const result = await shareJpgToWhatsApp({
@@ -424,13 +426,16 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
       const blob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
       const dataUrl = await blobToDataUrl(blob)
       const label = (data.nomor || 'invoice').replace(/\//g, '-')
+      // @page margin: 0 — gambar (yang sudah mengandung margin pratinjau 8mm/10mm)
+      // memenuhi halaman A5 penuh, sehingga margin hasil cetak = margin pratinjau
+      // PERSIS (8mm atas/bawah, 10mm kiri/kanan), tanpa margin halaman tambahan.
       const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><title>Invoice ${label}</title>
 <style>
-  @page { size: A5 portrait; margin: 5mm; }
+  @page { size: A5 portrait; margin: 0; }
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
   body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+  img { display: block; width: 100%; height: 100%; object-fit: contain; }
 </style></head>
 <body><img src="${dataUrl}" alt="Detail Invoice" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
       const pw = window.open('', '_blank')
