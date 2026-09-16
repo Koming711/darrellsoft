@@ -9513,3 +9513,31 @@ Stage Summary:
 - Fitur baru aktif: halaman + menu Hutang Dagang, CRUD role di Hak Akses, pelunasan berbasis "Pilih Invoice DP" dengan perlindungan item pelunasan milik user.
 - PWA v73 + APP_VERSION 2026-09-17-v9 siap untuk deploy berikutnya (belum di-deploy — tidak diminta).
 - Catatan lingkungan: git history lokal berubah (sandbox reset); commit sebelumnya (ddb2cfc, 20e41e7, af0be86, 89eaf74) tidak ada di .git saat ini, namun produksi Vercel sudah memuat fitur-fitur tersebut dari deploy Task 99.
+
+---
+Task ID: 101
+Agent: Z.ai Code (main)
+Task: "dihasil jpg dan cetak buat sama persis margin kiri, kanan, atas dan bawah dengan preview invoice. apabila dibuat invoice dp ada tulisan sisa pembayaran yang artinya piutang. dan muncul piutang di beranda. fix"
+
+Work Log:
+- Root cause margin: (1) handleJpg memakai fitBlobToA5 marginPct:3 → margin tambahan ±4mm di atas padding preview (hasil kiri/atas ±14.4mm ≠ preview 10/8mm); (2) handlePrint memakai @page margin:5mm + img contain di area 138×200mm → gambar diperkecil + margin halaman tambahan.
+- src/app/invoice/page.tsx: handleJpg marginPct 3→0 (capture .a5-page sudah mengandung padding preview 8mm/10mm → margin JPG = preview persis); handlePrint @page margin 5mm→0 + img width/height 100% object-fit contain (gambar memenuhi A5 penuh → margin cetak = preview persis).
+- src/components/dokupro/invoice-preview.tsx: baris DP + "SISA PEMBAYARAN" kini tampil untuk SEMUA invoice DP — isDp = dp (persen) > 0 ATAU dpAmount (nominal) > 0 (dulu hanya dp persen); label "DP (N%)" / "DP"; terbilang memakai sisa untuk semua invoice DP; badge "DOWN PAYMENT" juga utk DP nominal.
+- src/app/pembukaan/page.tsx: section BARU "Daftar Piutang" (Card, di bawah grid Invoice Terbaru + Pengingat Jatuh Tempo, sebelum Menu Pintas): total piutang di header (cards.unpaidTotal), list max-h-96 overflow-y-auto, tiap baris: nomor + badge DP + customer·tanggal·tempo + sisa (amber) + status (Terlambat N hari / H-N / "Sisa pembayaran"), klik → /invoice?detail=id; empty state "Tidak ada piutang — semua invoice sudah lunas". Data dari array `piutang` yang SUDAH dikirim /api/beranda sebelumnya tapi belum dipakai UI. Interface BerandaPiutangItem + field piutang? di BerandaData.
+- Lint: 0 error (3 file). tsc: hanya error legacy di folder backups/ (bukan bagian build).
+- Insiden lingkungan: dev server mati berulang saat E2E (proses hilang tanpa error log; dmesg menunjukkan OOM kill lama). Fix: start dev dengan NODE_OPTIONS max-old-space-size=3072 via subshell → stabil.
+- E2E desktop 1280×800 (superadmin/268899):
+  - Beranda: section "Daftar Piutang" tampil ✓; berisi invoice belum lunas dgn sisa (INV/07/26/9001DP Rp500.000, INV/07/26/9002DP Rp200.000, INV/06/26/0001DP Rp251.000.000, label "Sisa pembayaran", badge DP) ✓; klik → /invoice?detail=id ✓.
+  - Detail invoice DP lama INV/06/26/0001 (DP 50%): preview menampilkan badge "DOWN PAYMENT" + baris "SISA PEMBAYARAN Rp251.000.000" (TOTAL Rp501.000.000) ✓ — tulisan piutang sesuai permintaan.
+  - Tombol JPG: dihasilkan INV-06-26-0001.jpg — verifikasi piksel (Python/PIL): ukuran 1748×2480 (A5 300DPI penuh), margin kiri 10.0mm / atas 7.9mm / kanan 10.1mm = SAMA PERSIS preview (padding 10/8mm; sebelumnya ±14.4mm) ✓; margin bawah 32.2mm = area kosong halaman (konsisten dgn preview, konten berakhir di footer) ✓; tanpa toast error ✓.
+  - Tombol Cetak: tanpa error ("Gagal menyiapkan cetakan"/"Popup diblokir" tidak muncul) ✓; @page margin 0 + img contain → margin cetak = margin preview.
+  - Tab Buat Invoice DP: ringkasan editor menampilkan "DP (50%): … / Sisa Pembayaran: …" ✓.
+- E2E mobile 390×844: beranda 390=390 + Daftar Piutang & "Sisa pembayaran" tampil ✓; detail invoice DP 390=390 + "SISA PEMBAYARAN" ✓.
+- Bersih-bersih: master barang uji "E2E Brosur Uji" (dibuat utk E2E harga) di-DELETE /api/items/{id} → sisa item 0 ✓. Invoice DP lama hanya dibuka read-only (tidak diubah). Tidak ada data nyata tersentuh.
+- dev.log: bersih (200/401 auth normal). Commit 7353f29. Deploy tidak diminta.
+
+Stage Summary:
+- Margin JPG & CETAK kini IDENTIK dengan pratinjau (kiri/kanan 10mm, atas/bawah 8mm) — diverifikasi piksel-per-piksel dari file JPG hasil (10.0/7.9/10.1mm).
+- "SISA PEMBAYARAN" (piutang) tampil di preview/JPG/cetak untuk semua invoice DP (persen maupun nominal).
+- Beranda kini punya "Daftar Piutang" yang menampilkan sisa pembayaran tiap invoice belum lunas (termasuk DP), total di header, klik ke detail.
+- Commit 7353f29 lokal; belum deploy.
