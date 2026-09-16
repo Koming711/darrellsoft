@@ -9615,3 +9615,24 @@ Stage Summary:
 - Fitur Harga Khusus per Pelanggan dihapus menyeluruh: halaman, komponen view, API, quick link beranda, grup permission di Matrix Hak Akses, kunci i18n, tipe PriceRow/customPriceCount/priceDelta, dan semua teks UI yang merujuknya.
 - Fitur tetap yang bersangkutan: Master Pelanggan (invoiceCount), Master Barang (registrasi pelanggan via BarangCustomer), Hitung Harga Kertas (customPricePerRim = fitur berbeda, tidak disentuh).
 - Commit: belum (menunggu; deploy tidak diminta). sw.js & APP_VERSION tidak diubah.
+
+---
+Task ID: 105
+Agent: Z.ai Code (main)
+Task: "dihalaman hitung cepat. di simulasi cepat, tambahkan harga modal per pcs. fix. deploy"
+
+Work Log:
+- src/app/hitung-cetakan/page.tsx: useMemo simulasi kini mengembalikan modalPcs = subTotal / simJumlah; kartu Simulasi Cepat menambah baris "Harga Modal per Pcs" di dalam kotak gradient (di atas "Harga Jual per Pcs"). Formatter baru formatHargaPcs: tampil 2 desimal bila nilai < Rp1.000 (mis. Rp 0,4; Rp 192,49), tanpa desimal bila >= Rp1.000 (mis. Rp 325) — memperbaiki bug tampilan "Rp 0" untuk harga per pcs murah (juga berlaku utk Harga Jual per Pcs).
+- src/app/potong-kertas/page.tsx: useMemo simulasi mengembalikan modalPerPcs = hargaKertas / simJumlah; kartu Simulasi Cepat menambah sel full-width (col-span-2) "Harga Modal per Pcs" di bawah baris Profit/Harga Jual. Formatter fmtHargaPcs (module scope) sama; suffix "Harga Jual · Rp X/pcs" kini juga pakai format desimal cerdas.
+- Lint: bunx eslint 2 file → 0 error 0 warning.
+- E2E localhost desktop 1280×800: potong-kertas (65×100, potong 8×12, Rp500, mata 25): sim 5000 → Kertas Dibeli 4 lbr, Harga Kertas Rp 2.000, Harga Modal per Pcs "Rp 0,4 /pcs", profit 20 → Profit Rp 400, Harga Jual Rp 2.400 (Rp 0,48/pcs) ✓ (screenshot). hitung-cetakan (art karton, sm52, 4 warna, harga lembar 3806): sim 8000 profit 50 → Modal Rp 1.539.920, Harga Modal per Pcs Rp 192,49 (= 1.539.920/8000 ✓), Harga Jual per Pcs Rp 288,74 ✓ (screenshot).
+- E2E localhost mobile 390×844: kedua halaman sw=390=vw, kartu simulasi rapi, nilai sama dgn desktop ✓ (2 screenshot).
+- PWA bump: public/sw.js CACHE_NAME v73→v74; service-worker-registration APP_VERSION 2026-09-17-v9→v10. Commit 34aced1 (Task 104 ter-commit otomatis di 410e4b8 oleh snapshot process).
+- DEPLOY: `vercel --prod` pertama ternyata masuk project "my-project" (link .vercel sandbox) → alamat my-project-mu-livid-31.vercel.app live v74, tetapi domain user www.darrellsoft.com milik project "darrellsoft" (build lama era Task 99: /harga-khusus masih 200, /piutang-dagang 404). Solusi: vercel link --project darrellsoft → vercel --prod (deployment darrellsoft-l2z0m2xnz, Ready) → .vercel/project.json dikembalikan ke my-project; .env.local hasil link dihapus.
+- VERIFIKASI PRODUKSI www.darrellsoft.com: sw.js → darrell-soft-v74 ✓; /harga-khusus → 404 ✓; /piutang-dagang → 200 ✓ (fitur Task 102 kini live di domain user); homepage 200 ✓.
+- E2E PRODUKSI desktop 1280×800 (login superadmin): potong-kertas — pilih Custom 65×100, potong 8×12, Rp500/lbr, mata 25; sim 5000 + profit 20 → Harga Modal per Pcs "Rp 0,4 /pcs", Harga Jual Rp 2.400 (Rp 0,48/pcs) ✓ (screenshot). hitung-cetakan — art karton 260gsm 65×100, potong 8×12, harga lembar 3806, mesin sm52, warna 4; sim 8000 (profit ikut utama 45%) → Modal Rp 1.206.332, Harga Modal per Pcs Rp 150,79 ✓, Harga Jual per Pcs Rp 218,65 ✓ (screenshot). TANPA menyimpan apa pun ke DB produksi (hanya state client; tombol Simpan/Hitung tidak diklik; form tidak terpersist).
+- Browser console produksi: tanpa error. Tidak ada data uji di produksi maupun lokal.
+
+Stage Summary:
+- Kartu Simulasi Cepat (potong kertas & hitung cetakan) kini menampilkan Harga Modal per Pcs berdampingan dgn Harga Jual per Pcs — pembanding margin langsung tanpa hitung manual; format rupiah cerdas (desimal utk < Rp1.000).
+- DEPLOYED ke www.darrellsoft.com (project Vercel "darrellsoft") — v74 / 2026-09-17-v10 live, harga-khusus 404, piutang-dagang 200. Catatan penting: domain user = project "darrellsoft", bukan "my-project" (link sandbox). Deploy "my-project" (my-project-mu-livid-31.vercel.app) juga v74.
