@@ -19,7 +19,6 @@ import {
   Plus,
   ChevronRight,
   Users,
-  BadgePercent,
   Package,
   ClipboardList,
   AlarmClock,
@@ -848,7 +847,6 @@ export default function PembukaanPage() {
             {canSeeFinance && (
               <>
                 <QuickLink icon={Users} title="Master Pelanggan" desc="Data & kontak pelanggan" onClick={() => navigate('/master-customer')} />
-                <QuickLink icon={BadgePercent} title="Harga Khusus" desc="Atur harga per pelanggan" onClick={() => navigate('/harga-khusus')} />
                 <QuickLink icon={Package} title="Master Barang" desc="Harga standar & HPP" onClick={() => navigate('/master-barang')} />
               </>
             )}

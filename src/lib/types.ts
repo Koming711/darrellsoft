@@ -238,7 +238,7 @@ function getToday(): string {
   return `${y}-${m}-${d}`;
 }
 
-// ===== Master Barang / Master Pelanggan / Harga Khusus (versi lama) =====
+// ===== Master Barang / Master Pelanggan (versi lama) =====
 
 export type Role = 'ADMIN' | 'MANAGER' | 'KASIR'
 
@@ -259,7 +259,6 @@ export interface Customer {
   notes: string | null
   isActive: boolean
   invoiceCount?: number
-  customPriceCount?: number
   createdAt: string
 }
 
@@ -287,16 +286,6 @@ export interface Item {
   photoUrl?: string | null
   /** Daftar pelanggan pemilik registrasi barang (kosong = barang umum) */
   customers?: ItemCustomerRef[]
-}
-
-export interface PriceRow {
-  itemId: string
-  code: string
-  name: string
-  unit: string
-  standardPrice: number
-  hpp: number | null
-  customPrice: number | null
 }
 
 export const UNIT_OPTIONS = ['pcs', 'box', 'dus', 'sak', 'kg', 'gr', 'ltr', 'ml', 'pack', 'm', 'roll', 'set'] as const

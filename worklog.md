@@ -9587,3 +9587,31 @@ Stage Summary:
 - Simpan Riwayat tidak lagi mengosongkan form — parameter tetap untuk hitungan urutan berikutnya (3000 → 5000 → dst).
 - Daftar Simulasi menyimpan perbandingan beberapa jumlah (3000 vs 5000 vs 8000) dgn total & harga/pcs.
 - Commit: belum (menunggu; deploy tidak diminta). sw.js & APP_VERSION tidak diubah.
+
+---
+Task ID: 104
+Agent: Z.ai Code (main)
+Task: "lanjutkan. delete harga khusus perpelanggan."
+
+Work Log:
+- Fitur "Harga Khusus per Pelanggan" dihapus total (3 file): src/app/harga-khusus/page.tsx, src/components/views/pricing-view.tsx, src/app/api/prices/route.ts (folder kosong ikut dirmdir).
+- src/app/pembukaan/page.tsx: QuickLink "Harga Khusus" dihapus dari Menu Pintas + import BadgePercent dibersihkan.
+- src/lib/permission-defaults.ts: blok GROUP_FEATURES 'harga-khusus' (lihat/edit) dihapus — Matrix Hak Akses (dibangun dinamis dari konstanta ini) otomatis tidak lagi menampilkan grup tsb.
+- src/lib/i18n.ts: 4 kunci dihapus (harga_khusus + subtitle_harga_khusus, versi ID & EN).
+- src/lib/types.ts: interface PriceRow + field customPriceCount? dihapus; komentar section → "Master Barang / Master Pelanggan (versi lama)".
+- src/lib/format.ts: fungsi priceDelta dihapus (hanya dipakai pricing-view); komentar section diperbarui.
+- src/lib/client.ts + src/app/globals.css: komentar diperbarui (hapus sebutan Harga Khusus).
+- src/components/views/customers-view.tsx: teks dialog hapus pelanggan tidak lagi menyebut "daftar harga khususnya".
+- src/components/views/items-view.tsx: hint form barang diganti ("Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan."), hint "Kelola harga khusus..." dihapus, dialog hapus barang diperbarui.
+- src/app/api/items/route.ts + [id]/route.ts: komentar diperbarui. Perilaku registrasi BarangCustomer ( barang terdaftar per pelanggan) DIPERTAHANKAN — model dipakai fitur Master Barang/Customer.
+- src/app/api/customers/route.ts: groupBy barangCustomer + customPriceCount dihapus dari respons (tidak dipakai UI mana pun); invoiceCount tetap.
+- Prisma model BarangCustomer TIDAK diubah (dipakai registrasi barang; price jadi kolom legacy tak berbahaya; db push tidak dijalankan agar data aman).
+- Lint: bunx eslint 11 file yang diubah → 0 error 0 warning. tsc --noEmit: tidak ada error BARU (19 TS1117 i18n.ts = pre-existing, terverifikasi via git stash: 19 sebelum & sesudah).
+- E2E desktop 1280×800 (superadmin): /pembukaan Menu Pintas 7 kartu tanpa "Harga Khusus", sw=1280=vw; /administrasi/hak-akses Matrix render 67 baris, 0 kemunculan "Harga Khusus", sw=1280; /master-customer 5 pelanggan tampil + GET /api/customers 200; /master-barang GET /api/items 200 (0 barang = memang kosong utk akun ini); /harga-khusus → 404.
+- E2E mobile 390×844: pembukaan sw=390, hak-akses sw=390 (matrix rapi, screenshot), master-customer sw=390 (5 baris), harga-khusus 404. Screenshot desktop pembukaan: sidebar & stats Piutang Dagang tampil normal.
+- dev.log: hanya 404 /harga-khusus yang disengaja; tanpa error runtime lain. Tidak ada data uji dibuat (navigasi saja) — tidak perlu cleanup.
+
+Stage Summary:
+- Fitur Harga Khusus per Pelanggan dihapus menyeluruh: halaman, komponen view, API, quick link beranda, grup permission di Matrix Hak Akses, kunci i18n, tipe PriceRow/customPriceCount/priceDelta, dan semua teks UI yang merujuknya.
+- Fitur tetap yang bersangkutan: Master Pelanggan (invoiceCount), Master Barang (registrasi pelanggan via BarangCustomer), Hitung Harga Kertas (customPricePerRim = fitur berbeda, tidak disentuh).
+- Commit: belum (menunggu; deploy tidak diminta). sw.js & APP_VERSION tidak diubah.

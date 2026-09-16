@@ -831,7 +831,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                       </SelectContent>
                     </Select>
                     <p className="text-[11px] text-muted-foreground">
-                      Barang umum bisa didaftarkan ke pelanggan kapan saja lewat halaman Harga Khusus.
+                      Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan.
                     </p>
                   </>
                 )}
@@ -841,9 +841,6 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               <div className="grid gap-1.5">
                 <Label>Pelanggan Terdaftar</Label>
                 <CustomerChips customers={editing.customers} />
-                <p className="text-[11px] text-muted-foreground">
-                  Kelola harga khusus per pelanggan di halaman Harga Khusus.
-                </p>
               </div>
             )}
             <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
@@ -1001,7 +998,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus barang?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget?.name} akan dihapus permanen dari daftar beserta daftar harga khususnya.
+              {deleteTarget?.name} akan dihapus permanen dari daftar barang.
               Invoice lama tetap tersimpan. Jika tidak ingin dihapus, gunakan opsi Nonaktifkan sebagai gantinya.
             </AlertDialogDescription>
           </AlertDialogHeader>
