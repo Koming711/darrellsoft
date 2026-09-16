@@ -281,6 +281,11 @@ function HitungCetakanPage() {
   const [prefilled, setPrefilled] = useState(false)
   const [profitPercent, setProfitPercent] = useState<number>(0)
   const [profitInput, setProfitInput] = useState<string>('')
+
+  // ===== Simulasi Cepat: ketik jumlah pesanan baru (+ profit) — harga langsung muncul tanpa isi ulang form =====
+  const [simJumlahInput, setSimJumlahInput] = useState('')
+  const [simProfitInput, setSimProfitInput] = useState('')
+  const [simList, setSimList] = useState<{ id: number; jumlah: number; profit: number; grandTotal: number; hargaPcs: number }[]>([])
   const [biayaLain1Label, setBiayaLain1Label] = useState('Biaya Bikin Piso')
   const [biayaLain2Label, setBiayaLain2Label] = useState('Biaya')
 
@@ -487,8 +492,8 @@ function HitungCetakanPage() {
     toast.success('Finishing berhasil dihapus')
   }
 
-  const getFinishingCost = (finishing: Finishing): { cost: number; isMin: boolean; breakdown: string } => {
-    const qty = parseInt(formData.quantity) || 0
+  const getFinishingCost = (finishing: Finishing, qtyOverride?: number): { cost: number; isMin: boolean; breakdown: string } => {
+    const qty = qtyOverride !== undefined ? qtyOverride : (parseInt(formData.quantity) || 0)
     const cw = parseFloat(formData.cutWidth) || 0
     const ch = parseFloat(formData.cutHeight) || 0
 
@@ -1102,11 +1107,12 @@ function HitungCetakanPage() {
         body: JSON.stringify(buildRiwayatPayload())
       })
       if (res.ok) {
-        toast.success('Riwayat hitung cetakan berhasil disimpan!')
+        toast.success('Riwayat hitung cetakan berhasil disimpan!', { description: 'Data form tetap — cukup ketik jumlah pesanan & profit baru untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
         fetchNextNumber()
-        resetFormForRiwayat()
+        // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan & profit).
+        setRestoredRiwayatId(null)
       } else { toast.error('Gagal menyimpan riwayat') }
     } catch { toast.error('Gagal menyimpan riwayat') }
     setSavingRiwayat(false)
@@ -1225,10 +1231,11 @@ function HitungCetakanPage() {
         body: JSON.stringify(buildRiwayatPayload())
       })
       if (res.ok) {
-        toast.success('Riwayat berhasil diupdate!')
+        toast.success('Riwayat berhasil diupdate!', { description: 'Data form tetap — cukup ketik jumlah pesanan & profit baru untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
-        resetFormForRiwayat()
+        // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan & profit).
+        setRestoredRiwayatId(null)
       } else { toast.error('Gagal mengupdate riwayat') }
     } catch { toast.error('Gagal mengupdate riwayat') }
     setSavingRiwayat(false)
@@ -1399,6 +1406,88 @@ function HitungCetakanPage() {
   const summaryHargaPerlembar = summaryJumlahPesanan > 0 ? summaryGrandTotal / summaryJumlahPesanan : 0
   const summaryHargaModal = summaryJumlahPesanan > 0 ? summarySubTotal / summaryJumlahPesanan : 0
 
+  // ===== Simulasi Cepat — pakai semua parameter form saat ini, hanya jumlah pesanan & profit yang diganti =====
+  const simJumlah = parseInt(simJumlahInput) || 0
+  const simProfitVal = simProfitInput.trim() === '' ? profitPercent : (parseFloat(simProfitInput) || 0)
+  const simBm = parseInt(formData.berapaMata) || 0
+  const simQty = simJumlah > 0 ? (simBm > 0 ? Math.ceil(simJumlah / simBm) : simJumlah) : 0
+
+  const simulasi = useMemo(() => {
+    if (simQty <= 0) return null
+    // Kertas: hitung ulang dengan cutting engine (jumlah cetakan simulasi + insit)
+    const pw = parseFloat(formData.paperLength) || 0
+    const ph = parseFloat(formData.paperWidth) || 0
+    const cw = parseFloat(formData.cutWidth) || 0
+    const ch = parseFloat(formData.cutHeight) || 0
+    const price = parseFloat(formData.pricePerSheet) || 0
+    const totalQty = simQty + (parseInt(formData.setelanKertas) || 0)
+    let kertas = 0
+    let sheetsNeeded = 0
+    if (pw > 0 && ph > 0 && cw > 0 && ch > 0 && totalQty > 0 && price > 0) {
+      try {
+        const r = calculateCuts({ paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch, quantity: totalQty, pricePerSheet: price, optimizationMode: 'maximal', customerName: '', paperMaterial: '', grammage: 0 })
+        kertas = r.totalPrice
+        sheetsNeeded = r.sheetsNeeded
+      } catch { kertas = price * simQty }
+    } else {
+      kertas = price * simQty
+    }
+    // Ongkos Cetak 1 (pakai minimum quantity mesin, sama seperti perhitungan utama)
+    let ongkos1 = 0
+    if (selectedMachine && simQty > 0) {
+      const warna = parseInt(formData.warna) || 0
+      const wk = parseInt(formData.warnaKhusus) || 0
+      ongkos1 = (selectedMachine.pricePerColor * warna) + (selectedMachine.specialColorPrice * wk)
+      if (simQty > selectedMachine.minimumPrintQuantity) ongkos1 += (simQty - selectedMachine.minimumPrintQuantity) * selectedMachine.priceAboveMinimumPerSheet
+      ongkos1 += (parseFloat(formData.hargaPlat) || 0) * (warna + wk)
+    }
+    // Ongkos Cetak 2
+    let ongkos2 = 0
+    if (selectedMachine2 && simQty > 0) {
+      const warna2 = parseInt(formData.warna2) || 0
+      const wk2 = parseInt(formData.warnaKhusus2) || 0
+      ongkos2 = (selectedMachine2.pricePerColor * warna2) + (selectedMachine2.specialColorPrice * wk2)
+      if (simQty > selectedMachine2.minimumPrintQuantity) ongkos2 += (simQty - selectedMachine2.minimumPrintQuantity) * selectedMachine2.priceAboveMinimumPerSheet
+      ongkos2 += (parseFloat(formData.hargaPlat2) || 0) * (warna2 + wk2)
+    }
+    // Finishing (qty simulasi)
+    let finishing = 0
+    for (const fin of selectedFinishingItems) finishing += getFinishingCost(fin, simQty).cost
+    // Ongkos Lem (mengikuti jumlah pesanan)
+    const cmLem = parseFloat(formData.glueLengthCm) || 0
+    const hargaPerCmLem = parseFloat(formData.glueCostPerCm) || 0
+    const lem = cmLem > 0 && hargaPerCmLem > 0 ? cmLem * hargaPerCmLem * simJumlah : 0
+    const boronganPerSheet = parseFloat(formData.glueBoronganPerSheet) || 0
+    const borongan = boronganPerSheet > 0 ? boronganPerSheet * simJumlah : 0
+    // Biaya tetap (packing, kirim, biaya lain tidak berubah)
+    const packing = parseFloat(formData.packingCost) || 0
+    const shipping = parseFloat(formData.shippingCost) || 0
+    const bl1 = parseFloat(formData.biayaLain1) || 0
+    const bl2 = parseFloat(formData.biayaLain2) || 0
+    const subTotal = kertas + ongkos1 + ongkos2 + finishing + lem + borongan + packing + shipping + bl1 + bl2
+    const profitAmount = subTotal * (simProfitVal / 100)
+    const grandTotal = subTotal + profitAmount
+    const hargaPcs = simJumlah > 0 ? grandTotal / simJumlah : 0
+    return { sheetsNeeded, kertas, ongkos1, ongkos2, finishing, lem, borongan, subTotal, profitAmount, grandTotal, hargaPcs }
+  }, [simQty, simJumlah, simProfitVal, formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.setelanKertas, formData.pricePerSheet, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, formData.packingCost, formData.shippingCost, formData.biayaLain1, formData.biayaLain2, selectedMachine, selectedMachine2, selectedFinishingItems])
+
+  // Terapkan hasil simulasi ke form utama (jumlah pesanan + jumlah cetakan + profit)
+  const applySimulasi = () => {
+    if (simJumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
+    setFormData(prev => ({ ...prev, jumlahPesanan: simJumlahInput, quantity: simQty.toString() }))
+    handleProfitChange(simProfitVal)
+    toast.success(`Simulasi diterapkan: ${simJumlah.toLocaleString('id-ID')} pcs · profit ${simProfitVal}%`)
+  }
+
+  // Simpan hasil simulasi ke daftar perbandingan (contoh: 3000pcs vs 5000pcs)
+  const addSimulasiToList = () => {
+    if (!simulasi || simJumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
+    setSimList(prev => [{ id: Date.now(), jumlah: simJumlah, profit: simProfitVal, grandTotal: simulasi.grandTotal, hargaPcs: simulasi.hargaPcs }, ...prev].slice(0, 6))
+    toast.success('Simulasi disimpan ke daftar')
+  }
+
+  const removeSimulasi = (id: number) => setSimList(prev => prev.filter(s => s.id !== id))
+
   // Form validation: require essential fields before buttons can be used
   const isFormValid = !!(
     formData.printName.trim() &&
@@ -1483,6 +1572,100 @@ function HitungCetakanPage() {
 
   const fmtNum = (n: number) => Math.round(n).toLocaleString('id-ID')
   const formatRp = (n: number) => `Rp ${fmtNum(n)}`
+
+  // ===== Kartu Simulasi Cepat — dipakai di summary mobile & kolom desktop =====
+  const simulasiCard = (
+    <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <SectionHeader icon={<Calculator className="w-3.5 h-3.5 text-cyan-600" />} label="Simulasi Cepat" />
+      <div className="px-2.5 py-2 space-y-1.5">
+        <p className="text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+          Ketik jumlah pesanan baru (+ profit) — harga langsung muncul, tanpa hitung ulang semua data.
+        </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <div>
+            <label className={labelClass}>Jumlah Pesanan</label>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              inputMode="numeric"
+              placeholder={summaryJumlahPesanan > 0 ? summaryJumlahPesanan.toLocaleString('id-ID') : 'misal: 5000'}
+              value={simJumlahInput}
+              onChange={(e) => setSimJumlahInput(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Profit (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              inputMode="decimal"
+              placeholder={profitPercent > 0 ? profitPercent.toString() : '0'}
+              value={simProfitInput}
+              onChange={(e) => setSimProfitInput(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+        {simulasi ? (
+          <div className="space-y-1">
+            {simulasi.sheetsNeeded > 0 && (
+              <div className="flex justify-between text-[11px]">
+                <span className="text-slate-800 dark:text-slate-200">Kertas Dibeli</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{simulasi.sheetsNeeded.toLocaleString('id-ID')} lembar</span>
+              </div>
+            )}
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-800 dark:text-slate-200">Modal (Sub Total)</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{formatRp(simulasi.subTotal)}</span>
+            </div>
+            {simProfitVal > 0 && (
+              <div className="flex justify-between text-[11px]">
+                <span className="text-amber-700 dark:text-amber-400">Profit {simProfitVal}%</span>
+                <span className="font-semibold text-amber-700 dark:text-amber-400">{formatRp(simulasi.profitAmount)}</span>
+              </div>
+            )}
+            <div className="p-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-semibold text-cyan-50">Total {simJumlah.toLocaleString('id-ID')} pcs</span>
+                <span className="text-[16px] font-bold text-white">{formatRp(simulasi.grandTotal)}</span>
+              </div>
+              <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-white/30">
+                <span className="text-[10px] font-medium text-cyan-50">Harga Jual per Pcs</span>
+                <span className="text-[13px] font-bold text-white">Rp {simulasi.hargaPcs.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+              </div>
+            </div>
+          </div>
+        ) : simJumlah > 0 ? (
+          <p className="text-[10px] text-amber-600">Lengkapi data kertas/mesin di form agar simulasi bisa dihitung.</p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-1">
+          <Button onClick={applySimulasi} disabled={!simulasi} className="h-8 text-[11px] font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-300"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Terapkan ke Form</Button>
+          <Button onClick={addSimulasiToList} disabled={!simulasi} className="h-8 text-[11px] font-semibold bg-slate-700 hover:bg-slate-800 text-white disabled:bg-slate-300"><Plus className="w-3.5 h-3.5 mr-1" /> Simpan ke Daftar</Button>
+        </div>
+        {simList.length > 0 && (
+          <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-hidden">
+            <p className="text-[10px] font-semibold text-slate-500 px-2 py-1 bg-slate-50 dark:bg-zinc-800">Daftar Simulasi ({simList.length})</p>
+            <div className="max-h-28 overflow-y-auto">
+              {simList.map((s) => (
+                <div key={s.id} className="flex items-center justify-between px-2 py-1 text-[11px] border-t border-slate-100 dark:border-zinc-800 first:border-t-0">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">{s.jumlah.toLocaleString('id-ID')} pcs{s.profit > 0 ? ` · ${s.profit}%` : ''}</span>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">{formatRp(s.grandTotal)}</span>
+                    <span className="text-[9px] text-slate-400 whitespace-nowrap">({formatRp(s.hargaPcs)}/pcs)</span>
+                    <button onClick={() => removeSimulasi(s.id)} className="text-slate-400 hover:text-red-500 flex-shrink-0" aria-label="Hapus simulasi"><X className="w-3 h-3" /></button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
@@ -1913,6 +2096,8 @@ function HitungCetakanPage() {
                     <span className={`text-[23px] font-semibold ${hasGrandTotal ? 'text-white' : 'text-slate-600'}`}>Rp {summaryHargaPerlembar.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                   </div>
                 </div>
+                {/* Simulasi Cepat: ketik jumlah pesanan + profit → harga langsung muncul */}
+                {simulasiCard}
                 {/* Perincian Harga Total - Terpisah */}
                 <div className="px-1 pt-1 space-y-0.5">
                   <div className="flex justify-between text-xs"><span className="text-slate-800">Kertas</span><span className="text-slate-800 font-medium">{paperPriceValue > 0 ? formatRp(paperPriceValue) : '-'}</span></div>
@@ -2236,6 +2421,9 @@ function HitungCetakanPage() {
                 <Button onClick={resetForm} variant="outline" className="w-full h-8 text-[11px] font-semibold"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Form</Button>
               </div>
             </div>
+
+            {/* Simulasi Cepat: ketik jumlah pesanan + profit → harga langsung muncul */}
+            {simulasiCard}
 
           </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X, Image as ImageIcon } from 'lucide-react'
+import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import type { Customer, Paper, CuttingResult } from '@/lib/cutting-engine'
+import { calculateCuts, type Customer, type Paper, type CuttingResult } from '@/lib/cutting-engine'
 import dynamic from 'next/dynamic'
 import { getAuthUser } from '@/lib/auth'
 import { getAuthHeaders } from '@/lib/auth'
@@ -216,9 +216,11 @@ function CalculatorPage() {
   const [optimizationMode, setOptimizationMode] = useState<'fast' | 'maximal'>(initialForm.current.optimizationMode as 'fast' | 'maximal')
   const [isCalculating, setIsCalculating] = useState(false)
 
-  // Extra costs state
-  const [extraCosts, setExtraCosts] = useState<{ id: string; name: string; amount: number }[]>([])
-  const extraCostsIdRef = useRef(0)
+  // ===== Simulasi Cepat: ketik jumlah pesanan baru (+ profit) — harga langsung muncul tanpa hitung ulang =====
+  const [simJumlahInput, setSimJumlahInput] = useState('')
+  const [simProfitInput, setSimProfitInput] = useState('')
+  const [simList, setSimList] = useState<{ id: number; jumlah: number; profit: number; hargaKertas: number; hargaJual: number }[]>([])
+
   const waWindowRef = useRef<Window | null>(null)
 
   // Flag to skip selectedPaper useEffect during restore
@@ -545,7 +547,8 @@ function CalculatorPage() {
     }
   }
 
-  const handleCalculateCuts = async () => {
+  // Inti perhitungan potongan — bisa dipanggil dari tombol Hitung maupun Simulasi Cepat
+  const runCuttingCalc = async (qty: number) => {
     setNeedsRecalc(false)
     justCalculatedRef.current = true
     setIsCalculating(true)
@@ -555,7 +558,6 @@ function CalculatorPage() {
     const ph = parseFloat(paperHeight)
     const cw = parseFloat(cutWidth)
     const ch = parseFloat(cutHeight)
-    const qty = parseInt(computedQuantity || quantity) || 0
     const setelan = parseInt(setelanKertas) || 0
     const price = parseFloat(pricePerSheet) || 0
     const totalQty = qty + setelan
@@ -585,6 +587,49 @@ function CalculatorPage() {
     setIsCalculating(false)
     toast.success('Perhitungan selesai!')
   }
+
+  const handleCalculateCuts = () => runCuttingCalc(parseInt(computedQuantity || quantity) || 0)
+
+  // ===== Simulasi Cepat — hitung harga untuk jumlah pesanan lain tanpa mengubah form utama =====
+  const simJumlah = parseInt(simJumlahInput) || 0
+  const simProfitVal = simProfitInput.trim() === '' ? 0 : (parseFloat(simProfitInput) || 0)
+  const simBm = parseInt(berapaMata) || 0
+  const simQty = simJumlah > 0 ? (simBm > 0 ? Math.ceil(simJumlah / simBm) : simJumlah) : 0
+
+  const simulasi = useMemo(() => {
+    if (simQty <= 0) return null
+    const pw = parseFloat(paperWidth) || 0
+    const ph = parseFloat(paperHeight) || 0
+    const cw = parseFloat(cutWidth) || 0
+    const ch = parseFloat(cutHeight) || 0
+    const price = parseFloat(pricePerSheet) || 0
+    const totalQty = simQty + (parseInt(setelanKertas) || 0)
+    if (pw <= 0 || ph <= 0 || cw <= 0 || ch <= 0 || cw > pw || ch > ph || totalQty <= 0 || price <= 0) return null
+    try {
+      const r = calculateCuts({ paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch, quantity: totalQty, pricePerSheet: price, optimizationMode, customerName: '', paperMaterial: '', grammage: 0 })
+      const profit = r.totalPrice * (simProfitVal / 100)
+      const hargaJual = r.totalPrice + profit
+      return { sheetsNeeded: r.sheetsNeeded, hargaKertas: r.totalPrice, profit, hargaJual, hargaPerPcs: simJumlah > 0 ? hargaJual / simJumlah : 0 }
+    } catch { return null }
+  }, [simQty, simJumlah, simProfitVal, paperWidth, paperHeight, cutWidth, cutHeight, pricePerSheet, setelanKertas, optimizationMode])
+
+  // Terapkan jumlah pesanan simulasi ke form utama + hitung potongan langsung
+  const applySimulasiPotong = async () => {
+    if (!simulasi || simJumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
+    setJumlahPesanan(simJumlahInput)
+    setQuantity(simQty.toString())
+    await runCuttingCalc(simQty)
+    toast.success(`Simulasi diterapkan: ${simJumlah.toLocaleString('id-ID')} pcs`)
+  }
+
+  // Simpan hasil simulasi ke daftar perbandingan (contoh: 3000pcs vs 5000pcs)
+  const addSimulasiToList = () => {
+    if (!simulasi || simJumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
+    setSimList(prev => [{ id: Date.now(), jumlah: simJumlah, profit: simProfitVal, hargaKertas: simulasi.hargaKertas, hargaJual: simulasi.hargaJual }, ...prev].slice(0, 6))
+    toast.success('Simulasi disimpan ke daftar')
+  }
+
+  const removeSimulasi = (id: number) => setSimList(prev => prev.filter(s => s.id !== id))
 
   const handleReset = () => {
     if (!confirm('Reset semua data yang sudah diisi?')) return
@@ -712,34 +757,6 @@ function CalculatorPage() {
     photoUrl,
   })
 
-  const resetFormForRiwayat = () => {
-    setRestoredRiwayatId(null)
-    setPhotoUrl('')
-    setNeedsRecalc(false)
-    restoreDoneRef.current = false
-    setPaperWidth('')
-    setPaperHeight('')
-    setCutWidth('')
-    setCutHeight('')
-    setSelectedCustomerId('')
-    setSelectedPaperId('')
-    setGrammage('')
-    setPricePerSheet('')
-    setQuantity('')
-    setJumlahPesanan('')
-    setBerapaMata('')
-    setSetelanKertas('')
-    setPrintName('')
-    setIsCustomPaper(false)
-    setRestoredPaperName(null)
-    setResults(null)
-    setOptimizationMode('maximal')
-    setCustomerInput('')
-    setExtraCosts([])
-    localStorage.removeItem(STORAGE_KEY())
-    localStorage.removeItem(STORAGE_RESULTS_KEY())
-  }
-
   const isDataSameAsAnyRiwayat = () => {
     if (riwayatList.length === 0) return false
     return riwayatList.some(r =>
@@ -774,11 +791,12 @@ function CalculatorPage() {
         body: JSON.stringify(buildPayload())
       })
       if (res.ok) {
-        toast.success('Riwayat berhasil disimpan!')
+        toast.success('Riwayat berhasil disimpan!', { description: 'Data form tetap — cukup ketik jumlah pesanan baru untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
         fetchNextNumber()
-        resetFormForRiwayat()
+        // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan / profit di Simulasi Cepat).
+        setRestoredRiwayatId(null)
       } else {
         const errData = await res.json().catch(() => null)
         console.error('Save riwayat error:', res.status, errData)
@@ -878,10 +896,11 @@ function CalculatorPage() {
         body: JSON.stringify(buildPayload())
       })
       if (res.ok) {
-        toast.success('Riwayat berhasil diupdate!')
+        toast.success('Riwayat berhasil diupdate!', { description: 'Data form tetap — cukup ketik jumlah pesanan baru untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
-        resetFormForRiwayat()
+        // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan / profit di Simulasi Cepat).
+        setRestoredRiwayatId(null)
       } else {
         toast.error('Gagal mengupdate riwayat')
       }
@@ -1178,6 +1197,81 @@ function CalculatorPage() {
     toast.success('Membuka WhatsApp...')
   }
 
+  // ===== Kartu Simulasi Cepat — ketik jumlah pesanan + profit, harga langsung muncul =====
+  const simulasiCard = (
+    <div className="bg-card rounded-xl border border-slate-200 p-2.5 space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Calculator className="w-3.5 h-3.5 text-blue-600" />
+        <p className="text-xs font-semibold text-slate-700">Simulasi Cepat</p>
+        <span className="text-[9px] font-medium text-slate-400 ml-auto">Tanpa hitung ulang</span>
+      </div>
+      <p className="text-[10px] leading-snug text-slate-500">Ketik jumlah pesanan baru (+ profit %) — harga langsung muncul. Klik Terapkan bila ingin dipakai di form.</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={lbl}>Jumlah Pesanan</label>
+          <input type="number" step="1" min="0" inputMode="numeric" placeholder="misal: 5000" value={simJumlahInput} onChange={(e) => setSimJumlahInput(e.target.value)} className={inp} />
+        </div>
+        <div>
+          <label className={lbl}>Profit (%)</label>
+          <input type="number" step="0.1" min="0" max="100" inputMode="decimal" placeholder="0" value={simProfitInput} onChange={(e) => setSimProfitInput(e.target.value)} className={inp} />
+        </div>
+      </div>
+      {simulasi ? (
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 text-center">
+            <p className="text-[9px] text-slate-500 leading-tight">Kertas Dibeli</p>
+            <p className="text-sm font-bold text-black dark:text-white leading-tight">{simulasi.sheetsNeeded.toLocaleString('id-ID')} <span className="text-[9px] font-normal">lbr</span></p>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 text-center">
+            <p className="text-[9px] text-slate-500 leading-tight">Harga Kertas</p>
+            <p className="text-sm font-bold text-blue-700 dark:text-blue-300 leading-tight">Rp {Math.round(simulasi.hargaKertas).toLocaleString('id-ID')}</p>
+          </div>
+          {simProfitVal > 0 && (
+            <>
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg p-1.5 text-center">
+                <p className="text-[9px] text-amber-700 leading-tight">Profit {simProfitVal}%</p>
+                <p className="text-sm font-bold text-amber-800 leading-tight">Rp {Math.round(simulasi.profit).toLocaleString('id-ID')}</p>
+              </div>
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-lg p-1.5 text-center">
+                <p className="text-[9px] text-emerald-700 leading-tight">Harga Jual{simJumlah > 0 ? ` · Rp ${Math.round(simulasi.hargaPerPcs).toLocaleString('id-ID')}/pcs` : ''}</p>
+                <p className="text-sm font-bold text-emerald-800 leading-tight">Rp {Math.round(simulasi.hargaJual).toLocaleString('id-ID')}</p>
+              </div>
+            </>
+          )}
+        </div>
+      ) : simJumlah > 0 ? (
+        <p className="text-[10px] text-amber-600">Lengkapi ukuran kertas, potongan &amp; harga per lembar di form agar simulasi bisa dihitung.</p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={applySimulasiPotong} disabled={!simulasi || isCalculating} className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
+          {isCalculating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          Terapkan ke Form
+        </button>
+        <button onClick={addSimulasiToList} disabled={!simulasi} className="flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
+          <Plus className="w-3.5 h-3.5" />
+          Simpan ke Daftar
+        </button>
+      </div>
+      {simList.length > 0 && (
+        <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-hidden">
+          <p className="text-[10px] font-semibold text-slate-500 px-2 py-1 bg-slate-50 dark:bg-zinc-800">Daftar Simulasi ({simList.length})</p>
+          <div className="max-h-28 overflow-y-auto">
+            {simList.map((s) => (
+              <div key={s.id} className="flex items-center justify-between px-2 py-1 text-[11px] border-t border-slate-100 dark:border-zinc-800 first:border-t-0">
+                <span className="font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">{s.jumlah.toLocaleString('id-ID')} pcs{s.profit > 0 ? ` · ${s.profit}%` : ''}</span>
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Rp {Math.round(s.hargaJual).toLocaleString('id-ID')}</span>
+                  <span className="text-[9px] text-slate-400 whitespace-nowrap">kertas Rp {Math.round(s.hargaKertas).toLocaleString('id-ID')}</span>
+                  <button onClick={() => removeSimulasi(s.id)} className="text-slate-400 hover:text-red-500 flex-shrink-0" aria-label="Hapus simulasi"><X className="w-3 h-3" /></button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <DashboardLayout
       title={t('potong_kertas')}
@@ -1447,6 +1541,9 @@ function CalculatorPage() {
               </button>
             </div>
           </div>
+
+          {/* Simulasi Cepat: ketik jumlah pesanan + profit → harga langsung muncul */}
+          {simulasiCard}
 
           {/* Link to Hitung Cetakan */}
           <button
