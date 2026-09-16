@@ -101,6 +101,8 @@ function getInitialFormState(): FormData {
 const inp = "w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-1.5 focus:ring-blue-500 focus:border-transparent bg-card"
 const inpDisabled = "w-full border border-slate-200 rounded-md px-2.5 py-1.5 text-sm text-slate-500 bg-slate-100 cursor-not-allowed"
 const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
+// Harga per pcs: tampilkan 2 desimal bila < Rp1.000 (kertas murah bisa < Rp1/pcs)
+const fmtHargaPcs = (n: number) => `Rp ${n.toLocaleString('id-ID', { maximumFractionDigits: n > 0 && n < 1000 ? 2 : 0 })}`
 
 /** Format ukuran "W × H cm"; '-' jika keduanya kosong. */
 function fmtUkuran(w?: string | number | null, h?: string | number | null): string {
@@ -609,7 +611,7 @@ function CalculatorPage() {
       const r = calculateCuts({ paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch, quantity: totalQty, pricePerSheet: price, optimizationMode, customerName: '', paperMaterial: '', grammage: 0 })
       const profit = r.totalPrice * (simProfitVal / 100)
       const hargaJual = r.totalPrice + profit
-      return { sheetsNeeded: r.sheetsNeeded, hargaKertas: r.totalPrice, profit, hargaJual, hargaPerPcs: simJumlah > 0 ? hargaJual / simJumlah : 0 }
+      return { sheetsNeeded: r.sheetsNeeded, hargaKertas: r.totalPrice, profit, hargaJual, hargaPerPcs: simJumlah > 0 ? hargaJual / simJumlah : 0, modalPerPcs: simJumlah > 0 ? r.totalPrice / simJumlah : 0 }
     } catch { return null }
   }, [simQty, simJumlah, simProfitVal, paperWidth, paperHeight, cutWidth, cutHeight, pricePerSheet, setelanKertas, optimizationMode])
 
@@ -1233,11 +1235,15 @@ function CalculatorPage() {
                 <p className="text-sm font-bold text-amber-800 leading-tight">Rp {Math.round(simulasi.profit).toLocaleString('id-ID')}</p>
               </div>
               <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-lg p-1.5 text-center">
-                <p className="text-[9px] text-emerald-700 leading-tight">Harga Jual{simJumlah > 0 ? ` · Rp ${Math.round(simulasi.hargaPerPcs).toLocaleString('id-ID')}/pcs` : ''}</p>
+                <p className="text-[9px] text-emerald-700 leading-tight">Harga Jual{simJumlah > 0 ? ` · ${fmtHargaPcs(simulasi.hargaPerPcs)}/pcs` : ''}</p>
                 <p className="text-sm font-bold text-emerald-800 leading-tight">Rp {Math.round(simulasi.hargaJual).toLocaleString('id-ID')}</p>
               </div>
             </>
           )}
+          <div className="bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 text-center col-span-2">
+            <p className="text-[9px] text-slate-500 leading-tight">Harga Modal per Pcs</p>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">{fmtHargaPcs(simulasi.modalPerPcs)}{simJumlah > 0 ? <span className="text-[9px] font-normal"> /pcs</span> : ''}</p>
+          </div>
         </div>
       ) : simJumlah > 0 ? (
         <p className="text-[10px] text-amber-600">Lengkapi ukuran kertas, potongan &amp; harga per lembar di form agar simulasi bisa dihitung.</p>

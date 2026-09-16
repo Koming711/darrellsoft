@@ -1468,7 +1468,8 @@ function HitungCetakanPage() {
     const profitAmount = subTotal * (simProfitVal / 100)
     const grandTotal = subTotal + profitAmount
     const hargaPcs = simJumlah > 0 ? grandTotal / simJumlah : 0
-    return { sheetsNeeded, kertas, ongkos1, ongkos2, finishing, lem, borongan, subTotal, profitAmount, grandTotal, hargaPcs }
+    const modalPcs = simJumlah > 0 ? subTotal / simJumlah : 0
+    return { sheetsNeeded, kertas, ongkos1, ongkos2, finishing, lem, borongan, subTotal, profitAmount, grandTotal, hargaPcs, modalPcs }
   }, [simQty, simJumlah, simProfitVal, formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.setelanKertas, formData.pricePerSheet, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, formData.packingCost, formData.shippingCost, formData.biayaLain1, formData.biayaLain2, selectedMachine, selectedMachine2, selectedFinishingItems])
 
   // Terapkan hasil simulasi ke form utama (jumlah pesanan + jumlah cetakan + profit)
@@ -1572,6 +1573,8 @@ function HitungCetakanPage() {
 
   const fmtNum = (n: number) => Math.round(n).toLocaleString('id-ID')
   const formatRp = (n: number) => `Rp ${fmtNum(n)}`
+  // Harga per pcs: tampilkan 2 desimal bila < Rp1.000 (bisa jadi senilai puluhan/ratusan rupiah, bahkan < Rp1)
+  const formatHargaPcs = (n: number) => `Rp ${n.toLocaleString('id-ID', { maximumFractionDigits: n > 0 && n < 1000 ? 2 : 0 })}`
 
   // ===== Kartu Simulasi Cepat — dipakai di summary mobile & kolom desktop =====
   const simulasiCard = (
@@ -1634,8 +1637,12 @@ function HitungCetakanPage() {
                 <span className="text-[16px] font-bold text-white">{formatRp(simulasi.grandTotal)}</span>
               </div>
               <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-white/30">
-                <span className="text-[10px] font-medium text-cyan-50">Harga Jual per Pcs</span>
-                <span className="text-[13px] font-bold text-white">Rp {simulasi.hargaPcs.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
+                <span className="text-[10px] font-medium text-cyan-50">Harga Modal per Pcs</span>
+                <span className="text-[13px] font-bold text-white">{formatHargaPcs(simulasi.modalPcs)}</span>
+              </div>
+              <div className="flex justify-between items-center mt-0.5 pt-0.5 border-t border-white/30">
+                <span className="text-[10px] font-semibold text-cyan-50">Harga Jual per Pcs</span>
+                <span className="text-[13px] font-bold text-white">{formatHargaPcs(simulasi.hargaPcs)}</span>
               </div>
             </div>
           </div>
