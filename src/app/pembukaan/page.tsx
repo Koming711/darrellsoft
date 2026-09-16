@@ -15,7 +15,6 @@ import { useRouter } from 'next/navigation'
 import {
   ReceiptText,
   Wallet,
-  Clock,
   TrendingUp,
   Plus,
   ChevronRight,
@@ -28,6 +27,7 @@ import {
   CheckCircle2,
   Inbox,
   HandCoins,
+  Coins,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -359,8 +359,8 @@ export default function PembukaanPage() {
             </CardContent>
           </Card>
 
-          {/* Piutang */}
-          <button className="text-left" onClick={() => navigate('/riwayat-pembayaran')} aria-label="Buka Riwayat Pembayaran">
+          {/* Piutang dagang (invoice pelunasan = piutang dagang) */}
+          <button className="text-left" onClick={() => navigate('/piutang-dagang')} aria-label="Buka Piutang Dagang">
             <Card className="p-0 gap-0 h-full transition-colors hover:border-amber-300 dark:border-zinc-800 dark:hover:border-amber-900">
               <CardContent className="p-4 md:p-5">
                 {loading ? (
@@ -368,8 +368,8 @@ export default function PembukaanPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="h-4 w-4 text-amber-600" />
-                      <p className="text-xs font-medium">Piutang</p>
+                      <Coins className="h-4 w-4 text-amber-600" />
+                      <p className="text-xs font-medium">Piutang Dagang</p>
                     </div>
                     <p className="text-base md:text-2xl font-bold mt-2 text-amber-700 dark:text-amber-400">
                       {formatRupiah(s?.cards.unpaidTotal ?? 0)}
@@ -777,12 +777,12 @@ export default function PembukaanPage() {
           </Card>
         </div>
 
-        {/* ===== Daftar Piutang (sisa pembayaran invoice DP & invoice belum lunas) ===== */}
+        {/* ===== Piutang Dagang (sisa pembayaran invoice DP & invoice belum lunas — invoice pelunasan = piutang dagang) ===== */}
         <Card className="p-0 gap-0 dark:border-zinc-800">
           <CardHeader className="py-4 px-4 md:px-5">
             <div className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-600" /> Daftar Piutang
+                <Coins className="h-4 w-4 text-amber-600" /> Piutang Dagang
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 Total: <span className="font-semibold text-amber-700 dark:text-amber-400">{formatRupiah(s?.cards.unpaidTotal ?? 0)}</span>
@@ -857,6 +857,7 @@ export default function PembukaanPage() {
               <>
                 <QuickLink icon={TrendingUp} title="Laba Kotor" desc="Laporan rugi laba" onClick={() => navigate('/laporan/rugi-laba')} />
                 <QuickLink icon={HandCoins} title="Hutang Dagang" desc="Tagihan PO ke pemasok" onClick={() => navigate('/hutang-dagang')} />
+                <QuickLink icon={Coins} title="Piutang Dagang" desc="Sisa pembayaran pelanggan" onClick={() => navigate('/piutang-dagang')} />
                 <QuickLink icon={ClipboardList} title="Purchase Order" desc="Pesan barang ke supplier" onClick={() => navigate('/purchase-order')} />
               </>
             )}

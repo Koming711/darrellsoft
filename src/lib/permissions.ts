@@ -114,6 +114,7 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/purchase-order') return 'purchase-order'
   if (pathname === '/riwayat-pembelian') return 'purchase-order'
   if (pathname === '/hutang-dagang') return 'hutang-dagang'
+  if (pathname === '/piutang-dagang') return 'piutang-dagang'
   if (pathname === '/riwayat-penjualan') return 'invoice'
   if (pathname === '/laporan') return 'laporan'
   if (pathname === '/biaya' || pathname === '/biaya-operasional') return 'biaya'
@@ -144,6 +145,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'surat-jalan': '/surat-jalan',
     'purchase-order': '/purchase-order',
     'hutang-dagang': '/hutang-dagang',
+    'piutang-dagang': '/piutang-dagang',
     'laporan': '/laporan',
     'biaya': '/biaya-operasional',
     'hak-akses': '/administrasi/hak-akses',
