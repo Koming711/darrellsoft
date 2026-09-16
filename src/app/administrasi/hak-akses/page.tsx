@@ -2,27 +2,25 @@
 
 import {
   Plus, Save, Trash2, MessageCircle, Loader2, CheckCheck, Ban, RotateCcw,
-  ShieldCheck, Pencil, UserCog,
+  ShieldCheck, Pencil, Lock, X, Minus, MoreVertical, Check,
 } from 'lucide-react'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getAuthUser } from '@/lib/auth'
 import { saveAllPermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
@@ -98,32 +96,10 @@ function getRoleColor(roleId: string): string {
   }
 }
 
-/** Label pendek operasi CRUD dari id sub-permission (…-lihat → Lihat) */
-function opLabel(subId: string): string {
-  if (subId.endsWith('-lihat')) return 'Lihat'
-  if (subId.endsWith('-tambah')) return 'Tambah'
-  if (subId.endsWith('-edit')) return 'Edit'
-  if (subId.endsWith('-hapus')) return 'Hapus'
-  if (subId.endsWith('-konversi')) return 'Konversi'
-  return 'Akses'
-}
-
-/** Warna checkbox CRUD mengikuti jenis operasi (lihat/tambah/edit/hapus/konversi) */
-function subColorClass(subId: string): string {
-  if (subId.includes('lihat')) return 'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600'
-  if (subId.includes('tambah')) return 'data-[state=checked]:bg-teal-600 data-[state=checked]:border-teal-600'
-  if (subId.includes('edit')) return 'data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500'
-  if (subId.includes('hapus')) return 'data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600'
-  if (subId.includes('konversi')) return 'data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600'
-  return 'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600'
-}
-
-// ===== Helper: persist custom_roles metadata to DB (fire-and-forget) =====
+// ===== Helper: persist custom_roles metadata (SEMUA role, agar rename role bawaan juga tersimpan) =====
 async function persistCustomRoles(roles: Role[]) {
   try {
-    const customRolesMeta = roles
-      .filter(r => !DEFAULT_ROLES.find(dr => dr.id === r.id))
-      .map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
+    const customRolesMeta = roles.map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
     await authFetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -132,6 +108,16 @@ async function persistCustomRoles(roles: Role[]) {
   } catch (err) {
     console.error('Failed to persist custom_roles:', err)
   }
+}
+
+/** Label pendek operasi CRUD dari id sub-permission (…-lihat → Lihat) */
+function opLabel(subId: string): string {
+  if (subId.endsWith('-lihat')) return 'Lihat'
+  if (subId.endsWith('-tambah')) return 'Tambah'
+  if (subId.endsWith('-edit')) return 'Edit'
+  if (subId.endsWith('-hapus')) return 'Hapus'
+  if (subId.endsWith('-konversi')) return 'Konversi'
+  return 'Akses'
 }
 
 // ===== Helper: build permission payload untuk disimpan ke DB / localStorage =====
@@ -155,10 +141,26 @@ function buildPermData(roles: Role[]) {
   return permData
 }
 
-// ===== Form state dialog tambah/edit role =====
+// ===== Form state dialog tambah/rename role =====
 interface RoleFormState {
   name: string
-  features: FeaturePermission[]
+}
+
+/** Bentuk visual sel matrix: on (diizinkan), off, partial (sebagian, utk grup CRUD) */
+type MatrixCellState = 'on' | 'off' | 'partial'
+
+function matrixCellClass(state: MatrixCellState, disabled: boolean): string {
+  const base = 'inline-flex items-center justify-center h-9 w-9 md:h-10 md:w-10 rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1'
+  if (disabled) return `${base} bg-emerald-50 border-emerald-100 text-emerald-500 cursor-not-allowed opacity-70`
+  if (state === 'on') return `${base} bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-600`
+  if (state === 'partial') return `${base} bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-500`
+  return `${base} bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-300 hover:text-slate-400`
+}
+
+function matrixCellIcon(state: MatrixCellState): React.ReactNode {
+  if (state === 'on') return <Check className="h-4 w-4" aria-hidden="true" />
+  if (state === 'partial') return <Minus className="h-4 w-4" aria-hidden="true" />
+  return <X className="h-4 w-4" aria-hidden="true" />
 }
 
 export default function HakAksesPage() {
@@ -167,13 +169,15 @@ export default function HakAksesPage() {
   const isSuperAdmin = currentUser?.role === 'superadmin'
 
   // === ROLES STATE ===
-  const [roles, setRoles] = useState<Role[]>(DEFAULT_ROLES)
+  const [roles, setRoles] = useState<Role[]>(() => JSON.parse(JSON.stringify(DEFAULT_ROLES)) as Role[])
+  const [savedRoles, setSavedRoles] = useState<Role[]>(() => JSON.parse(JSON.stringify(DEFAULT_ROLES)) as Role[])
   const [dataLoaded, setDataLoaded] = useState(false)
+  const [savingMatrix, setSavingMatrix] = useState(false)
 
-  // === DIALOG TAMBAH/EDIT ROLE ===
+  // === DIALOG TAMBAH / RENAME ROLE ===
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<Role | null>(null)
-  const [form, setForm] = useState<RoleFormState>({ name: '', features: [] })
+  const [form, setForm] = useState<RoleFormState>({ name: '' })
   const [saving, setSaving] = useState(false)
 
   // === DIALOG HAPUS ROLE ===
@@ -254,10 +258,19 @@ export default function HakAksesPage() {
             return { ...role, features: applyPerms(role.features, customPerms[role.id]) }
           })
 
-          // Append custom roles from DB (rehydrate name/color, build default features, then apply perms)
+          // Apply custom role metadata (rename/warna role bawaan + rehydrate role kustom)
           if (Array.isArray(customRolesMeta)) {
             for (const cr of customRolesMeta) {
-              if (loadedRoles.find(r => r.id === cr.id)) continue // defensive: skip duplicates
+              const existingIdx = loadedRoles.findIndex(r => r.id === cr.id)
+              if (existingIdx >= 0) {
+                // Role bawaan: terapkan override nama/warna (hasil rename yang dipersist)
+                loadedRoles[existingIdx] = {
+                  ...loadedRoles[existingIdx],
+                  name: cr.name || loadedRoles[existingIdx].name,
+                  color: cr.color || loadedRoles[existingIdx].color,
+                }
+                continue
+              }
               const baseFeatures = buildDefaultFeatures('new')
               const features = customPerms?.[cr.id] ? applyPerms(baseFeatures, customPerms[cr.id]) : baseFeatures
               loadedRoles.push({
@@ -271,6 +284,7 @@ export default function HakAksesPage() {
           }
 
           setRoles(loadedRoles)
+          setSavedRoles(JSON.parse(JSON.stringify(loadedRoles)) as Role[])
         }
       } catch (err) {
         console.error('Failed to load settings:', err)
@@ -296,66 +310,114 @@ export default function HakAksesPage() {
     }
   }
 
-  // === DIALOG: buka tambah / edit ===
+  // === DIALOG: buka tambah / rename ===
   const openCreate = useCallback(() => {
     setEditingRole(null)
-    setForm({ name: '', features: buildDefaultFeatures('new') })
+    setForm({ name: '' })
     setDialogOpen(true)
   }, [])
 
-  const openEdit = useCallback((role: Role) => {
+  const openRename = useCallback((role: Role) => {
     if (role.id === 'superadmin') {
       toast.info('Super Admin selalu memiliki akses penuh dan tidak dapat diubah')
       return
     }
     setEditingRole(role)
-    setForm({ name: role.name, features: JSON.parse(JSON.stringify(role.features)) as FeaturePermission[] })
+    setForm({ name: role.name })
     setDialogOpen(true)
   }, [])
 
-  // === DIALOG: mutator permission (operasi pada form.features) ===
-  const toggleSimplePermission = useCallback((featureId: string) => {
-    setForm(f => ({ ...f, features: f.features.map(x => x.featureId === featureId ? { ...x, allowed: !x.allowed } : x) }))
+  // === MATRIX: mutator permission per role (operasi pada roles state) ===
+  const updateRoleFeatures = useCallback((roleId: string, updater: (features: FeaturePermission[]) => FeaturePermission[]) => {
+    setRoles(rs => rs.map(r => r.id === roleId ? { ...r, features: updater(r.features) } : r))
   }, [])
 
-  const toggleSubPermission = useCallback((featureId: string, subId: string) => {
-    setForm(f => ({
-      ...f,
-      features: f.features.map(x => {
-        if (x.featureId !== featureId || !x.subPermissions) return x
-        const subs = x.subPermissions.map(sp => sp.id === subId ? { ...sp, allowed: !sp.allowed } : sp)
-        return { ...x, subPermissions: subs, allowed: subs.some(s => s.allowed) }
-      }),
+  const toggleSimpleCell = useCallback((roleId: string, featureId: string) => {
+    updateRoleFeatures(roleId, fs => fs.map(x => x.featureId === featureId ? { ...x, allowed: !x.allowed } : x))
+  }, [updateRoleFeatures])
+
+  const toggleSubCell = useCallback((roleId: string, featureId: string, subId: string) => {
+    updateRoleFeatures(roleId, fs => fs.map(x => {
+      if (x.featureId !== featureId || !x.subPermissions) return x
+      const subs = x.subPermissions.map(sp => sp.id === subId ? { ...sp, allowed: !sp.allowed } : sp)
+      return { ...x, subPermissions: subs, allowed: subs.some(s => s.allowed) }
     }))
-  }, [])
+  }, [updateRoleFeatures])
 
-  const setGroupAll = useCallback((featureId: string, value: boolean) => {
-    setForm(f => ({
-      ...f,
-      features: f.features.map(x => {
-        if (x.featureId !== featureId || !x.subPermissions) return x
-        return { ...x, subPermissions: x.subPermissions.map(sp => ({ ...sp, allowed: value })), allowed: value }
-      }),
+  const toggleGroupCell = useCallback((roleId: string, featureId: string) => {
+    updateRoleFeatures(roleId, fs => fs.map(x => {
+      if (x.featureId !== featureId || !x.subPermissions) return x
+      const allOn = x.subPermissions.every(sp => sp.allowed)
+      const value = !allOn
+      return { ...x, subPermissions: x.subPermissions.map(sp => ({ ...sp, allowed: value })), allowed: value }
     }))
-  }, [])
+  }, [updateRoleFeatures])
 
-  const setAllFeatures = useCallback((value: boolean) => {
-    setForm(f => ({
-      ...f,
-      features: f.features.map(x => ({
-        ...x,
-        allowed: value,
-        subPermissions: x.subPermissions?.map(sp => ({ ...sp, allowed: value })),
-      })),
-    }))
-  }, [])
+  const setRoleAll = useCallback((roleId: string, value: boolean) => {
+    updateRoleFeatures(roleId, fs => fs.map(x => ({
+      ...x,
+      allowed: value,
+      subPermissions: x.subPermissions?.map(sp => ({ ...sp, allowed: value })),
+    })))
+  }, [updateRoleFeatures])
 
-  const resetRoleDefault = useCallback(() => {
-    setForm(f => ({ ...f, features: buildDefaultFeatures(editingRole?.id || 'new') }))
-    toast.info('Role direset ke pengaturan default')
-  }, [editingRole])
+  const resetRoleToDefault = useCallback((roleId: string) => {
+    updateRoleFeatures(roleId, () => buildDefaultFeatures(roleId))
+    toast.info('Role direset ke pengaturan default — klik Simpan untuk menyimpan')
+  }, [updateRoleFeatures])
 
-  // === DIALOG: simpan (create/update + persist) ===
+  // === MATRIX: dirty tracking (bandingkan roles vs snapshot tersimpan) ===
+  const serializeRoleState = useCallback((rs: Role[]) =>
+    JSON.stringify({ n: rs.map(r => `${r.id}:${r.name}`), p: buildPermData(rs) }), [])
+
+  const dirty = useMemo(
+    () => serializeRoleState(roles) !== serializeRoleState(savedRoles),
+    [roles, savedRoles, serializeRoleState]
+  )
+
+  // === MATRIX: simpan semua perubahan permission ===
+  const handleSaveMatrix = useCallback(async () => {
+    setSavingMatrix(true)
+    try {
+      const permData = buildPermData(roles)
+      const saveRes = await authFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'role_permissions', value: JSON.stringify(permData) })
+      })
+      if (!saveRes.ok) {
+        const errData = await saveRes.json().catch(() => ({}))
+        toast.error(`Gagal menyimpan: ${errData.error || 'Server error'}`)
+        return
+      }
+
+      // Persist metadata semua role (nama/warna) agar rename role bawaan juga tersimpan
+      const customRolesMeta = roles.map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
+      await authFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'custom_roles', value: JSON.stringify(customRolesMeta) })
+      })
+
+      // Simpan ke localStorage + event agar sidebar langsung diperbarui
+      saveAllPermissions(permData)
+
+      setSavedRoles(JSON.parse(JSON.stringify(roles)) as Role[])
+      toast.success('Matrix hak akses berhasil disimpan')
+    } catch {
+      toast.error('Gagal menyimpan ke database')
+    } finally {
+      setSavingMatrix(false)
+    }
+  }, [roles])
+
+  // === MATRIX: batalkan perubahan ===
+  const handleDiscardMatrix = useCallback(() => {
+    setRoles(JSON.parse(JSON.stringify(savedRoles)) as Role[])
+    toast.info('Perubahan dibatalkan')
+  }, [savedRoles])
+
+  // === DIALOG: simpan (create/rename + persist) ===
   const handleDialogSave = useCallback(async () => {
     const name = form.name.trim()
     if (!name) { toast.error('Nama role wajib diisi'); return }
@@ -366,18 +428,18 @@ export default function HakAksesPage() {
     try {
       let nextRoles: Role[]
       if (editingRole) {
-        nextRoles = roles.map(r => r.id === editingRole.id ? { ...r, name, features: form.features } : r)
+        nextRoles = roles.map(r => r.id === editingRole.id ? { ...r, name } : r)
       } else {
         const newRole: Role = {
           id: Date.now().toString(),
           name,
           color: 'bg-slate-100 text-slate-700',
-          features: form.features,
+          features: buildDefaultFeatures('new'),
         }
         nextRoles = [...roles, newRole]
       }
 
-      // Persist semua role permissions ke database
+      // Persist semua role permissions ke database (role baru = tanpa akses)
       const permData = buildPermData(nextRoles)
       const saveRes = await authFetch('/api/settings', {
         method: 'POST',
@@ -390,10 +452,8 @@ export default function HakAksesPage() {
         return
       }
 
-      // Persist metadata role kustom agar tetap ada setelah reload
-      const customRolesMeta = nextRoles
-        .filter(r => !DEFAULT_ROLES.find(dr => dr.id === r.id))
-        .map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
+      // Persist metadata SEMUA role agar rename role bawaan & role kustom tetap ada setelah reload
+      const customRolesMeta = nextRoles.map(r => ({ id: r.id, name: r.name, color: r.color, isSystem: r.isSystem || false }))
       await authFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -404,8 +464,9 @@ export default function HakAksesPage() {
       saveAllPermissions(permData)
 
       setRoles(nextRoles)
+      setSavedRoles(JSON.parse(JSON.stringify(nextRoles)) as Role[])
       setDialogOpen(false)
-      toast.success(editingRole ? `Hak akses role "${name}" berhasil diperbarui` : `Role "${name}" ditambahkan`)
+      toast.success(editingRole ? `Nama role berhasil diubah menjadi "${name}"` : `Role "${name}" ditambahkan — atur hak aksesnya lewat matrix`)
     } catch {
       toast.error('Gagal menyimpan ke database')
     } finally {
@@ -420,6 +481,7 @@ export default function HakAksesPage() {
     if (roleId === 'superadmin' || roleId === 'admin') { toast.error('Role sistem tidak dapat dihapus'); return }
     const nextRoles = roles.filter(r => r.id !== roleId)
     setRoles(nextRoles)
+    setSavedRoles(JSON.parse(JSON.stringify(nextRoles)) as Role[])
 
     void persistCustomRoles(nextRoles)
 
@@ -489,15 +551,11 @@ export default function HakAksesPage() {
     toast.success('Pengaturan keamanan berhasil disimpan!')
   }, [autoLogoutMin, logoutWarningSec, singleDevice])
 
-  // === Derived: ringkasan role (tabel) ===
+  // === Derived: ringkasan role (header matrix) ===
   const roleSummary = (role: Role) => {
     const active = role.features.filter(f => f.allowed).length
     return `${active}/${role.features.length}`
   }
-
-  // === Derived: ringkasan form (dialog) ===
-  const formActiveCount = form.features.filter(f => f.allowed).length
-  const formTotalCount = form.features.length
 
   return (
     <DashboardLayout title={t('hak_akses')} subtitle={t('subtitle_hak_akses')}>
@@ -511,127 +569,246 @@ export default function HakAksesPage() {
         </div>
       )}
 
-      {/* ==================== SECTION 1: ROLE & HAK AKSES (CRUD sederhana) ==================== */}
+      {/* ==================== SECTION 1: MATRIX HAK AKSES ==================== */}
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         {/* Header */}
-        <div className="p-4 lg:p-6 border-b border-slate-200 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">Role &amp; Hak Akses</h2>
+        <div className="p-4 lg:p-6 border-b border-slate-200 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
+              <h2 className="text-lg font-bold text-slate-800">Matrix Hak Akses</h2>
+            </div>
             <p className="text-sm text-slate-500 mt-0.5">
-              {dataLoaded ? `${roles.length} role` : 'Memuat data…'}
+              Klik ikon pada tabel untuk memberi / mencabut akses. Perubahan tersimpan setelah klik Simpan.
             </p>
+            {/* Legenda */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3 text-emerald-600" aria-hidden="true" /></span>
+                Diizinkan
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded bg-slate-50 border border-slate-200"><X className="w-3 h-3 text-slate-400" aria-hidden="true" /></span>
+                Tidak diizinkan
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded bg-amber-50 border border-amber-200"><Minus className="w-3 h-3 text-amber-500" aria-hidden="true" /></span>
+                Sebagian (grup CRUD)
+              </span>
+            </div>
           </div>
-          <Button onClick={openCreate} size="sm" className="gap-2 min-h-[44px] w-full sm:w-auto">
-            <Plus className="w-4 h-4" />
-            Tambah Role
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {dirty && (
+              <Button variant="outline" onClick={handleDiscardMatrix} disabled={savingMatrix} className="min-h-[44px]">
+                Batalkan
+              </Button>
+            )}
+            <Button
+              onClick={() => void handleSaveMatrix()}
+              disabled={!dirty || savingMatrix}
+              className={`gap-2 min-h-[44px] ${dirty ? 'ring-2 ring-amber-300' : ''}`}
+            >
+              {savingMatrix ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Simpan
+            </Button>
+            <Button onClick={openCreate} className="gap-2 min-h-[44px]">
+              <Plus className="w-4 h-4" />
+              Tambah Role
+            </Button>
+          </div>
         </div>
 
-        {/* Desktop table */}
-        <div className="hidden md:block">
-          {dataLoaded ? (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50">
-                  <TableHead>Role</TableHead>
-                  <TableHead>Jenis</TableHead>
-                  <TableHead className="text-center">Fitur Aktif</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roles.map((role) => (
-                  <TableRow key={role.id}>
-                    <TableCell>
-                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${getRoleColor(role.id)}`}>
-                        {role.name}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[11px] border-slate-200 text-slate-600">
-                        {role.isSystem ? 'Bawaan' : 'Kustom'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums">{roleSummary(role)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9"
-                          disabled={role.id === 'superadmin'}
-                          onClick={() => openEdit(role)}
-                          aria-label={`Edit hak akses ${role.name}`}
-                          title={role.id === 'superadmin' ? 'Super Admin memiliki akses penuh' : 'Edit hak akses'}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-destructive hover:text-destructive"
-                          disabled={role.id === 'superadmin' || role.id === 'admin'}
-                          onClick={() => { setRoleToDelete(role); setDeleteDialogOpen(true) }}
-                          aria-label={`Hapus ${role.name}`}
-                          title={role.id === 'superadmin' || role.id === 'admin' ? 'Role sistem tidak dapat dihapus' : t('hapus_role')}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+        {!dataLoaded ? (
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : (
+          <div className="overflow-auto max-h-[65vh] overscroll-x-contain scrollbar-thin">
+            <table className="w-full border-separate border-spacing-0 text-sm" aria-label="Matrix hak akses per role">
+              <thead>
+                <tr>
+                  <th
+                    scope="col"
+                    className="sticky left-0 top-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 min-w-[150px] md:min-w-[220px]"
+                  >
+                    Fitur / Menu
+                  </th>
+                  {roles.map((role) => (
+                    <th
+                      key={role.id}
+                      scope="col"
+                      className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 px-1.5 py-2 min-w-[68px] md:min-w-[104px]"
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center justify-center gap-1 max-w-full">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-bold max-w-full ${getRoleColor(role.id)}`}
+                            title={role.name}
+                          >
+                            <span className="truncate">{role.name}</span>
+                          </span>
+                          {role.id === 'superadmin' ? (
+                            <Lock className="w-3.5 h-3.5 text-slate-300 shrink-0" aria-label="Super Admin terkunci — selalu akses penuh" />
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0 text-slate-400 hover:text-slate-700"
+                                  aria-label={`Menu role ${role.name}`}
+                                >
+                                  <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="center" className="w-48">
+                                <DropdownMenuItem onClick={() => openRename(role)}>
+                                  <Pencil className="w-4 h-4 mr-2" aria-hidden="true" /> Ganti Nama
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setRoleAll(role.id, true)}>
+                                  <CheckCheck className="w-4 h-4 mr-2" aria-hidden="true" /> Beri Semua
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setRoleAll(role.id, false)}>
+                                  <Ban className="w-4 h-4 mr-2" aria-hidden="true" /> Kosongkan
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => resetRoleToDefault(role.id)}>
+                                  <RotateCcw className="w-4 h-4 mr-2" aria-hidden="true" /> Reset Default
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  disabled={role.id === 'admin'}
+                                  onClick={() => { setRoleToDelete(role); setDeleteDialogOpen(true) }}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" /> Hapus Role
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 tabular-nums" aria-label={`Fitur aktif ${role.name}`}>{roleSummary(role)}</span>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* ===== A: Akses Halaman & Fitur ===== */}
+                <tr>
+                  <td
+                    colSpan={roles.length + 1}
+                    className="bg-slate-100/80 border-b border-slate-200 px-3 py-1.5"
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Akses Halaman &amp; Fitur</p>
+                    <p className="text-[10px] text-slate-400">Halaman tanpa akses tidak tampil di menu role ini.</p>
+                  </td>
+                </tr>
+                {SIMPLE_FEATURES.map((f) => (
+                  <tr key={f.id} className="group/row">
+                    <td className="sticky left-0 z-10 bg-white group-hover/row:bg-slate-50 border-b border-r border-slate-100 px-3 py-1 text-slate-800">
+                      <span className="block truncate" title={f.name}>{f.name}</span>
+                    </td>
+                    {roles.map((role) => {
+                      const fp = role.features.find(x => x.featureId === f.id)
+                      const locked = role.id === 'superadmin'
+                      const allowed = locked ? true : (fp?.allowed || false)
+                      const state: MatrixCellState = allowed ? 'on' : 'off'
+                      return (
+                        <td key={role.id} className="group-hover/row:bg-slate-50/70 border-b border-slate-100 px-1 py-1 text-center">
+                          <button
+                            type="button"
+                            disabled={locked}
+                            onClick={() => toggleSimpleCell(role.id, f.id)}
+                            className={matrixCellClass(state, locked)}
+                            aria-label={`${f.name} — ${role.name}: ${allowed ? 'diizinkan' : 'tidak diizinkan'}`}
+                            aria-pressed={allowed}
+                          >
+                            {matrixCellIcon(state)}
+                          </button>
+                        </td>
+                      )
+                    })}
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="p-4 space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          )}
-        </div>
 
-        {/* Mobile cards */}
-        <div className="md:hidden divide-y divide-slate-100">
-          {dataLoaded ? (
-            roles.map((role) => (
-              <div key={role.id} className="p-4 space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${getRoleColor(role.id)}`}>
-                    {role.name}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-600 shrink-0">
-                    {role.isSystem ? 'Bawaan' : 'Kustom'}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">{roleSummary(role)} fitur aktif</p>
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 min-h-[44px]"
-                    disabled={role.id === 'superadmin'}
-                    onClick={() => openEdit(role)}
+                {/* ===== B: Operasi CRUD ===== */}
+                <tr>
+                  <td
+                    colSpan={roles.length + 1}
+                    className="bg-slate-100/80 border-b border-slate-200 px-3 py-1.5"
                   >
-                    <Pencil className="h-4 w-4" /> Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
-                    disabled={role.id === 'superadmin' || role.id === 'admin'}
-                    onClick={() => { setRoleToDelete(role); setDeleteDialogOpen(true) }}
-                  >
-                    <Trash2 className="h-4 w-4" /> Hapus
-                  </Button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="p-4 space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-            </div>
-          )}
-        </div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Operasi CRUD — Master Data &amp; Pengguna</p>
+                    <p className="text-[10px] text-slate-400">Kolom grup mengatur semua operasi sekaligus (klik ikon grup).</p>
+                  </td>
+                </tr>
+                {GROUP_FEATURES.map((g) => (
+                  <Fragment key={g.id}>
+                    {/* Baris grup: toggle semua operasi sekaligus */}
+                    <tr className="group/row bg-slate-50/60">
+                      <td className="sticky left-0 z-10 bg-slate-50 group-hover/row:bg-slate-100 border-b border-r border-slate-100 px-3 py-1">
+                        <span className="block truncate font-semibold text-slate-800" title={g.name}>
+                          {g.name}
+                        </span>
+                      </td>
+                      {roles.map((role) => {
+                        const fp = role.features.find(x => x.featureId === g.id)
+                        const subs = fp?.subPermissions || []
+                        const allowedCount = subs.filter(s => s.allowed).length
+                        const locked = role.id === 'superadmin'
+                        const state: MatrixCellState = locked || allowedCount === subs.length ? 'on' : allowedCount === 0 ? 'off' : 'partial'
+                        return (
+                          <td key={role.id} className="group-hover/row:bg-slate-100/70 border-b border-slate-100 px-1 py-1 text-center">
+                            <button
+                              type="button"
+                              disabled={locked}
+                              onClick={() => toggleGroupCell(role.id, g.id)}
+                              className={matrixCellClass(state, locked)}
+                              aria-label={`${g.name} (semua operasi) — ${role.name}`}
+                            >
+                              {matrixCellIcon(state)}
+                            </button>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    {/* Baris sub-permission (indented) */}
+                    {g.subPermissions.map((sp) => (
+                      <tr key={sp.id} className="group/row">
+                        <td className="sticky left-0 z-10 bg-white group-hover/row:bg-slate-50 border-b border-r border-slate-100 pl-6 pr-3 py-1 text-[13px] text-slate-600">
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-slate-300 shrink-0" aria-hidden="true">└</span>
+                            <span className="truncate" title={sp.name}>{opLabel(sp.id)}</span>
+                          </span>
+                        </td>
+                        {roles.map((role) => {
+                          const fp = role.features.find(x => x.featureId === g.id)
+                          const s = fp?.subPermissions?.find(x => x.id === sp.id)
+                          const locked = role.id === 'superadmin'
+                          const allowed = locked ? true : (s?.allowed || false)
+                          const state: MatrixCellState = allowed ? 'on' : 'off'
+                          return (
+                            <td key={role.id} className="group-hover/row:bg-slate-50/70 border-b border-slate-100 px-1 py-1 text-center">
+                              <button
+                                type="button"
+                                disabled={locked}
+                                onClick={() => toggleSubCell(role.id, g.id, sp.id)}
+                                className={matrixCellClass(state, locked)}
+                                aria-label={`${opLabel(sp.id)} ${g.name} — ${role.name}: ${allowed ? 'diizinkan' : 'tidak diizinkan'}`}
+                                aria-pressed={allowed}
+                              >
+                                {matrixCellIcon(state)}
+                              </button>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ==================== SECTION 2: AKUN DEMO + KEAMANAN ==================== */}
@@ -789,120 +966,26 @@ export default function HakAksesPage() {
         </div>
       </div>
 
-      {/* ==================== DIALOG: TAMBAH / EDIT ROLE + HAK AKSES ==================== */}
+      {/* ==================== DIALOG: TAMBAH / GANTI NAMA ROLE ==================== */}
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o && !saving) setDialogOpen(false) }}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingRole ? 'Edit Hak Akses Role' : 'Tambah Role Baru'}</DialogTitle>
+            <DialogTitle>{editingRole ? 'Ganti Nama Role' : 'Tambah Role Baru'}</DialogTitle>
             <DialogDescription>
               {editingRole
-                ? `Atur akses halaman & operasi CRUD untuk role ${editingRole.name}.`
-                : 'Buat role baru, lalu atur akses halaman & operasi CRUD-nya.'}
+                ? `Ubah nama role ${editingRole.name}. Hak aksesnya diatur langsung lewat matrix.`
+                : 'Buat role baru. Setelah dibuat, atur hak aksesnya langsung lewat matrix (default: tanpa akses).'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {/* Nama role */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="roleName">{t('nama_role')} <span className="text-destructive">*</span></Label>
-              <Input
-                id="roleName"
-                placeholder="Contoh: Supervisor"
-                value={form.name}
-                onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-
-            {/* Ringkasan + aksi cepat */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-slate-500">
-                <span className="font-bold text-slate-700">{formActiveCount}</span> dari {formTotalCount} fitur aktif
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setAllFeatures(true)}>
-                  <CheckCheck className="w-3.5 h-3.5" />Beri Semua
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setAllFeatures(false)}>
-                  <Ban className="w-3.5 h-3.5" />Kosongkan
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={resetRoleDefault}>
-                  <RotateCcw className="w-3.5 h-3.5" />Reset Default
-                </Button>
-              </div>
-            </div>
-
-            {/* Matrix hak akses — scrollable */}
-            <div className="max-h-[55vh] overflow-y-auto space-y-5 pr-1 scrollbar-thin">
-              {/* A: Akses Halaman & Fitur */}
-              <section aria-label="Akses Halaman & Fitur">
-                <h3 className="text-sm font-bold text-slate-800">Akses Halaman &amp; Fitur</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Halaman tanpa akses tidak tampil di menu role ini.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                  {SIMPLE_FEATURES.map((f) => {
-                    const fp = form.features.find(x => x.featureId === f.id)
-                    return (
-                      <div key={f.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 bg-white">
-                        <p className="text-sm text-slate-800 truncate">{f.name}</p>
-                        <Switch
-                          checked={fp?.allowed || false}
-                          onCheckedChange={() => toggleSimplePermission(f.id)}
-                          className="shrink-0"
-                          aria-label={`Akses ${f.name}`}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-
-              {/* B: Operasi CRUD */}
-              <section aria-label="Operasi CRUD">
-                <h3 className="text-sm font-bold text-slate-800">Operasi CRUD — Master Data &amp; Pengguna</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Centang operasi (Lihat / Tambah / Edit / Hapus) yang boleh dilakukan role ini.</p>
-                <div className="space-y-2 mt-2">
-                  {GROUP_FEATURES.map((g) => {
-                    const fp = form.features.find(x => x.featureId === g.id)
-                    const subs = fp?.subPermissions || []
-                    const allowedCount = subs.filter(s => s.allowed).length
-                    return (
-                      <div key={g.id} className="rounded-lg border border-slate-200 px-3 py-2.5 bg-white">
-                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                          <p className="text-sm font-medium text-slate-800">
-                            {g.name}
-                            <span className="ml-2 text-[10px] font-semibold text-slate-400">{allowedCount}/{subs.length}</span>
-                          </p>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            {g.subPermissions.map((sp) => {
-                              const s = subs.find(x => x.id === sp.id)
-                              return (
-                                <label key={sp.id} className="flex items-center gap-1.5 cursor-pointer">
-                                  <Checkbox
-                                    checked={s?.allowed || false}
-                                    onCheckedChange={() => toggleSubPermission(g.id, sp.id)}
-                                    className={`h-[18px] w-[18px] rounded border-slate-300 data-[state=checked]:text-white ${subColorClass(sp.id)}`}
-                                    aria-label={`${opLabel(sp.id)} ${g.name}`}
-                                  />
-                                  <span className="text-xs text-slate-600">{opLabel(sp.id)}</span>
-                                </label>
-                              )
-                            })}
-                            {subs.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setGroupAll(g.id, allowedCount !== subs.length)}
-                                className="text-[11px] font-medium text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
-                              >
-                                {allowedCount === subs.length ? 'Kosongkan' : 'Semua'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="roleName">{t('nama_role')} <span className="text-destructive">*</span></Label>
+            <Input
+              id="roleName"
+              placeholder="Contoh: Supervisor"
+              value={form.name}
+              onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+            />
           </div>
 
           <DialogFooter className="gap-2">
