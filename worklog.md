@@ -9488,3 +9488,28 @@ Stage Summary:
 - Hasil JPG & Cetak detail invoice kini identik antara mobile & desktop (acuan desktop), hi-res 3x (≈300 DPI), fit A5 portrait.
 - Commit: 60fc78e; PWA v68 live di produksi.
 - File berubah: src/app/invoice/page.tsx (selector capture), public/sw.js, src/components/service-worker-registration.tsx.
+
+---
+Task ID: 100
+Agent: Z.ai Code (main)
+Task: "extract file ini. ganti semua konten dengan file ini. fix" — ekstrak split tar (workspace-7ffcedf3 .tar.001 + .tar.002) dan ganti semua konten project dengan isi extract.
+
+Work Log:
+- Gabungkan split archive: cat .tar.001 .tar.002 > /tmp/ws99.tar.gz (89.8 MB, gzip) → ekstrak ke /tmp/extract-ws99 (exclude .git/node_modules/.next).
+- Analisis: extract = workspace lengkap Darrell Soft versi terbaru milik user. package.json & prisma/schema.prisma IDENTIK; semua config root (next/tailwind/tsconfig/components/postcss/vercel) IDENTIK; src berbeda di 16 file + 1 folder baru.
+- Temuan lingkungan: git history lokal berbeda dari sesi sebelumnya (sandbox di-reset; commit sesi sebelumnya tidak ada di .git ini) — deploy kemarin ke produksi tetap sukses & tidak terpengaruh. public/sw.js lokal kembali ke v68 → di-bump ulang.
+- rsync -a --delete /tmp/extract-ws99/src/ → /home/z/my-project/src/ (mirror penuh; dipastikan tidak ada file lokal yang hilang — hanya extract yang menambah). 18 file berubah (1711 insertions, 1134 deletions).
+- Konten utama dari extract user: (1) halaman BARU src/app/hutang-dagang/page.tsx (399 baris: filter Belum Lunas/Lunas/Semua, pencarian, muat ulang) + menu sidebar/sidebar-desktop Hutang Dagang (ikon HandCoins, featureId hutang-dagang) + i18n id/en 'hutang_dagang'; (2) hak-akses CRUD role lengkap (Tambah Role, Edit, Hapus; Super Admin terlindungi); (3) beranda & invoice versi terbaru user; (4) sync-pelunasan: item pelunasan milik user tidak ditimpa dari invoice DP saat save ulang/Tandai Lunas; (5) invoice-pelunasan-editor & document-action-buttons versi user ("Pilih Invoice DP").
+- Bump PWA: public/sw.js v68 → 'darrell-soft-v73'; APP_VERSION → '2026-09-17-v9' (supaya client produksi lama memaksa clear cache saat deploy berikutnya; dialog "Versi Baru" terverifikasi muncul di E2E).
+- db/custom.db lokal TIDAK ditimpa (data nyata dipertahankan); extract db tidak dipakai. package.json sama → tidak perlu install dependensi.
+- Lint: bunx eslint 17 file yang berubah → 0 error.
+- E2E desktop 1280×800 (superadmin/268899, tutup dialog "Versi Baru" + banner install): login ✓; beranda render (Laba Kotor di strip Operasional + Menu Pintas, sidebar ada Hutang Dagang) ✓; scrollW 1280 ✓; /hutang-dagang: heading, filter Belum Lunas(0)/Lunas(0)/Semua(0), pencarian, muat ulang ✓ (data 0 = valid); /administrasi/hak-akses: "Role & Hak Akses", Tambah Role, Edit/Hapus per role (Super Admin disabled) ✓; /invoice?buat=1: sub-tab Regular/DP/Pelunasan, tab DP form lengkap, tab Pelunasan "Pilih Invoice DP" ✓, scrollW 1280 ✓.
+- E2E mobile 390×844: /pembukaan 390=390 ✓; /hutang-dagang 390=390 ✓; /invoice?buat=1 390=390 ✓.
+- dev.log: semua 200, tanpa error. Tidak ada data uji dibuat (semua aksi navigasi/read-only).
+- Commit 08ab47d (src + public/sw.js; db runtime & dev.pid tidak di-commit). Deploy tidak diminta.
+
+Stage Summary:
+- Seluruh konten src kini = versi terbaru milik user dari split tar, TANPA mengubah dependensi/schema/db.
+- Fitur baru aktif: halaman + menu Hutang Dagang, CRUD role di Hak Akses, pelunasan berbasis "Pilih Invoice DP" dengan perlindungan item pelunasan milik user.
+- PWA v73 + APP_VERSION 2026-09-17-v9 siap untuk deploy berikutnya (belum di-deploy — tidak diminta).
+- Catatan lingkungan: git history lokal berubah (sandbox reset); commit sebelumnya (ddb2cfc, 20e41e7, af0be86, 89eaf74) tidak ada di .git saat ini, namun produksi Vercel sudah memuat fitur-fitur tersebut dari deploy Task 99.
