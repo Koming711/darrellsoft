@@ -27,6 +27,9 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       ? data.dpAmount
       : total * (dpPercent / 100);
   const sisa = total - dpAmount;
+  // Invoice DP: entah DP diisi sebagai persen (dp) maupun nominal (dpAmount) —
+  // keduanya wajib menampilkan baris DP + SISA PEMBAYARAN (sisa = piutang).
+  const isDp = dpPercent > 0 || dpAmount > 0;
   const companyInitials = (company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   const itemCount = items.length;
@@ -105,7 +108,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               <h2 style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
               <p style={{ fontSize: '8pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>PELUNASAN</p>
             </>
-          ) : dpPercent > 0 ? (
+          ) : isDp ? (
             <>
               <h2 style={{ fontSize: '11pt', fontWeight: 'bold', margin: 0, color: '#000', lineHeight: 1.2 }}>INVOICE</h2>
               <p style={{ fontSize: '8.5pt', fontWeight: 'bold', color: '#b45309', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>DOWN PAYMENT</p>
@@ -229,11 +232,11 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000' }}>TOTAL</td>
             <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000' }}>{formatRupiah(total)}</td>
           </tr>
-          {dpPercent > 0 && (
+          {isDp && (
             <>
               <tr className="total-row">
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>DP ({dpPercent}%)</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>{dpPercent > 0 ? `DP (${dpPercent}%)` : 'DP'}</td>
                 <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', color: '#555' }}>{formatRupiah(dpAmount)}</td>
               </tr>
               <tr className="total-row print-sisa-border" style={{ borderTop: '1px solid #000' }}>
@@ -249,7 +252,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       {/* === TERBILANG === */}
       <div style={{ marginTop: '1.5mm', marginBottom: '1mm' }}>
         <p style={{ fontSize: '7pt', fontStyle: 'italic', color: '#555', margin: 0 }}>
-          Terbilang: {terbilang(dpPercent > 0 ? sisa : total)} rupiah
+          Terbilang: {terbilang(isDp ? sisa : total)} rupiah
         </p>
       </div>
 

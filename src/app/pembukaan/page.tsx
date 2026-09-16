@@ -95,6 +95,21 @@ interface BerandaData {
   ops: { sjCount: number; poCount: number }
   recent: BerandaInvoiceItem[]
   dueSoon: BerandaDueSoonItem[]
+  /** Daftar piutang: SEMUA invoice belum lunas (sisa pembayaran / DP) */
+  piutang?: BerandaPiutangItem[]
+}
+
+/** Item daftar piutang (sisa pembayaran yang belum dibayar) — sesuai respons API */
+interface BerandaPiutangItem {
+  id: string
+  number: string
+  customerName: string
+  date: string
+  sisa: number
+  dueDate: string
+  overdue: boolean
+  overdueDays: number
+  data: Record<string, unknown> | null
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -761,6 +776,70 @@ export default function PembukaanPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ===== Daftar Piutang (sisa pembayaran invoice DP & invoice belum lunas) ===== */}
+        <Card className="p-0 gap-0 dark:border-zinc-800">
+          <CardHeader className="py-4 px-4 md:px-5">
+            <div className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" /> Daftar Piutang
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Total: <span className="font-semibold text-amber-700 dark:text-amber-400">{formatRupiah(s?.cards.unpaidTotal ?? 0)}</span>
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="px-2 md:px-3 pb-3">
+            {loading ? (
+              <div className="space-y-2 px-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : !s?.piutang?.length ? (
+              <div className="text-center py-8 px-4">
+                <CheckCircle2 className="h-10 w-10 text-emerald-200 mx-auto mb-2 dark:text-emerald-900" />
+                <p className="text-sm text-muted-foreground">Tidak ada piutang — semua invoice sudah lunas.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-stone-100 dark:divide-zinc-800 max-h-96 overflow-y-auto">
+                {s.piutang.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      onClick={() => navigate(`/invoice?detail=${p.id}`)}
+                      aria-label={`Buka detail invoice ${p.number}`}
+                      className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate text-stone-900 dark:text-zinc-100">{p.number}</p>
+                          {(Boolean(p.data?.dp) || Number(p.data?.dpAmount ?? 0) > 0) ? (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300">DP</Badge>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {p.customerName} · {formatTanggalID(p.date)}{p.dueDate ? ` · tempo ${formatTanggalID(p.dueDate)}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">{formatRupiah(p.sisa)}</p>
+                        {p.overdue ? (
+                          <p className="text-[11px] font-medium text-red-600">Terlambat {p.overdueDays} hari</p>
+                        ) : p.dueDate ? (
+                          <p className="text-[11px] font-medium text-amber-600">
+                            H-{Math.ceil((new Date(`${p.dueDate}T00:00:00`).getTime() - startOfToday()) / 86400000)}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">Sisa pembayaran</p>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
 
         {/* ===== Menu pintas ===== */}
         <section aria-label="Menu Pintas">
