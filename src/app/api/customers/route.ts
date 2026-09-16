@@ -5,7 +5,7 @@ import { sanitizeError } from '@/lib/api-error'
 
 /**
  * GET /api/customers?q= — daftar customer milik user (array, kompatibel konsumen lama).
- * Setiap elemen kini juga membawa: code, notes, isActive, invoiceCount, customPriceCount
+ * Setiap elemen kini juga membawa: code, notes, isActive, invoiceCount
  * (dipakai halaman Master Pelanggan versi lama). q = contains name/code/phone.
  * invoiceCount dihitung dari DocumentHistory (docType 'invoice') yang client.nama == customer.name.
  */
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const [customers, histories, customCounts] = await Promise.all([
+    const [customers, histories] = await Promise.all([
       db.customer.findMany({ where, orderBy: { name: 'asc' } }),
       (async () => {
         if (!user) return [] as { dataJson: string | null }[]
@@ -33,10 +33,6 @@ export async function GET(request: NextRequest) {
           select: { dataJson: true },
         })
       })(),
-      db.barangCustomer.groupBy({
-        by: ['customerId'],
-        _count: { _all: true },
-      }),
     ])
 
     // Hitung jumlah invoice per customer berdasarkan nama client di dataJson
@@ -51,13 +47,11 @@ export async function GET(request: NextRequest) {
         // dataJson tidak valid — lewati
       }
     }
-    const customCountMap = new Map(customCounts.map((c) => [c.customerId, c._count._all]))
 
     const result = customers.map((c) => ({
       ...c,
       code: c.code ?? '',
       invoiceCount: invoiceCountByName.get(c.name.trim()) ?? 0,
-      customPriceCount: customCountMap.get(c.id) ?? 0,
     }))
 
     return NextResponse.json(result, {

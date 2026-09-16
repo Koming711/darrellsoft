@@ -92,7 +92,7 @@ export function generateDocNumber(prefix: string): string {
   return `${prefix}/${y}/${seq}`;
 }
 
-// ===== Formatters for Master Barang / Harga Khusus (versi lama) =====
+// ===== Formatters for Master Barang / Master Pelanggan (versi lama) =====
 
 const idrFormatter = new Intl.NumberFormat('id-ID', {
   style: 'currency',
@@ -113,10 +113,4 @@ export function formatNum(n: number | null | undefined, maxFrac = 2): string {
 
 export function round2(n: number): number {
   return Math.round(n * 100) / 100
-}
-
-/** Selisih harga dalam persen (custom vs standar), dibulatkan 1 desimal */
-export function priceDelta(custom: number, standard: number): number {
-  if (!standard) return 0
-  return Math.round(((custom - standard) / standard) * 1000) / 10
 }

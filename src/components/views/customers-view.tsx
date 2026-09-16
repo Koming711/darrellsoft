@@ -482,8 +482,8 @@ export default function CustomersView({
             <AlertDialogTitle>Hapus pelanggan?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && (deleteTarget.invoiceCount ?? 0) > 0
-                ? `${deleteTarget.name} punya ${deleteTarget.invoiceCount} invoice. Invoice lama tetap tersimpan, tetapi pelanggan ini akan dihapus permanen dari daftar beserta daftar harga khususnya.`
-                : `${deleteTarget?.name} akan dihapus permanen dari daftar pelanggan beserta daftar harga khususnya.`}
+                ? `${deleteTarget.name} punya ${deleteTarget.invoiceCount} invoice. Invoice lama tetap tersimpan, tetapi pelanggan ini akan dihapus permanen dari daftar.`
+                : `${deleteTarget?.name} akan dihapus permanen dari daftar pelanggan.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

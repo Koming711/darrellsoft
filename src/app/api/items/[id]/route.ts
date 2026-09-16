@@ -134,7 +134,7 @@ export async function PUT(
   }
 }
 
-/** DELETE /api/items/:id — hapus barang permanen (registrasi harga khusus ikut terhapus). */
+/** DELETE /api/items/:id — hapus barang permanen (registrasi pelanggan ikut terhapus). */
 export async function DELETE(
   request: NextRequest,
   { params }: Params

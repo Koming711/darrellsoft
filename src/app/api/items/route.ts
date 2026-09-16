@@ -82,8 +82,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/items — tambah barang. Kode otomatis ITM-xxx (unik per user).
  * Body: { name, unit, standardPrice, hpp, qty?, keterangan?, customerId?, photoUrl? }
- * customerId → barang otomatis terdaftar (BarangCustomer) untuk customer tsb,
- * harga khusus awal = standardPrice (harga jual).
+ * customerId → barang otomatis terdaftar (BarangCustomer) untuk customer tsb.
  * photoUrl = data URL JPEG (hasil kompresi sisi client ≤300KB); opsional.
  */
 export async function POST(request: NextRequest) {

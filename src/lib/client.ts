@@ -1,6 +1,6 @@
 /**
  * Auth-aware JSON fetch helper for the restored master views
- * (Master Barang / Master Pelanggan / Harga Khusus).
+ * (Master Barang / Master Pelanggan).
  *
  * Mirrors the original app's `apiFetch` contract: returns parsed JSON,
  * throws ApiError with the server's `error` message when the response
