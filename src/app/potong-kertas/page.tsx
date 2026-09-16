@@ -1435,10 +1435,10 @@ function CalculatorPage() {
                 {t('cetak')}
               </button>
               <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
-                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
-                <Share2 className="w-3.5 h-3.5" />
-                <span className="lg:hidden xl:inline">WhatsApp</span>
-                <span className="hidden lg:inline xl:hidden">WA</span>
+                className="flex items-center justify-center gap-1 min-w-0 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
+                <Share2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden xl:inline">WhatsApp</span>
+                <span className="xl:hidden">WA</span>
               </button>
               <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
                 className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>

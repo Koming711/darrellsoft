@@ -29,6 +29,7 @@ import {
   Package,
   TrendingUp,
   PieChart,
+  HandCoins,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -96,6 +97,13 @@ const menuItems = [
     href: '/purchase-order',
     icon: ShoppingCart,
     featureId: 'purchase-order',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'hutang_dagang' as TranslationKey,
+    href: '/hutang-dagang',
+    icon: HandCoins,
+    featureId: 'hutang-dagang',
     section: 'dokumen',
   },
   {

@@ -19,7 +19,6 @@ import { getAuthHeaders } from '@/lib/auth';
 import type { DocumentType, InvoiceData } from '@/lib/types';
 import { captureElementAsJpg } from '@/lib/capture-jpg';
 import { shareJpgToWhatsApp } from '@/lib/share-jpg';
-import { syncLinkedPelunasan } from '@/lib/sync-pelunasan';
 
 interface DocumentActionButtonsProps {
   docType: DocumentType;
@@ -103,18 +102,6 @@ export function DocumentActionButtons({
         });
 
         if (res.ok) {
-          // If this is an invoice and DP was added/updated during this edit,
-          // ensure a linked invoice-pelunasan entry exists & is in sync so it
-          // shows up in the Editor Pelunasan tab. (Previously this only
-          // happened on CREATE, so restored invoices that gained a DP never
-          // appeared in Editor Pelunasan.)
-          if (docType === 'invoice') {
-            await syncLinkedPelunasan(
-              editingId,
-              data.nomor || '-',
-              dataToSave as InvoiceData & { dpAmount: number; originalTotal: number },
-            );
-          }
           toast.success(`${documentLabel} berhasil diperbarui`);
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
           if (onUpdateSuccess) onUpdateSuccess();
@@ -139,15 +126,10 @@ export function DocumentActionButtons({
         if (res.ok) {
           const savedData = await res.json();
 
-          // If this is an invoice with DP, ensure a linked invoice-pelunasan
-          // entry exists (creates if missing, updates if already present)
-          if (docType === 'invoice') {
-            await syncLinkedPelunasan(
-              savedData.id,
-              savedData.nomor || data.nomor || '-',
-              dataToSave as InvoiceData & { dpAmount: number; originalTotal: number },
-            );
-          }
+          // Catatan: menyimpan invoice (termasuk invoice DP) TIDAK lagi membuat
+          // dokumen invoice-pelunasan otomatis — yang dibuat hanya invoice-nya
+          // saja. Dokumen pelunasan dibuat saat user mencatat pelunasan lewat
+          // tab "Pelunasan" (InvoicePelunasanEditor) atau Tandai Lunas.
 
           toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));

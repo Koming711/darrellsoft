@@ -27,6 +27,8 @@ export interface BarangOption {
   unit: string;
   standardPrice: number;
   hpp: number | null;
+  /** Qty dari Master Barang — otomatis mengisi Qty item saat dipilih. */
+  qty: number;
 }
 
 interface ItemsFieldsProps {
@@ -38,14 +40,19 @@ interface ItemsFieldsProps {
    * Mode barang (dipakai Buat Invoice): jika disediakan, kotak Nama Barang
    * menjadi kotak besar yang BISA diketik manual, dilengkapi tombol dropdown
    * berisi daftar barang milik customer terpilih (dari Master Barang per
-   * pelanggan). Memilih dari dropdown otomatis mengisi Nama Barang, Satuan,
-   * Harga Satuan & Harga Modal — semuanya tetap bisa diedit manual.
+   * pelanggan). Memilih dari dropdown otomatis mengisi Nama Barang, Qty (dari
+   * master), Satuan, Harga Satuan & Harga Modal.
    */
   barangOptions?: BarangOption[];
   /** Pesan saat daftar barang kosong untuk customer terpilih. */
   emptyBarangMessage?: string;
   /** Dipanggil saat user memilih barang dari dropdown untuk item ke-N. */
   onPickBarang?: (itemIndex: number, barang: BarangOption) => void;
+  /**
+   * Kunci Harga Satuan & Harga Modal (read-only) — permintaan owner: harga
+   * hanya boleh diubah di Master Barang, tidak di halaman Buat Invoice.
+   */
+  lockPrices?: boolean;
 }
 
 export function ItemsFields({
@@ -56,6 +63,7 @@ export function ItemsFields({
   barangOptions,
   emptyBarangMessage = 'Belum ada barang untuk customer ini',
   onPickBarang,
+  lockPrices = false,
 }: ItemsFieldsProps) {
   const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
   const isBarangMode = Array.isArray(barangOptions);
@@ -91,7 +99,7 @@ export function ItemsFields({
       onPickBarang(index, barang);
       return;
     }
-    // Fallback tanpa onPickBarang: isi langsung
+    // Fallback tanpa onPickBarang: isi langsung (Qty ikut dari master bila > 0)
     onChange(
       items.map((item, i) =>
         i === index
@@ -99,6 +107,7 @@ export function ItemsFields({
               ...item,
               deskripsi: barang.name,
               satuan: barang.unit || item.satuan || 'pcs',
+              qty: barang.qty > 0 ? barang.qty : item.qty,
               harga: barang.standardPrice || 0,
               ...(showModal ? { modal: barang.hpp ?? 0 } : {}),
             }
@@ -141,7 +150,8 @@ export function ItemsFields({
               {isBarangMode ? (
                 /* MODE BARANG (Buat Invoice) — kotak besar & bisa diketik
                    manual, plus tombol dropdown untuk memilih barang milik
-                   customer (auto-isi nama, satuan, harga satuan & modal). */
+                   customer (auto-isi nama, qty dari master, satuan, harga
+                   satuan & modal). */
                 <Popover
                   open={openBarangIndex === index}
                   onOpenChange={(open) => setOpenBarangIndex(open ? index : null)}
@@ -186,6 +196,7 @@ export function ItemsFields({
                             {showPrice && (
                               <span className="block text-[11px] text-slate-400">
                                 {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
+                                {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
                               </span>
                             )}
                           </button>
@@ -229,12 +240,15 @@ export function ItemsFields({
                   <Input
                     type="text"
                     inputMode="numeric"
+                    readOnly={lockPrices}
+                    title={lockPrices ? 'Harga hanya bisa diubah di Master Barang' : undefined}
                     value={item.harga ? item.harga.toLocaleString('id-ID') : ''}
                     onChange={(e) => {
+                      if (lockPrices) return
                       const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
                       updateItem(item.id, 'harga', raw === '' ? 0 : Number(raw) || 0)
                     }}
-                    className="text-sm"
+                    className={`text-sm ${lockPrices ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
                   />
                 </div>
               )}
@@ -244,12 +258,15 @@ export function ItemsFields({
                   <Input
                     type="text"
                     inputMode="numeric"
+                    readOnly={lockPrices}
+                    title={lockPrices ? 'Harga hanya bisa diubah di Master Barang' : undefined}
                     value={item.modal ? item.modal.toLocaleString('id-ID') : ''}
                     onChange={(e) => {
+                      if (lockPrices) return
                       const raw = e.target.value.replace(/\./g, '').replace(/,/g, '')
                       updateItem(item.id, 'modal', raw === '' ? 0 : Number(raw) || 0)
                     }}
-                    className="text-sm"
+                    className={`text-sm ${lockPrices ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
                   />
                 </div>
               )}

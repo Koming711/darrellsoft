@@ -7,10 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { ItemsFields } from './items-fields';
+import { ItemsFields, type BarangOption } from './items-fields';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
-import { fetcher } from '@/lib/fetcher';
 import { notifyDataChange } from '@/lib/data-sync';
 import {
   Wallet,
@@ -152,7 +151,13 @@ export function InvoicePelunasanEditor() {
   // Local invoice state (not using global store to avoid conflicts with regular editor)
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
-  const [invoiceHistory, setInvoiceHistory] = useState<HistoryEntry[]>([]);
+  // Daftar invoice DP (docType=invoice) — sumber daftar pelunasan.
+  // Pembuatan invoice DP tidak lagi membuat dokumen pelunasan otomatis.
+  const [dpInvoices, setDpInvoices] = useState<HistoryEntry[]>([]);
+  // Dokumen invoice-pelunasan existing (data lama) — untuk deteksi PEL tertaut
+  const [pelHistory, setPelHistory] = useState<HistoryEntry[]>([]);
+  // Invoice DP yang dipilih (sumber sinkronisasi status lunas)
+  const [selectedInvoiceEntry, setSelectedInvoiceEntry] = useState<HistoryEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -171,17 +176,26 @@ export function InvoicePelunasanEditor() {
   // Original total (before pelunasan items added)
   const [originalTotal, setOriginalTotal] = useState(0);
 
+  // Master Barang milik customer invoice terpilih — untuk dropdown Nama Barang
+  const [customerList, setCustomerList] = useState<Array<{ id: string; name: string }>>([]);
+  const [pelunasanBarangList, setPelunasanBarangList] = useState<BarangOption[]>([]);
+
   const fetchHistory = useCallback(async () => {
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      const res = await fetch('/api/history?docType=invoice-pelunasan', { headers });
-      if (res.ok) {
-        const json = await res.json();
-        setInvoiceHistory(json.data || []);
-      }
+      // Daftar = invoice DP; PEL diambil juga untuk mencari dokumen pelunasan
+      // yang sudah tertaut (data lama sebelum pembuatan otomatis dihapus).
+      const [invRes, pelRes] = await Promise.all([
+        fetch('/api/history?docType=invoice', { headers }),
+        fetch('/api/history?docType=invoice-pelunasan', { headers }),
+      ]);
+      const invJson = invRes.ok ? await invRes.json() : { data: [] };
+      const pelJson = pelRes.ok ? await pelRes.json() : { data: [] };
+      setDpInvoices(invJson.data || []);
+      setPelHistory(pelJson.data || []);
     } catch (err) {
-      console.error('Failed to fetch pelunasan invoice history:', err);
+      console.error('Failed to fetch invoice history:', err);
     } finally {
       setLoading(false);
     }
@@ -197,13 +211,55 @@ export function InvoicePelunasanEditor() {
     return () => window.removeEventListener('dokupro:history-updated', handler);
   }, [fetchHistory]);
 
-  // Filter pending pelunasan invoices (not yet lunas)
+  // Daftar customer (untuk mencari id customer dari nama invoice terpilih)
+  useEffect(() => {
+    fetch('/api/customers', { headers: getAuthHeaders() })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setCustomerList(Array.isArray(data) ? data : []))
+      .catch(() => setCustomerList([]));
+  }, []);
+
+  // Muat Master Barang milik customer invoice terpilih — dropdown Nama Barang
+  // (pola sama dengan editor Regular: nama customer → id → /api/items).
+  useEffect(() => {
+    const nama = (invoiceData?.client?.nama || '').trim().toLowerCase();
+    const found = nama
+      ? customerList.find((c) => c.name.trim().toLowerCase() === nama)
+      : undefined;
+    if (!found) {
+      setPelunasanBarangList([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1`, { headers: getAuthHeaders() })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.items) ? data.items : [];
+        setPelunasanBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
+          id: r.id,
+          name: r.name,
+          unit: r.unit || 'pcs',
+          standardPrice: r.standardPrice || 0,
+          hpp: r.hpp ?? null,
+          qty: r.qty ?? 0,
+        })));
+      })
+      .catch(() => { if (!cancelled) setPelunasanBarangList([]); });
+    return () => { cancelled = true; };
+  }, [invoiceData?.client?.nama, customerList]);
+
+  // Kandidat pelunasan: invoice DP (dp > 0) yang belum lunas & tidak batal
   const pendingInvoices = useMemo(() => {
-    return invoiceHistory.filter(entry => {
-      const info = parseDocInfo(entry);
-      return !info.lunas;
+    return dpInvoices.filter(entry => {
+      try {
+        const p = JSON.parse(entry.dataJson) as { batal?: boolean; dp?: number; lunas?: boolean };
+        return (p.dp || 0) > 0 && p.batal !== true && p.lunas !== true;
+      } catch {
+        return false;
+      }
     });
-  }, [invoiceHistory]);
+  }, [dpInvoices]);
 
   // Filter by search
   const filteredPending = useMemo(() => {
@@ -215,12 +271,42 @@ export function InvoicePelunasanEditor() {
     });
   }, [pendingInvoices, searchQuery]);
 
-  // Select an invoice
+  // Cari dokumen Invoice Pelunasan yang tertaut dengan invoice DP ini
+  // (invoice lama yang masih punya PEL otomatis dari versi sebelumnya)
+  const findLinkedPel = useCallback((entry: HistoryEntry): HistoryEntry | undefined => {
+    return pelHistory.find((e) => {
+      try {
+        const p = JSON.parse(e.dataJson) as { referensiInvoiceId?: string; referensiInvoiceNomor?: string };
+        return String(p.referensiInvoiceId || '') === String(entry.id)
+          || (Boolean(p.referensiInvoiceNomor) && p.referensiInvoiceNomor === entry.nomor);
+      } catch {
+        return false;
+      }
+    });
+  }, [pelHistory]);
+
+  // Select an invoice DP → siapkan dokumen pelunasan untuk diedit.
+  // - Invoice lama yang sudah punya PEL tertaut → edit PEL tersebut.
+  // - Invoice baru (tanpa PEL) → pakai draft lokal (id kosong); dokumen PEL
+  //   baru dibuat saat "Simpan Pelunasan" — bukan saat invoice DP dibuat.
   const selectInvoice = (entry: HistoryEntry) => {
-    const parsed = parseInvoiceData(entry);
-    const info = parseDocInfo(entry);
+    const linked = findLinkedPel(entry);
+    const source = linked ?? entry;
+    const parsed = parseInvoiceData(source);
+    const info = parseDocInfo(source);
+    if (!linked) {
+      parsed.type = 'invoice-pelunasan';
+      parsed.referensiInvoiceId = entry.id;
+      parsed.referensiInvoiceNomor = entry.nomor;
+      parsed.nomor = (entry.nomor || '').replace(/^INV/, 'PEL');
+      parsed.lunas = info.lunas;
+      parsed.tanggalPelunasan = info.tanggalPelunasan || '';
+      parsed.caraPembayaran = parsed.caraPembayaran || '';
+      parsed.tanggalGiro = parsed.tanggalGiro || '';
+    }
     setInvoiceData(parsed);
-    setSelectedEntry(entry);
+    setSelectedEntry(linked ? source : { ...source, id: '' });
+    setSelectedInvoiceEntry(entry);
     setLunasToggle(info.lunas);
     setTanggalPelunasan(info.tanggalPelunasan || getTodayStr());
     setTanggalJatuhTempo(info.tanggalJatuhTempo || '');
@@ -236,6 +322,7 @@ export function InvoicePelunasanEditor() {
   const clearSelection = () => {
     setInvoiceData(null);
     setSelectedEntry(null);
+    setSelectedInvoiceEntry(null);
     setLunasToggle(false);
     setTanggalPelunasan('');
     setTanggalJatuhTempo('');
@@ -252,6 +339,26 @@ export function InvoicePelunasanEditor() {
 
   const updateClient = (field: string, value: string) => {
     setInvoiceData(prev => prev ? { ...prev, client: { ...prev.client, [field]: value } } : null);
+  };
+
+  // Pilih barang dari dropdown Master Barang customer → isi Nama Barang + Qty
+  // (dari master, mis. 10.000) + Satuan + Harga Satuan + snapshot Harga Modal.
+  const handlePickBarangPelunasan = (itemIndex: number, barang: BarangOption) => {
+    setInvoiceData((prev) => prev ? {
+      ...prev,
+      items: prev.items.map((it, i) => (
+        i === itemIndex
+          ? {
+              ...it,
+              deskripsi: barang.name,
+              satuan: barang.unit || it.satuan || 'pcs',
+              qty: barang.qty > 0 ? barang.qty : it.qty,
+              harga: barang.standardPrice || 0,
+              modal: barang.hpp ?? 0,
+            }
+          : it
+      )),
+    } : prev);
   };
 
   // Build preview data with pelunasan overrides
@@ -367,15 +474,65 @@ export function InvoicePelunasanEditor() {
       parsed.tanggal = invoiceData.tanggal;
       parsed.referensi = invoiceData.referensi;
       parsed.type = 'invoice-pelunasan';
+      // Pastikan dokumen pelunasan tertaut ke invoice DP-nya (dipakai daftar
+      // Transaksi Pelunasan & deteksi PEL tertaut)
+      parsed.referensiInvoiceId = selectedInvoiceEntry.id;
+      parsed.referensiInvoiceNomor = parsed.referensiInvoiceNomor || selectedInvoiceEntry.nomor;
       delete parsed.statusPembayaran;
 
       const newDataJson = JSON.stringify(parsed);
-      const res = await fetcher(`/api/history/${selectedEntry.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ dataJson: newDataJson }),
-      });
-      if (res.ok) {
+      // Simpan dokumen Invoice Pelunasan:
+      // - selectedEntry.id kosong = draft dari invoice DP tanpa PEL → buat dokumen baru
+      // - selectedEntry.id terisi = PEL existing (data lama) → update
+      // Pakai fetch mentah (bukan fetcher) agar body 409 masih bisa dibaca.
+      const jsonHeaders = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+      let saveRes: Response;
+      if (selectedEntry.id) {
+        saveRes = await fetch(`/api/history/${selectedEntry.id}`, {
+          method: 'PUT',
+          headers: jsonHeaders,
+          body: JSON.stringify({ dataJson: newDataJson }),
+        });
+      } else {
+        saveRes = await fetch('/api/history', {
+          method: 'POST',
+          headers: jsonHeaders,
+          body: JSON.stringify({
+            docType: 'invoice-pelunasan',
+            customNomor: parsed.nomor,
+            tanggal: parsed.tanggal || selectedInvoiceEntry.tanggal || '',
+            pihakKedua: parsed.client?.nama || selectedInvoiceEntry.pihakKedua || '-',
+            total: '-',
+            dataJson: newDataJson,
+          }),
+        });
+        // Isi identik sudah ada (mis. dibuat lewat Tandai Lunas) → update dokumen itu
+        if (!saveRes.ok && saveRes.status === 409) {
+          const errData = await saveRes.json().catch(() => ({} as { id?: string }));
+          if (errData?.id) {
+            saveRes = await fetch(`/api/history/${errData.id}`, {
+              method: 'PUT',
+              headers: jsonHeaders,
+              body: JSON.stringify({ dataJson: newDataJson }),
+            });
+          }
+        }
+      }
+      if (saveRes.ok) {
+        // Sinkronkan status lunas ke invoice DP-nya (invoice = sumber utama status)
+        try {
+          const invParsed = JSON.parse(selectedInvoiceEntry.dataJson) as Record<string, unknown>;
+          invParsed.lunas = lunasToggle;
+          invParsed.tanggalPelunasan = lunasToggle ? (tanggalPelunasan || getTodayStr()) : '';
+          delete invParsed.statusPembayaran;
+          await fetch(`/api/history/${selectedInvoiceEntry.id}`, {
+            method: 'PUT',
+            headers: jsonHeaders,
+            body: JSON.stringify({ dataJson: JSON.stringify(invParsed) }),
+          });
+        } catch {
+          /* sinkron status invoice non-kritikal */
+        }
         toast.success(lunasToggle ? 'Pelunasan berhasil dicatat!' : 'Invoice berhasil diperbarui');
         clearSelection();
         fetchHistory();
@@ -401,7 +558,7 @@ export function InvoicePelunasanEditor() {
         ) : (
           <div className="flex min-h-[320px] w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 p-6 text-center">
             <p className="max-w-[280px] text-sm text-slate-400">
-              Pratinjau akan muncul setelah Anda memilih invoice pelunasan dari daftar di atas.
+              Pratinjau akan muncul setelah Anda memilih invoice DP dari daftar di atas.
             </p>
           </div>
         )
@@ -470,7 +627,7 @@ export function InvoicePelunasanEditor() {
       <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Wallet className="w-3.5 h-3.5 text-amber-600" />
-          Pilih Invoice Pelunasan
+          Pilih Invoice DP
         </h3>
         <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <PopoverAnchor asChild>
@@ -801,6 +958,13 @@ export function InvoicePelunasanEditor() {
             items={invoiceData.items}
             onChange={(items) => updateInvoice({ items })}
             showPrice
+            barangOptions={pelunasanBarangList}
+            emptyBarangMessage={
+              invoiceData.client.nama.trim()
+                ? 'Belum ada barang untuk customer ini — tambahkan di Master Barang'
+                : 'Pilih invoice terlebih dahulu'
+            }
+            onPickBarang={handlePickBarangPelunasan}
           />
 
           {/* Additional info */}

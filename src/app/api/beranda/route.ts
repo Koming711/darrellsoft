@@ -13,6 +13,7 @@ import { getServerUser, getDataFilter } from '@/lib/server-auth'
  *   chart: [{ tanggal: 'YYYY-MM-DD', label: 'Sen', penjualan, pembayaran }], // 14 hari
  *   recent: [{ id, number, date, customerName, total, type, status, dueDate, data }],
  *   due:    [{ id, number, date, customerName, total, sisa, dueDate, data }],
+ *   piutang:[{ id, number, customerName, date, sisa, dueDate, overdue, overdueDays, data }], // SEMUA invoice belum lunas
  *   // --- Field tambahan Task 30 (desain beranda dari arsip) ---
  *   cards: { revenue, invoiceCount, paidThisMonth, unpaidTotal, unpaidCount,
  *            margin, expenseThisMonth, dueSoonCount },
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
             ? Number(d.dpAmount)
             : total * (Number(d.dp ?? 0) / 100)
         const lunas = d.lunas === true
+        // Invoice batal tidak dihitung ke ringkasan apa pun
+        // (selaras /api/laporan/penjualan: batal ≠ penjualan/piutang)
+        if (d.batal === true || d.batal === 'true') continue
         const isDp = dpAmount > 0
         parsed.push({
           id: inv.id,
@@ -329,19 +333,54 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))
     const dueSoonCount = dueSoonParsed.length
     const dueSoon = dueSoonParsed.slice(0, 8).map((p) => {
-      const dueMs = new Date(`${p.dueDate}T00:00:00`).getTime() - new Date(todayKey + 'T00:00:00').getTime()
-      const overdueDays = Math.floor(dueMs / 86400000)
+      // Hari keterlambatan: today − tempo (positif = sudah lewat tempo)
+      const daysLate = Math.floor(
+        (new Date(todayKey + 'T00:00:00').getTime() - new Date(`${p.dueDate}T00:00:00`).getTime()) / 86400000
+      )
       return {
         id: p.id,
         number: p.number,
         customerName: p.customerName,
         sisa: p.sisa,
         dueDate: p.dueDate,
-        overdue: overdueDays > 0,
-        overdueDays: Math.max(0, overdueDays),
+        overdue: daysLate > 0,
+        overdueDays: Math.max(0, daysLate),
         data: p.data,
       }
     })
+
+    // ===== Daftar piutang: SEMUA invoice belum lunas =====
+    // (bukan hanya yang jatuh tempo ≤7 hari — invoice tanpa tanggal jatuh
+    //  tempo juga tetap piutang dan harus tampil di beranda)
+    const piutang = parsed
+      .filter((p) => p.status === 'BELUM')
+      .sort((a, b) => {
+        // Ada tempo → duluan (paling dekat/terlambat di atas); tanpa tempo di bawah
+        if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1
+        if (a.dueDate) return -1
+        if (b.dueDate) return 1
+        return a.date < b.date ? 1 : -1
+      })
+      .slice(0, 50)
+      .map((p) => {
+        // Hari keterlambatan: today − tempo (positif = sudah lewat tempo)
+        const daysLate = p.dueDate
+          ? Math.floor(
+              (new Date(todayKey + 'T00:00:00').getTime() - new Date(`${p.dueDate}T00:00:00`).getTime()) / 86400000
+            )
+          : 0
+        return {
+          id: p.id,
+          number: p.number,
+          customerName: p.customerName,
+          date: p.date,
+          sisa: p.sisa,
+          dueDate: p.dueDate,
+          overdue: daysLate > 0,
+          overdueDays: Math.max(0, daysLate),
+          data: p.data,
+        }
+      })
 
     return NextResponse.json(
       {
@@ -367,6 +406,7 @@ export async function GET(request: NextRequest) {
         topItems,
         ops: { sjCount, poCount },
         dueSoon,
+        piutang,
       },
       { headers: { 'Cache-Control': 'no-store' } }
     )

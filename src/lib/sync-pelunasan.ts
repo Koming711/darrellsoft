@@ -60,6 +60,13 @@ export async function syncLinkedPelunasan(
         pelunasanData.tanggalPelunasan = existingParsed.tanggalPelunasan || '';
         pelunasanData.tanggalJatuhTempo = existingParsed.tanggalJatuhTempo || '';
         pelunasanData.caraPembayaran = existingParsed.caraPembayaran || '';
+        // Item pelunasan adalah milik user: bisa diedit lewat tab Pelunasan
+        // (Editor Invoice Pelunasan). Jangan timpa item dari invoice DP setiap
+        // kali invoice DP di-save ulang / Tandai Lunas — kalau tidak, hasil
+        // edit item di tab Pelunasan selalu terbalikkan ke item invoice DP.
+        if (Array.isArray(existingParsed.items)) {
+          pelunasanData.items = existingParsed.items;
+        }
       } catch {
         /* keep defaults */
       }
