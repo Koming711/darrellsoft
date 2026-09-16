@@ -9541,3 +9541,27 @@ Stage Summary:
 - "SISA PEMBAYARAN" (piutang) tampil di preview/JPG/cetak untuk semua invoice DP (persen maupun nominal).
 - Beranda kini punya "Daftar Piutang" yang menampilkan sisa pembayaran tiap invoice belum lunas (termasuk DP), total di header, klik ke detail.
 - Commit 7353f29 lokal; belum deploy.
+
+---
+Task ID: 102
+Agent: Z.ai Code (main)
+Task: "invoice pelunasan itu piutang dagang."
+
+Work Log:
+- Interpretasi: sisa pembayaran invoice (yang didokumentasikan invoice pelunasan) = piutang dagang → diberi perlakuan paralel dengan Hutang Dagang (Task 100).
+- Wiring fitur baru 'piutang-dagang': src/lib/permission-defaults.ts (SIMPLE_FEATURES + PRO_FEATURE_IDS + manager allowed), src/lib/permissions.ts (getFeatureIdForPath + getPathForFeatureId), src/lib/i18n.ts (piutang_dagang: 'Piutang Dagang' / 'Trade Receivables'), sidebar.tsx + sidebar-desktop.tsx (menu section Dokumen, ikon Coins, setelah Hutang Dagang).
+- Halaman BARU src/app/piutang-dagang/page.tsx (~430 baris, pola hutang-dagang): strip Total Piutang Dagang (amber, Coins) + badge "N invoice belum lunas" + "N terlambat"; Rekap per Pelanggan (top 5); filter Belum Lunas/Lunas/Semua + pencarian (no. invoice/pelanggan/no. PEL); daftar invoice belum lunas = piutang (sisa = total − DP; DP % maupun nominal; batal dikecualikan) dengan badge DP + badge ref "PEL: {nomor}" (peta dokumen invoice-pelunasan via referensiInvoiceId, fallback nomor); status baris: Terlambat N hari / tempo / "Piutang dagang — sisa pembayaran" / Lunas+tanggal; klik baris → /invoice?detail=id; tombol "Tandai Lunas" → dialog konfirmasi → PUT dataJson invoice (lunas+tanggalPelunasan) + sinkron dokumen PEL tertaut (pola sama editor pelunasan) → reload.
+- Beranda (src/app/pembukaan/page.tsx): kartu stat "Piutang" → "Piutang Dagang" (ikon Coins, klik → /piutang-dagang, sebelumnya ke /riwayat-pembayaran); section "Daftar Piutang" → "Piutang Dagang" (ikon Coins); QuickLink baru "Piutang Dagang — Sisa pembayaran pelanggan" di samping Hutang Dagang. Import Clock dihapus (tidak terpakai).
+- Lint: bunx eslint 7 file berubah → 0 error. tsc --noEmit: 0 error pada file berubah (19 TS1117 di i18n.ts = pre-existing, terverifikasi identik via git stash).
+- E2E desktop 1280×800 (sesi superadmin aktif): sidebar desktop link "Piutang Dagang" ✓; beranda: kartu stat + section "Piutang Dagang" (Total Rp251.700.000) + QuickLink ✓; /piutang-dagang: heading, Total Piutang Dagang Rp251.700.000, "3 invoice belum lunas", Rekap per Pelanggan, tabs Belum Lunas(3)/Lunas(0)/Semua(3), 3 baris invoice nyata (INV/07/26/9001 Rp500.000, INV/07/26/9002 Rp200.000, INV/06/26/0001 Rp251.000.000 — badge DP, tombol Tandai Lunas) ✓; scrollW 1280=1280 ✓.
+- E2E alur Tandai Lunas dgn data UJI: buat invoice uji INV/09/26/E2EPIUT via POST /api/history (total 1.000.000, DP 400.000, sisa 600.000) → tampil di daftar, total jadi Rp252.300.000 ✓ → Tandai Lunas → dialog "Tandai invoice lunas?" → Ya → toast "ditandai lunas — piutang dagang berkurang", tab Belum Lunas(3)/Lunas(1), total balik Rp251.700.000, DB lunas=true + tanggalPelunasan=2026-09-16 ✓ → klik baris → /invoice?detail=cmu47w73r0000p0v5lwu4b40x ✓ → DELETE ?purge=1 (200) → daftar kembali 3 baris/Rp251.700.000, data nyata utuh ✓.
+- E2E mobile 390×844: /pembukaan sw=390 ✓ + elemen piutang tampil; /piutang-dagang sw=390 ✓ + strip/rekap/tabs/Tandai Lunas tampil; menu "Lainnya" mobile memuat link "Piutang Dagang" ✓.
+- /administrasi/hak-akses: matrix menampilkan baris "Piutang Dagang" — Super Admin diizinkan (locked), Admin tidak (PRO), Manager diizinkan, Demo/User tidak ✓.
+- dev.log: bersih (semua 200; 1 pesan "Verify session error: SyntaxError" = pre-existing benign empty-body POST, bukan dari perubahan ini). Dev server di-restart dgn NODE_OPTIONS max-old-space-size=3072 (pola stabil Task 101).
+- Commit 78020a8 (7 file src; db/custom.db runtime tidak di-commit). Deploy tidak diminta.
+
+Stage Summary:
+- Konsep "invoice pelunasan itu piutang dagang" kini eksplisit di aplikasi: halaman /piutang-dagang (menu Dokumen, PRO feature) men_TRACK sisa pembayaran invoice sebagai piutang dagang, lengkap rekap pelanggan, filter, pencarian, Tandai Lunas tersinkron invoice+PEL.
+- Beranda menampilkan "Piutang Dagang" (kartu stat, section daftar, quick link) — piutang muncul di beranda sesuai permintaan sebelumnya, kini dengan penamaan & tujuan halaman yang konsisten.
+- Matrix Hak Akses otomatis memuat baris "Piutang Dagang" dari SINGLE SOURCE OF TRUTH (SIMPLE_FEATURES).
+- Commit 78020a8 lokal; belum deploy. sw.js & APP_VERSION tidak diubah (bump hanya saat deploy berikutnya).
