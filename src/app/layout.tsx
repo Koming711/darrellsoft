@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/contexts/theme-context";
 import { NextThemesProvider } from "@/components/providers/next-themes-provider";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { ConnectivityKeeper } from "@/components/connectivity-keeper";
 import { SplashScreen } from "@/components/splash-screen";
 import { InstallPrompt } from "@/components/install-prompt";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
@@ -94,6 +95,7 @@ export default function RootLayout({
           </LanguageProvider>
         </AuthProvider>
         <ServiceWorkerRegistration />
+        <ConnectivityKeeper />
       </body>
     </html>
   );

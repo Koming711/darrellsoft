@@ -16,7 +16,7 @@ const globalForPrisma = globalThis as unknown as {
  * - Transaction mode recycles connections efficiently
  *
  * IMPORTANT: With pgbouncer=true, Prisma disables prepared statements
- * and interactive transactions. Use regular queries and $transaction([]) 
+ * and interactive transactions. Use regular queries and $transaction([])
  * batch syntax instead of callback-style $transaction(async () => {...})
  */
 function getDatabaseUrl(): string {
@@ -61,10 +61,106 @@ function createPrismaClient() {
   })
 }
 
+/* ------------------------------------------------------------------ */
+/* Resilient client: auto-retry transient connection errors            */
+/* ------------------------------------------------------------------ */
+/**
+ * Setelah instance serverless idle ~30 menit, koneksi TCP yang tersimpan
+ * di dalam pool Prisma bisa mati (ditutup sisi pooler/server). Query
+ * PERTAMA setelah idle sering gagal (P1001/P2024/"closed the connection")
+ * padahal retry berikutnya pasti sukses karena Prisma membuat koneksi baru.
+ *
+ * Efek sebelum fix: user membuka aplikasi → data tidak muncul → harus
+ * refresh manual. Efek sesudah fix: gagal pertama di-retry otomatis
+ * (maks 2x, hanya untuk error koneksi transien) → data langsung muncul.
+ *
+ * Aman terhadap kuota: retry hanya terjadi saat GAGAL, bukan polling.
+ */
+
+const WRITE_OPS = new Set([
+  'create', 'createMany', 'createManyAndReturn',
+  'update', 'updateMany', 'updateManyAndReturn',
+  'delete', 'deleteMany', 'upsert',
+  'executeRaw', 'executeRawUnsafe',
+])
+
+// Prisma error codes that mean the query never reached/ran on the database
+const POOL_CODES = new Set(['P1001', 'P1008', 'P1017', 'P2024'])
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+/**
+ * Transient error = masalah koneksi, bukan bug logic.
+ * allowConnectionReset=true (read ops) → pola koneksi putus di tengah jalan
+ * juga di-retry karena read aman diulang.
+ * Write ops hanya di-retry jika query PASTI belum dieksekusi (mencegah
+ * duplikasi data saat kegagalan ambigu seperti ECONNRESET setelah commit).
+ */
+function isTransientError(error: unknown, allowConnectionReset: boolean): boolean {
+  const code = (error as { code?: string } | null)?.code
+  if (code && POOL_CODES.has(code)) return true
+
+  const msg = errorMessage(error)
+  if (/ECONNREFUSED|ETIMEDOUT|EPIPE/i.test(msg)) return true
+  if (
+    allowConnectionReset &&
+    /ECONNRESET|closed the connection|connection terminated|terminating connection/i.test(msg)
+  ) {
+    return true
+  }
+  return false
+}
+
+async function withTransientRetry<T>(
+  run: () => Promise<T>,
+  operation: string,
+  retries = 2
+): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    const isWrite = WRITE_OPS.has(operation)
+    if (!isTransientError(error, !isWrite)) throw error
+
+    let lastError = error
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      // Backoff pendek: 400ms, 800ms
+      await new Promise((resolve) => setTimeout(resolve, attempt * 400))
+      try {
+        console.warn(`⟳ [db] Retrying ${operation} (attempt ${attempt}/${retries}) after transient connection error`)
+        return await run()
+      } catch (retryError) {
+        lastError = retryError
+        if (!isTransientError(retryError, !isWrite)) break
+      }
+    }
+    throw lastError
+  }
+}
+
+function createResilientClient(): PrismaClient {
+  const base = createPrismaClient()
+  const extended = base.$extends({
+    query: {
+      $allModels: {
+        $allOperations({ operation, args, query }) {
+          return withTransientRetry(() => query(args), operation)
+        },
+      },
+    },
+  })
+  // Extended client punya API publik yang sama (model delegates, $transaction,
+  // $queryRaw, ...) — di-cast agar seluruh kode lama tetap ter-type PrismaClient.
+  return extended as unknown as PrismaClient
+}
+
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = createPrismaClient()
+  globalForPrisma.prisma = createResilientClient()
 }
 
 export const db = process.env.NODE_ENV === 'production'
-  ? createPrismaClient()
+  ? createResilientClient()
   : globalForPrisma.prisma!
