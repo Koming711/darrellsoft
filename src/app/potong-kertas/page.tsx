@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { calculateCuts, type Customer, type Paper, type CuttingResult } from '@/lib/cutting-engine'
 import dynamic from 'next/dynamic'
@@ -45,6 +46,16 @@ const STORAGE_KEY = () => userKey('potong-kertas-form')
 const STORAGE_RESULTS_KEY = () => userKey('potong-kertas-results')
 const STORAGE_VERSION_KEY = () => userKey('potong-kertas-form-version')
 const STORAGE_VERSION = 'v6'
+const SIM_ROWS_STORAGE_KEY = () => userKey('potong-kertas-simulasi-rows')
+
+// Baris Tabel Simulasi Cepat (CRUD): jumlah & profit disimpan; nilai (kertas, jual, dll)
+// dihitung ulang live dari parameter form. snap = nilai saat baris disimpan,
+// dipakai fallback bila form belum bisa menghitung (mis. setelah reload dgn form kosong).
+interface SimRowSnap { sheets: number; modal: number; modalPcs: number; jual: number; jualPcs: number }
+interface SimRow { id: number; jumlah: number; profit: number; snap: SimRowSnap }
+
+// Rupiah bulat (tabel simulasi)
+const fmtRp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`
 
 // Format tanggal riwayat potong kertas (gaya Riwayat Invoice: 05 Jun 2025)
 function formatTanggalRiwayat(value?: string | null): string {
@@ -221,7 +232,37 @@ function CalculatorPage() {
   // ===== Simulasi Cepat: ketik jumlah pesanan baru (+ profit) — harga langsung muncul tanpa hitung ulang =====
   const [simJumlahInput, setSimJumlahInput] = useState('')
   const [simProfitInput, setSimProfitInput] = useState('')
-  const [simList, setSimList] = useState<{ id: number; jumlah: number; profit: number; hargaKertas: number; hargaJual: number }[]>([])
+  // Tabel Simulasi (CRUD): baris tersimpan di perangkat (localStorage), nilai dihitung ulang dari form
+  const [simRows, setSimRows] = useState<SimRow[]>([])
+  const [simRowsLoaded, setSimRowsLoaded] = useState(false)
+  const [simEditingId, setSimEditingId] = useState<number | null>(null)
+  const [simEditJumlah, setSimEditJumlah] = useState('')
+  const [simEditProfit, setSimEditProfit] = useState('')
+  const [simConfirmClear, setSimConfirmClear] = useState(false)
+  const simJumlahRef = useRef<HTMLInputElement>(null)
+
+  // Muat baris simulasi tersimpan (per perangkat) sekali saat mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SIM_ROWS_STORAGE_KEY())
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          setSimRows(parsed.filter((r: unknown): r is SimRow => {
+            const row = r as SimRow
+            return !!row && typeof row.id === 'number' && typeof row.jumlah === 'number' && row.jumlah > 0 && typeof row.profit === 'number' && !!row.snap && typeof row.snap.modal === 'number'
+          }).slice(0, 50))
+        }
+      }
+    } catch {}
+    setSimRowsLoaded(true)
+  }, [])
+
+  // Simpan baris simulasi ke perangkat setiap berubah (setelah load awal)
+  useEffect(() => {
+    if (!simRowsLoaded) return
+    try { localStorage.setItem(SIM_ROWS_STORAGE_KEY(), JSON.stringify(simRows)) } catch {}
+  }, [simRows, simRowsLoaded])
 
   const waWindowRef = useRef<Window | null>(null)
 
@@ -595,43 +636,104 @@ function CalculatorPage() {
   // ===== Simulasi Cepat — hitung harga untuk jumlah pesanan lain tanpa mengubah form utama =====
   const simJumlah = parseInt(simJumlahInput) || 0
   const simProfitVal = simProfitInput.trim() === '' ? 0 : (parseFloat(simProfitInput) || 0)
-  const simBm = parseInt(berapaMata) || 0
-  const simQty = simJumlah > 0 ? (simBm > 0 ? Math.ceil(simJumlah / simBm) : simJumlah) : 0
 
-  const simulasi = useMemo(() => {
-    if (simQty <= 0) return null
+  // Hitung hasil simulasi utk kombinasi jumlah & profit tertentu (null = form belum bisa menghitung).
+  // Dipakai hasil live sambil mengetik DAN setiap baris Tabel Simulasi.
+  const computeSimulasi = useCallback((jumlah: number, profit: number) => {
+    if (jumlah <= 0) return null
+    const bm = parseInt(berapaMata) || 0
+    const qty = bm > 0 ? Math.ceil(jumlah / bm) : jumlah
+    if (qty <= 0) return null
     const pw = parseFloat(paperWidth) || 0
     const ph = parseFloat(paperHeight) || 0
     const cw = parseFloat(cutWidth) || 0
     const ch = parseFloat(cutHeight) || 0
     const price = parseFloat(pricePerSheet) || 0
-    const totalQty = simQty + (parseInt(setelanKertas) || 0)
+    const totalQty = qty + (parseInt(setelanKertas) || 0)
     if (pw <= 0 || ph <= 0 || cw <= 0 || ch <= 0 || cw > pw || ch > ph || totalQty <= 0 || price <= 0) return null
     try {
       const r = calculateCuts({ paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch, quantity: totalQty, pricePerSheet: price, optimizationMode, customerName: '', paperMaterial: '', grammage: 0 })
-      const profit = r.totalPrice * (simProfitVal / 100)
-      const hargaJual = r.totalPrice + profit
-      return { sheetsNeeded: r.sheetsNeeded, hargaKertas: r.totalPrice, profit, hargaJual, hargaPerPcs: simJumlah > 0 ? hargaJual / simJumlah : 0, modalPerPcs: simJumlah > 0 ? r.totalPrice / simJumlah : 0 }
+      const profitAmount = r.totalPrice * (profit / 100)
+      const hargaJual = r.totalPrice + profitAmount
+      return { sheetsNeeded: r.sheetsNeeded, hargaKertas: r.totalPrice, profit: profitAmount, hargaJual, hargaPerPcs: hargaJual / jumlah, modalPerPcs: r.totalPrice / jumlah }
     } catch { return null }
-  }, [simQty, simJumlah, simProfitVal, paperWidth, paperHeight, cutWidth, cutHeight, pricePerSheet, setelanKertas, optimizationMode])
+  }, [berapaMata, paperWidth, paperHeight, cutWidth, cutHeight, pricePerSheet, setelanKertas, optimizationMode])
+
+  const simulasi = useMemo(() => computeSimulasi(simJumlah, simProfitVal), [computeSimulasi, simJumlah, simProfitVal])
+
+  // Nilai live tiap baris tabel — dihitung ulang otomatis saat parameter form berubah
+  const simRowValues = useMemo(() => {
+    const map = new Map<number, NonNullable<ReturnType<typeof computeSimulasi>>>()
+    for (const r of simRows) {
+      const v = computeSimulasi(r.jumlah, r.profit)
+      if (v) map.set(r.id, v)
+    }
+    return map
+  }, [simRows, computeSimulasi])
 
   // Terapkan jumlah pesanan simulasi ke form utama + hitung potongan langsung
-  const applySimulasiPotong = async () => {
-    if (!simulasi || simJumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
-    setJumlahPesanan(simJumlahInput)
-    setQuantity(simQty.toString())
-    await runCuttingCalc(simQty)
-    toast.success(`Simulasi diterapkan: ${simJumlah.toLocaleString('id-ID')} pcs`)
+  const applySimulasiPotongValues = async (jumlah: number) => {
+    if (jumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
+    const bm = parseInt(berapaMata) || 0
+    const qty = bm > 0 ? Math.ceil(jumlah / bm) : jumlah
+    setJumlahPesanan(String(jumlah))
+    setQuantity(String(qty))
+    await runCuttingCalc(qty)
+    toast.success(`Simulasi diterapkan: ${jumlah.toLocaleString('id-ID')} pcs`)
   }
 
-  // Simpan hasil simulasi ke daftar perbandingan (contoh: 3000pcs vs 5000pcs)
-  const addSimulasiToList = () => {
+  // ===== CRUD Tabel Simulasi =====
+  // Create: tambahkan hasil simulasi yg sedang diketik sebagai baris baru
+  const addSimulasiRow = () => {
     if (!simulasi || simJumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
-    setSimList(prev => [{ id: Date.now(), jumlah: simJumlah, profit: simProfitVal, hargaKertas: simulasi.hargaKertas, hargaJual: simulasi.hargaJual }, ...prev].slice(0, 6))
-    toast.success('Simulasi disimpan ke daftar')
+    if (simRows.some(r => r.jumlah === simJumlah && r.profit === simProfitVal)) { toast.error('Simulasi dengan jumlah & profit ini sudah ada di tabel'); return }
+    const row: SimRow = { id: Date.now(), jumlah: simJumlah, profit: simProfitVal, snap: { sheets: simulasi.sheetsNeeded, modal: simulasi.hargaKertas, modalPcs: simulasi.modalPerPcs, jual: simulasi.hargaJual, jualPcs: simulasi.hargaPerPcs } }
+    setSimRows(prev => [row, ...prev].slice(0, 50))
+    setSimJumlahInput('')
+    requestAnimationFrame(() => simJumlahRef.current?.focus())
+    toast.success(`Simulasi ${simJumlah.toLocaleString('id-ID')} pcs ditambahkan ke tabel`)
   }
 
-  const removeSimulasi = (id: number) => setSimList(prev => prev.filter(s => s.id !== id))
+  // Update: ubah jumlah & profit langsung di baris tabel
+  const startEditSimulasi = (row: SimRow) => {
+    setSimEditingId(row.id)
+    setSimEditJumlah(String(row.jumlah))
+    setSimEditProfit(String(row.profit))
+  }
+
+  const cancelEditSimulasi = () => {
+    setSimEditingId(null)
+    setSimEditJumlah('')
+    setSimEditProfit('')
+  }
+
+  const saveEditSimulasi = () => {
+    if (simEditingId === null) return
+    const j = parseInt(simEditJumlah) || 0
+    if (j <= 0) { toast.error('Jumlah pesanan harus lebih dari 0'); return }
+    const p = simEditProfit.trim() === '' ? 0 : (parseFloat(simEditProfit) || 0)
+    setSimRows(prev => prev.map(r => {
+      if (r.id !== simEditingId) return r
+      const v = computeSimulasi(j, p)
+      return { ...r, jumlah: j, profit: p, snap: v ? { sheets: v.sheetsNeeded, modal: v.hargaKertas, modalPcs: v.modalPerPcs, jual: v.hargaJual, jualPcs: v.hargaPerPcs } : r.snap }
+    }))
+    cancelEditSimulasi()
+    toast.success('Simulasi diperbarui')
+  }
+
+  // Delete
+  const removeSimulasiRow = (id: number) => {
+    setSimRows(prev => prev.filter(r => r.id !== id))
+    if (simEditingId === id) cancelEditSimulasi()
+    toast.success('Baris simulasi dihapus')
+  }
+
+  const clearSimulasiRows = () => {
+    setSimRows([])
+    cancelEditSimulasi()
+    setSimConfirmClear(false)
+    toast.success('Semua baris simulasi dihapus')
+  }
 
   const handleReset = () => {
     if (!confirm('Reset semua data yang sudah diisi?')) return
@@ -1199,83 +1301,165 @@ function CalculatorPage() {
     toast.success('Membuka WhatsApp...')
   }
 
-  // ===== Kartu Simulasi Cepat — ketik jumlah pesanan + profit, harga langsung muncul =====
+  // Nilai tampilan per baris: live bila bisa dihitung, fallback ke snapshot saat disimpan
+  const simRowQtyOf = (jumlah: number) => {
+    const bm = parseInt(berapaMata) || 0
+    return bm > 0 ? Math.ceil(jumlah / bm) : jumlah
+  }
+  const simRowView = (row: SimRow) => {
+    const live = simRowValues.get(row.id)
+    return {
+      qty: simRowQtyOf(row.jumlah),
+      sheets: live ? live.sheetsNeeded : row.snap.sheets,
+      modal: live ? live.hargaKertas : row.snap.modal,
+      modalPcs: live ? live.modalPerPcs : row.snap.modalPcs,
+      jual: live ? live.hargaJual : row.snap.jual,
+      jualPcs: live ? live.hargaPerPcs : row.snap.jualPcs,
+    }
+  }
+  const simThClass = 'h-7 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 lg:h-8 lg:px-2.5 lg:text-[11px]'
+  const simTdClass = 'px-1.5 py-1 text-[10.5px] lg:px-2.5 lg:py-1.5 lg:text-xs'
+  const simEditInputClass = 'border border-blue-300 dark:border-blue-700 rounded px-1 py-0.5 text-[10.5px] lg:text-xs text-slate-800 dark:text-slate-100 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500'
+
+  // ===== Kartu Simulasi Cepat — tabel CRUD perbandingan jumlah pesanan =====
   const simulasiCard = (
-    <div className="bg-card rounded-xl border border-slate-200 p-2.5 space-y-1.5">
+    <div className="bg-card rounded-xl border border-slate-200 p-2.5 space-y-1.5 lg:p-4 lg:space-y-2.5">
       <div className="flex items-center gap-1.5">
         <Calculator className="w-3.5 h-3.5 text-blue-600" />
-        <p className="text-xs font-semibold text-slate-700">Simulasi Cepat</p>
+        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Simulasi Cepat</p>
+        {simRows.length > 0 && (
+          <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded-full">{simRows.length} baris</span>
+        )}
         <span className="text-[9px] font-medium text-slate-400 ml-auto">Tanpa hitung ulang</span>
       </div>
-      <p className="text-[10px] leading-snug text-slate-500">Ketik jumlah pesanan baru (+ profit %) — harga langsung muncul. Klik Terapkan bila ingin dipakai di form.</p>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
+      <p className="text-[10px] lg:text-xs leading-snug text-slate-500 dark:text-slate-400">Ketik jumlah pesanan (+ profit) lalu klik Tambah — bandingkan beberapa jumlah dalam tabel. Nilai mengikuti parameter form saat ini.</p>
+      {/* Create: ketik jumlah + profit, tambahkan sebagai baris baru */}
+      <div className="flex gap-1.5 items-end">
+        <div className="flex-1 min-w-0">
           <label className={lbl}>Jumlah Pesanan</label>
-          <input type="number" step="1" min="0" inputMode="numeric" placeholder="misal: 5000" value={simJumlahInput} onChange={(e) => setSimJumlahInput(e.target.value)} className={inp} />
+          <input ref={simJumlahRef} type="number" step="1" min="0" inputMode="numeric" placeholder="misal: 5000" value={simJumlahInput} onChange={(e) => setSimJumlahInput(e.target.value)} className={inp} />
         </div>
-        <div>
+        <div className="w-[76px] lg:w-32 flex-shrink-0">
           <label className={lbl}>Profit (%)</label>
           <input type="number" step="0.1" min="0" max="100" inputMode="decimal" placeholder="0" value={simProfitInput} onChange={(e) => setSimProfitInput(e.target.value)} className={inp} />
         </div>
+        <button onClick={addSimulasiRow} disabled={!simulasi} title="Tambahkan ke tabel simulasi" className="flex-shrink-0 h-[34px] px-3 flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500 text-white text-xs font-semibold rounded-lg transition-colors">
+          <Plus className="w-3.5 h-3.5" />
+          Tambah
+        </button>
       </div>
+      {/* Read: hasil live sambil mengetik + Terapkan langsung tanpa perlu tambah baris */}
       {simulasi ? (
-        <div className="grid grid-cols-2 gap-1.5">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 text-center">
-            <p className="text-[9px] text-slate-500 leading-tight">Kertas Dibeli</p>
-            <p className="text-sm font-bold text-black dark:text-white leading-tight">{simulasi.sheetsNeeded.toLocaleString('id-ID')} <span className="text-[9px] font-normal">lbr</span></p>
-          </div>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 text-center">
-            <p className="text-[9px] text-slate-500 leading-tight">Harga Kertas</p>
-            <p className="text-sm font-bold text-blue-700 dark:text-blue-300 leading-tight">Rp {Math.round(simulasi.hargaKertas).toLocaleString('id-ID')}</p>
-          </div>
-          {simProfitVal > 0 && (
-            <>
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-lg p-1.5 text-center">
-                <p className="text-[9px] text-amber-700 leading-tight">Profit {simProfitVal}%</p>
-                <p className="text-sm font-bold text-amber-800 leading-tight">Rp {Math.round(simulasi.profit).toLocaleString('id-ID')}</p>
-              </div>
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-lg p-1.5 text-center">
-                <p className="text-[9px] text-emerald-700 leading-tight">Harga Jual{simJumlah > 0 ? ` · ${fmtHargaPcs(simulasi.hargaPerPcs)}/pcs` : ''}</p>
-                <p className="text-sm font-bold text-emerald-800 leading-tight">Rp {Math.round(simulasi.hargaJual).toLocaleString('id-ID')}</p>
-              </div>
-            </>
-          )}
-          <div className="bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 text-center col-span-2">
-            <p className="text-[9px] text-slate-500 leading-tight">Harga Modal per Pcs</p>
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">{fmtHargaPcs(simulasi.modalPerPcs)}{simJumlah > 0 ? <span className="text-[9px] font-normal"> /pcs</span> : ''}</p>
-          </div>
+        <div className="rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/60 px-2 py-1.5 flex items-center justify-between gap-2">
+          <p className="text-[10px] lg:text-xs leading-snug min-w-0">
+            <span className="text-slate-500 dark:text-slate-400">Modal </span>
+            <span className="font-semibold text-slate-800 dark:text-slate-100">{fmtRp(simulasi.hargaKertas)}</span>
+            <span className="text-slate-400"> ({fmtHargaPcs(simulasi.modalPerPcs)}/pcs)</span>
+            {simProfitVal > 0 && <span className="font-semibold text-amber-700 dark:text-amber-400"> +{simProfitVal}%</span>}
+            <span className="text-slate-500 dark:text-slate-400"> → Jual </span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">{fmtRp(simulasi.hargaJual)}</span>
+            <span className="text-slate-400"> ({fmtHargaPcs(simulasi.hargaPerPcs)}/pcs)</span>
+            {simulasi.sheetsNeeded > 0 && <span className="text-slate-400"> · {simulasi.sheetsNeeded.toLocaleString('id-ID')} lbr</span>}
+          </p>
+          <button onClick={() => applySimulasiPotongValues(simJumlah)} disabled={isCalculating} title="Terapkan ke form utama" className="flex-shrink-0 h-6 px-2 rounded-md bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-[10px] font-semibold flex items-center gap-1">
+            {isCalculating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+            Terapkan
+          </button>
         </div>
       ) : simJumlah > 0 ? (
-        <p className="text-[10px] text-amber-600">Lengkapi ukuran kertas, potongan &amp; harga per lembar di form agar simulasi bisa dihitung.</p>
+        <p className="text-[10px] lg:text-xs text-amber-600">Lengkapi ukuran kertas, potongan &amp; harga per lembar di form agar simulasi bisa dihitung.</p>
       ) : null}
-      <div className="grid grid-cols-2 gap-2">
-        <button onClick={applySimulasiPotong} disabled={!simulasi || isCalculating} className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
-          {isCalculating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-          Terapkan ke Form
-        </button>
-        <button onClick={addSimulasiToList} disabled={!simulasi} className="flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
-          <Plus className="w-3.5 h-3.5" />
-          Simpan ke Daftar
-        </button>
-      </div>
-      {simList.length > 0 && (
+      {/* Tabel Simulasi (CRUD) */}
+      {simRows.length > 0 ? (
         <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-hidden">
-          <p className="text-[10px] font-semibold text-slate-500 px-2 py-1 bg-slate-50 dark:bg-zinc-800">Daftar Simulasi ({simList.length})</p>
-          <div className="max-h-28 overflow-y-auto">
-            {simList.map((s) => (
-              <div key={s.id} className="flex items-center justify-between px-2 py-1 text-[11px] border-t border-slate-100 dark:border-zinc-800 first:border-t-0">
-                <span className="font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">{s.jumlah.toLocaleString('id-ID')} pcs{s.profit > 0 ? ` · ${s.profit}%` : ''}</span>
-                <span className="flex items-center gap-1.5 min-w-0">
-                  <span className="font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Rp {Math.round(s.hargaJual).toLocaleString('id-ID')}</span>
-                  <span className="text-[9px] text-slate-400 whitespace-nowrap">kertas Rp {Math.round(s.hargaKertas).toLocaleString('id-ID')}</span>
-                  <button onClick={() => removeSimulasi(s.id)} className="text-slate-400 hover:text-red-500 flex-shrink-0" aria-label="Hapus simulasi"><X className="w-3 h-3" /></button>
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between px-2 py-1 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700">
+            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Tabel Simulasi ({simRows.length})</p>
+            <button onClick={() => setSimConfirmClear(true)} className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400"><Trash2 className="w-3 h-3" /> Hapus Semua</button>
           </div>
+          <div className="max-h-64 lg:max-h-80 overflow-y-auto">
+            <Table className="min-w-[560px] lg:min-w-0 text-[10.5px] lg:text-xs">
+              <TableHeader className="sticky top-0 z-[1] bg-slate-50 dark:bg-zinc-800">
+                <TableRow className="hover:bg-transparent border-b border-slate-200 dark:border-zinc-700">
+                  <TableHead className={`${simThClass} text-left`}>Jumlah</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Profit</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Cetak</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Kertas</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Modal</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Modal/pcs</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Harga Jual</TableHead>
+                  <TableHead className={`${simThClass} text-right`}>Harga/pcs</TableHead>
+                  <TableHead className={`${simThClass} text-center`}>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {simRows.map((row) => {
+                  const isEditing = simEditingId === row.id
+                  const editLive = isEditing ? computeSimulasi(parseInt(simEditJumlah) || 0, simEditProfit.trim() === '' ? 0 : (parseFloat(simEditProfit) || 0)) : null
+                  const v = editLive ? { qty: simRowQtyOf(parseInt(simEditJumlah) || 0), sheets: editLive.sheetsNeeded, modal: editLive.hargaKertas, modalPcs: editLive.modalPerPcs, jual: editLive.hargaJual, jualPcs: editLive.hargaPerPcs } : simRowView(row)
+                  return (
+                    <TableRow key={row.id} className={isEditing ? 'bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50/70 dark:hover:bg-amber-950/20' : ''}>
+                      <TableCell className={`${simTdClass} font-semibold text-slate-800 dark:text-slate-100`}>
+                        {isEditing ? (
+                          <input type="number" min="0" inputMode="numeric" value={simEditJumlah} onChange={(e) => setSimEditJumlah(e.target.value)} aria-label="Ubah jumlah pesanan" className={`w-16 ${simEditInputClass}`} />
+                        ) : row.jumlah.toLocaleString('id-ID')}
+                      </TableCell>
+                      <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>
+                        {isEditing ? (
+                          <input type="number" step="0.1" min="0" max="100" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-12 ${simEditInputClass}`} />
+                        ) : row.profit > 0 ? `${row.profit}%` : '–'}
+                      </TableCell>
+                      <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>{v.qty > 0 ? v.qty.toLocaleString('id-ID') : '–'}</TableCell>
+                      <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>{v.sheets > 0 ? `${v.sheets.toLocaleString('id-ID')} lbr` : '–'}</TableCell>
+                      <TableCell className={`${simTdClass} text-right text-slate-800 dark:text-slate-100`}>{v.modal > 0 ? fmtRp(v.modal) : '–'}</TableCell>
+                      <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>{v.modalPcs > 0 ? fmtHargaPcs(v.modalPcs) : '–'}</TableCell>
+                      <TableCell className={`${simTdClass} text-right font-bold text-emerald-700 dark:text-emerald-400`}>{v.jual > 0 ? fmtRp(v.jual) : '–'}</TableCell>
+                      <TableCell className={`${simTdClass} text-right text-emerald-700 dark:text-emerald-400`}>{v.jualPcs > 0 ? fmtHargaPcs(v.jualPcs) : '–'}</TableCell>
+                      <TableCell className={simTdClass}>
+                        <div className="flex items-center justify-center gap-0.5">
+                          {isEditing ? (
+                            <>
+                              <button onClick={saveEditSimulasi} title="Simpan perubahan" aria-label="Simpan perubahan" className="p-1 text-emerald-600 hover:text-emerald-800 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={cancelEditSimulasi} title="Batal" aria-label="Batal ubah" className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><X className="w-3.5 h-3.5" /></button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => applySimulasiPotongValues(row.jumlah)} disabled={isCalculating} title="Terapkan ke form utama" aria-label="Terapkan ke form" className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 disabled:opacity-40"><CheckCircle2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => startEditSimulasi(row)} title="Ubah jumlah/profit" aria-label="Ubah simulasi" className="p-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"><Pencil className="w-3 h-3" /></button>
+                              <button onClick={() => removeSimulasiRow(row.id)} title="Hapus baris" aria-label="Hapus simulasi" className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="px-2 py-1 text-[9px] text-slate-400 dark:text-slate-500 bg-slate-50/60 dark:bg-zinc-800/50 border-t border-slate-200 dark:border-zinc-700">Nilai dihitung ulang otomatis mengikuti parameter form · daftar tersimpan di perangkat ini.</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 px-3 py-2.5 text-center">
+          <p className="text-[10px] leading-snug text-slate-400 dark:text-slate-500">Belum ada baris. Tambahkan beberapa jumlah pesanan (mis. 3.000 · 5.000 · 8.000) untuk membandingkan harga sekaligus.</p>
         </div>
       )}
     </div>
+  )
+
+  // Dialog konfirmasi hapus semua baris simulasi (dirender sekali di root halaman)
+  const simClearDialog = (
+    <AlertDialog open={simConfirmClear} onOpenChange={setSimConfirmClear}>
+      <AlertDialogContent className="max-w-xs rounded-2xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-base">Hapus semua simulasi?</AlertDialogTitle>
+          <AlertDialogDescription className="text-xs">{simRows.length} baris simulasi akan dihapus dari tabel. Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="h-8 text-xs">Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={clearSimulasiRows} className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white">Hapus Semua</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 
   return (
@@ -1548,8 +1732,10 @@ function CalculatorPage() {
             </div>
           </div>
 
-          {/* Simulasi Cepat: ketik jumlah pesanan + profit → harga langsung muncul */}
-          {simulasiCard}
+          {/* Simulasi Cepat (mobile): mengikuti alur form di kolom kiri */}
+          <div className="lg:hidden">
+            {simulasiCard}
+          </div>
 
           {/* Link to Hitung Cetakan */}
           <button
@@ -1724,6 +1910,11 @@ function CalculatorPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Simulasi Cepat (desktop): kotak lebar penuh memenuhi lebar layar */}
+      <div className="hidden lg:block mt-3">
+        {simulasiCard}
       </div>
 
       </>
@@ -2098,6 +2289,7 @@ function CalculatorPage() {
         )}
         </>
       )}
+      {simClearDialog}
     </DashboardLayout>
   )
 }

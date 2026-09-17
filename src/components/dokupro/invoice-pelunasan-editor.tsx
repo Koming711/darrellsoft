@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -147,7 +147,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
   }
 }
 
-export function InvoicePelunasanEditor() {
+export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoiceId?: string }) {
   // Local invoice state (not using global store to avoid conflicts with regular editor)
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
@@ -331,6 +331,23 @@ export function InvoicePelunasanEditor() {
     setOriginalDpAmount(0);
     setOriginalTotal(0);
   };
+
+  // Preselect invoice DP (deep-link dari Detail Invoice, Beranda, atau halaman
+  // Piutang Dagang: /invoice?pelunasan=<id>) — dipanggil SEKALI per id begitu
+  // daftar invoice termuat, sehingga user langsung mengedit dokumen pelunasan
+  // untuk invoice tersebut tanpa mencari manual.
+  const preselectDoneRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!preselectInvoiceId || preselectDoneRef.current === preselectInvoiceId) return;
+    if (loading || dpInvoices.length === 0) return;
+    const entry = dpInvoices.find((e) => e.id === preselectInvoiceId);
+    if (!entry) return;
+    preselectDoneRef.current = preselectInvoiceId;
+    selectInvoice(entry);
+    toast.info(`Melanjutkan pelunasan invoice ${entry.nomor}`, {
+      description: 'Cek nominal sisa pembayaran, lalu klik "Simpan Pelunasan".',
+    });
+  }, [preselectInvoiceId, dpInvoices, loading]);
 
   // Update invoice data locally
   const updateInvoice = (updates: Partial<InvoiceData>) => {
