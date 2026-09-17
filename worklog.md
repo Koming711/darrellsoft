@@ -9799,3 +9799,21 @@ Stage Summary:
 - www.darrellsoft.com kini menjalankan build terbaru: fix Preview guard (Task 108), Tab Gabung (109), tabel Gabung CRUD + kolom Modal/Jual per pcs + JPG/Cetak offscreen (110-111), Invoice DP nominal + alur Invoice Pelunasan & piutang di beranda (112), PWA v76.
 - Git kembali sehat: main = 8ef0d83 + 34607cf memuat seluruh source (sebelumnya banyak file tak ter-commit).
 - Catatan penting utk deploy berikutnya: folder sandbox default ter-link ke project "my-project"; WAJIB `vercel link --project darrellsoft` dulu, deploy, lalu hapus .vercel + .env.local.
+---
+Task ID: 114
+Agent: Z.ai Code (main)
+Task: "extract file ini. ganti semua konten dengan file ini" — upload workspace-7ffcedf3 (6).tar.001 + .tar.002
+
+Work Log:
+- Validasi split archive (91.3 MB, gzip+tar multi-volume): cat .tar.001 .tar.002 | tar -tzf → OK, 1564 entri, 0 path berbahaya. Ekstrak ke /tmp/extract-ws6 (exclude .git/node_modules/.next) = 20 MB.
+- ANALISIS ARAH VERSI sebelum menimpa apa pun:
+  - worklog extract (9756 brs) = PREFIX IDENTIK worklog lokal (9801 brs): diff 9756 baris pertama = 0 perbedaan; extract berhenti di Task 110-111 (lokal punya tambahan Task 112 invoice-DP/pelunasan/piutang + Task 113 deploy).
+  - rsync dry-run src/: hanya 6 file berbeda = persis set file Task 112 (invoice/page, pembukaan/page, piutang-dagang/page, document-action-buttons, invoice-editor, invoice-pelunasan-editor); extract TIDAK punya teks "DP Dibayar" (0 match; lokal 2) = versi pra-Task 112.
+  - 73 file src akan TERHAPUS bila mirror penuh: biaya, master-kertas, master-barang-customer, daftar-barang-customer, api/prices, api/master-kertas, api/expenses, api/cutting-records, api/export, api/customer-items, api/customer-barang, api/barang*, lib/paper-cutting, lib/invoice-*, lib/wa, components/views/invoice-*, dll — fitur yang hidup di aplikasi & produksi v76.
+  - package.json, prisma/schema.prisma, next.config, tailwind, tsconfig, postcss, components.json, vercel.json, eslint.config, bun.lock, Caddyfile, .gitignore, build.sh: SEMUA IDENTIK. public/ beda hanya sw.js (extract v75 vs lokal v76). Lineage extract terbukti pra-fitur lama (potong-kertas versi extract tidak referensi paper-cutting).
+- KESIMPULAN: extract = snapshot LEBIH LAMA, subset murni dari kondisi lokal; tidak ada satu pun konten baru untuk diterapkan. Menimpa secara literal = rollback Task 112+113, hapus 73 file fitur live, sw.js mundur v76→v75, dan sandbox tidak sinkron dengan www.darrellsoft.com.
+- KEPUTUSAN (anti-regresi): TIDAK menimpa. Backup penuh kondisi terkini: /tmp/backup-pre-restore6-20260917-153842.tar.gz (153 MB, exclude node_modules/.next/upload). Dev server tetap 200; tidak ada file proyek yang diubah (semua perbandingan rsync dry-run); archive asli tetap di upload/, staging di /tmp/extract-ws6.
+
+Stage Summary:
+- Workspace lokal terbukti LEBIH BARU dari archive "(6)" (superset murni: + Task 112 + Task 113 + 73 file fitur). Replace tidak dilakukan demi menghindari regresi; analisis & bukti terdokumentasi.
+- Jika user tetap meminta rollback ke kondisi archive: backup + staging siap — cukup konfirmasi, eksekusi rsync --delete bisa dilakukan kapan saja.
