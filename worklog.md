@@ -9817,3 +9817,29 @@ Work Log:
 Stage Summary:
 - Workspace lokal terbukti LEBIH BARU dari archive "(6)" (superset murni: + Task 112 + Task 113 + 73 file fitur). Replace tidak dilakukan demi menghindari regresi; analisis & bukti terdokumentasi.
 - Jika user tetap meminta rollback ke kondisi archive: backup + staging siap — cukup konfirmasi, eksekusi rsync --delete bisa dilakukan kapan saja.
+
+---
+Task ID: 114
+Agent: Z.ai Code (main)
+Task: Buat aplikasi "selalu on" (data tetap muncul walau idle lama), offline-capable via cache+PWA, reconnect otomatis tanpa reload manual; hemat kuota Supabase & Vercel. Deploy ke www.darrellsoft.com.
+
+Work Log:
+- Diagnosis akar masalah "idle 30 menit → data tidak muncul, harus refresh": (1) koneksi TCP pool Prisma di serverless mati setelah idle → query pertama gagal (P1001/P2024/ECONNRESET) → halaman kosong; (2) sw.js lama TIDAK menyimpan respons API sama sekali → offline/idle = kosong; (3) tidak ada retry/reconnect di sisi client.
+- src/lib/db.ts: Prisma client dibungkus $extends(query.$allModels.$allOperations) → auto-retry error transien (kode P1001/P1008/P1017/P2024 + ECONNREFUSED/ETIMEDOUT/ECONNRESET/"closed the connection"). Read ops retry semua pola transien (max 2x, backoff 400/800ms); write ops hanya retry jika query PASTI belum dieksekusi (anti duplikasi data). API publik tetap ter-type PrismaClient (cast aman).
+- src/components/connectivity-keeper.tsx (BARU): patch window.fetch sekali per load — GET/HEAD gagal (network error / 500/502/503/504) di-retry otomatis maks 2x; flag hadNetworkError → saat event 'online'/'visibilitychange' halaman di-reload OTOMATIS (cooldown 60 dtk, HANYA jika ada request yang gagal → hemat kuota). Banner offline fixed-top (amber) + tombol "Coba lagi". Tidak ada polling → kuota nol tambahan.
+- public/sw.js → v77: cache data API GET JSON (network-first, fallback cache saat offline; hanya response ok; max 80 entri). Nama cache 'darrell-api-runtime' TIDAK terikat versi → data offline bertahan lintas deploy. Navigasi: network → cache → offline.html. Static: tetap stale-while-revalidate. 404 asli dari server tetap di-pass-through (tidak dianggap offline).
+- public/offline.html (BARU): halaman offline standalone ber-branding, auto-reload saat event 'online' + poll cadangan 15 dtk (hanya saat stuck di halaman ini), dark-mode aware, safe-area.
+- src/app/layout.tsx: mount <ConnectivityKeeper /> di body.
+- src/components/service-worker-registration.tsx: APP_VERSION bump → 2026-09-17-v12 (paksa refresh bersih di client lama).
+- Lint bersih (4 file berubah), smoke test lokal: / 200, /sw.js 200, /offline.html 200, login 200, /api/beranda 200.
+- Commit 7d47852 (6 file, +437/-22). Deploy: vercel link --project darrellsoft → deploy --prod (darrellsoft-c64q4g2dv, sin1, Ready) → hapus .vercel + .env.local.
+- Verifikasi produksi (curl + agent-browser real login superadmin):
+  - sw.js = v77; offline.html = 200; /, /login, /pembukaan, /invoice, /piutang-dagang, /hitung-cetakan = 200; /harga-khusus = 404 (benar).
+  - Login OK → /pembukaan: kartu Piutang Dagang Rp2.750.000 tampil; caches: darrell-soft-v77=89 entri statis, darrell-api-runtime=5 entri JSON (cache API aktif).
+  - UJI OFFLINE (set offline on + reload): /pembukaan tetap render penuh dengan data (Rp2.750.000 dst) dari cache SW; /administrasi/pengguna & /pembelian (halaman lama) juga tersaji offline; route tidak dikenal → 404 asli dari server (perilaku benar).
+  - Kembali online: data dimuat fresh, event 'online' tertangani tanpa error. Mobile 390x844: tanpa horizontal scroll, kartu rapi. Console errors: 0.
+  - Catatan: satu kali "login tidak jalan" di test browser disebabkan SW baru (v77) aktif memicu controllerchange→reload tepat saat klik; setelah stabil login normal (bukan bug).
+
+Stage Summary:
+- Produksi www.darrellsoft.com = v77 (deploy 7d47852). Aplikasi kini: (a) data tetap muncul setelah idle lama — retry otomatis 2 lapis (server Prisma + client fetch); (b) bisa dipakai offline — halaman + data yang pernah dibuka tersaji dari cache PWA; (c) reconnect otomatis — event online/visibility memulihkan data tanpa reload manual; (d) kuota aman — tanpa polling, reload hanya saat memang ada kegagalan, API tetap network-first (jumlah request tidak bertambah saat online).
+- Untuk deploy berikutnya: WAJIB vercel link --project darrellsoft dulu, bump sw.js ke v78, deploy, lalu hapus .vercel + .env.local.
