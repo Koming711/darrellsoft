@@ -394,9 +394,47 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   const subtotal = invoice.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
-  const dpPercent = invoice.dp || 0;
-  const dpAmount = total * (dpPercent / 100);
-  const sisa = total - dpAmount;
+  // DP: NOMINAL (Rp) adalah acuan utama — customer membayar sejumlah uang
+  // (mis. "DP dulu 500rb"), persen hanyalah turunannya. Fallback: dihitung
+  // dari persen (kompatibilitas data lama yang belum menyimpan dpAmount).
+  const dpAmount = invoice.dpAmount !== undefined && invoice.dpAmount > 0
+    ? invoice.dpAmount
+    : total * ((invoice.dp || 0) / 100);
+  const dpPercentDisplay = total > 0 && dpAmount > 0
+    ? Math.round((dpAmount / total) * 10000) / 100
+    : 0;
+  const sisa = Math.max(0, total - dpAmount);
+
+  // Input DP nominal: set dpAmount (Rp) + dp (persen turunan, dibulatkan 2
+  // desimal — dipakai filter daftar pelunasan & label "DP (x%)" di dokumen).
+  const handleDpNominalChange = (v: number) => {
+    setInvoice((prev) => ({
+      ...prev,
+      dpAmount: v > 0 ? v : undefined,
+      dp: v > 0 ? (total > 0 ? Math.round((v / total) * 10000) / 100 : 0) : 0,
+    }));
+  };
+
+  // Input DP persen: set dp (persen) + dpAmount (nominal turunan dari total
+  // saat ini) — perilaku lama tetap berfungsi.
+  const handleDpPercentChange = (p: number) => {
+    setInvoice((prev) => ({
+      ...prev,
+      dp: p,
+      dpAmount: p > 0 ? total * (p / 100) : undefined,
+    }));
+  };
+
+  // Saat DP diisi NOMINAL dan total berubah (item diedit), persen tersimpan
+  // selalu disinkronkan terhadap total terkini.
+  useEffect(() => {
+    const amt = invoice.dpAmount ?? 0;
+    if (amt <= 0) return;
+    const pct = total > 0 ? Math.round((amt / total) * 10000) / 100 : 0;
+    if ((invoice.dp || 0) !== pct) {
+      setInvoice((prev) => ({ ...prev, dp: pct }));
+    }
+  }, [total, invoice.dpAmount, invoice.dp, setInvoice]);
 
   // Pratinjau langsung muncul begitu ada data inti (referensi dipilih /
   // customer terisi / ada barang) — tanpa tombol "Lihat Pratinjau A5".
@@ -689,17 +727,30 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
             />
           </div>
           {!dpDisabled && (
-            <div className="space-y-1.5 mt-3">
-              <Label className="text-xs">DP (%)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={invoice.dp || ''}
-                onChange={(e) => setInvoice((prev) => ({ ...prev, dp: e.target.value === '' ? 0 : Math.min(100, Number(e.target.value) || 0) }))}
-                placeholder="0"
-                className="text-sm"
-              />
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">DP Dibayar (Rp)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={dpAmount > 0 ? Math.round(dpAmount) : ''}
+                  onChange={(e) => handleDpNominalChange(e.target.value === '' ? 0 : Math.max(0, Number(e.target.value) || 0))}
+                  placeholder="mis. 500000"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">DP (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={dpAmount > 0 ? dpPercentDisplay : (invoice.dp || '')}
+                  onChange={(e) => handleDpPercentChange(e.target.value === '' ? 0 : Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                  placeholder="0"
+                  className="text-sm"
+                />
+              </div>
             </div>
           )}
           {/* Blok input Profit dihapus (permintaan owner) — nilai profit dari
@@ -709,13 +760,14 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
             <p className="text-sm text-emerald-800">
               Total: <span className="font-bold">{formatRupiah(total)}</span>
             </p>
-            {(invoice.dp > 0) && (
+            {(dpAmount > 0) && (
               <>
                 <p className="text-sm text-emerald-800">
-                  DP ({invoice.dp}%): <span className="font-bold">{formatRupiah(dpAmount)}</span>
+                  DP Dibayar: <span className="font-bold">{formatRupiah(dpAmount)}</span>
+                  {dpPercentDisplay > 0 ? ` (${dpPercentDisplay}%)` : ''}
                 </p>
                 <p className="text-sm text-emerald-800">
-                  Sisa Pembayaran: <span className="font-bold">{formatRupiah(sisa)}</span>
+                  Sisa Pembayaran (Piutang): <span className="font-bold">{formatRupiah(sisa)}</span>
                 </p>
               </>
             )}

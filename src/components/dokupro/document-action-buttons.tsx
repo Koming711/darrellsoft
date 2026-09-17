@@ -75,14 +75,17 @@ export function DocumentActionButtons({
 
       const pihakKedua = data.client?.nama || data.penerima?.nama || data.pemasok?.nama || '-';
 
-      // For invoice with DP: save dpAmount into dataJson before saving
+      // For invoice with DP: save dpAmount into dataJson before saving.
+      // Nominal eksplisit (input Rp, mis. DP 500rb) dipertahankan apa adanya;
+      // fallback: dihitung dari persen (perilaku lama).
       let dataToSave = { ...currentData };
       if (docType === 'invoice' && (data.dp || 0) > 0) {
         const invData = currentData as unknown as InvoiceData;
         const subtotal = invData.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
         const ppnAmount = subtotal * (invData.ppn / 100);
         const total = subtotal + ppnAmount;
-        const dpAmount = total * (invData.dp / 100);
+        const storedDpAmount = Number(invData.dpAmount ?? 0);
+        const dpAmount = storedDpAmount > 0 ? storedDpAmount : total * (invData.dp / 100);
         (dataToSave as Record<string, unknown>).dpAmount = dpAmount;
         (dataToSave as Record<string, unknown>).originalTotal = total;
       }

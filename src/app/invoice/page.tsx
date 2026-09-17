@@ -116,7 +116,10 @@ function parseDocInfo(entry: HistoryEntry) {
     const totalHarga = subtotal + (subtotal * ppn / 100)
     // Always derive dpAmount from originalTotal
     const originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga
-    const dpAmount = originalTotal * (dpPercent / 100)
+    // DP nominal eksplisit (dpAmount, diisi lewat input Rp) lebih diutamakan
+    // daripada turunan persen — agar sisa/piutang selalu exact.
+    const storedDpAmount = Number(parsed.dpAmount ?? 0)
+    const dpAmount = storedDpAmount > 0 ? storedDpAmount : originalTotal * (dpPercent / 100)
     const sisa = totalHarga - dpAmount
     const lunas = parsed.lunas === true
     const batal = parsed.batal === true
@@ -299,7 +302,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
-function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
+function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBack: () => void; onCreatePelunasan?: (invoiceId: string) => void }) {
   const router = useRouter()
   const resetDocument = useDokuproStore((s) => s.resetDocument)
   const [entry, setEntry] = useState<HistoryEntry | null>(null)
@@ -461,7 +464,9 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
         const sub = (parsed.items || []).reduce((s: number, it: { qty: number; harga: number }) => s + it.qty * it.harga, 0)
         const totalHarga = sub + (sub * (parsed.ppn || 0) / 100)
         parsed.originalTotal = parsed.originalTotal !== undefined ? parsed.originalTotal : totalHarga
-        parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
+        // Pertahankan nominal DP eksplisit (input Rp) — jangan ditimpa turunan persen
+        const storedDp = Number(parsed.dpAmount ?? 0)
+        if (!(storedDp > 0)) parsed.dpAmount = parsed.originalTotal * (parsed.dp / 100)
       }
       const res = await fetcher(`/api/history/${entry.id}`, {
         method: 'PUT',
@@ -618,14 +623,26 @@ function DetailInvoiceView({ id, onBack }: { id: string; onBack: () => void }) {
                 {info.lunas && info.tanggalPelunasan ? ` · Dibayar ${formatTanggalShort(info.tanggalPelunasan)}` : ''}
               </p>
             )}
-            {/* Tombol Tandai Lunas — menonjol di kotak info detail invoice
-                (permintaan owner); tanpa tulisan status "Lunas/Belum Lunas". */}
+            {/* Tombol aksi pembayaran — "Buat Invoice Pelunasan" adalah CTA utama
+                untuk invoice DP (sisa = piutang, dilunasi lewat invoice PEL);
+                "Tandai Lunas" tetap tersedia sebagai aksi sekunder. */}
             {status !== 'lunas' && status !== 'batal' && (
               <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
-                <p className="text-xs text-muted-foreground">Pembayaran invoice ini belum diterima penuh.</p>
-                <Button size="sm" onClick={() => setLunasOpen(true)} className="bg-violet-600 hover:bg-violet-700 min-h-[36px]">
-                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Tandai Lunas
-                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {(info.dpPercent > 0 || info.dp > 0)
+                    ? `Sisa pembayaran ${formatRupiah(info.sisa)} (piutang) belum diterima.`
+                    : 'Pembayaran invoice ini belum diterima penuh.'}
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {(info.dpPercent > 0 || info.dp > 0) && onCreatePelunasan && (
+                    <Button size="sm" onClick={() => onCreatePelunasan(entry.id)} title="Buat invoice pelunasan untuk sisa pembayaran ini" className="bg-violet-600 hover:bg-violet-700 min-h-[36px]">
+                      <Wallet className="mr-1.5 h-3.5 w-3.5" /> Buat Invoice Pelunasan
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => setLunasOpen(true)} className="border-violet-200 text-violet-700 hover:bg-violet-50 min-h-[36px]">
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Tandai Lunas
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -1654,9 +1671,13 @@ export default function InvoicePage() {
   const [showCreate, setShowCreate] = useState(false)
   const [createMode, setCreateMode] = useState<'regular' | 'dp' | 'pelunasan'>('regular')
   const [detailId, setDetailId] = useState<string | null>(null)
+  // Invoice DP yang di-preselect di editor Pelunasan — diisi dari deep-link
+  // ?pelunasan=<id> atau tombol "Buat Invoice Pelunasan" di Detail Invoice.
+  const [pelunasanInvoiceId, setPelunasanInvoiceId] = useState<string | null>(null)
 
   // Deep-link dari Beranda: /invoice?detail=<id> → langsung buka Detail Invoice.
   // /invoice?buat=1 → langsung buka layar "Buat Invoice Baru".
+  // /invoice?pelunasan=<id> → langsung buka editor Pelunasan dgn invoice DP terpilih.
   // Dibaca sekali saat mount (client-side) agar tidak butuh Suspense tambahan.
   useEffect(() => {
     try {
@@ -1665,10 +1686,28 @@ export default function InvoicePage() {
       if (d) setDetailId(d)
       const b = params.get('buat')
       if (b) setShowCreate(true)
+      const p = params.get('pelunasan')
+      if (p) {
+        setPelunasanInvoiceId(p)
+        setCreateMode('pelunasan')
+        setShowCreate(true)
+      }
     } catch {
       // abaikan — query tidak valid
     }
   }, [])
+
+  // Buka editor Pelunasan dengan invoice DP yang sudah dipilih (dari Detail
+  // Invoice / daftar piutang Beranda / halaman Piutang Dagang).
+  const openPelunasan = (invoiceId: string) => {
+    setDetailId(null)
+    setPelunasanInvoiceId(invoiceId)
+    setCreateMode('pelunasan')
+    setShowCreate(true)
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', '/invoice')
+    }
+  }
 
   // Tutup detail + bersihkan query param agar refresh tidak membuka detail lagi.
   const closeDetail = () => {
@@ -1678,9 +1717,10 @@ export default function InvoicePage() {
     }
   }
 
-  // Tutup layar Buat Invoice + bersihkan query param ?buat=1.
+  // Tutup layar Buat Invoice + bersihkan query param ?buat=1 / ?pelunasan=.
   const closeCreate = () => {
     setShowCreate(false)
+    setPelunasanInvoiceId(null)
     if (typeof window !== 'undefined' && window.location.search) {
       window.history.replaceState(null, '', '/invoice')
     }
@@ -1689,7 +1729,7 @@ export default function InvoicePage() {
   return (
     <DashboardLayout title="Invoice" subtitle="Buat invoice dengan pratinjau langsung dan cetak A5">
       {detailId ? (
-        <DetailInvoiceView id={detailId} onBack={closeDetail} />
+        <DetailInvoiceView id={detailId} onBack={closeDetail} onCreatePelunasan={openPelunasan} />
       ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
@@ -1730,7 +1770,7 @@ export default function InvoicePage() {
           </div>
           <Suspense fallback={null}>
             {createMode === 'pelunasan' ? (
-              <InvoicePelunasanEditor />
+              <InvoicePelunasanEditor preselectInvoiceId={pelunasanInvoiceId ?? undefined} />
             ) : (
               <InvoiceEditor
                 dpDisabled={createMode === 'regular'}

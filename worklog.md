@@ -9636,3 +9636,146 @@ Work Log:
 Stage Summary:
 - Kartu Simulasi Cepat (potong kertas & hitung cetakan) kini menampilkan Harga Modal per Pcs berdampingan dgn Harga Jual per Pcs — pembanding margin langsung tanpa hitung manual; format rupiah cerdas (desimal utk < Rp1.000).
 - DEPLOYED ke www.darrellsoft.com (project Vercel "darrellsoft") — v74 / 2026-09-17-v10 live, harga-khusus 404, piutang-dagang 200. Catatan penting: domain user = project "darrellsoft", bukan "my-project" (link sandbox). Deploy "my-project" (my-project-mu-livid-31.vercel.app) juga v74.
+
+---
+Task ID: 106
+Agent: Z.ai Code (main)
+Task: "rubag simulasi cepat jadi tabel. buat crud, ui dan ux."
+
+Work Log:
+- Simulasi Cepat di KEDUA halaman (hitung-cetakan & potong-kertas) diubah dari kartu hasil tunggal + "Daftar Simulasi" mini menjadi TABEL CRUD lengkap (shadcn Table, sudah diimpor di kedua file).
+- Data model baru (module scope kedua file): SimRow { id, jumlah, profit, snap:{sheets, modal, modalPcs, jual, jualPcs} } — hanya jumlah & profit disimpan; nilai dihitung ulang LIVE dari parameter form; snap = fallback bila form belum bisa menghitung.
+- Persistensi: localStorage per-user (userKey) key 'hitung-cetakan-simulasi-rows' / 'potong-kertas-simulasi-rows'; load sekali saat mount (validasi + slice 50), save tiap perubahan setelah loaded. CRUD kini bertahan antar reload.
+- hitung-cetakan/page.tsx: useMemo simulasi lama di-refactor jadi computeSimulasi(jumlah, profit) via useCallback (gate baru: subTotal<=0 → null agar form kosong tidak menampilkan Rp 0); simulasi = computeSimulasi(simJumlah, simProfitVal); simRowValues = Map live per baris (useMemo). applySimulasi → applySimulasiValues(jumlah, profit). Fungsi CRUD: addSimulasiRow (guard duplikat jumlah+profit, clear input, auto-focus), startEdit/cancelEdit/saveEditSimulasi (save recompute snap), removeSimulasiRow, clearSimulasiRows.
+- potong-kertas/page.tsx: pola sama; applySimulasiPotong → applySimulasiPotongValues(jumlah) (async runCuttingCalc). fmtRp (module scope) untuk sel rupiah bulat.
+- UI kartu baru (mobile+desktop, gaya per halaman): baris input [Jumlah Pesanan][Profit (%)][+ Tambah(emerald)]; strip hasil LIVE sambil mengetik "Modal Rp X (Rp Y/pcs) +Z% → Jual Rp A (Rp B/pcs) · N lbr" + tombol Terapkan (nilai Task 105 modal-per-pcs tetap tampil); TABEL SIMULASI dengan kolom Jumlah | Profit | Cetak | Kertas | Modal | Modal/pcs | Harga Jual | Harga/pcs | Aksi; header tabel dgn count + "Hapus Semua" (AlertDialog konfirmasi, dirender SEKALI di root via simClearDialog — kartu dirender 2x di DOM, dialog hanya 1 agar tidak dobel portal); edit inline dgn input jumlah/profit + highlight amber + nilai live saat mengetik; aksi per baris: Terapkan(CheckCircle2 biru) / Ubah(Pencil) / Hapus(Trash2 merah), semua ber-title & aria-label; empty state dashed; footnote "Nilai dihitung ulang otomatis mengikuti parameter form · daftar tersimpan di perangkat ini."; tabel min-w-[560px] overflow-x di dalam kartu, max-h-64 overflow-y, thead sticky.
+- Lint: bunx eslint 2 file → 0 error 0 warning (hapus 2 eslint-disable tak terpakai).
+- E2E localhost desktop 1280×800 (superadmin/268899): hitung-cetakan (65×100, potong 8×12, Rp600/lbr, mata 25, sm52, warna 4, plat 18rb): strip "Modal Rp 324.400 (Rp 64,88/pcs) +20% → Jual Rp 389.280 (Rp 77,86/pcs) · 4 lbr" (kertas 2.400 + ongkos 250.000 + plat 72.000 = 324.400 ✓); Tambah 5.000 → baris "5.000·20%·200·4 lbr·Rp 324.400·Rp 64,88·Rp 389.280·Rp 77,86" ✓; Tambah 8.000 → "320×·5 lbr·Rp 325.000·Rp 40,63·Rp 390.000·Rp 48,75" ✓; duplikat 8.000 → toast error "sudah ada di tabel" ✓; edit 5.000→6.000: nilai LIVE saat mengetik (Rp 54,07/pcs) ✓, save ✓; Terapkan baris 6.000 → form JP=6000, Jml Cetakan=240, profit=20, toast ✓; RELOAD → 2 baris tetap + nilai recompute identik + form pulih (hl 600, warna 4, sm52) ✓; Hapus 1 baris → 1 + badge 1 ✓; Hapus Semua → dialog → Batal (baris tetap) → konfirmasi → rows=0 + empty state + localStorage "[]" ✓ (screenshot e2e-sim-tabel-cetakan-desktop.png).
+- E2E potong-kertas desktop: 65×100, potong 8×12, Rp500, mata 25; strip "Modal Rp 2.000 (Rp 0,4/pcs) +20% → Jual Rp 2.400 (Rp 0,48/pcs) · 4 lbr" ✓ (= nilai Task 105); baris 3.000 "120×·2 lbr·Rp 1.000·Rp 0,33·Rp 1.200·Rp 0,4" & 5.000 "200×·4 lbr·Rp 2.000·Rp 0,4·Rp 2.400·Rp 0,48" ✓; Terapkan 3.000 → toast, JP=3000, JC=120, panel hasil "Diperlukan 120 lembar" ✓; edit 5.000→6.000 live (Rp 0,33/pcs) ✓ save ✓; Hapus 1 baris ✓; RELOAD → 6.000 persisten dgn nilai identik ✓; dialog Hapus Semua Batal→konfirmasi → localStorage "[]" ✓ (screenshot e2e-sim-tabel-potong-desktop.png).
+- E2E mobile 390×844: kedua halaman sw=390=vw (tanpa overflow; tabel scroll horizontal DI DALAM kartu), kartu & tabel rapi (2 screenshot); dialog Hapus Semua juga diuji di viewport mobile ✓.
+- dev.log: semua GET 200, tanpa error runtime; 1x "Fast Refresh had to perform a full reload" = transien di tengah proses multi-edit (HMR), compile setelahnya sukses semua; browser console & page errors bersih.
+- Catatan proses: E2E awal sempat "ongkos cetak = 0" karena field Warna kosong (placeholder "4" ≠ value) — bukan bug kode; setelah warna=4, ongkos masuk dan math cocok persis.
+- CLEANUP: tabel simulasi kedua halaman dikosongkan via Hapus Semua (localStorage=[] di kedua key); tidak ada data DB dibuat (tanpa Simpan Riwayat/Master); setting profit tidak diubah; 4 screenshot E2E disimpan di root project.
+
+Stage Summary:
+- Simulasi Cepat kini TABEL CRUD penuh di kedua halaman: Create (Tambah), Read (tabel 9 kolom + strip live), Update (edit inline jumlah/profit dgn recompute live), Delete (per baris + Hapus Semua dgn konfirmasi AlertDialog). Bonus aksi per baris: Terapkan ke Form.
+- Daftar bertahan antar reload (localStorage per-user), nilai selalu dihitung ulang mengikuti parameter form terkini (fallback snapshot bila form kosong).
+- Lint 0/0, E2E desktop+mobile lulus penuh (math diverifikasi manual), dev.log bersih, data uji dibersihkan.
+- Commit & deploy: TIDAK dilakukan (tidak diminta pada task ini). sw.js/APP_VERSION tidak diubah (masih v74 dari Task 105).
+---
+Task ID: 107
+Agent: Z.ai Code (main)
+Task: "kotak simulasi cepat dibuat lebar fit to desktop." + "lanjutkan. dihalaman hitung cetakan, ditampilan mobile simulasi cepat dipindahin dibawah tombol simpan ke master barang. deploy"
+
+Work Log:
+- potong-kertas/page.tsx: kartu Simulasi Cepat dikeluarkan dari sidebar kiri (386-416px) — instance mobile dibungkus <div className="lg:hidden"> (tetap di alur form setelah tombol aksi), instance BARU <div className="hidden lg:block mt-3"> ditambahkan SETELAH container flex 2 kolom → di desktop kartu jadi blok LEBAR PENUH area konten (1008px @1280vw).
+- hitung-cetakan/page.tsx: kartu dikeluarkan dari COLUMN 4 (grid lg:grid-cols-4 ~25% lebar) — instance desktop dipindah ke blok <div className="hidden lg:block mt-3"> SETELAH grid 4 kolom; instance MOBILE dipindah dari area summary (sebelum Perincian) ke BAWAH tombol "Simpan ke Master Barang" (elemen terakhir mobile-only wrapper), sesuai permintaan user.
+- Polish responsif kartu (2 file): simThClass +lg:h-8 lg:px-2.5 lg:text-[11px], simTdClass +lg:px-2.5 lg:py-1.5 lg:text-xs, simEditInputClass +lg:text-xs; konten kartu +lg:px-4 lg:py-3 lg:space-y-2.5; deskripsi/strip/warning +lg:text-xs; profit input +lg:w-32; tabel +lg:min-w-0 lg:text-xs (tanpa scroll horizontal di desktop); wrapper tabel max-h +lg:max-h-80.
+- Lint: bunx eslint 2 file → 0 error 0 warning.
+- E2E LOCAL desktop 1280×800 (superadmin): potong-kertas — kartu 1008px (x=240, di bawah kolom form+hasil), sw=1280; isi Custom 65×100, potong 8×12, Rp500, JP3000, mata 25 → strip "Modal Rp 2.000 (Rp 0,4/pcs) +20% → Jual Rp 2.400 (Rp 0,48/pcs) · 4 lbr" ✓; Tambah 3000 & 5000 → 2 baris math benar; edit inline muncul → Batal ✓; Hapus Semua via dialog (Batal dulu, lalu konfirmasi) → localStorage "[]" ✓ (screenshot e2e-sim-wide-potong-desktop.png). hitung-cetakan — kartu 1008px y=855 (di bawah grid 4 kolom), sw=1280; isi 65×100, 8×12, Rp600, mata 25, sm52, warna 4 → strip "Modal Rp 324.400 (Rp 64,88/pcs) +20% → Jual Rp 389.280 (Rp 77,86/pcs) · 4 lbr" = baseline Task 106 ✓; Tambah 5000 & 8000 → "5.000·20%·200·4 lbr·Rp 324.400·Rp 64,88·Rp 389.280·Rp 77,86" & "8.000·20%·320·5 lbr·Rp 325.000·Rp 40,63·Rp 390.000·Rp 48,75" ✓; tabel 972=972 TANPA scroll horizontal (screenshot e2e-sim-wide-cetakan-desktop.png); Hapus Semua → ls "[]" ✓.
+- E2E LOCAL mobile 390×844: hitung-cetakan — sw=390, kartu 356px pada y=2686 tepat DI BAWAH tombol Simpan ke Master Barang (bottom 2674) ✓ (screenshot e2e-sim-mobile-cetakan.png); potong-kertas — sw=390, 1 kartu 358px di alur form (sebelum tombol Hitung Cetakan Lengkap) ✓.
+- dev.log: hanya transien "Fast Refresh full reload" saat HMR; semua API 200; health 200.
+- PWA bump: public/sw.js v74→v75 (darrell-soft-v75); service-worker-registration APP_VERSION 2026-09-17-v10→v11. Commit a421e56 (potong-kertas ter-commit otomatis di 765ff06 oleh snapshot process).
+- DEPLOY: rm .vercel lama (tidak ada link) → vercel link --project darrellsoft → vercel --prod → deployment darrellsoft-a4ycge9w1 (Ready, production). Setelah deploy: .vercel & .env.local dihapus (sandbox bersih).
+- VERIFIKASI PRODUKSI www.darrellsoft.com: sw.js → darrell-soft-v75 ✓; / , /hitung-cetakan, /potong-kertas → 200 ✓.
+- E2E PRODUKSI desktop 1280×800 (superadmin): potong-kertas — kartu 1008px ✓; isi Custom 65×100, 8×12, Rp500, JP3000, mata 25, sim 5000+20 → strip "Rp 2.000 (Rp 0,4/pcs) +20% → Rp 2.400 (Rp 0,48/pcs) · 4 lbr" ✓; Tambah → baris "5.000·20%·200·4 lbr·Rp 2.000·Rp 0,4·Rp 2.400·Rp 0,48", tabel 972=972 tanpa h-scroll ✓ (screenshot e2e-sim-wide-potong-prod.png); Hapus Semua → ls "[]" ✓. TANPA menyimpan apa pun ke DB produksi (Hitung Potongan/Simpan tidak diklik).
+- E2E PRODUKSI mobile 390×844: hitung-cetakan — sw=390, kartu 356px y=2668 tepat di bawah tombol Simpan ke Master Barang (bottom 2656) ✓ (screenshot e2e-sim-mobile-cetakan-prod.png).
+
+Stage Summary:
+- Kotak Simulasi Cepat kini LEBAR PENUH memenuhi desktop di kedua halaman (potong-kertas: full-width di bawah kolom form+hasil; hitung-cetakan: full-width di bawah grid 4 kolom) — tabel 9 kolom tampil tanpa scroll horizontal.
+- Mobile hitung-cetakan: Simulasi Cepat dipindah ke bawah tombol "Simpan ke Master Barang" (elemen terakhir). Mobile potong-kertas tidak berubah (tetap di alur form).
+- Teks/padding tabel membesar otomatis di desktop (lg:), tetap kompak di mobile; semua fungsi CRUD (Tambah/edit inline/Terapkan/Hapus/Hapus Semua+dialog) teruji ulang di layout baru.
+- DEPLOYED ke www.darrellsoft.com — PWA v75 / 2026-09-17-v11 live, diverifikasi desktop+mobile di produksi. localStorage simulasi di kedua halaman dibiarkan bersih ("[]").
+---
+Task ID: 108
+Agent: Z.ai Code (main)
+Task: "preview tidak muncul. fix"
+
+Work Log:
+- Reproduksi agent-browser desktop 1280x800 di /hitung-cetakan: form terisi penuh (JP 3000, mata 25, JC 120, kertas 65x100, potong 8x12, Rp600, warna 4) TAPI "Nama barang" KOSONG -> tombol Preview AKTIF (disabled={!hasGrandTotal} lolos) -> klik Preview hanya memunculkan toast "Lengkapi Nama Barang dan Jumlah terlebih dahulu", dialog TIDAK terbuka. Ini akar bug: guard `if (!formData.printName || !formData.quantity)` di handlePreview memblokir preview padahal perhitungan sudah valid (Nama Barang hanya label, tidak mempengaruhi matematika; RincianCetakanPreview sudah punya fallback '-').
+- Fix src/app/hitung-cetakan/page.tsx (3 edit): (1) handlePreview — guard printName+quantity dihapus (tombol sudah di-gate disabled={!hasGrandTotal}); (2) handleWhatsApp — guard sama dihapus (jebakan yang sama); (3) pesan WhatsApp `Nama Barang: ${formData.printName || '-'}` fallback.
+- Sweep: grep seluruh src — tidak ada guard "Lengkapi Nama" lain; potong-kertas/invoice/surat-jalan/PO tidak punya guard serupa.
+- Lint: bunx eslint src/app/hitung-cetakan/page.tsx -> 0 error 0 warning.
+- E2E desktop 1280x800: klik Preview (Nama barang kosong) -> DIALOG TERBUKA penuh: Informasi Pesanan (Nama Customer/Barang "-", JP 3.000 lbr, JC 120 lbr, mata 25, 65x100 cm, potong 8x12, 4 warna), Rincian Biaya (kertas 1.200 + ongkos 322.000 = Sub 323.200 + Profit 20% 64.640 = Grand 387.840), Gambar Potong Kertas (66/lembar, 2 lembar, 97.5%), tombol Cetak+JPG (screenshot /tmp/preview-fix-desktop.png). Klik baris riwayat -> preview juga terbuka.
+- E2E mobile 390x844: Preview -> dialog terbuka, konten lengkap, sw=390=vw tanpa overflow (screenshot /tmp/preview-fix-mobile.png).
+- E2E potong-kertas: Hitung Potongan -> Preview -> dialog terbuka normal (jalur ini memang tidak punya guard nama).
+- dev.log: tanpa error, semua API 200. Tidak ada data uji ke DB (tidak ada Simpan/Update diklik; hitungan = client-side saja).
+- Commit d093dc7. sw.js/APP_VERSION tidak diubah (v75). DEPLOY TIDAK dilakukan (tidak diminta di pesan ini).
+
+Stage Summary:
+- Preview (dan WhatsApp) di Hitung Cetakan kini SELALU muncul begitu Grand Total terhitung — tidak lagi diblokir "Lengkapi Nama Barang" saat Nama Barang/field label kosong; field kosong tampil '-' di preview & pesan WA.
+- Fix live di sandbox (preview panel); BELUM di-deploy ke www.darrellsoft.com — menunggu instruksi deploy dari user.
+---
+Task ID: 109
+Agent: Z.ai Code (main)
+Task: "gimana caranya apabila ada 3 macam hitung cetakan, tapi dijadikan 1 harga yang digabung, misanya kotak kue tutup atas (dihitung), tutup bawah (dihitung) dan sekat dalam (dihitung). harus dihitung satu per satu. tapi harus digabung jadi 1 harga saja."
+
+Work Log:
+- Fitur baru TAB "GABUNG" di /hitung-cetakan (tab bar kini Editor | Riwayat | Gabung): menggabungkan beberapa riwayat hitung cetakan menjadi 1 harga — jawaban atas alur "hitung satu per satu, gabung jadi 1 harga".
+- Komponen baru src/components/hitung-cetakan/gabungan-tab.tsx (self-contained, menerima rows riwayat dari page; TANPA perubahan skema DB/API):
+  - Kartu 1 "Pilih Hitungan": daftar riwayat (checkbox kartu: printName, customer, JP, grand total, profit%), search nama barang/customer, Pilih Semua (all filtered) / Kosongkan, max-h-96 overflow-y + scrollbar-thin, empty state "Belum ada hitungan tersimpan".
+  - Kartu 2 "Hasil Gabungan (N komponen)": daftar komponen terpilih (Sub + profit% + grand + tombol X keluarkan), input Jumlah Pesanan Gabungan (auto = JP hitungan pertama; placeholder menampilkan auto) dan Profit Seragam % (opsional; kosong = ikut masing-masing), kotak total: Sub Total Gabungan (Σ subTotal) / Total Profit atau "Profit N% (seragam)" / GRAND TOTAL GABUNGAN (gradient emerald-teal) / Harga Jual per Pcs (÷ N, fmt cerdas 2 desimal < Rp1.000).
+  - Preview dialog "Rincian Harga Gabungan": header (customer = customer pertama yang punya nama, tanggal, N komponen), tabel per komponen (kertas · gsm · warna, JP, Sub Total, Profit per baris — kolom profit jadi "Sub Total" + tampil "—" bila profit seragam aktif), footer Sub Gabungan/Profit/Grand/Harga-per-Pcs, banner grand total emerald; tombol Cetak & JPG.
+  - JPG: captureElementAsJpg -> fitBlobToA5 landscape margin 3% -> shareJpgToWhatsApp (shared/downloaded/error toasts) — identik alur dgn rincian cetakan. Cetak: popup A5 landscape berisi gambar capture (100% sama dgn preview).
+  - Persistensi: localStorage per-user key 'hitung-cetakan-gabungan-ids' (array id, difilter ke baris yang ada) — pilihan bertahan antar reload.
+- src/app/hitung-cetakan/page.tsx: import GabunganTab; activeTab type +'gabung'; tombol tab "Gabung" (gaya sama dgn tab lain); render <GabunganTab rows={riwayatCetakanList}/> sebelum Preview Dialog.
+- Lint: bunx eslint gabungan-tab.tsx + page.tsx -> 0 error 0 warning.
+- E2E desktop 1280x800 (superadmin): buat 3 riwayat uji via POST API (Kotak Kue Tutup Atas 200rb+20%=240rb; Tutup Bawah 150rb+20%=180rb; Sekat Dalam 50rb+20%=60rb; JP 3000 semua, customer Toko Kue Melati) -> tab Gabung tampil 3 baris -> Pilih Semua -> Sub Rp 400.000 + Profit Rp 80.000 = GRAND Rp 480.000, Rp 160/pcs (3.000) semua benar -> Profit seragam 25 -> "PROFIT 25% (SERAGAM) RP 100.000 (25%)", Grand Rp 500.000, Rp 166,67/pcs benar -> JP override 6000 -> Rp 83,33/pcs benar -> Preview: tabel 3 komponen (kertas·gsm·warna) + total + banner, screenshot /tmp/gabung-preview-desktop.png -> Hapus 1 komponen (X) -> (2 KOMPONEN), Grand Rp 420.000 benar -> RELOAD -> pilihan persisten (2 komponen, 420rb) benar.
+- E2E mobile 390x844: sw=390=vw tanpa overflow, kartu list + Hasil Gabungan + input + total rapi (screenshot /tmp/gabung-mobile.png, -2.png); Preview dialog mobile terbuka penuh (screenshot /tmp/gabung-mobile-preview.png).
+- CLEANUP data uji: Kosongkan pilihan (localStorage []) + DELETE 3 riwayat via API (semua 200, sisa 0 — riwayat kembali kosong seperti semula; tidak ada data user tersentuh).
+- Empty state tab Gabung terverifikasi setelah cleanup; tab Editor spot-check normal (sw=1280). dev.log tanpa error.
+- Commit 63e21b6. sw.js/APP_VERSION tidak diubah (v75). DEPLOY tidak dilakukan (tidak diminta).
+
+Stage Summary:
+- Alur user tercapai: hitung kotak kue satu per satu (tutup atas / tutup bawah / sekat — masing-masing simpan riwayat), buka tab GABUNG, centang semua komponen -> langsung 1 harga gabungan (Sub + Profit + Grand + Harga per Pcs), bisa atur profit seragam & jumlah pesanan gabungan, lalu Preview/JPG/Cetak "Rincian Harga Gabungan" untuk dikirim ke pelanggan.
+- Tidak ada perubahan DB/API; pilihan gabungan tersimpan per perangkat. Semua math diverifikasi manual selama E2E; data uji dibersihkan total.
+- Fix task 108 (Preview guard) ikut terverifikasi; fitur siap, BELUM di-deploy (menunggu permintaan).
+---
+Task ID: 110-111
+Agent: Z.ai Code (main)
+Task: "di halaman gabung di rubah jadi tabel dengan isi yang lengkap. font dibesarin lagi. buat crud, ux dan ui" + "lanjutkan. tambahkan kolom harga jual dan harga modal per pcs di tabel. hilangkan 4 warna di kolom kertas. fungsikan tombol jpg dan tombol cetak. buat crud, ui dan ux. fix."
+
+Work Log:
+- REWRITE src/components/hitung-cetakan/gabungan-tab.tsx (Task 110): kartu/list card diganti 2 TABEL lengkap dgn shadcn Table — (1) "Daftar Hitungan" (semua riwayat, klik baris/centang = toggle masuk gabungan, search, Pilih Semua, badge count N dipilih, max-h-[26rem] scroll + sticky thead); (2) "Komponen Gabungan" (komponen terpilih, X keluarkan per baris, tombol Kosongkan dgn AlertDialog konfirmasi "riwayat tidak terhapus"), input JP Gabungan & Profit Seragam live recompute, kotak total (Sub/Profit/Grand gradient/Modal-Pcs/Jual-Pcs), aksi Preview/JPG/Cetak. Font dibesar: judul kartu text-base, td text-sm (14px) vs sebelumnya 10.5-13px, uang font-bold, grand text-2xl, input h-10, tombol py-2.5, th text-[11px] lg:text-xs. Empty states (belum ada hitungan / belum ada komponen dipilih).
+- CRUD (Task 110): C=pilih baris/Pilih Semua; R=2 tabel kolom lengkap + totals live; U=JP gabungan & profit seragam live; D=X keluarkan per baris + Kosongkan dgn AlertDialog (Batal teruji + konfirmasi). Persistensi localStorage per-user tetap (pilihan bertahan reload — terverifikasi).
+- Task 111: tambah kolom "Modal/pcs" (= subTotal ÷ JP) & "Jual/pcs" (= grandTotal ÷ JP) di KEDUA tabel (tabel 1 jadi 11 kolom min-w-[940px], tabel 2 jadi 10 kolom min-w-[880px]) + fmtHargaPcs (2 desimal < Rp1.000); kotak total gabungan ditambah baris Modal/Pcs (Σsub ÷ N) berdampingan dgn Jual/Pcs (grid-2 divide-x).
+- Task 111: labelKertas dihapus warna → "Art Carton · 260 gsm" (tanpa "4 warna") di kedua tabel + preview dokumen; header tabel 2 "Kertas · gsm · Warna" → "Kertas · gsm".
+- Task 111 FIX tombol JPG/Cetak: sebelumnya capture previewRef yang hanya ada saat preview terbuka → klik langsung gagal ("Preview tidak tersedia"). Sekarang dokumen "Rincian Harga Gabungan" di-render via renderDokumen() di 2 tempat: instance OFFSCREEN (captureRef, fixed left:-10000px w:768, selalu mounted saat ada komponen) sebagai sumber capture JPG/Cetak + preview dialog. handlePrint/handleJpg pakai captureRef → berfungsi LANGSUNG tanpa buka preview. Preview dokumen ditambah kolom Modal/Pcs & Jual/Pcs + baris Harga Modal per Pcs + banner Modal/Pcs.
+- UX: title tooltip utk sel truncate (nama/customer/kertas), aria-pressed baris, aria-label tombol keluarkan, loading spinner JPG/Cetak, toast sukses/error.
+- Width tuning: tabel 1 muat 972=972 TANPA scroll horizontal di desktop 1280 (max-w nama 135/cust 85/kertas 100, th/td px-2, ✓ w-7) setelah 2 iterasi (awalnya overflow 76px & 26px).
+- Lint: bunx eslint gabungan-tab.tsx → 0 error 0 warning (3x sepanjang task).
+- E2E desktop 1280×800 (superadmin; 3 riwayat uji dibuat via POST API: Tutup Atas 200rb/240rb, Tutup Bawah 150rb/180rb, Sekat 50rb/60rb, JP 3000, profit 20%, Art Carton 260): tabel 1 = 11 kolom, Modal/pcs "Rp 66,67/Rp 50/Rp 16,67" & Jual/pcs "Rp 80/Rp 60/Rp 20" benar per baris; tanpa h-scroll 972=972; tabel 2 = 10 kolom 970=970 tanpa h-scroll; Pilih Semua → Sub 400.000+Profit 80.000=Grand 480.000, Modal/Pcs 133,33, Jual/Pcs 160 ✓; profit seragam 25 → 100.000/500.000/166,67 ✓; JP override 6000 → 83,33 ✓; keluarkan Sekat (X) → 2 komponen 350.000+87.500=437.500, 72,92 ✓; toggle row Tutup Atas → 1 komponen 180.000 ✓; Kosongkan dialog Batal→tetap, konfirmasi→empty state ✓; reload → pilihan persisten (3 komponen) ✓.
+- E2E JPG langsung (tanpa preview): klik JPG → toast "JPG diunduh ke perangkat — File JPG telah disimpan ke folder Downloads" ✓, 0 console error. E2E Cetak langsung: popup terbuka berisi <img data:image/jpeg base64> dokumen gabungan (diverifikasi konteks popup + mock window.open: HTML 586KB, hasImg+isJpeg, print() dipanggil) ✓.
+- E2E Preview: dokumen 6 kolom (KOMPONEN/JUMLAH/MODAL-PCS/SUB TOTAL/PROFIT/JUAL-PCS), kertas tanpa warna, Harga Modal per Pcs 133,33 + Harga Jual per Pcs 160 + banner lengkap (screenshot gabung2-preview-final.png).
+- E2E mobile 390×844: sw=390=vw tanpa overflow; tabel scroll DI DALAM kartu (946/880); capture offscreen tidak mengganggu (left=-10000); kotak Modal/Pcs | Jual/Pcs 2 kolom rapi (screenshots gabung2-mobile-*.png, gabung2-final-*.png).
+- CLEANUP: localStorage gabungan dihapus, 3 riwayat uji di-DELETE via API path /api/riwayat-cetakan/[id] (200×3, sisa 0), empty state tab Gabung terverifikasi, dev.log tanpa error.
+- Commit 24f1ddf. sw.js/APP_VERSION tidak diubah (v75). DEPLOY tidak dilakukan (tidak diminta).
+
+Stage Summary:
+- Tab Gabung kini TABEL CRUD penuh dgn isi lengkap & font besar: kolom Modal/pcs + Jual/pcs per komponen & per gabungan, kertas tanpa "4 warna", tombol JPG & Cetak berfungsi LANGSUNG (capture dari instance offscreen, tidak perlu buka preview), Kosongkan dgn konfirmasi, semua math terverifikasi (133,33/160 dst).
+- Lint 0/0; E2E desktop+mobile lulus penuh; dev.log bersih; data uji dibersihkan total; belum di-deploy (menunggu permintaan).
+---
+Task ID: 112
+Agent: Z.ai Code (main)
+Task: "gimana caranya apabila ada customer beli barang 1juta, tapi customer tesebut bayar dp dulu 500rb (buat invoice dp) jadi sisa 500rb. jadi diinvoice ada invoice regular, dp dan pelunasan . dan sisa 500rb itu dianggap jadi piutang dagang. dan muncul di beranda sebagai piutang dan pelunasannya harus dibuat invoice pelunasan juga. buat caranya crud, ui dan ux."
+
+Work Log:
+- AUDIT: alur dasar sudah ada (Buat Invoice tab Regular/DP/Pelunasan, dokumen PEL via InvoicePelunasanEditor, tab Riwayat Pembayaran, halaman /piutang-dagang, kartu+daftar piutang beranda) — dipastikan via baca page.tsx/editor/store/types. Ditemukan 4 gap: DP hanya bisa input persen, tidak ada jalur cepat invoice-DP→invoice-PEL, dpAmount nominal tidak dihormati di parseDocInfo/save, beranda & piutang-dagang tanpa aksi pelunasan.
+- invoice-editor.tsx: input DP jadi DUAL — "DP Dibayar (Rp)" (nominal, placeholder "mis. 500000") + "DP (%)" saling tersinkron: nominal→persen auto (round 2 desimal), persen→nominal (total×p/100). dpAmount eksplisit di state store; effect menyinkronkan persen tersimpan saat total berubah (item diedit) agar filter pelunasan (dp>0) & label "DP (x%)" akurat. Strip live: Total / DP Dibayar: Rp500.000 (50%) / Sisa Pembayaran (Piutang): Rp500.000.
+- document-action-buttons.tsx: saat simpan invoice DP, dpAmount yang tersimpan (nominal input Rp) dipertahankan apa adanya; fallback turunan persen hanya bila dpAmount kosong (kompat data lama).
+- invoice/page.tsx: parseDocInfo kini prioritas stored dpAmount>0 (sisa/piutang exact); handleTandaiLunas tidak lagi menimpa dpAmount nominal; DetailInvoiceView dapat prop onCreatePelunasan → CTA UTAMA "Buat Invoice Pelunasan" (violet) untuk invoice DP belum lunas, "Tandai Lunas" jadi sekunder (outline); teks info "Sisa pembayaran Rp X (piutang) belum diterima."; InvoicePage: state pelunasanInvoiceId + deep-link ?pelunasan=<id> (buka editor pelunasan dgn invoice terpilih) + openPelunasan() membersihkan query param.
+- invoice-pelunasan-editor.tsx: prop baru preselectInvoiceId — effect sekali-per-id (guard ref) auto selectInvoice begitu daftar termuat + toast.info "Melanjutkan pelunasan invoice X" (deskripsi: cek sisa lalu Simpan Pelunasan).
+- piutang-dagang/page.tsx: baris invoice DP belum lunas kini 2 aksi — "Buat Pelunasan" (primary violet → /invoice?pelunasan=<id>) + "Tandai Lunas" (outline emerald, perilaku lama tetap); invoice non-DP tetap hanya Tandai Lunas.
+- pembukaan/page.tsx (beranda): baris daftar Piutang Dagang direstrukturisasi dari <button> ke div role=button (nested button ilegal) + tombol mini "Pelunasan" (violet, stopPropagation) per baris invoice DP → /invoice?pelunasan=<id>; keyboard accessible (tabIndex+onKeyDown).
+- TIDAK ada perubahan skema DB/API — DP/piutang tetap tersimpan di dataJson DocumentHistory (dp persen + dpAmount nominal + originalTotal).
+- Lint: bunx eslint 6 file → 0 error 0 warning (1x cleanup eslint-disable tak terpakai).
+- E2E desktop 1280×800 (superadmin; data uji: item ITM-001 Rp1.000.000 utk customer Budi Susanto via POST /api/items): editor DP — pilih barang → Total Rp1.000.000; PPN→0; isi DP nominal 500000 → "DP Dibayar: Rp500.000 (50%)" + "Sisa Pembayaran (Piutang): Rp500.000" + preview DOWN PAYMENT + "SISA PEMBAYARAN Rp500.000" otomatis; Simpan→Ya→Detail Invoice: badge Invoice DP, DP (50%): Rp500.000, Sisa: Rp500.000, teks piutang, CTA "Buat Invoice Pelunasan" ADA; beranda: kartu Piutang Dagang Rp252.200.000 (baseline 251.700.000 + 500.000), tombol "Pelunasan" per baris piutang (aria-label benar); klik tombol → /invoice?pelunasan=<id> → editor pelunasan auto-pilih INV/09/26/0002 + toast info + "Simpan Pelunasan"; aktifkan toggle Lunas → Simpan → toast "Pelunasan berhasil dicatat"; DB: PEL/09/26/0002 dibuat (lunas=true, referensiInvoiceNomor=INV/09/26/0002), invoice DP lunas=true dpAmount=500000 dp=50, API beranda totalPiutang kembali 251.700.000 / belumLunas 3; tab Riwayat Pembayaran: baris INV/09/26/0002 (Total 1.000.000 · DP 500.000 · Dipelunasi 500.000 · Sisa 0 · Lunas) + baris PEL/09/26/0002 (ref INV/09/26/0002 · Rp500.000 · Lunas), "4 invoice DP · 4 pelunasan"; Detail invoice lunas: stamp LUNAS, CTA pelunasan & Tandai Lunas HILANG; Cetak via stub window.open → opened + HTML 270KB <img> JPEG.
+- E2E mobile 390×844: beranda sw=390=vw, 3 tombol Pelunasan; /piutang-dagang sw=390, tombol "Buat Pelunasan" tampil; editor ?buat=1 tab DP sw=390, field "DP Dibayar (Rp)" + "DP (%)" tampil; uji nominal 250rb pada form kosong → dpAmount tersimpan, persen 0 (sync saat total>0, sesuai desain). Screenshot /tmp/dp-detail-desktop.png, /tmp/piutang-desktop.png, /tmp/dp-beranda-mobile.png, /tmp/dp-piutang-mobile.png.
+- CLEANUP: DELETE ?purge=1 PEL/09/26/0002 + INV/09/26/0002 + item ITM-001 (semua 200/ok) → beranda kembali baseline Rp251.700.000/3, master barang kembali kosong; localStorage uji tidak dibuat. dev.log tanpa error.
+- Commit c50d3bd. sw.js/APP_VERSION tidak diubah (v75). DEPLOY tidak dilakukan (tidak diminta).
+
+Stage Summary:
+- Jawaban alur user LENGKAP & teruji end-to-end: customer beli 1.000.000 → buat invoice (tab DP) isi DP Dibayar Rp500.000 (persen auto 50%) → invoice DOWN PAYMENT dengan SISA PEMBAYARAN Rp500.000 → sisa otomatis jadi PIUTANG DAGANG (naik di beranda & /piutang-dagang) → klik tombol "Pelunasan"/"Buat Invoice Pelunasan" (detail/beranda/piutang-dagang) → editor pelunasan terisi otomatis → Simpan Pelunasan → dokumen INVOICE PELUNASAN (PEL/xx) dibuat + invoice DP lunas + piutang berkurang. Invoice Regular (tanpa DP) & Pelunasan tetap tersedia sebagai 3 mode Buat Invoice.
+- dpAmount kini exact & konsisten di semua perhitungan (editor, simpan, detail, riwayat pembayaran, piutang, beranda); data lama berbasis persen tetap didukung.
+- CRUD penuh: C (buat DP/regular/pelunasan), R (detail, riwayat, pembayaran, piutang, beranda), U (edit, Tandai Lunas, sinkron PEL), D (hapus→sampah, purge) — semua teruji.
+- Data uji dibersihkan total; belum di-deploy (menunggu permintaan).

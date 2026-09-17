@@ -463,14 +463,26 @@ export default function PiutangDagangPage() {
                       <p className="text-[11px] text-muted-foreground">DP {formatRupiah(r.dpAmount)}</p>
                     ) : null}
                     {!r.lunas && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setConfirmRow(r)}
-                        className="mt-1 h-8 px-2.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950"
-                      >
-                        Tandai Lunas
-                      </Button>
+                      <div className="mt-1 flex flex-col items-stretch gap-1 w-full sm:w-auto sm:min-w-[130px]">
+                        {r.isDp && (
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/invoice?pelunasan=${r.id}`)}
+                            title="Buat invoice pelunasan untuk sisa pembayaran ini"
+                            className="h-8 px-2.5 text-xs bg-violet-600 hover:bg-violet-700 text-white"
+                          >
+                            Buat Pelunasan
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setConfirmRow(r)}
+                          className="h-8 px-2.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                        >
+                          Tandai Lunas
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>

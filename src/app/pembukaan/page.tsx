@@ -802,39 +802,62 @@ export default function PembukaanPage() {
               </div>
             ) : (
               <ul className="divide-y divide-stone-100 dark:divide-zinc-800 max-h-96 overflow-y-auto">
-                {s.piutang.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      onClick={() => navigate(`/invoice?detail=${p.id}`)}
-                      aria-label={`Buka detail invoice ${p.number}`}
-                      className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px]"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-medium truncate text-stone-900 dark:text-zinc-100">{p.number}</p>
-                          {(Boolean(p.data?.dp) || Number(p.data?.dpAmount ?? 0) > 0) ? (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300">DP</Badge>
-                          ) : null}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {p.customerName} · {formatTanggalID(p.date)}{p.dueDate ? ` · tempo ${formatTanggalID(p.dueDate)}` : ''}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">{formatRupiah(p.sisa)}</p>
-                        {p.overdue ? (
-                          <p className="text-[11px] font-medium text-red-600">Terlambat {p.overdueDays} hari</p>
-                        ) : p.dueDate ? (
-                          <p className="text-[11px] font-medium text-amber-600">
-                            H-{Math.ceil((new Date(`${p.dueDate}T00:00:00`).getTime() - startOfToday()) / 86400000)}
+                {s.piutang.map((p) => {
+                  const isDpRow = Boolean(p.data?.dp) || Number(p.data?.dpAmount ?? 0) > 0
+                  return (
+                    <li key={p.id}>
+                      {/* div role=button (bukan <button>) agar bisa memuat tombol
+                          aksi "Pelunasan" di dalam baris — HTML tidak mengizinkan
+                          <button> bersarang. */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate(`/invoice?detail=${p.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            navigate(`/invoice?detail=${p.id}`)
+                          }
+                        }}
+                        aria-label={`Buka detail invoice ${p.number}`}
+                        className="w-full flex items-center gap-3 px-2 md:px-3 py-3 rounded-lg hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors text-left min-h-[52px] cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium truncate text-stone-900 dark:text-zinc-100">{p.number}</p>
+                            {isDpRow ? (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-300">DP</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {p.customerName} · {formatTanggalID(p.date)}{p.dueDate ? ` · tempo ${formatTanggalID(p.dueDate)}` : ''}
                           </p>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground">Sisa pembayaran</p>
-                        )}
+                        </div>
+                        <div className="text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">{formatRupiah(p.sisa)}</p>
+                          {p.overdue ? (
+                            <p className="text-[11px] font-medium text-red-600">Terlambat {p.overdueDays} hari</p>
+                          ) : p.dueDate ? (
+                            <p className="text-[11px] font-medium text-amber-600">
+                              H-{Math.ceil((new Date(`${p.dueDate}T00:00:00`).getTime() - startOfToday()) / 86400000)}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">Sisa pembayaran</p>
+                          )}
+                          {isDpRow && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/invoice?pelunasan=${p.id}`) }}
+                              aria-label={`Buat invoice pelunasan untuk ${p.number}`}
+                              className="mt-1 inline-flex items-center rounded-md bg-violet-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-violet-700 transition-colors min-h-[24px]"
+                            >
+                              Pelunasan
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </button>
-                  </li>
-                ))}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </CardContent>
