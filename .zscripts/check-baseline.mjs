@@ -1,0 +1,13 @@
+import { PrismaClient } from '@prisma/client'
+const db = new PrismaClient()
+const c = async (m) => await db[m].count()
+console.log('DocumentHistory:', await c('documentHistory').catch(()=>'-'))
+console.log('RiwayatCetakan:', await c('riwayatCetakan').catch(()=>'-'))
+console.log('RiwayatPotongKertas:', await c('riwayatPotongKertas').catch(()=>'-'))
+console.log('Barang:', await c('barang').catch(()=>'-'))
+console.log('BarangCustomer:', await c('barangCustomer').catch(()=>'-'))
+console.log('Customer:', await c('customer').catch(()=>'-'))
+console.log('Paper (existing):', await c('paper').catch(()=>'-'))
+console.log('MasterKertas(papers):', await c('masterKertas').catch(()=>'-'))
+console.log('CuttingRecord:', await c('cuttingRecord').catch(()=>'-'))
+await db.$disconnect()

@@ -1,0 +1,389 @@
+        {/* ===== HERO: Salam + Tanggal + Motivasi ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-5 sm:p-6 shadow-lg"
+        >
+          <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/10 pointer-events-none" />
+          <div className="absolute -bottom-24 -left-12 w-52 h-52 rounded-full bg-white/10 pointer-events-none" />
+          <div className="relative flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/80">{mounted ? t(greetingKey) : t('greeting_morning')}</p>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white truncate">{t('hello')}{displayName}</h2>
+                <p className="text-xs sm:text-[13px] text-white/90 mt-0.5">
+                  {language === 'en' ? (
+                    <>Welcome to <span className="font-bold">www.darrellsoft.com</span>, Fast Printing Cost Calculator for <span className="font-bold">SMEs</span>.</>
+                  ) : (
+                    <>Selamat Datang di <span className="font-bold">www.darrellsoft.com</span>, Aplikasi Hitung Cepat Cetakan untuk <span className="font-bold">UMKM</span>.</>
+                  )}
+                </p>
+              </div>
+            </div>
+            {mounted && (
+              <div className="hidden sm:flex flex-col items-end gap-1.5 shrink-0">
+                <p className="text-sm font-semibold text-white/95 capitalize">
+                  {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+                {(user?.role === 'demo' || user?.role === 'admin' || user?.role === 'superadmin') && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-bold uppercase tracking-wider">
+                    {user.role === 'superadmin' ? 'Super Admin' : user.role === 'admin' ? 'Admin' : 'Demo'}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="relative mt-4 sm:mt-5 rounded-xl bg-white/10 backdrop-blur px-4 py-3 flex items-start gap-3">
+            <Sparkles className="w-4 h-4 text-amber-200 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200 mb-0.5">{t('motivation_today')}</p>
+              <p className="text-[13px] sm:text-[14px] text-white font-semibold italic leading-relaxed">&ldquo;{motivasiHariIni}&rdquo;</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Expired Akun Demo - only for demo role */}
+        {user?.role === 'demo' && data?.expiryInfo?.validUntil && (
+          <button
+            onClick={() => {
+              startNavigation()
+              window.dispatchEvent(new CustomEvent('navigation-start'))
+              router.push('/checkout')
+            }}
+            className="bg-teal-600 hover:bg-teal-700 rounded-xl p-4 flex items-center gap-4 w-full text-left transition-colors cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
+              <CalendarClock className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-teal-100">{t('expired_akun_demo')}</p>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className="text-base sm:text-lg font-bold text-white leading-tight">
+                  {data.expiryInfo.remainingDays} {t('hari_lagi')}
+                </p>
+                <span className="text-xs text-teal-100">
+                  {language === 'en' ? 'until' : 's/d'} {new Date(data.expiryInfo.validUntil).toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              <p className="text-[11px] mt-1 text-teal-100">
+                {t('lanjutkan_sebelum')}
+              </p>
+            </div>
+            <ChevronRight className="w-5 h-5 shrink-0 text-white/70" />
+          </button>
+        )}
+
+        {/* ===== Ringkasan Statistik (6 kartu) ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.05 }}
+          className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3"
+        >
+          <StatCard
+            icon={<TrendingUp className="w-5 h-5" />}
+            label={t('revenue_today')}
+            count={summary?.totals.todaySales ?? 0}
+            total={0}
+            color="rose"
+            loading={loading}
+            isCurrency
+            subtitle={summary?.totals.todayOrderCount ? `${summary.totals.todayOrderCount} ${t('pesanan')}` : undefined}
+          />
+          <StatCard
+            icon={<Calculator className="w-5 h-5" />}
+            label={t('tired_money_today')}
+            count={summary?.totals.todayUangCapek ?? 0}
+            total={0}
+            color="amber"
+            loading={loading}
+            isCurrency
+            subtitle={marginToday ? `${t('margin')} ${marginToday}` : undefined}
+          />
+          <StatCard
+            icon={<DollarSign className="w-5 h-5" />}
+            label={`${t('total_revenue')} ${currentMonthLabel}`}
+            count={summary?.totals.revenue ?? 0}
+            total={0}
+            color="sky"
+            loading={loading}
+            isCurrency
+            trend={revenueTrend ?? undefined}
+            subtitle={revenueTrend ? t('vs_bulan_lalu') : undefined}
+          />
+          <StatCard
+            icon={<DollarSign className="w-5 h-5" />}
+            label={t('total_tired_money')}
+            count={summary?.totals.uangCapek ?? 0}
+            total={0}
+            color="violet"
+            loading={loading}
+            isCurrency
+            profitBadge={summary?.totals.modal && summary.totals.modal > 0 ? `${(((summary.totals.uangCapek ?? 0) / summary.totals.modal) * 100).toFixed(1)}%` : undefined}
+          />
+          <StatCard
+            icon={<FileText className="w-5 h-5" />}
+            label={t('invoice_periode')}
+            count={invoiceHistory.length}
+            total={totalInvoicePeriode}
+            color="emerald"
+            loading={loading || docLoading}
+          />
+          <StatCard
+            icon={<BarChart3 className="w-5 h-5" />}
+            label={t('hitungan_tersimpan')}
+            count={summary?.calculations.total ?? 0}
+            total={0}
+            color="teal"
+            loading={loading}
+            subtitle={summary ? `${summary.calculations.cetakan} ${t('hitung_cetakan')} · ${summary.calculations.potongKertas} ${t('potong_kertas')}` : undefined}
+          />
+        </motion.div>
+
+        {/* ===== Grafik Aktivitas 14 Hari ===== */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 flex-wrap">
+                <Activity className="w-4 h-4 text-slate-400" />
+                {t('aktivitas_14hari')}
+                <span className="ml-auto flex items-center gap-3 text-[10px] font-medium text-slate-500">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sky-500" />{t('hitungan_label')}</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-violet-500" />{t('dokumen_label')}</span>
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="h-[220px] rounded-lg bg-slate-100 dark:bg-zinc-800 animate-pulse" />
+              ) : chartData.length === 0 ? (
+                <EmptyState label={t('no_data_yet')} />
+              ) : (
+                <div className="h-[220px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="gHitungan" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.02} />
+                        </linearGradient>
+                        <linearGradient id="gDokumen" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                      <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                      <Area type="monotone" dataKey="hitungan" name={t('hitungan_label')} stroke="#0ea5e9" strokeWidth={2} fill="url(#gHitungan)" />
+                      <Area type="monotone" dataKey="dokumen" name={t('dokumen_label')} stroke="#8b5cf6" strokeWidth={2} fill="url(#gDokumen)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* ===== Aksi Cepat (6 pintasan) ===== */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.15 }}>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">{t('aksi_cepat')}</p>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            <QuickIcon
+              icon={<History className="w-5 h-5" />}
+              label={t('penjualan')}
+              color="bg-amber-50 text-amber-600 border-slate-200"
+              onClick={() => {
+                startNavigation()
+                window.dispatchEvent(new CustomEvent('navigation-start'))
+                router.push('/riwayat')
+              }}
+            />
+            <QuickIcon
+              icon={<ShoppingCart className="w-5 h-5" />}
+              label={t('pembelian')}
+              color="bg-blue-50 text-blue-600 border-slate-200"
+              onClick={() => {
+                startNavigation()
+                window.dispatchEvent(new CustomEvent('navigation-start'))
+                router.push('/riwayat-pembelian')
+              }}
+            />
+            <QuickIcon
+              icon={<Receipt className="w-5 h-5" />}
+              label={t('invoice')}
+              color="bg-violet-50 text-violet-600 border-slate-200"
+              onClick={goInvoice}
+            />
+            <QuickIcon
+              icon={<Calculator className="w-5 h-5" />}
+              label={t('hitung_cetakan')}
+              color="bg-emerald-50 text-emerald-600 border-slate-200"
+              onClick={() => {
+                startNavigation()
+                window.dispatchEvent(new CustomEvent('navigation-start'))
+                router.push('/hitung-cetakan')
+              }}
+            />
+            <QuickIcon
+              icon={<Scissors className="w-5 h-5" />}
+              label={t('potong_kertas')}
+              color="bg-teal-50 text-teal-600 border-slate-200"
+              onClick={() => {
+                startNavigation()
+                window.dispatchEvent(new CustomEvent('navigation-start'))
+                router.push('/potong-kertas')
+              }}
+            />
+            <QuickIcon
+              icon={<Truck className="w-5 h-5" />}
+              label={t('surat_jalan')}
+              color="bg-orange-50 text-orange-600 border-slate-200"
+              onClick={() => {
+                startNavigation()
+                window.dispatchEvent(new CustomEvent('navigation-start'))
+                router.push('/surat-jalan')
+              }}
+            />
+          </div>
+        </motion.div>
+
+        {/* ===== Filter Periode ===== */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.2 }}>
+          <div className="flex items-center gap-2 flex-wrap rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mr-1">
+              <Filter className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-medium text-slate-500">{t('period')}</span>
+            </div>
+            {filterButtons.map(btn => (
+              <Button
+                key={btn.type}
+                variant="outline"
+                size="sm"
+                onClick={() => handleFilterChange(btn.type)}
+                className={cn(
+                  'h-8 px-3 text-xs font-medium rounded-lg transition-all',
+                  filterType === btn.type
+                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white shadow-sm'
+                    : 'bg-white dark:bg-[#1a1a1a] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#222] hover:text-slate-800 dark:hover:text-slate-200'
+                )}
+              >
+                {btn.type === 'custom' && <CalendarIcon className="w-3.5 h-3.5 mr-1" />}
+                {btn.label}
+              </Button>
+            ))}
+            {filterType === 'custom' && customStartDate && customEndDate && (
+              <span className="text-xs text-slate-400 ml-1">
+                {formatDateDisplay(customStartDate, language, t('pilih_tanggal'))} — {formatDateDisplay(customEndDate, language, t('pilih_tanggal'))}
+              </span>
+            )}
+            <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+              {invoiceHistory.length} {t('invoice')}
+            </span>
+          </div>
+        </motion.div>
+
+        {/* ===== Riwayat Invoice (CRUD style) ===== */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.25 }}>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 flex-wrap">
+                <FileText className="w-4 h-4 text-slate-400" />
+                {t('invoice_history')}
+                <span className="rounded-full bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 text-[10px] font-bold">
+                  {invoiceHistory.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goInvoice}
+                  className="ml-auto h-7 px-2.5 text-[11px] rounded-lg gap-0.5"
+                >
+                  {t('lihat_semua')}
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {docLoading ? <TableSkeleton /> : (
+                invoiceHistory.length > 0 ? (
+                  <div className="rounded-lg border bg-card max-h-[420px] overflow-auto">
+                    <Table className="min-w-[800px]">
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                          <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('no_doc_number')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('tanggal')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_customer')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-gray-500">{t('nama_barang')}</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('qty')}</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('harga_satuan')}</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('uang_capek')}</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold text-gray-500">{t('total_harga')}</TableHead>
+                          <TableHead className="w-12 text-center text-[11px] font-semibold text-gray-500">{t('aksi')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoiceHistory.map((entry, i) => {
+                          const info = parseDocInfo(entry)
+                          const uc = info.uangCapek
+                          return (
+                            <TableRow
+                              key={entry.id}
+                              className="group cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800/60"
+                              onClick={() => handleInvPreview(entry)}
+                            >
+                              <TableCell className="py-2.5 text-xs text-gray-400">{i + 1}</TableCell>
+                              <TableCell className="py-2.5">
+                                <span className="font-mono text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 px-2 py-1 rounded-md whitespace-nowrap">
+                                  {entry.nomor}
+                                </span>
+                              </TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-500 whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal, language) : '-'}</TableCell>
+                              <TableCell className="py-2.5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-sky-400 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    {(entry.pihakKedua || '?').charAt(0).toUpperCase()}
+                                  </span>
+                                  <span className="text-xs text-gray-600 max-w-[110px] truncate">{entry.pihakKedua}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-2.5 text-xs text-gray-700 max-w-[160px] truncate" title={info.namaBarang}>{info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.totalQty > 0 ? info.totalQty.toLocaleString(language === 'en' ? 'en-US' : 'id-ID') : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right text-gray-700">{info.hargaSatuan > 0 ? formatRupiah(info.hargaSatuan) : '-'}</TableCell>
+                              <TableCell className={`py-2.5 text-xs text-right font-semibold whitespace-nowrap ${uc > 0 ? 'text-violet-700' : 'text-slate-400'}`}>{uc > 0 ? formatRupiah(uc) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-xs text-right font-bold text-emerald-700 whitespace-nowrap">{info.grandTotal > 0 ? formatRupiah(info.grandTotal) : '-'}</TableCell>
+                              <TableCell className="py-2.5 text-center">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleInvPreview(entry) }}
+                                  title={t('preview')}
+                                  className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-200 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900 p-8 text-center">
+                    <FileText className="mx-auto h-8 w-8 text-slate-300" />
+                    <p className="mt-2 text-sm text-slate-400">{t('no_data_yet')}</p>
+                    <Button size="sm" onClick={goInvoice} className="mt-3 h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+                      <Plus className="w-3.5 h-3.5" />
+                      {t('buat_invoice')}
+                    </Button>
+                  </div>
+                )
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>

@@ -9779,3 +9779,23 @@ Stage Summary:
 - dpAmount kini exact & konsisten di semua perhitungan (editor, simpan, detail, riwayat pembayaran, piutang, beranda); data lama berbasis persen tetap didukung.
 - CRUD penuh: C (buat DP/regular/pelunasan), R (detail, riwayat, pembayaran, piutang, beranda), U (edit, Tandai Lunas, sinkron PEL), D (hapus→sampah, purge) — semua teruji.
 - Data uji dibersihkan total; belum di-deploy (menunggu permintaan).
+---
+Task ID: 113
+Agent: Z.ai Code (main)
+Task: "deploy ke www.darrellsoft.com. token vcp_[REDACTED-EXPIRED]"
+
+Work Log:
+- AUDIT git: commit worklog Task 109-112 (63e21b6/24f1ddf/c50d3bd) TIDAK ADA di history (rollback checkpoint sandbox); seluruh hasil task itu masih uncommitted (66 file: folder hitung-cetakan/, komponen invoice/dokupro, API baru, dsb).
+- Lint 62 file src (modified+untracked) → 0 error 0 warning. Commit 8ef0d83: seluruh fitur Task 109-112 + bump PWA sw.js v75→v76.
+- Deploy pertama GAGAL build produksi: src/components/views/pricing-view.tsx (via src/app/harga-khusus/page.tsx) meng-import priceDelta dari @/lib/format yang sudah dihapus saat task "delete harga khusus". Analisis lanjutan: bun script validasi import (328 file, semua path OK) + tsc --noEmit (TS2305 hanya di file ORPHAN — diverifikasi reachability graph dari src/app: 254/326 reachable; semua file TS2305 = orphan, tidak dikompilasi build).
+- Fix: hapus src/app/harga-khusus/page.tsx + src/components/views/pricing-view.tsx (sisa fitur mati, sudah 404, tak ada link menuju halaman) → commit 34607cf.
+- Deploy ke-2 sukses TAPI masuk project "my-project" (jebakan ke-3, sama dgn yang tercatat di worklog): www.darrellsoft.com masih v75. Deteksi: chunk hash www ≠ deployment baru + sw.js v75.
+- Solusi sesuai prosedur worklog: npx vercel link --project darrellsoft --yes → npx vercel --prod --yes → deployment darrellsoft-ay94g0o95 Ready ~2m. Setelah deploy: hapus .vercel & .env.local hasil link (proteksi env dev server); dev server lokal sempat mati saat perubahan env → restart nohup → 200.
+- VERIFIKASI PRODUKSI (www.darrellsoft.com): /sw.js = darrell-soft-v76 ✓; /harga-khusus = 404 (sebelumnya 200 di build lama) ✓; chunk hash HTML berubah (9131…→87ba…) ✓; / , /piutang-dagang, /hitung-cetakan, /invoice, /potong-kertas, /biaya, /master-kertas semua 200 ✓.
+- VERIFIKASI BROWSER (agent-browser): landing page render + dialog "Versi Baru!" ✓; login superadmin sukses → Beranda: kartu Piutang Dagang + baris piutang dgn tombol mini "Buat invoice pelunasan untuk INV/…" (fitur Task 112 live) ✓; /hitung-cetakan tab Editor render form penuh (HC/09/26/0013) ✓; tab Gabung render dgn empty state "Belum ada hitungan tersimpan" — konsisten dgn API /api/riwayat-cetakan count 0 (data uji memang bersih) ✓; mobile 390×844: sw=390 tanpa overflow, kartu Piutang tampil ✓. Kondisi blank sesaat pada kunjungan pertama = race aktivasi SW baru, hilang setelah reload (tidak terjadi lagi).
+- Tidak ada data dibuat/diubah di produksi (semua pemeriksaan read-only).
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan build terbaru: fix Preview guard (Task 108), Tab Gabung (109), tabel Gabung CRUD + kolom Modal/Jual per pcs + JPG/Cetak offscreen (110-111), Invoice DP nominal + alur Invoice Pelunasan & piutang di beranda (112), PWA v76.
+- Git kembali sehat: main = 8ef0d83 + 34607cf memuat seluruh source (sebelumnya banyak file tak ter-commit).
+- Catatan penting utk deploy berikutnya: folder sandbox default ter-link ke project "my-project"; WAJIB `vercel link --project darrellsoft` dulu, deploy, lalu hapus .vercel + .env.local.
