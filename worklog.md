@@ -9843,3 +9843,28 @@ Work Log:
 Stage Summary:
 - Produksi www.darrellsoft.com = v77 (deploy 7d47852). Aplikasi kini: (a) data tetap muncul setelah idle lama — retry otomatis 2 lapis (server Prisma + client fetch); (b) bisa dipakai offline — halaman + data yang pernah dibuka tersaji dari cache PWA; (c) reconnect otomatis — event online/visibility memulihkan data tanpa reload manual; (d) kuota aman — tanpa polling, reload hanya saat memang ada kegagalan, API tetap network-first (jumlah request tidak bertambah saat online).
 - Untuk deploy berikutnya: WAJIB vercel link --project darrellsoft dulu, bump sw.js ke v78, deploy, lalu hapus .vercel + .env.local.
+
+---
+Task ID: 115
+Agent: Z.ai Code (main)
+Task: Auto-login ke Beranda (tanpa landing) untuk user yang sudah punya akun + sesi selalu aktif (tidak bisa logout kecuali logout manual oleh user sendiri). Check and fix + deploy.
+
+Work Log:
+- Diagnosis: (1) landing '/' selalu tampil walau sudah login — start_url PWA pun ke '/'; (2) handleLogout lama hanya hapus localStorage, cookie userId/userRole tertinggal → server masih anggap login; (3) verify-session menolak sesi jika username sama login di perangkat lain (single_device default ON) → perangkat lama ter-logout otomatis; (4) timer auto-logout idle (setting auto_logout_min, default 10) → user ter-logout sendiri saat tidak aktif.
+- src/app/page.tsx: Home() cek sesi sinkron (localStorage 'auth' + cookie userId) → router.replace('/pembukaan'); overlay putih/hitam menutupi landing selama pemeriksaan agar tidak ada kedipan; bekerja juga offline.
+- src/app/api/auth/verify-session/route.ts: kebijakan baru — sesi SELALU valid selama akun tidak expired (branch kick perangkat-lain dihapus), securitySettings dipaksa { auto_logout_min: 0, logout_warning_sec: 0 } (auto-logout idle dimatikan permanen).
+- src/app/api/auth/login/route.ts: cookie sesi maxAge 1 tahun → 10 tahun (praktis permanen).
+- src/lib/auth.ts: clearAuthUser() kini juga menghapus cookie userId & userRole → logout manual benar-benar mengakhiri sesi.
+- src/components/dashboard-layout.tsx: restore cache auto-logout dipaksa 0 (cache lama bisa >0); handleLogout menghapus cache data PWA 'darrell-api-runtime' (privasi user berikutnya di perangkat sama).
+- src/app/administrasi/keamanan/page.tsx: kontrol mati (Login 1 Perangkat, Auto Logout, Peringatan Logout) diganti kartu info "Kebijakan Sesi Login" (selalu login, logout hanya manual, multi perangkat diizinkan). Kartu Akun Demo tetap berfungsi.
+- public/sw.js → v78; APP_VERSION → 2026-09-17-v13.
+- Lint bersih. Commit 4f0c4ba. Deploy: vercel link darrellsoft → darrellsoft-lpal97hrf Ready → .vercel/.env.local dihapus.
+- Verifikasi produksi (agent-browser, login superadmin):
+  - Buka '/' saat login → auto-redirect ke /pembukaan, data tampil (Piutang Rp2.750.000). TANPA landing. ✓
+  - Klik Keluar → localStorage.auth=false, cookie userId=NO-COOKIE; reload '/' tetap di landing. ✓
+  - Uji multi-device lokal: login browser + login kedua via curl (session_x di-overwrite) → browser pertama reload TETAP login, tanpa dialog "perangkat lain". ✓
+  - sw.js = v78; verify-session API → valid:true; /, /login, /pembukaan, /invoice, /administrasi/keamanan = 200.
+
+Stage Summary:
+- Produksi = v78 (commit 4f0c4ba). Perilaku baru: user bersesi aktif langsung masuk Beranda setiap buka aplikasi; sesi tidak pernah berakhir otomatis (tanpa kick multi-device, tanpa auto-logout idle, cookie 10 tahun); satu-satunya cara keluar adalah tombol Logout yang kini benar-benar menghapus localStorage + cookie + cache data PWA.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v79 → deploy → hapus .vercel/.env.local.
