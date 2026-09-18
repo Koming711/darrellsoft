@@ -180,8 +180,10 @@ async function buildLoginResponse(
     ...(demoPopupMessage ? { demoPopupMessage, demoRemainingDays } : {}),
   })
 
-  response.cookies.set('userId', userId, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
-  response.cookies.set('userRole', role, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
+  // Sesi praktis permanen (10 tahun) — sesi hanya berakhir lewat logout
+  // manual oleh user itu sendiri, sesuai kebijakan "selalu login".
+  response.cookies.set('userId', userId, { path: '/', maxAge: 60 * 60 * 24 * 365 * 10, sameSite: 'lax' })
+  response.cookies.set('userRole', role, { path: '/', maxAge: 60 * 60 * 24 * 365 * 10, sameSite: 'lax' })
 
   return response
 }
