@@ -127,8 +127,10 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       setSessionWarning(cache.sessionWarning ?? null)
       setForceLogoutAvailable(cache.forceLogoutAvailable ?? false)
       setAccountExpired(cache.accountExpired ?? false)
-      setAutoLogoutMin(cache.autoLogoutMin ?? 0)
-      setLogoutWarningSec(cache.logoutWarningSec ?? 0)
+      // Auto-logout dinonaktifkan (sesi selalu aktif, logout hanya manual).
+      // Cache lama di localStorage bisa menyimpan nilai > 0 — dipaksa 0.
+      setAutoLogoutMin(0)
+      setLogoutWarningSec(0)
       setUserProfile(cache.userProfile ?? null)
       setReady(true)
     }
@@ -145,6 +147,13 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const handleLogout = useCallback(() => {
     clearAuthUser()
     invalidateSessionCache()
+    // Bersihkan cache data API di service worker agar data pribadi akun lama
+    // tidak tersaji offline ke pengguna berikutnya di perangkat yang sama
+    try {
+      if (typeof caches !== 'undefined') {
+        caches.delete('darrell-api-runtime').catch(() => {})
+      }
+    } catch {}
     setAccountExpired(false)
     setSessionWarning(null)
     setForceLogoutAvailable(false)

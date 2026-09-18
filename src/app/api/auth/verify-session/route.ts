@@ -95,50 +95,21 @@ export async function POST(request: NextRequest) {
 
     const permissions = { features, subPermissions }
 
-    // Load security settings (auto-logout, warning) in the same response
-    let securitySettings: { auto_logout_min: number; logout_warning_sec: number } = { auto_logout_min: 0, logout_warning_sec: 0 }
-    try {
-      const allSettings = await db.setting.findMany({
-        where: { key: { in: ['auto_logout_min', 'logout_warning_sec'] } }
-      })
-      for (const s of allSettings) {
-        if (s.key === 'auto_logout_min') securitySettings.auto_logout_min = parseInt(s.value || '0', 10) || 0
-        if (s.key === 'logout_warning_sec') securitySettings.logout_warning_sec = parseInt(s.value || '0', 10) || 0
-      }
-    } catch {}
-
-    // Check single device setting
-    const singleDeviceSetting = await db.setting.findUnique({ where: { key: 'single_device' } })
-    const singleDevice = singleDeviceSetting?.value !== 'false'
+    // === SECURITY SETTINGS ===
+    // Kebijakan produk: sesi TIDAK berakhir otomatis. Auto-logout idle
+    // dimatikan permanen (0) — sesi hanya berakhir lewat logout manual oleh
+    // user itu sendiri di aplikasi.
+    const securitySettings: { auto_logout_min: number; logout_warning_sec: number } = {
+      auto_logout_min: 0,
+      logout_warning_sec: 0,
+    }
 
     const cacheHeaders = { 'Cache-Control': 'no-store, max-age=0' }
     const responseBase = { valid: true as const, permissions, securitySettings }
 
-    if (!singleDevice && !isAdminRole) {
-      return NextResponse.json(responseBase, { headers: cacheHeaders })
-    }
-
-    // Get stored session for this username
-    const stored = await db.setting.findUnique({
-      where: { key: `session_${username}` }
-    })
-
-    // If no stored session or session matches, it's valid
-    if (!stored || stored.value === sessionId) {
-      return NextResponse.json(responseBase, { headers: cacheHeaders })
-    }
-
-    // Session mismatch - another device logged in
-    const warningMsgSetting = await db.setting.findUnique({ where: { key: 'single_device_message' } })
-    const warningMessage = warningMsgSetting?.value || 'Akun Anda sedang digunakan di perangkat lain.'
-
-    return NextResponse.json({
-      valid: false,
-      warningMessage,
-      forceLogoutAvailable: true,
-      permissions,
-      securitySettings,
-    }, { headers: cacheHeaders })
+    // Sesi selalu valid selama akun tidak expired. Login di perangkat lain
+    // TIDAK lagi mengeluarkan perangkat ini (multi-device tetap login).
+    return NextResponse.json(responseBase, { headers: cacheHeaders })
   } catch (error) {
     console.error('Verify session error:', error)
     return NextResponse.json({ valid: true }) // Fail open

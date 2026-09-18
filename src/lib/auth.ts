@@ -48,6 +48,15 @@ export function setAuthUser(user: User): void {
 export function clearAuthUser(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem('auth')
+  // Logout manual harus menghapus JUGA cookie sesi (userId, userRole) yang
+  // di-set oleh API login. Tanpa ini server masih menganggap browser login
+  // dan pengguna bisa "ter-logged in" kembali secara tidak sengaja.
+  try {
+    document.cookie = 'userId=; Max-Age=0; path=/'
+    document.cookie = 'userRole=; Max-Age=0; path=/'
+  } catch {
+    // ignore
+  }
   notifyAuthChange()
 }
 

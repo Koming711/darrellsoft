@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, useInView } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Printer,
@@ -869,6 +869,23 @@ export default function Home() {
 
   const router = useRouter();
 
+  // Auto-login: user yang sudah punya sesi (pernah login) langsung dibawa ke
+  // Beranda — landing page tidak ditampilkan. Pemeriksaan sinkron dari
+  // localStorage + cookie, jadi bekerja juga saat offline.
+  // Overlay menutupi landing selama pemeriksaan agar tidak ada kedipan.
+  const [authChecking, setAuthChecking] = useState(true);
+  useEffect(() => {
+    try {
+      const hasAuth = !!localStorage.getItem('auth');
+      const hasCookie = /(?:^|;\s*)userId=/.test(document.cookie);
+      if (hasAuth && hasCookie) {
+        router.replace('/pembukaan');
+        return;
+      }
+    } catch {}
+    setAuthChecking(false);
+  }, [router]);
+
   const goToLogin = (tab?: string) => {
     router.push(tab ? `/login?tab=${tab}` : '/login');
   };
@@ -964,6 +981,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
+      {/* Overlay: sembunyikan landing saat masih memeriksa sesi (mencegah
+          landing berkedip sebelum redirect otomatis ke Beranda) */}
+      {authChecking && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-[300] bg-white dark:bg-black"
+        />
+      )}
       {/* =================== NAVBAR =================== */}
       <nav className="sticky top-0 z-50 w-full bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-100 dark:border-white/10">
         <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
