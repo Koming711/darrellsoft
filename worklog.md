@@ -9934,3 +9934,34 @@ Stage Summary:
 - Produksi = v81 (commit a345ecb). Halaman verifikasi Vercel bukan berasal dari aplikasi/konfigurasi kita (semua firewall off) — itu proteksi platform Vercel yang muncul SEMENTARA saat ada upaya serangan dan hilang sendiri; halaman itu tidak mungkin diganti logo karena disajikan sebelum app dimuat.
 - Kompensasi UX sesuai permintaan user: setiap refresh kini menampilkan splash logo www.darrellsoft.com (1.5 detik) — terverifikasi di produksi (desktop & mobile).
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v82 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 119
+Agent: Z.ai Code (main)
+Task: "di hasil jpg dan cetak. rubah hasil jadi potrait fit to A5. resolusi 300dpi. fix" — hasil JPG & cetak halaman hitung cetakan menjadi potrait fit-to-A5, 300 DPI.
+
+Work Log:
+- Implementasi pada pipeline 300dpi yang sudah ada (Task 116/117). File diubah: src/app/hitung-cetakan/page.tsx, src/components/hitung-cetakan/gabungan-tab.tsx, src/components/riwayat-content.tsx (cabang hitung cetakan), public/sw.js v81→v82, APP_VERSION v16→v17.
+- Orientasi kertas A5 landscape → A5 PORTRAIT fit: fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 }) → kanvas 148×210mm @300dpi = 1748×2480px; cetak printBlobHiRes(blob, { page: 'A5 portrait', margin: '5mm' }); title tombol JPG/Cetak di-update ke A5 portrait.
+- Raw capture tetap fixedWidth 720 + HIRES_PIXEL_RATIO 3.125 (300dpi, viewport-independent — mobile = desktop, prinsip Task 117 dipertahankan).
+- Commit 30eb41d. Deploy produksi → v82 (curl sw.js = darrell-soft-v82 terverifikasi).
+
+Stage Summary:
+- Produksi = v82 (commit 30eb41d). JPG & cetak halaman Hitung Cetakan (Editor/Riwayat/Gabungan) kini potrait fit-to-A5 1748×2480px @300dpi, tetap identik antara mobile & desktop.
+
+---
+Task ID: 120
+Agent: Z.ai Code (main)
+Task: "apabila kondisi sudah login maka apabila buka aplikasi langsung masuk ke halaman beranda, bukan landing. check and fix. deploy"
+
+Work Log:
+- Diagnosis: gerbang auto-login '/' mewajibkan localStorage 'auth' DAN cookie userId KEDUANYA ada. Padahal server mengautentikasi dari cookie ATAU header x-user-id/x-user-role (src/lib/server-auth.ts) — bila browser meng-evict salah satu penanda (mis. cookie dibersihkan, localStorage tetap ada), user terjebak di LANDING walau sesinya sah.
+- src/app/page.tsx: gerbang dilonggarkan — cukup SALAH SATU penanda sesi (localStorage.auth valid [harus punya .id, parse aman] ATAU cookie userId) → router.replace('/pembukaan'); overlay anti-kedip dan kerja offline tetap.
+- src/components/dashboard-layout.tsx: bootstrap sesi — bila localStorage 'auth' kosong tetapi cookie userId masih ada, panggil /api/auth/me (auth via cookie) lalu pulihkan localStorage.auth + tampilkan dashboard (sesi tidak hilang walaupun storage dibersihkan browser, selama cookie ada).
+- Verifikasi lokal (agent-browser, semua skenario): (A) login normal → buka '/' → langsung /pembukaan BERANDA; (B) cookie-saja (localStorage+sessionStorage dikosongkan) → '/' → /pembukaan + sesi auto-pulih (auth superadmin) + BERANDA tampil; (C) localStorage-saja → '/' → /pembukaan, API jalan via header auth; (D) tanpa sesi → tetap di landing (benar); login via form → /pembukaan; mobile 390×844 tanpa overflow; console 0 error.
+- Bump public/sw.js → v83, APP_VERSION → 2026-09-17-v18. Lint 0 error. Commit 3bc11f3. Deploy: vercel link darrellsoft → darrellsoft-rdud5016d Ready → .vercel/.env.local DIHAPUS.
+- Verifikasi produksi www.darrellsoft.com (agent-browser): sw.js=v83; login → buka '/' → langsung /pembukaan (desktop & mobile 390×844, tanpa overflow); cookie-saja → '/' → /pembukaan + authRestored=superadmin + BERANDA; splash logo tampil tiap refresh (Task 118 utuh); tanpa page errors.
+
+Stage Summary:
+- Produksi = v83 (commit 3bc11f3). Buka aplikasi dengan kondisi sesi apa pun (localStorage lengkap, cookie-saja, atau localStorage-saja) SELALU langsung masuk Beranda tanpa landing; sesi pulih otomatis bila storage dibersihkan browser selama cookie masih ada; landing hanya tampil bagi yang benar-benar belum login / sudah logout.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v84 → deploy → hapus .vercel/.env.local.
