@@ -2,21 +2,22 @@
 
 import { useState, useEffect } from 'react'
 
+/**
+ * Splash logo DarrellSoft — TAMPIL DI SETIAP REFRESH / pembukaan aplikasi.
+ * Sebelumnya hanya 1x per sesi (sessionStorage) — sekarang selalu tampil agar
+ * setiap refresh memberi pengalaman loading berlogo www.darrellsoft.com
+ * (menggantikan kesan "halaman verifikasi" yang pernah muncul saat Vercel
+ * mengaktifkan security challenge sementara).
+ */
 export function SplashScreen({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
-    // Check if splash was already shown this session
-    const splashShown = sessionStorage.getItem('splash_shown')
-    if (splashShown) {
-      setShowSplash(false)
-      return
-    }
-
+    // Selalu tampil di setiap load halaman penuh (refresh), durasi singkat
+    // supaya tidak mengganggu penggunaan rutin.
     const timer = setTimeout(() => {
-      sessionStorage.setItem('splash_shown', '1')
       setShowSplash(false)
-    }, 2500)
+    }, 1500)
 
     return () => clearTimeout(timer)
   }, [])
@@ -52,13 +53,13 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
           </div>
           <style jsx>{`
             @keyframes splash {
-              0% { opacity: 0; transform: scale(0.8); }
-              15% { opacity: 1; transform: scale(1); }
-              85% { opacity: 1; transform: scale(1); }
+              0% { opacity: 0; transform: scale(0.85); }
+              20% { opacity: 1; transform: scale(1); }
+              90% { opacity: 1; transform: scale(1); }
               100% { opacity: 1; transform: scale(1); }
             }
             .animate-splash {
-              animation: splash 2.5s ease-out forwards;
+              animation: splash 1.5s ease-out forwards;
             }
           `}</style>
         </div>
