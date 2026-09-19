@@ -9985,3 +9985,19 @@ Work Log:
 Stage Summary:
 - Produksi = v84 (commit f6fb6ec). Preview Potong Kertas kini GAYA SAMA dengan halaman Hitung Cetakan: dialog responsif fit mobile & desktop (dokumen fixed-width 720px di-scale visual), dan hasil JPG maupun CETAK = A5 portrait fit 1748×2480px @300 DPI — byte-identik antara mobile & desktop dan sama persis dengan output Hitung Cetakan. Halaman Riwayat (cabang potong kertas) juga kini A5 portrait.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v85 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 122
+Agent: Z.ai Code (main)
+Task: "dihalaman detail invoice dp. hapus tombol tandai lunas. di tampilan mobile halaman detail invoice dp. apabila di klik gambar preview invoice dp, maka gambar langsung besar, fit to mobile. check and fix"
+
+Work Log:
+- src/app/invoice/page.tsx (DetailInvoiceView): tombol "Tandai Lunas" DIHAPUS di halaman detail invoice DP (isDpInvoice = non-pelunasan dengan dp>0/dpAmount>0) — pelunasan sisa piutang hanya lewat tombol "Buat Invoice Pelunasan". Invoice non-DP & pelunasan TETAP punya tombol "Tandai Lunas". Handler + dialog konfirmasi Tandai Lunas dipertahankan (dipakai invoice non-DP).
+- Tap-to-zoom lightbox pratinjau: preview A5 kini klik/ketuk (role=button, Enter/Space, cursor-zoom-in, chip "Perbesar" di pojok, di luar .a5-page sehingga tidak ikut ter-capture JPG) → Dialog fullscreen (h-dvh, bg stone-950/95, tombol ✕ custom, tutup via Esc/klik luar) berisi render InvoicePreview KEDUA yang di-scale fit LEBAR & TINGGI viewport (min(availW/natW, availH/natH)) → di HP 390×844 gambar memenuhi lebar (366px) dan seluruh halaman terlihat sekaligus; di desktop fit tinggi. Fit dihitung via useLayoutEffect + rAF/timeout retry + resize listener.
+- Keamanan capture: lightbox dirender via portal di akhir body — resolveDocumentPreviewEl() tetap mengambil '#document-preview .a5-page' (preview utama) → JPG/Cetak tidak terpengaruh.
+- Deployment BLOCKER: satu-satunya token Vercel yang tercatat (worklog Task 113, vcp_...FyHr) EXPIRED/ditolak vercel CLI; tidak ada auth CLI di sandbox baru. GitHub push juga sempat DITOLAK push protection karena token tsb ikut di 59 commit unpushed (worklog.md) → token DIREDAKSI (sed + git filter-branch pada origin/main..HEAD, 59 commit) → push origin main SUKSES (10deae6..13ee6fe) termasuk commit Task 122 (10ed396, sw v85). Produksi TIDAK auto-deploy dari Git (vercel.json tanpa git integration; polling sw.js 5 menit tetap v84) → deploy menunggu TOKEN BARU dari owner, lalu jalankan: npx vercel link --project darrellsoft --yes --token <TOKEN> && npx vercel --prod --yes --token <TOKEN> → hapus .vercel/.env.local → curl sw.js = darrell-soft-v85.
+- Verifikasi lokal (agent-browser): DP detail (INV/07/26/9002): Tandai Lunas TIDAK ada, Buat Invoice Pelunasan ada, badge Invoice DP ada; klik preview → lightbox mobile 390×844 = 366×520 fit penuh tanpa scroll horizontal, konten gelap menutup header+nav, tombol ✕ jalan; desktop 1440×900 = 600×852 fit. Non-DP (UJI-NODP-122 dibuat via API lalu di-purge): Tandai Lunas MASIH tampil ✓. 0 page error; warning a11y Radix disembunyikan via aria-describedby={undefined}. Catatan: dev server lama menyajikan CSS stale (utility Tailwind baru tak tergenerate di browser) → restart dev server + browser baru = normal.
+
+Stage Summary:
+- Lokal & GitHub = Task 122 selesai (commit 10ed396 + 13ee6fe, sw v85 siap deploy): tombol Tandai Lunas dihapus khusus detail invoice DP + preview invoice bisa di-tap untuk diperbesar fit layar (mobile & desktop). PRODUKSI masih v84 karena token Vercel expired — minta token baru ke owner untuk deploy v85.
+- Catatan deploy berikutnya: link --project darrellsoft → deploy → hapus .vercel/.env.local → curl sw.js harus darrell-soft-v85.
