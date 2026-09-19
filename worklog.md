@@ -9965,3 +9965,23 @@ Work Log:
 Stage Summary:
 - Produksi = v83 (commit 3bc11f3). Buka aplikasi dengan kondisi sesi apa pun (localStorage lengkap, cookie-saja, atau localStorage-saja) SELALU langsung masuk Beranda tanpa landing; sesi pulih otomatis bila storage dibersihkan browser selama cookie masih ada; landing hanya tampil bagi yang benar-benar belum login / sudah logout.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v84 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 121
+Agent: Z.ai Code (main)
+Task: "di tampilan preview potong kertas preview fit to mobile dan desktop. rubah seperti preview di halaman hitung cetakan. dan hasil jpg dan cetak juga sama dengan hasil di hitung cetakan. buat ui dan ux. check and fix. deploy"
+
+Work Log:
+- Diagnosis preview potong-kertas lama: (1) PreviewDialog berbentuk "lembar A4" (width min(92vw, 94vh*210/297), aspectRatio 210/297 + badge "A4 210×297mm") → sempit di HP dan beda gaya dengan hitung cetakan; (2) konten preview penuh class responsif (p-3 sm:p-4, text-sm sm:text-base, grid-cols-1 sm:grid-cols-2, max-h-48 sm:max-h-64, dark: variants) → layout ikut viewport; (3) CuttingDiagram maxHeight="34vh" → tinggi diagram tergantung viewport (beda mobile vs desktop saat capture); (4) JPG pakai fitBlobToA4 portrait (2480×3508) → beda format dengan hitung cetakan (A5 portrait 1748×2480).
+- src/app/potong-kertas/page.tsx: PreviewDialog diganti PERSIS gaya hitung cetakan (dialog max-w-lg, scrollable, header dots, desktop lg:fullscreen); konten preview dibungkus FixedDocScaler fixedWidth 720 (innerRef=previewRef, innerClassName="p-4 bg-white") — semua varian sm:/lg:/dark:/vh DIHAPUS dari dokumen (grid-cols-3 tetap, kartu p-2.5, label text-[10px], nilai text-base, diagram maxHeight 320px tetap px, steps/blocks grid-cols-2, foto max-h-64) → dokumen viewport-independent; footer diganti gaya hitung cetakan (Cetak biru · Edit emerald [dari riwayat] · JPG rose, compact py-1.5, sticky); label "Cetak Brp Mata" digabung jadi "Cetak Berapa Mata".
+- handleJpg: fitBlobToA4 → fitBlobToA5(portrait, marginPct 3) → JPG = kanvas A5 portrait 1748×2480 @300dpi, SAMA dengan hitung cetakan; handlePrint tetap printBlobHiRes A5 portrait margin 5mm (sudah benar dari Task 116).
+- src/components/riwayat-content.tsx: cabang potong kertas di halaman Riwayat disamakan — JPG fitBlobToA4 → fitBlobToA5(portrait, marginPct 3); cetak page 'A4'/10mm → 'A5 portrait'/5mm; import fitBlobToA4 dihapus.
+- Bump public/sw.js v83→v84; APP_VERSION → 2026-09-17-v19. Lint 0 error; tsc 345 error sebelum = 345 sesudah (0 baru, semua pra-eksisting).
+- Uji lokal (agent-browser, form ivory 65×100, potong 10×10, JP100, mata 4): preview desktop 1440×900 = dialog fullscreen + dokumen 720px center; mobile 390×844 = dialog max-w-lg fit tanpa overflow; JPG desktop = mobile = 1748×2480, 342016 byte, SHA-256 3cb0fffc6b49efea BYTE-IDENTIK; Cetak → popup img hi-res + @page A5 portrait.
+- Commit f6fb6ec. Deploy: vercel link darrellsoft → darrellsoft-bhnqiy0b1 Ready → .vercel & .env.local DIHAPUS.
+- Verifikasi produksi www.darrellsoft.com (agent-browser, login superadmin): sw.js = darrell-soft-v84; preview desktop & mobile tampil gaya hitung cetakan; JPG produksi desktop = mobile = 1748×2480, 342016 byte, sha 3cb0fffc6b49efea (identik lokal); Cetak → popup img 2250×2881 + @page A5 portrait; tanpa horizontal overflow mobile; SW controlled; splash logo tampil tiap refresh (Task 118 utuh); 0 page error.
+- Data uji lokal dibuat lalu DIHAPUS (record riwayat "UJI-A5-PK" & PK/09/26/0005 delete 200). Tidak ada data produksi diubah (form hanya diisi untuk Preview+JPG, tidak disimpan).
+
+Stage Summary:
+- Produksi = v84 (commit f6fb6ec). Preview Potong Kertas kini GAYA SAMA dengan halaman Hitung Cetakan: dialog responsif fit mobile & desktop (dokumen fixed-width 720px di-scale visual), dan hasil JPG maupun CETAK = A5 portrait fit 1748×2480px @300 DPI — byte-identik antara mobile & desktop dan sama persis dengan output Hitung Cetakan. Halaman Riwayat (cabang potong kertas) juga kini A5 portrait.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v85 → deploy → hapus .vercel/.env.local.
