@@ -174,7 +174,7 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
     try {
       const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 768 })
       const custLabel = gabungCustomer || 'gabungan'
-      const ok = await printBlobHiRes(blob, { title: `Rincian Harga Gabungan ${custLabel}`, page: 'A5 landscape', margin: '5mm' })
+      const ok = await printBlobHiRes(blob, { title: `Rincian Harga Gabungan ${custLabel}`, page: 'A5 portrait', margin: '5mm' })
       if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
     } catch (e) {
       console.error('Print error:', e)
@@ -188,7 +188,7 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
     setIsGeneratingJpg(true)
     try {
       const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 768 })
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = gabungCustomer || 'gabungan'
       const fileName = `rincian-gabungan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
       const result = await shareJpgToWhatsApp({ blob, fileName, documentLabel: 'Rincian Harga Gabungan' })
@@ -654,7 +654,7 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
             <button
               onClick={handlePrint}
               disabled={isPrinting}
-              title="Cetak rincian gabungan (fit A5 landscape)"
+              title="Cetak rincian gabungan (fit A5 portrait)"
               className="flex-1 flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
             >
               {isPrinting ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Printer className="w-4.5 h-4.5" />} Cetak

@@ -913,7 +913,7 @@ function HitungCetakanPage() {
     setCalculatedCost(calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost)
   }, [selectedMachine, selectedMachine2, selectedFinishingItems, formData.quantity, formData.jumlahPesanan, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.cutWidth, formData.cutHeight, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, calculatedPrintingCost, calculatedPrintingCost2, calculatedFinishingCost])
 
-  // Cetak: hasil cetak = sama persis dengan isi dialog Detail Rincian Cetakan, di-fit ke halaman A5 landscape (210 × 148 mm)
+  // Cetak: hasil cetak = sama persis dengan isi dialog Detail Rincian Cetakan, di-fit ke halaman A5 portrait (148 × 210 mm)
   const handlePrint = async () => {
     const el = previewRef.current
     if (!el || !previewCalc) { toast.error('Preview tidak tersedia'); return }
@@ -923,7 +923,7 @@ function HitungCetakanPage() {
       // hasil identik mobile & desktop) → gambar dicetak via popup/iframe.
       const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
       const custLabel = (previewCalc.customerName || previewCalc.printName || 'rincian-cetakan')
-      const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 landscape', margin: '5mm' })
+      const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 portrait', margin: '5mm' })
       if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
     } catch (e) {
       console.error('Print error:', e)
@@ -937,9 +937,9 @@ function HitungCetakanPage() {
     setIsGeneratingJpg(true)
     try {
       // Gambar hi-res 300 DPI + fixedWidth 720px (identik mobile & desktop),
-      // dikomposisi ke kanvas A5 landscape (210 × 148 mm @300 DPI = 2480×1748 px)
+      // dikomposisi ke kanvas A5 portrait fit (148 × 210 mm @300 DPI = 1748×2480 px)
       const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = (previewCalc.customerName || previewCalc.printName || 'preview')
       const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
       const result = await shareJpgToWhatsApp({ blob, fileName, documentLabel: 'Rincian Harga Cetakan' })
@@ -2818,11 +2818,11 @@ function HitungCetakanPage() {
           </FixedDocScaler>
               {/* Action Buttons — kecil 1 baris: Cetak · JPG · Edit (Edit hanya saat preview dari riwayat) */}
               <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
-                <button onClick={handlePrint} disabled={isPrinting} title="Cetak rincian (fit A5 landscape, sama persis dengan preview)"
+                <button onClick={handlePrint} disabled={isPrinting} title="Cetak rincian (fit A5 portrait, sama persis dengan preview)"
                   className="flex-1 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
                   {isPrinting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />} Cetak
                 </button>
-                <button onClick={handleJpg} disabled={isGeneratingJpg} title="Kirim gambar JPG A5 landscape (WhatsApp / unduh)"
+                <button onClick={handleJpg} disabled={isGeneratingJpg} title="Kirim gambar JPG A5 portrait (WhatsApp / unduh)"
                   className="flex-1 flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
                   {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5" /> JPG</>}
                 </button>
