@@ -56,7 +56,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
-import { captureElementAsJpg } from '@/lib/capture-jpg'
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDokuproStore } from '@/lib/store'
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
@@ -281,9 +281,11 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
     if (!poData) return
     setSendingPdf(true)
     try {
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — hasil identik
+      // mobile & desktop, bukan wrapper preview yang skala-nya mengikuti layar
+      const previewEl = resolveDocumentPreviewEl()
       if (previewEl) {
-        const blob = await captureElementAsJpg(previewEl)
+        const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
         const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         const phone = poData.pemasok?.kontak || ''
 

@@ -17,7 +17,8 @@ import { Save, RotateCcw, Printer, AlertTriangle, ImageIcon, Loader2 } from 'luc
 import { toast } from 'sonner';
 import { getAuthHeaders } from '@/lib/auth';
 import type { DocumentType, InvoiceData } from '@/lib/types';
-import { captureElementAsJpg } from '@/lib/capture-jpg';
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg';
+import { printBlobHiRes } from '@/lib/print-hi-res';
 import { shareJpgToWhatsApp } from '@/lib/share-jpg';
 
 interface DocumentActionButtonsProps {
@@ -158,19 +159,46 @@ export function DocumentActionButtons({
     toast.success(`Dokumen ${documentLabel.toLowerCase()} direset`);
   };
 
+  // Cetak hi-res: hasil cetak = gambar JPG 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — menangkap .a5-page berukuran tetap 148mm,
+  // bukan wrapper scaler yang mengikuti viewport, dan bukan jalur
+  // window.print + @media print yang hasilnya tergantung browser perangkat.
+  const handlePrintHiRes = async () => {
+    toast.dismiss();
+    try {
+      const previewEl = resolveDocumentPreviewEl();
+      if (!previewEl) {
+        toast.error('Pratinjau tidak ditemukan');
+        return;
+      }
+      const nomor = (currentData as { nomor?: string }).nomor || '';
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
+      const ok = await printBlobHiRes(blob, {
+        title: `${documentLabel} ${nomor}`.trim(),
+        page: '148mm 210mm',
+        margin: '0',
+      });
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.');
+    } catch (err) {
+      console.error('Print error:', err);
+      toast.error('Gagal menyiapkan cetakan');
+    }
+  };
+
   const handleJpgWhatsApp = async () => {
     setGeneratingPdf(true);
     try {
       const nomor = (currentData as { nomor?: string }).nomor || 'draft';
       const fileName = `${nomor.replace(/\//g, '-')}.jpg`;
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — hasil identik
+      // mobile & desktop, bukan wrapper scaler yang mengikuti viewport.
+      const previewEl = resolveDocumentPreviewEl();
       if (!previewEl) {
         toast.error('Pratinjau tidak ditemukan');
         return;
       }
 
-      // Use robust capture utility (waits for fonts/images, inlines images, cacheBust)
-      const blob = await captureElementAsJpg(previewEl);
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
 
       if (!blob || !(blob instanceof Blob)) {
         toast.error('Gagal membuat JPG - blob tidak valid');
@@ -229,15 +257,7 @@ export function DocumentActionButtons({
         {showPrintActions && (
         <Button
           size="sm"
-          onClick={() => {
-            toast.dismiss();
-            const origTitle = document.title;
-            document.title = ' ';
-            setTimeout(() => {
-              window.print();
-              document.title = origTitle;
-            }, 100);
-          }}
+          onClick={() => { void handlePrintHiRes() }}
           className="bg-emerald-600 hover:bg-emerald-700"
         >
           <Printer className="mr-1.5 h-3.5 w-3.5" />
@@ -320,15 +340,7 @@ export function DocumentActionButtons({
         {showPrintActions && (
         <Button
           size="sm"
-          onClick={() => {
-            toast.dismiss();
-            const origTitle = document.title;
-            document.title = ' ';
-            setTimeout(() => {
-              window.print();
-              document.title = origTitle;
-            }, 100);
-          }}
+          onClick={() => { void handlePrintHiRes() }}
           className="bg-emerald-600 hover:bg-emerald-700 h-9"
         >
           <Printer className="mr-1.5 h-3.5 w-3.5" />

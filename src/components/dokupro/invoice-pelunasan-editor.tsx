@@ -25,7 +25,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { captureElementAsJpg } from '@/lib/capture-jpg';
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg';
+import { printBlobHiRes } from '@/lib/print-hi-res';
 import { shareJpgToWhatsApp } from '@/lib/share-jpg';
 import { cn } from '@/lib/utils';
 import type { InvoiceData, CompanyInfo } from '@/lib/types';
@@ -419,16 +420,17 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
   const dpAmount = originalDpAmount;
   const sisa = total - dpAmount;
 
-  // Generate JPG from preview and send to WhatsApp
+  // Generate JPG hi-res 300 DPI dari preview (.a5-page ukuran tetap 148mm —
+  // hasil identik mobile & desktop) dan kirim ke WhatsApp
   const handleGenerateJpg = async () => {
-    const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+    const previewEl = resolveDocumentPreviewEl();
     if (!previewEl) {
       toast.error('Preview tidak ditemukan');
       return;
     }
     setJpgGenerating(true);
     try {
-      const blob = await captureElementAsJpg(previewEl);
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
       const fileName = `${(invoiceData?.nomor || 'draft').replace(/\//g, '-')}.jpg`;
       const phone = invoiceData?.client?.kontak || '';
 
@@ -457,6 +459,29 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
       toast.error('Gagal membuat JPG');
     } finally {
       setJpgGenerating(false);
+    }
+  };
+
+  // Cetak hi-res: hasil cetak = gambar JPG 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — bukan jalur window.print + @media print.
+  const handlePrintHiRes = async () => {
+    toast.dismiss();
+    try {
+      const previewEl = resolveDocumentPreviewEl();
+      if (!previewEl) {
+        toast.error('Preview tidak ditemukan');
+        return;
+      }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
+      const ok = await printBlobHiRes(blob, {
+        title: `Invoice Pelunasan ${invoiceData?.nomor || ''}`.trim(),
+        page: '148mm 210mm',
+        margin: '0',
+      });
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.');
+    } catch (err) {
+      console.error('Print error:', err);
+      toast.error('Gagal menyiapkan cetakan');
     }
   };
 
@@ -594,15 +619,7 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
             </Button>
             <Button
               size="sm"
-              onClick={() => {
-                toast.dismiss();
-                const origTitle = document.title;
-                document.title = ' ';
-                setTimeout(() => {
-                  window.print();
-                  document.title = origTitle;
-                }, 100);
-              }}
+              onClick={() => { void handlePrintHiRes() }}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               Cetak
