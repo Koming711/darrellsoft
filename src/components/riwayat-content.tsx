@@ -198,10 +198,10 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     setIsPrinting(true)
     try {
       if (isHC) {
-        // Hitung Cetakan: cetak ke halaman A5 landscape (210 × 148 mm)
+        // Hitung Cetakan: cetak ke halaman A5 portrait (148 × 210 mm)
         const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
         const custLabel = (previewItem.customerName || previewItem.printName || 'rincian-cetakan')
-        const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 landscape', margin: '5mm' })
+        const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 portrait', margin: '5mm' })
         if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
       } else {
         // Potong Kertas: cetak ke halaman A4 — gambar identik dengan dialog
@@ -222,11 +222,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     setIsGeneratingJpg(true)
     try {
       // Hi-res 300 DPI + fixedWidth 720px → identik mobile & desktop.
-      // Hitung Cetakan: A5 landscape (210 × 148 mm @300 DPI = 2480×1748 px)
+      // Hitung Cetakan: A5 portrait fit (148 × 210 mm @300 DPI = 1748×2480 px)
       // Potong Kertas: A4 portrait (210 × 297 mm @300 DPI = 2480×3508 px)
       const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
       const blob = previewItem.type === 'hitung_cetakan'
-        ? await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
+        ? await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
         : await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = (previewItem.customerName || previewItem.printName || 'preview')
       const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
@@ -821,11 +821,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
               {/* Action Buttons — kecil, 1 baris: Cetak · JPG · Edit */}
               <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 sm:px-5">
                 <div className="flex gap-2">
-                  <button onClick={handlePrint} disabled={isPrinting} title={previewItem && isItemHitungCetak(previewItem) ? 'Cetak rincian (fit A5 landscape, sama persis dengan preview)' : 'Cetak rincian'}
+                  <button onClick={handlePrint} disabled={isPrinting} title={previewItem && isItemHitungCetak(previewItem) ? 'Cetak rincian (fit A5 portrait, sama persis dengan preview)' : 'Cetak rincian'}
                     className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
                     {isPrinting ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />Cetak...</> : <><Printer className="w-3.5 h-3.5 shrink-0" /> Cetak</>}
                   </button>
-                  <button onClick={handleJpg} disabled={isGeneratingJpg} title={previewItem && isItemHitungCetak(previewItem) ? 'Kirim gambar JPG A5 landscape (WhatsApp / unduh)' : 'Kirim gambar JPG ukuran A4 (WhatsApp / unduh)'}
+                  <button onClick={handleJpg} disabled={isGeneratingJpg} title={previewItem && isItemHitungCetak(previewItem) ? 'Kirim gambar JPG A5 portrait (WhatsApp / unduh)' : 'Kirim gambar JPG ukuran A4 (WhatsApp / unduh)'}
                     className="flex-1 min-w-0 flex items-center justify-center gap-1 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-semibold py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[11px] sm:text-xs whitespace-nowrap transition-colors">
                     {isGeneratingJpg ? <><Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />JPG...</> : <><FileImage className="w-3.5 h-3.5 shrink-0" /> JPG</>}
                   </button>
