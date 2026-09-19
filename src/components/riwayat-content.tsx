@@ -169,10 +169,17 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
   const handleDelete = async (item: RiwayatItem): Promise<boolean> => {
     if (!confirm('Beneran mau dihapus nih?')) return false
     try {
-      const res = await authFetch(`/api/riwayat-cetakan/${item.id}`, {
+      // Retry sekali pada 500 (transien pooler/serverless) — aman karena
+      // retry yang menghasilkan 404 akan di-self-heal di bawah.
+      const doDelete = () => authFetch(`/api/riwayat-cetakan/${item.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       })
+      let res = await doDelete()
+      if (!res.ok && res.status === 500) {
+        await new Promise((r) => setTimeout(r, 600))
+        res = await doDelete()
+      }
       if (res.ok) {
         toast.success('Riwayat berhasil dihapus')
         // Optimistic update: remove from state immediately
@@ -180,10 +187,19 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
         notifyDataChange('riwayat-cetakan')
         return true
       }
-      toast.error('Gagal menghapus riwayat')
+      // 404 = data sudah tidak ada di server (daftar di layar kadaluarsa) —
+      // bersihkan baris dari daftar agar tidak menggantung.
+      if (res.status === 404) {
+        setHistories(prev => prev.filter(h => h.id !== item.id))
+        toast.info('Data sudah tidak ada di server — daftar diperbarui')
+        return true
+      }
+      let srv = ''
+      try { srv = (await res.json())?.error || '' } catch {}
+      toast.error(`Gagal menghapus riwayat (${res.status}${srv ? `: ${srv}` : ''})`)
       return false
     } catch {
-      toast.error('Gagal menghapus riwayat')
+      toast.error('Gagal menghapus riwayat (jaringan terputus)')
       return false
     }
   }

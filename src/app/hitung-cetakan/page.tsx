@@ -333,7 +333,7 @@ function HitungCetakanPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [period, setPeriod] = useState<RiwayatPeriod>('all')
+  const [period, setPeriod] = useState<RiwayatPeriod>('today')
   const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
   const [year, setYear] = useState<number | null>(new Date().getFullYear())
   const fetchRiwayatCetakan = async () => {
@@ -1321,7 +1321,14 @@ function HitungCetakanPage() {
   const handleDeleteRiwayat = async (id: string): Promise<boolean> => {
     if (!confirm('Beneran mau dihapus nih?')) return false
     try {
-      const res = await fetcher(`/api/riwayat-cetakan/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      // Retry sekali pada 500 (transien pooler/serverless) — aman karena
+      // retry yang menghasilkan 404 akan di-self-heal di bawah.
+      const doDelete = () => fetcher(`/api/riwayat-cetakan/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      let res = await doDelete()
+      if (!res.ok && res.status === 500) {
+        await new Promise((r) => setTimeout(r, 600))
+        res = await doDelete()
+      }
       if (res.ok) {
         toast.success('Riwayat berhasil dihapus')
         notifyDataChange('riwayat-cetakan')
@@ -1329,9 +1336,18 @@ function HitungCetakanPage() {
         fetchRiwayatCetakan()
         return true
       }
-      toast.error('Gagal menghapus riwayat')
+      // 404 = data sudah tidak ada di server (daftar di layar kadaluarsa) —
+      // bersihkan baris dari daftar agar tidak menggantung.
+      if (res.status === 404) {
+        setRiwayatCetakanList(prev => prev.filter(r => r.id !== id))
+        toast.info('Data sudah tidak ada di server — daftar diperbarui')
+        return true
+      }
+      let srv = ''
+      try { srv = (await res.json())?.error || '' } catch {}
+      toast.error(`Gagal menghapus riwayat (${res.status}${srv ? `: ${srv}` : ''})`)
       return false
-    } catch { toast.error('Gagal menghapus riwayat'); return false }
+    } catch { toast.error('Gagal menghapus riwayat (jaringan terputus)'); return false }
   }
 
   const handlePreviewRiwayat = (r: any) => {
@@ -2631,7 +2647,7 @@ function HitungCetakanPage() {
           </div>
         </div>
 
-        {/* Filter: periode + pencarian — mobile collapsible */}
+        {/* Filter: periode + pencarian SATU BARIS — mobile collapsible */}
         <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-hc"
@@ -2645,31 +2661,28 @@ function HitungCetakanPage() {
               onMonthChange={setMonth}
               year={year}
               onYearChange={setYear}
+              rightSlot={
+                <div className="flex items-center gap-1.5">
+                  <div className="relative w-52 sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                    <Input
+                      id="riwayat-hc-search"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari no. HC / customer / barang…"
+                      aria-label="Cari riwayat hitung cetakan"
+                      className="pl-9 min-h-[44px] bg-white"
+                    />
+                  </div>
+                  {riwayatFiltersActive && (
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery('') }} aria-label="Reset filter" title="Reset Filter">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              }
             />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="riwayat-hc-search">Cari</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
-                  <Input
-                    id="riwayat-hc-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari no. HC / customer / barang…"
-                    aria-label="Cari riwayat hitung cetakan"
-                    className="pl-9 min-h-[44px]"
-                  />
-                </div>
-              </div>
-              {riwayatFiltersActive && (
-                <div className="flex items-end">
-                  <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={() => { setPeriod('all'); setDateFrom(''); setDateTo(''); setSearchQuery('') }}>
-                    <X className="h-3.5 w-3.5" /> Reset Filter
-                  </Button>
-                </div>
-              )}
-            </div>
         </RiwayatFilterCard>
 
         {/* Ringkasan */}

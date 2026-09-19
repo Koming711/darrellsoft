@@ -153,6 +153,12 @@ interface RiwayatPeriodFilterProps {
   onYearChange: (v: number | null) => void
   /** Prefiks id unik per halaman (mis. "riwayat-invoice"). */
   idPrefix?: string
+  /**
+   * Konten tambahan (mis. kotak pencarian) yang dirender SEJAJAR dengan
+   * tombol periode dalam SATU baris yang sama — permintaan owner:
+   * kotak Hari ini–Semua + Cari jadi 1 baris.
+   */
+  rightSlot?: ReactNode
 }
 
 /** Segmented control mode periode + input kondisional — persis gaya filter periode Laporan Penjualan. */
@@ -169,6 +175,7 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
     year,
     onYearChange,
     idPrefix = 'riwayat',
+    rightSlot,
   } = props
   const years = riwayatYearOptions()
   const nowMonth = String(new Date().getMonth() + 1)
@@ -176,9 +183,10 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
 
   return (
     <div className="space-y-3">
-      {/* Segmented control mode periode — mobile: 1 baris scroll horizontal, desktop: wrap */}
+      {/* Satu baris: tombol periode (Hari ini … Semua) + rightSlot (kotak Cari).
+          Mobile: 1 baris scroll horizontal; desktop: 1 baris (search di ujung kanan). */}
       <div
-        className="flex flex-nowrap gap-1.5 overflow-x-auto scrollbar-thin -mx-1 px-1 pb-1 md:mx-0 md:flex-wrap md:overflow-x-visible md:px-0 md:pb-0"
+        className="flex flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-thin -mx-1 px-1 pb-1 md:mx-0 md:flex-nowrap md:overflow-x-auto md:px-0 md:pb-0"
         role="group"
         aria-label="Mode periode riwayat"
       >
@@ -201,6 +209,11 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
             </button>
           )
         })}
+        {rightSlot && (
+          <div className="shrink-0 ml-1 md:ml-auto">
+            {rightSlot}
+          </div>
+        )}
       </div>
 
       {period === 'date' && (
