@@ -272,7 +272,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
       <div className="text-center pb-2 border-b-2 border-slate-200 mb-2">
         <div className="flex items-center justify-center gap-2">
           <Calculator className="w-5 h-5 text-blue-600" />
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900">Rincian Harga Cetakan</h1>
+          <h1 className="text-xl font-bold text-slate-900">Rincian Harga Cetakan</h1>
         </div>
         <p className="text-xs text-slate-500 mt-1">
           <span className="font-semibold text-slate-600">{pvPrintName}</span>
@@ -281,9 +281,11 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 lg:items-start">
+      {/* Layout DOKUMEN TETAP (tanpa varian responsif) — hasil JPG/Cetak sama
+          persis di semua perangkat; tampilan layar kecil di-skala via FixedDocScaler */}
+      <div className="grid grid-cols-5 gap-3 items-start">
         {/* ===== KOLOM KIRI: INFORMASI + RINCIAN BIAYA ===== */}
-        <div className="lg:col-span-3 space-y-3">
+        <div className="col-span-3 space-y-3">
           {/* Informasi Pesanan - CRUD field grid */}
           <div className="border border-slate-200 rounded-xl p-3 bg-white">
             <div className="flex items-center gap-2 mb-2">
@@ -292,7 +294,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               </div>
               <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Informasi Pesanan</p>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <PvField label="Nama Customer" value={pvCustomerName} accent="text-blue-800" />
               <PvField label="Nama Barang" value={pvPrintName} accent="text-indigo-800" />
               <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
@@ -412,7 +414,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
         </div>
 
         {/* ===== KOLOM KANAN: GAMBAR POTONG + TOTAL ===== */}
-        <div className="lg:col-span-2 space-y-3">
+        <div className="col-span-2 space-y-3">
           {/* Gambar Potong Kertas */}
           <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
             <div className="flex items-center gap-2 mb-2">
@@ -446,7 +448,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center justify-between shadow-lg shadow-orange-500/25">
             <div>
               <p className="text-[11px] text-orange-100 uppercase tracking-wide">Grand Total</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-white">{formatRp(pvGrandTotal)}</p>
+              <p className="text-3xl font-extrabold text-white">{formatRp(pvGrandTotal)}</p>
             </div>
             <div className="text-right text-[10.5px] text-orange-100/90 space-y-0.5">
               <p>Sub Total: <span className="font-semibold text-white">{formatRp(pvSubTotal)}</span></p>

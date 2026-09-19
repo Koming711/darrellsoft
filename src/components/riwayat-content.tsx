@@ -5,6 +5,7 @@ import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Lo
 import { captureElementAsJpg, fitBlobToA4, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { RincianCetakanPreview, mapRiwayatToRincianData } from '@/components/rincian-cetakan-preview'
+import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useRouter } from 'next/navigation'
 import { MobileTable } from '@/components/mobile-table'
@@ -446,11 +447,11 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
           {previewItem && (
             <>
               {isItemHitungCetak(previewItem) ? (
-                <div ref={previewRef} className="p-3 sm:p-4 bg-white">
+                <FixedDocScaler fixedWidth={720} innerRef={previewRef} innerClassName="p-4 bg-white">
                   <RincianCetakanPreview data={previewRincian} />
-                </div>
+                </FixedDocScaler>
               ) : (
-              <div ref={previewRef} className="p-4 sm:p-5 bg-white space-y-4">
+              <FixedDocScaler fixedWidth={720} innerRef={previewRef} innerClassName="p-5 bg-white space-y-4">
                 {/* Header */}
                 <div className="text-center pb-3 border-b-2 border-slate-200">
                   <div className="inline-flex items-center justify-center gap-1.5 mb-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
@@ -814,7 +815,7 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
                     {previewItem.profitAmount > 0 && <p>Profit: {formatRp(previewItem.profitAmount)}</p>}
                   </div>
                 </div>
-              </div>
+              </FixedDocScaler>
               )}
 
               {/* Action Buttons — kecil, 1 baris: Cetak · JPG · Edit */}
