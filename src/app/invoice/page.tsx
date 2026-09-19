@@ -34,6 +34,7 @@ import {
   ChevronRight,
   FileSpreadsheet,
   ReceiptText,
+  Maximize2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -47,6 +48,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -309,8 +311,13 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   const [batalOpen, setBatalOpen] = useState(false)
   const [hapusOpen, setHapusOpen] = useState(false)
 
+  // Lightbox pratinjau — klik/ketuk gambar preview → tampil besar fit layar
+  const [zoomOpen, setZoomOpen] = useState(false)
+
   // Pratinjau scaler
   const scalerRef = useRef<HTMLDivElement>(null)
+  const zoomStageRef = useRef<HTMLDivElement>(null)
+  const zoomScalerRef = useRef<HTMLDivElement>(null)
 
   const loadEntry = useCallback(async () => {
     setLoading(true)
@@ -335,6 +342,10 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   const data = useMemo(() => (entry ? parseInvoiceData(entry) : null), [entry])
   const info = useMemo(() => (entry ? parseDocInfo(entry) : null), [entry])
   const status: InvoiceStatus = info ? getInvoiceStatus(info) : 'belum'
+  // Invoice DP = invoice biasa (bukan pelunasan) yang punya DP (persen/nominal).
+  // Di halaman detail invoice DP: TANPA tombol "Tandai Lunas" (dihapus —
+  // permintaan owner); pelunasan sisa piutang hanya lewat "Buat Invoice Pelunasan".
+  const isDpInvoice = !info?.isPelunasan && ((info?.dpPercent || 0) > 0 || (info?.dp || 0) > 0)
 
   // Scale pratinjau A5 agar pas dengan container (desktop ~+20% dari ukuran
   // asli 148mm, mobile full-width). offsetWidth/Height tidak terpengaruh transform.
@@ -368,6 +379,42 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     window.addEventListener('resize', fit)
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
   }, [data])
+
+  // Lightbox pratinjau: skala terbesar yang membuat SELURUH halaman A5 muat
+  // di viewport (fit lebar & tinggi) — di HP umumnya memenuhi lebar layar,
+  // dokumen panjang ikut menyusut agar tetap terlihat penuh.
+  useLayoutEffect(() => {
+    if (!zoomOpen || !data) return
+    const fit = () => {
+      const stage = zoomStageRef.current
+      const wrap = zoomScalerRef.current
+      if (!stage || !wrap) return
+      const a5 = wrap.querySelector('.a5-page') as HTMLElement | null
+      if (!a5) return
+      const naturalW = a5.offsetWidth
+      const naturalH = a5.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const availW = stage.clientWidth
+      const availH = stage.clientHeight
+      if (availW === 0 || availH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const scale = Math.min(availW / naturalW, availH / naturalH)
+      a5.style.transform = `scale(${scale})`
+      a5.style.transformOrigin = 'top left'
+      wrap.style.width = `${naturalW * scale}px`
+      wrap.style.height = `${naturalH * scale}px`
+    }
+    fit()
+    const raf = requestAnimationFrame(fit)
+    const timer = setTimeout(fit, 250)
+    window.addEventListener('resize', fit)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
+  }, [zoomOpen, data])
 
   const handleJpg = async () => {
     if (!data) return
@@ -597,24 +644,27 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
               </p>
             )}
             {/* Tombol aksi pembayaran — "Buat Invoice Pelunasan" adalah CTA utama
-                untuk invoice DP (sisa = piutang, dilunasi lewat invoice PEL);
-                "Tandai Lunas" tetap tersedia sebagai aksi sekunder. */}
+                untuk invoice DP (sisa = piutang, dilunasi lewat invoice PEL).
+                Tombol "Tandai Lunas" DIHAPUS di halaman detail invoice DP
+                (permintaan owner) — tetap tersedia untuk invoice non-DP. */}
             {status !== 'lunas' && status !== 'batal' && (
               <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
                 <p className="text-xs text-muted-foreground">
-                  {(info.dpPercent > 0 || info.dp > 0)
+                  {isDpInvoice
                     ? `Sisa pembayaran ${formatRupiah(info.sisa)} (piutang) belum diterima.`
                     : 'Pembayaran invoice ini belum diterima penuh.'}
                 </p>
                 <div className="flex gap-2 flex-wrap">
-                  {(info.dpPercent > 0 || info.dp > 0) && onCreatePelunasan && (
+                  {isDpInvoice && onCreatePelunasan && (
                     <Button size="sm" onClick={() => onCreatePelunasan(entry.id)} title="Buat invoice pelunasan untuk sisa pembayaran ini" className="bg-violet-600 hover:bg-violet-700 min-h-[36px]">
                       <Wallet className="mr-1.5 h-3.5 w-3.5" /> Buat Invoice Pelunasan
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => setLunasOpen(true)} className="border-violet-200 text-violet-700 hover:bg-violet-50 min-h-[36px]">
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Tandai Lunas
-                  </Button>
+                  {!isDpInvoice && (
+                    <Button size="sm" variant="outline" onClick={() => setLunasOpen(true)} className="border-violet-200 text-violet-700 hover:bg-violet-50 min-h-[36px]">
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Tandai Lunas
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -623,20 +673,65 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
           {/* Tombol aksi — DI ATAS pratinjau */}
           <div className="mb-4">{actionButtons}</div>
 
-          {/* Pratinjau A5 — outline, fit container (±+20% desktop, full mobile) */}
+          {/* Pratinjau A5 — outline, fit container (±+20% desktop, full mobile).
+              Klik/ketuk pratinjau → lightbox: gambar langsung besar fit layar. */}
           <div className="flex justify-center print:hidden" id="document-preview">
             <div className="w-full" style={{ maxWidth: '670px' }}>
               <div
                 ref={scalerRef}
                 data-preview-scaler
                 data-document-preview
-                className="a5-preview-container bg-white overflow-hidden"
+                role="button"
+                tabIndex={0}
+                aria-label="Perbesar pratinjau invoice"
+                title="Klik / ketuk untuk memperbesar"
+                onClick={() => setZoomOpen(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoomOpen(true) } }}
+                className="a5-preview-container relative bg-white overflow-hidden cursor-zoom-in transition-shadow hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                 style={{ border: '2px solid #cbd5e1', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
               >
                 <InvoicePreview data={data} showPelunasanLabel={data.type === 'invoice-pelunasan'} />
+                {/* Indikator tap-to-zoom (di luar .a5-page — tidak ikut ter-capture JPG) */}
+                <span className="pointer-events-none absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-stone-900/60 px-2 py-1 text-[10px] font-medium text-white shadow-md">
+                  <Maximize2 className="h-3 w-3" /> Perbesar
+                </span>
               </div>
             </div>
           </div>
+
+          {/* Lightbox pratinjau — gambar preview langsung besar, fit layar
+              (fit lebar & tinggi; di HP memenuhi layar). Tutup: ✕ / Esc /
+              klik luar. Elemen ini portal → tidak mengganggu resolve
+              DocumentPreviewEl (capture JPG/Cetak tetap target #document-preview). */}
+          <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+            <DialogContent
+              showCloseButton={false}
+              aria-label="Pratinjau invoice diperbesar"
+              aria-describedby={undefined}
+              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-stone-950/95 p-0 overflow-hidden gap-0"
+              style={{ height: '100dvh' }}
+            >
+              <button
+                type="button"
+                onClick={() => setZoomOpen(false)}
+                aria-label="Tutup pratinjau"
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white transition-colors hover:bg-black/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="absolute inset-0 p-3 sm:p-6">
+                <div ref={zoomStageRef} className="flex h-full w-full items-center justify-center">
+                  <div
+                    ref={zoomScalerRef}
+                    className="overflow-hidden rounded-lg bg-white shadow-2xl"
+                    style={{ border: '1px solid #e7e5e4' }}
+                  >
+                    <InvoicePreview data={data} showPelunasanLabel={data.type === 'invoice-pelunasan'} />
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Konfirmasi Tandai Lunas */}
           <AlertDialog open={lunasOpen} onOpenChange={setLunasOpen}>
