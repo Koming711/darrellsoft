@@ -10,12 +10,16 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Loader2, X } from 'lucide-react'
+import { Loader2, Printer, Image as ImageIcon, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
 import { fetcher } from '@/lib/fetcher'
 import { getAuthHeaders } from '@/lib/auth'
+import { captureDocumentPaperJpg } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
+import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { DEFAULT_COMPANY, type CompanyInfo, type InvoiceData } from '@/lib/types'
 
 interface HistoryEntry {
@@ -115,6 +119,8 @@ export function InvoicePreviewPopup({ invoiceId, onClose }: InvoicePreviewPopupP
   const [data, setData] = useState<InvoiceData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
 
   // Scaler lightbox
   const stageRef = useRef<HTMLDivElement>(null)
@@ -192,6 +198,60 @@ export function InvoicePreviewPopup({ invoiceId, onClose }: InvoicePreviewPopupP
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
   }, [open, data])
 
+  // Sumber capture JPG/Cetak = .a5-page di dalam popup ini (ukuran tetap
+  // 148mm, transform scale fit TIDAK mempengaruhi scrollWidth/offsetWidth).
+  const getPreviewEl = () =>
+    (scalerRef.current?.querySelector('.a5-page') as HTMLElement | null) || null
+
+  // JPG: hasil = kanvas A5 portrait 300 DPI (1748×2480) — SAMA dengan hasil
+  // JPG di halaman Invoice (marginPct 0: pratinjau sudah memuat margin).
+  const handleJpg = async () => {
+    if (!data) return
+    const el = getPreviewEl()
+    if (!el) { toast.error('Pratinjau tidak ditemukan'); return }
+    setIsGeneratingJpg(true)
+    try {
+      const blob = await captureDocumentPaperJpg({ el, paper: 'A5', orientation: 'portrait', marginPct: 0 })
+      const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
+      const phone = data.client?.kontak || ''
+      const result = await shareJpgToWhatsApp({
+        blob,
+        fileName,
+        documentLabel: `Invoice ${data.nomor}`,
+        phone,
+      })
+      if (result.status === 'shared') toast.success('Gambar dibagikan ke WhatsApp')
+      else if (result.status === 'cancelled') { /* silent */ }
+      else if (result.status === 'downloaded') toast.success(`${fileName} tersimpan ke perangkat`, { description: 'File JPG telah diunduh ke folder Downloads.' })
+      else toast.error(result.error || 'Gagal memproses JPG')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal membuat JPG')
+    } finally {
+      setIsGeneratingJpg(false)
+    }
+  }
+
+  // Cetak: hasil cetak = gambar JPG hi-res 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — halaman A5 penuh, margin = margin pratinjau.
+  const handlePrint = async () => {
+    if (!data) return
+    const el = getPreviewEl()
+    if (!el) { toast.error('Pratinjau tidak ditemukan'); return }
+    setIsPrinting(true)
+    try {
+      const blob = await captureDocumentPaperJpg({ el, paper: 'A5', orientation: 'portrait', marginPct: 0 })
+      const label = (data.nomor || 'invoice').replace(/\//g, '-')
+      const ok = await printBlobHiRes(blob, { title: `Invoice ${label}`, page: '148mm 210mm', margin: '0' })
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+    } catch (e) {
+      console.error('Print error:', e)
+      toast.error('Gagal menyiapkan cetakan')
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent
@@ -235,6 +295,29 @@ export function InvoicePreviewPopup({ invoiceId, onClose }: InvoicePreviewPopupP
             ) : null}
           </div>
         </div>
+
+        {/* Tombol aksi: Cetak + JPG — overlay bawah tengah (di luar .a5-page,
+            tidak ikut ter-capture). Hasil = sama dengan halaman Invoice. */}
+        {data && !loading && !error && (
+          <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 flex items-center gap-2 rounded-full border border-white/25 bg-black/60 p-1.5 shadow-xl backdrop-blur-sm">
+            <Button
+              size="sm"
+              disabled={isPrinting || isGeneratingJpg}
+              onClick={handlePrint}
+              className="min-h-[40px] rounded-full bg-white text-stone-900 hover:bg-stone-200 gap-1.5 px-4"
+            >
+              {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />} Cetak
+            </Button>
+            <Button
+              size="sm"
+              disabled={isPrinting || isGeneratingJpg}
+              onClick={handleJpg}
+              className="min-h-[40px] rounded-full bg-emerald-600 text-white hover:bg-emerald-500 gap-1.5 px-4"
+            >
+              {isGeneratingJpg ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />} JPG
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )
