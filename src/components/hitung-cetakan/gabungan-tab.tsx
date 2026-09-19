@@ -33,7 +33,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Layers, Search, Eye, Printer, FileImage, Loader2, X, Square, CheckSquare, Percent, Calculator, Boxes, Trash2 } from 'lucide-react'
-import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { Input } from '@/components/ui/input'
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
@@ -62,16 +63,6 @@ function userKey(base: string): string {
     if (a.id) return `${base}_${a.id}`
   } catch {}
   return base
-}
-
-/** Convert a Blob into a data URL (untuk embed gambar ke window cetak). */
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
-    reader.readAsDataURL(blob)
-  })
 }
 
 /** Label kertas: nama · gsm (tanpa jumlah warna). */
@@ -173,28 +164,17 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
     return withCust ? withCust.customerName.trim() : ''
   }, [selected])
 
-  // ===== Cetak & JPG (capture dari instance offscreen — tidak perlu preview terbuka) =====
+  // ===== Cetak & JPG hi-res 300 DPI (capture dari instance offscreen — tidak perlu preview terbuka).
+  // Instance offscreen berukuran tetap 768px → hasil identik mobile & desktop.
   const handlePrint = async () => {
     const el = captureRef.current
     if (!el) { toast.error('Pilih komponen terlebih dahulu'); return }
     setIsPrinting(true)
     try {
-      const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
-      const dataUrl = await blobToDataUrl(blob)
+      const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 768 })
       const custLabel = gabungCustomer || 'gabungan'
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>Rincian Harga Gabungan ${custLabel}</title>
-<style>
-  @page { size: A5 landscape; margin: 5mm; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-</style></head>
-<body><img src="${dataUrl}" alt="Rincian Harga Gabungan" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
-      const pw = window.open('', '_blank')
-      if (!pw) { toast.error('Popup diblokir'); return }
-      pw.document.write(html)
-      pw.document.close()
+      const ok = await printBlobHiRes(blob, { title: `Rincian Harga Gabungan ${custLabel}`, page: 'A5 landscape', margin: '5mm' })
+      if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
     } catch (e) {
       console.error('Print error:', e)
       toast.error('Gagal menyiapkan cetakan')
@@ -206,7 +186,7 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
     if (!el) { toast.error('Pilih komponen terlebih dahulu'); return }
     setIsGeneratingJpg(true)
     try {
-      const rawBlob = await captureElementAsJpg(el, { pixelRatio: 3 })
+      const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 768 })
       const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
       const custLabel = gabungCustomer || 'gabungan'
       const fileName = `rincian-gabungan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`

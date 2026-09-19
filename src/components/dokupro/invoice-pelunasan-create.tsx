@@ -45,7 +45,8 @@ import { getAuthHeaders } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import type { InvoiceData } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
-import { captureElementAsJpg } from '@/lib/capture-jpg';
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg';
+import { printBlobHiRes } from '@/lib/print-hi-res';
 import { shareJpgToWhatsApp } from '@/lib/share-jpg';
 import { Printer, ImageIcon } from 'lucide-react';
 
@@ -398,14 +399,28 @@ export function InvoicePelunasanCreate() {
     setPlNotes('')
   }
 
-  const handleCetak = () => {
+  // Cetak hi-res: hasil cetak = gambar JPG 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — menangkap .a5-page ukuran tetap 148mm,
+  // bukan jalur window.print + @media print yang tergantung browser perangkat.
+  const handleCetak = async () => {
     toast.dismiss();
-    const origTitle = document.title;
-    document.title = ' ';
-    setTimeout(() => {
-      window.print();
-      document.title = origTitle;
-    }, 100);
+    try {
+      const previewEl = resolveDocumentPreviewEl();
+      if (!previewEl) {
+        toast.error('Pratinjau tidak ditemukan');
+        return;
+      }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
+      const ok = await printBlobHiRes(blob, {
+        title: `Invoice Pelunasan ${savedPelData?.nomor || ''}`.trim(),
+        page: '148mm 210mm',
+        margin: '0',
+      });
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.');
+    } catch (err) {
+      console.error('Print error:', err);
+      toast.error('Gagal menyiapkan cetakan');
+    }
   };
 
   const handleJpg = async () => {
@@ -414,12 +429,13 @@ export function InvoicePelunasanCreate() {
     try {
       const nomor = savedPelData.nomor || 'draft'
       const fileName = `${nomor.replace(/\//g, '-')}.jpg`
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — identik mobile & desktop
+      const previewEl = resolveDocumentPreviewEl()
       if (!previewEl) {
         toast.error('Pratinjau tidak ditemukan')
         return
       }
-      const blob = await captureElementAsJpg(previewEl)
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
       if (!blob || !(blob instanceof Blob)) {
         toast.error('Gagal membuat JPG - blob tidak valid')
         return

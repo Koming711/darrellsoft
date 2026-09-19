@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote, Pencil } from 'lucide-react'
-import { captureElementAsJpg, fitBlobToA4, fitBlobToA5 } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA4, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { RincianCetakanPreview, mapRiwayatToRincianData } from '@/components/rincian-cetakan-preview'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useRouter } from 'next/navigation'
@@ -74,16 +75,6 @@ interface RiwayatContentProps {
   enableRowPreview?: boolean
   /** Klik baris/kartu → dialog detail rincian; icon restore dihilangkan dari baris; dialog detail mendapat tombol Restore & Hapus */
   detailOnRowClick?: boolean
-}
-
-/** Convert a Blob into a data URL (untuk embed gambar preview di jendela cetak). */
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
-    reader.readAsDataURL(blob)
-  })
 }
 
 export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPreview = false, detailOnRowClick = false }: RiwayatContentProps) {
@@ -196,6 +187,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     }
   }
 
+  // Cetak hi-res 300 DPI: hasil cetak = gambar JPG yang sama dengan hasil JPG
+  // (identik mobile & desktop) — fixedWidth 720px agar preview dialog responsif
+  // menghasilkan gambar yang sama di semua perangkat.
   const handlePrint = async () => {
     const el = previewRef.current
     if (!el || !previewItem) return
@@ -203,39 +197,16 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     setIsPrinting(true)
     try {
       if (isHC) {
-        // Hitung Cetakan: hasil cetak = sama persis dengan isi preview, di-fit ke halaman A5 landscape (210 × 148 mm)
-        const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
-        const dataUrl = await blobToDataUrl(blob)
+        // Hitung Cetakan: cetak ke halaman A5 landscape (210 × 148 mm)
+        const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
         const custLabel = (previewItem.customerName || previewItem.printName || 'rincian-cetakan')
-        const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>Rincian Harga Cetakan ${custLabel}</title>
-<style>
-  @page { size: A5 landscape; margin: 5mm; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-</style></head>
-<body><img src="${dataUrl}" alt="Detail Rincian Cetakan" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
-        const pw = window.open('', '_blank')
-        if (!pw) { toast.error('Popup diblokir'); return }
-        pw.document.write(html)
-        pw.document.close()
+        const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 landscape', margin: '5mm' })
+        if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
       } else {
-        // Potong Kertas: render dialog ke gambar agar hasil cetak identik dengan tampilan dialog
-        const { toCanvas } = await import('html-to-image')
-        const canvas = await toCanvas(el, { backgroundColor: '#ffffff', pixelRatio: 2 })
-        const imgData = canvas.toDataURL('image/jpeg', 0.95)
-        const pw = window.open('', '_blank')
-        if (!pw) { toast.error('Popup diblokir'); return }
-        pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preview - ${previewItem.printName}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          @page { size: A4; margin: 10mm; }
-          body { font-family: 'Segoe UI', Arial, sans-serif; }
-          img { width: 100%; display: block; }
-        </style>
-      </head><body><img src="${imgData}" onload="setTimeout(function(){window.print()},200)" /></body></html>`)
-        pw.document.close()
+        // Potong Kertas: cetak ke halaman A4 — gambar identik dengan dialog
+        const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
+        const ok = await printBlobHiRes(blob, { title: `Preview - ${previewItem.printName}`, page: 'A4', margin: '10mm' })
+        if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
       }
     } catch {
       toast.error('Gagal menyiapkan cetakan')
@@ -249,8 +220,10 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     if (!el || !previewItem) return
     setIsGeneratingJpg(true)
     try {
-      // Hitung Cetakan: A5 landscape (210 × 148 mm) · Potong Kertas: A4 portrait (210 × 297 mm) — isi 100% sama dengan preview
-      const rawBlob = await captureElementAsJpg(el)
+      // Hi-res 300 DPI + fixedWidth 720px → identik mobile & desktop.
+      // Hitung Cetakan: A5 landscape (210 × 148 mm @300 DPI = 2480×1748 px)
+      // Potong Kertas: A4 portrait (210 × 297 mm @300 DPI = 2480×3508 px)
+      const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
       const blob = previewItem.type === 'hitung_cetakan'
         ? await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
         : await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })

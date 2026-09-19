@@ -32,7 +32,7 @@ import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-previe
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import { generatePurchaseOrderPdf, sharePdfViaWhatsApp, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
-import { captureElementAsJpg } from '@/lib/capture-jpg'
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg'
 import dynamic from 'next/dynamic'
 import type { CuttingResult } from '@/lib/cutting-engine'
 
@@ -553,9 +553,11 @@ export default function RiwayatPembelianPage() {
     if (!poData) return
     setSendingJpg(true)
     try {
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement
+      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — hasil identik
+      // mobile & desktop, bukan popup scaler yang skala-nya mengikuti layar
+      const previewEl = resolveDocumentPreviewEl()
       if (previewEl) {
-        const jpgBlob = await captureElementAsJpg(previewEl)
+        const jpgBlob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
         const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
         await shareJpgViaWhatsApp(jpgBlob, fileName, `Purchase Order ${poData.nomor}`)
         toast.success('JPG dikirim ke WhatsApp Business')

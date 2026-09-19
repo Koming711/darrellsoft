@@ -11,7 +11,8 @@ declare global {
 }
 
 import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil } from 'lucide-react'
-import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -129,21 +130,6 @@ interface PrintCalculation {
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors lg:py-1.5'
 const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
-
-/**
- * Convert a Blob into a data URL.
- *
- * Used to embed the captured preview image into the print window HTML
- * (no object-URL lifecycle issues, works synchronously inside the popup).
- */
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
-    reader.readAsDataURL(blob)
-  })
-}
 
 // Preview Dialog Component
 // Struktur: header tetap di atas, konten SELALU bisa discroll (mobile & desktop), footer tetap di bawah.
@@ -932,23 +918,12 @@ function HitungCetakanPage() {
     if (!el || !previewCalc) { toast.error('Preview tidak tersedia'); return }
     setIsPrinting(true)
     try {
-      // Capture preview apa adanya → gambar 100% sama dengan tampilan dialog
-      const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
-      const dataUrl = await blobToDataUrl(blob)
+      // Cetak hi-res 300 DPI: capture preview apa adanya (fixedWidth 720px agar
+      // hasil identik mobile & desktop) → gambar dicetak via popup/iframe.
+      const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
       const custLabel = (previewCalc.customerName || previewCalc.printName || 'rincian-cetakan')
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>Rincian Harga Cetakan ${custLabel}</title>
-<style>
-  @page { size: A5 landscape; margin: 5mm; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-</style></head>
-<body><img src="${dataUrl}" alt="Detail Rincian Cetakan" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
-      const pw = window.open('', '_blank')
-      if (!pw) { toast.error('Popup diblokir'); return }
-      pw.document.write(html)
-      pw.document.close()
+      const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 landscape', margin: '5mm' })
+      if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
     } catch (e) {
       console.error('Print error:', e)
       toast.error('Gagal menyiapkan cetakan')
@@ -960,8 +935,9 @@ function HitungCetakanPage() {
     if (!el || !previewCalc) return
     setIsGeneratingJpg(true)
     try {
-      // Gambar identik dengan isi preview dialog, dikomposisi ke kanvas A5 landscape (210 × 148 mm)
-      const rawBlob = await captureElementAsJpg(el)
+      // Gambar hi-res 300 DPI + fixedWidth 720px (identik mobile & desktop),
+      // dikomposisi ke kanvas A5 landscape (210 × 148 mm @300 DPI = 2480×1748 px)
+      const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
       const blob = await fitBlobToA5(rawBlob, { orientation: 'landscape', marginPct: 3 })
       const custLabel = (previewCalc.customerName || previewCalc.printName || 'preview')
       const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`

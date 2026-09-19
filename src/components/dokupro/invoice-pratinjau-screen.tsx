@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { InvoicePreview } from './invoice-preview';
-import { captureElementAsJpg } from '@/lib/capture-jpg';
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg';
+import { printBlobHiRes } from '@/lib/print-hi-res';
 import { shareJpgToWhatsApp } from '@/lib/share-jpg';
 import type { InvoiceData } from '@/lib/types';
 
@@ -160,14 +161,28 @@ export function InvoicePratinjauScreen({ data, onBack, onSuratJalan, savingSj = 
     };
   }, [fit, data]);
 
-  const handleCetak = () => {
+  // Cetak: hasil cetak = gambar JPG hi-res 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — menangkap .a5-page berukuran tetap 148mm,
+  // bukan wrapper scaler yang skala-nya mengikuti viewport.
+  const handleCetak = async () => {
     toast.dismiss();
-    const origTitle = document.title;
-    document.title = ' ';
-    setTimeout(() => {
-      window.print();
-      document.title = origTitle;
-    }, 100);
+    try {
+      const previewEl = resolveDocumentPreviewEl();
+      if (!previewEl) {
+        toast.error('Pratinjau tidak ditemukan');
+        return;
+      }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
+      const ok = await printBlobHiRes(blob, {
+        title: `Invoice ${data.nomor || ''}`.trim(),
+        page: '148mm 210mm',
+        margin: '0',
+      });
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.');
+    } catch (err) {
+      console.error('Print error:', err);
+      toast.error('Gagal menyiapkan cetakan');
+    }
   };
 
   const handleJpg = async () => {
@@ -175,13 +190,15 @@ export function InvoicePratinjauScreen({ data, onBack, onSuratJalan, savingSj = 
     try {
       const nomor = data.nomor || 'draft';
       const fileName = `${nomor.replace(/\//g, '-')}.jpg`;
-      const previewEl = document.querySelector('[data-document-preview]') as HTMLElement;
+      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — hasil identik
+      // mobile & desktop, bukan wrapper scaler yang mengikuti viewport.
+      const previewEl = resolveDocumentPreviewEl();
       if (!previewEl) {
         toast.error('Pratinjau tidak ditemukan');
         return;
       }
 
-      const blob = await captureElementAsJpg(previewEl);
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 });
       if (!blob || !(blob instanceof Blob)) {
         toast.error('Gagal membuat JPG - blob tidak valid');
         return;
@@ -214,7 +231,7 @@ export function InvoicePratinjauScreen({ data, onBack, onSuratJalan, savingSj = 
   };
 
   const cetakButton = (
-    <Button size="sm" onClick={handleCetak} className="bg-emerald-600 hover:bg-emerald-700 h-9">
+    <Button size="sm" onClick={() => { void handleCetak() }} className="bg-emerald-600 hover:bg-emerald-700 h-9">
       <Printer className="mr-1.5 h-3.5 w-3.5" />
       Cetak
     </Button>

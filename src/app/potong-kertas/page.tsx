@@ -24,7 +24,8 @@ import { Button } from '@/components/ui/button'
 import { PhotoUpload } from '@/components/photo-upload'
 import { PhotoLightbox } from '@/components/photo-lightbox'
 import { openWhatsApp } from '@/lib/whatsapp-business'
-import { captureElementAsJpg, fitBlobToA4 } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA4, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
@@ -166,21 +167,6 @@ function PreviewDialog({ children, footer, onClose, title }: { children: React.R
       </div>
     </div>
   )
-}
-
-/**
- * Convert a Blob into a data URL.
- *
- * Used to embed the captured preview image into the print window HTML
- * (no object-URL lifecycle issues, works synchronously inside the popup).
- */
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
-    reader.readAsDataURL(blob)
-  })
 }
 
 function CalculatorPage() {
@@ -1213,26 +1199,16 @@ function CalculatorPage() {
     const el = previewRef.current
     setIsPrinting(true)
     try {
-      // Capture preview apa adanya → gambar 100% sama dengan tampilan preview
-      const blob = await captureElementAsJpg(el, { pixelRatio: 3 })
-      const dataUrl = await blobToDataUrl(blob)
+      // Cetak hi-res 300 DPI: capture preview apa adanya (fixedWidth 720px agar
+      // hasil identik mobile & desktop) → gambar dicetak via popup/iframe —
+      // bukan lagi jalur window.print + @media print yang tergantung browser.
+      const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
       const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'potong-kertas'))
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>Potong Kertas ${custLabel}</title>
-<style>
-  @page { size: A5 portrait; margin: 5mm; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-</style></head>
-<body><img src="${dataUrl}" alt="Preview Potong Kertas" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
+      const ok = await printBlobHiRes(blob, { title: `Potong Kertas ${custLabel}`, page: 'A5 portrait', margin: '5mm' })
+      if (!ok) {
         toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
         return
       }
-      printWindow.document.write(html)
-      printWindow.document.close()
     } catch (err) {
       console.error('Print error:', err)
       toast.error('Gagal menyiapkan cetakan')
@@ -1250,8 +1226,9 @@ function CalculatorPage() {
 
     setIsGeneratingJpg(true)
     try {
-      const rawBlob = await captureElementAsJpg(el)
-      // Kanvas A4 portrait (210 × 297 mm) — bentuknya sama dengan popup preview
+      // Hi-res 300 DPI + fixedWidth 720px → hasil identik mobile & desktop
+      const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
+      // Kanvas A4 portrait (210 × 297 mm @300 DPI = 2480×3508 px) — bentuknya sama dengan popup preview
       const blob = await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = (previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || printName || 'preview'))
       const fileName = `potong-kertas-${(custLabel || 'preview').replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`

@@ -67,7 +67,8 @@ import {
 } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
-import { captureElementAsJpg, fitBlobToA5 } from '@/lib/capture-jpg'
+import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { syncLinkedPelunasan } from '@/lib/sync-pelunasan'
 import { useDokuproStore } from '@/lib/store'
@@ -292,15 +293,6 @@ function EmptyState({ filtered, title, desc }: { filtered: boolean; title?: stri
 // ada DI ATAS pratinjau. Pratinjau A5 ber-outline, +20% (desktop),
 // full-width di mobile.
 // ============================================================
-/** Blob JPG → data URL (untuk <img> di jendela cetak). */
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('Gagal membaca data gambar'))
-    reader.readAsDataURL(blob)
-  })
-}
 
 function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBack: () => void; onCreatePelunasan?: (invoiceId: string) => void }) {
   const router = useRouter()
@@ -381,19 +373,15 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     if (!data) return
     setJpgGenerating(true)
     try {
-      // Capture elemen .a5-page (layout tetap 148mm di SEMUA perangkat) — bukan
-      // wrapper scaler yang lebarnya mengikuti layar (desktop ±670px, mobile ±350px).
-      // Menangkap wrapper membuat hasil JPG mobile berbeda dari desktop; dengan
-      // .a5-page, capture selalu identik → hasil mobile = desktop (acuan: desktop).
-      const previewEl = (document.querySelector('#document-preview .a5-page')
-        || document.querySelector('[data-document-preview]')) as HTMLElement
+      // Hi-res 300 DPI dari elemen .a5-page (layout tetap 148mm di SEMUA
+      // perangkat — bukan wrapper scaler yang lebar/skala-nya mengikuti layar),
+      // dikomposisi ke kanvas A5 portrait 300 DPI (1748 × 2480 px).
+      // marginPct: 0 — capture .a5-page SUDAH mengandung margin pratinjau
+      // (padding 8mm atas/bawah, 10mm kiri/kanan), jadi TIDAK ada margin
+      // tambahan: hasil JPG = pratinjau di layar, identik mobile & desktop.
+      const previewEl = resolveDocumentPreviewEl()
       if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
-      // Hi-res capture (3x) → dikomposisi ke kanvas A5 portrait 300 DPI (1748 × 2480 px).
-      // marginPct: 0 — capture .a5-page SUDAH mengandung margin pratinjau (padding
-      // 8mm atas/bawah, 10mm kiri/kanan), jadi TIDAK ada margin tambahan: hasil JPG
-      // punya margin yang sama persis dengan pratinjau di layar.
-      const rawBlob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
-      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 0, dpi: 300 })
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
       const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
       const phone = data.client?.kontak || ''
       const result = await shareJpgToWhatsApp({
@@ -414,37 +402,22 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     }
   }
 
-  // Cetak: hasil cetak = sama persis dengan pratinjau di layar, hi-res (3x),
-  // di-fit ke halaman A5 portrait (148 × 210 mm)
+  // Cetak: hasil cetak = gambar JPG hi-res 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — bukan lagi jalur @media print yang hasilnya
+  // tergantung browser/viewport perangkat.
   const handlePrint = async () => {
     if (!data) return
-    // Sama seperti handleJpg: capture .a5-page (148mm tetap) agar hasil cetak
-    // mobile identik dengan desktop, apa pun lebar layar.
-    const previewEl = (document.querySelector('#document-preview .a5-page')
-      || document.querySelector('[data-document-preview]')) as HTMLElement
-    if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
     setIsPrinting(true)
     try {
-      // Capture pratinjau apa adanya → gambar 100% sama dengan tampilan layar
-      const blob = await captureElementAsJpg(previewEl, { pixelRatio: 3 })
-      const dataUrl = await blobToDataUrl(blob)
+      const previewEl = resolveDocumentPreviewEl()
+      if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
       const label = (data.nomor || 'invoice').replace(/\//g, '-')
       // @page margin: 0 — gambar (yang sudah mengandung margin pratinjau 8mm/10mm)
       // memenuhi halaman A5 penuh, sehingga margin hasil cetak = margin pratinjau
       // PERSIS (8mm atas/bawah, 10mm kiri/kanan), tanpa margin halaman tambahan.
-      const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>Invoice ${label}</title>
-<style>
-  @page { size: A5 portrait; margin: 0; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; }
-  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  img { display: block; width: 100%; height: 100%; object-fit: contain; }
-</style></head>
-<body><img src="${dataUrl}" alt="Detail Invoice" onload="setTimeout(function(){ window.focus(); window.print(); }, 250)" /></body></html>`
-      const pw = window.open('', '_blank')
-      if (!pw) { toast.error('Popup diblokir'); return }
-      pw.document.write(html)
-      pw.document.close()
+      const ok = await printBlobHiRes(blob, { title: `Invoice ${label}`, page: '148mm 210mm', margin: '0' })
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
     } catch (e) {
       console.error('Print error:', e)
       toast.error('Gagal menyiapkan cetakan')

@@ -20,6 +20,44 @@
 
 import { toJpeg } from 'html-to-image'
 
+// ============================================================
+// Hi-res (300 DPI) constants
+// ============================================================
+
+/** Target DPI untuk semua hasil JPG & cetak dokumen. */
+export const HIRES_DPI = 300
+/**
+ * CSS reference DPI browser = 96 — elemen berukuran mm (mis. .a5-page 148mm)
+ * dirender 96px per inch TIDAK TERGANTUNG viewport/perangkat. Capture dengan
+ * pixelRatio 300/96 = 3.125 menghasilkan gambar TEPAT 300 DPI yang SAMA
+ * antara mobile & desktop.
+ */
+export const HIRES_PIXEL_RATIO = HIRES_DPI / 96 // 3.125
+
+/**
+ * Resolve elemen pratinjau dokumen yang UKURANNYA TETAP (tidak mengikuti
+ * viewport) sebagai sumber capture JPG/cetak hi-res.
+ *
+ * Semua preview dokumen (InvoicePreview, SuratJalanPreview,
+ * PurchaseOrderPreview) me-render root .a5-page berukuran tetap 148mm —
+ * menangkap elemen ini (bukan wrapper scaler yang lebar/skala-nya mengikuti
+ * layar) membuat hasil JPG & cetak IDENTIK antara mobile & desktop.
+ *
+ * Prioritas:
+ *  1. .a5-page di dalam #document-preview (detail invoice / editor layout)
+ *  2. .a5-page di dalam [data-document-preview] (popup pratinjau SJ/PO/riwayat)
+ *  3. .a5-page apa pun (root preview — elemen itu sendiri membawa atribut)
+ *  4. [data-document-preview] apa pun (fallback — wrapper responsif)
+ */
+export function resolveDocumentPreviewEl(): HTMLElement | null {
+  return (
+    document.querySelector('#document-preview .a5-page') ||
+    document.querySelector('[data-document-preview] .a5-page') ||
+    document.querySelector('.a5-page') ||
+    document.querySelector('[data-document-preview]')
+  ) as HTMLElement | null
+}
+
 /**
  * Wait for all <img> elements within a node to finish loading.
  * Images that fail to load (broken/CORS) are silently skipped.
@@ -120,12 +158,15 @@ function waitForLayoutSettle(): Promise<void> {
  *
  * @param element - The HTMLElement to capture (should have data-document-preview)
  * @param opts.pixelRatio - Device-pixel multiplier for output sharpness. Default 2.
- *                          Use 3 for print-quality captures (≈270 DPI on A5).
+ *                          Use HIRES_PIXEL_RATIO (3.125) for 300 DPI output.
+ * @param opts.fixedWidth - Force clone layout width (px CSS). For viewport-dependent
+ *                          previews (popup tools) so output is identical on
+ *                          mobile & desktop.
  * @returns JPG Blob
  */
 export async function captureElementAsJpg(
   element: HTMLElement,
-  opts?: { pixelRatio?: number }
+  opts?: { pixelRatio?: number; fixedWidth?: number }
 ): Promise<Blob> {
   const pixelRatio = opts?.pixelRatio ?? 2
 
@@ -140,7 +181,11 @@ export async function captureElementAsJpg(
   // 3. Compute natural pixel dimensions from the ORIGINAL element BEFORE cloning.
   //    scrollWidth/scrollHeight are immune to ancestor transform: scale() and
   //    overflow, so they always report the TRUE content size.
-  const { width: naturalWidth, height: naturalHeight } = getNaturalDimensions(element)
+  //    fixedWidth (jika diset) menimpa lebar — untuk preview yang lebar-
+  //    nya mengikuti viewport agar hasil capture identik di semua perangkat.
+  const measured = getNaturalDimensions(element)
+  const naturalWidth = opts?.fixedWidth ?? measured.width
+  const naturalHeight = measured.height
 
   // 4. Clone the element into an isolated, top-level container.
   const clone = element.cloneNode(true) as HTMLElement
@@ -259,7 +304,7 @@ function loadImageElement(blob: Blob): Promise<HTMLImageElement> {
  * document visible.
  *
  * @param blob - Source JPG blob (e.g. from captureElementAsJpg)
- * @param opts.dpi - Output resolution in DPI. Default 150 → 874 × 1240 px.
+ * @param opts.dpi - Output resolution in DPI. Default 300 → 1748 × 2480 px.
  * @param opts.marginPct - White margin around content, % of the short edge. Default 4.
  * @param opts.quality - JPEG quality (0-1). Default 0.95.
  * @param opts.orientation - 'auto' (default, follows content direction), 'portrait', or 'landscape'.
@@ -269,7 +314,7 @@ export async function fitBlobToA5(
   blob: Blob,
   opts?: { dpi?: number; marginPct?: number; quality?: number; orientation?: 'auto' | 'portrait' | 'landscape' }
 ): Promise<Blob> {
-  const dpi = opts?.dpi ?? 150
+  const dpi = opts?.dpi ?? HIRES_DPI
   const marginPct = opts?.marginPct ?? 4
   const quality = opts?.quality ?? 0.95
   const orientation = opts?.orientation ?? 'auto'
@@ -280,8 +325,8 @@ export async function fitBlobToA5(
   }
 
   // A5: short edge = 148mm, long edge = 210mm
-  const shortEdge = Math.round((148 / MM_PER_INCH) * dpi) // 874 @ 150 DPI
-  const longEdge = Math.round((210 / MM_PER_INCH) * dpi)  // 1240 @ 150 DPI
+  const shortEdge = Math.round((148 / MM_PER_INCH) * dpi) // 1748 @ 300 DPI
+  const longEdge = Math.round((210 / MM_PER_INCH) * dpi)  // 2480 @ 300 DPI
 
   // Orientation: explicit option wins, otherwise auto from content direction
   const isLandscape = orientation === 'auto' ? img.width > img.height : orientation === 'landscape'
@@ -330,7 +375,7 @@ export async function fitBlobToA4(
   blob: Blob,
   opts?: { dpi?: number; marginPct?: number; quality?: number; orientation?: 'portrait' | 'landscape' }
 ): Promise<Blob> {
-  const dpi = opts?.dpi ?? 150
+  const dpi = opts?.dpi ?? HIRES_DPI
   const marginPct = opts?.marginPct ?? 3
   const quality = opts?.quality ?? 0.95
   const orientation = opts?.orientation ?? 'portrait'
@@ -341,8 +386,8 @@ export async function fitBlobToA4(
   }
 
   // A4: short edge = 210mm, long edge = 297mm
-  const shortEdge = Math.round((210 / MM_PER_INCH) * dpi) // 1240 @ 150 DPI
-  const longEdge = Math.round((297 / MM_PER_INCH) * dpi)  // 1754 @ 150 DPI
+  const shortEdge = Math.round((210 / MM_PER_INCH) * dpi) // 2480 @ 300 DPI
+  const longEdge = Math.round((297 / MM_PER_INCH) * dpi)  // 3508 @ 300 DPI
 
   const isLandscape = orientation === 'landscape'
   const canvasW = isLandscape ? longEdge : shortEdge
@@ -379,5 +424,53 @@ export async function fitBlobToA4(
       'image/jpeg',
       quality
     )
+  })
+}
+
+/**
+ * Capture pratinjau dokumen → JPG hi-res 300 DPI yang SAMA PERSIS antara
+ * mobile & desktop, lalu dikomposisi ke kanvas kertas (A5/A4) 300 DPI.
+ *
+ * Pipeline:
+ *  1. Resolve elemen sumber — `el` parameter bila diberikan, else
+ *     `resolveDocumentPreviewEl()` (.a5-page berukuran tetap 148mm).
+ *  2. Capture pada pixelRatio HIRES_PIXEL_RATIO (3.125 = 300 DPI pada
+ *     elemen berukuran mm CSS 96dpi) — tidak terpengaruh viewport.
+ *  3. Fit ke kanvas kertas 300 DPI (A5 = 1748×2480 px, A4 = 2480×3508 px).
+ *
+ * @param opts.el - Elemen sumber eksplisit (opsional; default auto-resolve).
+ * @param opts.paper - 'A5' (default) atau 'A4'.
+ * @param opts.orientation - Orientasi kertas. Default 'portrait'.
+ * @param opts.marginPct - Margin putih % sisi pendek kanvas. Default 0
+ *                         (preview .a5-page sudah memuat padding 8/10mm).
+ * @param opts.fixedWidth - Paksa lebar konten (untuk preview non-dokumen).
+ * @throws Error('PREVIEW_NOT_FOUND') bila elemen pratinjau tidak ditemukan.
+ */
+export async function captureDocumentPaperJpg(opts?: {
+  el?: HTMLElement | null
+  paper?: 'A5' | 'A4'
+  orientation?: 'portrait' | 'landscape'
+  marginPct?: number
+  fixedWidth?: number
+}): Promise<Blob> {
+  const el = opts?.el !== undefined ? opts.el : resolveDocumentPreviewEl()
+  if (!el) throw new Error('PREVIEW_NOT_FOUND')
+
+  const raw = await captureElementAsJpg(el, {
+    pixelRatio: HIRES_PIXEL_RATIO,
+    fixedWidth: opts?.fixedWidth,
+  })
+
+  if (opts?.paper === 'A4') {
+    return fitBlobToA4(raw, {
+      orientation: opts?.orientation ?? 'portrait',
+      marginPct: opts?.marginPct ?? 0,
+      dpi: HIRES_DPI,
+    })
+  }
+  return fitBlobToA5(raw, {
+    orientation: opts?.orientation ?? 'portrait',
+    marginPct: opts?.marginPct ?? 0,
+    dpi: HIRES_DPI,
   })
 }
