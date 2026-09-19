@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { History, Search, Filter, RotateCcw, Eye, Trash2, Printer, FileImage, Loader2, FileText, Calculator, Layers, Package, Truck, Percent, Scissors, Cog, Banknote, Pencil } from 'lucide-react'
-import { captureElementAsJpg, fitBlobToA4, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
+import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { RincianCetakanPreview, mapRiwayatToRincianData } from '@/components/rincian-cetakan-preview'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
@@ -204,9 +204,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
         const ok = await printBlobHiRes(blob, { title: `Rincian Harga Cetakan ${custLabel}`, page: 'A5 portrait', margin: '5mm' })
         if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
       } else {
-        // Potong Kertas: cetak ke halaman A4 — gambar identik dengan dialog
+        // Potong Kertas: cetak ke halaman A5 portrait (148 × 210 mm) — SAMA dengan halaman Hitung Cetakan
         const blob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
-        const ok = await printBlobHiRes(blob, { title: `Preview - ${previewItem.printName}`, page: 'A4', margin: '10mm' })
+        const ok = await printBlobHiRes(blob, { title: `Preview - ${previewItem.printName}`, page: 'A5 portrait', margin: '5mm' })
         if (!ok) { toast.error('Popup diblokir. Izinkan popup untuk mencetak.'); return }
       }
     } catch {
@@ -222,12 +222,9 @@ export function RiwayatContent({ title, subtitle, defaultFilterType, enableRowPr
     setIsGeneratingJpg(true)
     try {
       // Hi-res 300 DPI + fixedWidth 720px → identik mobile & desktop.
-      // Hitung Cetakan: A5 portrait fit (148 × 210 mm @300 DPI = 1748×2480 px)
-      // Potong Kertas: A4 portrait (210 × 297 mm @300 DPI = 2480×3508 px)
+      // Hitung Cetakan & Potong Kertas: A5 portrait fit (148 × 210 mm @300 DPI = 1748×2480 px)
       const rawBlob = await captureElementAsJpg(el, { pixelRatio: HIRES_PIXEL_RATIO, fixedWidth: 720 })
-      const blob = previewItem.type === 'hitung_cetakan'
-        ? await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
-        : await fitBlobToA4(rawBlob, { orientation: 'portrait', marginPct: 3 })
+      const blob = await fitBlobToA5(rawBlob, { orientation: 'portrait', marginPct: 3 })
       const custLabel = (previewItem.customerName || previewItem.printName || 'preview')
       const fileName = `rincian-cetakan-${custLabel.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`
       const result = await shareJpgToWhatsApp({ blob, fileName, documentLabel: 'Rincian Harga Cetakan' })
