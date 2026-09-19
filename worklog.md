@@ -10020,3 +10020,25 @@ Work Log:
 Stage Summary:
 - Produksi = v86 (commit fd39773; + Task 122 commit 10ed396). Klik baris/kartu pelanggan di Master Pelanggan kini membuka halaman "Invoice Pelanggan" (/master-customer/[id]) berisi ringkasan pelanggan + semua invoice yang pernah dibuat untuk nama pelanggan tsb (INV & PEL, status batal/lunas/belum konsisten halaman Invoice); klik invoice membuka Detail Invoice via deep-link. Tombol aksi Edit/Nonaktif/Hapus tetap berfungsi tanpa memicu navigasi.
 - Catatan deploy berikutnya: link --project darrellsoft (token owner aktif) → bump sw v87 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v87.
+
+---
+Task ID: 124
+Agent: Z.ai Code (main)
+Task: "dihalaman pelanggan, tulisan wiayana wisnu dan cust-001 dibesarin 3pt. apabila diklik tabel baris daftar invoice, maka muncul popup preview invoice tersebut. di mobile, apabila diklik back di mobile phone, maka balik ke halaman sebelumnya. check and fix."
+
+Work Log:
+- Font halaman Invoice Pelanggan (/master-customer/[id]) dibesarkan +3pt (=+4px): nama pelanggan 16px→20px (text-xl), kode pelanggan 12px→16px (text-base) — terverifikasi computed style di lokal & produksi ("wiayana wisnu" 20px, "CUST-001"/"CUST-006" 16px).
+- Komponen baru src/components/invoice/invoice-preview-popup.tsx: lightbox popup preview invoice — fetch /api/history/[id] (auth headers), parseInvoiceData identik dgn halaman Invoice, render InvoicePreview A5 di Dialog fullscreen (bg stone-950/95, h-100dvh, ✕ custom, Esc/klik-luar), skala fit min(availW/natW, availH/natH) via useLayoutEffect + rAF/timeout retry + resize listener (pola Task 122). Loading spinner + error state dgn tombol Tutup.
+- Klik baris tabel desktop / kartu mobile di Daftar Invoice kini membuka POPUP (openPreview) — TIDAK lagi navigate ke /invoice?detail=<id>. aria-label diubah ke "Lihat pratinjau invoice <nomor>" + title hint.
+- Perilaku tombol back fisik di HP (pushState/popstate): buka popup → history.pushState({invoicePreview}) ; popstate (back hardware) → tutup popup SAJA, tetap di halaman (setPreviewId null + reset flag) ; tutup via ✕/Esc → setPreviewId null + history.back() untuk menarik balik entry yang di-push (guard history.state.invoicePreview) sehingga back BERIKUTNYA tetap kembali ke halaman sebelumnya (Master Pelanggan). Tidak ada konflik dgn kode lain (grep popstate/pushState = kosong sebelumnya).
+- Scope keamanan diverifikasi: /api/customers/[id]/history menegakkan customer.userId === user.id dan getDataFilter = strict per-user; /api/history/[id] pakai canAccessRecord strict → invoice yang tampil di daftar selalu milik user sendiri, popup fetch tidak mungkin 403.
+- Bump public/sw.js v86→v87, APP_VERSION 2026-09-17-v21→v22. Lint: 0 error di file yang diubah (42 error pra-eksisting di hitung-finishing/hitung-harga-kertas/hitung-ongkos-cetak). tsc: 0 error baru.
+- Uji lokal (agent-browser, data "wiayana wisnu"/CUST-001 dgn 3 invoice milik user-admin): klik baris desktop → popup INV/09/26/0008 fit; mobile 390×844 kartu tap → popup 366×520, tanpa overflow horizontal; desktop 1440×900 → popup 600×852 fit tinggi; history.back() dgn popup terbuka → popup tertutup, URL tetap; back lagi → /master-customer; ✕ close → history flag ter-pop; 0 page error.
+- Deploy: vercel link --project darrellsoft (token owner) → vercel --prod --yes → darrellsoft-972api4nv Ready → .vercel & .env.local DIHAPUS → curl sw.js = darrell-soft-v87.
+- Verifikasi produksi www.darrellsoft.com (superadmin): font 20px/16px di semua halaman pelanggan; karena tidak ada customer superadmin yang punya invoice, dibuat 1 customer uji "Toko Sumber Rejeki" (CUST-006) agar invoice produksi INV/07/26/0005 (milik superadmin, tidak diubah) muncul di daftar → popup produksi tampil sempurna (366×520 mobile, konten DP invoice benar, tanpa overflow); back hardware → popup tertutup tetap di halaman; ✕ → flag ter-pop; back → kembali ke Master Pelanggan (alur kanonis list→customer→popup→back). Customer uji DIHAPUS (DELETE 200) setelah verifikasi; invoice produksi tetap intact (deletedAt null); 0 console/page error.
+- Commit 4ad1b21 (rebase → b0ffa29 setelah sinkron worklog antar-sesi) → push origin main SUKSES.
+- Catatan: POST /api/history di produksi mengembalikan 500 "Gagal menyimpan" utk superadmin (dugaan: duplicate-scan findMany tanpa select atas SEMUA record superadmin terlalu berat → lambda timeout) — pra-eksisting, di luar scope task ini; tidak dieksplorasi lebih jauh. Patut dievaluasi terpisah.
+
+Stage Summary:
+- Produksi = v87 (commit b0ffa29). Halaman Invoice Pelanggan: nama & kode pelanggan +3pt; klik baris/kartu daftar invoice membuka POPUP PREVIEW A5 fit layar (mobile & desktop) tanpa pindah halaman; tombol back fisik di HP menutup popup dulu lalu kembali ke Master Pelanggan — alur kanonis terverifikasi di produksi.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v88 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v88.
