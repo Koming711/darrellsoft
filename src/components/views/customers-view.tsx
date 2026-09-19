@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  MapPin, Pencil, Phone, Plus, Power, PowerOff, Search, Trash2, Users,
+  ChevronRight, MapPin, Pencil, Phone, Plus, Power, PowerOff, Search, Trash2, Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -79,6 +80,8 @@ export default function CustomersView({
   /** Izin Hapus (master-customer-hapus) */
   canDelete?: boolean
 }) {
+
+  const router = useRouter()
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,6 +208,11 @@ export default function CustomersView({
   const hasResults = customers.length > 0
   const countLabel = loading ? 'Memuat data…' : `${customers.length} pelanggan`
 
+  /** Klik baris pelanggan → halaman daftar invoice pelanggan tsb. */
+  const openCustomerInvoices = (c: Customer) => {
+    router.push(`/master-customer/${c.id}`)
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -259,14 +267,35 @@ export default function CustomersView({
               </TableHeader>
               <TableBody>
                 {customers.map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow
+                    key={c.id}
+                    tabIndex={0}
+                    onClick={() => openCustomerInvoices(c)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        // Jangan navigasi bila yang difokuskan tombol aksi di dalam baris.
+                        const t = e.target as HTMLElement
+                        if (t.closest('button')) return
+                        e.preventDefault()
+                        openCustomerInvoices(c)
+                      }
+                    }}
+                    aria-label={`Lihat daftar invoice ${c.name}`}
+                    title="Klik baris untuk melihat daftar invoice pelanggan ini"
+                    className="cursor-pointer"
+                  >
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{c.code}</TableCell>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell className="whitespace-nowrap">{c.phone || '-'}</TableCell>
                     <TableCell className="max-w-52 truncate text-muted-foreground">{c.address || '-'}</TableCell>
-                    <TableCell className="text-center tabular-nums">{c.invoiceCount ?? 0}</TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center justify-center gap-0.5 tabular-nums text-emerald-700 font-medium">
+                        {c.invoiceCount ?? 0}
+                        <ChevronRight className="h-3.5 w-3.5 text-stone-400" aria-hidden="true" />
+                      </span>
+                    </TableCell>
                     <TableCell><ActiveBadge active={c.isActive} /></TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
@@ -321,14 +350,33 @@ export default function CustomersView({
           <EmptyState filtered={query !== ''} />
         ) : (
           customers.map((c) => (
-            <Card key={c.id} className="p-0 gap-0">
+            <Card
+              key={c.id}
+              className="p-0 gap-0 cursor-pointer transition-colors hover:border-emerald-300"
+              onClick={() => openCustomerInvoices(c)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Lihat daftar invoice ${c.name}`}
+              title="Ketuk kartu untuk melihat daftar invoice pelanggan ini"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  const t = e.target as HTMLElement
+                  if (t.closest('button')) return
+                  e.preventDefault()
+                  openCustomerInvoices(c)
+                }
+              }}
+            >
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{c.name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{c.code}</p>
                   </div>
-                  <ActiveBadge active={c.isActive} />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <ActiveBadge active={c.isActive} />
+                    <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden="true" />
+                  </div>
                 </div>
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p className="flex items-center gap-1.5 min-h-[20px]">
@@ -339,14 +387,19 @@ export default function CustomersView({
                     <span className="line-clamp-2">{c.address || '-'}</span>
                   </p>
                 </div>
-                <p className="text-xs text-muted-foreground">{c.invoiceCount ?? 0} invoice dibuat</p>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <p className="text-xs text-muted-foreground">{c.invoiceCount ?? 0} invoice dibuat</p>
+                  <span className="text-xs font-medium text-emerald-700 inline-flex items-center gap-0.5">
+                    Lihat Invoice <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                </div>
                 <div className="flex gap-2 pt-1">
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex-1 min-h-[44px]"
                     disabled={!canEdit}
-                    onClick={() => openEdit(c)}
+                    onClick={(e) => { e.stopPropagation(); openEdit(c) }}
                   >
                     <Pencil className="h-4 w-4" /> Edit
                   </Button>
@@ -356,7 +409,7 @@ export default function CustomersView({
                       size="sm"
                       className="flex-1 min-h-[44px]"
                       disabled={!canEdit}
-                      onClick={() => void handleToggleActive(c)}
+                      onClick={(e) => { e.stopPropagation(); void handleToggleActive(c) }}
                     >
                       {c.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                       {c.isActive ? 'Nonaktifkan' : 'Aktifkan'}
@@ -367,7 +420,7 @@ export default function CustomersView({
                     size="sm"
                     className="flex-1 min-h-[44px] text-destructive border-stone-200 hover:bg-destructive/10 hover:text-destructive"
                     disabled={!canDelete}
-                    onClick={() => setDeleteTarget(c)}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(c) }}
                   >
                     <Trash2 className="h-4 w-4" /> Hapus
                   </Button>
