@@ -116,10 +116,11 @@ async function inlineImages(container: HTMLElement): Promise<void> {
  */
 function getNaturalDimensions(element: HTMLElement): { width: number; height: number } {
   // scrollWidth/scrollHeight = full content size including overflow,
-  // NOT affected by transforms or ancestor overflow. This is the most
-  // reliable source of the element's true rendered size.
-  let width = element.scrollWidth || element.offsetWidth
-  let height = element.scrollHeight || element.offsetHeight
+  // NOT affected by transforms or ancestor overflow. offsetWidth/Height are
+  // transform-immune too. Take the MAX of both to be resilient against
+  // layout quirks (e.g. a squeezed box reporting a clipped scrollHeight).
+  let width = Math.max(element.scrollWidth, element.offsetWidth)
+  let height = Math.max(element.scrollHeight, element.offsetHeight)
 
   // Safety floor — never report zero (would produce an empty/invalid image)
   if (!width || width < 1) width = element.getBoundingClientRect().width || 560
@@ -141,6 +142,27 @@ function waitForLayoutSettle(): Promise<void> {
       })
     })
   })
+}
+
+/**
+ * Wait for web fonts to be FULLY loaded.
+ *
+ * next/font (Geist) lazy-loads @font-face subsets the first time their glyphs
+ * render — and html-to-image's own font-embedding only triggers DURING the
+ * first capture. Without forcing the load, the FIRST JPG/Cetak after page load
+ * rasterizes a fallback font (different layout & pixels from every next one).
+ * Force-load every unloaded face, then wait for the swap to be fully applied.
+ */
+async function waitForFontsSettled(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return
+  try {
+    const faces = Array.from(document.fonts)
+    await Promise.all(faces.map((f) => f.load().catch(() => {})))
+    await document.fonts.ready
+    // A couple of frames so any reflow from the font swap is applied before
+    // the element is measured & cloned.
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+  } catch { /* ignore — best effort */ }
 }
 
 /**
@@ -170,10 +192,8 @@ export async function captureElementAsJpg(
 ): Promise<Blob> {
   const pixelRatio = opts?.pixelRatio ?? 2
 
-  // 1. Wait for web fonts to be ready (critical for consistent text rendering)
-  if (document.fonts && document.fonts.ready) {
-    try { await document.fonts.ready } catch {}
-  }
+  // 1. Wait for web fonts to be FULLY settled (never rasterize a fallback font)
+  await waitForFontsSettled()
 
   // 2. Wait for all images in the ORIGINAL to load (so the clone has them too)
   await waitForImages(element)

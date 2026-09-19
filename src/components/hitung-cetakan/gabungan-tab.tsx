@@ -36,6 +36,7 @@ import { Layers, Search, Eye, Printer, FileImage, Loader2, X, Square, CheckSquar
 import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
+import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { Input } from '@/components/ui/input'
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
@@ -207,12 +208,14 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
   // ===== Dokumen "Rincian Harga Gabungan" =====
   // Dipakai di 2 tempat: instance offscreen (sumber capture) & preview dialog.
   const renderDokumen = () => (
-    <div className="p-4 sm:p-5 bg-white max-w-3xl w-full mx-auto">
+    // Dokumen berlebar tetap (mengikuti wrapper 768px, tanpa varian responsif)
+    // → capture JPG/Cetak identik mobile & desktop; tampilan dialog di-skala.
+    <div className="p-5 bg-white w-full">
       {/* Header dokumen */}
       <div className="text-center pb-3 border-b-2 border-slate-200 mb-3">
         <div className="flex items-center justify-center gap-2">
           <Calculator className="w-5 h-5 text-blue-600" />
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Rincian Harga Gabungan</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Rincian Harga Gabungan</h1>
         </div>
         <p className="text-sm text-slate-500 mt-1">
           {gabungCustomer !== '' ? <span className="font-semibold text-slate-600">{gabungCustomer} · </span> : null}
@@ -726,9 +729,11 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
               </button>
             </div>
 
-            {/* Konten dokumen */}
+            {/* Konten dokumen — layout tetap 768px, di-skala agar muat layar */}
             <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain">
-              {renderDokumen()}
+              <FixedDocScaler fixedWidth={768} innerClassName="bg-white">
+                {renderDokumen()}
+              </FixedDocScaler>
             </div>
 
             {/* Footer aksi */}

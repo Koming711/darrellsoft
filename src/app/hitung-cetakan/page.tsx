@@ -36,6 +36,7 @@ import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 import { calculateCuts } from '@/lib/cutting-engine'
 import { RincianCetakanPreview } from '@/components/rincian-cetakan-preview'
+import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
@@ -2810,9 +2811,11 @@ function HitungCetakanPage() {
           onClose={() => { setPreviewOpen(false); setPreviewCalc(null); setPreviewRiwayatRecord(null) }}
           title="Detail Rincian Cetakan"
         >
-          <div ref={previewRef} className="p-3 sm:p-4 bg-white">
+          {/* Dokumen layout tetap 720px (identik mobile & desktop saat capture),
+              tampilan di-skala agar muat di layar kecil */}
+          <FixedDocScaler fixedWidth={720} innerRef={previewRef} innerClassName="p-4 bg-white">
             <RincianCetakanPreview data={previewCalc} />
-          </div>
+          </FixedDocScaler>
               {/* Action Buttons — kecil 1 baris: Cetak · JPG · Edit (Edit hanya saat preview dari riwayat) */}
               <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
                 <button onClick={handlePrint} disabled={isPrinting} title="Cetak rincian (fit A5 landscape, sama persis dengan preview)"
