@@ -9914,3 +9914,23 @@ Stage Summary:
 - Produksi = v80 (commit 07822c1). JPG & CETAK halaman Hitung Cetakan (tab Editor, Riwayat, dan Gabung — plus cabang potong kertas di riwayat) kini 300 DPI hi-res dan BYTE-IDENTIK antara mobile & desktop: dokumen dirender layout tetap (tanpa media query), di-capture pada lebar tetap, font dipaksa load penuh, dan tampilan dialog HP hanya di-scale visual.
 - 3 akar masalah "mobile ≠ desktop" terdokumentasi: (1) class responsif sm:/lg: pada dokumen, (2) flex-stretch pada scaler, (3) race font pada capture pertama.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v81 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 118
+Agent: Z.ai Code (main)
+Task: "bisa gak setiap refresh keluar gambar ini dan diganti dengan logo darrellsoft aja. check and fix" — screenshot = halaman "Vercel Security Checkpoint / We're verifying your browser" (sin1) yang muncul tiap refresh www.darrellsoft.com.
+
+Work Log:
+- Diagnosa: halaman challenge itu disajikan oleh edge/keamanan Vercel SEBELUM aplikasi jalan → TIDAK BISA di-custom logo/apapun dari sisi kode. Satu-satunya "fix" yang benar = pastikan challenge tidak muncul.
+- Cek produksi (curl browser-UA, HKG): 200 + HTML aplikasi asli, TANPA challenge → challenge hanya episodik di region sin1 (screenshot user 08:22–09:02 WIB; saat dicek 09:05 WIB sudah hilang).
+- Verifikasi konfigurasi firewall project via CLI v59.23.2 (`vercel firewall status --json`): attackMode.enabled=false, botProtection=false, aiBots=false, owasp=false, bypass 0, custom rules 0 → konfigurasi project BERSIH; checkpoint berasal dari auto-mitigasi platform Vercel yang SEMENTARA (auto-aktif saat serangan terdeteksi, auto-turun setelah selesai).
+- CLI sengaja memblokir agent utk enable/disable attack mode ("Agents must not make this change on behalf of a user") → tidak dipaksa; status memang sudah off. Tidak ada perubahan firewall yang dilakukan.
+- Implementasi bagian yang BISA dikendalikan (permintaan "diganti dengan logo darrellsoft aja"): SplashScreen kini TAMPIL DI SETIAP load/refresh (gate sessionStorage dihapus), durasi 2.5s → 1.5s (animation splash ikut 1.5s) — setiap refresh memberi pengalaman loading berlogo www.darrellsoft.com.
+- Bump public/sw.js v80→v81, APP_VERSION 2026-09-17-v15→v16. Lint 0 error. Commit a345ecb.
+- Deploy: vercel link --project darrellsoft → vercel --prod --yes → Ready (darrellsoft-arj20tivf) → .vercel & .env.local DIHAPUS.
+- Verifikasi produksi www.darrellsoft.com (agent-browser): sw.js=v81; title halaman normal "Darrell Soft - Kalkulator Hitung Cetakan" (BUKAN "Vercel Security Checkpoint"); splash logo tampil saat load & tampil LAGI setelah reload (setiap refresh) lalu hilang ±1.5s; landing render normal; viewport 390×844 tanpa overflow horizontal; SW controlled; tanpa page errors.
+
+Stage Summary:
+- Produksi = v81 (commit a345ecb). Halaman verifikasi Vercel bukan berasal dari aplikasi/konfigurasi kita (semua firewall off) — itu proteksi platform Vercel yang muncul SEMENTARA saat ada upaya serangan dan hilang sendiri; halaman itu tidak mungkin diganti logo karena disajikan sebelum app dimuat.
+- Kompensasi UX sesuai permintaan user: setiap refresh kini menampilkan splash logo www.darrellsoft.com (1.5 detik) — terverifikasi di produksi (desktop & mobile).
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v82 → deploy → hapus .vercel/.env.local.
