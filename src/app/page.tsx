@@ -872,13 +872,21 @@ export default function Home() {
   // Auto-login: user yang sudah punya sesi (pernah login) langsung dibawa ke
   // Beranda — landing page tidak ditampilkan. Pemeriksaan sinkron dari
   // localStorage + cookie, jadi bekerja juga saat offline.
+  // FIX: cukup SALAH SATU penanda sesi (localStorage ATAU cookie) — dulu
+  // mewajibkan keduanya sehingga user bisa terjebak di landing ketika browser
+  // menghapus cookie tetapi localStorage masih ada (atau sebaliknya). Server
+  // mengautentikasi dari cookie ATAU header (x-user-id), jadi salah satunya
+  // saja sudah cukup untuk dianggap login.
   // Overlay menutupi landing selama pemeriksaan agar tidak ada kedipan.
   const [authChecking, setAuthChecking] = useState(true);
   useEffect(() => {
     try {
-      const hasAuth = !!localStorage.getItem('auth');
+      let hasAuth = false;
+      try {
+        hasAuth = !!JSON.parse(localStorage.getItem('auth') || 'null')?.id;
+      } catch {}
       const hasCookie = /(?:^|;\s*)userId=/.test(document.cookie);
-      if (hasAuth && hasCookie) {
+      if (hasAuth || hasCookie) {
         router.replace('/pembukaan');
         return;
       }

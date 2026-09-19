@@ -5,7 +5,7 @@ import { Sidebar } from './sidebar-desktop'
 import { MobileHeader, MobileBottomNav } from './sidebar'
 import { CompanyDataPopup } from './company-data-popup'
 import { usePathname, useRouter } from 'next/navigation'
-import { getAuthUser, clearAuthUser } from '@/lib/auth'
+import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
@@ -232,8 +232,39 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
 
     const init = async () => {
       try {
-        const authUser = getAuthUser()
+        let authUser = getAuthUser()
         if (!authUser) {
+          // Bootstrap sesi: cookie login masih ada tetapi localStorage 'auth'
+          // kosong (mis. dibersihkan browser / di-evict). Cookie userId yang
+          // masih valid = sesi sah → pulihkan sesi dari server agar user
+          // tetap langsung masuk Beranda tanpa harus login ulang.
+          let hasSessionCookie = false
+          try {
+            hasSessionCookie = /(?:^|;\s*)userId=/.test(document.cookie)
+          } catch {}
+          if (hasSessionCookie) {
+            try {
+              const meRes = await fetch('/api/auth/me', { cache: 'no-store' })
+              if (meRes.ok) {
+                const me = await meRes.json()
+                if (me?.id && me?.username) {
+                  const restored: User = {
+                    id: me.id,
+                    username: me.username,
+                    name: me.namaLengkap || me.username,
+                    role: me.role || '',
+                  }
+                  setAuthUser(restored)
+                  if (!cancelled) {
+                    setUser(restored)
+                    setUserProfile({ createdAt: me.createdAt || null, validUntil: me.validUntil || null })
+                    setReady(true)
+                  }
+                  return
+                }
+              }
+            } catch {}
+          }
           if (!cancelled) setReady(true)
           return
         }
