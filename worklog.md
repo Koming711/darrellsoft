@@ -9868,3 +9868,23 @@ Work Log:
 Stage Summary:
 - Produksi = v78 (commit 4f0c4ba). Perilaku baru: user bersesi aktif langsung masuk Beranda setiap buka aplikasi; sesi tidak pernah berakhir otomatis (tanpa kick multi-device, tanpa auto-logout idle, cookie 10 tahun); satu-satunya cara keluar adalah tombol Logout yang kini benar-benar menghapus localStorage + cookie + cache data PWA.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v79 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 116
+Agent: Main
+Task: JPG & cetak di mobile tidak sama dengan desktop — ubah semua hasil JPG & cetak dokumen menjadi hi-res 300 DPI identik di semua perangkat
+
+Work Log:
+- Diagnosis (pemetaan 16 titik JPG/cetak): (1) banyak flow menangkap [data-document-preview] = wrapper scaler yang lebar/skala-nya mengikuti viewport (desktop ±670px vs mobile ±350px, popup di-scale beda) → resolusi & layout JPG berbeda; (2) sebagian capture pixelRatio 2 (rendah); (3) cetak via window.print + @media print → browser mobile sering mengabaikan @page size 148mm 210mm dan mencetak layout responsif layar → hasil cetak beda dengan desktop; (4) fitBlobToA5/A4 default 150 DPI.
+- src/lib/capture-jpg.ts: + HIRES_DPI=300, HIRES_PIXEL_RATIO=3.125 (300/96 — elemen berukuran mm dirender 96dpi CSS sehingga 3.125x = tepat 300 DPI di SEMUA perangkat); + resolveDocumentPreviewEl() (prioritas .a5-page ukuran tetap 148mm di dalam #document-preview/[data-document-preview], fallback [data-document-preview]); + opsi fixedWidth (kunci lebar clone px CSS untuk preview viewport-dependen); fitBlobToA5/A4 default dpi 150→300 (A5=1748×2480, A4=2480×3508); + captureDocumentPaperJpg() pipeline resolve→capture 300dpi→fit kertas.
+- src/lib/print-hi-res.ts (BARU): printBlobHiRes(blob,{title,page,margin}) — cetak via GAMBAR 300 DPI (popup window, fallback iframe tersembunyi bila popup diblokir), img object-fit contain + @page size/margin → hasil cetak identik dengan JPG & antar perangkat, tidak tergantung @media print per browser.
+- Migrasi 13 file: invoice/page.tsx (handleJpg+handlePrint), invoice-pratinjau-screen.tsx (handleJpg+handleCetak), document-action-buttons.tsx (JPG+2 tombol Cetak desktop/mobile), invoice-pelunasan-editor.tsx, invoice-pelunasan-create.tsx, surat-jalan/page.tsx, purchase-order/page.tsx, riwayat-penjualan/page.tsx, riwayat-pembelian/page.tsx, potong-kertas/page.tsx (Cetak+JPG, fixedWidth 720), hitung-cetakan/page.tsx (fixedWidth 720), gabungan-tab.tsx (fixedWidth 768 = lebar instance offscreen), riwayat-content.tsx (Cetak A5 landscape/A4 + JPG, fixedWidth 720, toCanvas diganti capture hi-res). Semua flow dokumen: paper A5 portrait margin 0 (padding 8/10mm sudah di dalam .a5-page).
+- Bersih-bersih: 4 definisi lokal blobToDataUrl dihapus, import toCanvas dihapus, import capture di-update.
+- Lint: file yg diubah 0 error (42 error pra-eksisting di file lain). tsc: total error 268 sebelum = 268 sesudah, 0 error baru.
+- Verifikasi lokal (agent-browser, hook HTMLCanvasElement.toBlob): JPG desktop=1748×2480; viewport 390×844 JPG=1748×2480 → IDENTIK; Cetak → popup img 1748×2480 + @page 148mm 210mm margin 0; console/error bersih.
+- Bump sw.js → v79, APP_VERSION → 2026-09-17-v14. Commit 767b633. Deploy: vercel link darrellsoft → darrellsoft-cr4f4awkp Ready → .vercel/.env.local dihapus.
+- Verifikasi produksi www.darrellsoft.com (agent-browser): sw.js=v79; login superadmin → detail invoice INV/07/26/0005; JPG desktop=1748×2480; Cetak → popup img 1748×2480 + @page 148mm; viewport mobile 390×844 → JPG=1748×2480 (IDENTIK dengan desktop); console bersih; SW v79 registered.
+
+Stage Summary:
+- Produksi = v79 (commit 767b633). Semua JPG & cetak dokumen (invoice, invoice DP, pelunasan, surat jalan, PO, potong kertas, hitung cetakan, gabungan, riwayat) kini dirender dari elemen ukuran tetap pada 300 DPI — hasil 1748×2480 px (A5) / 2480×3508 px (A4) yang SAMA PERSIS antara mobile & desktop, dan hasil CETAK = gambar JPG itu sendiri (popup/iframe) sehingga tidak lagi tergantung @media print/viewport browser.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v80 → deploy → hapus .vercel/.env.local.
