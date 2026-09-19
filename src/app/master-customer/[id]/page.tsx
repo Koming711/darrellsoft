@@ -5,10 +5,13 @@
  * Muncul saat baris pelanggan di halaman Master Pelanggan diklik.
  * Menampilkan data pelanggan + semua invoice yang pernah dibuat untuk
  * pelanggan tersebut (dari GET /api/customers/[id]/history).
- * Klik salah satu invoice → buka Detail Invoice (/invoice?detail=<id>).
+ * Klik salah satu baris/kartu invoice → POPUP PREVIEW invoice tersebut
+ * (lightbox A5 fit layar, tanpa pindah halaman).
+ * Tombol back fisik di HP: popup terbuka → tutup popup; popup tertutup →
+ * kembali ke halaman sebelumnya (Master Pelanggan) — via pushState/popstate.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, ChevronRight, MapPin, Phone, Plus, ReceiptText,
@@ -25,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge, TypeBadge } from '@/components/invoice/invoice-badges'
+import { InvoicePreviewPopup } from '@/components/invoice/invoice-preview-popup'
 import {
   Table,
   TableBody,
@@ -81,6 +85,10 @@ export default function CustomerInvoicesPage() {
   const [summary, setSummary] = useState<CustomerHistorySummary | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Popup preview invoice — klik baris/kartu invoice → lightbox pratinjau.
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const previewPushedRef = useRef(false)
+
   useEffect(() => {
     const authUser = getAuthUser()
     if (!authUser) {
@@ -109,9 +117,39 @@ export default function CustomerInvoicesPage() {
     void load()
   }, [load])
 
-  const openDetail = (invId: string) => {
-    router.push(`/invoice?detail=${encodeURIComponent(invId)}`)
-  }
+  // Buka popup preview + push entry history — agar tombol back fisik di HP
+  // menutup popup dulu (tidak langsung meninggalkan halaman).
+  const openPreview = useCallback((invId: string) => {
+    setPreviewId(invId)
+    try {
+      window.history.pushState({ invoicePreview: invId }, '')
+      previewPushedRef.current = true
+    } catch {
+      previewPushedRef.current = false
+    }
+  }, [])
+
+  // Tutup popup (✕ / Esc / klik luar): tarik balik entry history yang
+  // di-push saat popup dibuka — back berikutnya tetap menuju halaman sebelumnya.
+  const closePreview = useCallback(() => {
+    setPreviewId(null)
+    if (previewPushedRef.current) {
+      previewPushedRef.current = false
+      if (window.history.state?.invoicePreview) window.history.back()
+    }
+  }, [])
+
+  // Tombol back fisik di HP: saat popup terbuka → cukup tutup popup
+  // (tetap di halaman ini); saat popup tertutup → perilaku default browser
+  // kembali ke halaman sebelumnya (Master Pelanggan).
+  useEffect(() => {
+    const onPopState = () => {
+      previewPushedRef.current = false
+      setPreviewId(null)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const hasInvoices = invoices.length > 0
 
@@ -145,8 +183,8 @@ export default function CustomerInvoicesPage() {
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-semibold truncate">{customer.name}</p>
-                  <p className="text-xs text-muted-foreground font-mono">{customer.code || '—'}</p>
+                  <p className="text-xl font-semibold truncate">{customer.name}</p>
+                  <p className="text-base text-muted-foreground font-mono">{customer.code || '—'}</p>
                 </div>
                 <ActiveBadge active={customer.isActive} />
               </div>
@@ -221,14 +259,15 @@ export default function CustomerInvoicesPage() {
                         <TableRow
                           key={inv.id}
                           tabIndex={0}
-                          onClick={() => openDetail(inv.id)}
+                          onClick={() => openPreview(inv.id)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault()
-                              openDetail(inv.id)
+                              openPreview(inv.id)
                             }
                           }}
-                          aria-label={`Buka invoice ${inv.number}`}
+                          aria-label={`Lihat pratinjau invoice ${inv.number}`}
+                          title="Klik baris untuk melihat pratinjau invoice"
                           className="cursor-pointer"
                         >
                           <TableCell className="font-medium whitespace-nowrap">{inv.number}</TableCell>
@@ -256,8 +295,8 @@ export default function CustomerInvoicesPage() {
                 {invoices.map((inv) => (
                   <button
                     key={inv.id}
-                    onClick={() => openDetail(inv.id)}
-                    aria-label={`Buka invoice ${inv.number}`}
+                    onClick={() => openPreview(inv.id)}
+                    aria-label={`Lihat pratinjau invoice ${inv.number}`}
                     className="w-full text-left"
                   >
                     <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-2 transition-colors active:bg-stone-50 hover:border-emerald-300">
@@ -288,6 +327,9 @@ export default function CustomerInvoicesPage() {
           )}
         </div>
       </div>
+
+      {/* Popup preview invoice (lightbox A5 fit layar) */}
+      <InvoicePreviewPopup invoiceId={previewId} onClose={closePreview} />
     </DashboardLayout>
   )
 }
