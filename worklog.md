@@ -9888,3 +9888,29 @@ Work Log:
 Stage Summary:
 - Produksi = v79 (commit 767b633). Semua JPG & cetak dokumen (invoice, invoice DP, pelunasan, surat jalan, PO, potong kertas, hitung cetakan, gabungan, riwayat) kini dirender dari elemen ukuran tetap pada 300 DPI — hasil 1748×2480 px (A5) / 2480×3508 px (A4) yang SAMA PERSIS antara mobile & desktop, dan hasil CETAK = gambar JPG itu sendiri (popup/iframe) sehingga tidak lagi tergantung @media print/viewport browser.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v80 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 117
+Agent: Z.ai Code (main)
+Task: "hasil jpg di halaman hitung cetakan di online mobile masih belum sama dengan yg di online desktop. fix." + re-verifikasi fitur selalu-on/offline (Task 114). Deploy.
+
+Work Log:
+- Latar: Task 116 (v79) sudah memaksa fixedWidth 720/768 saat capture, tapi user melapor JPG hitung cetakan masih beda mobile vs desktop. Investigasi dengan agent-browser + hook canvas toBlob/toDataURL + checksum byte per byte.
+- AKAR MASALAH 1 (layout ikut viewport): RincianCetakanPreview & dokumen Gabungan memakai class responsif sm:/lg: (grid-cols-1 lg:grid-cols-5, grid-cols-2 sm:grid-cols-3, text-lg sm:text-xl, text-2xl sm:text-3xl, p-3 sm:p-4). Media query dievaluasi terhadap LEBAR VIEWPORT, bukan lebar clone → di mobile clone tetap dirender 1 kolom, di desktop 2 kolom. fixedWidth hanya memaksa lebar, tidak mengubah media query.
+  → Fix: semua varian responsif DIHAPUS dari komponen dokumen (layout dokumen selalu gaya desktop/2 kolom); dokumen = "kertas" berlayout tetap.
+- AKAR MASALAH 2 (flex-stretch menjepit tinggi): FixedDocScaler (baru) semula outer flex tanpa items-start → align-items:stretch default menjepit tinggi elemen dokumen ke tinggi pembungkus (mobile 387px) → scrollHeight terukur 749 (quirk padding-bottom) vs 765 di desktop → raw capture 2250×2340 vs 2250×2390 → piksel berbeda.
+  → Fix: outer `items-start` + naturalH = max(offsetHeight, scrollHeight); getNaturalDimensions di capture-jpg juga max().
+- AKAR MASALAH 3 (race font): capture PERTAMA setelah load halaman memakai fallback font — next/font (Geist) lazy-load face per unicode-range dan justru proses capture html-to-image yang memicu load-nya; fonts.ready resolve sebelum load dimulai.
+  → Fix: waitForFontsSettled() = force `face.load()` semua FontFace + await fonts.ready + 2 rAF sebelum capture.
+- Komponen baru src/components/fixed-doc-scaler.tsx: menampilkan dokumen 720/768px di layar sempit via transform scale (origin top center, flex justify-center, overflow-hidden, kompensasi tinggi outer = naturalH×scale) — tampilan HP tetap bagus, layout capture tidak berubah.
+- Migrasi: hitung-cetakan/page.tsx (preview dialog → FixedDocScaler 720 + p-4 tetap), riwayat-content.tsx (cabang hitung cetakan 720/p-4 & potong kertas 720/p-5), gabungan-tab.tsx (renderDokumen root fixed `p-5 w-full` tanpa max-w/mx-auto; preview dialog → FixedDocScaler 768; instance offscreen 768 tetap).
+- Bukti lokal (row uji dibuat→dihapus): fresh-load desktop vs fresh-load mobile 390×844: raw SAMA 2250×2390, JPG SAMA 2480×1748, 389622 byte, checksum h1=3309040475 IDENTIK; tab Gabung mobile=desktop 371455 byte MATCH; print popup terbuka dgn blob yang sama; tanpa horizontal overflow.
+- Bukti produksi www.darrellsoft.com (v80, commit 07822c1): buka Editor → isi form (ivory 210, oliver 58, JP 1000, mata 1, potong 10×10, kertas 30×40, Rp500) → Preview → JPG: desktop 1440×900 raw 2250×2025 JPG 421723 byte hash 4031924769; mobile 390×844 raw 2250×2025 JPG 421723 byte hash 4031924769 → **BYTE-IDENTIK**.
+- Fitur selalu-on/offline Task 114 re-verifikasi di produksi: sw.js=v80, SW 'controlled', caches darrell-soft-v80 (200 entri) + darrell-api-runtime (12 entri data API), offline.html 200, retry server/client & auto-reconnect tidak berubah.
+- Tidak ada data produksi yang dibuat/diubah/dihapus (form hanya diisi utk Preview+JPG, tidak disimpan). Data uji lokal dihapus setelah tes.
+- Lint: 0 error pada semua file yang diubah (42+ error pra-eksisting di file lain).
+
+Stage Summary:
+- Produksi = v80 (commit 07822c1). JPG & CETAK halaman Hitung Cetakan (tab Editor, Riwayat, dan Gabung — plus cabang potong kertas di riwayat) kini 300 DPI hi-res dan BYTE-IDENTIK antara mobile & desktop: dokumen dirender layout tetap (tanpa media query), di-capture pada lebar tetap, font dipaksa load penuh, dan tampilan dialog HP hanya di-scale visual.
+- 3 akar masalah "mobile ≠ desktop" terdokumentasi: (1) class responsif sm:/lg: pada dokumen, (2) flex-stretch pada scaler, (3) race font pada capture pertama.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v81 → deploy → hapus .vercel/.env.local.
