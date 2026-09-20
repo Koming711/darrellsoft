@@ -501,24 +501,24 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
           className="fixed inset-0 z-[60] lg:hidden flex flex-col"
           style={{ backgroundColor: '#1e40af' }}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 h-12 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <img src="/logo-ds.png" alt="Logo" className="w-7 h-7 rounded-lg object-contain" />
+          {/* Header — px eksplisit: geometri popup kebal pengaturan ukuran font user */}
+          <div className="flex items-center justify-between px-[16px] h-[48px] flex-shrink-0">
+            <div className="flex items-center gap-[8px]">
+              <img src="/logo-ds.png" alt="Logo" className="w-[28px] h-[28px] rounded-[8px] object-contain" />
               <span className="text-white font-extrabold text-[15px] tracking-tight">darrellsoft.com</span>
             </div>
             <button
               onClick={() => setShowPopup(false)}
               aria-label="Tutup menu"
-              className="p-2 -mr-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-[8px] -mr-[4px] rounded-[8px] text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-[20px] h-[20px]" />
             </button>
           </div>
 
-          {/* Menu items — grid padat, semua section muat dalam 1 layar tanpa scroll */}
+          {/* Menu items — grid padat, semua section muat dalam 1 layar tanpa scroll (satuan px) */}
           <div
-            className="flex-1 overflow-y-auto px-3 pt-1 pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
+            className="flex-1 overflow-y-auto px-[12px] pt-[4px] pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
             style={{ maxHeight: 'calc(100dvh - 48px)' }}
           >
             {popupGroups.map((group) => {
@@ -526,10 +526,10 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               if (sectionItems.length === 0) return null
 
               return (
-                <div key={group.key} className="mb-1 [@media(max-height:700px)]:mb-[3px]">
+                <div key={group.key} className="mb-[4px] [@media(max-height:700px)]:mb-[3px]">
                   {group.labelKey && (
                     <div
-                      className="pb-[2px] mb-0.5 border-b [@media(max-height:700px)]:pb-[1px]"
+                      className="pb-[2px] mb-[2px] border-b [@media(max-height:700px)]:pb-[1px]"
                       style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px' }}
                     >
                       <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 leading-none">
@@ -537,7 +537,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                       </span>
                     </div>
                   )}
-                  <div className="grid grid-cols-4 gap-1">
+                  <div className="grid grid-cols-4 gap-[4px] [@media(max-height:700px)]:gap-[3px]">
                     {sectionItems.map((item) => {
                       const active = isActive(item.href)
                       return (
@@ -557,8 +557,8 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                           }}
                           className={cn(
                             // Cell ala widget Android: tile ikon berwarna di atas, label di bawah — top-aligned agar tile sejajar rapi
-                            'relative flex flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-0.5 pb-0.5 transition-colors',
-                            '[@media(min-height:800px)]:pt-1',
+                            'relative flex flex-col items-center justify-start gap-[2px] rounded-[12px] px-[4px] py-[2px] transition-colors',
+                            '[@media(min-height:800px)]:pt-[4px]',
                             item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                             active ? 'bg-white/15' : 'hover:bg-white/10'
                           )}
@@ -566,10 +566,10 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                           <span
                             aria-hidden="true"
                             className={cn(
-                              // Tile squircle gradient ala ikon app Android
-                              'flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br shadow-md [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:text-white [&>svg]:drop-shadow-sm',
-                              '[@media(min-height:800px)]:h-9 [@media(min-height:800px)]:w-9 [@media(min-height:800px)]:rounded-[12px] [@media(min-height:800px)]:[&>svg]:h-[18px] [@media(min-height:800px)]:[&>svg]:w-[18px]',
-                              '[@media(max-height:700px)]:h-7 [@media(max-height:700px)]:w-7 [@media(max-height:700px)]:[&>svg]:h-[14px] [@media(max-height:700px)]:[&>svg]:w-[14px]',
+                              // Tile squircle gradient ala ikon app Android — px eksplisit agar kebal setting ukuran font
+                              'flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br shadow-md [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:text-white [&>svg]:drop-shadow-sm',
+                              '[@media(min-height:800px)]:h-[36px] [@media(min-height:800px)]:w-[36px] [@media(min-height:800px)]:rounded-[12px] [@media(min-height:800px)]:[&>svg]:h-[18px] [@media(min-height:800px)]:[&>svg]:w-[18px]',
+                              '[@media(max-height:700px)]:h-[28px] [@media(max-height:700px)]:w-[28px] [@media(max-height:700px)]:[&>svg]:h-[14px] [@media(max-height:700px)]:[&>svg]:w-[14px]',
                               menuTileGradient[item.href] ?? 'from-slate-400 to-slate-600',
                               active && 'ring-2 ring-white/80'
                             )}
@@ -587,7 +587,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                             {t(item.titleKey)}
                           </span>
                           {item.isPro && (
-                            <span className="absolute top-0.5 right-0.5 text-[7px] font-black leading-none px-[3px] py-px rounded-sm bg-amber-500 text-white shadow">
+                            <span className="absolute top-[2px] right-[2px] text-[7px] font-black leading-none px-[3px] py-px rounded-[2px] bg-amber-500 text-white shadow">
                               PRO
                             </span>
                           )}
@@ -602,7 +602,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
             {/* Logout — compact */}
             {username && onLogout && (
               <div
-                className="mt-0.5 pt-1"
+                className="mt-[2px] pt-[4px]"
                 style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px', borderTopWidth: '0.1px' }}
               >
                 <button
@@ -610,10 +610,10 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                     setShowPopup(false)
                     if (onLogout) await onLogout()
                   }}
-                  className="flex items-center justify-center gap-1.5 w-full min-h-[34px] py-1 rounded-lg text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors [@media(max-height:700px)]:min-h-[32px]"
+                  className="flex items-center justify-center gap-[6px] w-full min-h-[34px] py-[4px] rounded-[8px] text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors [@media(max-height:700px)]:min-h-[32px]"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-xs font-semibold">{t('keluar')}</span>
+                  <LogOut className="w-[16px] h-[16px]" />
+                  <span className="text-[12px] font-semibold">{t('keluar')}</span>
                 </button>
               </div>
             )}
