@@ -45,6 +45,7 @@ import { hasFeatureAccess } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
+import { MenuHomeScreen } from '@/components/menu-home-screen'
 
 
 // Menu items with their feature IDs for permission checking
@@ -219,35 +220,6 @@ const menuItems = [
     section: 'setting',
   },
 ]
-
-// Warna tile menu ala launcher Android (gradient squircle) — dipakai popup "Lainnya" mobile.
-// Key = href menu; kelas gradient ditulis literal agar terdeteksi Tailwind.
-const menuTileGradient: Record<string, string> = {
-  '/pembukaan': 'from-sky-400 to-blue-600',
-  '/potong-kertas': 'from-rose-500 to-red-600',
-  '/hitung-cetakan': 'from-violet-500 to-purple-600',
-  '/invoice': 'from-amber-400 to-orange-500',
-  '/riwayat-pembayaran': 'from-emerald-400 to-green-600',
-  '/surat-jalan': 'from-orange-400 to-amber-600',
-  '/purchase-order': 'from-teal-400 to-cyan-600',
-  '/hutang-dagang': 'from-red-500 to-rose-700',
-  '/piutang-dagang': 'from-lime-400 to-green-600',
-  '/master-customer': 'from-cyan-400 to-sky-600',
-  '/master-barang': 'from-blue-400 to-blue-600',
-  '/laporan/penjualan': 'from-green-400 to-emerald-600',
-  '/laporan/rugi-laba': 'from-fuchsia-500 to-purple-600',
-  '/biaya-operasional': 'from-pink-500 to-rose-600',
-  '/hitung-finishing': 'from-purple-400 to-violet-600',
-  '/hitung-ongkos-cetak': 'from-yellow-400 to-amber-500',
-  '/hitung-harga-kertas': 'from-cyan-500 to-teal-600',
-  '/master-harga-kertas': 'from-amber-500 to-yellow-600',
-  '/master-ongkos-cetak': 'from-green-500 to-teal-600',
-  '/master-finishing': 'from-pink-400 to-fuchsia-600',
-  '/master-toko-pemasok': 'from-orange-500 to-red-600',
-  '/administrasi/hak-akses': 'from-red-400 to-rose-600',
-  '/administrasi/pengguna': 'from-sky-500 to-blue-600',
-  '/administrasi/pengaturan': 'from-slate-400 to-slate-600',
-}
 
 // Bottom nav items — the 5 main items shown in the mobile bottom bar
 // + "More" button that opens the full sidebar
@@ -446,6 +418,7 @@ interface MobileBottomNavProps {
 
 export function MobileBottomNav({ role, onMoreClick, username, onLogout }: MobileBottomNavProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { t } = useLanguage()
   const [showPopup, setShowPopup] = useState(false)
 
@@ -476,17 +449,6 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     })
     .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
 
-  // Group menu items by section — digabung agar seluruh menu muat 1 layar mobile
-  const popupGroups: { key: string; labelKey?: TranslationKey; sections: (string | undefined)[] }[] = [
-    { key: 'main', sections: [undefined] },
-    { key: 'hitung', labelKey: 'section_total_cost_calc' as TranslationKey, sections: ['hitung_biaya_produksi'] },
-    { key: 'dokumen', labelKey: 'section_documents' as TranslationKey, sections: ['dokumen'] },
-    { key: 'laporan', labelKey: 'section_laporan' as TranslationKey, sections: ['laporan'] },
-    { key: 'biaya', labelKey: 'section_biaya' as TranslationKey, sections: ['biaya', 'biaya_produksi'] },
-    { key: 'master', labelKey: 'section_print_master' as TranslationKey, sections: ['master_cetakan'] },
-    { key: 'admin', labelKey: 'section_administration' as TranslationKey, sections: ['administrasi', 'setting'] },
-  ]
-
   // Check if current page is one of the bottom nav items
   const isOnBottomNavPage = visibleItems.some(item => isActive(item.href))
 
@@ -516,93 +478,37 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
             </button>
           </div>
 
-          {/* Menu items — grid padat, semua section muat dalam 1 layar tanpa scroll (satuan px) */}
+          {/* Menu — home screen Android: ikon berwarna + FOLDER, bisa dipindah (tekan lama & geser) */}
           <div
-            className="flex-1 overflow-y-auto px-[12px] pt-[4px] pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
+            className="flex-1 overflow-y-auto pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
             style={{ maxHeight: 'calc(100dvh - 48px)' }}
           >
-            {popupGroups.map((group) => {
-              const sectionItems = allMenuItems.filter(item => group.sections.includes(item.section))
-              if (sectionItems.length === 0) return null
-
-              return (
-                <div key={group.key} className="mb-[4px] [@media(max-height:700px)]:mb-[3px]">
-                  {group.labelKey && (
-                    <div
-                      className="pb-[2px] mb-[2px] border-b [@media(max-height:700px)]:pb-[1px]"
-                      style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px' }}
-                    >
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 leading-none">
-                        {t(group.labelKey!)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-4 gap-[4px] [@media(max-height:700px)]:gap-[3px]">
-                    {sectionItems.map((item) => {
-                      const active = isActive(item.href)
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          aria-current={active ? 'page' : undefined}
-                          onClick={(e) => {
-                            if (item.isPro) {
-                              e.preventDefault()
-                              toast.error(t('pro_feature_locked'))
-                              return
-                            }
-                            startNavigation()
-                            window.dispatchEvent(new CustomEvent('navigation-start'))
-                            setShowPopup(false)
-                          }}
-                          className={cn(
-                            // Cell ala widget Android: tile ikon berwarna di atas, label di bawah — top-aligned agar tile sejajar rapi
-                            'relative flex flex-col items-center justify-start gap-[2px] rounded-[12px] px-[4px] py-[2px] transition-colors',
-                            '[@media(min-height:800px)]:pt-[4px]',
-                            item.isPro ? 'opacity-60 cursor-not-allowed' : '',
-                            active ? 'bg-white/15' : 'hover:bg-white/10'
-                          )}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              // Tile squircle gradient ala ikon app Android — px eksplisit agar kebal setting ukuran font
-                              'flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br shadow-md [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:text-white [&>svg]:drop-shadow-sm',
-                              '[@media(min-height:800px)]:h-[36px] [@media(min-height:800px)]:w-[36px] [@media(min-height:800px)]:rounded-[12px] [@media(min-height:800px)]:[&>svg]:h-[18px] [@media(min-height:800px)]:[&>svg]:w-[18px]',
-                              '[@media(max-height:700px)]:h-[28px] [@media(max-height:700px)]:w-[28px] [@media(max-height:700px)]:[&>svg]:h-[14px] [@media(max-height:700px)]:[&>svg]:w-[14px]',
-                              menuTileGradient[item.href] ?? 'from-slate-400 to-slate-600',
-                              active && 'ring-2 ring-white/80'
-                            )}
-                          >
-                            <item.icon strokeWidth={2.1} />
-                          </span>
-                          <span
-                            className={cn(
-                              'text-[9px] leading-[1.15] text-center font-medium text-white line-clamp-2',
-                              '[@media(max-height:700px)]:leading-[1.05]',
-                              '[@media(min-height:800px)]:text-[10px]',
-                              active && 'font-bold'
-                            )}
-                          >
-                            {t(item.titleKey)}
-                          </span>
-                          {item.isPro && (
-                            <span className="absolute top-[2px] right-[2px] text-[7px] font-black leading-none px-[3px] py-px rounded-[2px] bg-amber-500 text-white shadow">
-                              PRO
-                            </span>
-                          )}
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+            <MenuHomeScreen
+              storageKey={`darrellsoft_menu_home_${username ?? 'anon'}`}
+              items={allMenuItems.map(i => ({
+                href: i.href,
+                title: t(i.titleKey),
+                isPro: i.isPro,
+                icon: i.icon,
+                section: i.section,
+              }))}
+              isActiveHref={isActive}
+              onOpenItem={item => {
+                if (item.isPro) {
+                  toast.error(t('pro_feature_locked'))
+                  return
+                }
+                startNavigation()
+                window.dispatchEvent(new CustomEvent('navigation-start'))
+                setShowPopup(false)
+                router.push(item.href)
+              }}
+            />
 
             {/* Logout — compact */}
             {username && onLogout && (
               <div
-                className="mt-[2px] pt-[4px]"
+                className="mx-[12px] mt-[4px] pt-[4px]"
                 style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px', borderTopWidth: '0.1px' }}
               >
                 <button

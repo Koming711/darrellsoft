@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darrell-soft-v99';
+const CACHE_NAME = 'darrell-soft-v100';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
 const API_CACHE_NAME = 'darrell-api-runtime';
