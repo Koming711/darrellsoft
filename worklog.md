@@ -10176,3 +10176,20 @@ Work Log:
 Stage Summary:
 - Sekarang SEMUA lokasi yang dimaksud owner (halaman khusus riwayat + seksi riwayat kalkulator Potong Kertas & Hitung Cetakan) menampilkan dropdown "Semua Pelanggan" dan kotak pencarian DI BAWAH tab Hari ini…Semua. Produksi = v95 (commit 5578973). PO & Surat Jalan masih gaya lama 1 baris (sengaja, di luar permintaan).
 - Catatan deploy berikutnya: bump sw v96 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v96.
+---
+Task ID: 130
+Agent: Z.ai Code (main)
+Task: "dihalaman riwayat potong kertas dan riwayat hitung cetakan. hilangkan tombol scroll di table. dan kotak tabel. fix."
+
+Work Log:
+- Target = seksi riwayat kalkulator /potong-kertas & /hitung-cetakan (desktop table md+). Struktur lama: kotak `rounded-xl border bg-white overflow-hidden` + scroll internal `max-h-96 overflow-y-auto scrollbar-thin` (scrollbar di dalam kotak = "tombol scroll" yang dikeluhkan) + TableHeader sticky.
+- potong-kertas/page.tsx & hitung-cetakan/page.tsx: dua wrapper div DIHAPUS → <Table> langsung dalam `hidden md:block`; sticky dihapus dari TableHeader; tabel kini memanjang alami mengikuti halaman (semua baris tampil, tanpa scrollbar vertikal internal). Mobile cards TIDAK diubah.
+- riwayat-content.tsx (halaman khusus riwayat): bingkai kotak tabel juga dihapus (`hidden sm:block` polos) demi konsistensi; tidak ada scroll internal di sana sejak awal.
+- OVERFLOW HORIZONTAL: setelah kotak dihapus, terukur overflow 28px (PK) & 176px (HC) di 1440 → scrollbar horizontal bisa muncul. Fix: kolom sekunder kini 2xl-only (≥1536px) — PK: Gramatur & Uk. Potong; HC: Finishing — serta batas Customer/Nama Barang HC dipérkecil max-w-36. Data kolom itu tetap ada di preview & kartu mobile.
+- Verifikasi LOKAL (1440×900 & 390×844, admin): PK 9 baris & HC 8 baris tampil penuh tanpa kotak (border 0/radius 0) & tanpa scroll ancestor; halaman /riwayat-potong-kertas juga tanpa bingkai; mobile 9 kartu + tombol Hapus utuh; lint 0 masalah.
+- Deploy 2x: f8f4c91 (hapus kotak+scroll, sw v96, APP v31) & 5a059c7 (fix overflow kolom) → vercel --prod Ready → .vercel/.env.local DIHAPUS → curl sw.js = darrell-soft-v96.
+- Verifikasi PRODUKSI (Aming, 1440×900): PK (154 data, 100 baris) & HC (130 data, 100 baris) — border 0px, tanpa scroll vertikal internal, overflowX = 0px (semua kolom muat, tombol Aksi tidak terpotong); mobile kartu utuh; 0 page error.
+
+Stage Summary:
+- Tabel riwayat di kalkulator Potong Kertas & Hitung Cetakan kini TANPA kotak/bingkai dan TANPA scrollbar internal (vertikal & horizontal) — baris memanjang alami mengikuti halaman. Produksi = v96 (commit 5a059c7).
+- Catatan deploy berikutnya: bump sw v97 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v97.
