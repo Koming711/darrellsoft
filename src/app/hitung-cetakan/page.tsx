@@ -40,6 +40,22 @@ import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
+// Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥10 jt → "11,6 jt"
+const fmtRpCompact = (n: number) => {
+  const v = Math.round(n || 0)
+  if (v >= 10_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+  if (v > 0) return `Rp ${v.toLocaleString('id-ID')}`
+  return '-'
+}
+
+// Tanggal pendek utk kartu riwayat mobile: "20 Sep, 13.31"
+const formatTanggalPendek = (value?: string | null) => {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '-'
+  return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 interface Paper {
   id: string
   name: string
@@ -2874,46 +2890,78 @@ function HitungCetakanPage() {
               </Table>
             </div>
 
-            {/* Mobile cards — klik kartu → Preview */}
-            <div className="md:hidden space-y-3">
-              {filteredRiwayatList.slice(0, 100).map((r) => (
-                <Card
-                  key={r.id}
-                  className={`p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
-                  onClick={() => handlePreviewRiwayat(r)}
-                >
-                  <CardContent className="p-4 space-y-2">
-                    <p className="font-mono text-xs font-semibold break-all">{r.nomorUrut || '-'}</p>
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'} · </span>
-                      <span className="font-medium">{r.customerName || '-'}</span>
-                    </p>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      {r.printName && <p className="truncate">{r.printName}</p>}
-                      {r.finishingNames && r.finishingNames !== '' && <p className="text-xs line-clamp-1">Fin: {r.finishingNames}</p>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
-                      <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</span></p>
-                      <p className="text-muted-foreground">
-                        Profit:{' '}
-                        {r.profitAmount && r.profitAmount > 0
-                          ? <span className="text-violet-700">Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
-                          : '—'}
+            {/* Mobile cards — klik kartu → Preview (kompak, gaya sama dgn halaman riwayat:
+                bahan kertas + gramatur, modal/pcs, jual/pcs) */}
+            <div className="md:hidden space-y-2">
+              {filteredRiwayatList.slice(0, 100).map((r) => {
+                const jml = parseInt(r.jumlahPesanan) || parseInt(r.quantity) || 0
+                const modalPcs = jml > 0 ? Math.round((r.subTotal || 0) / jml) : 0
+                const jualPcs = jml > 0 ? Math.round((r.grandTotal || 0) / jml) : 0
+                const gsmLabel = r.paperGrammage && r.paperGrammage !== '0' ? ` · ${r.paperGrammage} gsm` : ''
+                return (
+                  <Card
+                    key={r.id}
+                    className={`p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                    onClick={() => handlePreviewRiwayat(r)}
+                  >
+                    <CardContent className="p-2.5 space-y-1.5">
+                      {/* Baris 1: nomor + tanggal (kompak) */}
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-mono text-[10px] font-semibold truncate">{r.nomorUrut || '-'}</p>
+                        <p className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTanggalPendek(r.createdAt)}</p>
+                      </div>
+                      {/* Baris 2: customer + nama barang */}
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold leading-tight truncate">{r.customerName || '-'}</p>
+                        <p className="text-[11px] text-muted-foreground leading-tight truncate">{r.printName || '-'}</p>
+                      </div>
+                      {/* Baris 3: bahan kertas + gramatur (permintaan owner) */}
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Hapus
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      {r.finishingNames && r.finishingNames !== '' && (
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">Fin: {r.finishingNames}</p>
+                      )}
+                      {/* Baris 4: statistik 4 kolom — Jumlah | Modal/pcs | Jual/pcs | Total */}
+                      <div className="grid grid-cols-4 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold leading-tight truncate">{jml > 0 ? jml.toLocaleString('id-ID') : '-'}</p>
+                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Jumlah</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold leading-tight truncate">{modalPcs > 0 ? fmtRpCompact(modalPcs) : '-'}</p>
+                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Modal/pcs</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold leading-tight truncate">{jualPcs > 0 ? fmtRpCompact(jualPcs) : '-'}</p>
+                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Jual/pcs</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.grandTotal || 0))}</p>
+                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Total</p>
+                        </div>
+                      </div>
+                      {/* Baris 5: profit + hapus (kompak) */}
+                      <div className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2">
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          Profit:{' '}
+                          {r.profitAmount && r.profitAmount > 0
+                            ? <span className="font-semibold text-violet-700">Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
+                            : '—'}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 min-h-0 shrink-0 px-2.5 gap-1 text-[11px] text-destructive hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
+                        >
+                          <Trash2 className="h-3 w-3" /> Hapus
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           </>
         )}
