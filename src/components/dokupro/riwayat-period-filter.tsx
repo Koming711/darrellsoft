@@ -318,6 +318,8 @@ export function RiwayatFilterCard({
  * Dropdown filter nama pelanggan/suplier — isinya diambil dari data riwayat yang
  * sedang dimuat (permintaan owner: tombol dropdown filter berisi nama pelanggan
  * yang ada di riwayat). value '' berarti "semua".
+ * `fullWidth`: melebar penuh di mobile (baris sendiri di bawah tab periode —
+ * permintaan owner), tetap kompak (w-44) di desktop.
  */
 export function RiwayatCustomerFilter({
   options,
@@ -326,6 +328,7 @@ export function RiwayatCustomerFilter({
   idPrefix = 'riwayat',
   placeholder = 'Semua Pelanggan',
   ariaLabel = 'Filter nama pelanggan',
+  fullWidth = false,
 }: {
   options: string[]
   value: string
@@ -333,6 +336,7 @@ export function RiwayatCustomerFilter({
   idPrefix?: string
   placeholder?: string
   ariaLabel?: string
+  fullWidth?: boolean
 }) {
   const ALL = '__all__'
   const disabled = options.length === 0
@@ -346,7 +350,10 @@ export function RiwayatCustomerFilter({
         id={`${idPrefix}-customer`}
         aria-label={ariaLabel}
         title={value || placeholder}
-        className="w-36 sm:w-44 shrink-0 min-h-[44px] bg-white gap-1.5"
+        className={cn(
+          'min-h-[44px] bg-white gap-1.5',
+          fullWidth ? 'w-full sm:w-44' : 'w-36 sm:w-44 shrink-0'
+        )}
       >
         <Users className="h-4 w-4 text-stone-400 shrink-0" aria-hidden="true" />
         <SelectValue placeholder={placeholder} />
