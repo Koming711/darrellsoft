@@ -10212,3 +10212,26 @@ Work Log:
 Stage Summary:
 - Produksi = v97 (commit fce45cc). SEMUA halaman & tab yang dijangkau menu Lainnya kini punya tampilan mobile 1 halaman fit-to-mobile: 3 kalkulator hitung-* (kartu riwayat CRUD), tab Gabung hitung-cetakan (kartu pilih + kartu komponen), Tabel Simulasi (kartu + edit inline) — tanpa scroll horizontal, tombol CRUD 44px selalu terjangkau; desktop tetap tabel. Halaman Lainnya lainnya sudah mobile-friendly sejak sebelumnya.
 - Catatan deploy berikutnya: bump sw v98 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v98.
+---
+Task ID: 131-b
+Agent: Z.ai Code (main)
+Task: "check gambar ini. halaman lainnya di tampilan mobile belum berubah sama sekali. check and fix" — klarifikasi target Task 131: yang dimaksud "tampilan lainnya" = POPUP MENU "Lainnya" (full-page menu dari bottom nav), bukan halaman konten.
+
+Work Log:
+- DIAGNOSIS: screenshot owner menunjukkan popup menu "Lainnya" (darrellsoft.com header + grid Beranda/HITUNG TOTAL BIAYA/DOKUMEN/LAPORAN...) terpotong di tengah section LAPORAN — butuh ~2 layar scroll di mobile. Tidak pernah disentuh sebelumnya (Task 131 sebelumnya salah sasaran ke kalkulator).
+- FIX src/components/sidebar.tsx (MobileBottomNav popup):
+  1. Grid item dipadatkan: p-4/icon-28/text-xs → py-1 min-h-[44px] (touch target), icon 18px via [&>svg], text-[9px] line-clamp-2, gap-1.
+  2. Header section dipadatkan: text-xs py-2 → text-[9px] leading-none pb-[3px] mb-1 border-b tipis.
+  3. SECTION DIGABUNG agar muat: Operasional + Biaya Produksi → "BIAYA & PRODUKSI" (i18n key BARU section_biaya: id 'BIAYA & PRODUKSI' / en 'COSTS & PRODUCTION'); Administrasi + Setting → "ADMINISTRASI". 10 baris item → 8 baris.
+  4. Responsif tinggi layar: [@media(min-height:800px)] sel membesar (min-h-[48px] py-1.5 gap-1 text-[10px]); [@media(max-height:700px)] mengecil (py-0.5 leading-[1.1] mb-1) → iPhone SE 667px pun muat.
+  5. Popup container: flex flex-col + header h-12 + konten flex-1 maxHeight calc(100dvh - 48px) + pb safe-area-inset-bottom; animasi buka motion.div (fade+slide 0.18s); aria-label Tutup; aria-current pada item aktif.
+  6. Logout jadi baris compact (min-h-[36px]) tetap terlihat tanpa scroll.
+- i18n.ts: tambah section_biaya (id+en). TranslationKey = keyof typeof → otomatis.
+- Lint: sidebar.tsx + i18n.ts 0 masalah.
+- Verifikasi LOKAL (admin, 390×844 / 360×740 / 375×667): overflowPx = 0 di 390×844 & 360×740; 375×667 logout bottom 665 ≤ 667 ✓; 24 link + Keluar semua terlihat; klik "Riwayat Pembayaran" → navigasi ke /riwayat-pembayaran & popup tertutup; desktop 1440×900: popup tidak ada, sidebar desktop normal, bottom nav hidden; 0 page error.
+- Deploy: commit 1fc409d (sw v97→v98, APP_VERSION v32→v33) → vercel --prod Ready → .vercel/.env.local DIHAPUS → curl sw.js = darrell-soft-v98.
+- Verifikasi PRODUKSI (Aming/user, 390×844): popup Lainnya overflow 0px, 22 link (hak-akses & pengguna tersembunyi utk role user — sesuai permission), Keluar bottom 805 ≤ 844, horiz 0; klik "Surat Jalan" → /surat-jalan navigasi OK; 0 page/console error.
+
+Stage Summary:
+- Popup menu "Lainnya" di mobile kini FIT 1 LAYAR penuh (semua section + item + logout terlihat tanpa scroll) di 390×844, 360×740, bahkan 375×667; desktop tidak berubah. Produksi = v98 (commit 1fc409d).
+- Catatan deploy berikutnya: bump sw v99 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v99.
