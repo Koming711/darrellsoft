@@ -10126,3 +10126,20 @@ Work Log:
 Stage Summary:
 - Produksi = v92 (commit 0426d53). "Preview tidak muncul" BUKAN bug fitur — popup PWA install menutupi tombol aksi riwayat & selalu muncul lagi tiap sesi (sessionStorage). Kini: dismiss permanen, popup + FAB install hanya di landing & dashboard, halaman kerja 100% bebas overlay, tombol ✕ 36px.
 - Catatan deploy berikutnya: bump sw v93 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v93.
+---
+Task ID: 129
+Agent: Z.ai Code (main)
+Task: "dihalaman riwayat potong kertas dan riwayat hitung cetakan. semua pelanggan dan kotak pencarian dipndahin ke bawah tab hari ini."
+
+Work Log:
+- Sebelumnya (v92): di halaman /riwayat-potong-kertas & /riwayat-hitung-cetakan (komponen RiwayatContent) dropdown "Semua Pelanggan" + kotak pencarian berdesakan dalam SATU baris di bawah tab periode → teks terpotong ("Semua Pela…", kotak cari sempit) di mobile.
+- RiwayatPeriodFilter.tsx: RiwayatCustomerFilter dapat prop baru `fullWidth` (mobile: w-full mengikuti baris; desktop tetap w-44) — halaman lain (PO/SJ/penjualan/pembelian/kalkulator) tidak berubah karena default tetap kompakt.
+- RiwayatContent.tsx: baris filter dirombak → mobile: dropdown pelanggan LEBAR PENUH (beserta tombol reset ✕) di baris tepat di bawah tab Hari ini…Semua, lalu kotak pencarian LEBAR PENUH di baris berikutnya (flex-col-reverse; urutan sesuai permintaan: pelanggan dulu, baru pencarian). Desktop (sm+): tetap 1 baris [cari][pelanggan][reset].
+- Perbaikan kecil: fullWidth tanpa shrink-0 agar tombol reset ✕ tidak terdorong keluar layar.
+- Verifikasi LOKAL (390×844 & 1440×900): layout benar di kedua halaman; dropdown berisi nama pelanggan riwayat; pilih "rendy" → 1 kartu; reset ✕ mengosongkan filter & kembali ke periode Hari ini; klik Detail → preview terbuka; desktop 1 baris rapi. Lint 0 masalah.
+- Deploy: commit bf89fc9 (sw v93, APP_VERSION 2026-09-20-v28) → vercel --prod Ready → .vercel/.env.local DIHAPUS → curl sw.js = darrell-soft-v93.
+- Verifikasi PRODUKSI (Aming, 390×844 & 1440×900): halaman potong-kertas (154 data, Rp 498.604.732) & hitung-cetakan (130 data) — dropdown full width (267px) + ✕ + cari full width di bawah tab; dropdown berisi nama pelanggan asli (33, Achai, Ayam pangjay, …); pilih "Rendy" → 46 kartu terfilter; Detail → preview terbuka; desktop dropdown sebaris dengan kotak cari; 0 page/console error.
+
+Stage Summary:
+- Produksi = v93 (commit bf89fc9). Di halaman Riwayat Potong Kertas & Riwayat Hitung Cetakan (mobile): tab periode di baris pertama, dropdown "Semua Pelanggan" melebar penuh di baris kedua (dengan ✕ reset), kotak pencarian melebar penuh di baris ketiga — tidak ada lagi teks terpotong. Desktop tetap kompak 1 baris.
+- Catatan deploy berikutnya: bump sw v94 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v94.
