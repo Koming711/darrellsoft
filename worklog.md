@@ -10390,3 +10390,24 @@ Stage Summary:
 - Surat Jalan kini CRUD penuh di mobile & desktop (sebelumnya hanya Create+Read); Tabel Simulasi potong kertas kini fit-to-mobile dengan CRUD 44px; semua halaman menu Lainnya kini mobile-CRUD lengkap (hak-akses matrix by-design).
 - Bottom nav mobile: Beranda, Potong, Cetakan, Invoice, M.Barang, Lainnya.
 - Produksi = v108 (commit 3018d34). Test data hanya di browser-sesi lokal/dev dan sudah dibersihkan; tidak ada data produksi ditulis/ubah/hapus.
+
+---
+Task ID: 142
+Agent: Z.ai Code (main)
+Task: "di tampilan mobile halaman lainnya. ganti tulisan keluar dengan logout. di halaman desktop. di sidebar menu, ganti tulisan keluar dengan logout. check and fix. deploy."
+
+Work Log:
+- Audit: grep "Keluar|keluar" → satu-satunya sumber label adalah i18n key `keluar` (src/lib/i18n.ts). Locale `id` = 'Keluar' (baris 62), locale `en` sudah 'Logout'. Key dipakai 4 tempat: sidebar.tsx (mobile: title tombol ikon logout header + label tombol bawah popup Lainnya) dan sidebar-desktop.tsx (title + label sidebar collapsed/expanded). Bukan hardcode — jadi cukup ubah 1 nilai locale id.
+- Fix: i18n.ts locale id `keluar: 'Keluar'` → `keluar: 'Logout'` (1 baris). Kata lain (photo-lightbox "keluar" dalam kalimat, gabungan-tab "keluarkan") tidak disentuh — makna berbeda.
+- SW bump: v108 → v109 + APP_VERSION 2026-09-20-v44 (konsisten konvensi: tiap deploy UI naikkan CACHE_NAME agar pengguna lama dapat aset baru; sw.js & service-worker-registration.tsx).
+- Lint: `bunx eslint src/lib/i18n.ts` → 0 error.
+- Verifikasi lokal (375×812, cookies admin): popup Lainnya tombol bawah = "Logout", keluarCount 0; desktop 1280×800 sidebar = 2 tombol "Logout", keluarRemaining 0; console/error bersih.
+- Commit 113b9ad (amend dari 566edf6): i18n.ts + sw.js + service-worker-registration.tsx (3 file, 3 baris).
+- Deploy: git pull --rebase (up to date) → `vercel --prod` darrellsoft-66qc04noh Ready (output terpotong tapi live) → curl sw.js produksi = **darrell-soft-v109**, site 200.
+- Verifikasi produksi (Aming cmptzbbqj0001l804fpa7zg2k): mobile 375×812 popup Lainnya → tombol merah bawah bertuliskan **"Logout"** (screenshot), keluarRemaining 0; desktop 1280×800 sidebar expanded → item bawah bertuliskan **"Logout"** (screenshot), 0 "Keluar". Tidak ada data produksi disentuh (hanya login + navigasi + buka popup).
+
+Stage Summary:
+- Label tombol logout kini "Logout" (bukan "Keluar") di SEMUA tampilan: mobile popup Lainnya (label + tooltip) dan desktop sidebar (label + tooltip), berlaku juga utk locale apapun karena id locale diubah.
+- Produksi = v109 (commit 113b9ad). sw v109 + APP_VERSION v44 memastikan cache lama terhapus.
+- Tidak ada perubahan logika/fungsi — murni copy label i18n 1 baris + bump versi cache.
+
