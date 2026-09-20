@@ -10061,3 +10061,28 @@ Work Log:
 Stage Summary:
 - Produksi = v88 (commit dee7ca2). Popup preview invoice di halaman pelanggan kini punya tombol Cetak & JPG (output A5 portrait 300 DPI sama dgn halaman Invoice). Delete riwayat lebih tangguh (retry transien + self-heal 404 + pesan error informatif — akar masalah "Gagal menghapus" = blip transien serverless/pooler, API sendiri terbukti sehat utk kedua akun). Riwayat Potong Kertas & Hitung Cetakan default tab Hari ini; pill periode + kotak Cari jadi 1 baris.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v89 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v89.
+---
+Task ID: 126
+Agent: Z.ai Code (main)
+Task: "ditampilan riwayat potong kertas dan riwayat hitung cetakan mobile, tab hari ini dll langsung muncul tanpa harus di klik tombol dropdown filter. apabila tombol dropdown filter diklik isinya nama pelanggan yang ada di riwayat potong kertas dan hitung cetakan. rubah penampilan dihalaman lainnya mobile lebih crud, ux dan ui. check and fix"
+
+Work Log:
+- RiwayatFilterCard (src/components/dokupro/riwayat-period-filter.tsx) dirombak: tombol lipat "Filter & Cari" DIHAPUS — konten filter kini SELALU TAMPIL di mobile & desktop, jadi tab Hari ini/Minggu ini/… langsung terlihat tanpa klik dropdown (masalah utama user). Prop activeCount dipertahankan demi kompatibilitas 4 pemanggil.
+- Komponen baru RiwayatCustomerFilter (file yang sama): dropdown Select (ikon Users) berisi NAMA PELANGGAN unik yang diambil dari data riwayat yang dimuat (sorted, abaikan '-'/kosong); value '' = "Semua Pelanggan"; disabled otomatis saat data kosong; placeholder bisa dioverride (Semua Suplier / Semua Penerima); max-h-72 scroll.
+- Halaman Potong Kertas (/potong-kertas riwayat tab): state customerFilter + riwayatCustomerOptions (dari r.namaCustomer); filter memo + filtersActive + reset + activeCount mengikutkan pelanggan; dropdown diletakkan SEBELUM kotak Cari dalam 1 baris scroll horizontal yang sama.
+- Halaman Hitung Cetakan (/hitung-cetakan riwayat tab): pola sama (dari r.customerName).
+- Halaman lainnya (permintaan "rubah penampilan dihalaman lainnya mobile lebih crud, ux dan ui"):
+  - Purchase Order (/purchase-order): dropdown "Semua Suplier" (dari entry.pihakKedua) + kotak Cari dipindah ke rightSlot = SEMUA filter jadi 1 baris; grid "Cari" lama dihapus; Label import dihapus (tidak terpakai).
+  - Surat Jalan (/surat-jalan): dropdown "Semua Penerima" (dari entry.pihakKedua) + Cari 1 baris; resetFilters ikut membersihkan pihak.
+  - Riwayat Penjualan (/riwayat-penjualan): filter lama (search di atas + tombol kecil h-8 wrap di bawah) diganti 1 baris scrollable CRUD — chip periode min-h-[44px] (touch target, aktif = emerald), dropdown "Semua Pelanggan" (dari info.namaCustomer || pihakKedua), search min-h-44, tombol reset X; partyFilter diikutkan di filteredHistories.
+  - Riwayat Pembelian (/riwayat-pembelian): pola sama dengan "Semua Suplier" (dari info.namaToko || pihakKedua).
+  - Riwayat pembayaran tidak diubah (memang tidak punya filter yang tersembunyi).
+- Perbaikan proses: MultiEdit fuzzy-match sempat mengkorupsi purchase-order/page.tsx (import tiga kali + baris rusak) — diperbaiki dengan Edit atomic per-bagian; verifikasi rg menunjukkan state final bersih.
+- sw v88→v89, APP_VERSION 2026-09-17-v23→v24. ESLint 7 file diubah = 0 masalah; tsc total 345 (tetap, 0 baru).
+- Verifikasi LOKAL (agent-browser 390×844 + 1440×900, user-admin): tab chips langsung tampak (tanpa klik apa pun), dropdown isinya nama pelanggan riwayat (Budi Susanto, jaya, Lunggan, rendy, Siti Rohana); filter "jaya" di potong-kertas = 2 row PK milik jaya saja; hitung-cetakan filter "Budi Susanto" = 3 HC saja; reset mengosongkan pelanggan+periode; PO = "Semua Suplier", SJ = "Semua Penerima"; desktop 1 baris penuh (chips kiri, dropdown+cari+reset kanan); 0 console/page error.
+- Deploy: commit 44010e9 → vercel link --project darrellsoft → vercel --prod --yes (darrellsoft-lfcnp4xxh Ready) → .vercel & .env.local DIHAPUS → curl sw.js = darrell-soft-v89.
+- Verifikasi PRODUKSI www.darrellsoft.com (superadmin, 390×844): /potong-kertas & /hitung-cetakan riwayat — chips Hari ini dkk langsung tampak, dropdown tampil dan otomatis DISABLED saat superadmin memang tak punya data riwayat (by design); /riwayat-penjualan — dropdown berisi nama pelanggan produksi (CV Mitra Printing, PT Contoh Customer, Toko Sumber Rejeki), pilih "Toko Sumber Rejeki" → daftar terfilter 3→1 (INV/07/26/0005), tanpa mengubah data; 0 page/console error.
+
+Stage Summary:
+- Produksi = v89 (commit 44010e9). Di SEMUA halaman riwayat (Potong Kertas, Hitung Cetakan, Purchase Order, Surat Jalan, Riwayat Penjualan, Riwayat Pembelian): filter periode + dropdown nama pelanggan/suplier/penerima + kotak Cari sekarang SELALU TAMPIL dalam 1 baris scrollable di mobile (tanpa tombol lipat), chip aktif emerald 44px touch-friendly, reset ikut membersihkan filter nama. Dropdown berisi nama unik dari data riwayat milik user login dan disabled saat kosong.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v90 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v90.
