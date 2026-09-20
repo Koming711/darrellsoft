@@ -10301,3 +10301,23 @@ Stage Summary:
 - Tab Gabung halaman Hitung Cetakan kini punya filter periode lengkap (Hari ini/Minggu ini/Bulan ini/Tahun ini/Custom/Semua) + dropdown Semua Pelanggan + tombol reset — gaya & perilaku konsisten dengan tab Riwayat dan halaman riwayat lain; "Pilih Semua" menghormati filter aktif; pilihan komponen tetap persist di localStorage per-user.
 - Produksi = v101 (commit bd34fd7). Verifikasi fungsional lengkap: lokal (semua filter teruji dgn data uji); produksi (bundle & render sehat, tanpa tulis data).
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v102 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 134
+Agent: Z.ai Code (main)
+Task: "tampilan mobile riwayat hitung cetakan dan riwayat potong kertas diperkecil. diriwayat potong kertas, kertas art karton tambahkan gramatur dan ukuran potong, potongan/lembar dan harga perlembar. diriwayat hitung cetakan, tambahkan bahan kertas, harga modal per pcs dan harga jual perpcs. fix"
+
+Work Log:
+- Eksplorasi: kedua halaman (/riwayat-hitung-cetakan, /riwayat-potong-kertas) memakai komponen bersama src/components/riwayat-content.tsx (source potong-kertas / hitung-cetakan). Skema: RiwayatCetakan (subTotal, grandTotal, jumlahPesanan, paperName+paperGrammage), RiwayatPotongKertas (grammage, cutWidth/Height, pricePerSheet, resultData JSON berisi totalPieces dari cutting engine, fallback berapaMata). Definisi kalkulator: modal/pcs = subTotal ÷ jumlahPesanan; jual/pcs = grandTotal ÷ jumlahPesanan (hitung-cetakan page.tsx L1446-1446); Potongan/Lembar = results.totalPieces (potong-kertas L1831).
+- UnifiedRiwayat +4 field: jumlahPcs, modalPerPcs, jualPerPcs (normalizeCetakan; base = jumlahPesanan, fallback quantity utk data lama), potonganPerLembar (normalizePotong; parse resultData→totalPieces, fallback berapaMata; try/catch JSON).
+- Kartu mobile DIPERKECIL: padding p-3.5→p-2.5, rounded-xl→lg, baris 1 badge(9px)+nomor+tanggal digabung (tanggal pindah ke atas, format pendek "20 Sep, 13.31" via formatDateShort), nama 15px→13px, sub 12→11px, baris bahan kertas baru (paperName+gramatur, utk potong + "Potong: w × h cm"), statistik 3→4 kolom (11px/8.5px) dgn formatRpCompact (≥10jt → "11,6 jt"), tombol aksi min-h 40→32px. Statistik per sumber: potong = Potongan/Lbr | Harga/Lbr | Jumlah | Total; cetakan = Jumlah | Modal/pcs | Jual/pcs | Total.
+- Tabel desktop ikut ditambah kolom: keduanya "Kertas / Bahan" (nama+gsm); potong + "Ukuran Potong" & "Potongan/Lbr"; cetakan "Harga/Lembar" diganti "Modal/pcs"+"Jual/pcs". min-w 760→1100 (potong) / 960 (cetakan).
+- Lint: eslint file riwayat-content.tsx 0 error (bun run lint keseluruhan SIGKILL oom — dieksekusi per-file).
+- Verifikasi lokal (agent-browser, viewport 375×812, cookies userId=user-admin — isolasi ketat userId harus match): HC 1 kartu "art karton · 260 gsm" + 10.000 lbr | Rp 811 Modal/pcs | Rp 1.175 Jual/pcs | 11,8 jt (subTotal 8.105.300/10.000 ✓ grandTotal 11.752.685/10.000 ✓); PK 9 kartu "art karton · 260 gsm · Potong: 30 × 30 cm" + 6 Potongan/Lbr (resultData) | Rp 2.789 Harga/Lbr; tinggi kartu ~193px, overflowX false; dialog Detail buka/tutup OK; desktop 1280: header & sel kolom baru benar di kedua halaman; 0 page error.
+- Bump sw v101→v102, APP_VERSION v36→v37. Commit accab18 → vercel --prod --token (deployment darrellsoft-8c0in9jog Ready, 1m). curl www.darrellsoft.com/sw.js = darrell-soft-v102.
+- Verifikasi produksi www.darrellsoft.com (agent-browser, Aming cmptzbbqj0001l804fpa7zg2k, 375×812): Riwayat Hitung Cetakan 3 kartu — "ivory bt · 350 gsm", Modal/pcs Rp 1.381, Jual/pcs Rp 2.072, Total 31,1 jt; Riwayat Potong Kertas 3 kartu — "ivory bt · 350 gsm · Potong: 38 × 34 cm", 6 Potongan/Lbr, Rp 4.581 Harga/Lbr; filter periode normal; 0 page/console error; TIDAK ADA data produksi ditulis/diubah/dihapus.
+
+Stage Summary:
+- Kartu riwayat mobile (hitung cetakan & potong kertas) jauh lebih kompak (±25–30% lebih pendek) dan kini menampilkan field yang diminta: potong kertas → gramatur, ukuran potong, potongan/lembar, harga per lembar (berlaku utk semua kertas termasuk art karton); hitung cetakan → bahan kertas (+gramatur), harga modal/pcs (subTotal÷jumlahPesanan), harga jual/pcs (grandTotal÷jumlahPesanan).
+- Field baru juga hadir di tabel desktop. Data lama aman: fallback jumlahPesanan→quantity dan totalPieces→berapaMata; nilai kosong tampil "-".
+- Produksi = v102 (commit accab18), terverifikasi live dengan akun Aming. Catatan: bun run lint full proses SIGKILL (memori) — pakai eslint per-file bila perlu.
