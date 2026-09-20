@@ -10235,3 +10235,27 @@ Work Log:
 Stage Summary:
 - Popup menu "Lainnya" di mobile kini FIT 1 LAYAR penuh (semua section + item + logout terlihat tanpa scroll) di 390×844, 360×740, bahkan 375×667; desktop tidak berubah. Produksi = v98 (commit 1fc409d).
 - Catatan deploy berikutnya: bump sw v99 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v99.
+---
+Task ID: 131-c
+Agent: Z.ai Code (main)
+Task: "rubah seperti gambar ini. iconnya juga bisa dipindah2. check and fix. deploy ke www.darrellsoft.com" — menu Lainnya jadi home screen Android dengan FOLDER + ikon bisa dipindah (drag & drop).
+
+Work Log:
+- KOMponen BARU src/components/menu-home-screen.tsx (~570 lines): tampilan home screen Android utk popup Lainnya:
+  1. Ikon lepas (tile squircle gradient berwarna + label) utk Beranda, Potong Kertas, Hitung Cetakan.
+  2. FOLDER ala Android (tile 2 kolom, bg white/10 rounded-16, grid 3x3 mini ikon persegi 32px berwarna, label i18n di bawah): Dokumen, Laporan, Biaya & Produksi, Master Cetak, Administrasi — sesuai screenshot owner.
+  3. Klik folder → overlay dalam popup: header [← Home] + nama folder + hint "Geser ikon ke luar kotak untuk mengeluarkan dari folder" + grid 4 kolom app.
+  4. DRAG & DROP pointer events: tekan lama 280ms (vibrate 15ms) → ghost ikon mengikuti jari (fixed, pointer-events-none, rotate-3) → reorder tile (index math standard), app→folder tile = masuk folder, di dalam folder geser ke luar grid = keluar folder (sisip setelah posisi folder), folder kosong dihapus otomatis. touch-action none di tile; klik di-suppress setelah drag (suppressClickRef 80ms).
+  5. Layout tersimpan localStorage per user (key darrellsoft_menu_home_{username}) via commit(); dimuat dgn validasi normalizeLayout (href tak dikenal dibuang, item baru di-append); tanpa layout tersimpan → buildDefaultLayout. Folder name dari i18n (ikut bahasa).
+  6. SEMUA satuan px eksplisit (h-[32px]/[36px]/[28px] via media min-height 800 / max-height 700, gap/padding px) → KEBAL pengaturan ukuran font user (rem) — pelajaran dari Bug Aming root font 18px.
+- BUGFIX ditemukan saat verifikasi: (a) tanpa layout tersimpan normalizeLayout mengembalikan flat 24 app → kini buildDefaultLayout; (b) onOpenItem TIDAK navigasi (popup lama pakai <Link>) → tambah router.push(item.href) di MobileBottomNav (useRouter).
+- ESLint react-hooks/refs: jangan akses ref saat render → dragging state {index, folderId} + suppressClickRef khusus event handler; itemsRef disinkron via useEffect.
+- sidebar.tsx: popup grid lama DIGANTI <MenuHomeScreen storageKey items(title diterjemahkan, icon, section, isPro) isActiveHref onOpenItem>; menuTileGradient & popupGroups dipindah/dihapus; header + logout tetap.
+- Lint: sidebar.tsx + menu-home-screen.tsx 0 masalah.
+- Verifikasi LOKAL (390×844, 360×740, 375×667): overflow 0 semua; folder open/close; drag dalam folder (PO→posisi 1, tersimpan), keluar folder (PO→home), masuk folder (PO→LAPORAN), reorder home (Hitung Cetakan→posisi 1); klik app navigasi (Laporan Penjualan→/laporan/penjualan); layout persisten antar reload; root font 16/18/20px geometri identik.
+- Deploy: commit 10e4fc9 (sw v99→v100, APP_VERSION v34→v35) → vercel --prod Ready → .vercel/.env.local DIHAPUS → curl sw.js = darrell-soft-v100.
+- Verifikasi PRODUKSI (Aming/user, 390×844, root font 18px): home screen 3 ikon + 5 folder tampil, overflow 0, Keluar terlihat; DOKUMEN 8 app; drag Master Barang keluar folder → home (tersimpan key aming), reload → DOKUMEN 7 app (persisten); klik Hitung Finishing di folder Biaya & Produksi → /hitung-finishing navigasi OK; layout di-reset ke default setelah uji; 0 page error. Modal "Oke, Mengerti" (v35) muncul sendiri di fresh browser — alur SW update bekerja.
+
+Stage Summary:
+- Menu "Lainnya" mobile kini HOME SCREEN Android sesuai gambar owner: ikon berwarna + FOLDER (label di bawah, mini ikon persegi), semua ikon bisa dipindah (tekan lama + geser: reorder, masuk/keluar folder), susunan tersimpan per user, tetap fit 1 layar & kebal setting ukuran font. Produksi = v100 (commit 10e4fc9).
+- Catatan deploy berikutnya: bump sw v101 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v101.
