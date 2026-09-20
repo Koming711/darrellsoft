@@ -29,7 +29,7 @@ import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/captu
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
-import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
+import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
 const CuttingDiagram = dynamic(
   () => import('@/components/cutting-results').then(m => ({ default: m.CuttingDiagram })),
@@ -259,9 +259,10 @@ function CalculatorPage() {
   const [nextPotongKertasNumber, setNextPotongKertasNumber] = useState('')
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat'>('editor')
 
-  // Riwayat tab UI states (periode + pencarian, gaya halaman Laporan Penjualan)
+  // Riwayat tab UI states (periode + pencarian + pelanggan, gaya halaman Laporan Penjualan)
   const [loadingRiwayat, setLoadingRiwayat] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [customerFilter, setCustomerFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [period, setPeriod] = useState<RiwayatPeriod>('today')
@@ -272,21 +273,32 @@ function CalculatorPage() {
   const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
   const eff = riwayatDateRange(period, dateFrom, dateTo, month, year)
 
-  // Filter riwayat: periode (rentang efektif) + pencarian (No. PK / customer / barang / kertas)
+  // Daftar nama customer unik dari riwayat (isi dropdown filter pelanggan)
+  const riwayatCustomerOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of riwayatList) {
+      const name = String(r?.namaCustomer || '').trim()
+      if (name && name !== '-') set.add(name)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [riwayatList])
+
+  // Filter riwayat: periode (rentang efektif) + pelanggan + pencarian (No. PK / customer / barang / kertas)
   const filteredRiwayatList = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q && !eff.dateFrom && !eff.dateTo) return riwayatList
+    if (!q && !customerFilter && !eff.dateFrom && !eff.dateTo) return riwayatList
     return riwayatList.filter((r: any) => {
       const t = (r.createdAt || '').slice(0, 10)
       if (eff.dateFrom && t && t < eff.dateFrom) return false
       if (eff.dateTo && t && t > eff.dateTo) return false
+      if (customerFilter && String(r?.namaCustomer || '').trim() !== customerFilter) return false
       if (q) {
         const hay = `${r?.nomorUrut || ''} ${r?.namaCustomer || ''} ${r?.namaCetakan || ''} ${r?.paperName || ''}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
     })
-  }, [riwayatList, searchQuery, eff.dateFrom, eff.dateTo])
+  }, [riwayatList, searchQuery, customerFilter, eff.dateFrom, eff.dateTo])
 
   // Total harga seluruh riwayat pada periode terpilih
   const totalRiwayat = useMemo(
@@ -294,7 +306,7 @@ function CalculatorPage() {
     [filteredRiwayatList]
   )
 
-  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim() || !!customerFilter
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -1937,8 +1949,8 @@ function CalculatorPage() {
             </div>
           </div>
 
-          {/* Filter: periode + pencarian SATU BARIS — mobile collapsible */}
-          <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
+          {/* Filter: pelanggan + periode + pencarian — SELALU TAMPIL (mobile & desktop) */}
+          <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0) + (customerFilter ? 1 : 0)}>
             <RiwayatPeriodFilter
                 idPrefix="riwayat-pk"
                 period={period}
@@ -1953,6 +1965,13 @@ function CalculatorPage() {
                 onYearChange={setYear}
                 rightSlot={
                   <div className="flex items-center gap-1.5">
+                    <RiwayatCustomerFilter
+                      idPrefix="riwayat-pk"
+                      options={riwayatCustomerOptions}
+                      value={customerFilter}
+                      onChange={setCustomerFilter}
+                      ariaLabel="Filter nama pelanggan potong kertas"
+                    />
                     <div className="relative w-52 sm:w-64">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
                       <Input
@@ -1966,7 +1985,7 @@ function CalculatorPage() {
                       />
                     </div>
                     {filtersActive && (
-                      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery('') }} aria-label="Reset filter" title="Reset Filter">
+                      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery(''); setCustomerFilter('') }} aria-label="Reset filter" title="Reset Filter">
                         <X className="h-4 w-4" />
                       </Button>
                     )}
@@ -1994,7 +2013,7 @@ function CalculatorPage() {
             <RiwayatEmptyState
               icon={<History />}
               title={filtersActive ? 'Tidak ada data yang cocok dengan filter' : 'Belum ada riwayat potong kertas'}
-              desc={filtersActive ? 'Coba ubah filter periode atau kata kunci pencarian.' : 'Hasil hitung yang disimpan akan tampil di sini'}
+              desc={filtersActive ? 'Coba ubah periode, pelanggan, atau kata kunci pencarian.' : 'Hasil hitung yang disimpan akan tampil di sini'}
             />
           ) : (
             <>

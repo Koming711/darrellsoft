@@ -11,7 +11,6 @@
 // ============================================================
 
 import type { ReactNode } from 'react'
-import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type RiwayatPeriod = 'today' | 'week' | 'month' | 'year' | 'date' | 'all'
@@ -294,48 +293,73 @@ export function RiwayatPeriodFilter(props: RiwayatPeriodFilterProps) {
 }
 
 /**
- * Kartu filter riwayat yang bisa dilipat di mobile (gaya aplikasi CRUD):
- * - Mobile: tampil tombol "Filter & Cari" + badge jumlah filter aktif; konten dilipat default.
- * - Desktop (md+): konten selalu terlihat, tombol lipat disembunyikan.
- * Isi kartu (filter periode, status, pencarian, reset) dikirim via `children`.
+ * Kartu filter riwayat — KONTEN SELALU TAMPIL di mobile & desktop (permintaan owner:
+ * tab Hari ini dkk langsung terlihat tanpa harus klik tombol dropdown filter dulu).
+ * Isi kartu (filter periode, filter pelanggan, pencarian, reset) dikirim via `children`.
+ * `activeCount` dipertahankan demi kompatibilitas pemanggil (tidak lagi dipakai —
+ * status aktif kini terlihat langsung dari pill/filter yang menyala).
  */
 export function RiwayatFilterCard({
-  activeCount = 0,
   children,
 }: {
   activeCount?: number
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
   return (
     <Card className="p-0 gap-0">
-      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="md:hidden w-full min-h-[44px] flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 text-left"
-        >
-          <span className="flex items-center gap-2 text-sm font-medium text-stone-700">
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> Filter &amp; Cari
-          </span>
-          <span className="flex items-center gap-2">
-            {activeCount > 0 && (
-              <span className="rounded-full bg-emerald-600 text-white text-[11px] font-semibold px-2 py-0.5 leading-4">
-                {activeCount} aktif
-              </span>
-            )}
-            <ChevronDown
-              className={cn('h-4 w-4 text-stone-500 transition-transform', open && 'rotate-180')}
-              aria-hidden="true"
-            />
-          </span>
-        </button>
-        <div className={cn('space-y-3 sm:space-y-4', open ? 'block' : 'hidden md:block')}>
-          {children}
-        </div>
+      <CardContent className="p-3 sm:p-4">
+        <div className="space-y-3 sm:space-y-4">{children}</div>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Dropdown filter nama pelanggan/suplier — isinya diambil dari data riwayat yang
+ * sedang dimuat (permintaan owner: tombol dropdown filter berisi nama pelanggan
+ * yang ada di riwayat). value '' berarti "semua".
+ */
+export function RiwayatCustomerFilter({
+  options,
+  value,
+  onChange,
+  idPrefix = 'riwayat',
+  placeholder = 'Semua Pelanggan',
+  ariaLabel = 'Filter nama pelanggan',
+}: {
+  options: string[]
+  value: string
+  onChange: (v: string) => void
+  idPrefix?: string
+  placeholder?: string
+  ariaLabel?: string
+}) {
+  const ALL = '__all__'
+  const disabled = options.length === 0
+  return (
+    <Select
+      value={value ? value : ALL}
+      onValueChange={(v) => onChange(v === ALL ? '' : v)}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        id={`${idPrefix}-customer`}
+        aria-label={ariaLabel}
+        title={value || placeholder}
+        className="w-36 sm:w-44 shrink-0 min-h-[44px] bg-white gap-1.5"
+      >
+        <Users className="h-4 w-4 text-stone-400 shrink-0" aria-hidden="true" />
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent position="popper" className="max-h-72">
+        <SelectItem value={ALL}>{placeholder}</SelectItem>
+        {options.map((name) => (
+          <SelectItem key={name} value={name}>
+            {name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

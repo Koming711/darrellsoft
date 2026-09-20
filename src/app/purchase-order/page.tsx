@@ -24,12 +24,12 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   RiwayatPeriodFilter,
   RiwayatFilterCard,
+  RiwayatCustomerFilter,
   RiwayatSummaryCard,
   RiwayatEmptyState,
   riwayatPeriodText,
@@ -176,7 +176,8 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  // Filter periode — gaya Laporan Penjualan
+  // Filter nama suplier (dropdown) — gaya filter pelanggan riwayat lainnya
+  const [partyFilter, setPartyFilter] = useState('')
   const [period, setPeriod] = useState<RiwayatPeriod>('all')
   const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
   const [year, setYear] = useState<number | null>(new Date().getFullYear())
@@ -382,14 +383,25 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
   // Periode efektif & label — dari helper bersama riwayat-period-filter
   const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
   const eff = riwayatDateRange(period, dateFrom, dateTo, month, year)
-  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim() || !!partyFilter
 
-  // Filter by search + rentang tanggal periode
+  // Daftar nama suplier unik dari riwayat PO (isi dropdown filter)
+  const partyOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const entry of poHistory) {
+      const name = String(entry?.pihakKedua || '').trim()
+      if (name && name !== '-') set.add(name)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [poHistory])
+
+  // Filter by search + suplier + rentang tanggal periode
   const filteredHistory = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
     return poHistory.filter(entry => {
       if (eff.dateFrom && entry.tanggal && entry.tanggal < eff.dateFrom) return false
       if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
+      if (partyFilter && String(entry?.pihakKedua || '').trim() !== partyFilter) return false
       if (!q) return true
       const info = parseDocInfo(entry)
       return (
@@ -399,7 +411,7 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
         entry.tanggal?.toLowerCase().includes(q)
       )
     })
-  }, [poHistory, searchQuery, eff.dateFrom, eff.dateTo])
+  }, [poHistory, searchQuery, partyFilter, eff.dateFrom, eff.dateTo])
 
   // Total nilai PO pada periode terpilih
   const summaryTotal = useMemo(() => {
@@ -434,8 +446,8 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
           </div>
         </div>
 
-        {/* Filter periode + pencarian — mobile collapsible */}
-        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
+        {/* Filter: suplier + periode + pencarian SATU BARIS — SELALU TAMPIL (mobile & desktop) */}
+        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0) + (partyFilter ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-po"
               period={period}
@@ -448,35 +460,36 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
               onMonthChange={setMonth}
               year={year}
               onYearChange={setYear}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="riwayat-po-search">Cari</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
-                  <Input
-                    id="riwayat-po-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari no. PO / suplier / barang…"
-                    aria-label="Cari purchase order"
-                    className="pl-9 min-h-[44px]"
+              rightSlot={
+                <div className="flex items-center gap-1.5">
+                  <RiwayatCustomerFilter
+                    idPrefix="riwayat-po"
+                    options={partyOptions}
+                    value={partyFilter}
+                    onChange={setPartyFilter}
+                    placeholder="Semua Suplier"
+                    ariaLabel="Filter nama suplier purchase order"
                   />
+                  <div className="relative w-52 sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                    <Input
+                      id="riwayat-po-search"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari no. PO / suplier / barang…"
+                      aria-label="Cari purchase order"
+                      className="pl-9 min-h-[44px] bg-white"
+                    />
+                  </div>
+                  {filtersActive && (
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('all'); setDateFrom(''); setDateTo(''); setSearchQuery(''); setPartyFilter('') }} aria-label="Reset filter" title="Reset Filter">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-              </div>
-              {filtersActive && (
-                <div className="flex items-end">
-                  <Button
-                    variant="ghost"
-                    className="text-xs text-muted-foreground h-10"
-                    onClick={() => { setPeriod('all'); setDateFrom(''); setDateTo(''); setSearchQuery('') }}
-                  >
-                    <X className="h-3.5 w-3.5" /> Reset Filter
-                  </Button>
-                </div>
-              )}
-            </div>
+              }
+            />
         </RiwayatFilterCard>
 
         {/* Ringkasan — gaya Laporan Penjualan */}
