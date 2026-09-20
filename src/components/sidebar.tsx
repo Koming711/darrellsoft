@@ -484,7 +484,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
             style={{ maxHeight: 'calc(100dvh - 48px)' }}
           >
             <MenuHomeScreen
-              storageKey={`darrellsoft_menu_home_${username ?? 'anon'}`}
+              storageKey={`darrellsoft_menu_home_v2_${username ?? 'anon'}`}
               items={allMenuItems.map(i => ({
                 href: i.href,
                 title: t(i.titleKey),
