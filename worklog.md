@@ -10160,3 +10160,19 @@ Work Log:
 Stage Summary:
 - Layout Task 129 SUDAH live sejak v93 dan tetap benar di v94 (terverifikasi produksi mobile+desktop, screenshot). Keluhan "belum ada perubahan" = sesi/cache PWA lama di perangkat user; kini diperbaiki permanen: SW mengecek update segera + tiap 60 dtk + saat online, lalu auto-reload sekali — deploy berikutnya selalu otomatis terlihat user maksimal ±1 menit.
 - Catatan deploy berikutnya: bump sw v95 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v95.
+---
+Task ID: 129-b
+Agent: Z.ai Code (main)
+Task: "dihalaman riwayat potong kertas dan riwayat hitung cetakan. semua pelanggan dan kotak pencarian dipndahin ke bawah tab hari ini. check and fix" (pengulangan — TARGET SEBENARNYA ditemukan)
+
+Work Log:
+- AUDIT ULANG: halaman khusus /riwayat-potong-kertas & /riwayat-hitung-cetakan (RiwayatContent) SUDAH benar sejak v93. Yang BELUM berubah = seksi riwayat DI DALAM kalkulator /potong-kertas & /hitung-cetakan — di sana dropdown "Semua Pelanggan" + kotak Cari dirender via prop rightSlot RiwayatPeriodFilter → MENYATU DALAM SATU BARIS dengan tab Hari ini…Semua (scroll horizontal, terpotong di mobile). Inilah halaman yang dimaksud owner (diakses via bottom nav Potong/Cetakan → tab Riwayat) → makanya "belum ada perubahan".
+- FIX src/app/potong-kertas/page.tsx & src/app/hitung-cetakan/page.tsx: rightSlot DIHAPUS dari RiwayatPeriodFilter; filter pelanggan + pencarian kini elemen kedua di dalam RiwayatFilterCard → TAMPIL DI BAWAH baris tab periode, pola persis RiwayatContent: mobile (flex-col-reverse) dropdown "Semua Pelanggan" full width + tombol reset ✕ di baris pertama, kotak pencarian full width di baris kedua; desktop (sm+) 1 baris [cari][pelanggan][reset]. Semua state/handler (searchQuery, customerFilter, filtersActive/riwayatFiltersActive, reset ke 'today') TIDAK berubah. Prop rightSlot di komponen dipertahankan (masih dipakai halaman lain).
+- Catatan: seksi riwayat di halaman Purchase Order & Surat Jalan masih pola rightSlot 1 baris — belum diubah (owner hanya menamai 2 halaman), tawarkan konsistensi lanjutan.
+- Verifikasi LOKAL (admin lokal, 390×844 & 1440×900): /potong-kertas & /hitung-cetakan tab Riwayat → tab (top ±265/236) → dropdown full width (±325/296) → cari full width; screenshot sesuai; search "siti" memfilter, reset ✕ mengosongkan + kembali ke periode Hari ini; desktop 1 baris rapi; 0 page error. Lint 2 file 0 masalah.
+- Bump sw v94→v95, APP_VERSION v29→v30. Deploy: commit 5578973 → vercel --prod Ready → .vercel/.env.local DIHAPUS → curl sw.js = darrell-soft-v95.
+- Verifikasi PRODUKSI (Aming, 390×844): /potong-kertas tab "Riwayat154" → tab (280) → dropdown 267px+✕ (344) → cari 325px (400); /hitung-cetakan tab "Riwayat130" → pola sama (279/344/400), dropdown aktif dgn data asli, tabel 100 baris; modal versi v30 muncul otomatis (alur update bekerja); 0 page/console error.
+
+Stage Summary:
+- Sekarang SEMUA lokasi yang dimaksud owner (halaman khusus riwayat + seksi riwayat kalkulator Potong Kertas & Hitung Cetakan) menampilkan dropdown "Semua Pelanggan" dan kotak pencarian DI BAWAH tab Hari ini…Semua. Produksi = v95 (commit 5578973). PO & Surat Jalan masih gaya lama 1 baris (sengaja, di luar permintaan).
+- Catatan deploy berikutnya: bump sw v96 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v96.
