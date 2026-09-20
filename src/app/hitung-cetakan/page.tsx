@@ -2747,7 +2747,7 @@ function HitungCetakanPage() {
                       <TableHead>Customer</TableHead>
                       <TableHead>Nama Barang</TableHead>
                       <TableHead className="text-right">Profit</TableHead>
-                      <TableHead className="hidden xl:table-cell">Finishing</TableHead>
+                      <TableHead className="hidden 2xl:table-cell">Finishing</TableHead>
                       <TableHead className="text-right">Jml</TableHead>
                       <TableHead className="text-right">Harga Jual/Pcs</TableHead>
                       <TableHead className="text-right">Total</TableHead>
@@ -2766,14 +2766,14 @@ function HitungCetakanPage() {
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="whitespace-nowrap w-px"><span className="font-mono text-xs">{r.nomorUrut || '-'}</span></TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</TableCell>
-                          <TableCell className="max-w-40 truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</TableCell>
-                          <TableCell className="max-w-44 text-muted-foreground" title={r.printName || '-'}>
+                          <TableCell className="max-w-36 truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</TableCell>
+                          <TableCell className="max-w-36 text-muted-foreground" title={r.printName || '-'}>
                             <span className="truncate block">{r.printName || '-'}</span>
                           </TableCell>
                           <TableCell className={`text-right tabular-nums font-semibold ${r.profitAmount && r.profitAmount > 0 ? 'text-violet-700' : 'text-muted-foreground'}`}>
                             {r.profitAmount && r.profitAmount > 0 ? `Rp ${Math.round(r.profitAmount).toLocaleString('id-ID')}` : '-'}
                           </TableCell>
-                          <TableCell className="hidden xl:table-cell max-w-36 text-muted-foreground" title={r.finishingNames || '-'}>
+                          <TableCell className="hidden 2xl:table-cell max-w-36 text-muted-foreground" title={r.finishingNames || '-'}>
                             <span className="truncate block">{r.finishingNames && r.finishingNames !== '' ? r.finishingNames : '-'}</span>
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{jml.toLocaleString('id-ID')}</TableCell>
