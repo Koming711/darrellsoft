@@ -220,6 +220,35 @@ const menuItems = [
   },
 ]
 
+// Warna tile menu ala launcher Android (gradient squircle) — dipakai popup "Lainnya" mobile.
+// Key = href menu; kelas gradient ditulis literal agar terdeteksi Tailwind.
+const menuTileGradient: Record<string, string> = {
+  '/pembukaan': 'from-sky-400 to-blue-600',
+  '/potong-kertas': 'from-rose-500 to-red-600',
+  '/hitung-cetakan': 'from-violet-500 to-purple-600',
+  '/invoice': 'from-amber-400 to-orange-500',
+  '/riwayat-pembayaran': 'from-emerald-400 to-green-600',
+  '/surat-jalan': 'from-orange-400 to-amber-600',
+  '/purchase-order': 'from-teal-400 to-cyan-600',
+  '/hutang-dagang': 'from-red-500 to-rose-700',
+  '/piutang-dagang': 'from-lime-400 to-green-600',
+  '/master-customer': 'from-cyan-400 to-sky-600',
+  '/master-barang': 'from-blue-400 to-blue-600',
+  '/laporan/penjualan': 'from-green-400 to-emerald-600',
+  '/laporan/rugi-laba': 'from-fuchsia-500 to-purple-600',
+  '/biaya-operasional': 'from-pink-500 to-rose-600',
+  '/hitung-finishing': 'from-purple-400 to-violet-600',
+  '/hitung-ongkos-cetak': 'from-yellow-400 to-amber-500',
+  '/hitung-harga-kertas': 'from-cyan-500 to-teal-600',
+  '/master-harga-kertas': 'from-amber-500 to-yellow-600',
+  '/master-ongkos-cetak': 'from-green-500 to-teal-600',
+  '/master-finishing': 'from-pink-400 to-fuchsia-600',
+  '/master-toko-pemasok': 'from-orange-500 to-red-600',
+  '/administrasi/hak-akses': 'from-red-400 to-rose-600',
+  '/administrasi/pengguna': 'from-sky-500 to-blue-600',
+  '/administrasi/pengaturan': 'from-slate-400 to-slate-600',
+}
+
 // Bottom nav items — the 5 main items shown in the mobile bottom bar
 // + "More" button that opens the full sidebar
 // shortTitleKey is used for the bottom nav label (shorter text, translatable)
@@ -497,10 +526,10 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               if (sectionItems.length === 0) return null
 
               return (
-                <div key={group.key} className="mb-1.5 [@media(max-height:700px)]:mb-1">
+                <div key={group.key} className="mb-1 [@media(max-height:700px)]:mb-[3px]">
                   {group.labelKey && (
                     <div
-                      className="pb-[3px] mb-1 border-b [@media(max-height:700px)]:mb-0.5"
+                      className="pb-[2px] mb-0.5 border-b [@media(max-height:700px)]:pb-[1px]"
                       style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px' }}
                     >
                       <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 leading-none">
@@ -527,22 +556,30 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                             setShowPopup(false)
                           }}
                           className={cn(
-                            // Cell padat: min 44px touch target, membesar halus di layar tinggi (≥800px)
-                            'relative flex flex-col items-center justify-center gap-0.5 min-h-[44px] px-0.5 py-1 rounded-lg transition-colors',
-                            '[@media(max-height:700px)]:py-0.5',
-                            '[&>svg]:w-[18px] [&>svg]:h-[18px]',
-                            '[@media(min-height:800px)]:min-h-[48px] [@media(min-height:800px)]:py-1.5 [@media(min-height:800px)]:gap-1',
+                            // Cell ala widget Android: tile ikon berwarna di atas, label di bawah — top-aligned agar tile sejajar rapi
+                            'relative flex flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-0.5 pb-0.5 transition-colors',
+                            '[@media(min-height:800px)]:pt-1',
                             item.isPro ? 'opacity-60 cursor-not-allowed' : '',
-                            active
-                              ? 'bg-white/20 text-white'
-                              : 'text-white hover:bg-white/15'
+                            active ? 'bg-white/15' : 'hover:bg-white/10'
                           )}
                         >
-                          <item.icon strokeWidth={active ? 2.4 : 2} />
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              // Tile squircle gradient ala ikon app Android
+                              'flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br shadow-md [&>svg]:h-[15px] [&>svg]:w-[15px] [&>svg]:text-white [&>svg]:drop-shadow-sm',
+                              '[@media(min-height:800px)]:h-9 [@media(min-height:800px)]:w-9 [@media(min-height:800px)]:rounded-[12px] [@media(min-height:800px)]:[&>svg]:h-[18px] [@media(min-height:800px)]:[&>svg]:w-[18px]',
+                              '[@media(max-height:700px)]:h-7 [@media(max-height:700px)]:w-7 [@media(max-height:700px)]:[&>svg]:h-[14px] [@media(max-height:700px)]:[&>svg]:w-[14px]',
+                              menuTileGradient[item.href] ?? 'from-slate-400 to-slate-600',
+                              active && 'ring-2 ring-white/80'
+                            )}
+                          >
+                            <item.icon strokeWidth={2.1} />
+                          </span>
                           <span
                             className={cn(
-                              'text-[9px] leading-[1.2] text-center font-medium line-clamp-2',
-                              '[@media(max-height:700px)]:leading-[1.1]',
+                              'text-[9px] leading-[1.15] text-center font-medium text-white line-clamp-2',
+                              '[@media(max-height:700px)]:leading-[1.05]',
                               '[@media(min-height:800px)]:text-[10px]',
                               active && 'font-bold'
                             )}
@@ -565,7 +602,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
             {/* Logout — compact */}
             {username && onLogout && (
               <div
-                className="mt-1 pt-1.5"
+                className="mt-0.5 pt-1"
                 style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px', borderTopWidth: '0.1px' }}
               >
                 <button
@@ -573,7 +610,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                     setShowPopup(false)
                     if (onLogout) await onLogout()
                   }}
-                  className="flex items-center justify-center gap-1.5 w-full min-h-[36px] py-1.5 rounded-lg text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors"
+                  className="flex items-center justify-center gap-1.5 w-full min-h-[34px] py-1 rounded-lg text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors [@media(max-height:700px)]:min-h-[32px]"
                 >
                   <LogOut className="w-4 h-4" />
                   <span className="text-xs font-semibold">{t('keluar')}</span>
