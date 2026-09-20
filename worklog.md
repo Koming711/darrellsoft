@@ -10259,3 +10259,24 @@ Work Log:
 Stage Summary:
 - Menu "Lainnya" mobile kini HOME SCREEN Android sesuai gambar owner: ikon berwarna + FOLDER (label di bawah, mini ikon persegi), semua ikon bisa dipindah (tekan lama + geser: reorder, masuk/keluar folder), susunan tersimpan per user, tetap fit 1 layar & kebal setting ukuran font. Produksi = v100 (commit 10e4fc9).
 - Catatan deploy berikutnya: bump sw v101 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v101.
+
+---
+Task ID: 132
+Agent: Z.ai Code (main)
+Task: "buka aplikasi v99" — buka aplikasi & pulihkan sandbox lokal yang stale (hilang pekerjaan Task 122–131-c / v85–v100)
+
+Work Log:
+- Diagnosa: sandbox lokal di-restore dari snapshot lama (HEAD = Task 121 / v84, worklog berhenti di Task 121), padahal produksi www.darrellsoft.com sudah v100 dan deploy terakhir = "menu Lainnya jadi home screen Android — folder (tile 3x3 mini ikon) + drag&drop".
+- Pemulihan: `git fetch origin` menunjukkan origin/main SUDAH berisi seluruh pekerjaan terbaru (Task 122–131-c, sw v85→v100) — sesi-sesi sebelumnya berhasil push ke GitHub. Riwayat lokal divergen (Task 121 ada di remote dgn SHA beda: 1f01d41/acdb9a3) → dibuat branch pengaman `backup-local-main-20260920`, db/custom.db dibackup ke /tmp, lalu `git reset --hard origin/main` (12b3eb7).
+- Tidak ada perubahan package.json / prisma/schema.prisma antara v84→v100 (diff kosong) → tidak perlu bun install / db push.
+- Dev server (next dev -p 3000) hot-reload kode baru, kompilasi sukses, SQLite connected, seed pengguna preserved.
+- Verifikasi lokal via agent-browser (login superadmin, viewport 390×844): landing normal, what's-new dialog tampil, login → /pembukaan Beranda; menu Lainnya = desain HOME SCREEN ANDROID v100 (header darrellsoft.com + hint "Tekan lama ikon lalu geser untuk memindah", tile squircle gradient berwarna, folder DOKUMEN, section LAPORAN / BIAYA & PRODUKSI / MASTER CETAK / ADMINISTRASI, tombol Keluar, tile aktif dgn ring putih).
+- Interaksi: tile "Hitung Cetakan" diklik → router.push berfungsi, halaman /hitung-cetakan render penuh (tab Editor/Riwayat/Gabung + form), API mengalir (printing-costs, finishings, riwayat-cetakan 200), 0 page error, overflowX = 0.
+- Layar pendek 375×667: popup fit (tinggi popup = viewport), overflowX 0, semua section + Keluar tampak 1 layar.
+- Produksi: curl sw.js = darrell-soft-v100, GET / = 200. Produksi sudah live v100 (tidak ada deploy baru diperlukan — v100 mencakup desain v99 + iterasi folder home screen).
+
+Stage Summary:
+- Sandbox lokal berhasil dipulihkan ke v100 (12b3eb7) tanpa kehilangan data (backup db di /tmp/custom.db.local-backup-20260920, branch lama di backup-local-main-20260920).
+- Aplikasi terbuka & terverifikasi: menu Lainnya gaya home screen Android (v99→v100) berfungsi penuh — tile navigasi, folder, active state, drag&drop hint.
+- Produksi = v100 (12b3eb7 / 10e4fc9). Tidak ada deploy baru; tidak ada data produksi disentuh.
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v101 → deploy → hapus .vercel/.env.local.
