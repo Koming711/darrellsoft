@@ -2057,8 +2057,8 @@ function CalculatorPage() {
                         <TableHead>Customer</TableHead>
                         <TableHead>Nama Barang</TableHead>
                         <TableHead className="hidden lg:table-cell">Kertas</TableHead>
-                        <TableHead className="hidden xl:table-cell">Gramatur</TableHead>
-                        <TableHead className="hidden xl:table-cell">Uk. Potong</TableHead>
+                        <TableHead className="hidden 2xl:table-cell">Gramatur</TableHead>
+                        <TableHead className="hidden 2xl:table-cell">Uk. Potong</TableHead>
                         <TableHead className="text-right">Jml</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead className="text-center">Aksi</TableHead>
@@ -2081,8 +2081,8 @@ function CalculatorPage() {
                           <TableCell className="hidden lg:table-cell max-w-32 text-muted-foreground" title={r.paperName}>
                             <span className="truncate block">{r.paperName || '-'}</span>
                           </TableCell>
-                          <TableCell className="hidden xl:table-cell text-muted-foreground whitespace-nowrap">{r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}</TableCell>
-                          <TableCell className="hidden xl:table-cell text-muted-foreground whitespace-nowrap">{r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}</TableCell>
+                          <TableCell className="hidden 2xl:table-cell text-muted-foreground whitespace-nowrap">{r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}</TableCell>
+                          <TableCell className="hidden 2xl:table-cell text-muted-foreground whitespace-nowrap">{r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}</TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-right tabular-nums font-bold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
