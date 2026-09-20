@@ -659,19 +659,19 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={cn(
-                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold',
+                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold',
                       isPotong ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'
                     )}>
                       {isPotong ? <Scissors className="w-2.5 h-2.5" /> : <Calculator className="w-2.5 h-2.5" />}
                       {jenisLabel}
                     </span>
                     {item.nomorUrut && (
-                      <span className={cn('text-[10px] font-mono font-semibold tracking-wide', isPotong ? 'text-teal-700' : 'text-blue-700')}>
+                      <span className={cn('text-[11px] font-mono font-semibold tracking-wide', isPotong ? 'text-teal-700' : 'text-blue-700')}>
                         {item.nomorUrut}
                       </span>
                     )}
                   </div>
-                  <span className="flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
+                  <span className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0">
                     <CalendarDays className="w-3 h-3" />
                     {formatDateShort(item.createdAt)}
                   </span>
@@ -681,17 +681,17 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                 <div className="flex items-start gap-1.5 min-w-0">
                   <User className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-[15px] text-slate-900 truncate leading-tight">
+                    <p className="font-bold text-[16px] text-slate-900 truncate leading-tight">
                       {item.customerName || '-'}
                     </p>
-                    <p className="text-[12.5px] text-slate-500 truncate leading-tight">
+                    <p className="text-[13.5px] text-slate-500 truncate leading-tight">
                       {item.printName || '-'}
                     </p>
                   </div>
                 </div>
 
                 {/* Baris 3: bahan kertas + gramatur (+ ukuran potong utk potong kertas) */}
-                <div className="flex items-center gap-1.5 mt-1.5 min-w-0 text-[12px] text-slate-600">
+                <div className="flex items-center gap-1.5 mt-1.5 min-w-0 text-[13px] text-slate-600">
                   <FileText className="w-3 h-3 shrink-0 text-slate-400" />
                   <span className="truncate">
                     <span className="font-medium">{item.paperName || '-'}</span>
@@ -700,63 +700,73 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                   </span>
                 </div>
 
-                {/* Baris 4: ringkasan angka — 4 kolom kompak */}
-                <div className="grid grid-cols-4 gap-1 mt-2 bg-slate-50 rounded-lg px-1.5 py-1.5 text-center">
-                  {isPotong ? (
-                    <>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-slate-800 leading-tight truncate">
-                          {item.potonganPerLembar != null && item.potonganPerLembar > 0 ? item.potonganPerLembar.toLocaleString('id-ID') : '-'}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Potongan/Lbr</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-extrabold text-slate-800 leading-tight truncate">
-                          {item.pricePerSheet > 0 ? formatRpCompact(item.pricePerSheet) : '-'}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Harga/Lbr</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{formatRpCompact(item.grandTotal)}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Total</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-extrabold text-slate-800 leading-tight truncate">
-                          {item.modalPerPcs > 0 ? formatRpCompact(item.modalPerPcs) : '-'}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Modal/pcs</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-slate-800 leading-tight truncate">
-                          {item.jualPerPcs > 0 ? formatRpCompact(item.jualPerPcs) : '-'}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Jual/pcs</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{formatRpCompact(item.grandTotal)}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Total</p>
-                      </div>
-                    </>
-                  )}
-                </div>
+                {/* Baris 4: ringkasan angka — potong: 3 kolom (Total pindah ke bawah sejajar Hapus, angka penuh); cetakan: 4 kolom */}
+                {isPotong ? (
+                  <div className="grid grid-cols-3 gap-1 mt-2 bg-slate-50 rounded-lg px-1.5 py-1.5 text-center">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold text-slate-800 leading-tight truncate">
+                        {item.potonganPerLembar != null && item.potonganPerLembar > 0 ? item.potonganPerLembar.toLocaleString('id-ID') : '-'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Potongan/Lbr</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-extrabold text-slate-800 leading-tight truncate">
+                        {item.pricePerSheet > 0 ? formatRp(item.pricePerSheet) : '-'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Harga/Lbr</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-1 mt-2 bg-slate-50 rounded-lg px-1.5 py-1.5 text-center">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-extrabold text-slate-800 leading-tight truncate">
+                        {item.modalPerPcs > 0 ? formatRpCompact(item.modalPerPcs) : '-'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Modal/pcs</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-slate-800 leading-tight truncate">
+                        {item.jualPerPcs > 0 ? formatRpCompact(item.jualPerPcs) : '-'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Jual/pcs</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{formatRpCompact(item.grandTotal)}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">Total</p>
+                    </div>
+                  </div>
+                )}
 
-                {/* Baris 5: aksi CRUD (lebih kecil) */}
-                <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100">
-                  {detailButton(item)}
-                  {editButton(item)}
-                  {deleteButton(item)}
-                </div>
+                {/* Baris 5: potong → Total (PENUH, tidak disingkat) sejajar aksi CRUD; cetakan → aksi CRUD */}
+                {isPotong ? (
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100">
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-slate-400 leading-tight">Total</p>
+                      <p className="text-[14px] font-extrabold text-emerald-700 leading-tight truncate">
+                        {item.grandTotal > 0 ? formatRp(item.grandTotal) : '-'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {detailButton(item)}
+                      {editButton(item)}
+                      {deleteButton(item)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100">
+                    {detailButton(item)}
+                    {editButton(item)}
+                    {deleteButton(item)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
