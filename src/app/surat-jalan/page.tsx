@@ -8,6 +8,7 @@ import {
   RiwayatEmptyState,
   RiwayatPeriodFilter,
   RiwayatFilterCard,
+  RiwayatCustomerFilter,
   RiwayatSummaryCard,
   riwayatDateRange,
   riwayatPeriodText,
@@ -30,7 +31,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -157,6 +157,8 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
   const [sjHistory, setSjHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  // Filter nama penerima/pihak kedua (dropdown)
+  const [partyFilter, setPartyFilter] = useState('')
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewScale, setPreviewScale] = useState(1)
@@ -343,11 +345,22 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
     input.click()
   }
 
-  // Filter by periode + search
+  // Daftar nama penerima unik dari riwayat SJ (isi dropdown filter)
+  const partyOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const entry of sjHistory) {
+      const name = String(entry?.pihakKedua || '').trim()
+      if (name && name !== '-') set.add(name)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [sjHistory])
+
+  // Filter by periode + penerima + search
   const filteredHistory = useMemo(() => {
     return sjHistory.filter(entry => {
       if (eff.dateFrom && entry.tanggal && entry.tanggal < eff.dateFrom) return false
       if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
+      if (partyFilter && String(entry?.pihakKedua || '').trim() !== partyFilter) return false
       if (!searchQuery.trim()) return true
       const q = searchQuery.toLowerCase().trim()
       const info = parseDocInfo(entry)
@@ -358,7 +371,7 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
         entry.tanggal?.toLowerCase().includes(q)
       )
     })
-  }, [sjHistory, searchQuery, eff])
+  }, [sjHistory, searchQuery, partyFilter, eff])
 
   // Ringkasan dari hasil filter (gaya Laporan Penjualan)
   const summary = useMemo(() => {
@@ -372,13 +385,14 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
     return { count: filteredHistory.length, totalItems, totalQty }
   }, [filteredHistory])
 
-  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+  const filtersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim() || !!partyFilter
 
   const resetFilters = () => {
     setPeriod('all')
     setDateFrom('')
     setDateTo('')
     setSearchQuery('')
+    setPartyFilter('')
   }
 
   return (
@@ -407,8 +421,8 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
           </div>
         </div>
 
-        {/* Filter — mobile collapsible */}
-        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
+        {/* Filter: penerima + periode + pencarian SATU BARIS — SELALU TAMPIL (mobile & desktop) */}
+        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0) + (partyFilter ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-sj"
               period={period}
@@ -421,31 +435,36 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
               onMonthChange={setMonth}
               year={year}
               onYearChange={setYear}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="riwayat-sj-search">Cari</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
-                  <Input
-                    id="riwayat-sj-search"
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari no. SJ / penerima / barang…"
-                    aria-label="Cari"
-                    className="pl-9 min-h-[44px]"
+              rightSlot={
+                <div className="flex items-center gap-1.5">
+                  <RiwayatCustomerFilter
+                    idPrefix="riwayat-sj"
+                    options={partyOptions}
+                    value={partyFilter}
+                    onChange={setPartyFilter}
+                    placeholder="Semua Penerima"
+                    ariaLabel="Filter nama penerima surat jalan"
                   />
+                  <div className="relative w-52 sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                    <Input
+                      id="riwayat-sj-search"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari no. SJ / penerima / barang…"
+                      aria-label="Cari"
+                      className="pl-9 min-h-[44px] bg-white"
+                    />
+                  </div>
+                  {filtersActive && (
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={resetFilters} aria-label="Reset filter" title="Reset Filter">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-              </div>
-              {filtersActive && (
-                <div className="flex items-end">
-                  <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
-                    <X className="h-3.5 w-3.5" /> Reset Filter
-                  </Button>
-                </div>
-              )}
-            </div>
+              }
+            />
         </RiwayatFilterCard>
 
         {/* Ringkasan */}

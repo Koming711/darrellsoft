@@ -38,7 +38,7 @@ import { calculateCuts } from '@/lib/cutting-engine'
 import { RincianCetakanPreview } from '@/components/rincian-cetakan-preview'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
-import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
+import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
 interface Paper {
   id: string
@@ -331,6 +331,7 @@ function HitungCetakanPage() {
   const [nextHitungCetakanNumber, setNextHitungCetakanNumber] = useState('')
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'gabung'>('editor')
   const [searchQuery, setSearchQuery] = useState('')
+  const [customerFilter, setCustomerFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [period, setPeriod] = useState<RiwayatPeriod>('today')
@@ -349,7 +350,17 @@ function HitungCetakanPage() {
     }
   }
 
-  // Filter riwayat: periode + pencarian (gaya Laporan Penjualan)
+  // Daftar nama customer unik dari riwayat (isi dropdown filter pelanggan)
+  const riwayatCustomerOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of riwayatCetakanList) {
+      const name = String(r?.customerName || '').trim()
+      if (name && name !== '-') set.add(name)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [riwayatCetakanList])
+
+  // Filter riwayat: periode + pelanggan + pencarian (gaya Laporan Penjualan)
   const periodLabel = riwayatPeriodText(period, dateFrom, dateTo, month, year)
   const eff = riwayatDateRange(period, dateFrom, dateTo, month, year)
   const filteredRiwayatList = useMemo(() => {
@@ -358,14 +369,15 @@ function HitungCetakanPage() {
       const t = String(r?.createdAt || '').slice(0, 10)
       if (eff.dateFrom && t && t < eff.dateFrom) return false
       if (eff.dateTo && t && t > eff.dateTo) return false
+      if (customerFilter && String(r?.customerName || '').trim() !== customerFilter) return false
       if (q) {
         const hay = `${r?.nomorUrut || ''} ${r?.customerName || ''} ${r?.printName || ''} ${r?.finishingNames || ''}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
     })
-  }, [riwayatCetakanList, searchQuery, eff])
-  const riwayatFiltersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
+  }, [riwayatCetakanList, searchQuery, customerFilter, eff])
+  const riwayatFiltersActive = period !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim() || !!customerFilter
 
   // Ringkasan riwayat: total & profit (profitAmount > 0 saja) dari list terfilter
   const riwayatSummary = useMemo(() => {
@@ -2647,8 +2659,8 @@ function HitungCetakanPage() {
           </div>
         </div>
 
-        {/* Filter: periode + pencarian SATU BARIS — mobile collapsible */}
-        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0)}>
+        {/* Filter: pelanggan + periode + pencarian — SELALU TAMPIL (mobile & desktop) */}
+        <RiwayatFilterCard activeCount={(period !== 'all' ? 1 : 0) + (searchQuery.trim() !== '' ? 1 : 0) + (customerFilter ? 1 : 0)}>
             <RiwayatPeriodFilter
               idPrefix="riwayat-hc"
               period={period}
@@ -2663,6 +2675,13 @@ function HitungCetakanPage() {
               onYearChange={setYear}
               rightSlot={
                 <div className="flex items-center gap-1.5">
+                  <RiwayatCustomerFilter
+                    idPrefix="riwayat-hc"
+                    options={riwayatCustomerOptions}
+                    value={customerFilter}
+                    onChange={setCustomerFilter}
+                    ariaLabel="Filter nama pelanggan hitung cetakan"
+                  />
                   <div className="relative w-52 sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
                     <Input
@@ -2676,7 +2695,7 @@ function HitungCetakanPage() {
                     />
                   </div>
                   {riwayatFiltersActive && (
-                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery('') }} aria-label="Reset filter" title="Reset Filter">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery(''); setCustomerFilter('') }} aria-label="Reset filter" title="Reset Filter">
                       <X className="h-4 w-4" />
                     </Button>
                   )}
@@ -2704,7 +2723,7 @@ function HitungCetakanPage() {
           <RiwayatEmptyState
             icon={<History />}
             title={riwayatFiltersActive ? 'Tidak ditemukan' : 'Belum ada riwayat hitung cetakan'}
-            desc={riwayatFiltersActive ? 'Coba ubah filter periode atau kata kunci pencarian.' : 'Hasil hitung yang disimpan akan tampil di sini'}
+            desc={riwayatFiltersActive ? 'Coba ubah periode, pelanggan, atau kata kunci pencarian.' : 'Hasil hitung yang disimpan akan tampil di sini'}
           />
         ) : (
           <>

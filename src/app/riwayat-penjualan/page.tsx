@@ -14,6 +14,7 @@ import {
   ImageIcon,
   CheckCircle2,
   CircleDot,
+  X,
 } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { formatRupiah } from '@/lib/format'
@@ -33,6 +34,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { InvoicePreview } from '@/components/dokupro/invoice-preview'
+import { RiwayatCustomerFilter } from '@/components/dokupro/riwayat-period-filter'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import { generateInvoicePdf, sharePdfViaWhatsApp, shareJpgViaWhatsApp } from '@/lib/generate-pdf'
@@ -224,6 +226,8 @@ export default function RiwayatPenjualanPage() {
   const [sendingJpg, setSendingJpg] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  // Filter nama pelanggan (dropdown) — gaya filter riwayat lainnya
+  const [partyFilter, setPartyFilter] = useState('')
 
   // Date filter
   const [filterType, setFilterType] = useState<FilterType>('all')
@@ -445,11 +449,23 @@ export default function RiwayatPenjualanPage() {
     return count
   }, [invHistory])
 
+  // Daftar nama pelanggan unik dari riwayat penjualan (isi dropdown filter)
+  const partyOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const inv of invHistory) {
+      const info = parseDocInfo(inv)
+      const name = (info.namaCustomer || inv.pihakKedua || '').trim()
+      if (name && name !== '-') set.add(name)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [invHistory])
+
   // Search filter
   const filteredHistories = invHistory.filter(inv => {
+    const info = parseDocInfo(inv)
+    if (partyFilter && (info.namaCustomer || inv.pihakKedua || '').trim() !== partyFilter) return false
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
-    const info = parseDocInfo(inv)
     return (
       (inv.nomor || '').toLowerCase().includes(term) ||
       (inv.pihakKedua || '').toLowerCase().includes(term) ||
@@ -458,6 +474,8 @@ export default function RiwayatPenjualanPage() {
       (info.referensi || '').toLowerCase().includes(term)
     )
   })
+
+  const filtersActiveRp = filterType !== 'all' || !!searchTerm.trim() || !!partyFilter
 
   const filterButtons: { type: FilterType; label: string }[] = [
     { type: 'all', label: 'Semua' },
@@ -509,32 +527,59 @@ export default function RiwayatPenjualanPage() {
           </div>
         </div>
 
-        {/* Search + Filter */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 p-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" placeholder="Cari penjualan..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        {/* Filter: periode + pelanggan + pencarian SATU BARIS — selalu tampil */}
+        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-200 dark:border-zinc-700 p-3 sm:p-4">
+          <div
+            className="flex flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-thin -mx-1 px-1 pb-1 sm:mx-0 sm:px-0 sm:pb-0"
+            role="group"
+            aria-label="Filter riwayat penjualan"
+          >
+            {filterButtons.map(btn => (
+              <Button
+                key={btn.type}
+                variant="outline"
+                size="sm"
+                onClick={() => handleFilterChange(btn.type)}
+                className={cn(
+                  'shrink-0 min-h-[44px] px-4 text-sm font-medium rounded-lg transition-all',
+                  filterType === btn.type
+                    ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:text-white shadow-sm'
+                    : 'bg-white dark:bg-[#1a1a1a] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#222] hover:text-slate-800 dark:hover:text-slate-200'
+                )}
+              >
+                {btn.label}
+              </Button>
+            ))}
+            <RiwayatCustomerFilter
+              idPrefix="riwayat-penjualan"
+              options={partyOptions}
+              value={partyFilter}
+              onChange={setPartyFilter}
+              ariaLabel="Filter nama pelanggan penjualan"
+            />
+            <div className="relative w-52 sm:w-64 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Cari penjualan..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Cari riwayat penjualan"
+                className="w-full min-h-[44px] pl-9 pr-4 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+              />
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {filterButtons.map(btn => (
-                <Button
-                  key={btn.type}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleFilterChange(btn.type)}
-                  className={cn(
-                    'h-8 px-3 text-xs font-medium rounded-lg transition-all',
-                    filterType === btn.type
-                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white shadow-sm'
-                      : 'bg-white dark:bg-[#1a1a1a] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#222] hover:text-slate-800 dark:hover:text-slate-200'
-                  )}
-                >
-                  {btn.label}
-                </Button>
-              ))}
-            </div>
+            {filtersActiveRp && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 shrink-0"
+                onClick={() => { setFilterType('all'); setSearchTerm(''); setPartyFilter(''); setCustomStartDate(undefined); setCustomEndDate(undefined) }}
+                aria-label="Reset filter"
+                title="Reset Filter"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
