@@ -10321,3 +10321,20 @@ Stage Summary:
 - Kartu riwayat mobile (hitung cetakan & potong kertas) jauh lebih kompak (±25–30% lebih pendek) dan kini menampilkan field yang diminta: potong kertas → gramatur, ukuran potong, potongan/lembar, harga per lembar (berlaku utk semua kertas termasuk art karton); hitung cetakan → bahan kertas (+gramatur), harga modal/pcs (subTotal÷jumlahPesanan), harga jual/pcs (grandTotal÷jumlahPesanan).
 - Field baru juga hadir di tabel desktop. Data lama aman: fallback jumlahPesanan→quantity dan totalPieces→berapaMata; nilai kosong tampil "-".
 - Produksi = v102 (commit accab18), terverifikasi live dengan akun Aming. Catatan: bun run lint full proses SIGKILL (memori) — pakai eslint per-file bila perlu.
+
+---
+Task ID: 135
+Agent: Z.ai Code (main)
+Task: "dihalaman riwayat hitung cetakan dan halaman potong kertas di tampilan mobile belum berubah. check and fix"
+
+Work Log:
+- Diagnosis: Task 134 mengubah halaman riwayat STANDALONE (/riwayat-hitung-cetakan, /riwayat-potong-kertas) — tapi owner melihat tab Riwayat DI DALAM kalkulator /hitung-cetakan dan /potong-kertas yang punya render kartu mobile sendiri (masih gaya lama). Itu yang "belum berubah".
+- src/app/hitung-cetakan/page.tsx: helper module-scope fmtRpCompact + formatTanggalPendek; blok kartu mobile tab Riwayat (md:hidden) diganti total — kompak (p-2.5, teks 13/11/10px, tanggal pendek "20 Sep, 13.31" di baris nomor), tambah baris BAHAN KERTAS + gramatur (paperName · N gsm), statistik 4 kolom (Jumlah | Modal/pcs = subTotal÷(jumlahPesanan||quantity) | Jual/pcs = grandTotal÷(...) | Total), Fin jadi baris kecil opsional, Profit tetap + tombol Hapus kecil (h-7).
+- src/app/potong-kertas/page.tsx: helper fmtRpCompact + formatTanggalRiwayatShort; blok kartu mobile tab Riwayat diganti total — kompak, baris kertas + gramatur + "Potong: w × h cm", statistik 4 kolom (Potongan/Lbr dari resultData.totalPieces fallback berapaMata | Harga/Lbr = pricePerSheet | Jml Pesanan | Total), tombol Hapus kecil.
+- Lint kedua file 0 error. Verifikasi lokal (agent-browser 375×812, user-admin): tab Riwayat hitung-cetakan → "art karton · 260 gsm", 10.000 | Rp 811 Modal/pcs | Rp 1.175 Jual/pcs | 11,8 jt, Profit+Hapus; tab Riwayat potong-kertas → "art karton · 260 gsm · Potong: 30 × 30 cm", 6 Potongan/Lbr | Rp 2.789 Harga/Lbr | 10.000 Jml | Rp 4.741.300; overflowX false; 0 page error. Interaksi klik kartu → preview & Hapus tidak berubah.
+- Bump sw v102→v103, APP_VERSION v37→v38. Commit 81fd88a → vercel --prod (darrellsoft-nqfj9guax Ready). curl sw.js = darrell-soft-v103.
+- Verifikasi produksi (Aming, 375×812): tab Riwayat hitung-cetakan → HC/09/26/0062 "ivory bt · 350 gsm" Rp 1.381 Modal/pcs, Rp 2.072 Jual/pcs, 31,1 jt; tab Riwayat potong-kertas → PK/09/26/0071 "ivory bt · 350 gsm · Potong: 38 × 34 cm", 6 Potongan/Lbr, Rp 4.581 Harga/Lbr; 0 page/console error; tidak ada data produksi ditulis.
+
+Stage Summary:
+- Sekarang KEDUA lokasi riwayat (halaman standalone DAN tab Riwayat di dalam kalkulator hitung-cetakan/potong-kertas) memakai desain kartu mobile kompak yang sama dengan field lengkap: potong kertas = gramatur, ukuran potong, potongan/lembar, harga/lembar; hitung cetakan = bahan kertas+gramatur, modal/pcs, jual/pcs.
+- Produksi = v103 (commit 81fd88a). Pelajaran: owner menyebut "halaman riwayat" bisa berarti tab riwayat di dalam kalkulator — cek KEDUanya saat request tampilan riwayat.
