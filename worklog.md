@@ -10280,3 +10280,24 @@ Stage Summary:
 - Aplikasi terbuka & terverifikasi: menu Lainnya gaya home screen Android (v99→v100) berfungsi penuh — tile navigasi, folder, active state, drag&drop hint.
 - Produksi = v100 (12b3eb7 / 10e4fc9). Tidak ada deploy baru; tidak ada data produksi disentuh.
 - Catatan deploy berikutnya: link --project darrellsoft → bump sw v101 → deploy → hapus .vercel/.env.local.
+
+---
+Task ID: 133
+Agent: Z.ai Code (main)
+Task: "di halaman hitung cetakan, tab gabung. tambahkan tab hari ini, minggu ini, bulan ini, tahun ini, custom, semua dan dropdown semua pelanggan. fix"
+
+Work Log:
+- Implementasi pada src/components/hitung-cetakan/gabungan-tab.tsx: tab Gabung kini punya filter periode + pelanggan PERSIS gaya tab Riwayat (komponen bersama RiwayatPeriodFilter & RiwayatCustomerFilter dari riwayat-period-filter.tsx).
+- State baru: period (default 'all' — perilaku lama semua baris tetap terlihat), fDateFrom/fDateTo (custom), fMonth/fYear, customerFilter. GabungBaris ditambah field createdAt (sudah dikirim API).
+- Filter terpadu di memo `filtered`: rentang tanggal efektif riwayatDateRange (createdAt slice yyyy-mm-dd, inklusif) + customerFilter exact match + pencarian lama. "Pilih Semua" otomatis hanya memilih baris hasil filter.
+- UI: baris tab Hari ini/Minggu ini/Bulan ini/Tahun ini/Custom/Semua (aktif emerald, scroll-x mobile), lalu baris dropdown "Semua Pelanggan" (full-width mobile, w-44 desktop, opsi = nama unik dari riwayat terurut) + kotak pencarian + tombol reset (✕, muncul hanya saat filter aktif, reset ke Semua). Custom menampilkan input Dari/Sampai Tanggal; Bulan/Tahun menampilkan pilih bulan/tahun.
+- Label jumlah adaptif: "N hitungan" (tanpa filter) / "N dari M hitungan" (terfilter); empty state text di-update menyebut filter periode/pelanggan/pencarian (mobile & desktop). Fix sampingan: TS18049 pra-eksisting di gabungCustomer (null guard).
+- Data uji lokal: db lokal berisi 20 riwayat lama → di-assign userId user-superadmin + 4 createdAt disebar (09-20, 09-19→diubah, 09-05, 01-15) utk uji periode.
+- Verifikasi lokal (agent-browser, superadmin, 390×844): Gabung menampilkan 6 tab + dropdown + search; Hari ini=1 dari 20; Minggu ini=1; Bulan ini=2; Tahun ini=20 (semua 2026); Custom Jan–Jun=2; dropdown Lunggan=6 dari 20 (sesuai data); kombinasi custom+pelanggan benar; tombol reset memulihkan "20 hitungan" & tab Semua; pilih 2 komponen → Komponen Gabungan + banner Grand Total muncul; overflowX 0. Desktop 1440×900: 6 tab 1 baris, tabel penuh, dropdown di kanan. Lint 0 error & tsc 0 error baru pada file yang diubah.
+- Bump sw v100→v101, APP_VERSION 2026-09-20-v35→v36. Commit bd34fd7. Deploy: vercel --prod --yes (darrellsoft-eccr47yok) Ready → .vercel & .env.local DIHAPUS.
+- Verifikasi produksi www.darrellsoft.com (agent-browser, login superadmin — password aming produksi tidak 268899, tidak diubah demi keamanan data): sw.js=v101; marker kode fitur ('gabung-hc', 'Filter nama pelanggan gabungan') ada di bundle ter-ship; tab Gabung render normal; superadmin produksi punya 0 riwayat → filter tersembunyi by design (komponen hanya render saat ada data); 0 page/console error; overflowX 0. TIDAK ADA data produksi ditulis/diubah/dihapus (verifikasi fungsional penuh dilakukan lokal dgn data uji).
+
+Stage Summary:
+- Tab Gabung halaman Hitung Cetakan kini punya filter periode lengkap (Hari ini/Minggu ini/Bulan ini/Tahun ini/Custom/Semua) + dropdown Semua Pelanggan + tombol reset — gaya & perilaku konsisten dengan tab Riwayat dan halaman riwayat lain; "Pilih Semua" menghormati filter aktif; pilihan komponen tetap persist di localStorage per-user.
+- Produksi = v101 (commit bd34fd7). Verifikasi fungsional lengkap: lokal (semua filter teruji dgn data uji); produksi (bundle & render sehat, tanpa tulis data).
+- Catatan deploy berikutnya: link --project darrellsoft → bump sw v102 → deploy → hapus .vercel/.env.local.
