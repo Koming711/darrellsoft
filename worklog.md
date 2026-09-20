@@ -10109,3 +10109,20 @@ Work Log:
 Stage Summary:
 - Produksi = v90. Halaman Riwayat Potong Kertas kini membaca tabel yang BENAR (RiwayatPotongKertas — riwayat dari kalkulator akhirnya muncul), tampilan CRUD baru di kedua halaman riwayat (kartu mobile, tab periode selalu tampak default Hari ini, dropdown filter nama pelanggan, ringkasan jumlah+nilai, hapus via dialog konfirmasi, preview+Cetak/JPG/Edit, Edit restore langsung ke kalkulator). API delete tahan catatan yatim.
 - Catatan deploy berikutnya: bump sw v91 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v91.
+---
+Task ID: 128
+Agent: Z.ai Code (main)
+Task: "preview tidak muncul. fix" — preview riwayat tidak bisa dibuka di produksi
+
+Work Log:
+- Reproduksi LOKAL (agent-browser 390×844, user-admin): preview dialog potong-kertas & hitung-cetakan terbuka NORMAL — fitur tidak rusak di level kode.
+- Reproduksi PRODUKSI (agent-browser 390×844, login Aming cmptzbbqj0001l804fpa7zg2k — satu-satunya akun dengan data riwayat PK/HC, superadmin memang tidak punya data): klik tombol "Detail" GAGAL — error agent-browser: element covered by <div.w-6.h-6>. Inspeksi elementFromPoint → penutupnya adalah POPUP "Install Darrell Soft" (PWA install prompt).
+- AKAR MASALAH (src/components/install-prompt.tsx): popup install `fixed bottom-[calc(68px+env(safe-area-inset-bottom))] z-[40]` muncul 5.5s setelah MUAT halaman di SEMUA halaman; flag dismiss hanya di sessionStorage → muncul LAGI setiap sesi baru; tombol ✕ hanya 24px. Popup melayang tepat di atas tombol aksi kartu riwayat (Detail/Edit/Hapus) → tap "Detail" kena popup → preview tidak pernah terbuka.
+- FIX install-prompt.tsx: (1) dismiss PERMANEN via localStorage 'install_dismissed' (+ migrasi flag lama sessionStorage); (2) auto-show HANYA di landing (/) & dashboard (/pembukaan) — halaman kerja tidak pernah ditutupi; (3) popup otomatis tertutup saat pindah ke halaman kerja; (4) tombol ✕ diperbesar ke 36px; (5) FAB install dipindah ke atas bottom nav (bottom-[76px+safe-area], z-[45]) dan juga hanya tampil di landing/dashboard; (6) dismissed di-init dari localStorage saat mount supaya FAB tetap tersedia setelah reload.
+- Verifikasi LOKAL (390×844 & 1440×900): /riwayat-potong-kertas & /riwayat-hitung-cetakan setelah 7 detik TANPA popup/FAB; klik Detail → dialog "Detail Riwayat Potong Kertas"/"Detail Rincian Cetakan" terbuka lengkap dengan Cetak/JPG/Edit; /pembukaan popup muncul → ✕ → flag localStorage '1' → reload → popup tidak muncul lagi, FAB tetap ada di dashboard & tidak ada di halaman kerja; tabel desktop aman. Lint file berubah 0 masalah.
+- Deploy 1: commit e31b627 (sw v91) → vercel --prod Ready → curl sw.js = darrell-soft-v91. Verifikasi produksi sbg Aming: popup TIDAK muncul di /riwayat-potong-kertas, klik Detail → PREVIEW TERBUKA (Rendy / dus natal hijau dalam 350, PK/09/26/0068, Grand Total Rp 3.152.925); hitung-cetakan preview juga terbuka (Cetak+JPG ada).
+- Deploy 2 (refinement): FAB persist setelah reload — commit 0426d53 (sw v92, APP_VERSION 2026-09-20-v27) → vercel --prod Ready → curl sw.js = darrell-soft-v92 → verifikasi produksi ulang: popup/FAB tidak ada di halaman kerja, Detail → preview terbuka penuh, 0 console/page error.
+
+Stage Summary:
+- Produksi = v92 (commit 0426d53). "Preview tidak muncul" BUKAN bug fitur — popup PWA install menutupi tombol aksi riwayat & selalu muncul lagi tiap sesi (sessionStorage). Kini: dismiss permanen, popup + FAB install hanya di landing & dashboard, halaman kerja 100% bebas overlay, tombol ✕ 36px.
+- Catatan deploy berikutnya: bump sw v93 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v93.
