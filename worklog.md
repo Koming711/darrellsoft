@@ -10356,3 +10356,16 @@ Stage Summary:
 - Teks kartu riwayat mobile kini mudah dibaca dengan hierarki bold: nama pelanggan paling tebal (16-15px bold), angka penting (Total, Harga/Lbr, Modal/pcs) extrabold, angka pendukung semibold.
 - Khusus potong kertas: Total pindah ke baris bawah sejajar tombol aksi/Hapus dengan angka PENUH tanpa singkatan — lebih cocok untuk angka besar (Rp 11.608.254 terbaca utuh).
 - Produksi = v105 (commit 50d71e5). Pelajaran: deploy vercel yang responsnya terputus bisa saja tetap sukses di server — cek curl sw.js / vercel inspect sebelum deploy ulang.
+
+---
+Task ID: 138-139
+Agent: Z.ai Code (main)
+Task: "dihalaman mobile riwayat potong kertas, font total dan nama pelanggan dibesarkan 2px. dihalaman mobile riwayat hitung cetakan. font nama pelanggan dan font total dibesarin 2pt dan bold. total dipindahin ke bawah. sejajar dengan icon hapus. dan profit dipindahin sejajar dengan nama bahan. tulisan total harga jangan disingkat harus full angka semua. check and fix" + "di popup detail rincian cetakan. dikotak grand total, isinya hanya grand total saja. jangan deploy"
+
+Work Log:
+- Task 138 (v106, commit 1feb3ff, DEPLOYED): kartu mobile riwayat — nama pelanggan 18px bold & Total 16px extrabold di KEDUA halaman (potong kertas & hitung cetakan) dan KEDUA lokasi (standalone riwayat-content.tsx + tab Riwayat kalkulator). Hitung cetakan: Total pindah dari grid statistik ke baris bawah SEJAJAR tombol Hapus (angka PENUH "Rp 31.079.481", bukan "31,1 jt"), statistik jadi 3 kolom (Jumlah | Modal/pcs | Jual/pcs), Profit pindah ke baris BAHAN KERTAS (kiri bahan, kanan "Profit: Rp …"). Standalone HC: baris bawah seragam = Total full kiri + Detail/Edit/Hapus kanan. Lint 0 error; lokal 375×812 4 lokasi lolos; deploy darrellsoft-11wxf96h7 Ready; curl sw.js = darrell-soft-v106; produksi Aming terverifikasi (PK standalone "Rendy" 18px + Total Rp 11.608.254; HC tab Profit sejajar bahan + Total Rp 31.079.481 sejajar Hapus; 0 error; tanpa tulis data).
+- Task 139 (commit 335b52b, TIDAK DEPLOY sesuai permintaan): popup Detail Rincian Cetakan (src/components/rincian-cetakan-preview.tsx) — kotak oranye Grand Total kini HANYA berisi label + nilai grand total; baris "Sub Total / Profit / Harga Jual/Pcs" di dalam kotak dihapus (informasi tetap tersedia di tabel Rincian Biaya). Lint 0 error; verifikasi lokal 375×812 via agent-browser: buka Detail popup → boxTexts = ["Grand Total","Rp 11.752.685"], tanpa Sub Total/Profit/Pcs di dalam kotak; 0 page error. Commit lokal + push GitHub SAJA — TIDAK menjalankan vercel (produksi masih v106 sampai deploy berikutnya).
+
+Stage Summary:
+- Kartu riwayat mobile final: nama 18px bold; Total 16px extrabold PENUH di baris bawah sejajar Hapus/aksi; statistik 3 kolom; Profit HC sejajar baris bahan. Produksi = v106.
+- Kotak Grand Total di popup Rincian Cetakan bersih (hanya grand total). Perubahan Task 139 SUDAH COMMIT (335b52b) tapi BELUM DEPLOY — akan ikut deployment berikutnya saat owner minta.
