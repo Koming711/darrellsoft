@@ -26,6 +26,68 @@ const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700
 const fmtNum = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 const fmtRp = (n: number) => `Rp ${fmtNum(n)}`
 
+// Kartu riwayat (mobile) — 1 halaman fit to mobile, CRUD (Restore/Hapus) selalu bisa diakses
+function RiwayatCards({ items, restoredId, onRestore, onDelete }: {
+  items: any[]
+  restoredId: string | null
+  onRestore: (r: any) => void
+  onDelete: (id: string) => void
+}) {
+  return (
+    <div className="md:hidden p-3 space-y-2.5">
+      {items.map((r) => (
+        <div key={r.id} className={`rounded-xl border p-3.5 transition-colors ${restoredId === r.id ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200 bg-white'}`}>
+          {/* Baris 1: customer + cetakan + tanggal */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[15px] text-slate-900 truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
+              <p className="text-xs text-slate-500 truncate">{r.namaCetakan || '-'}</p>
+            </div>
+            <span className="text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0 mt-1">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</span>
+          </div>
+
+          {/* Baris 2: kertas + gramatur */}
+          <p className="text-[11px] text-slate-600 mt-1.5 leading-snug">{r.paperName || '-'}{r.grammage ? ` (${r.grammage}gsm)` : ''}</p>
+
+          {/* Baris 3: ringkasan angka */}
+          <div className="grid grid-cols-3 gap-2 mt-2.5 bg-slate-50 rounded-lg p-2.5 text-center">
+            <div>
+              <p className="text-[13px] font-bold text-slate-800 leading-tight">{parseInt(r.quantity || 0).toLocaleString('id-ID')}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Qty</p>
+            </div>
+            <div className="border-x border-slate-200">
+              <p className="text-[13px] font-bold text-slate-800 leading-tight">{r.costPerPiece > 0 ? `Rp ${Math.round(r.costPerPiece).toLocaleString('id-ID')}` : '-'}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Per Lbr</p>
+            </div>
+            <div>
+              <p className="text-[13px] font-extrabold text-emerald-700 leading-tight">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Total</p>
+            </div>
+          </div>
+
+          {/* Baris 4: aksi CRUD (touch target 44px) */}
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+            <button
+              onClick={() => onRestore(r)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[13px] font-semibold border border-emerald-200 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" /> Restore
+            </button>
+            <button
+              onClick={() => onDelete(r.id)}
+              aria-label="Hapus riwayat"
+              title="Hapus"
+              className="inline-flex items-center justify-center w-[44px] h-[44px] bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function HitungHargaKertasPage() {
   const { t } = useLanguage()
   const STORAGE_KEY = 'darrellpos-hitung-harga-kertas'
@@ -643,7 +705,10 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
               <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{riwayatList.length}</span>
             </div>
             {riwayatList.length > 0 ? (
-              <RiwayatTable items={riwayatList} />
+              <>
+                <RiwayatCards items={riwayatList} restoredId={restoredRiwayatId} onRestore={handleRestore} onDelete={handleDeleteRiwayat} />
+                <div className="hidden md:block"><RiwayatTable items={riwayatList} /></div>
+              </>
             ) : (
               <div className="px-4 py-6 text-center">
                 <History className="w-8 h-8 mx-auto text-slate-300 mb-2" />

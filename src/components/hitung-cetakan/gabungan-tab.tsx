@@ -378,7 +378,73 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
                 className="pl-9 h-9 text-sm"
               />
             </div>
-            <div className="max-h-[26rem] overflow-y-auto scrollbar-thin rounded-lg border border-slate-200 dark:border-zinc-700">
+            {/* Mobile: kartu pilih — ketuk kartu untuk masukkan/keluarkan dari gabungan */}
+            <div className="lg:hidden space-y-2">
+              {filtered.length === 0 && (
+                <div className="border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg py-6 text-center text-sm text-slate-400">
+                  Tidak ada hitungan yang cocok dengan pencarian.
+                </div>
+              )}
+              {filtered.map(r => {
+                const isSel = selectedIds.includes(r.id)
+                const jp = parseJp(r.jumlahPesanan)
+                const pct = Math.round(Number(r.profitPercent) || 0)
+                const pAmt = Number(r.profitAmount) || 0
+                const sub = Number(r.subTotal) || 0
+                const grand = Number(r.grandTotal) || 0
+                return (
+                  <div
+                    key={r.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSel}
+                    aria-label={`${isSel ? 'Keluarkan' : 'Pilih'} ${r.printName || 'hitungan'} ${isSel ? 'dari' : 'untuk'} gabungan`}
+                    onClick={() => toggle(r.id)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(r.id) } }}
+                    className={`rounded-xl border p-3 text-left cursor-pointer transition-colors ${isSel
+                      ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20'
+                      : 'border-slate-200 bg-card dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'}`}
+                  >
+                    {/* Baris 1: checkbox + nama barang + nomor */}
+                    <div className="flex items-start gap-2.5">
+                      {isSel
+                        ? <CheckSquare className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                        : <Square className="w-5 h-5 text-slate-300 dark:text-zinc-600 flex-shrink-0 mt-0.5" />}
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-bold text-[15px] truncate ${isSel ? 'text-emerald-900 dark:text-emerald-200' : 'text-slate-800 dark:text-slate-100'}`}>{r.printName || '-'}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{r.customerName || '—'}{labelKertas(r) ? ` · ${labelKertas(r)}` : ''}</p>
+                      </div>
+                      <span className="text-[10px] font-mono font-semibold text-slate-400 flex-shrink-0 mt-1">{r.nomorUrut || '—'}</span>
+                    </div>
+
+                    {/* Stat strip: JP | Sub Total | Grand Total */}
+                    <div className="grid grid-cols-3 gap-2 mt-2.5 bg-slate-50 dark:bg-zinc-800/60 rounded-lg p-2.5 text-center">
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{jp > 0 ? jp.toLocaleString('id-ID') : '—'}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">JP (lbr)</p>
+                      </div>
+                      <div className="border-x border-slate-200 dark:border-zinc-700">
+                        <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{fmtRp(sub)}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Sub Total</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-extrabold text-slate-800 dark:text-slate-100 leading-tight">{fmtRp(grand)}</p>
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Grand Total</p>
+                      </div>
+                    </div>
+
+                    {/* Detail sekunder */}
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                      <span>Modal/pcs {jp > 0 ? fmtHargaPcs(sub / jp) : '—'}</span>
+                      <span>{pAmt > 0 ? <>Profit <span className="font-semibold text-violet-600 dark:text-violet-400">{pct}%</span> ({fmtRp(pAmt)})</> : 'Tanpa profit'}</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Jual/pcs {jp > 0 ? fmtHargaPcs(grand / jp) : '—'}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Desktop: tabel */}
+            <div className="hidden lg:block max-h-[26rem] overflow-y-auto scrollbar-thin rounded-lg border border-slate-200 dark:border-zinc-700">
               <Table className="min-w-[940px]">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -498,8 +564,60 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
             </button>
           </div>
 
-          {/* Tabel komponen terpilih */}
-          <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-x-auto">
+          {/* Mobile: kartu komponen terpilih */}
+          <div className="lg:hidden space-y-2">
+            {selected.map((r, i) => {
+              const jp = parseJp(r.jumlahPesanan)
+              const pct = Math.round(Number(r.profitPercent) || 0)
+              const pAmt = Number(r.profitAmount) || 0
+              const sub = Number(r.subTotal) || 0
+              const grand = Number(r.grandTotal) || 0
+              return (
+                <div key={r.id} className="rounded-xl border border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-900/10 p-3">
+                  {/* Baris 1: nama + keluarkan */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-[14px] text-slate-800 dark:text-slate-100 truncate">{i + 1}. {r.printName || '-'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{labelKertas(r) || '—'}</p>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); toggle(r.id) }}
+                      aria-label={`Keluarkan ${r.printName || 'komponen'} dari gabungan`}
+                      title="Keluarkan dari gabungan"
+                      className="flex-shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Stat strip: JP | Sub Total | Grand Total */}
+                  <div className="grid grid-cols-3 gap-2 mt-2.5 bg-white/70 dark:bg-zinc-800/60 rounded-lg p-2.5 text-center">
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{jp > 0 ? jp.toLocaleString('id-ID') : '—'}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">JP (lbr)</p>
+                    </div>
+                    <div className="border-x border-slate-200 dark:border-zinc-700">
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{fmtRp(sub)}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Sub Total</p>
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-extrabold text-slate-800 dark:text-slate-100 leading-tight">{fmtRp(grand)}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Grand Total</p>
+                    </div>
+                  </div>
+
+                  {/* Detail sekunder */}
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                    <span>Modal/pcs {jp > 0 ? fmtHargaPcs(sub / jp) : '—'}</span>
+                    <span>{pAmt > 0 ? <>Profit <span className="font-semibold text-violet-600 dark:text-violet-400">{pct}%</span> ({fmtRp(pAmt)})</> : 'Tanpa profit'}</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Jual/pcs {jp > 0 ? fmtHargaPcs(grand / jp) : '—'}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {/* Desktop: tabel komponen terpilih */}
+          <div className="hidden lg:block rounded-lg border border-slate-200 dark:border-zinc-700 overflow-x-auto">
             <Table className="min-w-[880px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
