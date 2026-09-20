@@ -524,8 +524,12 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
           onYearChange={setYear}
         />
 
-        {/* Baris pencarian + filter pelanggan + reset */}
-        <div className="flex flex-nowrap items-center gap-2">
+        {/* Filter pelanggan + kotak pencarian — DIPINDAH ke BAWAH baris tab
+            periode (Hari ini … Semua) sesuai permintaan owner.
+            Mobile: dropdown "Semua Pelanggan" 1 baris penuh (beserta tombol
+            reset), lalu kotak pencarian 1 baris penuh di bawahnya.
+            Desktop (sm+): tetap rapi dalam 1 baris. */}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
@@ -537,23 +541,26 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
               className="w-full min-h-[44px] pl-9 pr-4 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
             />
           </div>
-          <RiwayatCustomerFilter
-            idPrefix={isPotong ? 'riwayat-pk' : 'riwayat-hc'}
-            options={customerOptions}
-            value={customerFilter}
-            onChange={setCustomerFilter}
-            ariaLabel={isPotong ? 'Filter nama pelanggan potong kertas' : 'Filter nama pelanggan hitung cetakan'}
-          />
-          {filtersActive && (
-            <button
-              onClick={resetFilters}
-              aria-label="Reset filter"
-              title="Reset Filter"
-              className="shrink-0 h-11 w-11 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <RiwayatCustomerFilter
+              idPrefix={isPotong ? 'riwayat-pk' : 'riwayat-hc'}
+              options={customerOptions}
+              value={customerFilter}
+              onChange={setCustomerFilter}
+              ariaLabel={isPotong ? 'Filter nama pelanggan potong kertas' : 'Filter nama pelanggan hitung cetakan'}
+              fullWidth
+            />
+            {filtersActive && (
+              <button
+                onClick={resetFilters}
+                aria-label="Reset filter"
+                title="Reset Filter"
+                className="shrink-0 h-11 w-11 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </RiwayatFilterCard>
 
