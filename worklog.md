@@ -10369,3 +10369,24 @@ Work Log:
 Stage Summary:
 - Kartu riwayat mobile final: nama 18px bold; Total 16px extrabold PENUH di baris bawah sejajar Hapus/aksi; statistik 3 kolom; Profit HC sejajar baris bahan. Produksi = v106.
 - Kotak Grand Total di popup Rincian Cetakan bersih (hanya grand total). Perubahan Task 139 SUDAH COMMIT (335b52b) tapi BELUM DEPLOY — akan ikut deployment berikutnya saat owner minta.
+
+---
+Task ID: 140-141
+Agent: Z.ai Code (main)
+Task: "di tampilan mobile. di halaman lainnya. rubah menjadi 4 kolom dan gambar icon dibesarin lagi. setiap icon ada namanya. fix" + "lanjutkan. buat tampilan jadi crud, ui dan ux" + "di menu bawah, harga kertas diganti jadi master barang. deploy"
+
+Work Log:
+- Task 140 (v107, commit 8505069): popup Lainnya (MenuHomeScreen) dirombak dari "home screen Android berfolder" jadi APP DRAWER flat — SEMUA menu jadi ikon lepas dalam grid 4 kolom, TANPA folder. Ikon dibesar: 52px (layar tinggi ≥800px, svg 27px) / 46px base / 38px (layar pendek ≤700px) — sebelumnya 36/32/28px. Setiap ikon PUNYA NAMA di bawahnya (line-clamp-2, 10-11px). Long-press drag reorder DIPERTAHANKAN (ghost 52px, vibrate, reorder + persist). Storage key naik ke darrellsoft_menu_home_v2_<user> (layout folder lama diabaikan; format lama objek app/folder tetap bisa dibaca, folder dilepas). Verifikasi lokal 375×812: 24 tile, 4 kolom, 0 folder, semua tile berlabel, klik navigasi OK, drag reorder Invoice→posisi 0 tersimpan, 375×667 pun muat 1 layar (Keluar terlihat), 0 error.
+- Deploy v107 sempat context-canceled tapi LIVE (curl sw.js = darrell-soft-v107; pelajaran lama terbukti lagi: cek dulu sebelum deploy ulang).
+- Task 141 audit (subagent Explore): dari 24 halaman menu Lainnya, yang BELUM mobile-CRUD = /surat-jalan (paling parah — tidak ada Update/Delete di viewport manapun) dan Tabel Simulasi /potong-kertas (tabel min-w-[560px] h-scroll). hak-akses matrix by-design; lainnya sudah FULL/OK.
+- Task 141 (v108, commit 3018d34): /surat-jalan full CRUD — kartu mobile & tabel desktop kini punya Lihat/Muat/Hapus; Muat = parseSuratJalanData → setSuratJalan(dokupro store) → buka editor (pola purchase-order); Hapus = DELETE /api/history/[id] (soft-delete→Sampah) + AlertDialog konfirmasi + toast + notifyDataChange. Header tombol (Buat/Backup/Restore) diberi flex-wrap (375px tadinya overflow 15px). /potong-kertas Tabel Simulasi: blok tabel desktop-only (hidden sm:block) + kartu mobile sm:hidden copy gold-standard hitung-cetakan v97 — baris 1 jumlah+badge profit, editor inline (Jumlah/Profit), stat strip Modal|Harga Jual|Harga/pcs, detail Cetak/Kertas/Modal-pcs, aksi 44px Terapkan/Ubah/Hapus + Simpan/Batal saat edit.
+- Bottom nav mobile: item ke-5 diganti H.Kertas → M.Barang (/master-barang, icon Package, featureId master-barang); i18n key baru short_barang (id 'M.Barang', en 'Items'); short_h_kertas dipertahankan (tak terpakai, aman).
+- Lint per-file 0 error. Verifikasi lokal (375×812, superadmin bypass untuk SJ): kartu SJ Lihat/Muat/Hapus — Muat buka editor terisi (penerima/referensi/tanggal) + toast; Hapus → dialog → kartu hilang + toast (test record dibuat via API lalu dihapus); sim PK: 2 kartu, Terapkan isi form, Ubah→editor inline→Simpan persist [8000,10000], Hapus→1 kartu; bottom nav M.Barang → /master-barang. Catatan dev: localStorage auth role='superadmin' + sessionStorage __dashboard_session_cache di-clear agar bisa uji halaman PRO-locked di lokal.
+- Deploy vercel --prod: darrellsoft-88352hxu4 Ready; curl sw.js = darrell-soft-v108 (ikut membawa commit 335b52b Task 139 kotak Grand Total yang sebelumnya belum ter-deploy).
+- Verifikasi produksi (Aming cmptzbbqj0001l804fpa7zg2k, 375×812): bottom nav = Beranda|Potong|Cetakan|Invoice|M.Barang|Lainnya, M.Barang → /master-barang OK; Lainnya drawer 22 tile (hak-akses/pengguna tersembunyi utk role user), ikon 52px, semua berlabel; /surat-jalan kartu Lihat/Muat/Hapus tampil, dialog "Hapus surat jalan?" muncul lalu DIBATALKAN (4 kartu tetap ada — tidak ada data produksi terhapus); /potong-kertas Tabel Simulasi kartu "5.000 lbr" Terapkan/Ubah/Hapus 44px, tabel desktop hidden (row uji disuntik ke localStorage browser-sesi lalu DIHAPUS — server tak tersentuh); 0 page/console error.
+
+Stage Summary:
+- Popup Lainnya = app drawer 4 kolom flat, ikon besar, semua ikon bernama, drag reorder tetap ada (storage v2).
+- Surat Jalan kini CRUD penuh di mobile & desktop (sebelumnya hanya Create+Read); Tabel Simulasi potong kertas kini fit-to-mobile dengan CRUD 44px; semua halaman menu Lainnya kini mobile-CRUD lengkap (hak-akses matrix by-design).
+- Bottom nav mobile: Beranda, Potong, Cetakan, Invoice, M.Barang, Lainnya.
+- Produksi = v108 (commit 3018d34). Test data hanya di browser-sesi lokal/dev dan sudah dibersihkan; tidak ada data produksi ditulis/ubah/hapus.
