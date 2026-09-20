@@ -335,11 +335,14 @@ function CalculatorPage() {
   // (defined as ref+state pair; the useEffect is placed after customerInput declaration)
   const restoreDoneRef = useRef(false)
 
+  const [papersFetchDone, setPapersFetchDone] = useState(false)
+
   const fetchPapersData = () => {
     authFetch('/api/papers')
       .then(res => { if (!res.ok) return []; return res.json() })
       .then(data => { if (Array.isArray(data)) setPapers(data); else setPapers([]) })
       .catch(() => setPapers([]))
+      .finally(() => setPapersFetchDone(true))
   }
 
   const fetchCustomersData = () => {
@@ -1169,6 +1172,23 @@ function CalculatorPage() {
     toast.success('Data berhasil di-restore dari riwayat!')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  // ===== Restore via deep-link dari halaman Riwayat: /potong-kertas?restore=<id> =====
+  const restoreParamAppliedRef = useRef(false)
+  useEffect(() => {
+    const rid = searchParams.get('restore')
+    if (!rid || restoreParamAppliedRef.current) return
+    // Tunggu daftar riwayat & data master kertas siap agar restore akurat
+    if (!riwayatList.length || (!papers.length && !papersFetchDone)) return
+    restoreParamAppliedRef.current = true
+    window.history.replaceState({}, '', '/potong-kertas')
+    const row = riwayatList.find(r => r.id === rid)
+    if (!row) {
+      toast.error('Data riwayat tidak ditemukan')
+      return
+    }
+    handleRestore(row)
+  }, [searchParams, riwayatList, papers, papersFetchDone])
 
   const handleDeleteRiwayat = async (id: string) => {
     if (!confirm('Beneran mau dihapus nih?')) return
