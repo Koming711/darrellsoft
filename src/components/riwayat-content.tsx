@@ -676,8 +676,8 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
             })}
           </div>
 
-          {/* ==== Desktop: tabel ==== */}
-          <div className="hidden sm:block rounded-xl border border-slate-200 bg-white overflow-hidden">
+          {/* ==== Desktop: tabel — tanpa kotak/bingkai (permintaan owner) ==== */}
+          <div className="hidden sm:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px]">
                 <thead className="bg-slate-50 border-b border-slate-200">

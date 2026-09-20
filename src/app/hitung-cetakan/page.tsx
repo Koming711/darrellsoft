@@ -2734,11 +2734,12 @@ function HitungCetakanPage() {
           />
         ) : (
           <>
-            {/* Desktop table — klik baris → Preview */}
-            <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
-              <div className="max-h-96 overflow-y-auto scrollbar-thin">
-                <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-stone-50">
+            {/* Desktop table — klik baris → Preview. TANPA kotak/bingkai & TANPA
+                scroll internal (max-h-96) — permintaan owner: scrollbar di dalam
+                kotak tabel dihilangkan, tabel memanjang alami mengikuti isi halaman. */}
+            <div className="hidden md:block">
+              <Table>
+                  <TableHeader className="bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
                       <TableHead className="w-10">No.</TableHead>
                       <TableHead className="w-0 min-w-0">No. HC</TableHead>
@@ -2789,8 +2790,7 @@ function HitungCetakanPage() {
                       )
                     })}
                   </TableBody>
-                </Table>
-              </div>
+              </Table>
             </div>
 
             {/* Mobile cards — klik kartu → Preview */}
