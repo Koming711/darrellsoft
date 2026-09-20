@@ -2144,43 +2144,45 @@ function CalculatorPage() {
                       <CardContent className="p-2.5 space-y-1.5">
                         {/* Baris 1: nomor + tanggal (kompak) */}
                         <div className="flex items-center justify-between gap-2">
-                          <p className="font-mono text-[10px] font-semibold truncate">{r.nomorUrut || '-'}</p>
-                          <p className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTanggalRiwayatShort(r.createdAt)}</p>
+                          <p className="font-mono text-[11px] font-semibold truncate">{r.nomorUrut || '-'}</p>
+                          <p className="text-[11px] text-muted-foreground whitespace-nowrap">{formatTanggalRiwayatShort(r.createdAt)}</p>
                         </div>
                         {/* Baris 2: customer + cetakan */}
                         <div className="min-w-0">
-                          <p className="text-[15px] font-bold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
-                          <p className="text-[12.5px] text-muted-foreground leading-tight truncate">{r.namaCetakan || '-'}</p>
+                          <p className="text-[16px] font-bold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
+                          <p className="text-[13.5px] text-muted-foreground leading-tight truncate">{r.namaCetakan || '-'}</p>
                         </div>
                         {/* Baris 3: kertas + gramatur + ukuran potong (permintaan owner) */}
-                        <p className="text-[12px] text-muted-foreground truncate">
+                        <p className="text-[13px] text-muted-foreground truncate">
                           <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}{cutLabel}
                         </p>
-                        {/* Baris 4: statistik 4 kolom — Potongan/Lbr | Harga/Lbr | Jml Pesanan | Total */}
-                        <div className="grid grid-cols-4 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
+                        {/* Baris 4: statistik 3 kolom — Potongan/Lbr | Harga/Lbr | Jml Pesanan */}
+                        <div className="grid grid-cols-3 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
                           <div className="min-w-0">
-                            <p className="text-[13px] font-semibold leading-tight truncate">{potonganLbr != null ? potonganLbr.toLocaleString('id-ID') : '-'}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Potongan/Lbr</p>
+                            <p className="text-[14px] font-semibold leading-tight truncate">{potonganLbr != null ? potonganLbr.toLocaleString('id-ID') : '-'}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Potongan/Lbr</p>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[13px] font-extrabold leading-tight truncate">{(r.pricePerSheet || 0) > 0 ? fmtRpCompact(r.pricePerSheet) : '-'}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Harga/Lbr</p>
+                            <p className="text-[14px] font-extrabold leading-tight truncate">{(r.pricePerSheet || 0) > 0 ? fmtRpCompact(r.pricePerSheet) : '-'}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Harga/Lbr</p>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[13px] font-semibold leading-tight truncate">{parseInt(r.jumlahPesanan || 0) > 0 ? parseInt(r.jumlahPesanan).toLocaleString('id-ID') : '-'}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Jml Pesanan</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.totalPrice || 0))}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Total</p>
+                            <p className="text-[14px] font-semibold leading-tight truncate">{parseInt(r.jumlahPesanan || 0) > 0 ? parseInt(r.jumlahPesanan).toLocaleString('id-ID') : '-'}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Jml Pesanan</p>
                           </div>
                         </div>
-                        {/* Baris 5: aksi hapus (kompak) */}
-                        <div className="flex items-center justify-end border-t border-stone-100 pt-2">
+                        {/* Baris 5: Total pindah ke bawah sejajar tombol Hapus — angka PENUH (tidak disingkat) */}
+                        <div className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] text-muted-foreground leading-tight">Total</p>
+                            <p className="text-[14px] font-extrabold text-emerald-700 leading-tight truncate">
+                              {(r.totalPrice || 0) > 0 ? `Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}` : '-'}
+                            </p>
+                          </div>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 min-h-0 px-2.5 gap-1 text-[11px] text-destructive hover:text-destructive"
+                            className="h-7 min-h-0 px-2.5 gap-1 text-[11px] text-destructive hover:text-destructive shrink-0"
                             onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
                             title="Hapus"
                           >
