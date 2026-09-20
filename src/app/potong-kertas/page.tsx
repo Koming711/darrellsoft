@@ -67,6 +67,22 @@ function formatTanggalRiwayat(value?: string | null): string {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥10 jt → "11,6 jt"
+const fmtRpCompact = (n: number) => {
+  const v = Math.round(n || 0)
+  if (v >= 10_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+  if (v > 0) return `Rp ${v.toLocaleString('id-ID')}`
+  return '-'
+}
+
+// Tanggal pendek utk kartu riwayat mobile: "20 Sep, 10.25"
+function formatTanggalRiwayatShort(value?: string | null): string {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '-'
+  return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 interface FormData {
   paperWidth: string
   paperHeight: string
@@ -2103,39 +2119,78 @@ function CalculatorPage() {
                 </Table>
               </div>
 
-              {/* Mobile cards — klik kartu → Preview */}
-              <div className="md:hidden space-y-3">
-                {filteredRiwayatList.slice(0, 100).map((r) => (
-                  <Card
-                    key={r.id}
-                    className={`p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
-                    onClick={() => handlePreviewRiwayat(r)}
-                  >
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-mono text-xs font-semibold break-all">{r.nomorUrut || '-'}</p>
-                        <p className="text-xs text-muted-foreground whitespace-nowrap">{formatTanggalRiwayat(r.createdAt)}</p>
-                      </div>
-                      <p className="text-sm"><span className="font-medium">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</span></p>
-                      {r.namaCetakan && <p className="text-sm text-muted-foreground truncate">{r.namaCetakan}</p>}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border-t border-stone-100 pt-2">
-                        <p className="text-muted-foreground truncate">Kertas: <span className="font-medium text-stone-700">{r.paperName || '-'}</span></p>
-                        <p className="text-muted-foreground text-right sm:text-left">Jml: <span className="font-medium text-stone-700">{parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}</span></p>
-                        <p className="text-muted-foreground col-span-2">Total: <span className="font-bold text-stone-700">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</span></p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
-                        <Button
-                          variant="outline"
-                          className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
-                          title="Hapus"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Hapus
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              {/* Mobile cards — klik kartu → Preview (kompak, gaya sama dgn halaman riwayat:
+                  gramatur, ukuran potong, potongan/lembar, harga/lembar) */}
+              <div className="md:hidden space-y-2">
+                {filteredRiwayatList.slice(0, 100).map((r) => {
+                  // Potongan/lembar: dari hasil cutting engine (resultData.totalPieces), fallback berapaMata
+                  let potonganLbr: number | null = null
+                  try {
+                    const rd = r.resultData ? JSON.parse(r.resultData) : null
+                    if (rd && typeof rd.totalPieces === 'number' && rd.totalPieces > 0) potonganLbr = rd.totalPieces
+                  } catch { /* resultData bukan JSON valid */ }
+                  if (!potonganLbr) {
+                    const bm = parseInt(r.berapaMata || '0')
+                    if (bm > 0) potonganLbr = bm
+                  }
+                  const gsmLabel = r.grammage && r.grammage !== '0' ? ` · ${r.grammage} gsm` : ''
+                  const cutLabel = r.cutWidth && r.cutWidth !== '0' && r.cutHeight ? ` · Potong: ${r.cutWidth} × ${r.cutHeight} cm` : ''
+                  return (
+                    <Card
+                      key={r.id}
+                      className={`p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                      onClick={() => handlePreviewRiwayat(r)}
+                    >
+                      <CardContent className="p-2.5 space-y-1.5">
+                        {/* Baris 1: nomor + tanggal (kompak) */}
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-mono text-[10px] font-semibold truncate">{r.nomorUrut || '-'}</p>
+                          <p className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTanggalRiwayatShort(r.createdAt)}</p>
+                        </div>
+                        {/* Baris 2: customer + cetakan */}
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
+                          <p className="text-[11px] text-muted-foreground leading-tight truncate">{r.namaCetakan || '-'}</p>
+                        </div>
+                        {/* Baris 3: kertas + gramatur + ukuran potong (permintaan owner) */}
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}{cutLabel}
+                        </p>
+                        {/* Baris 4: statistik 4 kolom — Potongan/Lbr | Harga/Lbr | Jml Pesanan | Total */}
+                        <div className="grid grid-cols-4 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold leading-tight truncate">{potonganLbr != null ? potonganLbr.toLocaleString('id-ID') : '-'}</p>
+                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Potongan/Lbr</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold leading-tight truncate">{(r.pricePerSheet || 0) > 0 ? fmtRpCompact(r.pricePerSheet) : '-'}</p>
+                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Harga/Lbr</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold leading-tight truncate">{parseInt(r.jumlahPesanan || 0) > 0 ? parseInt(r.jumlahPesanan).toLocaleString('id-ID') : '-'}</p>
+                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Jml Pesanan</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.totalPrice || 0))}</p>
+                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Total</p>
+                          </div>
+                        </div>
+                        {/* Baris 5: aksi hapus (kompak) */}
+                        <div className="flex items-center justify-end border-t border-stone-100 pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 min-h-0 px-2.5 gap-1 text-[11px] text-destructive hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteRiwayat(r.id) }}
+                            title="Hapus"
+                          >
+                            <Trash2 className="h-3 w-3" /> Hapus
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             </>
           )}
