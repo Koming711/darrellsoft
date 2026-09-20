@@ -146,6 +146,11 @@ export function InstallPrompt() {
     if (hasInitRef.current) return
     hasInitRef.current = true
 
+    // Kalau user pernah dismiss permanen → tandai dismissed SEJAK AWAL supaya
+    // FAB kecil tetap tersedia di landing/dashboard (bukan cuma di sesi yang
+    // sama ketika tombol ✕ diklik).
+    if (isPermanentlyDismissed()) setDismissed(true)
+
     // Detect platform
     const ua = navigator.userAgent
     const isIOSDevice = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream
