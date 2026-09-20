@@ -10338,3 +10338,21 @@ Work Log:
 Stage Summary:
 - Sekarang KEDUA lokasi riwayat (halaman standalone DAN tab Riwayat di dalam kalkulator hitung-cetakan/potong-kertas) memakai desain kartu mobile kompak yang sama dengan field lengkap: potong kertas = gramatur, ukuran potong, potongan/lembar, harga/lembar; hitung cetakan = bahan kertas+gramatur, modal/pcs, jual/pcs.
 - Produksi = v103 (commit 81fd88a). Pelajaran: owner menyebut "halaman riwayat" bisa berarti tab riwayat di dalam kalkulator — cek KEDUanya saat request tampilan riwayat.
+
+---
+Task ID: 136-137
+Agent: Z.ai Code (main)
+Task: "ditampilan mobile, tulisannya dihalaman riwayat potong kertas dan riwayat hitung cetakan terlalu kecil. buat agak besar agar mudah dibaca. nama pelanggan dibuat bold, total dan harga/lembar dibuat bold, modal/pcs dibuat bold. fix" + lanjutan "di tampilan mobile halaman potong kertas. total harga dipindahin ke bawah sejajar dengan icon hapus dan tulisan jangan disingkat harus full angka semua. dan tulisan dibesarin lagi 1pt"
+
+Work Log:
+- Task 136 (teks diperbesar + bold, v104 commit 91b0eb7): di KEDUA lokasi riwayat (standalone riwayat-content.tsx + tab Riwayat hitung-cetakan/potong-kertas page.tsx) — nama pelanggan 13→15px font-bold, nilai statistik 11→13px, label 8.5→10px, sub 11→12.5px, bahan 11→12px, badge/nomor/tanggal 9→10px, tombol Detail/Edit 11→12px. Bobot: Modal/pcs & Harga/Lbr & Total font-extrabold (800); Jumlah/Potongan/Lbr/Jual-pcs font-semibold (600). formatRpCompact threshold 10jt→1jt agar Total ≥1jt tampil "4,7 jt" (tidak terpotong di grid 4 kolom). Verifikasi lokal 375×812: 4 lokasi lolos, 0 error.
+- Deploy v104 sempat terputus (context canceled) tapi ternyata Ready di server; curl sw.js = darrell-soft-v104 terkonfirmasi live.
+- Task 137 (halaman potong kertas, v105 commit 50d71e5): kartu mobile potong kertas — statistik grid 4→3 kolom (Potongan/Lbr | Harga/Lbr | Jml Pesanan/Jumlah), Total DIPINDAH ke baris bawah SEJAJAR tombol Hapus (justify-between; standalone: Total kiri + Detail/Edit/Hapus kanan; tab kalkulator: Total kiri + Hapus kanan). Total pakai format PENUH "Rp 11.608.254" (bukan "11,6 jt"), 14px font-extrabold emerald, min-w-0+truncate. Teks potong kertas +1px lagi: nama 16px, sub 13.5px, bahan 13px, nomor/tanggal/badge 11px, nilai statistik 14px, label 11px. Harga/Lbr standalone kini formatRp penuh (Rp 2.789). Cabang hitung cetakan TIDAK diubah layoutnya (masih 4 kolom, Total compact di grid) sesuai scope permintaan; baris bersama (nama/badge/sub/bahan) ikut +1px di HC standalone.
+- Lint per-file 0 error. Verifikasi lokal 375×812 (user-admin): PK standalone — 3 kolom, Total "Rp 4.741.300" penuh sejajar 3 tombol, cardH 213px, overflowX false; PK tab kalkulator — Total "Rp 4.741.300" kiri + Hapus kanan; HC standalone tak terdampak buruk (nama 16px, 4 kolom utuh). Bump sw v104→v105, APP_VERSION v39→v40.
+- Deploy vercel --prod: darrellsoft-n6zfnlq9k Ready. curl sw.js = darrell-soft-v105.
+- Verifikasi produksi (Aming cmptzbbqj0001l804fpa7zg2k, 375×812): standalone PK — kartu PK/09/26/0071 "Rendy" 16px bold, 6 Potongan/Lbr | Rp 4.581 Harga/Lbr | 15.000 lbr, Total "Rp 11.608.254" penuh extrabold sejajar Detail/Edit/Hapus; tab Riwayat potong-kertas — Total "Rp 11.608.254" kiri + Hapus kanan, kartu kedua Total "Rp 11.836.314"; totalTruncated false, overflowX false, 0 page/console error; TIDAK ADA data produksi ditulis/ubah/hapus.
+
+Stage Summary:
+- Teks kartu riwayat mobile kini mudah dibaca dengan hierarki bold: nama pelanggan paling tebal (16-15px bold), angka penting (Total, Harga/Lbr, Modal/pcs) extrabold, angka pendukung semibold.
+- Khusus potong kertas: Total pindah ke baris bawah sejajar tombol aksi/Hapus dengan angka PENUH tanpa singkatan — lebih cocok untuk angka besar (Rp 11.608.254 terbaca utuh).
+- Produksi = v105 (commit 50d71e5). Pelajaran: deploy vercel yang responsnya terputus bisa saja tetap sukses di server — cek curl sw.js / vercel inspect sebelum deploy ulang.
