@@ -444,16 +444,11 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
             )}
           </div>
 
-          {/* GRAND TOTAL */}
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center justify-between shadow-lg shadow-orange-500/25">
+          {/* GRAND TOTAL — isinya hanya grand total saja (permintaan owner) */}
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center shadow-lg shadow-orange-500/25">
             <div>
               <p className="text-[11px] text-orange-100 uppercase tracking-wide">Grand Total</p>
               <p className="text-3xl font-extrabold text-white">{formatRp(pvGrandTotal)}</p>
-            </div>
-            <div className="text-right text-[10.5px] text-orange-100/90 space-y-0.5">
-              <p>Sub Total: <span className="font-semibold text-white">{formatRp(pvSubTotal)}</span></p>
-              {pvProfitPercent > 0 && pvProfitAmount > 0 && <p>Profit ({pvProfitPercent}%): <span className="font-semibold text-white">{formatRp(pvProfitAmount)}</span></p>}
-              {pvHargaPerPcs > 0 && <p>Harga Jual/Pcs: <span className="font-semibold text-white">{formatRp(pvHargaPerPcs)}</span></p>}
             </div>
           </div>
         </div>
