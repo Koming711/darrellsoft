@@ -597,6 +597,7 @@ export const translations = {
     short_cetakan: 'Cetakan',
     short_invoice: 'Invoice',
     short_h_kertas: 'H.Kertas',
+    short_barang: 'M.Barang',
     lainnya: 'Lainnya',
 
     // Copyright
@@ -1209,6 +1210,7 @@ export const translations = {
     short_cetakan: 'Print',
     short_invoice: 'Invoice',
     short_h_kertas: 'P.Price',
+    short_barang: 'Items',
     lainnya: 'More',
 
     // Copyright

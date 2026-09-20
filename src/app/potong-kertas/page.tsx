@@ -1410,7 +1410,88 @@ function CalculatorPage() {
             <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Tabel Simulasi ({simRows.length})</p>
             <button onClick={() => setSimConfirmClear(true)} className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400"><Trash2 className="w-3 h-3" /> Hapus Semua</button>
           </div>
-          <div className="max-h-64 lg:max-h-80 overflow-y-auto">
+          {/* Mobile: kartu simulasi — fit to mobile, CRUD lengkap (Terapkan/Ubah/Hapus) */}
+          <div className="sm:hidden">
+            {simRows.map((row) => {
+              const isEditing = simEditingId === row.id
+              const editLive = isEditing ? computeSimulasi(parseInt(simEditJumlah) || 0, simEditProfit.trim() === '' ? 0 : (parseFloat(simEditProfit) || 0)) : null
+              const v = editLive ? { qty: simRowQtyOf(parseInt(simEditJumlah) || 0), sheets: editLive.sheetsNeeded, modal: editLive.hargaKertas, modalPcs: editLive.modalPerPcs, jual: editLive.hargaJual, jualPcs: editLive.hargaPerPcs } : simRowView(row)
+              return (
+                <div key={row.id} className={`p-3 border-b border-slate-100 dark:border-zinc-800 last:border-b-0 ${isEditing ? 'bg-amber-50/70 dark:bg-amber-950/20' : ''}`}>
+                  {/* Baris 1: jumlah + profit badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100">{row.jumlah.toLocaleString('id-ID')} lbr</span>
+                      {row.profit > 0 && <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded-full flex-shrink-0">+{row.profit}%</span>}
+                    </div>
+                  </div>
+
+                  {/* Editor inline saat ubah */}
+                  {isEditing && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Jumlah Pesanan</label>
+                        <input type="number" min="0" inputMode="numeric" value={simEditJumlah} onChange={(e) => setSimEditJumlah(e.target.value)} aria-label="Ubah jumlah pesanan" className={`w-full mt-1 ${simEditInputClass}`} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Profit (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-full mt-1 ${simEditInputClass}`} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stat strip: Modal | Harga Jual | Harga/pcs */}
+                  <div className="grid grid-cols-3 gap-2 mt-2.5 bg-slate-50 dark:bg-zinc-800/60 rounded-lg p-2.5 text-center">
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{v.modal > 0 ? fmtRp(v.modal) : '–'}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Modal</p>
+                    </div>
+                    <div className="border-x border-slate-200 dark:border-zinc-700">
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">{v.jual > 0 ? fmtRp(v.jual) : '–'}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Harga Jual</p>
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-extrabold text-emerald-700 dark:text-emerald-400 leading-tight">{v.jualPcs > 0 ? fmtHargaPcs(v.jualPcs) : '–'}</p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Harga/pcs</p>
+                    </div>
+                  </div>
+
+                  {/* Detail sekunder */}
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 leading-snug">
+                    Cetak {v.qty > 0 ? v.qty.toLocaleString('id-ID') : '–'} pcs · Kertas {v.sheets > 0 ? `${v.sheets.toLocaleString('id-ID')} lbr` : '–'} · Modal/pcs {v.modalPcs > 0 ? fmtHargaPcs(v.modalPcs) : '–'}
+                  </p>
+
+                  {/* Aksi CRUD (touch target 44px) */}
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    {isEditing ? (
+                      <>
+                        <button onClick={saveEditSimulasi} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[13px] font-semibold transition-colors">
+                          <CheckCircle2 className="w-4 h-4" /> Simpan
+                        </button>
+                        <button onClick={cancelEditSimulasi} aria-label="Batal ubah" title="Batal" className="inline-flex items-center justify-center w-[44px] h-[44px] bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-500 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-zinc-700 transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => applySimulasiPotongValues(row.jumlah)} disabled={isCalculating} title="Terapkan ke form utama" className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-700 dark:text-blue-400 rounded-lg text-[13px] font-semibold border border-blue-200 dark:border-blue-800 transition-colors disabled:opacity-40">
+                          <CheckCircle2 className="w-4 h-4" /> Terapkan
+                        </button>
+                        <button onClick={() => startEditSimulasi(row)} aria-label="Ubah simulasi" title="Ubah jumlah/profit" className="inline-flex items-center justify-center w-[44px] h-[44px] bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-zinc-700 transition-colors">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => removeSimulasiRow(row.id)} aria-label="Hapus simulasi" title="Hapus baris" className="inline-flex items-center justify-center w-[44px] h-[44px] bg-red-50 dark:bg-red-900/30 hover:bg-red-100 text-red-600 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {/* Desktop: tabel */}
+          <div className="hidden sm:block max-h-64 lg:max-h-80 overflow-y-auto">
             <Table className="min-w-[560px] lg:min-w-0 text-[10.5px] lg:text-xs">
               <TableHeader className="sticky top-0 z-[1] bg-slate-50 dark:bg-zinc-800">
                 <TableRow className="hover:bg-transparent border-b border-slate-200 dark:border-zinc-700">
