@@ -96,9 +96,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Riwayat tidak ditemukan' }, { status: 404 })
     }
 
-    // Strict ownership: only the owner can delete their own records
+    // Strict ownership: only the owner can delete their own records.
+    // Pengecualian: catatan YATIM (pemilik sudah dihapus / tanpa pemilik)
+    // boleh dibersihkan oleh user login mana pun — tanpa ini catatan tidak
+    // pernah bisa dihapus siapa pun.
     if (item.userId !== user.id) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+      let orphaned = !item.userId
+      if (!orphaned) {
+        const owner = await db.pengguna.findUnique({ where: { id: item.userId }, select: { id: true } })
+        orphaned = !owner
+      }
+      if (!orphaned) {
+        return NextResponse.json({ error: 'Riwayat ini milik akun lain' }, { status: 403 })
+      }
     }
 
     await db.riwayatCetakan.delete({ where: { id } })

@@ -12,8 +12,7 @@ export default function RiwayatHitungCetakanPage() {
       <RiwayatContent
         title={t('riwayat_hitung_cetakan')}
         subtitle={t('subtitle_riwayat_hitung_cetakan')}
-        defaultFilterType="Hitung Cetakan"
-        detailOnRowClick
+        source="hitung-cetakan"
       />
     </DashboardLayout>
   )
