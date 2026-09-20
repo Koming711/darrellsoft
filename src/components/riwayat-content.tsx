@@ -142,6 +142,14 @@ interface UnifiedRiwayat {
   berapaMata: string
   grandTotal: number
   pricePerSheet: number
+  /** Hitung Cetakan: jumlah pesanan dalam pcs (parsed dari jumlahPesanan). */
+  jumlahPcs: number
+  /** Hitung Cetakan: harga modal per pcs = subTotal / jumlah pesanan. */
+  modalPerPcs: number
+  /** Hitung Cetakan: harga jual per pcs = grandTotal / jumlah pesanan. */
+  jualPerPcs: number
+  /** Potong Kertas: potongan per lembar (totalPieces dari resultData / berapaMata). */
+  potonganPerLembar: number | null
   createdAt: string
   raw: RiwayatCetakanRow | RiwayatPotongKertasRow
 }
@@ -156,6 +164,11 @@ interface RiwayatContentProps {
 
 function normalizeCetakan(r: RiwayatCetakanRow): UnifiedRiwayat {
   const qty = parseInt(r.quantity || '0') || 0
+  const pcs = parseInt(r.jumlahPesanan || '0') || 0
+  // Harga per-pcs: pakai jumlahPesanan (pcs pesanan); fallback ke quantity utk data lama
+  const perPcsBase = pcs > 0 ? pcs : qty
+  const modalPerPcs = perPcsBase > 0 ? Math.round((r.subTotal || 0) / perPcsBase) : 0
+  const jualPerPcs = perPcsBase > 0 ? Math.round((r.grandTotal || 0) / perPcsBase) : 0
   return {
     id: r.id,
     nomorUrut: r.nomorUrut || '',
@@ -171,12 +184,27 @@ function normalizeCetakan(r: RiwayatCetakanRow): UnifiedRiwayat {
     berapaMata: r.berapaMata || '',
     grandTotal: r.grandTotal || 0,
     pricePerSheet: qty > 0 ? Math.round((r.grandTotal || 0) / qty) : 0,
+    jumlahPcs: pcs,
+    modalPerPcs,
+    jualPerPcs,
+    potonganPerLembar: null,
     createdAt: r.createdAt,
     raw: r,
   }
 }
 
 function normalizePotong(r: RiwayatPotongKertasRow): UnifiedRiwayat {
+  // Potongan/lembar = totalPieces dari hasil cutting engine (resultData);
+  // fallback ke input berapaMata utk data lama.
+  let potonganPerLembar: number | null = null
+  try {
+    const rd = r.resultData ? JSON.parse(r.resultData) : null
+    if (rd && typeof rd.totalPieces === 'number' && rd.totalPieces > 0) potonganPerLembar = rd.totalPieces
+  } catch { /* resultData bukan JSON valid — abaikan */ }
+  if (!potonganPerLembar) {
+    const bm = parseInt(r.berapaMata || '0') || 0
+    if (bm > 0) potonganPerLembar = bm
+  }
   return {
     id: r.id,
     nomorUrut: r.nomorUrut || '',
@@ -192,6 +220,10 @@ function normalizePotong(r: RiwayatPotongKertasRow): UnifiedRiwayat {
     berapaMata: r.berapaMata || '',
     grandTotal: r.totalPrice || 0,
     pricePerSheet: Math.round(r.pricePerSheet || 0),
+    jumlahPcs: parseInt(r.jumlahPesanan || '0') || 0,
+    modalPerPcs: 0,
+    jualPerPcs: 0,
+    potonganPerLembar,
     createdAt: r.createdAt,
     raw: r,
   }
@@ -462,6 +494,20 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
     } catch { return d }
   }
   const formatRp = (n: number) => `Rp ${(n || 0).toLocaleString('id-ID')}`
+  // Versi ringkas utk kartu mobile (hemat ruang): ≥10 jt → "12,3 jt"
+  const formatRpCompact = (n: number) => {
+    const v = Math.round(n || 0)
+    if (v >= 10_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+    if (v > 0) return `Rp ${v.toLocaleString('id-ID')}`
+    return '-'
+  }
+  // Tanggal pendek utk kartu mobile: "10 Feb, 14.30"
+  const formatDateShort = (d: string) => {
+    try {
+      const dt = new Date(d)
+      return `${dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+    } catch { return d }
+  }
 
   const jenisLabel = isPotong ? 'Potong Kertas' : 'Hitung Cetakan'
 
@@ -478,10 +524,10 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
       aria-label={`Hapus riwayat ${item.printName || item.customerName || ''}`}
       className={cn(
         'flex items-center justify-center gap-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 active:bg-red-200 transition-colors',
-        size === 'icon' ? 'p-2' : 'px-3 min-h-[40px] text-xs font-semibold'
+        size === 'icon' ? 'p-1.5' : 'px-3 min-h-[40px] text-xs font-semibold'
       )}
     >
-      <Trash2 className="w-4 h-4" />
+      <Trash2 className="w-3.5 h-3.5" />
       {size === 'full' && 'Hapus'}
     </button>
   )
@@ -490,9 +536,9 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
     <button
       onClick={(e) => { e.stopPropagation(); openPreview(item) }}
       title={t('preview')}
-      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 active:bg-violet-200 text-xs font-semibold transition-colors"
+      className="flex-1 min-w-0 flex items-center justify-center gap-1 min-h-[32px] px-2 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 active:bg-violet-200 text-[11px] font-semibold transition-colors"
     >
-      <Eye className="w-4 h-4" /> Detail
+      <Eye className="w-3.5 h-3.5" /> Detail
     </button>
   )
 
@@ -500,9 +546,9 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
     <button
       onClick={(e) => { e.stopPropagation(); handleEdit(item) }}
       title="Edit perhitungan di kalkulator"
-      className="flex-1 min-w-0 flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 active:bg-emerald-200 text-xs font-semibold transition-colors"
+      className="flex-1 min-w-0 flex items-center justify-center gap-1 min-h-[32px] px-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 active:bg-emerald-200 text-[11px] font-semibold transition-colors"
     >
-      <Pencil className="w-4 h-4" /> Edit
+      <Pencil className="w-3.5 h-3.5" /> Edit
     </button>
   )
 
@@ -600,92 +646,137 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
         />
       ) : (
         <>
-          {/* ==== Mobile: kartu CRUD ==== */}
-          <div className="sm:hidden space-y-2.5" role="list" aria-label={`Daftar riwayat ${jenisLabel}`}>
-            {filteredItems.map((item) => {
-              const qtyLabel = `${item.quantity.toLocaleString('id-ID')} lbr`
-              return (
-                <div
-                  key={item.id}
-                  role="listitem"
-                  onClick={() => openPreview(item)}
-                  className="bg-white border border-slate-200 rounded-xl p-3.5 cursor-pointer hover:border-slate-300 active:bg-slate-50 transition-colors"
-                >
-                  {/* Baris 1: badge jenis + nomor urut */}
-                  <div className="flex items-center justify-between gap-2 mb-2">
+          {/* ==== Mobile: kartu CRUD (kompak — diperkecil sesuai permintaan owner) ==== */}
+          <div className="sm:hidden space-y-2" role="list" aria-label={`Daftar riwayat ${jenisLabel}`}>
+            {filteredItems.map((item) => (
+              <div
+                key={item.id}
+                role="listitem"
+                onClick={() => openPreview(item)}
+                className="bg-white border border-slate-200 rounded-lg p-2.5 cursor-pointer hover:border-slate-300 active:bg-slate-50 transition-colors"
+              >
+                {/* Baris 1: badge jenis + nomor + tanggal (digabung — hemat tinggi) */}
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className={cn(
-                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
+                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold',
                       isPotong ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'
                     )}>
-                      {isPotong ? <Scissors className="w-3 h-3" /> : <Calculator className="w-3 h-3" />}
+                      {isPotong ? <Scissors className="w-2.5 h-2.5" /> : <Calculator className="w-2.5 h-2.5" />}
                       {jenisLabel}
                     </span>
                     {item.nomorUrut && (
-                      <span className={cn('text-[10px] font-mono font-semibold tracking-wide', isPotong ? 'text-teal-700' : 'text-blue-700')}>
+                      <span className={cn('text-[9px] font-mono font-semibold tracking-wide', isPotong ? 'text-teal-700' : 'text-blue-700')}>
                         {item.nomorUrut}
                       </span>
                     )}
                   </div>
+                  <span className="flex items-center gap-1 text-[9px] text-slate-400 shrink-0">
+                    <CalendarDays className="w-3 h-3" />
+                    {formatDateShort(item.createdAt)}
+                  </span>
+                </div>
 
-                  {/* Baris 2: pelanggan + cetakan */}
-                  <div className="flex items-start gap-2 min-w-0">
-                    <User className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-[15px] text-slate-900 truncate">
-                        {item.customerName || '-'}
-                      </p>
-                      <p className="text-xs text-slate-500 truncate">
-                        {item.printName || '-'}
-                        {item.paperName ? ` · ${item.paperName}${item.grammage && item.grammage !== '0' ? ` ${item.grammage} gsm` : ''}` : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Baris 3: ringkasan angka */}
-                  <div className="grid grid-cols-3 gap-2 mt-3 bg-slate-50 rounded-lg p-2.5 text-center">
-                    <div>
-                      <p className="text-[13px] font-bold text-slate-800 leading-tight">{qtyLabel}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Jumlah</p>
-                    </div>
-                    <div className="border-x border-slate-200">
-                      <p className="text-[13px] font-bold text-slate-800 leading-tight">
-                        {item.pricePerSheet > 0 ? formatRp(item.pricePerSheet) : '-'}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Harga/Lbr</p>
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-extrabold text-emerald-700 leading-tight">{formatRp(item.grandTotal)}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Total</p>
-                    </div>
-                  </div>
-
-                  {/* Baris 4: tanggal */}
-                  <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-slate-400">
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    {formatDate(item.createdAt)}
-                  </div>
-
-                  {/* Baris 5: aksi CRUD */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-                    {detailButton(item)}
-                    {editButton(item)}
-                    {deleteButton(item)}
+                {/* Baris 2: pelanggan + cetakan */}
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <User className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-[13px] text-slate-900 truncate leading-tight">
+                      {item.customerName || '-'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate leading-tight">
+                      {item.printName || '-'}
+                    </p>
                   </div>
                 </div>
-              )
-            })}
+
+                {/* Baris 3: bahan kertas + gramatur (+ ukuran potong utk potong kertas) */}
+                <div className="flex items-center gap-1.5 mt-1.5 min-w-0 text-[11px] text-slate-600">
+                  <FileText className="w-3 h-3 shrink-0 text-slate-400" />
+                  <span className="truncate">
+                    <span className="font-medium">{item.paperName || '-'}</span>
+                    {item.grammage && item.grammage !== '0' ? ` · ${item.grammage} gsm` : ''}
+                    {isPotong && item.cutSizeLabel ? ` · Potong: ${item.cutSizeLabel}` : ''}
+                  </span>
+                </div>
+
+                {/* Baris 4: ringkasan angka — 4 kolom kompak */}
+                <div className="grid grid-cols-4 gap-1 mt-2 bg-slate-50 rounded-lg px-1.5 py-1.5 text-center">
+                  {isPotong ? (
+                    <>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">
+                          {item.potonganPerLembar != null && item.potonganPerLembar > 0 ? item.potonganPerLembar.toLocaleString('id-ID') : '-'}
+                        </p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Potongan/Lbr</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">
+                          {item.pricePerSheet > 0 ? formatRpCompact(item.pricePerSheet) : '-'}
+                        </p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Harga/Lbr</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-extrabold text-emerald-700 leading-tight truncate">{formatRpCompact(item.grandTotal)}</p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Total</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">
+                          {item.modalPerPcs > 0 ? formatRpCompact(item.modalPerPcs) : '-'}
+                        </p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Modal/pcs</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">
+                          {item.jualPerPcs > 0 ? formatRpCompact(item.jualPerPcs) : '-'}
+                        </p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Jual/pcs</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-extrabold text-emerald-700 leading-tight truncate">{formatRpCompact(item.grandTotal)}</p>
+                        <p className="text-[8.5px] text-slate-400 mt-0.5 leading-tight">Total</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Baris 5: aksi CRUD (lebih kecil) */}
+                <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-100">
+                  {detailButton(item)}
+                  {editButton(item)}
+                  {deleteButton(item)}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* ==== Desktop: tabel — tanpa kotak/bingkai (permintaan owner) ==== */}
           <div className="hidden sm:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px]">
+              <table className={cn('w-full', isPotong ? 'min-w-[1100px]' : 'min-w-[960px]')}>
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['Nomor', 'Nama Pelanggan', 'Nama Cetakan', 'Jumlah', 'Harga/Lembar', 'Total Harga', 'Tanggal', 'Aksi'].map((h, i) => (
+                    {([
+                      'Nomor', 'Nama Pelanggan', 'Nama Cetakan', 'Kertas / Bahan',
+                      ...(isPotong ? ['Ukuran Potong', 'Potongan/Lbr'] : []),
+                      'Jumlah',
+                      ...(isPotong ? ['Harga/Lembar'] : ['Modal/pcs', 'Jual/pcs']),
+                      'Total Harga', 'Tanggal', 'Aksi',
+                    ] as string[]).map((h, i, arr) => (
                       <th key={h} className={cn(
                         'px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase whitespace-nowrap',
-                        i === 7 && 'text-center'
+                        i === arr.length - 1 && 'text-center'
                       )}>{h}</th>
                     ))}
                   </tr>
@@ -713,12 +804,40 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                           <span className="text-slate-700 truncate max-w-[180px]">{item.printName || '-'}</span>
                         </div>
                       </td>
+                      {/* Kertas / Bahan + gramatur */}
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <span className="text-xs font-medium text-slate-700">{item.paperName || '-'}</span>
+                        {item.grammage && item.grammage !== '0' && (
+                          <span className="text-[11px] text-slate-400"> · {item.grammage} gsm</span>
+                        )}
+                      </td>
+                      {isPotong && (
+                        <td className="px-4 py-2.5 text-xs text-slate-700 whitespace-nowrap">{item.cutSizeLabel || '-'}</td>
+                      )}
+                      {isPotong && (
+                        <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
+                          {item.potonganPerLembar != null && item.potonganPerLembar > 0
+                            ? item.potonganPerLembar.toLocaleString('id-ID')
+                            : '-'}
+                        </td>
+                      )}
                       <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
                         {item.quantity.toLocaleString('id-ID')} lbr
                       </td>
-                      <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
-                        {item.pricePerSheet > 0 ? formatRp(item.pricePerSheet) : '-'}
-                      </td>
+                      {isPotong ? (
+                        <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
+                          {item.pricePerSheet > 0 ? formatRp(item.pricePerSheet) : '-'}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
+                            {item.modalPerPcs > 0 ? formatRp(item.modalPerPcs) : '-'}
+                          </td>
+                          <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
+                            {item.jualPerPcs > 0 ? formatRp(item.jualPerPcs) : '-'}
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-2.5">
                         <span className="font-bold text-emerald-700 whitespace-nowrap">{formatRp(item.grandTotal)}</span>
                       </td>
