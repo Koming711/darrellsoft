@@ -40,10 +40,10 @@ import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 
-// Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥10 jt → "11,6 jt"
+// Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥1 jt → "11,6 jt"
 const fmtRpCompact = (n: number) => {
   const v = Math.round(n || 0)
-  if (v >= 10_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+  if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
   if (v > 0) return `Rp ${v.toLocaleString('id-ID')}`
   return '-'
 }
@@ -2912,11 +2912,11 @@ function HitungCetakanPage() {
                       </div>
                       {/* Baris 2: customer + nama barang */}
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold leading-tight truncate">{r.customerName || '-'}</p>
-                        <p className="text-[11px] text-muted-foreground leading-tight truncate">{r.printName || '-'}</p>
+                        <p className="text-[15px] font-bold leading-tight truncate">{r.customerName || '-'}</p>
+                        <p className="text-[12.5px] text-muted-foreground leading-tight truncate">{r.printName || '-'}</p>
                       </div>
                       {/* Baris 3: bahan kertas + gramatur (permintaan owner) */}
-                      <p className="text-[11px] text-muted-foreground truncate">
+                      <p className="text-[12px] text-muted-foreground truncate">
                         <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}
                       </p>
                       {r.finishingNames && r.finishingNames !== '' && (
@@ -2925,20 +2925,20 @@ function HitungCetakanPage() {
                       {/* Baris 4: statistik 4 kolom — Jumlah | Modal/pcs | Jual/pcs | Total */}
                       <div className="grid grid-cols-4 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold leading-tight truncate">{jml > 0 ? jml.toLocaleString('id-ID') : '-'}</p>
-                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Jumlah</p>
+                          <p className="text-[13px] font-semibold leading-tight truncate">{jml > 0 ? jml.toLocaleString('id-ID') : '-'}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Jumlah</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold leading-tight truncate">{modalPcs > 0 ? fmtRpCompact(modalPcs) : '-'}</p>
-                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Modal/pcs</p>
+                          <p className="text-[13px] font-extrabold leading-tight truncate">{modalPcs > 0 ? fmtRpCompact(modalPcs) : '-'}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Modal/pcs</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold leading-tight truncate">{jualPcs > 0 ? fmtRpCompact(jualPcs) : '-'}</p>
-                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Jual/pcs</p>
+                          <p className="text-[13px] font-semibold leading-tight truncate">{jualPcs > 0 ? fmtRpCompact(jualPcs) : '-'}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Jual/pcs</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.grandTotal || 0))}</p>
-                          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Total</p>
+                          <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.grandTotal || 0))}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Total</p>
                         </div>
                       </div>
                       {/* Baris 5: profit + hapus (kompak) */}

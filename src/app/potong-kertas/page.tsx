@@ -67,10 +67,10 @@ function formatTanggalRiwayat(value?: string | null): string {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥10 jt → "11,6 jt"
+// Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥1 jt → "4,7 jt"
 const fmtRpCompact = (n: number) => {
   const v = Math.round(n || 0)
-  if (v >= 10_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+  if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
   if (v > 0) return `Rp ${v.toLocaleString('id-ID')}`
   return '-'
 }
@@ -2149,30 +2149,30 @@ function CalculatorPage() {
                         </div>
                         {/* Baris 2: customer + cetakan */}
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
-                          <p className="text-[11px] text-muted-foreground leading-tight truncate">{r.namaCetakan || '-'}</p>
+                          <p className="text-[15px] font-bold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
+                          <p className="text-[12.5px] text-muted-foreground leading-tight truncate">{r.namaCetakan || '-'}</p>
                         </div>
                         {/* Baris 3: kertas + gramatur + ukuran potong (permintaan owner) */}
-                        <p className="text-[11px] text-muted-foreground truncate">
+                        <p className="text-[12px] text-muted-foreground truncate">
                           <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}{cutLabel}
                         </p>
                         {/* Baris 4: statistik 4 kolom — Potongan/Lbr | Harga/Lbr | Jml Pesanan | Total */}
                         <div className="grid grid-cols-4 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
                           <div className="min-w-0">
-                            <p className="text-[11px] font-bold leading-tight truncate">{potonganLbr != null ? potonganLbr.toLocaleString('id-ID') : '-'}</p>
-                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Potongan/Lbr</p>
+                            <p className="text-[13px] font-semibold leading-tight truncate">{potonganLbr != null ? potonganLbr.toLocaleString('id-ID') : '-'}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Potongan/Lbr</p>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-bold leading-tight truncate">{(r.pricePerSheet || 0) > 0 ? fmtRpCompact(r.pricePerSheet) : '-'}</p>
-                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Harga/Lbr</p>
+                            <p className="text-[13px] font-extrabold leading-tight truncate">{(r.pricePerSheet || 0) > 0 ? fmtRpCompact(r.pricePerSheet) : '-'}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Harga/Lbr</p>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-bold leading-tight truncate">{parseInt(r.jumlahPesanan || 0) > 0 ? parseInt(r.jumlahPesanan).toLocaleString('id-ID') : '-'}</p>
-                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Jml Pesanan</p>
+                            <p className="text-[13px] font-semibold leading-tight truncate">{parseInt(r.jumlahPesanan || 0) > 0 ? parseInt(r.jumlahPesanan).toLocaleString('id-ID') : '-'}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Jml Pesanan</p>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.totalPrice || 0))}</p>
-                            <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">Total</p>
+                            <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.totalPrice || 0))}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Total</p>
                           </div>
                         </div>
                         {/* Baris 5: aksi hapus (kompak) */}
