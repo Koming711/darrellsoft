@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { Download, X, Smartphone, Monitor, Share, MoreVertical } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 
@@ -80,6 +81,12 @@ const T = {
 export function InstallPrompt() {
   const { language } = useLanguage()
   const t = T[language]
+  // Halaman yang BOLEH menampilkan popup/FAB install — hanya landing &
+  // dashboard. Halaman kerja (riwayat, kalkulator, invoice, dll) tidak pernah
+  // ditutupi elemen floating ini.
+  const ALLOWED_PATHS = ['/', '/pembukaan']
+  const pathname = usePathname()
+  const onAllowedPath = ALLOWED_PATHS.includes(pathname || '')
   const [showPrompt, setShowPrompt] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isAndroid, setIsAndroid] = useState(false)
@@ -101,6 +108,28 @@ export function InstallPrompt() {
     }
     return false
   }, [])
+
+  // Dismissal TERSIMPAN PERMANEN (localStorage) — dulu sessionStorage bikin
+  // popup muncul LAGI setiap sesi baru & menutupi tombol aksi (Detail/Edit/
+  // Hapus) di halaman riwayat sehingga preview tidak bisa dibuka.
+  const isPermanentlyDismissed = () => {
+    try {
+      if (localStorage.getItem('install_dismissed') === '1') return true
+      // Migrasi flag lama di sessionStorage → localStorage
+      if (sessionStorage.getItem('install_dismissed') === '1') {
+        localStorage.setItem('install_dismissed', '1')
+        sessionStorage.removeItem('install_dismissed')
+        return true
+      }
+    } catch { /* storage penuh / diblokir — abaikan */ }
+    return false
+  }
+  const persistDismissed = () => {
+    try { localStorage.setItem('install_dismissed', '1') } catch { /* noop */ }
+  }
+  const clearDismissed = () => {
+    try { localStorage.removeItem('install_dismissed'); sessionStorage.removeItem('install_dismissed') } catch { /* noop */ }
+  }
 
   useEffect(() => {
     // Check if already running as standalone PWA
@@ -162,9 +191,14 @@ export function InstallPrompt() {
       pollCount++
     }, 500)
 
-    // Wait for splash screen to finish (3.5s) + 2 more seconds
+    // Wait for splash screen to finish (3.5s) + 2 more seconds.
+    // Auto-show HANYA di halaman landing (/) & dashboard (/pembukaan) — jangan
+    // pernah menutupi halaman kerja (riwayat, kalkulator, invoice) yang punya
+    // tombol aksi (Detail/Edit/Hapus) di dekat area bawah layar.
     const showTimer = setTimeout(() => {
-      if (sessionStorage.getItem('install_dismissed') === '1') return
+      if (isPermanentlyDismissed()) return
+      const path = window.location.pathname
+      if (path !== '/' && path !== '/pembukaan') return
       setShowPrompt(true)
     }, 5500)
 
@@ -232,8 +266,16 @@ export function InstallPrompt() {
   const handleDismiss = () => {
     setShowPrompt(false)
     setDismissed(true)
-    sessionStorage.setItem('install_dismissed', '1')
+    persistDismissed()
   }
+
+  // Kalau user pindah dari dashboard ke halaman kerja saat popup sedang
+  // terbuka → tutup otomatis (tanpa menganggap "dismissed").
+  useEffect(() => {
+    if (showPrompt && pathname !== null && !ALLOWED_PATHS.includes(pathname)) {
+      setShowPrompt(false)
+    }
+  }, [pathname, showPrompt])
 
   // Don't show anything if running as standalone PWA
   if (isStandalone) return null
@@ -260,17 +302,21 @@ export function InstallPrompt() {
     )
   }
 
-  // Floating install FAB
-  const showFab = dismissed && !showPrompt && !installSuccess
+  // Floating install FAB — juga hanya di landing & dashboard, supaya tidak
+  // pernah menutupi tombol aksi di halaman kerja.
+  const showFab = dismissed && !showPrompt && !installSuccess && onAllowedPath
 
   return (
     <>
       {showFab && (
         <button
-          onClick={() => { setDismissed(false); setShowPrompt(true); setShowManualInstall(false); sessionStorage.removeItem('install_dismissed'); }}
-          className="fixed bottom-4 right-4 z-[40] w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+          onClick={() => { setDismissed(false); setShowPrompt(true); setShowManualInstall(false); clearDismissed(); }}
+          // Di mobile naik DI ATAS bottom nav (68px) supaya tidak tertutup nav;
+          // di desktop tetap pojok kanan bawah.
+          className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] sm:bottom-4 right-4 z-[45] w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           style={{ background: 'linear-gradient(135deg, #074290, #0a5eb8)' }}
           title={t.install_app}
+          aria-label={t.install_app}
         >
           <Download className="w-5 h-5" />
         </button>
@@ -285,9 +331,11 @@ export function InstallPrompt() {
             <div className="relative px-4 pt-5 pb-4 text-center" style={{ background: 'linear-gradient(135deg, #074290, #0a5eb8)' }}>
               <button
                 onClick={handleDismiss}
-                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                aria-label="Tutup"
+                // Touch target ≥ 36px supaya mudah ditutup di HP
+                className="absolute top-1.5 right-1.5 h-9 w-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
               >
-                <X className="w-3 h-3 text-white" />
+                <X className="w-4 h-4 text-white" />
               </button>
               <h2 className="text-base font-bold text-white">{t.install_darrell}</h2>
               <p className="text-[10px] text-blue-200 mt-0.5">{t.install_subtitle}</p>
