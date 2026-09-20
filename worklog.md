@@ -10143,3 +10143,20 @@ Work Log:
 Stage Summary:
 - Produksi = v93 (commit bf89fc9). Di halaman Riwayat Potong Kertas & Riwayat Hitung Cetakan (mobile): tab periode di baris pertama, dropdown "Semua Pelanggan" melebar penuh di baris kedua (dengan ✕ reset), kotak pencarian melebar penuh di baris ketiga — tidak ada lagi teks terpotong. Desktop tetap kompak 1 baris.
 - Catatan deploy berikutnya: bump sw v94 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v94.
+---
+Task ID: 129 (lanjutan)
+Agent: Z.ai Code (main)
+Task: "belum ada perubahan check and fix" — user tidak melihat hasil Task 129 di perangkatnya
+
+Work Log:
+- AUDIT: kode Task 129 SUDAH lengkap di repo (commit bf89fc9) — riwayat-content.tsx pakai `flex-col-reverse sm:flex-row`, RiwayatCustomerFilter punya prop fullWidth (w-full sm:w-44); git push sudah sinkron; produksi sw.js = v93; chunk produksi terbukti memuat class baru ("flex flex-col-reverse gap-2 sm:flex-row sm:items-center" + "w-full sm:w-44") → DEPLOY TIDAK HILANG.
+- Verifikasi PRODUKSI v93 (agent-browser, Aming, 390×844): /riwayat-potong-kertas & /riwayat-hitung-cetakan — tab periode (top 104) → dropdown "Semua Pelanggan" FULL WIDTH 325px (top 166) → kotak cari full width (top 219); tab Semua → 154 data Rp 498.604.732 (PK), dropdown aktif berisi nama asli; screenshot membuktikan layout benar. Desktop 1440×900: tab (top 145) → 1 baris cari+dropdown (top 207). 0 error.
+- AKAR MASALAH "belum ada perubahan": perangkat user menjalankan sesi PWA LAMA — service-worker-registration.tsx TIDAK PERNAH memanggil reg.update(), jadi halaman yang masih resume dari memori tidak pernah mengecek SW baru; versi baru hanya terdeteksi kalau halaman di-reload 2x / aplikasi ditutup paksa. Bukan bug layout.
+- FIX service-worker-registration.tsx: setelah registrasi SW kini (1) reg.update() dipanggil SEGERA, (2) setInterval reg.update() tiap 60 detik, (3) dipanggil juga saat event online kembali. Kombinasi dengan controllerchange auto-reload yang sudah ada → setiap deploy otomatis diterapkan maksimal ±1 menit setelah aplikasi dibuka/diresume, tanpa tutup-buka manual.
+- Bump: sw.js v93→v94, APP_VERSION 2026-09-20-v28→v29. Lint file berubah 0 masalah.
+- Deploy: commit 7760b18 → vercel --prod Ready → .vercel/.env.local DIHAPUS → curl sw.js = darrell-soft-v94.
+- Verifikasi PRODUKSI v94 (Aming, 390×844): layout kedua halaman riwayat tetap benar (tab 104 → dropdown 325px 166 → cari 219); modal "Oke, Mengerti" (versi v29) MUNCUL sendiri — bukti alur versi bekerja; tab Semua → Detail → preview dialog terbuka (Cetak/JPG/Edit/Close); 0 page error; chunk produksi memuat kode reg.update().
+
+Stage Summary:
+- Layout Task 129 SUDAH live sejak v93 dan tetap benar di v94 (terverifikasi produksi mobile+desktop, screenshot). Keluhan "belum ada perubahan" = sesi/cache PWA lama di perangkat user; kini diperbaiki permanen: SW mengecek update segera + tiap 60 dtk + saat online, lalu auto-reload sekali — deploy berikutnya selalu otomatis terlihat user maksimal ±1 menit.
+- Catatan deploy berikutnya: bump sw v95 → deploy → hapus .vercel/.env.local → curl sw.js = darrell-soft-v95.
