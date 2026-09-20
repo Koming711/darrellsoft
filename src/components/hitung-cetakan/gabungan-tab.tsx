@@ -38,6 +38,8 @@ import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { RiwayatPeriodFilter, RiwayatCustomerFilter, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
@@ -75,6 +77,7 @@ const labelKertas = (r: { paperName?: string | null; paperGrammage?: string | nu
 /** Field riwayat yang dipakai gabungan (baris dari /api/riwayat-cetakan). */
 interface GabungBaris {
   id: string
+  createdAt?: string | null
   printName?: string | null
   customerName?: string | null
   paperName?: string | null
@@ -94,6 +97,13 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selLoaded, setSelLoaded] = useState(false)
   const [search, setSearch] = useState('')
+  // ===== Filter periode + pelanggan (gaya tab Riwayat — Hari ini … Semua + Semua Pelanggan)
+  const [period, setPeriod] = useState<RiwayatPeriod>('all')
+  const [fDateFrom, setFDateFrom] = useState('')
+  const [fDateTo, setFDateTo] = useState('')
+  const [fMonth, setFMonth] = useState<number | null>(new Date().getMonth() + 1)
+  const [fYear, setFYear] = useState<number | null>(new Date().getFullYear())
+  const [customerFilter, setCustomerFilter] = useState('')
   // ===== Dialog kosongkan =====
   const [clearOpen, setClearOpen] = useState(false)
   // ===== Input gabungan =====
@@ -129,11 +139,42 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
   const toggle = (id: string) =>
     setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
 
+  // Rentang tanggal efektif utk filter periode (Hari ini … Semua)
+  const eff = useMemo(
+    () => riwayatDateRange(period, fDateFrom, fDateTo, fMonth, fYear),
+    [period, fDateFrom, fDateTo, fMonth, fYear]
+  )
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(r => `${r.printName || ''} ${r.customerName || ''}`.toLowerCase().includes(q))
-  }, [rows, search])
+    return rows.filter(r => {
+      const t = String(r?.createdAt || '').slice(0, 10)
+      if (eff.dateFrom && t && t < eff.dateFrom) return false
+      if (eff.dateTo && t && t > eff.dateTo) return false
+      if (customerFilter && String(r?.customerName || '').trim() !== customerFilter) return false
+      if (q && !`${r.printName || ''} ${r.customerName || ''}`.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [rows, search, customerFilter, eff])
+
+  const filtersActive = period !== 'all' || !!fDateFrom || !!fDateTo || !!customerFilter || !!search.trim()
+  const resetFilters = () => {
+    setPeriod('all')
+    setFDateFrom('')
+    setFDateTo('')
+    setCustomerFilter('')
+    setSearch('')
+  }
+
+  // Opsi dropdown pelanggan: nama unik dari SEMUA riwayat (terurut)
+  const customerOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of rows) {
+      const name = String(r?.customerName || '').trim()
+      if (name && name !== '-') set.add(name)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [rows])
 
   const selected = useMemo(() => rows.filter(r => selectedIds.includes(r.id)), [rows, selectedIds])
 
@@ -162,7 +203,7 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
 
   const gabungCustomer = useMemo(() => {
     const withCust = selected.find(r => (r.customerName || '').trim() !== '')
-    return withCust ? withCust.customerName.trim() : ''
+    return withCust ? (withCust.customerName || '').trim() : ''
   }, [selected])
 
   // ===== Cetak & JPG hi-res 300 DPI (capture dari instance offscreen — tidak perlu preview terbuka).
@@ -343,7 +384,10 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
               <p className="text-base font-bold text-slate-800 dark:text-slate-100">
                 Daftar Hitungan
                 <span className="ml-2 text-xs font-semibold text-slate-400">
-                  {rows.length} hitungan{selectedIds.length > 0 ? ` · ${selectedIds.length} dipilih` : ''}
+                  {filtered.length === rows.length
+                    ? `${rows.length} hitungan`
+                    : `${filtered.length} dari ${rows.length} hitungan`}
+                  {selectedIds.length > 0 ? ` · ${selectedIds.length} dipilih` : ''}
                 </span>
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
@@ -369,20 +413,61 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
           </div>
         ) : (
           <>
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <Input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Cari nama barang / customer..."
-                className="pl-9 h-9 text-sm"
-              />
+            {/* Filter periode (Hari ini … Semua) — gaya sama dgn tab Riwayat */}
+            <RiwayatPeriodFilter
+              period={period}
+              onChangePeriod={setPeriod}
+              from={fDateFrom}
+              to={fDateTo}
+              onFromChange={setFDateFrom}
+              onToChange={setFDateTo}
+              month={fMonth}
+              onMonthChange={setFMonth}
+              year={fYear}
+              onYearChange={setFYear}
+              idPrefix="gabung-hc"
+            />
+            {/* Dropdown Semua Pelanggan + kotak pencarian — pola tab Riwayat:
+                mobile dropdown 1 baris penuh di atas, pencarian 1 baris penuh di bawahnya. */}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+              <div className="relative flex-1 min-w-0">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Cari nama barang / customer..."
+                  aria-label="Cari hitungan untuk gabungan"
+                  className="pl-9 min-h-[44px] text-sm bg-white"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <RiwayatCustomerFilter
+                  idPrefix="gabung-hc"
+                  options={customerOptions}
+                  value={customerFilter}
+                  onChange={setCustomerFilter}
+                  ariaLabel="Filter nama pelanggan gabungan"
+                  fullWidth
+                />
+                {filtersActive && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 shrink-0"
+                    onClick={resetFilters}
+                    aria-label="Reset filter"
+                    title="Reset Filter"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
             {/* Mobile: kartu pilih — ketuk kartu untuk masukkan/keluarkan dari gabungan */}
             <div className="lg:hidden space-y-2">
               {filtered.length === 0 && (
                 <div className="border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg py-6 text-center text-sm text-slate-400">
-                  Tidak ada hitungan yang cocok dengan pencarian.
+                  Tidak ada hitungan yang cocok dengan filter periode / pelanggan / pencarian.
                 </div>
               )}
               {filtered.map(r => {
@@ -465,7 +550,7 @@ export function GabunganTab({ rows }: { rows: GabungBaris[] }) {
                   {filtered.length === 0 && (
                     <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={11} className="text-center py-8 text-sm text-slate-400">
-                        Tidak ada hitungan yang cocok dengan pencarian.
+                        Tidak ada hitungan yang cocok dengan filter periode / pelanggan / pencarian.
                       </TableCell>
                     </TableRow>
                   )}
