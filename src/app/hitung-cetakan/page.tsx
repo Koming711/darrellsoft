@@ -2912,18 +2912,26 @@ function HitungCetakanPage() {
                       </div>
                       {/* Baris 2: customer + nama barang */}
                       <div className="min-w-0">
-                        <p className="text-[15px] font-bold leading-tight truncate">{r.customerName || '-'}</p>
+                        <p className="text-[18px] font-bold leading-tight truncate">{r.customerName || '-'}</p>
                         <p className="text-[12.5px] text-muted-foreground leading-tight truncate">{r.printName || '-'}</p>
                       </div>
-                      {/* Baris 3: bahan kertas + gramatur (permintaan owner) */}
-                      <p className="text-[12px] text-muted-foreground truncate">
-                        <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}
-                      </p>
+                      {/* Baris 3: bahan kertas + gramatur, Profit sejajar di kanan (permintaan owner) */}
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <p className="text-[12px] text-muted-foreground truncate min-w-0">
+                          <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground shrink-0 whitespace-nowrap">
+                          Profit:{' '}
+                          {r.profitAmount && r.profitAmount > 0
+                            ? <span className="font-semibold text-violet-700">Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
+                            : '—'}
+                        </p>
+                      </div>
                       {r.finishingNames && r.finishingNames !== '' && (
                         <p className="text-[10px] text-muted-foreground line-clamp-1">Fin: {r.finishingNames}</p>
                       )}
-                      {/* Baris 4: statistik 4 kolom — Jumlah | Modal/pcs | Jual/pcs | Total */}
-                      <div className="grid grid-cols-4 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
+                      {/* Baris 4: statistik 3 kolom — Jumlah | Modal/pcs | Jual/pcs (Total pindah ke bawah) */}
+                      <div className="grid grid-cols-3 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
                         <div className="min-w-0">
                           <p className="text-[13px] font-semibold leading-tight truncate">{jml > 0 ? jml.toLocaleString('id-ID') : '-'}</p>
                           <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Jumlah</p>
@@ -2936,19 +2944,15 @@ function HitungCetakanPage() {
                           <p className="text-[13px] font-semibold leading-tight truncate">{jualPcs > 0 ? fmtRpCompact(jualPcs) : '-'}</p>
                           <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Jual/pcs</p>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-extrabold text-emerald-700 leading-tight truncate">{fmtRpCompact(Math.round(r.grandTotal || 0))}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Total</p>
-                        </div>
                       </div>
-                      {/* Baris 5: profit + hapus (kompak) */}
+                      {/* Baris 5: Total pindah ke bawah sejajar tombol Hapus — angka PENUH (tidak disingkat) */}
                       <div className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2">
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          Profit:{' '}
-                          {r.profitAmount && r.profitAmount > 0
-                            ? <span className="font-semibold text-violet-700">Rp {Math.round(r.profitAmount).toLocaleString('id-ID')}</span>
-                            : '—'}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-muted-foreground leading-tight">Total</p>
+                          <p className="text-[16px] font-extrabold text-emerald-700 leading-tight truncate">
+                            {(r.grandTotal || 0) > 0 ? `Rp ${Math.round(r.grandTotal).toLocaleString('id-ID')}` : '-'}
+                          </p>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"

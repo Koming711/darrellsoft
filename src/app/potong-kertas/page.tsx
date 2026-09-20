@@ -2149,7 +2149,7 @@ function CalculatorPage() {
                         </div>
                         {/* Baris 2: customer + cetakan */}
                         <div className="min-w-0">
-                          <p className="text-[16px] font-bold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
+                          <p className="text-[18px] font-bold leading-tight truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</p>
                           <p className="text-[13.5px] text-muted-foreground leading-tight truncate">{r.namaCetakan || '-'}</p>
                         </div>
                         {/* Baris 3: kertas + gramatur + ukuran potong (permintaan owner) */}
@@ -2175,7 +2175,7 @@ function CalculatorPage() {
                         <div className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2">
                           <div className="min-w-0">
                             <p className="text-[11px] text-muted-foreground leading-tight">Total</p>
-                            <p className="text-[14px] font-extrabold text-emerald-700 leading-tight truncate">
+                            <p className="text-[16px] font-extrabold text-emerald-700 leading-tight truncate">
                               {(r.totalPrice || 0) > 0 ? `Rp ${Math.round(r.totalPrice).toLocaleString('id-ID')}` : '-'}
                             </p>
                           </div>
