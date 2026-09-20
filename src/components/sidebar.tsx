@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './theme-toggle'
 import { LanguageToggle } from './language-toggle'
@@ -446,17 +447,15 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
     })
     .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
 
-  // Group menu items by section
-  const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
-    { key: undefined, labelKey: 'section_beranda' as TranslationKey },
-    { key: 'hitung_biaya_produksi', labelKey: 'section_total_cost_calc' as TranslationKey },
-    { key: 'dokumen', labelKey: 'section_documents' as TranslationKey },
-    { key: 'laporan', labelKey: 'section_laporan' as TranslationKey },
-    { key: 'biaya', labelKey: 'section_expenses' as TranslationKey },
-    { key: 'biaya_produksi', labelKey: 'section_production_cost' as TranslationKey },
-    { key: 'master_cetakan', labelKey: 'section_print_master' as TranslationKey },
-    { key: 'administrasi', labelKey: 'section_administration' as TranslationKey },
-    { key: 'setting', labelKey: 'section_setting' as TranslationKey },
+  // Group menu items by section — digabung agar seluruh menu muat 1 layar mobile
+  const popupGroups: { key: string; labelKey?: TranslationKey; sections: (string | undefined)[] }[] = [
+    { key: 'main', sections: [undefined] },
+    { key: 'hitung', labelKey: 'section_total_cost_calc' as TranslationKey, sections: ['hitung_biaya_produksi'] },
+    { key: 'dokumen', labelKey: 'section_documents' as TranslationKey, sections: ['dokumen'] },
+    { key: 'laporan', labelKey: 'section_laporan' as TranslationKey, sections: ['laporan'] },
+    { key: 'biaya', labelKey: 'section_biaya' as TranslationKey, sections: ['biaya', 'biaya_produksi'] },
+    { key: 'master', labelKey: 'section_print_master' as TranslationKey, sections: ['master_cetakan'] },
+    { key: 'admin', labelKey: 'section_administration' as TranslationKey, sections: ['administrasi', 'setting'] },
   ]
 
   // Check if current page is one of the bottom nav items
@@ -464,46 +463,59 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
 
   return (
     <>
-      {/* Full-page menu popup */}
+      {/* Full-page menu popup — compact, fit 1 layar mobile */}
       {showPopup && (
-        <div className="fixed inset-0 z-[60] lg:hidden" style={{ backgroundColor: '#1e40af' }}>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="fixed inset-0 z-[60] lg:hidden flex flex-col"
+          style={{ backgroundColor: '#1e40af' }}
+        >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 h-14">
-            <div className="flex items-center gap-2.5">
-              <img src="/logo-ds.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
-              <span className="text-white font-extrabold text-base tracking-tight">darrellsoft.com</span>
+          <div className="flex items-center justify-between px-4 h-12 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <img src="/logo-ds.png" alt="Logo" className="w-7 h-7 rounded-lg object-contain" />
+              <span className="text-white font-extrabold text-[15px] tracking-tight">darrellsoft.com</span>
             </div>
             <button
               onClick={() => setShowPopup(false)}
-              className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Tutup menu"
+              className="p-2 -mr-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Menu items */}
-          <div className="overflow-y-auto px-4 pb-8 hide-scrollbar" style={{ maxHeight: 'calc(100vh - 56px)' }}>
-            {sectionOrder.map((section) => {
-              const sectionItems = allMenuItems.filter(item => item.section === section.key)
+          {/* Menu items — grid padat, semua section muat dalam 1 layar tanpa scroll */}
+          <div
+            className="flex-1 overflow-y-auto px-3 pt-1 pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
+            style={{ maxHeight: 'calc(100dvh - 48px)' }}
+          >
+            {popupGroups.map((group) => {
+              const sectionItems = allMenuItems.filter(item => group.sections.includes(item.section))
               if (sectionItems.length === 0) return null
 
               return (
-                <div key={section.key ?? 'main'} className="mb-4">
-                  {section.key && (
-                    <div className="py-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-white/85">
-                        {t(section.labelKey)}
+                <div key={group.key} className="mb-1.5 [@media(max-height:700px)]:mb-1">
+                  {group.labelKey && (
+                    <div
+                      className="pb-[3px] mb-1 border-b [@media(max-height:700px)]:mb-0.5"
+                      style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px' }}
+                    >
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 leading-none">
+                        {t(group.labelKey!)}
                       </span>
-                      <div className="mt-1" style={{ borderColor: 'rgba(255,255,255,0.2)', borderWidth: '0.1px' }} />
                     </div>
                   )}
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1">
                     {sectionItems.map((item) => {
                       const active = isActive(item.href)
                       return (
                         <Link
                           key={item.href}
                           href={item.href}
+                          aria-current={active ? 'page' : undefined}
                           onClick={(e) => {
                             if (item.isPro) {
                               e.preventDefault()
@@ -515,19 +527,30 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                             setShowPopup(false)
                           }}
                           className={cn(
-                            'flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors relative',
+                            // Cell padat: min 44px touch target, membesar halus di layar tinggi (≥800px)
+                            'relative flex flex-col items-center justify-center gap-0.5 min-h-[44px] px-0.5 py-1 rounded-lg transition-colors',
+                            '[@media(max-height:700px)]:py-0.5',
+                            '[&>svg]:w-[18px] [&>svg]:h-[18px]',
+                            '[@media(min-height:800px)]:min-h-[48px] [@media(min-height:800px)]:py-1.5 [@media(min-height:800px)]:gap-1',
                             item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                             active
                               ? 'bg-white/20 text-white'
                               : 'text-white hover:bg-white/15'
                           )}
                         >
-                          <item.icon className="w-7 h-7" strokeWidth={active ? 2.5 : 2} />
-                          <span className={cn('text-xs leading-tight text-center', active ? 'font-bold' : 'font-medium')}>
+                          <item.icon strokeWidth={active ? 2.4 : 2} />
+                          <span
+                            className={cn(
+                              'text-[9px] leading-[1.2] text-center font-medium line-clamp-2',
+                              '[@media(max-height:700px)]:leading-[1.1]',
+                              '[@media(min-height:800px)]:text-[10px]',
+                              active && 'font-bold'
+                            )}
+                          >
                             {t(item.titleKey)}
                           </span>
                           {item.isPro && (
-                            <span className="absolute top-1 right-1 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">
+                            <span className="absolute top-0.5 right-0.5 text-[7px] font-black leading-none px-[3px] py-px rounded-sm bg-amber-500 text-white shadow">
                               PRO
                             </span>
                           )}
@@ -539,23 +562,26 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               )
             })}
 
-            {/* Logout */}
+            {/* Logout — compact */}
             {username && onLogout && (
-              <div className="mt-4 pt-3" style={{ borderColor: 'rgba(255,255,255,0.2)', borderWidth: '0.1px' }}>
+              <div
+                className="mt-1 pt-1.5"
+                style={{ borderColor: 'rgba(255,255,255,0.22)', borderWidth: '0.1px', borderTopWidth: '0.1px' }}
+              >
                 <button
                   onClick={async () => {
                     setShowPopup(false)
                     if (onLogout) await onLogout()
                   }}
-                  className="flex items-center justify-center gap-2 w-full p-4 rounded-xl text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors"
+                  className="flex items-center justify-center gap-1.5 w-full min-h-[36px] py-1.5 rounded-lg text-red-300 hover:bg-white/15 hover:text-red-200 transition-colors"
                 >
-                  <LogOut className="w-6 h-6" />
-                  <span className="text-sm font-semibold">{t('keluar')}</span>
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-xs font-semibold">{t('keluar')}</span>
                 </button>
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Bottom nav bar */}
