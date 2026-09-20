@@ -59,7 +59,7 @@ export const translations = {
     pengguna: 'Pengguna',
     pengaturan: 'Pengaturan',
     setting: 'Setting',
-    keluar: 'Keluar',
+    keluar: 'Logout',
 
     // Login
     masuk: 'Masuk',
