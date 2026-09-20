@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-20-v28'
+const APP_VERSION = '2026-09-20-v29'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -120,7 +120,6 @@ export function ServiceWorkerRegistration() {
               window.dispatchEvent(new Event('swactivated'))
             }
 
-            // Check for updates periodically
             reg.addEventListener('updatefound', () => {
               const newWorker = reg.installing
               if (newWorker) {
@@ -132,6 +131,20 @@ export function ServiceWorkerRegistration() {
                 })
               }
             })
+
+            // CEK UPDATE SEGERA + BERKALA (tiap 60 dtk) — KRITICAL:
+            // PWA yang masih "resume" dari memori (tidak pernah reload) TIDAK
+            // pernah mengecek SW baru, sehingga user terus melihat versi lama
+            // walau deploy sudah selesai (keluhan "belum ada perubahan").
+            // Dengan reg.update() berkala + controllerchange auto-reload di
+            // atas, setiap deploy otomatis diterapkan maksimal 1 menit setelah
+            // aplikasi dibuka/diresume — tanpa perlu tutup-buka aplikasi.
+            const checkForUpdate = () => {
+              reg.update().catch(() => {})
+            }
+            checkForUpdate()
+            setInterval(checkForUpdate, 60_000)
+            window.addEventListener('online', checkForUpdate)
           })
           .catch((err) => console.log('SW registration failed:', err))
       }
