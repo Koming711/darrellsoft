@@ -1983,35 +1983,42 @@ function CalculatorPage() {
                 onMonthChange={setMonth}
                 year={year}
                 onYearChange={setYear}
-                rightSlot={
-                  <div className="flex items-center gap-1.5">
-                    <RiwayatCustomerFilter
-                      idPrefix="riwayat-pk"
-                      options={riwayatCustomerOptions}
-                      value={customerFilter}
-                      onChange={setCustomerFilter}
-                      ariaLabel="Filter nama pelanggan potong kertas"
-                    />
-                    <div className="relative w-52 sm:w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
-                      <Input
-                        id="riwayat-pk-search"
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Cari no. PK / customer / barang…"
-                        aria-label="Cari riwayat potong kertas"
-                        className="pl-9 min-h-[44px] bg-white"
-                      />
-                    </div>
-                    {filtersActive && (
-                      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery(''); setCustomerFilter('') }} aria-label="Reset filter" title="Reset Filter">
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                }
               />
+
+            {/* Filter pelanggan + kotak pencarian — DIPINDAH ke BAWAH baris tab
+                periode (Hari ini … Semua) sesuai permintaan owner.
+                Mobile: dropdown "Semua Pelanggan" 1 baris penuh (beserta tombol
+                reset), lalu kotak pencarian 1 baris penuh di bawahnya.
+                Desktop (sm+): tetap rapi dalam 1 baris. */}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                <Input
+                  id="riwayat-pk-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari no. PK / customer / barang…"
+                  aria-label="Cari riwayat potong kertas"
+                  className="pl-9 min-h-[44px] bg-white w-full"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <RiwayatCustomerFilter
+                  idPrefix="riwayat-pk"
+                  options={riwayatCustomerOptions}
+                  value={customerFilter}
+                  onChange={setCustomerFilter}
+                  ariaLabel="Filter nama pelanggan potong kertas"
+                  fullWidth
+                />
+                {filtersActive && (
+                  <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => { setPeriod('today'); setDateFrom(''); setDateTo(''); setSearchQuery(''); setCustomerFilter('') }} aria-label="Reset filter" title="Reset Filter">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
           </RiwayatFilterCard>
 
           {/* Ringkasan */}
