@@ -254,11 +254,11 @@ const bottomNavItems = [
     featureId: 'invoice',
   },
   {
-    titleKey: 'master_harga_kertas' as TranslationKey,
-    shortTitleKey: 'short_h_kertas' as TranslationKey,
-    href: '/master-harga-kertas',
-    icon: ScrollText,
-    featureId: 'master-harga-kertas',
+    titleKey: 'master_barang' as TranslationKey,
+    shortTitleKey: 'short_barang' as TranslationKey,
+    href: '/master-barang',
+    icon: Package,
+    featureId: 'master-barang',
   },
 ]
 

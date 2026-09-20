@@ -15,9 +15,11 @@ import {
   type RiwayatPeriod,
 } from '@/components/dokupro/riwayat-period-filter'
 import { getAuthHeaders } from '@/lib/auth'
+import { fetcher } from '@/lib/fetcher'
 import { formatTanggalFull } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
+import { useDokuproStore } from '@/lib/store'
 import {
   History,
   Loader2,
@@ -28,6 +30,8 @@ import {
   Upload,
   Plus,
   ArrowLeft,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +46,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { SuratJalanPreview } from '@/components/dokupro/surat-jalan-preview'
 import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -166,6 +180,8 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
   const previewWrapperRef = useRef<HTMLDivElement>(null)
   const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const setSuratJalan = useDokuproStore((s) => s.setSuratJalan)
 
   // Filter periode (gaya Laporan Penjualan) — default: Semua Periode
   const [period, setPeriod] = useState<RiwayatPeriod>('all')
@@ -283,6 +299,30 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
       setSendingPdf(false)
     }
   }, [sjData])
+
+  // Muat data surat jalan dari riwayat ke editor (ubah → simpan lagi)
+  const restoreToEditor = (entry: HistoryEntry) => {
+    const parsed = parseSuratJalanData(entry)
+    setSuratJalan(parsed)
+    onCreate()
+    toast.success('Surat Jalan berhasil dimuat ke editor')
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      if (res.ok) {
+        toast.success('Surat Jalan berhasil dihapus')
+        notifyDataChange('surat-jalan')
+        fetchHistory()
+      } else {
+        toast.error('Gagal menghapus surat jalan')
+      }
+    } catch {
+      toast.error('Gagal menghapus surat jalan')
+    }
+    setDeleteConfirmId(null)
+  }
 
   const handleBackup = async () => {
     setBackupLoading('backup')
@@ -404,7 +444,7 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Riwayat Surat Jalan</h1>
             <p className="text-sm text-muted-foreground mt-1">Periode: {periodLabel}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               onClick={onCreate}
               title="Buat surat jalan baru"
@@ -528,16 +568,38 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                           <TableCell className="text-right tabular-nums">{info.itemsCount}</TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{info.totalQty.toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              title="Lihat"
-                              aria-label={`Lihat ${entry.nomor || 'surat jalan'}`}
-                              onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Lihat"
+                                aria-label={`Lihat ${entry.nomor || 'surat jalan'}`}
+                                onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Muat ke editor"
+                                aria-label={`Muat ${entry.nomor || 'surat jalan'}`}
+                                onClick={() => restoreToEditor(entry)}
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                title="Hapus"
+                                aria-label={`Hapus ${entry.nomor || 'surat jalan'}`}
+                                onClick={() => setDeleteConfirmId(entry.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       )
@@ -576,6 +638,20 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                           >
                             <Eye className="h-3.5 w-3.5" /> Lihat
                           </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
+                            onClick={(e) => { e.stopPropagation(); restoreToEditor(entry) }}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Muat
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(entry.id) }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Hapus
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -586,6 +662,25 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
           </>
         )}
       </div>
+
+      {/* AlertDialog hapus */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(o) => { if (!o) setDeleteConfirmId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus surat jalan?</AlertDialogTitle>
+            <AlertDialogDescription>Data surat jalan yang dihapus tidak dapat dikembalikan.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); if (deleteConfirmId) void handleDelete(deleteConfirmId) }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Preview Popup */}
       {previewOpen && sjData && (
