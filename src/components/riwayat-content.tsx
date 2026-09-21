@@ -702,7 +702,7 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
 
                 {/* Baris 4: ringkasan angka — potong: 3 kolom (Total pindah ke bawah sejajar Hapus, angka penuh); cetakan: 3 kolom (Total juga pindah ke bawah) */}
                 {isPotong ? (
-                  <div className="grid grid-cols-3 gap-1 mt-2 bg-slate-50 rounded-lg px-1.5 py-1.5 text-center">
+                  <div className="grid grid-cols-2 gap-1 mt-2 bg-slate-50 rounded-lg px-1.5 py-1.5 text-center">
                     <div className="min-w-0">
                       <p className="text-[14px] font-semibold text-slate-800 leading-tight truncate">
                         {item.potonganPerLembar != null && item.potonganPerLembar > 0 ? item.potonganPerLembar.toLocaleString('id-ID') : '-'}
@@ -718,6 +718,12 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                     <div className="min-w-0">
                       <p className="text-[14px] font-semibold text-slate-800 leading-tight truncate">{item.quantity.toLocaleString('id-ID')} lbr</p>
                       <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Jumlah</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold text-teal-700 leading-tight truncate">
+                        {item.sheetsNeeded != null && item.sheetsNeeded > 0 ? `${item.sheetsNeeded.toLocaleString('id-ID')} lbr` : '-'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Lembar Kertas</p>
                     </div>
                   </div>
                 ) : (
@@ -762,12 +768,12 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
           {/* ==== Desktop: tabel — tanpa kotak/bingkai (permintaan owner) ==== */}
           <div className="hidden sm:block">
             <div className="overflow-x-auto">
-              <table className={cn('w-full', isPotong ? 'min-w-[1100px]' : 'min-w-[960px]')}>
+              <table className={cn('w-full', isPotong ? 'min-w-[1240px]' : 'min-w-[960px]')}>
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     {([
                       'Nomor', 'Nama Pelanggan', 'Nama Cetakan', 'Kertas / Bahan',
-                      ...(isPotong ? ['Ukuran Potong', 'Potongan/Lbr'] : []),
+                      ...(isPotong ? ['Ukuran Potong', 'Potongan/Lbr', 'Lembar Kertas'] : []),
                       'Jumlah',
                       ...(isPotong ? ['Harga/Lembar'] : ['Modal/pcs', 'Jual/pcs']),
                       'Total Harga', 'Tanggal', 'Aksi',
@@ -816,6 +822,13 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                         <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
                           {item.potonganPerLembar != null && item.potonganPerLembar > 0
                             ? item.potonganPerLembar.toLocaleString('id-ID')
+                            : '-'}
+                        </td>
+                      )}
+                      {isPotong && (
+                        <td className="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">
+                          {item.sheetsNeeded != null && item.sheetsNeeded > 0
+                            ? `${item.sheetsNeeded.toLocaleString('id-ID')} lbr`
                             : '-'}
                         </td>
                       )}
