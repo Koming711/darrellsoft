@@ -250,6 +250,7 @@ model RiwayatCetakan {
   profitPercent      Float
   profitAmount       Float
   grandTotal         Float
+  simulasiCepat      String   @default("")
   photoUrl           String?
   userId             String?
   createdAt          DateTime @default(now())
