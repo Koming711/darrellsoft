@@ -10534,3 +10534,23 @@ Stage Summary:
 - Riwayat Potong Kertas (halaman + tab riwayat editor): kolom "Lembar Kertas" (lembar kertas penuh yg dibutuhkan) tampil di tabel desktop & kartu mobile.
 - Rincian Harga Cetakan (semua tempat: popup editor, popup riwayat, JPG, cetak): tile "Lembar Kertas" di Informasi Pesanan; Tabel Simulasi CETAK selalu tampil (baris tersimpan ATAU 1 baris hitung-otomatis utk record lama) + kolom Lembar Kertas di tabelnya.
 - Produksi TIDAK tersentuh (masih v112). Siap deploy atas konfirmasi user (perubahan combobox master barang Task 146 akan ikut terangkat).
+
+---
+Task ID: 147-deploy
+Agent: Z.ai Code (main)
+Task: "deploy" (terbitkan Task 146 combobox + Task 147 lembar kertas/simulasi ke www.darrellsoft.com)
+
+Work Log:
+- Persiapan: tidak perlu migrasi DB (Task 146/147 murni UI; kolom simulasiCepat sudah ada di Supabase sejak Task 145, sheetsNeeded sudah lama ada).
+- sw bump: public/sw.js v112 -> darrell-soft-v113; APP_VERSION 2026-09-20-v47 -> 2026-09-21-v48. Commit c87dec9 + push.
+- Deploy: npx vercel --prod --project darrellsoft -> READY (dpl_3vDSGW5WL5dN2AkwB8B1gxMu9MwZ, ~95s). curl produksi: sw.js = darrell-soft-v113, site 200.
+- Verifikasi produksi (Aming, 375x812):
+  - Riwayat Hitung Cetakan: record uji HC/09/26/0066 dibuat via API (TANPA simulasiCepat = skema record lama) -> popup Detail Rincian Cetakan: tile "Lembar Kertas 188 lbr" + "Tabel Simulasi (1)" baris hitung-otomatis (1.500 lbr | 188 | 10% | Rp 837.500 | Rp 558,33 | Rp 921.250 | Rp 614,17) + footnote "dihitung otomatis" + kolom Lembar Kertas di tabel (screenshot prod-rincian-v113). Record uji DIHAPUS (200).
+  - Riwayat Potong Kertas: record uji PK/09/26/0074 dibuat via API -> tabel desktop kolom "Lembar Kertas" = "250 lbr" (antara Potongan/Lbr & Jumlah); kartu mobile 2x2 dgn "Lembar Kertas 250 lbr". Record uji DIHAPUS (200); data riwayat asli Aming (156 record potong) tidak tersentuh.
+  - Master Barang (Task 146): role 'user' TIDAK punya akses master-barang (permission-defaults) -> combobox diverifikasi baca-saja sebagai superadmin: combobox "Pilih Pelanggan" dgn placeholder "Ketik nama pelanggan…", ketik "budi" -> tersaring ke "Budi Susanto — PT. Maju berkah", pilih -> trigger + badge berubah; ketik "aming" -> kosong; Reset -> "Semua Barang". TIDAK ada mutasi data.
+- 0 console/page error di produksi. Nomor uji hangus: HC/09/26/0066, PK/09/26/0074 (numbering tidak reuse, konsisten perilaku lama).
+- Worklog + hasil commit di-push ke GitHub.
+
+Stage Summary:
+- Produksi www.darrellsoft.com = v113 (PWA app version 2026-09-21-v48) memuat: combobox "Pilih Pelanggan" Master Barang yang bisa diketik (Task 146), kolom Lembar Kertas di Riwayat Potong Kertas (halaman + tab editor), dan Lembar Kertas + Simulasi Cetak yang selalu tampil di Rincian Harga Cetakan/JPG/cetak (Task 147).
+- Data produksi bersih dari data uji; hanya nomor urut hangus.
