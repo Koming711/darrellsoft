@@ -10488,3 +10488,22 @@ Stage Summary:
 - Riwayat Hitung Cetakan kini menyimpan Tabel Simulasi Cepat; popup Detail Rincian Cetakan menampilkan Harga Modal per Pcs + Tabel Simulasi, dan karena capture preview otomatis ikut ke JPG & cetak (juga di preview live sebelum disimpan); tombol Edit memuat balik baris simulasi.
 - Produksi = v112 (commit 0d7d2d0). Data uji produksi dihapus (nomor 0063 hangus). Kolom simulasiCepat sudah ada di Supabase produksi & SQLite lokal.
 - Pelajaran teknis: CLI Prisma memakai schema.prisma ROOT (mirror) — perubahan schema harus disinkronkan ke kedua file; migrasi kolom Supabase = scripts/add-*-supabase.js + vercel env pull.
+
+---
+Task ID: 146
+Agent: Z.ai Code (main)
+Task: "dihalaman master barang. dipencarian pilihan pelanggan bisa juga diketik untuk pencarian cepat. fix. jangan deploy"
+
+Work Log:
+- Target: halaman Master Barang (/master-barang -> src/components/views/items-view.tsx) - kotak filter "Pilih Pelanggan" tadinya Select biasa (harus scroll satu per satu, tidak bisa diketik).
+- Diganti jadi combobox searchable (Popover + cmdk Command) mengikuti pola yang SUDAH ada di invoice-create.tsx (picker invoice DP): trigger outline role="combobox" + ChevronsUpDown, PopoverContent selebar trigger (w-[var(--radix-popover-trigger-width)]), CommandInput placeholder "Ketik nama pelanggan…", CommandEmpty, CommandList max-h-60 overflow-y-auto scrollbar-thin.
+- Filter fuzzy cmdk mencocokkan nama + perusahaan (+keywords "all/semua/barang" utk item Semua Barang); Check emerald pada item terpilih; teks pencarian di-reset setiap popover dibuka; onSelect pakai closure c.id (aman dari transformasi nilai cmdk); value item diberi suffix id agar unik.
+- Trigger mempertahankan id="pilih-pelanggan" + aria-label (Label "Pilih Pelanggan" tetap berfungsi), min-h-[44px], teks truncate; badge pelanggan + tombol Reset di kanan tidak berubah; Select di form "Untuk Pelanggan" & satuan sengaja TIDAK diubah (di luar permintaan).
+- Lint per-file (bunx eslint items-view.tsx) 0 error; tsc --noEmit: 0 error untuk file ini.
+- Verifikasi lokal agent-browser (375x812, superadmin): buka picker -> 5 pelanggan + Semua Barang; ketik "jaya" -> 3 hasil (cocokkan nama & perusahaan); pilih Jaya Wijaya -> trigger "Jaya Wijaya — UD. Sumber Berkat"; item uji dibuat via API utk Jaya -> "1 barang untuk Jaya Wijaya" + item tampil, pilih Siti Rohana -> "0 barang untuk Siti Rohana" + item hilang (filter end-to-end OK); ketik "zzzxx" -> "Pelanggan tidak ditemukan"; pilih "Semua Barang" -> filter reset; buka ulang popover -> input bersih lagi. Desktop 1280x800 rapi (popover selebar trigger, list scroll). 0 console/page error; dev.log bersih. Item uji DIHAPUS via API (remaining 0) - DB lokal bersih.
+- TIDAK deploy (permintaan user "jangan deploy"): sw.js TIDAK di-bump, vercel --prod TIDAK dijalankan. Dicek dulu sebelum push: inspect deployment produksi terakhir (dpl_BnApPyrpofkjQdmR9ycqcC82R4yP, alias www.darrellsoft.com) TIDAK ada meta git -> tidak ada Git integration auto-deploy -> push ke GitHub aman (tidak memicu deploy).
+- Commit hanya src/components/views/items-view.tsx (+worklog). Perubahan LAIN di working tree hanyalah mode change 644->755 (backups/, db/custom.db, beberapa src file) - tidak ikut dicommit.
+
+Stage Summary:
+- Master Barang: "Pilih Pelanggan" kini bisa DIKETIK untuk pencarian cepat (combobox, selaras halaman Invoice). Perilaku filter lama (query server-side per customerId) tidak berubah sama sekali.
+- Produksi TIDAK tersentuh (masih v112 / darrell-soft-v112). Kode sudah aman di GitHub.
