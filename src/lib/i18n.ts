@@ -87,6 +87,7 @@ export const translations = {
     lupa_password: 'Lupa Password?',
     lupa_password_desc: 'Masukkan username untuk mencari akun Anda',
     kembali_ke_login: 'Kembali ke Login',
+    kembali: 'Kembali',
 
     // Page Subtitles
     subtitle_dashboard: 'Selamat datang di Darrell Soft',
@@ -697,6 +698,7 @@ export const translations = {
     lupa_password: 'Forgot Password?',
     lupa_password_desc: 'Enter your username to find your account',
     kembali_ke_login: 'Back to Login',
+    kembali: 'Back',
 
     // Page Subtitles
     subtitle_dashboard: 'Welcome to Darrell Soft',

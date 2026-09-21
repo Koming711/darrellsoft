@@ -15,6 +15,7 @@ import {
   FileText,
   DollarSign,
   Layers,
+  ArrowLeft,
   History,
   Settings,
   Users,
@@ -597,11 +598,36 @@ function formatDateIndo(dateStr: string | null | undefined, lang: 'id' | 'en' = 
 
 export function MobileHeader({ username, role, title, subtitle, userProfile }: { username?: string; role?: string; title?: string; subtitle?: string; userProfile?: { createdAt: string | null; validUntil: string | null } | null }) {
   const { t, language } = useLanguage()
+  const pathname = usePathname()
+  const router = useRouter()
+
+  // Tombol back mobile: kembali ke halaman sebelumnya (router.back).
+  // Fallback ke Beranda (/pembukaan) jika tidak ada riwayat (mis. cold-start PWA langsung ke halaman dalam).
+  const isHome = pathname === '/pembukaan'
+  const handleBack = () => {
+    const idx = typeof window !== 'undefined' && typeof window.history?.state?.idx === 'number' ? window.history.state.idx : 0
+    if (idx > 0) {
+      router.back()
+    } else {
+      router.push('/pembukaan')
+    }
+  }
 
   return (
     <header className="px-3 py-3 lg:py-3 sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--app-banner-bg)', borderColor: 'var(--border)' }}>
       <div className="flex items-center gap-2 lg:gap-3">
 
+        {/* Tombol Back — hanya mobile (lg:hidden), disembunyikan di Beranda */}
+        {!isHome && (
+          <button
+            onClick={handleBack}
+            aria-label={t('kembali')}
+            title={t('kembali')}
+            className="lg:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 -ml-1 rounded-full active:bg-black/10 dark:active:bg-white/10 transition-colors"
+          >
+            <ArrowLeft className="w-[22px] h-[22px]" style={{ color: 'var(--app-banner-text)' }} />
+          </button>
+        )}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="flex-shrink-0">
             <img src={'/logo-ds.png'} alt="Logo" className="w-[32px] h-[32px] lg:w-[32px] lg:h-[32px] rounded-lg object-contain shadow-none" />
