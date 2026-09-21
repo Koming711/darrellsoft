@@ -10411,3 +10411,20 @@ Stage Summary:
 - Produksi = v109 (commit 113b9ad). sw v109 + APP_VERSION v44 memastikan cache lama terhapus.
 - Tidak ada perubahan logika/fungsi — murni copy label i18n 1 baris + bump versi cache.
 
+
+---
+Task ID: 142-run
+Agent: Z.ai Code (main)
+Task: "jalankan aplikasi v109"
+
+Work Log:
+- TEMUAN PENTING: direktori /home/z/my-project ternyata sudah di-RESTORE ke snapshot lama era v84 (Task 121, Sep 19 03:23) — seluruh status Task 122-142 hilang dari lokal (git reflog hanya sampai Task 121). FOLDER LOKAL BUKAN sumber kebenaran; GitHub-lah sumber kebenaran.
+- GitHub origin/main ternyata LENGKAP sampai 8d66c70 (Task 142, v109). Verifikasi keamanan: commit lokal era v84 punya padanan rebase di origin/main (acdb9a3/1f01d41/43dbda6, pesan sama), worklog origin/main berisi 25 entri sampai Task ID 142 → tidak ada kerja lokal yang hilang.
+- Pemulihan: git branch backup-v84-snapshot-20260920 (jaring pengaman) → git fetch origin → git reset --hard origin/main (HEAD = 8d66c70 v109). package.json identik v84↔v109 (deps tidak berubah).
+- Jalankan ulang dev server: proses lama (masih memegang kode v84) di-kill; percobaan nohup bun run dev manual MATI diam-diam — cara benar adalah skrip resmi `.zscripts/dev.sh` (bun install → db:push → next dev -p 3000 + tee dev.log → health check → mini-services → disown). db:push: database in sync.
+- Verifikasi lokal: curl sw.js = darrell-soft-v109; browser 375×812 (cookies admin): popup Lainnya 24 tile 4 kolom, tombol "Logout" tampil, keluarSisa 0, 0 console/page error; dev.log bersih.
+
+Stage Summary:
+- Aplikasi v109 (commit 8d66c70) BERJALAN di dev server lokal port 3000 via .zscripts/dev.sh.
+- Pelajaran: jika folder proyek di-restore/rollback, JANGAN panik — semua kerja tersimpan di GitHub (origin/main). Pulihkan dengan backup-branch + fetch + reset --hard origin/main, lalu jalankan .zscripts/dev.sh (bukan nohup bun run dev manual).
+- Branch lokal backup-v84-snapshot-20260920 dibuat sebagai jaring pengaman (bisa dihapus kapan saja).
