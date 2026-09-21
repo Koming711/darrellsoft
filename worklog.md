@@ -10466,3 +10466,25 @@ Stage Summary:
 - Aplikasi kini offline-first utk tulisan: save saat offline selalu berhasil (disimpan di perangkat) dan otomatis masuk database saat internet kembali, dengan banner + toast yang jelas. GET sudah network-first → data selalu update saat online.
 - SEMUA reload paksa dihapus (version bump, SW controllerchange, reconnect) → aplikasi tidak lagi "suka di refresh"; versi baru aktif halus di buka berikutnya.
 - Produksi = v111 (commit 03fb366). Data uji lokal & produksi sudah dihapus.
+
+---
+Task ID: 145
+Agent: Z.ai Code (main)
+Task: "tambahkan harga modal di popup preview datail rincian cetakan. dihalaman hitung cetakan apabila ada hitungan di simulasi cepat, maka apabila disimpan, maka data simulasi cepat ikut tersimpan dan muncul juga di hasil preview, jpg dan cetak. dan apabila diklik. deploy ke www.darrellsoft.com"
+
+Work Log:
+- Audit: popup "Detail Rincian Cetakan" = RincianCetakanPreview (satu sumber kebenaran, dipakai editor + riwayat-content); JPG/cetak capture previewRef yang membungkus komponen itu → menambah section di komponen otomatis ikut JPG+cetak. "Harga Modal" di editor = subTotal/jumlahPesanan (per pcs). Tabel Simulasi Cepat = SimRow {jumlah, profit, snap{sheets,modal,modalPcs,jual,jualPcs}}, nilai live dihitung ulang dari form.
+- Prisma: kolom baru RiwayatCetakan.simulasiCepat String @default("") (JSON array) — db:push lokal OK + probe create/delete round-trip. DUA file schema (root mirror + prisma/) disinkronkan (root schema.prisma ternyata masih dipakai CLI; keduanya kini identik).
+- API POST /api/riwayat-cetakan: simpan body.simulasiCepat (string, slice 50k).
+- rincian-cetakan-preview.tsx: (1) baris "Harga Modal per Pcs" di tfoot setelah Grand Total (slate) berdampingan "Harga Jual per Pcs" (emerald) — sama pola dgn summary editor; (2) section "Tabel Simulasi (n)" full-width setelah grid: kolom Jumlah Pesanan | Profit | Modal | Modal/Pcs | Harga Jual | Jual/Pcs + footnote; (3) export SimulasiCepatItem + parseSimulasiCepat (safe parse); mapRiwayatToRincianData mem-parsing kolom baru → halaman riwayat & tab riwayat editor otomatis ikut.
+- Editor hitung-cetakan: buildSimulasiCepatPayload() (nilai live bila form bisa hitung, fallback snap) → buildRiwayatPayload mengirim simulasiCepat JSON saat Simpan Riwayat; handlePreview (Preview live) ikut menyertakan simulasiCepat → popup/JPG/cetak menampilkan tabel simulasi BAHKAN sebelum disimpan; handlePreviewRiwayat mem-parse dari record; handleRestoreRiwayat (tombol Edit) memuat balik baris simulasi ke Tabel Simulasi editor.
+- sw v111→v112, APP_VERSION v46→v47. Lint per-file 0 error (tsc: 4 error pre-existing terverifikasi via git stash baseline; build ignoreBuildErrors).
+- Verifikasi lokal (375×812 superadmin): form 100 lbr×Rp1.000 → sub 100rb/modal/pcs 1.000; 2 baris sim (50/10, 200/25) → Simpan → DB berisi simulasiCepat JSON ✓; klik riwayat → popup Harga Modal per Pcs Rp 1.000 + Tabel Simulasi (2) ✓ (screenshot); Edit → 2 baris kembali ke editor ✓; JPG sukses (capture element berisi kedua section) ✓; desktop 1280×800 layout rapi ✓; data uji lokal dihapus + storage dibersihkan.
+- Migrasi produksi: vercel link + env pull → scripts/add-simulasi-supabase.js → ALTER TABLE "RiwayatCetakan" ADD "simulasiCepat" TEXT NOT NULL DEFAULT '' via pooler Supabase (verif kolom: grandTotal, photoUrl, simulasiCepat) — dijalankan SEBELUM deploy agar POST baru tak pernah gagal.
+- Deploy vercel --prod Ready; curl sw.js produksi = darrell-soft-v112; site 200.
+- Verifikasi produksi (Aming cmptzbbqj0001l804fpa7zg2k, 375×812): hitung 100 lbr×Rp1.000 profit 50% + 2 baris sim (250/30, 50/20) → Simpan → record HC/09/26/0063; klik riwayat → popup: Harga Modal per Pcs (100 lbr) Rp 1.000, Harga Jual per Pcs Rp 1.500, Tabel Simulasi (2) lengkap (screenshot); JPG sukses; Edit → Tabel Simulasi (2) termuat balik; record uji DIHAPUS via API (200, remaining 0) — CATATAN: nomor HC/09/26/0063 hangus (numbering tak reuse). 0 console/page error.
+
+Stage Summary:
+- Riwayat Hitung Cetakan kini menyimpan Tabel Simulasi Cepat; popup Detail Rincian Cetakan menampilkan Harga Modal per Pcs + Tabel Simulasi, dan karena capture preview otomatis ikut ke JPG & cetak (juga di preview live sebelum disimpan); tombol Edit memuat balik baris simulasi.
+- Produksi = v112 (commit 0d7d2d0). Data uji produksi dihapus (nomor 0063 hangus). Kolom simulasiCepat sudah ada di Supabase produksi & SQLite lokal.
+- Pelajaran teknis: CLI Prisma memakai schema.prisma ROOT (mirror) — perubahan schema harus disinkronkan ke kedua file; migrasi kolom Supabase = scripts/add-*-supabase.js + vercel env pull.
