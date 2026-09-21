@@ -89,13 +89,13 @@ export default function RootLayout({
               </ThemeProvider>
               <Toaster />
               <SonnerToaster />
+              <ConnectivityKeeper />
             </NextThemesProvider>
             <InstallPrompt />
             <WhatsNewDialog />
           </LanguageProvider>
         </AuthProvider>
         <ServiceWorkerRegistration />
-        <ConnectivityKeeper />
       </body>
     </html>
   );

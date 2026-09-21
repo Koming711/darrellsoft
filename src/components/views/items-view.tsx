@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
+import { onDataChange } from '@/lib/data-sync'
 import { formatIDR, formatNum } from '@/lib/format'
 import { UNIT_OPTIONS, type Item, type ItemCustomerRef, type SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -207,6 +208,14 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
   useEffect(() => {
     void load()
+  }, [load])
+
+  // Sinkron antar-tab & pasca offline-sync: muat ulang daftar saat entity
+  // 'items' berubah (mis. antrian offline baru saja direplay).
+  useEffect(() => {
+    return onDataChange(['items'], () => {
+      void load()
+    })
   }, [load])
 
   const openCreate = () => {

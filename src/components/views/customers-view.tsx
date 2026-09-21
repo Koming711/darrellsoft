@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
+import { onDataChange } from '@/lib/data-sync'
 import type { Customer, SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -118,6 +119,14 @@ export default function CustomersView({
 
   useEffect(() => {
     void load()
+  }, [load])
+
+  // Sinkron antar-tab & pasca offline-sync: muat ulang daftar saat entity
+  // 'customers' berubah (mis. antrian offline baru saja direplay).
+  useEffect(() => {
+    return onDataChange(['customers'], () => {
+      void load()
+    })
   }, [load])
 
   const openCreate = () => {
