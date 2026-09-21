@@ -10428,3 +10428,21 @@ Stage Summary:
 - Aplikasi v109 (commit 8d66c70) BERJALAN di dev server lokal port 3000 via .zscripts/dev.sh.
 - Pelajaran: jika folder proyek di-restore/rollback, JANGAN panik — semua kerja tersimpan di GitHub (origin/main). Pulihkan dengan backup-branch + fetch + reset --hard origin/main, lalu jalankan .zscripts/dev.sh (bukan nohup bun run dev manual).
 - Branch lokal backup-v84-snapshot-20260920 dibuat sebagai jaring pengaman (bisa dihapus kapan saja).
+
+---
+Task ID: 143
+Agent: Z.ai Code (main)
+Task: "buat tombol back di mobile phone untuk kembali dihalaman sebelumnya."
+
+Work Log:
+- Desain: tombol back diletakkan di MobileHeader (kiri, sebelum logo DS) — pola standar app mobile (seperti WhatsApp/IG). Memakai router.back() agar kembali ke halaman SEBELUMNYA (bukan sekadar ke Beranda); fallback router.push('/pembukaan') jika tidak ada riwayat (window.history.state.idx <= 0, mis. cold-start PWA langsung buka halaman dalam).
+- Implementasi (src/components/sidebar.tsx, MobileHeader): usePathname+useRouter, isHome = pathname==='/pembukaan' (Beranda TANPA tombol back), tombol lg:hidden (desktop tetap pakai sidebar), ukuran 36px (w-9 h-9) + ikon ArrowLeft 22px warna var(--app-banner-text), active:bg feedback, aria-label/title i18n key baru `kembali` (id 'Kembali', en 'Back' — src/lib/i18n.ts). Fullscreen editor dokumen (invoice/po/surat-jalan) tidak terdampak — punya layout & tombol Tutup sendiri.
+- sw bump v109→v110, APP_VERSION 2026-09-20-v45. Lint 0 error.
+- Catatan debugging lokal: klik tile Lainnya via JS/JS-click tidak menavigasi → ternyata role 'admin' (cookie test lokal) tidak punya akses invoice → toast "Fitur PRO" (bukan bug). Ganti role superadmin (localStorage auth) → navigasi normal.
+- Verifikasi lokal (375×812, superadmin): Beranda tanpa tombol ✓; /invoice tombol muncul 36x36 ✓; klik → router.back() kembali /pembukaan ✓; cold-start langsung /master-barang (idx=undefined) → klik → fallback /pembukaan ✓; desktop 1280×800 display:none ✓; 0 error.
+- Deploy vercel --prod Ready 1m; curl sw.js produksi = darrell-soft-v110.
+- Verifikasi produksi (Aming): /pembukaan tanpa tombol ✓; bottom nav → /potong-kertas, tombol back 41x41 flex + screenshot (panah ← kiri header sebelum logo) ✓; klik → kembali ke /pembukaan ✓.
+
+Stage Summary:
+- Mobile kini punya tombol back universal di header semua halaman (kecuali Beranda): kembali ke halaman sebelumnya sesuai riwayat navigasi, aman untuk cold-start PWA (fallback Beranda). Desktop tidak berubah.
+- Produksi = v110 (commit cba70bf). Tidak ada data produksi disentuh.
