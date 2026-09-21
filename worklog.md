@@ -10446,3 +10446,23 @@ Work Log:
 Stage Summary:
 - Mobile kini punya tombol back universal di header semua halaman (kecuali Beranda): kembali ke halaman sebelumnya sesuai riwayat navigasi, aman untuk cold-start PWA (fallback Beranda). Desktop tidak berubah.
 - Produksi = v110 (commit cba70bf). Tidak ada data produksi disentuh.
+
+---
+Task ID: 144
+Agent: Z.ai Code (main)
+Task: "dihalaman online apabila internet offline aplikasi tetap bisa jalan, tapi tidak bisa save. buat agar bisa save dan apabila internet sudah aktif otomatis masuk ke database. buka aplikasi masih suka di refresh. buat supaya tidak perlu direfresh dan data selalu update. fix"
+
+Work Log:
+- Audit penyebab refresh: (1) service-worker-registration.tsx reload paksa saat APP_VERSION mismatch + (2) auto-reload pada controllerchange (SW baru tiap deploy, reg.update() tiap 60 dtk) + (3) connectivity-keeper.tsx auto-reload saat reconnect/visible setelah ada request gagal + tombol "Coba lagi". Ketiganya dihapus → versi baru aktif di latar belakang tanpa reload; data tetap fresh karena GET API sudah network-first di sw.js.
+- OUTBOX offline (src/lib/offline-queue.ts BARU, IndexedDB 'darrell-offline-queue'): POST/PUT/PATCH/DELETE JSON ke /api/ data (auth/backup/upload/export dsb dikecualikan; FormData tidak) diantrikan saat offline → replay FIFO saat online (rawFetch asli agar tidak loop duplikat) → 2xx hapus+dispatch data-change(entity), 4xx (kec 401/403/429) buang permanen, 5xx/putus berhenti & dicoba trigger berikutnya. Fallback memori bila IDB gagal. registerBackgroundSync() (SyncManager) + sw.js listener 'sync' tag darrell-offline-sync → postMessage OFFLINE_SYNC ke halaman.
+- Hook pemasukan antrian: (a) authFetch — offline short-circuit + catch jaringan; (b) patch window.fetch di ConnectivityKeeper untuk fetch mentah (apiFetch/fetcher/komponen) — keduanya eksklusif per panggilan (patch mengembalikan Response sukses sintetis {ok,offlineQueued}, bukan throw), replay pakai rawFetch terikat pra-patch → TIDAK ada duplikasi.
+- ConnectivityKeeper dirombak: TANPA reload — auto-sync trigger (online +1.2s, visible, startup +3s jika ada sisa, interval 60s, OFFLINE_SYNC dari SW), GET auto-retry patch dipertahankan, reconnect → refreshVisibleData (dispatch data-change utk 11 entity) tanpa reload. Banner: amber offline (dengan hitungan antrian) / emerald menyinkronkan / emerald selesai; toast "Tersimpan offline…" saat enqueue + "berhasil disinkron ke database" saat replay sukses. Dipindah ke dalam LanguageProvider (i18n baru: offline_banner, offline_pending, sync_running, offline_saved_toast, sync_done_toast — id/en).
+- customers-view & items-view (Master Pelanggan/Barang) kini subscribe onDataChange → daftar auto-refresh pasca sinkron/tab lain. sw bump v111, APP_VERSION v46. Lint 0 error.
+- Verifikasi lokal (375×812, superadmin): offline on → banner amber; tambah pelanggan → toast sukses + "Tersimpan offline…"; IndexedDB = 1 entri POST /api/customers (entity customers); offline off → antrian 0 + toast sinkron + pelanggan ADA di DB (reload) — lalu setelah subscription diperbaiki: muncul TANPA reload. Data uji lokal dihapus (2 record, konfirmasi API []).
+- Deploy: vercel --prod Ready; curl sw.js = darrell-soft-v111.
+- Verifikasi produksi (Aming): master-customer offline on → banner; tambah "QA Offline Prod" → toast "Tersimpan offline…"; offline off → antrian replay + toast "Perubahan offline berhasil disinkron ke database" + daftar update TANPA reload; data uji dihapus via DELETE (200) → GET q=QA Offline = [] (produksi bersih).
+
+Stage Summary:
+- Aplikasi kini offline-first utk tulisan: save saat offline selalu berhasil (disimpan di perangkat) dan otomatis masuk database saat internet kembali, dengan banner + toast yang jelas. GET sudah network-first → data selalu update saat online.
+- SEMUA reload paksa dihapus (version bump, SW controllerchange, reconnect) → aplikasi tidak lagi "suka di refresh"; versi baru aktif halus di buka berikutnya.
+- Produksi = v111 (commit 03fb366). Data uji lokal & produksi sudah dihapus.
