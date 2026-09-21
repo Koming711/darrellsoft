@@ -35,7 +35,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 import { calculateCuts } from '@/lib/cutting-engine'
-import { RincianCetakanPreview } from '@/components/rincian-cetakan-preview'
+import { RincianCetakanPreview, parseSimulasiCepat, type SimulasiCepatItem } from '@/components/rincian-cetakan-preview'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
@@ -142,6 +142,8 @@ interface PrintCalculation {
   recordNumber?: string
   recordDate?: string
   photoUrl?: string
+  /** Tabel Simulasi Cepat (ikut tersimpan saat Simpan Riwayat & tampil di preview/JPG/cetak). */
+  simulasiCepat?: SimulasiCepatItem[]
 }
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors lg:py-1.5'
@@ -1016,7 +1018,9 @@ function HitungCetakanPage() {
       calculatedGlueCost, calculatedGlueBoronganSheet,
       finishingBreakdown: selectedFinishingItems.map(fin => { const { cost } = getFinishingCost(fin); return { name: fin.name, cost } }),
       profitPercent, biayaLain1Label, biayaLain2Label,
-      photoUrl: photoUrl || ''
+      photoUrl: photoUrl || '',
+      // Simulasi Cepat aktif ikut tampil di preview (dan JPG/cetak) sebelum pun setelah disimpan
+      simulasiCepat: buildSimulasiCepatPayload()
     }
     setPreviewCalc(previewData)
     setPreviewOpen(true)
@@ -1070,6 +1074,7 @@ function HitungCetakanPage() {
     const subTotal = paperPriceValue + calculatedPrintingCost + calculatedPrintingCost2 + calculatedFinishingCost + packing + shipping + biayaLain1Val + biayaLain2Val + glueTotal
     const profitAmount = subTotal * (profitPercent / 100)
     const grandTotal = subTotal + profitAmount
+    const simPayload = buildSimulasiCepatPayload()
     return {
       type: 'hitung_cetakan',
       printName: formData.printName, customerName: formData.customerName, paperName: selectedPaper?.name || '',
@@ -1096,7 +1101,9 @@ function HitungCetakanPage() {
       otherCostLabel: biayaLain1Label, otherCostLabel2: biayaLain2Label,
       glueCost: calculatedGlueCost, glueBorongan: calculatedGlueBoronganSheet,
       glueLengthCm: formData.glueLengthCm, glueCostPerCm: formData.glueCostPerCm,
-      subTotal, profitPercent, profitAmount, grandTotal, photoUrl
+      subTotal, profitPercent, profitAmount, grandTotal,
+      simulasiCepat: simPayload.length > 0 ? JSON.stringify(simPayload) : '',
+      photoUrl
     }
   }
 
@@ -1332,6 +1339,16 @@ function HitungCetakanPage() {
     if (r.ongkosCetak) setCalculatedPrintingCost(r.ongkosCetak)
     if (r.ongkosCetak2) setCalculatedPrintingCost2(r.ongkosCetak2)
     if (r.finishingCost) setCalculatedFinishingCost(r.finishingCost)
+    // Restore Tabel Simulasi Cepat yang tersimpan bersama record (id baru agar tak bentrok)
+    const restoredSims = parseSimulasiCepat(r.simulasiCepat)
+    if (restoredSims.length > 0) {
+      setSimRows(restoredSims.map((s, i) => ({
+        id: Date.now() + i,
+        jumlah: s.jumlah,
+        profit: s.profit,
+        snap: { sheets: s.sheets, modal: s.modal, modalPcs: s.modalPcs, jual: s.jual, jualPcs: s.jualPcs },
+      })))
+    }
     saveToStorage({ formData: restoredForm, selectedFinishings: [], totalPaperPrice: r.totalPaperPrice || 0 })
 
     // Match paper, machine, finishing after data loaded
@@ -1439,7 +1456,8 @@ function HitungCetakanPage() {
       profitPercent: r.profitPercent || 0,
       biayaLain1Label: r.otherCostLabel || 'Biaya Bikin Piso',
       biayaLain2Label: r.otherCostLabel2 || 'Biaya',
-      photoUrl: r.photoUrl || ''
+      photoUrl: r.photoUrl || '',
+      simulasiCepat: parseSimulasiCepat(r.simulasiCepat)
     }
     setPreviewCalc(previewData)
     setPreviewRiwayatRecord(r)
@@ -1709,6 +1727,20 @@ function HitungCetakanPage() {
       jualPcs: live ? live.hargaPcs : row.snap.jualPcs,
     }
   }
+  // Serialisasi Tabel Simulasi Cepat utk disimpan/preview — nilai live bila form bisa
+  // menghitung, fallback ke snapshot saat baris disimpan (pola sama dgn simRowView).
+  const buildSimulasiCepatPayload = (): SimulasiCepatItem[] => simRows.map(r => {
+    const live = simRowValues.get(r.id)
+    return {
+      jumlah: r.jumlah,
+      profit: r.profit,
+      sheets: live ? live.sheetsNeeded : (r.snap?.sheets || 0),
+      modal: live ? live.subTotal : (r.snap?.modal || 0),
+      modalPcs: live ? live.modalPcs : (r.snap?.modalPcs || 0),
+      jual: live ? live.grandTotal : (r.snap?.jual || 0),
+      jualPcs: live ? live.hargaPcs : (r.snap?.jualPcs || 0),
+    }
+  })
   const simThClass = 'h-7 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 lg:h-8 lg:px-2.5 lg:text-[11px]'
   const simTdClass = 'px-1.5 py-1 text-[10.5px] lg:px-2.5 lg:py-1.5 lg:text-xs'
   const simEditInputClass = 'border border-blue-300 dark:border-blue-700 rounded px-1 py-0.5 text-[10.5px] lg:text-xs text-slate-800 dark:text-slate-100 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500'

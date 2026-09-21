@@ -13,10 +13,44 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Calculator, Users, Banknote, Palette, Ruler, Image as ImageIcon } from 'lucide-react'
+import { Calculator, Users, Banknote, Palette, Ruler, Image as ImageIcon, Layers } from 'lucide-react'
 import { calculateCuts } from '@/lib/cutting-engine'
 import { CuttingDiagram } from '@/components/cutting-results'
 import { PhotoLightbox } from '@/components/photo-lightbox'
+
+/** Satu baris Tabel Simulasi Cepat yang ikut tersimpan di record riwayat. */
+export interface SimulasiCepatItem {
+  jumlah: number
+  profit: number
+  sheets: number
+  modal: number
+  modalPcs: number
+  jual: number
+  jualPcs: number
+}
+
+/**
+ * Parse kolom simulasiCepat (string JSON) dari record riwayat — aman terhadap
+ * data rusak/kosong. Selalu mengembalikan array (kosong bila tidak valid).
+ */
+export function parseSimulasiCepat(raw: unknown): SimulasiCepatItem[] {
+  if (!raw || typeof raw !== 'string') return []
+  try {
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return []
+    return arr
+      .map((s: any) => ({
+        jumlah: Math.max(0, Math.round(Number(s?.jumlah) || 0)),
+        profit: Number(s?.profit) || 0,
+        sheets: Math.max(0, Math.round(Number(s?.sheets) || 0)),
+        modal: Math.max(0, Number(s?.modal) || 0),
+        modalPcs: Math.max(0, Number(s?.modalPcs) || 0),
+        jual: Math.max(0, Number(s?.jual) || 0),
+        jualPcs: Math.max(0, Number(s?.jualPcs) || 0),
+      }))
+      .filter((s: SimulasiCepatItem) => s.jumlah > 0)
+  } catch { return [] }
+}
 
 /** Bentuk data yang dibutuhkan preview (kompatibel dengan PrintCalculation di halaman editor). */
 export interface RincianCetakanData {
@@ -61,6 +95,8 @@ export interface RincianCetakanData {
   recordNumber?: string
   recordDate?: string
   photoUrl?: string | null
+  /** Tabel Simulasi Cepat yang tersimpan bersama record (kosong = tidak ada). */
+  simulasiCepat?: SimulasiCepatItem[]
 }
 
 /** Baris riwayat cetakan dari API (subset field yang dipakai mapper). */
@@ -106,6 +142,7 @@ export interface RiwayatCetakanRow {
   createdAt?: string | null
   profitPercent?: number | null
   photoUrl?: string | null
+  simulasiCepat?: string | null
 }
 
 /**
@@ -162,11 +199,14 @@ export function mapRiwayatToRincianData(r: RiwayatCetakanRow): RincianCetakanDat
     recordNumber: r.nomorUrut || '',
     recordDate: r.createdAt || '',
     photoUrl: r.photoUrl || '',
+    simulasiCepat: parseSimulasiCepat(r.simulasiCepat),
   }
 }
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString('id-ID')
 const formatRp = (n: number) => `Rp ${fmtNum(n)}`
+// Harga per pcs: 2 desimal bila < Rp1.000 (sama dengan halaman editor)
+const formatHargaPcs = (n: number) => `Rp ${n.toLocaleString('id-ID', { maximumFractionDigits: n > 0 && n < 1000 ? 2 : 0 })}`
 
 // Field tile for the CRUD-style info grid
 function PvField({ label, value, accent = 'text-slate-800' }: { label: string; value: React.ReactNode; accent?: string }) {
@@ -239,6 +279,8 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
   const pvUkuranKertas = d && (parseFloat(d.paperLength) > 0 || parseFloat(d.paperWidth) > 0) ? `${d.paperLength || '-'} × ${d.paperWidth || '-'} cm` : '-'
   const pvUkuranPotongan = pvCutWidth && pvCutHeight ? `${pvCutWidth} × ${pvCutHeight} cm` : '-'
   const pvHargaPerPcs = pvJumlahPesanan > 0 ? pvGrandTotal / pvJumlahPesanan : pvQuantity > 0 ? pvGrandTotal / pvQuantity : 0
+  // Harga Modal per Pcs = Sub Total (total modal) ÷ jumlah pesanan — sama dengan "Harga Modal" di summary editor
+  const pvHargaModalPcs = pvJumlahPesanan > 0 ? pvSubTotal / pvJumlahPesanan : pvQuantity > 0 ? pvSubTotal / pvQuantity : 0
   // Cutting engine result for the gambar potong kertas (same engine & mapping as computedPaper:
   // paperLength -> paperWidth param, paperWidth -> paperHeight param)
   const pvCutResult = useMemo(() => {
@@ -376,10 +418,16 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
                   <td colSpan={2} className="pt-2 text-sm font-extrabold text-slate-900 uppercase tracking-wide">Grand Total</td>
                   <td className="pt-2 text-right text-lg font-extrabold text-emerald-600 tabular-nums">{formatRp(pvGrandTotal)}</td>
                 </tr>
+                {pvHargaModalPcs > 0 && (
+                  <tr>
+                    <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga Modal per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
+                    <td className="pt-1.5 text-right text-xs font-bold text-slate-600 tabular-nums">{formatHargaPcs(pvHargaModalPcs)}</td>
+                  </tr>
+                )}
                 {pvHargaPerPcs > 0 && (
                   <tr>
                     <td colSpan={2} className="pt-1.5 text-[11px] font-semibold text-slate-500">Harga Jual per Pcs{pvJumlahPesanan > 0 ? ` (${pvJumlahPesanan.toLocaleString('id-ID')} lbr)` : ''}</td>
-                    <td className="pt-1.5 text-right text-xs font-bold text-emerald-700 tabular-nums">{formatRp(pvHargaPerPcs)}</td>
+                    <td className="pt-1.5 text-right text-xs font-bold text-emerald-700 tabular-nums">{formatHargaPcs(pvHargaPerPcs)}</td>
                   </tr>
                 )}
               </tfoot>
@@ -453,6 +501,43 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
           </div>
         </div>
       </div>
+
+      {/* ===== TABEL SIMULASI CEPAT — ikut tersimpan di record & tampil di preview/JPG/Cetak ===== */}
+      {(d.simulasiCepat?.length ?? 0) > 0 && (
+        <div className="mt-3 border border-cyan-200 rounded-xl p-3 bg-cyan-50/40">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 rounded-lg bg-cyan-100 flex items-center justify-center">
+              <Layers className="w-3.5 h-3.5 text-cyan-600" />
+            </div>
+            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Tabel Simulasi ({d.simulasiCepat!.length})</p>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Jumlah Pesanan</th>
+                <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Profit</th>
+                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Modal</th>
+                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Modal/Pcs</th>
+                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Harga Jual</th>
+                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pl-2 whitespace-nowrap">Jual/Pcs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.simulasiCepat!.map((s, i) => (
+                <tr key={`sim-${i}`} className="border-b border-slate-100 last:border-b-0">
+                  <td className="py-1 pr-2 text-xs font-semibold text-slate-700 tabular-nums whitespace-nowrap">{s.jumlah.toLocaleString('id-ID')} lbr</td>
+                  <td className="py-1 pr-2 text-xs text-slate-500 tabular-nums whitespace-nowrap">{s.profit > 0 ? `${s.profit}%` : '-'}</td>
+                  <td className="py-1 px-2 text-right text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap">{formatRp(s.modal)}</td>
+                  <td className="py-1 px-2 text-right text-xs text-slate-600 tabular-nums whitespace-nowrap">{s.modalPcs > 0 ? formatHargaPcs(s.modalPcs) : '-'}</td>
+                  <td className="py-1 px-2 text-right text-xs font-bold text-emerald-700 tabular-nums whitespace-nowrap">{formatRp(s.jual)}</td>
+                  <td className="py-1 pl-2 text-right text-xs font-semibold text-emerald-700 tabular-nums whitespace-nowrap">{s.jualPcs > 0 ? formatHargaPcs(s.jualPcs) : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-1.5 text-[9.5px] text-slate-400">* Hasil Simulasi Cepat saat data disimpan — perbandingan jumlah pesanan.</p>
+        </div>
+      )}
     </>
   )
 }

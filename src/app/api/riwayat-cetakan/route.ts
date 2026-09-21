@@ -99,6 +99,8 @@ export async function POST(request: NextRequest) {
         profitPercent: body.profitPercent || 0,
         profitAmount: body.profitAmount || 0,
         grandTotal: body.grandTotal || 0,
+        // Tabel Simulasi Cepat: JSON array [{jumlah,profit,sheets,modal,modalPcs,jual,jualPcs}]
+        simulasiCepat: typeof body.simulasiCepat === 'string' ? body.simulasiCepat.slice(0, 50000) : '',
         photoUrl: validatePhotoDataUrl(body.photoUrl),
         userId: user?.id || null,
       }
