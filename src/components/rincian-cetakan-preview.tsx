@@ -308,6 +308,26 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
 
   if (!d) return null
 
+  // Tabel Simulasi: pakai baris tersimpan bersama record; bila kosong (record lama
+  // sebelum kolom simulasiCepat ada) → sintesis 1 baris dari data record itu sendiri
+  // agar simulasi cetak SELALU tampil di Rincian Harga Cetakan.
+  const storedSim = d.simulasiCepat ?? []
+  const simJumlahFallback = pvJumlahPesanan > 0 ? pvJumlahPesanan : pvQuantity
+  const pvSimRows: SimulasiCepatItem[] = storedSim.length > 0
+    ? storedSim
+    : simJumlahFallback > 0 && pvGrandTotal > 0
+      ? [{
+          jumlah: simJumlahFallback,
+          profit: pvProfitPercent,
+          sheets: pvSheetsNeeded,
+          modal: Math.round(pvSubTotal),
+          modalPcs: pvHargaModalPcs,
+          jual: Math.round(pvGrandTotal),
+          jualPcs: pvHargaPerPcs,
+        }]
+      : []
+  const pvSimFromRecord = storedSim.length === 0 && pvSimRows.length > 0
+
   return (
     <>
       {/* Header */}
@@ -341,6 +361,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               <PvField label="Nama Barang" value={pvPrintName} accent="text-indigo-800" />
               <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
               <PvField label="Jumlah Cetakan" value={`${pvQuantity.toLocaleString('id-ID')} lbr${pvSetelan > 0 ? ` +${pvSetelan} setelan` : ''}`} />
+              <PvField label="Lembar Kertas" value={pvSheetsNeeded > 0 ? `${fmtNum(pvSheetsNeeded)} lbr` : '-'} accent="text-teal-800" />
               {pvBerapaMata !== '' && pvBerapaMata !== '0' && <PvField label="Berapa Mata" value={pvBerapaMata} />}
               <PvField label="Ukuran Kertas" value={pvUkuranKertas} accent="text-teal-800" />
               <PvField label="Ukuran Potongan" value={pvUkuranPotongan} />
@@ -502,19 +523,21 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
         </div>
       </div>
 
-      {/* ===== TABEL SIMULASI CEPAT — ikut tersimpan di record & tampil di preview/JPG/Cetak ===== */}
-      {(d.simulasiCepat?.length ?? 0) > 0 && (
+      {/* ===== TABEL SIMULASI CETAK — tersimpan di record; bila record lama tidak punya,
+          tampilkan 1 baris hasil hitung otomatis dari data record (selalu tampil) ===== */}
+      {pvSimRows.length > 0 && (
         <div className="mt-3 border border-cyan-200 rounded-xl p-3 bg-cyan-50/40">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded-lg bg-cyan-100 flex items-center justify-center">
               <Layers className="w-3.5 h-3.5 text-cyan-600" />
             </div>
-            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Tabel Simulasi ({d.simulasiCepat!.length})</p>
+            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Tabel Simulasi ({pvSimRows.length})</p>
           </div>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Jumlah Pesanan</th>
+                <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2 whitespace-nowrap">Lembar Kertas</th>
                 <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Profit</th>
                 <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Modal</th>
                 <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Modal/Pcs</th>
@@ -523,9 +546,10 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               </tr>
             </thead>
             <tbody>
-              {d.simulasiCepat!.map((s, i) => (
+              {pvSimRows.map((s, i) => (
                 <tr key={`sim-${i}`} className="border-b border-slate-100 last:border-b-0">
                   <td className="py-1 pr-2 text-xs font-semibold text-slate-700 tabular-nums whitespace-nowrap">{s.jumlah.toLocaleString('id-ID')} lbr</td>
+                  <td className="py-1 pr-2 text-xs font-semibold text-teal-700 tabular-nums whitespace-nowrap">{s.sheets > 0 ? s.sheets.toLocaleString('id-ID') : '-'}</td>
                   <td className="py-1 pr-2 text-xs text-slate-500 tabular-nums whitespace-nowrap">{s.profit > 0 ? `${s.profit}%` : '-'}</td>
                   <td className="py-1 px-2 text-right text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap">{formatRp(s.modal)}</td>
                   <td className="py-1 px-2 text-right text-xs text-slate-600 tabular-nums whitespace-nowrap">{s.modalPcs > 0 ? formatHargaPcs(s.modalPcs) : '-'}</td>
@@ -535,7 +559,9 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               ))}
             </tbody>
           </table>
-          <p className="mt-1.5 text-[9.5px] text-slate-400">* Hasil Simulasi Cepat saat data disimpan — perbandingan jumlah pesanan.</p>
+          <p className="mt-1.5 text-[9.5px] text-slate-400">{pvSimFromRecord
+            ? '* Simulasi dihitung otomatis dari data yang tersimpan (jumlah pesanan record ini).'
+            : '* Hasil Simulasi Cepat saat data disimpan — perbandingan jumlah pesanan.'}</p>
         </div>
       )}
     </>

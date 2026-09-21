@@ -2156,6 +2156,7 @@ function CalculatorPage() {
                         <TableHead className="hidden lg:table-cell">Kertas</TableHead>
                         <TableHead className="hidden 2xl:table-cell">Gramatur</TableHead>
                         <TableHead className="hidden 2xl:table-cell">Uk. Potong</TableHead>
+                        <TableHead className="text-right">Lbr Kertas</TableHead>
                         <TableHead className="text-right">Jml</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead className="text-center">Aksi</TableHead>
@@ -2180,6 +2181,9 @@ function CalculatorPage() {
                           </TableCell>
                           <TableCell className="hidden 2xl:table-cell text-muted-foreground whitespace-nowrap">{r.grammage && r.grammage !== '0' ? `${r.grammage} gsm` : '-'}</TableCell>
                           <TableCell className="hidden 2xl:table-cell text-muted-foreground whitespace-nowrap">{r.cutWidth && r.cutWidth !== '0' ? `${r.cutWidth}×${r.cutHeight}` : '-'}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                            {parseInt(r.sheetsNeeded || '0') > 0 ? `${parseInt(r.sheetsNeeded).toLocaleString('id-ID')} lbr` : '-'}
+                          </TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{parseInt(r.jumlahPesanan || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-right tabular-nums font-bold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.totalPrice || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
@@ -2237,8 +2241,8 @@ function CalculatorPage() {
                         <p className="text-[13px] text-muted-foreground truncate">
                           <span className="font-medium text-stone-600">{r.paperName || '-'}</span>{gsmLabel}{cutLabel}
                         </p>
-                        {/* Baris 4: statistik 3 kolom — Potongan/Lbr | Harga/Lbr | Jml Pesanan */}
-                        <div className="grid grid-cols-3 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
+                        {/* Baris 4: statistik 2×2 — Potongan/Lbr | Harga/Lbr | Jml Pesanan | Lbr Kertas */}
+                        <div className="grid grid-cols-2 gap-1 rounded-lg bg-stone-50 px-1.5 py-1.5 text-center">
                           <div className="min-w-0">
                             <p className="text-[14px] font-semibold leading-tight truncate">{potonganLbr != null ? potonganLbr.toLocaleString('id-ID') : '-'}</p>
                             <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Potongan/Lbr</p>
@@ -2250,6 +2254,12 @@ function CalculatorPage() {
                           <div className="min-w-0">
                             <p className="text-[14px] font-semibold leading-tight truncate">{parseInt(r.jumlahPesanan || 0) > 0 ? parseInt(r.jumlahPesanan).toLocaleString('id-ID') : '-'}</p>
                             <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Jml Pesanan</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-semibold text-teal-700 leading-tight truncate">
+                              {parseInt(r.sheetsNeeded || '0') > 0 ? `${parseInt(r.sheetsNeeded).toLocaleString('id-ID')} lbr` : '-'}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Lbr Kertas</p>
                           </div>
                         </div>
                         {/* Baris 5: Total pindah ke bawah sejajar tombol Hapus — angka PENUH (tidak disingkat) */}
