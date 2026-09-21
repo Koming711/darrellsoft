@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darrell-soft-v110';
+const CACHE_NAME = 'darrell-soft-v111';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
 const API_CACHE_NAME = 'darrell-api-runtime';
@@ -28,6 +28,19 @@ self.addEventListener('install', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+});
+
+// Background Sync: browser membangunkan SW saat koneksi kembali (walau app
+// ditutup). SW meneruskan ke halaman terbuka untuk menjalankan replay antrian
+// offline (logika replay ada di halaman: lib/offline-queue.ts).
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'darrell-offline-sync') {
+    event.waitUntil(
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'OFFLINE_SYNC' }));
+      })
+    );
   }
 });
 

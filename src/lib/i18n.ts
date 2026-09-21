@@ -89,6 +89,13 @@ export const translations = {
     kembali_ke_login: 'Kembali ke Login',
     kembali: 'Kembali',
 
+    // Offline & Sinkronisasi
+    offline_banner: 'Anda offline — perubahan tetap disimpan di perangkat & otomatis disinkron saat online',
+    offline_pending: 'perubahan menunggu sinkron',
+    sync_running: 'Menyinkronkan data offline…',
+    offline_saved_toast: 'Tersimpan offline — otomatis masuk database saat internet kembali',
+    sync_done_toast: 'Perubahan offline berhasil disinkron ke database',
+
     // Page Subtitles
     subtitle_dashboard: 'Selamat datang di Darrell Soft',
     subtitle_pembukaan: 'Beranda',
@@ -699,6 +706,13 @@ export const translations = {
     lupa_password_desc: 'Enter your username to find your account',
     kembali_ke_login: 'Back to Login',
     kembali: 'Back',
+
+    // Offline & Sync
+    offline_banner: 'You are offline — changes are saved on your device and sync automatically when back online',
+    offline_pending: 'change(s) waiting to sync',
+    sync_running: 'Syncing offline changes…',
+    offline_saved_toast: 'Saved offline — goes to the database automatically when internet returns',
+    sync_done_toast: 'Offline changes synced to database',
 
     // Page Subtitles
     subtitle_dashboard: 'Welcome to Darrell Soft',

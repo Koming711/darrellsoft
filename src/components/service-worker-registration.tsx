@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-20-v45'
+const APP_VERSION = '2026-09-20-v46'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -35,10 +35,13 @@ export function ServiceWorkerRegistration() {
     try {
       const storedVersion = localStorage.getItem('app_version')
       if (storedVersion && storedVersion !== APP_VERSION) {
-        // Version mismatch - clear ALL caches and force hard reload
-        console.log('App version changed:', storedVersion, '→', APP_VERSION, '- Force clearing caches...')
+        // Versi berubah — bersihkan key form lama SAJA, TANPA reload.
+        // Reload paksa inilah penyebab "buka aplikasi suka di refresh".
+        // Kode baru otomatis aktif pada kunjungan berikutnya (SW update
+        // berjalan di latar; GET data network-first jadi data tetap fresh).
+        console.log('App version changed:', storedVersion, '→', APP_VERSION, '- cleanup tanpa reload')
 
-        // Clear all localStorage keys related to old form versions
+        // Clear old localStorage keys related to old form versions
         const keysToRemove: string[] = []
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i)
@@ -59,26 +62,8 @@ export function ServiceWorkerRegistration() {
         }
         keysToRemove.forEach(k => localStorage.removeItem(k))
 
-        // Delete all caches
-        if ('caches' in window) {
-          caches.keys().then(names => {
-            names.forEach(name => caches.delete(name))
-          })
-        }
-
-        // Unregister all service workers
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(regs => {
-            regs.forEach(reg => reg.unregister())
-          })
-        }
-
-        // Store new version BEFORE reload to prevent loop
+        // Simpan versi baru — TANPA reload, TANPA unregister SW
         localStorage.setItem('app_version', APP_VERSION)
-
-        // Force hard reload (bypass cache)
-        window.location.reload()
-        return
       }
 
       if (!storedVersion) {
@@ -90,17 +75,11 @@ export function ServiceWorkerRegistration() {
 
     // Register service worker (only after version check passes)
     if ('serviceWorker' in navigator) {
-      // Saat service worker BARU mengambil alih kontrol (terjadi setelah deploy),
-      // muat ulang halaman SEKALI agar user selalu mendapat kode terbaru —
-      // ini yang mencegah "popup lama tetap muncul" di PWA yang sudah terbuka.
-      const hadController = !!navigator.serviceWorker.controller
-      let refreshing = false
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing || !hadController) return
-        refreshing = true
-        window.location.reload()
-      })
-
+      // CATATAN: TIDAK ADA auto-reload saat SW baru mengambil alih
+      // (controllerchange). Reload paksa saat user sedang memakai aplikasi
+      // adalah keluhan utama "aplikasi suka di refresh". SW baru (skipWaiting)
+      // aktif di latar belakang; kode baru dipakai pada buka berikutnya.
+      // Data TETAP fresh karena semua GET API network-first di sw.js.
       const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
