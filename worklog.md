@@ -10507,3 +10507,30 @@ Work Log:
 Stage Summary:
 - Master Barang: "Pilih Pelanggan" kini bisa DIKETIK untuk pencarian cepat (combobox, selaras halaman Invoice). Perilaku filter lama (query server-side per customerId) tidak berubah sama sekali.
 - Produksi TIDAK tersentuh (masih v112 / darrell-soft-v112). Kode sudah aman di GitHub.
+
+---
+Task ID: 147
+Agent: Z.ai Code (main)
+Task: "dihalaman riwayat potong kertas, tambahkan kolom lembar kertas. dihalaman riwayat hitung cetakan, di halaman rincian harga cetakan. tambahlan lembar kertas. dan tambahkan simulasi cetak di halaman rincian harga cetakan. fix"
+
+Work Log:
+- Audit: riwayat potong kertas memakai RiwayatContent (source=potong-kertas) + tab Riwayat di editor /potong-kertas (aturan 2 lokasi). Kolom DB RiwayatPotongKertas.sheetsNeeded (= lembar kertas penuh yg dibutuhkan, hasil cutting engine) SUDAH tersimpan sejak lama tapi tidak ditampilkan sebagai kolom.
+- [A] Riwayat Potong Kertas — kolom "Lembar Kertas":
+  - riwayat-content.tsx: tabel desktop (isPotong) tambah header "Lembar Kertas" (setelah Potongan/Lbr, sebelum Jumlah) + sel "{sheetsNeeded} lbr" / '-'; min-w tabel 1100->1240px; kartu mobile potong grid-cols-3 -> grid-cols-2 (2x2) dengan stat ke-4 "Lembar Kertas" (teal).
+  - potong-kertas/page.tsx (tab Riwayat editor, disinkronkan): header "Lbr Kertas" + sel sebelum "Jml"; kartu mobile juga jadi 2x2 dengan "Lbr Kertas".
+- [B] Rincian Harga Cetakan (rincian-cetakan-preview.tsx — SATU sumber untuk popup editor + popup riwayat + JPG + cetak):
+  - Tile "Lembar Kertas" baru di grid Informasi Pesanan (setelah Jumlah Cetakan): pvSheetsNeeded (engine potong; fallback ceil(totalPaperPrice/pricePerSheet)); '-' bila tak bisa dihitung.
+  - Tabel Simulasi kini SELALU tampil: baris tersimpan (simulasiCepat JSON) bila ada; bila record lama kosong -> sintesis 1 baris dari data record (jumlah=pesanan/qty, profit=profitPercent, sheets, modal=subTotal, modal/pcs, jual=grandTotal, jual/pcs), guard hanya bila jumlah>0 & grandTotal>0. Footnote dinamis: "Hasil Simulasi Cepat saat data disimpan..." vs "Simulasi dihitung otomatis dari data yang tersimpan...".
+  - Kolom "Lembar Kertas" baru di Tabel Simulasi (teal, kolom ke-2) — data sheets memang tersimpan di SimulasiCepatItem sejak Task 145 tapi belum ditampilkan.
+- Lint per-file (3 file) 0 error; tsc --noEmit: 7 error di file terkait TERNYATA SAMA PERSIS dengan baseline git-stash (pre-existing, bukan dari perubahan ini); rincian-cetakan-preview 0 error.
+- Verifikasi lokal agent-browser (superadmin): record uji potong dibuat via API (PK/09/26/0007, sheetsNeeded 250) -> desktop: kolom "Lembar Kertas" = "250 lbr" di antara Potongan/Lbr & Jumlah; mobile: kartu 2x2 dgn "250 lbr Lembar Kertas" (screenshot); tab Riwayat editor /potong-kertas: header "Lbr Kertas" + kartu mobile 2x2 OK.
+  - Record uji cetakan (HC/09/26/0024, TANPA simulasiCepat = simulasi record lama): popup Rincian Harga Cetakan menampilkan tile "Lembar Kertas 188 lbr" (engine 65x100/22x27 = 8 pcs/lbr, ceil(1500/8)=188) + "Tabel Simulasi (1)" baris sintesis: 1.500 lbr | 188 | 10% | Rp 837.500 | Rp 558,33 | Rp 921.250 | Rp 614,17 (matematika konsisten dgn subTotal/grandTotal) + footnote "dihitung otomatis" (screenshot).
+  - Record DENGAN simulasiCepat tersimpan (diisi via script SQLite langsung krn PUT route tidak menerima kolom tsb — hanya POST): "Tabel Simulasi (2)" render baris tersimpan + kolom Lembar Kertas (63, 250) + footnote "saat data disimpan".
+  - Desktop 1280x800: tabel potong rapi (scroll-x utk kolom lanjutan), popup rincian utuh. 0 console/page error; dev.log bersih.
+- Cleanup: kedua record uji DIHAPUS via API (200) -> lokal 0 record potong, 0 record QA cetakan. Nomor PK/09/26/0007 & HC/09/26/0024 hangus (numbering tak reuse, sama seperti task sebelumnya).
+- TIDAK deploy: instruksi deploy terakhir dari user utk task sebelumnya adalah "jangan deploy" dan pesan ini tidak menyebut deploy -> sw.js tidak di-bump, vercel tidak dijalankan; produksi masih v112. Kode di-commit + push ke GitHub (tanpa git auto-deploy — terverifikasi di Task 146).
+
+Stage Summary:
+- Riwayat Potong Kertas (halaman + tab riwayat editor): kolom "Lembar Kertas" (lembar kertas penuh yg dibutuhkan) tampil di tabel desktop & kartu mobile.
+- Rincian Harga Cetakan (semua tempat: popup editor, popup riwayat, JPG, cetak): tile "Lembar Kertas" di Informasi Pesanan; Tabel Simulasi CETAK selalu tampil (baris tersimpan ATAU 1 baris hitung-otomatis utk record lama) + kolom Lembar Kertas di tabelnya.
+- Produksi TIDAK tersentuh (masih v112). Siap deploy atas konfirmasi user (perubahan combobox master barang Task 146 akan ikut terangkat).
