@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
-  Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
+  Check, ChevronsUpDown, Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -42,6 +42,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -163,6 +172,9 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   // Pilih Customer — filter daftar barang per pelanggan (barang terdaftar)
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [customerId, setCustomerId] = useState<string>('all')
+  // Combobox Pilih Pelanggan: daftar bisa DIKETIK untuk pencarian cepat
+  const [custOpen, setCustOpen] = useState(false)
+  const [custSearch, setCustSearch] = useState('')
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Item | null>(null)
@@ -406,6 +418,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const hasResults = items.length > 0
   const activeCount = items.filter((it) => it.isActive).length
   const inactiveCount = items.length - activeCount
+  const selectedCustomerOption = customers.find((c) => c.id === customerId) ?? null
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
   // Tambah tersedia di SEMUA mode (termasuk "Semua Barang"); pelanggan dipilih di dalam form.
   // Edit & Duplikat hanya tampil saat pelanggan spesifik dipilih ( disembunyikan di mode "Semua Barang").
@@ -489,23 +502,87 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             </div>
           </div>
           <div className="lg:w-80">
-            <Select value={customerId} onValueChange={(v) => setCustomerId(v || 'all')}>
-              <SelectTrigger
-                id="pilih-pelanggan"
-                className="w-full min-h-[44px] bg-white"
-                aria-label="Pilih Pelanggan"
-              >
-                <SelectValue placeholder="Pilih pelanggan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Barang</SelectItem>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Combobox: pelanggan bisa DIKETIK untuk pencarian cepat (selaras halaman Invoice) */}
+            <Popover
+              open={custOpen}
+              onOpenChange={(o) => {
+                setCustOpen(o)
+                if (o) setCustSearch('')
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  id="pilih-pelanggan"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={custOpen}
+                  aria-label="Pilih Pelanggan"
+                  className="w-full min-h-[44px] justify-between gap-2 bg-white px-3 font-normal"
+                >
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {customerId === 'all'
+                      ? 'Semua Barang'
+                      : selectedCustomerOption
+                        ? `${selectedCustomerOption.name}${selectedCustomerOption.companyName ? ` — ${selectedCustomerOption.companyName}` : ''}`
+                        : 'Pilih pelanggan'}
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0">
+                <Command>
+                  <CommandInput
+                    value={custSearch}
+                    onValueChange={setCustSearch}
+                    placeholder="Ketik nama pelanggan…"
+                  />
+                  <CommandEmpty>
+                    {customers.length === 0 ? 'Belum ada pelanggan' : 'Pelanggan tidak ditemukan'}
+                  </CommandEmpty>
+                  <CommandList className="max-h-60 overflow-y-auto scrollbar-thin">
+                    <CommandGroup>
+                      <CommandItem
+                        value="Semua Barang"
+                        keywords={['all', 'semua', 'barang']}
+                        onSelect={() => {
+                          setCustomerId('all')
+                          setCustOpen(false)
+                          setCustSearch('')
+                        }}
+                        className="min-h-[44px]"
+                      >
+                        <Check
+                          className={`mr-2 h-4 w-4 shrink-0 ${customerId === 'all' ? 'opacity-100 text-emerald-600' : 'opacity-0'}`}
+                          aria-hidden="true"
+                        />
+                        Semua Barang
+                      </CommandItem>
+                      {customers.map((c) => (
+                        <CommandItem
+                          key={c.id}
+                          value={`${c.name} ${c.companyName ?? ''} ${c.id}`}
+                          onSelect={() => {
+                            setCustomerId(c.id)
+                            setCustOpen(false)
+                            setCustSearch('')
+                          }}
+                          className="min-h-[44px]"
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 shrink-0 ${customerId === c.id ? 'opacity-100 text-emerald-600' : 'opacity-0'}`}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1 truncate">
+                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           {customerId === 'all' && (
             <p className="text-xs text-muted-foreground lg:ml-auto self-center">
