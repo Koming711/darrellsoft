@@ -35,7 +35,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
 import { calculateCuts } from '@/lib/cutting-engine'
-import { RincianCetakanPreview, parseSimulasiCepat, type SimulasiCepatItem } from '@/components/rincian-cetakan-preview'
+import { RincianCetakanPreview, parseSimulasiCepat, deriveKgFromSheet, type SimulasiCepatItem } from '@/components/rincian-cetakan-preview'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
@@ -115,6 +115,8 @@ interface PrintCalculation {
   packingCost: string
   shippingCost: string
   pricePerSheet: string
+  /** Harga kertas /kg (info, konsisten dgn Master Harga Kertas) — kosong = tile disembunyikan di preview. */
+  pricePerKg?: string
   hargaPlat: string
   totalPrice: number
   customerName: string
@@ -891,16 +893,18 @@ function HitungCetakanPage() {
   }, [selectedMachine2])
 
   useEffect(() => {
-    if (selectedPaper && !formData.pricePerSheet) {
-      const sheet = Math.round(selectedPaper.pricePerRim / 500)
-      // Harga/kg: rumus & pembulatan identik dgn dialog edit Master Harga Kertas
-      const pw = selectedPaper.width
-      const ph = selectedPaper.height
-      const pg = selectedPaper.grammage
-      const kg = pw > 0 && ph > 0 && pg > 0
-        ? Math.round((selectedPaper.pricePerRim * 20000) / (pw * ph * pg)).toString()
-        : ''
-      setFormData(prev => ({ ...prev, pricePerSheet: sheet.toString(), pricePerKg: kg }))
+    if (!selectedPaper) return
+    const pw = selectedPaper.width
+    const ph = selectedPaper.height
+    const pg = selectedPaper.grammage
+    const kg = pw > 0 && ph > 0 && pg > 0
+      ? Math.round((selectedPaper.pricePerRim * 20000) / (pw * ph * pg)).toString()
+      : ''
+    if (!formData.pricePerSheet) {
+      setFormData(prev => ({ ...prev, pricePerSheet: Math.round(selectedPaper.pricePerRim / 500).toString(), pricePerKg: kg }))
+    } else if (formData.pricePerKg !== kg && kg) {
+      // /kg selalu disamakan dgn Master Harga Kertas (display-only, /lbr tidak diganggu)
+      setFormData(prev => ({ ...prev, pricePerKg: kg }))
     }
   }, [selectedPaper])
 
@@ -1043,6 +1047,9 @@ function HitungCetakanPage() {
       finishingName: selectedFinishingItems.map(f => f.name).join(', '),
       packingCost: formData.packingCost, shippingCost: formData.shippingCost,
       pricePerSheet: formData.pricePerSheet, totalPrice: totalCost,
+      pricePerKg: selectedPaper && selectedPaper.width > 0 && selectedPaper.height > 0 && selectedPaper.grammage > 0
+        ? Math.round((selectedPaper.pricePerRim * 20000) / (selectedPaper.width * selectedPaper.height * selectedPaper.grammage)).toString()
+        : (formData.pricePerKg || ''),
       customerName: formData.customerName,
       machineId2: formData.machineId2, machineName2: selectedMachine2?.machineName || '',
       warna2: formData.warna2, warnaKhusus2: formData.warnaKhusus2, hargaPlat2: formData.hargaPlat2,
@@ -1453,6 +1460,7 @@ function HitungCetakanPage() {
       packingCost: r.packingCost?.toString() || '0',
       shippingCost: r.shippingCost?.toString() || '0',
       pricePerSheet: r.pricePerSheet?.toString() || '0',
+      pricePerKg: deriveKgFromSheet(r.pricePerSheet, r.paperLength, r.paperWidth, r.paperGrammage),
       hargaPlat: r.hargaPlat?.toString() || '0',
       totalPrice: r.grandTotal || 0,
       customerName: r.customerName || '',
@@ -2148,7 +2156,21 @@ function HitungCetakanPage() {
                 <div className="space-y-1.5">
                   <div>
                     <label className={labelClass}>Nama Bahan <span className="text-red-500">*</span></label>
-                    <select value={formData.paperId} onChange={(e) => setFormData({ ...formData, paperId: e.target.value })} className={selectClass}>
+                    <select value={formData.paperId} onChange={(e) => {
+                      const pid = e.target.value
+                      const p = pid ? papers.find(pp => pp.id === pid) : null
+                      if (p && p.width > 0 && p.height > 0 && p.grammage > 0) {
+                        // Pilih bahan = harga /lbr & /kg terisi ulang dari master (konsisten dgn potong kertas)
+                        setFormData(prev => ({
+                          ...prev,
+                          paperId: pid,
+                          pricePerSheet: Math.round(p.pricePerRim / 500).toString(),
+                          pricePerKg: Math.round((p.pricePerRim * 20000) / (p.width * p.height * p.grammage)).toString(),
+                        }))
+                      } else {
+                        setFormData({ ...formData, paperId: pid })
+                      }
+                    }} className={selectClass}>
                       <option value="">Pilih bahan kertas</option>
                       {papers.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.grammage} gsm)</option>)}
                     </select>

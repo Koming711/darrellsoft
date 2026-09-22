@@ -74,6 +74,8 @@ export interface RincianCetakanData {
   hargaPlat?: string
   hargaPlat2?: string
   pricePerSheet: string
+  /** Harga kertas per kg (info, konsisten dgn Master Harga Kertas) — kosong = tile disembunyikan. */
+  pricePerKg?: string
   totalPaperPrice?: number
   finishingName?: string
   finishingBreakdown?: { name: string; cost: number }[]
@@ -149,6 +151,19 @@ export interface RiwayatCetakanRow {
  * Map baris riwayat (Prisma/API) → data preview.
  * Sama persis dengan mapping handlePreviewRiwayat di halaman editor Hitung Cetakan.
  */
+/**
+ * Derive harga kertas /kg dari harga lembar + ukuran kertas + gramasi.
+ * Rumus & pembulatan sama dgn Master Harga Kertas: hasil dibulatkan ke bilangan bulat.
+ */
+export function deriveKgFromSheet(sheet: number | string | null | undefined, l: string | number | null | undefined, w: string | number | null | undefined, g: string | number | null | undefined): string {
+  const S = Number(sheet) || 0
+  const L = parseFloat(String(l ?? '')) || 0
+  const W = parseFloat(String(w ?? '')) || 0
+  const G = parseFloat(String(g ?? '')) || 0
+  if (!(S > 0) || !(L > 0) || !(W > 0) || !(G > 0)) return ''
+  return Math.round((S * 10000000) / (L * W * G)).toString()
+}
+
 export function mapRiwayatToRincianData(r: RiwayatCetakanRow): RincianCetakanData {
   return {
     printName: r.printName || '-',
@@ -171,6 +186,7 @@ export function mapRiwayatToRincianData(r: RiwayatCetakanRow): RincianCetakanDat
     hargaPlat: (r.hargaPlat ?? 0).toString(),
     hargaPlat2: (r.hargaPlat2 ?? 0).toString(),
     pricePerSheet: (r.pricePerSheet ?? 0).toString(),
+    pricePerKg: deriveKgFromSheet(r.pricePerSheet, r.paperLength, r.paperWidth, r.paperGrammage),
     totalPaperPrice: r.totalPaperPrice || 0,
     finishingName: r.finishingNames || '',
     finishingBreakdown: r.finishingBreakdown ? r.finishingBreakdown.split(' | ').map((s) => {
@@ -362,6 +378,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
               <PvField label="Jumlah Cetakan" value={`${pvQuantity.toLocaleString('id-ID')} lbr${pvSetelan > 0 ? ` +${pvSetelan} setelan` : ''}`} />
               <PvField label="Lembar Kertas" value={pvSheetsNeeded > 0 ? `${fmtNum(pvSheetsNeeded)} lbr` : '-'} accent="text-teal-800" />
+              {d.pricePerKg && <PvField label="Harga Kertas /kg" value={`Rp ${Number(d.pricePerKg).toLocaleString('id-ID')}`} accent="text-teal-800" />}
               {pvBerapaMata !== '' && pvBerapaMata !== '0' && <PvField label="Berapa Mata" value={pvBerapaMata} />}
               <PvField label="Ukuran Kertas" value={pvUkuranKertas} accent="text-teal-800" />
               <PvField label="Ukuran Potongan" value={pvUkuranPotongan} />
