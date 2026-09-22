@@ -150,6 +150,22 @@ const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm 
 const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
 
+// === Konversi harga kertas per kg ↔ per lembar ===
+// Berat 1 lembar (kg) = W(cm) × H(cm) × gramasi(gsm) / 10.000.000
+// (cm²→m² = /10.000, g→kg = /1.000). Konsisten dgn rumus master harga kertas:
+// harga/rim = (w×h×g×hargaKg)/20.000 → hargaKg = hargaLbr×500×20.000/(w×h×g) = hargaLbr×10⁷/(w×h×g)
+function kgToSheetPrice(kg: number, w: number, h: number, g: number): number {
+  return Math.round((kg * w * h * g) / 10000000)
+}
+function sheetToKgPrice(sheet: number, w: number | string, h: number | string, g: number | string): string {
+  const W = parseFloat(String(w)) || 0
+  const H = parseFloat(String(h)) || 0
+  const G = parseFloat(String(g)) || 0
+  if (!(sheet > 0) || !(W > 0) || !(H > 0) || !(G > 0)) return ''
+  const kg = (sheet * 10000000) / (W * H * G)
+  return (Math.round(kg * 100) / 100).toString()
+}
+
 // Preview Dialog Component
 // Struktur: header tetap di atas, konten SELALU bisa discroll (mobile & desktop), footer tetap di bawah.
 // Footer (Grand Total + tombol aksi) TIDAK ikut scroll — angka penting tidak pernah terpotong lagi.
@@ -243,6 +259,7 @@ function HitungCetakanPage() {
     packingCost: '',
     shippingCost: '',
     pricePerSheet: '',
+    pricePerKg: '',
     glueLengthCm: '',
     glueCostPerCm: '',
     glueBoronganPerSheet: '',
@@ -674,6 +691,7 @@ function HitungCetakanPage() {
       hargaPlat: hargaPlatParam || '',
       paperId: paperIdParam || '',
       pricePerSheet: pricePerSheetParam || '',
+      pricePerKg: sheetToKgPrice(parseFloat(pricePerSheetParam || '') || 0, paperLength || 0, paperWidthParam || 0, grammageParam || 0),
       packingCost: packingCostParam || '',
       shippingCost: shippingCostParam || '',
       biayaLain1: otherCostParam ? (parseFloat(otherCostParam) > 0 ? otherCostParam : '') : '',
@@ -756,11 +774,16 @@ function HitungCetakanPage() {
       if (paper) {
         // Jika pricePerSheet dari riwayat ada, gunakan itu (bukan hitung ulang dari harga kertas saat ini)
         const restoredPPS = window.__restorePricePerSheet
-        setFormData(prev => ({
-          ...prev,
-          paperId: paper.id,
-          pricePerSheet: restoredPPS || prev.pricePerSheet || Math.round(paper.pricePerRim / 500).toString()
-        }))
+        setFormData(prev => {
+          const sheet = restoredPPS || prev.pricePerSheet || Math.round(paper.pricePerRim / 500).toString()
+          return {
+            ...prev,
+            paperId: paper.id,
+            pricePerSheet: sheet,
+            // Harga/kg: pertahankan hasil derive dari record bila sudah ada, kalau tidak hitung dari master
+            pricePerKg: prev.pricePerKg || sheetToKgPrice(parseFloat(sheet) || 0, paper.width, paper.height, paper.grammage),
+          }
+        })
       }
     }
     if (window.__restoreMachineName && printingCosts.length > 0) {
@@ -866,7 +889,8 @@ function HitungCetakanPage() {
 
   useEffect(() => {
     if (selectedPaper && !formData.pricePerSheet) {
-      setFormData(prev => ({ ...prev, pricePerSheet: Math.round(selectedPaper.pricePerRim / 500).toString() }))
+      const sheet = Math.round(selectedPaper.pricePerRim / 500)
+      setFormData(prev => ({ ...prev, pricePerSheet: sheet.toString(), pricePerKg: sheetToKgPrice(sheet, selectedPaper.width, selectedPaper.height, selectedPaper.grammage) }))
     }
   }, [selectedPaper])
 
@@ -1055,7 +1079,7 @@ function HitungCetakanPage() {
 
   const resetForm = () => {
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1111,7 +1135,7 @@ function HitungCetakanPage() {
     setRestoredRiwayatId(null)
     setPhotoUrl('')
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1317,6 +1341,7 @@ function HitungCetakanPage() {
       packingCost: r.packingCost?.toString() || '',
       shippingCost: r.shippingCost?.toString() || '',
       pricePerSheet: r.pricePerSheet?.toString() || '',
+      pricePerKg: sheetToKgPrice(r.pricePerSheet || 0, r.paperLength || 0, r.paperWidth || 0, r.paperGrammage || 0),
       glueLengthCm: restoredGlueLengthCm,
       glueCostPerCm: restoredGlueCostPerCm,
       glueBoronganPerSheet: restoredBoronganPerSheet,
@@ -2143,9 +2168,38 @@ function HitungCetakanPage() {
                       <label className={labelClass}>Harga/Lembar</label>
                       <div className="relative">
                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span>
-                        <input type="number" step="0.01" min="0" placeholder="0" value={formData.pricePerSheet} onChange={(e) => setFormData({ ...formData, pricePerSheet: e.target.value })} className={`${inputClass} pl-9`} />
+                        <input type="number" step="0.01" min="0" placeholder="0" value={formData.pricePerSheet} onChange={(e) => {
+                          const v = e.target.value
+                          const sheet = parseFloat(v) || 0
+                          const g = selectedPaper?.grammage || 0
+                          // Sinkronkan harga/kg dari harga per lembar (gramatur dari Nama Bahan)
+                          setFormData(prev => ({ ...prev, pricePerSheet: v, pricePerKg: sheetToKgPrice(sheet, prev.paperLength, prev.paperWidth, g) }))
+                        }} className={`${inputClass} pl-9`} />
                       </div>
                     </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Harga Kertas /kg</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span>
+                      <input type="number" step="0.01" min="0" placeholder="0" value={formData.pricePerKg} onChange={(e) => {
+                        const v = e.target.value
+                        const kg = parseFloat(v) || 0
+                        const g = selectedPaper?.grammage || 0
+                        // Isi otomatis harga per lembar dari harga per kg (bentuk fungsional agar tidak pakai closure basi)
+                        setFormData(prev => {
+                          const pw = parseFloat(prev.paperLength) || 0
+                          const ph = parseFloat(prev.paperWidth) || 0
+                          if (kg > 0 && g > 0 && pw > 0 && ph > 0) {
+                            return { ...prev, pricePerKg: v, pricePerSheet: kgToSheetPrice(kg, pw, ph, g).toString() }
+                          }
+                          return { ...prev, pricePerKg: v }
+                        })
+                      }} className={`${inputClass} pl-9`} />
+                    </div>
+                    {!((selectedPaper?.grammage || 0) > 0) && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">Pilih Nama Bahan (gramatur) untuk konversi otomatis ke harga/lembar</p>
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Total Harga Kertas</label>

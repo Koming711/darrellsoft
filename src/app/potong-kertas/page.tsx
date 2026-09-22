@@ -92,6 +92,7 @@ interface FormData {
   selectedPaperId: string
   grammage: string
   pricePerSheet: string
+  pricePerKg: string
   quantity: string
   jumlahPesanan: string
   berapaMata: string
@@ -101,13 +102,36 @@ interface FormData {
   optimizationMode: string
 }
 
+function emptyFormData(): FormData {
+  return {
+    paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
+    selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '', pricePerKg: '',
+    quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
+  }
+}
+
+// === Konversi harga kertas per kg ↔ per lembar ===
+// Berat 1 lembar (kg) = W(cm) × H(cm) × gramasi(gsm) / 10.000.000
+// (cm²→m² = /10.000, g→kg = /1.000). Konsisten dgn rumus master harga kertas:
+// harga/rim = (w×h×g×hargaKg)/20.000 → hargaKg = hargaLbr×500×20.000/(w×h×g) = hargaLbr×10⁷/(w×h×g)
+function kgToSheetPrice(kg: number, w: number, h: number, g: number): number {
+  return Math.round((kg * w * h * g) / 10000000)
+}
+function sheetToKgPrice(sheet: number, w: number | string, h: number | string, g: number | string): string {
+  const W = parseFloat(String(w)) || 0
+  const H = parseFloat(String(h)) || 0
+  const G = parseFloat(String(g)) || 0
+  if (!(sheet > 0) || !(W > 0) || !(H > 0) || !(G > 0)) return ''
+  const kg = (sheet * 10000000) / (W * H * G)
+  return (Math.round(kg * 100) / 100).toString()
+}
+function canConvertKg(w: string | number, h: string | number, g: string | number): boolean {
+  return (parseFloat(String(w)) || 0) > 0 && (parseFloat(String(h)) || 0) > 0 && (parseFloat(String(g)) || 0) > 0
+}
+
 function getInitialFormState(): FormData {
   if (typeof window === 'undefined') {
-    return {
-      paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
-      selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '',
-      quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
-    }
+    return emptyFormData()
   }
   try {
     const savedVersion = localStorage.getItem(STORAGE_VERSION_KEY())
@@ -117,13 +141,10 @@ function getInitialFormState(): FormData {
       localStorage.setItem(STORAGE_VERSION_KEY(), STORAGE_VERSION)
     }
     const saved = localStorage.getItem(STORAGE_KEY())
-    if (saved) return JSON.parse(saved)
+    // Merge dgn default agar form tersimpan versi lama (tanpa field baru) tetap lengkap
+    if (saved) return { ...emptyFormData(), ...JSON.parse(saved) }
   } catch {}
-  return {
-    paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
-    selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '',
-    quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
-  }
+  return emptyFormData()
 }
 
 // Compact styles (mobile larger, desktop compact)
@@ -192,6 +213,7 @@ function CalculatorPage() {
   const [papers, setPapers] = useState<Paper[]>([])
   const [grammage, setGrammage] = useState(initialForm.current.grammage)
   const [pricePerSheet, setPricePerSheet] = useState(initialForm.current.pricePerSheet)
+  const [pricePerKg, setPricePerKg] = useState(initialForm.current.pricePerKg || '')
   const [quantity, setQuantity] = useState(initialForm.current.quantity)
   const [jumlahPesanan, setJumlahPesanan] = useState(initialForm.current.jumlahPesanan || '')
   const [berapaMata, setBerapaMata] = useState(initialForm.current.berapaMata || '')
@@ -339,7 +361,7 @@ function CalculatorPage() {
   // Auto-persist form data to localStorage
   const formData: FormData = {
     paperWidth, paperHeight, cutWidth, cutHeight,
-    selectedCustomerId, selectedPaperId, grammage, pricePerSheet,
+    selectedCustomerId, selectedPaperId, grammage, pricePerSheet, pricePerKg,
     quantity, jumlahPesanan, berapaMata, setelanKertas, printName, isCustomPaper, optimizationMode,
   }
 
@@ -576,10 +598,13 @@ function CalculatorPage() {
     if (selectedPaper && !isRestoringRef.current) {
       requestAnimationFrame(() => {
         setGrammage(selectedPaper.grammage.toString())
-        setPricePerSheet(Math.round(selectedPaper.pricePerRim / 500).toString())
+        const sheet = Math.round(selectedPaper.pricePerRim / 500)
+        setPricePerSheet(sheet.toString())
         setPaperWidth(selectedPaper.width.toString())
         setPaperHeight(selectedPaper.height.toString())
         setIsCustomPaper(false)
+        // Harga/kg ikut terisi otomatis dari harga kertas master
+        setPricePerKg(sheetToKgPrice(sheet, selectedPaper.width, selectedPaper.height, selectedPaper.grammage))
       })
     }
   }, [selectedPaper])
@@ -593,6 +618,7 @@ function CalculatorPage() {
       setPaperHeight('')
       setGrammage('')
       setPricePerSheet('')
+      setPricePerKg('')
     } else {
       setSelectedPaperId(value)
       setIsCustomPaper(false)
@@ -754,6 +780,7 @@ function CalculatorPage() {
     setSelectedPaperId('')
     setGrammage('')
     setPricePerSheet('')
+    setPricePerKg('')
     setQuantity('')
     setJumlahPesanan('')
     setBerapaMata('')
@@ -1103,6 +1130,7 @@ function CalculatorPage() {
     setQuantity(r.quantity || '')
     setSetelanKertas(r.setelanKertas || '')
     setPricePerSheet(r.pricePerSheet?.toString() || '')
+    setPricePerKg(sheetToKgPrice(parseFloat(r.pricePerSheet) || 0, r.paperWidth || 0, r.paperHeight || 0, r.grammage || 0))
     setJumlahPesanan(r.jumlahPesanan || '')
     setBerapaMata(r.berapaMata || '')
     // Foto lampiran ikut di-restore ke editor
@@ -1730,16 +1758,36 @@ function CalculatorPage() {
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className={lbl}>{t('gramatur')}</label>
                   <input type="number" step="1" min="0" placeholder="150" value={grammage} onChange={(e) => setGrammage(e.target.value)} className={inp} />
                 </div>
                 <div>
                   <label className={lbl}>{t('harga_per_lembar')}</label>
-                  <input type="number" step="0.01" min="0" placeholder="0" value={pricePerSheet} onChange={(e) => setPricePerSheet(e.target.value)} className={inp} />
+                  <input type="number" step="0.01" min="0" placeholder="0" value={pricePerSheet} onChange={(e) => {
+                    const v = e.target.value
+                    setPricePerSheet(v)
+                    // Sinkronkan harga/kg dari harga per lembar
+                    setPricePerKg(sheetToKgPrice(parseFloat(v) || 0, paperWidth, paperHeight, grammage))
+                  }} className={inp} />
+                </div>
+                <div>
+                  <label className={lbl}>Harga Kertas /kg</label>
+                  <input type="number" step="0.01" min="0" placeholder="0" value={pricePerKg} onChange={(e) => {
+                    const v = e.target.value
+                    setPricePerKg(v)
+                    // Isi otomatis harga per lembar dari harga per kg
+                    const kg = parseFloat(v) || 0
+                    if (kg > 0 && canConvertKg(paperWidth, paperHeight, grammage)) {
+                      setPricePerSheet(kgToSheetPrice(kg, parseFloat(paperWidth) || 0, parseFloat(paperHeight) || 0, parseFloat(grammage) || 0).toString())
+                    }
+                  }} className={inp} />
                 </div>
               </div>
+              {!canConvertKg(paperWidth, paperHeight, grammage) && (
+                <p className="text-[10px] text-slate-400 mt-0.5">Isi ukuran kertas & gramatur untuk konversi otomatis antara harga /kg dan harga /lembar</p>
+              )}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className={lbl}>Jumlah Pesanan</label>

@@ -10554,3 +10554,27 @@ Work Log:
 Stage Summary:
 - Produksi www.darrellsoft.com = v113 (PWA app version 2026-09-21-v48) memuat: combobox "Pilih Pelanggan" Master Barang yang bisa diketik (Task 146), kolom Lembar Kertas di Riwayat Potong Kertas (halaman + tab editor), dan Lembar Kertas + Simulasi Cetak yang selalu tampil di Rincian Harga Cetakan/JPG/cetak (Task 147).
 - Data produksi bersih dari data uji; hanya nomor urut hangus.
+
+---
+Task ID: 148
+Agent: Z.ai Code (main)
+Task: "dihalaman potong kertas dan halaman hitung cetakan tambahkan harga kertas perkg. check and fix." + "di menu sidebar. hutang dagang an piutang dagang dipindahin ke judul laporan. deploy"
+
+Work Log:
+- Harga Kertas /kg (Task A) — konversi dua arah, rumus konsisten dgn master harga kertas: berat 1 lbr (kg) = W(cm)×H(cm)×gramasi/10.000.000; hargaKg = hargaLbr×10⁷/(W×H×G).
+  - potong-kertas/page.tsx: state pricePerKg + persist localStorage (emptyFormData() + defensive merge utk form versi lama); baris form Gramatur|Harga/Lembar jadi 3 kolom + field "Harga Kertas /kg"; pilih kertas master → /kg auto terisi (dr pricePerRim); ketik /kg → /lbr otomatis (guard ukuran+gramatur); ketik /lbr → /kg tersinkron; hint "Isi ukuran kertas & gramatur..." saat belum bisa konversi; handleReset/handlePaperChange(custom) mengosongkan; handleRestore (deep-link ?restore=) derive /kg dari record.
+  - hitung-cetakan/page.tsx: formData.pricePerKg (persist + hydration lama aman); field "Harga Kertas /kg" full-width dgn prefix Rp di section Harga Bahan; pilih Nama Bahan → /lbr+/kg terisi; ketik /kg → /lbr otomatis butuh gramatur master + Uk. Bahan; hint "Pilih Nama Bahan (gramatur)..." saat tidak ada gramatur; sinkron /lbr→/kg; handler pakai setFormData(prev=>...) utk hindari stale closure; 3 jalur restore (URL params dgn grammageParam, restore-matching master, handleRestoreRiwayat via r.paperGrammage) semuanya derive /kg; resetForm & resetFormForRiwayat mengosongkan.
+  - Tidak ada perubahan DB/schema: harga/kg tidak disimpan di riwayat (bisa di-derive dr pricePerSheet + dims + gramasi yang tersimpan).
+- Sidebar (Task B): menuItems di sidebar.tsx & sidebar-desktop.tsx — hutang_dagang & piutang_dagang pindah section 'dokumen' → 'laporan' dan diurutkan setelah Laporan Penjualan & Rugi Laba; desktop otomatis tampil di bawah judul LAPORAN (sectionOrder sudah ada); mobile popup Lainnya (flat grid) tetap menampilkan keduanya.
+- QA (agent-browser lokal, superadmin, 375×812 & 1280×800):
+  - potong-kertas: pilih "ivory (65×100, 210gsm)" → /lbr 2157 + /kg 15802,2 ✓; ketik 16000/kg → /lbr 2184 ✓; ketik 2500/lbr → /kg 18315,02 ✓; mode Custom → semua kosong + hint tampil ✓; deep-link restore record QA → /kg ter-derive 15802,2 ✓.
+  - hitung-cetakan: tanpa bahan → hint tampil ✓; pilih ivory 210gsm → 2157 + 15802,2 ✓; ketik 19000/kg → /lbr 2594 ✓; ketik 3000/lbr → /kg 21978,02 ✓; reload → nilai persist tersambal ✓.
+  - Sidebar desktop: urutan link …purchase-order(6), laporan/penjualan(9), hutang-dagang(11), piutang-dagang(12) → keduanya di bawah judul LAPORAN ✓ (screenshot).
+- Lint 4 file bersih; tsc identik dgn baseline (9 error lama, hanya geser nomor baris; 2 error baru saat development langsung diperbaiki); dev.log bersih; 0 console error.
+- Cleanup: record QA cmuc5fi480001sevol2yrdele DIHAPUS (200); nomor PK/09/26/0009 hangus (tidak reuse).
+- Deploy (diminta user): sw bump v113 → darrell-soft-v114, APP_VERSION 2026-09-21-v48 → v49; vercel --prod; verifikasi produksi menyusul di entri deploy.
+
+Stage Summary:
+- Editor Potong Kertas & Hitung Cetakan kini punya input "Harga Kertas /kg" yang sinkron dua arah dengan Harga/Lembar (otomatis terisi saat pilih kertas master; bisa juga mulai dari harga per kg).
+- Sidebar: Hutang Dagang & Piutang Dagang pindah ke bawah judul LAPORAN (desktop) — urutan popup mobile tidak berubah, tetap ada.
+- Produksi akan naik ke v114 memuat semua di atas.
