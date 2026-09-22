@@ -10593,3 +10593,44 @@ Work Log:
 
 Stage Summary:
 - Produksi tetap v113. Lokal: fitur harga /kg tersimpan (commit c438d31), sidebar & sw kembali seperti semula (commit baru). Menunggu instruksi deploy berikutnya.
+
+---
+Task ID: 149-reapply
+Agent: Z.ai Code (main)
+Task: "di menu sidebar. hutang dagang an piutang dagang dipindahin ke judul laporan." (re-apply setelah cancel sebelumnya)
+
+Work Log:
+- Konteks: pemindahan ini sempat diterapkan lalu di-revert penuh pada Task 148-cancel (d58b43e). Perintah ini = re-apply tanpa deploy.
+- Re-apply persis kondisi yang sudah pernah QA: git checkout c438d31 -- src/components/sidebar.tsx src/components/sidebar-desktop.tsx (hutang_dagang & piutang_dagang: section 'dokumen' -> 'laporan', diposisikan setelah Laporan Penjualan & Rugi Laba).
+- Lint 2 file: bersih. tsc baseline: error set identik (324 dgn/tnpa perubahan, exclude backups/).
+- QA agent-browser lokal (superadmin):
+  - Desktop 1280x800: urutan sidebar ... Master Barang -> LAPORAN -> Laporan Penjualan, Rugi Laba, Hutang Dagang, Piutang Dagang -> OPERASIONAL ... (keduanya kini di bawah judul LAPORAN, bukan DOKUMEN). Screenshot /tmp/sidebar-v114-desktop.png.
+  - Mobile 375x812: popup Lainnya (flat grid) tetap menampilkan Hutang Dagang & Piutang Dagang (posisi setelah Rugi Laba).
+  - Sanity: fitur "Harga Kertas /kg" tetap ada di potong-kertas & hitung-cetakan. 0 console/page error; dev.log bersih.
+- Commit 26a19b6 + push ke GitHub. Produksi TIDAK disentuh (masih v113) — deploy menunggu perintah eksplisit user (pola: sebelumnya deploy ikut dibatalkan).
+
+Stage Summary:
+- Lokal: sidebar desktop & mobile kini menempatkan Hutang Dagang & Piutang Dagang di bawah grup LAPORAN. Produksi masih v113; saat deploy nanti perlu sw bump v113 -> v114 + APP_VERSION +1.
+
+---
+Task ID: 150
+Agent: Z.ai Code (main)
+Task: "dihalaman potong kertas tab editor. harga kertas /kg isinya sama denga yang ada di master harga kertas harga/kg. fix" + "lanjutkan. dihalaman hitung cetakan juga sama. harga kertas/kg diambil dari halaman potong kertas. check and fix"
+
+Work Log:
+- Diagnosis: Master Harga Kertas (dialog edit) menghitung Harga/Kg = Math.round(hargaRim x 20.000 / (w x h x g)) -> bilangan bulat. Potong kertas & hitung cetakan mengisi /kg dari harga LEMBAR (hasil Math.round(rim/500)) dengan 2 desimal via sheetToKgPrice -> tampil mis. 15802.2 vs master 15800.
+- Fix potong-kertas/page.tsx: (1) useEffect selectedPaper kini derive /kg langsung dari pricePerRim dgn rumus master Math.round(rim x 20000/(w x h x g)); (2) sheetToKgPrice dibulatkan Math.round (integer, bukan 2 desimal) -> memengaruhi sinkron /lbr->/kg & derive restore; (3) komentar rumus diperbarui.
+- Fix hitung-cetakan/page.tsx identik: useEffect selectedPaper derive /kg dari pricePerRim (rumus master), sheetToKgPrice integer. Jalur restore (URL param, restore-matching, handleRestoreRiwayat) otomatis ikut integer via sheetToKgPrice.
+- pricePerKg display-only di kedua halaman (tidak dipakai perhitungan uang) -> aman.
+- Lint 2 file bersih; tsc error-set identik dgn baseline (324, hanya geser nomor baris).
+- QA browser lokal (superadmin): /api/papers -> ivory 65x100 210gsm rim 1.078.350 -> ekspektasi 15800.
+  - potong-kertas editor: pilih ivory -> /lbr 2157 + /kg 15800 (dulu 15802.2) ✓
+  - master-harga-kertas dialog edit ivory 65x100: "Harga/Kg (Rp) = 15800" -> IDENTIK ✓
+  - potong-kertas: ketik /lbr 2500 -> /kg 18315 (integer) ✓; ketik /kg 16000 -> /lbr 2184 ✓
+  - hitung-cetakan: pilih ivory 210 (65x100) -> /lbr 2157 + /kg 15800 ✓ (sama dgn potong kertas); ketik /kg 16000 dgn Uk. Bahan 65x100 -> /lbr 2184 ✓ (sync butuh Uk. Bahan, by design)
+  - 0 console error; dev.log bersih.
+- Housekeeping: auto-commit sistem (UUID) sempat membawa 2 file fix + noise dev.pid -> di-soft-reset, dikomit ulang bersih (fb7096e, hanya 2 file fix).
+- TIDAK deploy (user: "jangan deploy") — produksi tetap v113; saat deploy nanti: sw bump v113 -> v114 + APP_VERSION +1.
+
+Stage Summary:
+- Harga Kertas /kg di editor Potong Kertas & Hitung Cetakan kini SELALU sama dengan Harga/Kg di Master Harga Kertas (sumber: harga/rim master, rumus Math.round(rim x 20000/(w x h x g)), pembulatan bilangan bulat). Sinkron dua arah & restore tetap berfungsi.
