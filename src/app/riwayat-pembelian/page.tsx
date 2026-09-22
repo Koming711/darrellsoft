@@ -261,6 +261,7 @@ function parsePurchaseOrderData(entry: HistoryEntry): PurchaseOrderData {
       catatan: parsed.catatan || '',
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       riwayatPotongKertasId: parsed.riwayatPotongKertasId || '',
+      photoUrl: parsed.photoUrl || '',
     }
   } catch {
     return {

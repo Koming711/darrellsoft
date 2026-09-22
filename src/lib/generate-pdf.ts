@@ -947,6 +947,36 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
   // ---- CATATAN ----
   y = drawCatatan(pdf, m, cw, y, data.catatan)
 
+  // ---- FOTO LAMPIRAN (matches PurchaseOrderPreview; data URL JPEG ≤300KB dari PhotoUpload) ----
+  if (data.photoUrl) {
+    try {
+      const props = pdf.getImageProperties(data.photoUrl)
+      if (props.width > 0 && props.height > 0) {
+        const maxH = 45
+        let w = cw
+        let h = (props.height / props.width) * w
+        if (h > maxH) {
+          h = maxH
+          w = (props.width / props.height) * h
+        }
+        const bottom = pageH - m
+        if (y + 5 + h > bottom) {
+          pdf.addPage()
+          y = m
+        }
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(8)
+        pdf.setTextColor(0, 0, 0)
+        pdf.text('Foto Lampiran:', m, y)
+        y += 2
+        pdf.addImage(data.photoUrl, 'JPEG', m, y, w, h)
+        y += h + 2
+      }
+    } catch {
+      // Foto rusak/format tak dikenali — lewati, jangan gagalkan seluruh PDF
+    }
+  }
+
   // ---- SIGNATURES (3 col — Toko / Diketahui / Disetujui Oleh, matching preview order) ----
   y += 3
   y = drawSignatures3Col(pdf, {

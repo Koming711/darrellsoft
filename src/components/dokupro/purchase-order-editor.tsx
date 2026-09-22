@@ -11,6 +11,7 @@ import { ItemsFields } from './items-fields';
 import { PurchaseOrderPreview } from './purchase-order-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
+import { PhotoUpload } from '@/components/photo-upload';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
 import type { PurchaseOrderData } from '@/lib/types';
@@ -549,6 +550,17 @@ export function PurchaseOrderEditor() {
               className="text-sm"
             />
           </div>
+        </div>
+
+        {/* Foto Lampiran — sama seperti halaman editor Hitung Cetakan:
+            Pilih File / Kamera, kompresi otomatis JPG <=300KB, ikut tersimpan di riwayat
+            & tampil di preview/JPG/Cetak/PDF (lihat PurchaseOrderPreview + generatePurchaseOrderPdf). */}
+        <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
+          <PhotoUpload
+            value={po.photoUrl || ''}
+            onChange={(photoUrl) => setPurchaseOrder((prev) => ({ ...prev, photoUrl }))}
+            label="Foto Lampiran"
+          />
         </div>
           </div>
         </div>

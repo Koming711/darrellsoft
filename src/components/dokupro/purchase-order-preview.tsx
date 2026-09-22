@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import type { PurchaseOrderData } from '@/lib/types';
 import { formatRupiah, formatTanggal } from '@/lib/format';
 import { terbilang } from '@/lib/terbilang';
+import { PhotoLightbox } from '@/components/photo-lightbox';
 
 interface PurchaseOrderPreviewProps {
   data: PurchaseOrderData;
@@ -11,6 +13,7 @@ interface PurchaseOrderPreviewProps {
 const MAX_ROWS = 10;
 
 export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
+  const [photoZoom, setPhotoZoom] = useState(false);
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
@@ -19,6 +22,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
   const itemCount = data.items.length;
 
   return (
+    <>
     <div
       data-document-preview
       className="a5-page bg-white text-black print:shadow-none print:border-0 print:p-0 print:mb-0"
@@ -203,6 +207,28 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
         </div>
       )}
 
+      {/* === FOTO LAMPIRAN === */}
+      {data.photoUrl && (
+        <div style={{ marginTop: '2mm' }}>
+          <p style={{ fontSize: '7.5pt', fontWeight: '600', color: '#000', margin: '0 0 1mm' }}>Foto Lampiran:</p>
+          <div style={{ textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setPhotoZoom(true)}
+              aria-label="Perbesar foto lampiran"
+              title="Klik untuk perbesar foto"
+              className="inline-block cursor-zoom-in rounded transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <img
+                src={data.photoUrl}
+                alt="Foto Lampiran"
+                style={{ maxHeight: '45mm', maxWidth: '100%', objectFit: 'contain', border: '1px solid #e2e8f0', borderRadius: '2px' }}
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* === SIGNATURES (3 columns) === */}
       <div className="print-sig-grid" style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '3mm',
@@ -230,5 +256,10 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
         Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.
       </p>
     </div>
+    {/* Lightbox zoom — di luar .a5-page agar tidak ikut ter-capture JPG/Cetak; saat tertutup tidak merender apa pun */}
+    {data.photoUrl && (
+      <PhotoLightbox src={data.photoUrl} open={photoZoom} onOpenChange={setPhotoZoom} />
+    )}
+    </>
   );
 }

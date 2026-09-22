@@ -99,6 +99,8 @@ export interface PurchaseOrderData {
   catatan: string;
   tanggalJatuhTempo: string; // due date (empty = no due date / not yet set)
   riwayatPotongKertasId?: string;
+  /** Foto lampiran (data URL JPEG hasil kompresi ≤300KB, sama dgn Hitung Cetakan); kosong = tidak ada foto */
+  photoUrl?: string;
 }
 
 export interface SPKData {
@@ -211,6 +213,7 @@ export function createDefaultPurchaseOrder(): PurchaseOrderData {
     catatan: '',
     tanggalJatuhTempo: '',
     riwayatPotongKertasId: '',
+    photoUrl: '',
   };
 }
 
