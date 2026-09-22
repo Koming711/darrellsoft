@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-22-v50'
+const APP_VERSION = '2026-09-22-v51'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -75,30 +75,39 @@ export function ServiceWorkerRegistration() {
 
     // Register service worker (only after version check passes)
     if ('serviceWorker' in navigator) {
-      // ANTI-ZOMBIE SESSION: saat SW BARU mengambil alih halaman ini
-      // (controller berubah = deploy baru ter-apply, cache lama sudah
-      // dihapus sw.js saat activate), JS lama yang masih jalan menjadi
-      // "zombie": chunk lama sudah terhapus -> fetch chunk 404 -> klik
-      // (mis. tombol Preview) tidak bereaksi. Solusi standar PWA:
-      // reload SEKALI tepat saat controller berganti.
-      // - Install pertama TIDAK reload (controller masih null saat load).
-      // - Guard sessionStorage mencegah reload berulang/loop.
-      // Ini berbeda dgn keluhan lama "aplikasi suka di refresh" (itu
-      // reload paksa tiap buka); di sini reload hanya 1x per deploy nyata.
+      // ANTI-ZOMBIE SESSION (per VERSI SW): setelah deploy, sw.js baru
+      // menghapus cache lama saat activate — JS lama yang masih jalan jadi
+      // "zombie": chunk lama 404 -> klik (mis. tombol Preview) tidak
+      // bereaksi. Solusi: SW baru mengirim versinya via postMessage saat
+      // activate; halaman reload SEKALI per versi baru. Kunci per-VERSION
+      // (bukan boolean) agar deploy BERIKUTNYA dalam sesi PWA panjang tetap
+      // memicu reload 1x. Install pertama tidak reload (tanpa controller).
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        const data = event.data as { type?: string; version?: string } | null
+        if (!data || data.type !== 'SW_ACTIVATED' || !data.version) return
+        try {
+          if (sessionStorage.getItem('sw_reloaded_version') === data.version) return
+          sessionStorage.setItem('sw_reloaded_version', data.version)
+        } catch (e) {}
+        console.log('SW baru aktif:', data.version, '- reload sekali untuk sinkron kode baru')
+        window.location.reload()
+      })
+
+      // Fallback (halaman dengan kode lama yang belum kenal pesan SW):
+      // controller berganti tanpa reload tercatat -> reload sekali per sesi,
+      // ditunda 500ms agar pesan SW_ACTIVATED (jika ada) yang menang duluan.
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          try {
-            if (sessionStorage.getItem('sw_controller_reload') === '1') return
-            sessionStorage.setItem('sw_controller_reload', '1')
-          } catch (e) {}
-          console.log('SW baru mengambil alih — reload sekali untuk sinkron kode baru')
-          window.location.reload()
+          setTimeout(() => {
+            try {
+              if (sessionStorage.getItem('sw_reloaded_version')) return
+              if (sessionStorage.getItem('sw_cc_reloaded') === '1') return
+              sessionStorage.setItem('sw_cc_reloaded', '1')
+            } catch (e) {}
+            window.location.reload()
+          }, 500)
         })
       }
-
-      // Reload-on-controllerchange di atas menutup window zombie HANYA 1x per
-      // deploy nyata. Sisanya tetap tanpa reload paksa: buka pertama tidak
-      // reload, data GET tetap network-first (fresh) via sw.js.
       const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })

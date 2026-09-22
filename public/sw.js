@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darrell-soft-v115';
+const CACHE_NAME = 'darrell-soft-v116';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
 const API_CACHE_NAME = 'darrell-api-runtime';
@@ -57,6 +57,11 @@ self.addEventListener('activate', (event) => {
   );
   // Take control of all clients immediately
   self.clients.claim();
+  // Beri tahu semua halaman versi baru yang aktif — halaman memakai ini
+  // untuk reload SEKALI per versi (anti zombie-session setelah deploy).
+  self.clients.matchAll({ includeUncontrolled: true }).then((cs) => {
+    cs.forEach((c) => c.postMessage({ type: 'SW_ACTIVATED', version: CACHE_NAME }));
+  });
 });
 
 // Jaga ukuran cache data API agar tidak memenuhi storage perangkat
