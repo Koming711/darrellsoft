@@ -1970,7 +1970,7 @@ function CalculatorPage() {
           {results ? (
             <div className="flex-1 flex flex-col gap-1.5 lg:min-h-0 lg:overflow-hidden">
               {/* Stats Grid - mobile 2col, desktop 3col/5col */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2 flex-shrink-0">
+              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-2 flex-shrink-0">
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Diperlukan</p>
                   <p className="text-lg lg:text-lg font-bold text-black dark:text-white leading-tight">{computedQuantity || quantity || '0'}</p>
@@ -1999,21 +1999,7 @@ function CalculatorPage() {
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Harga/Lembar Setelah Dipotong</p>
                   <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">Rp {results.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / results.totalPieces).toLocaleString('id-ID') : '0'}</p>
                 </div>
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
-                  <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium leading-tight">Berat Kertas</p>
-                  <p className="text-sm lg:text-sm font-bold text-black dark:text-white leading-tight">{(() => {
-                    const g = parseFloat(grammage) || 0
-                    const w = parseFloat(paperWidth) || 0
-                    const h = parseFloat(paperHeight) || 0
-                    const sheets = results.sheetsNeeded || 0
-                    if (g > 0 && w > 0 && h > 0 && sheets > 0) {
-                      const totalGrams = (w * h * g * sheets) / 10000
-                      return totalGrams >= 1000 ? `${(totalGrams / 1000).toFixed(2)} kg` : `${Math.round(totalGrams)} g`
-                    }
-                    return '0'
-                  })()}</p>
-                </div>
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-7">
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center col-span-2 xl:col-span-6">
                   <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium leading-tight">Total Harga</p>
                   <p className="text-xl lg:text-xl font-bold text-blue-700 dark:text-blue-300 leading-tight">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</p>
                 </div>
@@ -2437,6 +2423,19 @@ function CalculatorPage() {
               <div className="bg-white border border-slate-200 rounded-lg p-2.5">
                 <p className="text-[10px] text-slate-600 font-medium">Harga / Lembar</p>
                 <p className="text-base font-bold text-black">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                <p className="text-[10px] text-slate-600 font-medium">Harga Kertas /kg</p>
+                <p className="text-base font-bold text-black">{(() => {
+                  // Mode riwayat: derive /kg dari harga lembar record (rumus master, bilangan bulat).
+                  // Mode editor: pakai field Harga Kertas /kg di form (tersinkron dgn Master Harga Kertas);
+                  // fallback derive dr harga /lbr + ukuran & gramatur kertas bila kosong.
+                  const kg = previewRiwayatData
+                    ? sheetToKgPrice(previewRiwayatRow?.pricePerSheet ?? previewRiwayatData.pricePerSheet, previewRiwayatRow?.paperWidth || previewRiwayatData.paperWidth, previewRiwayatRow?.paperHeight || previewRiwayatData.paperHeight, previewRiwayatRow?.grammage || previewRiwayatData.grammage)
+                    : (pricePerKg || sheetToKgPrice(parseFloat(pricePerSheet), paperWidth, paperHeight, grammage))
+                  const n = parseInt(kg, 10)
+                  return Number.isFinite(n) && n > 0 ? `Rp ${n.toLocaleString('id-ID')}` : '-'
+                })()}</p>
               </div>
               <div className="bg-white border border-slate-200 rounded-lg p-2.5">
                 <p className="text-[10px] text-slate-600 font-medium">Harga/Lembar Setelah Dipotong</p>
