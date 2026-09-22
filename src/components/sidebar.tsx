@@ -101,20 +101,6 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'hutang_dagang' as TranslationKey,
-    href: '/hutang-dagang',
-    icon: HandCoins,
-    featureId: 'hutang-dagang',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'piutang_dagang' as TranslationKey,
-    href: '/piutang-dagang',
-    icon: Coins,
-    featureId: 'piutang-dagang',
-    section: 'dokumen',
-  },
-  {
     titleKey: 'master_customer' as TranslationKey,
     href: '/master-customer',
     icon: Users,
@@ -140,6 +126,20 @@ const menuItems = [
     href: '/laporan/rugi-laba',
     icon: PieChart,
     featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'hutang_dagang' as TranslationKey,
+    href: '/hutang-dagang',
+    icon: HandCoins,
+    featureId: 'hutang-dagang',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'piutang_dagang' as TranslationKey,
+    href: '/piutang-dagang',
+    icon: Coins,
+    featureId: 'piutang-dagang',
     section: 'laporan',
   },
   {
