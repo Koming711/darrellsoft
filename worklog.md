@@ -10634,3 +10634,33 @@ Work Log:
 
 Stage Summary:
 - Harga Kertas /kg di editor Potong Kertas & Hitung Cetakan kini SELALU sama dengan Harga/Kg di Master Harga Kertas (sumber: harga/rim master, rumus Math.round(rim x 20000/(w x h x g)), pembulatan bilangan bulat). Sinkron dua arah & restore tetap berfungsi.
+
+---
+Task ID: 151
+Agent: Z.ai Code (main)
+Task: "dihalaman editor hitung cetakan. harusnya harga kertas/kg = 15800 seperti di halaman editor potong kertas. tambahkan di preview detail rincian cetakan, jpg dan cetak juga."
+
+Work Log:
+- Fix /kg stale di editor hitung-cetakan (penyebab komplain: /kg tidak ikut ter-update krn guard !pricePerSheet pada efek pemilihan kertas):
+  1) useEffect selectedPaper direstrukturisasi: /kg SELALU dinormalisasi ke rumus master Math.round(rim x 20000/(w x h x g)) saat kertas master terpilih (juga memperbaiki nilai persist lama yg desimal, mis. 15802.2 -> 15800); /lbr hanya diisi saat kosong (uang tidak diganggu).
+  2) onChange <select> Nama Bahan: pilih bahan = refill /lbr (Math.round(rim/500)) + /kg dari master — konsisten dgn perilaku potong kertas (juga meng-cover pilih ulang kertas yg sama).
+  3) previewData (live) & previewData riwayat (handlePreviewRiwayat) kini membawa pricePerKg (live: derive dr selectedPaper; riwayat: deriveKgFromSheet dr pricePerSheet record).
+- rincian-cetakan-preview.tsx (SATU komponen utk preview dialog + JPG + Cetak — keduanya capture elemen previewRef):
+  - RincianCetakanData + pricePerKg?: string.
+  - helper baru deriveKgFromSheet() (export) — derive /kg dr harga lembar record; hasil dibulatkan bulat.
+  - mapRiwayatToRincianData kini derive pricePerKg dr record -> popup riwayat otomatis ikut (aturan dua-lokasi aman via mapper bersama).
+  - Tile PvField "Harga Kertas /kg" (Rp formatted id-ID) ditambahkan setelah tile Lembar Kertas di INFORMASI PESANAN; disembunyikan bila tak bisa dihitung (mis. record lama tanpa paperGrammage, HC/07/26/0005 g=0 -> tile hilang, by design).
+- Lint 2 file bersih; tsc file+code error set identik dgn baseline (324=324).
+- QA browser lokal (superadmin):
+  - Reload dgn form persist (lbr 2184/kg 16000 lama) -> /kg otomatis jadi 15800, /lbr tak tersentuh ✓
+  - Pilih ulang ivory 65x100 210gsm -> /lbr 2157 + /kg 15800 ✓
+  - Popup riwayat HC/05/26/0001 (record 2157/lbr, 65x100, 210gsm) -> tile "HARGA KERTAS /KG Rp 15.802" (derive dr harga record) ✓
+  - Edit perhitungan (restore) -> /lbr 2157 dipertahankan, /kg 15800 (master), Preview aktif -> dialog live preview tile "HARGA KERTAS /KG Rp 15.800" ✓
+  - JPG & Cetak memakai capture elemen preview yg sama (previewRef) -> tile ikut terbawa (diverifikasi DOM + alur kode; eksekusi JPG/cetak fisik tidak dijalan di headless).
+  - 0 console/page error; dev.log bersih. Screenshot /tmp/rincian-kg-tile.png.
+- Housekeeping: auto-commit noise (4451160: dev.pid+db) di-drop via rebase --onto; fix komit bersih 4ced79a.
+- TIDAK deploy (instruksi user "jangan deploy") — produksi tetap v113; saat deploy nanti: sw bump v113 -> v114 + APP_VERSION +1.
+
+Stage Summary:
+- Editor hitung-cetakan: /kg kini SELALU = Master Harga Kertas (juga memperbaiki nilai lama/desimal & kasus pilih-ulang kertas).
+- Preview "Detail Rincian Cetakan" + JPG + Cetak kini menampilkan tile "Harga Kertas /kg" (popup riwayat ikut via mapper bersama; record tanpa gramatur tetap menyembunyikan tile).
