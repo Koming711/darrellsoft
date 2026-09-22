@@ -10664,3 +10664,27 @@ Work Log:
 Stage Summary:
 - Editor hitung-cetakan: /kg kini SELALU = Master Harga Kertas (juga memperbaiki nilai lama/desimal & kasus pilih-ulang kertas).
 - Preview "Detail Rincian Cetakan" + JPG + Cetak kini menampilkan tile "Harga Kertas /kg" (popup riwayat ikut via mapper bersama; record tanpa gramatur tetap menyembunyikan tile).
+
+---
+Task ID: 152
+Agent: Z.ai Code (main)
+Task: "hambahkan harga kertas perkg di halaman preview potong kertas. dihalaman editor potong kertas, delete kotak berat kertas. fix"
+
+Work Log:
+- Preview Potong Kertas (dialog preview — JPG & Cetak capture previewRef sehingga otomatis ikut): tile "Harga Kertas /kg" ditambahkan di grid info, posisi setelah "Harga / Lembar" sebelum "Harga/Lembar Setelah Dipotong" (grid jadi 15 tile = 5 baris x 3 kolom pas).
+  - Mode editor: pakai field Harga Kertas /kg form (tersinkron Master Harga Kertas); fallback derive dr harga /lbr + ukuran & gramatur bila kosong.
+  - Mode riwayat: derive dr record (pricePerSheet x 10.000.000/(w x h x g)) via sheetToKgPrice (Math.round, bulat) — aturan sama dgn riwayat hitung-cetakan (Task 151). Record lama w/o gramatur -> tile "-".
+- Editor: kotak "Berat Kertas" (hitung total gram/kg dgn sheetsNeeded) DIHAPUS dari stats grid hasil; grid 7 -> 6 tile: xl:grid-cols-7 -> xl:grid-cols-6 & Total Harga col-span xl:col-span-7 -> xl:col-span-6 (1 baris rapi + Total Harga full width).
+- Lint 1 file bersih; tsc stash-compare potong-kertas: error set identik (5 error pre-existing, hanya geser baris; total 324 = baseline).
+- QA browser lokal (superadmin; catatan: dev server sempat error SQLite "readonly database" -> restart dev server beres; session expired -> login ulang via UI):
+  - Editor: ivory 65x100 210gsm (/lbr 2157, /kg 15800), potong 10x15, pesanan 1000 -> hasil: 6 tile (Diperlukan, Insit, Potongan/Lembar, Kertas Yg Dibeli, Harga/Lembar, Setelah Dipotong) + Total Harga Rp 51.768 full width, TANPA Berat Kertas ✓
+  - Preview (editor mode): tile "Harga Kertas /kg Rp 15.800" = nilai Master ✓ (posisi benar, 5 baris x 3 kolom)
+  - Simpan riwayat -> preview dari tab Riwayat: tile "Harga Kertas /kg Rp 15.802" (derive dr /lbr record 2157, bulat — konsisten aturan riwayat hitung cetakan) + tombol Edit tampil ✓
+  - Test record PK/09/26/0010 dihapus lagi (confirm "Beneran mau dihapus nih?" -> accept) -> riwayat bersih kembali.
+  - 0 console/page error; dev.log bersih. Screenshot /tmp/pk-stats2.png, /tmp/pk-riwayat-preview.png.
+- Commit bersih 514de34 (auto-commit UUID 2d19f9f di-soft-reset dulu; db/custom.db tidak ikut dikomit).
+- TIDAK deploy (instruksi user "jangan deploy") — produksi tetap v113; saat deploy nanti: sw bump v113 -> v114 + APP_VERSION +1.
+
+Stage Summary:
+- Preview Potong Kertas (preview dialog + JPG + Cetak) kini menampilkan tile Harga Kertas /kg: editor mode = Master (15800), riwayat mode = derive dr record (bulat).
+- Kotak Berat Kertas di editor dihapus; grid hasil kini 6 tile + Total Harga full width (layout rapi).
