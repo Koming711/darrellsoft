@@ -152,8 +152,10 @@ const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700
 
 // === Konversi harga kertas per kg ↔ per lembar ===
 // Berat 1 lembar (kg) = W(cm) × H(cm) × gramasi(gsm) / 10.000.000
-// (cm²→m² = /10.000, g→kg = /1.000). Konsisten dgn rumus master harga kertas:
-// harga/rim = (w×h×g×hargaKg)/20.000 → hargaKg = hargaLbr×500×20.000/(w×h×g) = hargaLbr×10⁷/(w×h×g)
+// (cm²→m² = /10.000, g→kg = /1.000). Konsisten dgn Master Harga Kertas:
+// harga/rim = (w×h×g×hargaKg)/20.000 → hargaKg = hargaRim×20.000/(w×h×g).
+// Hasil konversi /kg dibulatkan ke bilangan bulat (Math.round) — persis seperti
+// nilai "Harga/kg" yang tampil di dialog edit Master Harga Kertas.
 function kgToSheetPrice(kg: number, w: number, h: number, g: number): number {
   return Math.round((kg * w * h * g) / 10000000)
 }
@@ -163,7 +165,8 @@ function sheetToKgPrice(sheet: number, w: number | string, h: number | string, g
   const G = parseFloat(String(g)) || 0
   if (!(sheet > 0) || !(W > 0) || !(H > 0) || !(G > 0)) return ''
   const kg = (sheet * 10000000) / (W * H * G)
-  return (Math.round(kg * 100) / 100).toString()
+  // Bulatkan ke bilangan bulat — sama dengan tampilan Harga/kg di Master Harga Kertas
+  return Math.round(kg).toString()
 }
 
 // Preview Dialog Component
@@ -890,7 +893,14 @@ function HitungCetakanPage() {
   useEffect(() => {
     if (selectedPaper && !formData.pricePerSheet) {
       const sheet = Math.round(selectedPaper.pricePerRim / 500)
-      setFormData(prev => ({ ...prev, pricePerSheet: sheet.toString(), pricePerKg: sheetToKgPrice(sheet, selectedPaper.width, selectedPaper.height, selectedPaper.grammage) }))
+      // Harga/kg: rumus & pembulatan identik dgn dialog edit Master Harga Kertas
+      const pw = selectedPaper.width
+      const ph = selectedPaper.height
+      const pg = selectedPaper.grammage
+      const kg = pw > 0 && ph > 0 && pg > 0
+        ? Math.round((selectedPaper.pricePerRim * 20000) / (pw * ph * pg)).toString()
+        : ''
+      setFormData(prev => ({ ...prev, pricePerSheet: sheet.toString(), pricePerKg: kg }))
     }
   }, [selectedPaper])
 
