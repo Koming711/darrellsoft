@@ -10578,3 +10578,18 @@ Stage Summary:
 - Editor Potong Kertas & Hitung Cetakan kini punya input "Harga Kertas /kg" yang sinkron dua arah dengan Harga/Lembar (otomatis terisi saat pilih kertas master; bisa juga mulai dari harga per kg).
 - Sidebar: Hutang Dagang & Piutang Dagang pindah ke bawah judul LAPORAN (desktop) — urutan popup mobile tidak berubah, tetap ada.
 - Produksi akan naik ke v114 memuat semua di atas.
+
+---
+Task ID: 148-cancel
+Agent: Z.ai Code (main)
+Task: "cancel 2 perintah terakhir" (batalkan: pindah sidebar hutang/piutang dagang ke Laporan + deploy)
+
+Work Log:
+- Konfirmasi produksi: deploy tadi ter-canceled sebelum selesai (vercel CLI dihentikan); curl www.darrellsoft.com/sw.js = darrell-soft-v113, site 200 → produksi TIDAK tersentuh.
+- Revert penuh 4 file ke kondisi sebelum perintah terakhir (git checkout 4750c74 --): sidebar.tsx & sidebar-desktop.tsx (hutang_dagang & piutang_dagang kembali ke section 'dokumen', posisi semula) + public/sw.js & service-worker-registration.tsx (kembali v113 / 2026-09-21-v48, karena bump v114 hanya persiapan deploy yang dibatalkan — mengikuti pola bump-saat-deploy).
+- Fitur "Harga Kertas /kg" (potong kertas + hitung cetakan) TETAP dipertahankan — bukan bagian dari 2 perintah yang dibatalkan.
+- git diff 4750c74 terhadap 4 file = 0 baris (identik persis).
+- Commit revert + push ke GitHub (remote masih di 4750c74 karena push feature commit belum sempat dilakukan).
+
+Stage Summary:
+- Produksi tetap v113. Lokal: fitur harga /kg tersimpan (commit c438d31), sidebar & sw kembali seperti semula (commit baru). Menunggu instruksi deploy berikutnya.
