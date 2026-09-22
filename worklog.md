@@ -10593,3 +10593,21 @@ Work Log:
 
 Stage Summary:
 - Produksi tetap v113. Lokal: fitur harga /kg tersimpan (commit c438d31), sidebar & sw kembali seperti semula (commit baru). Menunggu instruksi deploy berikutnya.
+
+---
+Task ID: 149-reapply
+Agent: Z.ai Code (main)
+Task: "di menu sidebar. hutang dagang an piutang dagang dipindahin ke judul laporan." (re-apply setelah cancel sebelumnya)
+
+Work Log:
+- Konteks: pemindahan ini sempat diterapkan lalu di-revert penuh pada Task 148-cancel (d58b43e). Perintah ini = re-apply tanpa deploy.
+- Re-apply persis kondisi yang sudah pernah QA: git checkout c438d31 -- src/components/sidebar.tsx src/components/sidebar-desktop.tsx (hutang_dagang & piutang_dagang: section 'dokumen' -> 'laporan', diposisikan setelah Laporan Penjualan & Rugi Laba).
+- Lint 2 file: bersih. tsc baseline: error set identik (324 dgn/tnpa perubahan, exclude backups/).
+- QA agent-browser lokal (superadmin):
+  - Desktop 1280x800: urutan sidebar ... Master Barang -> LAPORAN -> Laporan Penjualan, Rugi Laba, Hutang Dagang, Piutang Dagang -> OPERASIONAL ... (keduanya kini di bawah judul LAPORAN, bukan DOKUMEN). Screenshot /tmp/sidebar-v114-desktop.png.
+  - Mobile 375x812: popup Lainnya (flat grid) tetap menampilkan Hutang Dagang & Piutang Dagang (posisi setelah Rugi Laba).
+  - Sanity: fitur "Harga Kertas /kg" tetap ada di potong-kertas & hitung-cetakan. 0 console/page error; dev.log bersih.
+- Commit 26a19b6 + push ke GitHub. Produksi TIDAK disentuh (masih v113) — deploy menunggu perintah eksplisit user (pola: sebelumnya deploy ikut dibatalkan).
+
+Stage Summary:
+- Lokal: sidebar desktop & mobile kini menempatkan Hutang Dagang & Piutang Dagang di bawah grup LAPORAN. Produksi masih v113; saat deploy nanti perlu sw bump v113 -> v114 + APP_VERSION +1.
