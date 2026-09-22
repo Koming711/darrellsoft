@@ -10688,3 +10688,29 @@ Work Log:
 Stage Summary:
 - Preview Potong Kertas (preview dialog + JPG + Cetak) kini menampilkan tile Harga Kertas /kg: editor mode = Master (15800), riwayat mode = derive dr record (bulat).
 - Kotak Berat Kertas di editor dihapus; grid hasil kini 6 tile + Total Harga full width (layout rapi).
+
+---
+Task ID: hotfix-1
+Agent: Z.ai Code (main)
+Task: "stop, jangan habiskan kouta vercel. function storage hampir habis. check and fix"
+
+Work Log:
+- Investigasi via Vercel API (read-only dulu): team koming711s-projects plan HOBBY, ada 2 project — darrellsoft (produksi www.darrellsoft.com) & my-project (sandbox, TERNYATA git-linked ke repo GitHub Koming711/darrellsoft).
+- Root cause function storage habis:
+  1. Project darrellsoft: 101 deployment lama ter-retain (97 READY + 1 ERROR + 3 BLOCKED; retensi 30 hari / keep 10) — tiap deployment berisi ~130 serverless function dgn bundel Prisma engine → artifact storage membengkak.
+  2. Project my-project: tersambung GitHub (meta githubDeployment:1) → SETIAP git push ke main memicu build produksi otomatis di Vercel (59 deployment, mayoritas ERROR krn env/build my-project tidak lengkap) → kuota build & storage terbakar tiap push worklog/code.
+- Fix yang dilakukan (semua via API, TANPA deploy):
+  - DELETE 100 deployment lama project darrellsoft (keep 1: produksi live dpl_3vDSGW5WL5dN2A / sw v113) — 0 gagal.
+  - DELETE git link my-project → GitHub (DELETE /v2/projects/my-project/link) — push tidak lagi memicu build Vercel (diverifikasi: link not_found).
+  - DELETE 59 deployment project my-project (semua) — 0 gagal.
+  - Verifikasi akhir: total deployment di seluruh team = 1 (produksi v113).
+  - PATCH retention (deploymentExpiration) ditolak API (bukan properti valid utk PATCH project) — retensi tetap 30 hari/keep 10; aman krn deploy kini manual & jarang, lama auto-expire.
+- Verifikasi produksi setelah cleanup: homepage HTTP 200 (0.19s), /api/public-settings hidup (data Supabase), sw.js = darrell-soft-v113. Produksi TIDAK disentuh.
+- Keamanan workflow baru: git push kini 100% aman (tidak ada project lagi yang git-linked; deploy darrellsoft hanya via CLI manual `npx vercel --prod`).
+- TIDAK ada deploy (instruksi user). Task 153 (foto lampiran PO) DIPAUSET — tunggu konfirmasi user.
+
+Stage Summary:
+- Function storage dibebaskan: 159 deployment stale dihapus (100 darrellsoft + 59 my-project); sisa 1 = produksi live v113.
+- Sumber kebocoran kuota disarikan: git link my-project dihapus → push repo tidak lagi auto-build produksi di Vercel.
+- Produksi sehat: HTTP 200, API OK, sw v113.
+- Rekomendasi: (1) deploy hanya bila diminta — tiap deploy menyimpan ~130 bundle function; (2) project Vercel "my-project" kini kosong & tanpa link, boleh dihapus manual di dashboard; (3) bila mau, retensi deployment bisa dipangkas di Dashboard → Settings → Deployment Retention (API tidak mengizinkan).
