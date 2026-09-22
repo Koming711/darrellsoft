@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-22-v49'
+const APP_VERSION = '2026-09-22-v50'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -75,11 +75,30 @@ export function ServiceWorkerRegistration() {
 
     // Register service worker (only after version check passes)
     if ('serviceWorker' in navigator) {
-      // CATATAN: TIDAK ADA auto-reload saat SW baru mengambil alih
-      // (controllerchange). Reload paksa saat user sedang memakai aplikasi
-      // adalah keluhan utama "aplikasi suka di refresh". SW baru (skipWaiting)
-      // aktif di latar belakang; kode baru dipakai pada buka berikutnya.
-      // Data TETAP fresh karena semua GET API network-first di sw.js.
+      // ANTI-ZOMBIE SESSION: saat SW BARU mengambil alih halaman ini
+      // (controller berubah = deploy baru ter-apply, cache lama sudah
+      // dihapus sw.js saat activate), JS lama yang masih jalan menjadi
+      // "zombie": chunk lama sudah terhapus -> fetch chunk 404 -> klik
+      // (mis. tombol Preview) tidak bereaksi. Solusi standar PWA:
+      // reload SEKALI tepat saat controller berganti.
+      // - Install pertama TIDAK reload (controller masih null saat load).
+      // - Guard sessionStorage mencegah reload berulang/loop.
+      // Ini berbeda dgn keluhan lama "aplikasi suka di refresh" (itu
+      // reload paksa tiap buka); di sini reload hanya 1x per deploy nyata.
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          try {
+            if (sessionStorage.getItem('sw_controller_reload') === '1') return
+            sessionStorage.setItem('sw_controller_reload', '1')
+          } catch (e) {}
+          console.log('SW baru mengambil alih — reload sekali untuk sinkron kode baru')
+          window.location.reload()
+        })
+      }
+
+      // Reload-on-controllerchange di atas menutup window zombie HANYA 1x per
+      // deploy nyata. Sisanya tetap tanpa reload paksa: buka pertama tidak
+      // reload, data GET tetap network-first (fresh) via sw.js.
       const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
