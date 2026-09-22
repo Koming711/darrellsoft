@@ -10732,3 +10732,20 @@ Stage Summary:
 - www.darrellsoft.com kini menjalankan sw v114 (app version 2026-09-22-v49): berisi Task 149-152 (harga /kg master-sync, tile /kg di preview potong kertas & rincian cetakan, hapus kotak Berat Kertas, harga modal per pcs, dll) sejak v113.
 - 1x build gagal (named import hilang) diperbaiki; produksi sehat.
 - Deployment lama tidak dihapus kali ini (baru 2 deployment: 1 ERROR dari percobaan pertama + 1 READY) — bisa dibersihkan kapan saja via API bila perlu.
+
+---
+Task ID: storage-v114
+Agent: Z.ai Code (main)
+Task: "di vercel functions storage masih besar. 8.28gb. apakah bahaya? bisa dikecilkan?"
+
+Work Log:
+- Analisis: 111 API route = 111 serverless function; tiap function bundel Prisma engine (~15-20MB) + Next runtime (~5MB) → ±2-3 GB per deployment. Prisma generator TANPA binaryTargets ekstra (sudah optimal utk engine). Deps berat (sharp/exceljs/pdfjs-dist/z-ai-sdk) hanya membebani route pemakainya. Tidak ada Vercel Blob.
+- Angka 8.28 GB di dashboard = agregasi periode billing berjalan, termasuk 159 deployment lama yang sudah dihapus → akan turun saat siklus reset.
+- API /v1/usage tidak tersedia utk plan Hobby (plan_upgrade_required).
+- Aksi: hapus deployment backup v113 (dpl_3vDSGW5WL5dN2AkwB8B1) — v114 sudah terverifikasi hidup. Sisa deployment: 1 (v114 READY). Rollback = redeploy dr git (~2-3 menit).
+- Verifikasi: homepage HTTP 200, sw.js = darrell-soft-v114.
+
+Stage Summary:
+- Retained function storage kini ±1 deployment (dari 2). Dashboard 8.28 GB akan menurun bertahap (sebagian baru terlihat setelah reset siklus billing).
+- Bahaya? Tidak utk runtime; risiko hanya build/deploy baru diblokir bila kuota 100%.
+- Langkah hemat berikutnya: deploy hanya bila perlu; opsional refactor (gabung API routes / Prisma driver adapters) bila user mau.
