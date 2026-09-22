@@ -10749,3 +10749,22 @@ Stage Summary:
 - Retained function storage kini ±1 deployment (dari 2). Dashboard 8.28 GB akan menurun bertahap (sebagian baru terlihat setelah reset siklus billing).
 - Bahaya? Tidak utk runtime; risiko hanya build/deploy baru diblokir bila kuota 100%.
 - Langkah hemat berikutnya: deploy hanya bila perlu; opsional refactor (gabung API routes / Prisma driver adapters) bila user mau.
+
+---
+Task ID: fix-preview-zombie
+Agent: Z.ai Code (main)
+Task: "preview tidak muncul. fix."
+
+Work Log:
+- Reproduksi: dev server lokal dinyalakan; SEMUA jalur preview dites di produksi (www.darrellsoft.com, viewport mobile 390x844, login aming) — semuanya JALAN: potong-kertas editor preview, potong-kertas riwayat preview (record PK/09/26/0076, /kg derive 13.000), hitung-cetakan riwayat Detail Rincian (HC/09/26/0069). Kode app TIDAK rusak.
+- Akar masalah = ZOMBIE PWA SESSION: user membuka app saat deploy v114 → sw.js baru (skipWaiting+claim) menghapus cache lama saat activate → JS lama yang masih jalan fetch chunk 404 → klik Preview tidak bereaksi. Kode lama sengaja TIDAK reload saat controllerchange (keluhan lama "aplikasi suka di refresh") → sesi zombie tidak pernah pulih.
+- Fix (v115): reload SEKALI saat controllerchange (guard sessionStorage). 
+- Perbaikan lanjut (v116): guard boolean per-sesi menyebabkan deploy kedua dalam sesi PWA panjang tidak reload lagi → diganti mekanisme per-VERSI: sw.js activate kirim postMessage {type:'SW_ACTIVATED', version: CACHE_NAME} ke semua client; halaman reload 1x per versi (sessionStorage 'sw_reloaded_version'), fallback controllerchange 500ms utk halaman kode lama (guard 'sw_cc_reloaded').
+- Verifikasi browser: unregister SW → reload → SW v116 aktif → reload tercatat sekali (flag v116), halaman sehat, TIDAK loop.
+- Deploy: v115 (a52dd18) → READY; v116 (201796b) → READY; deployment lama dihapus tiap selesai (sisa 1). Live: sw.js = darrell-soft-v116, homepage 200.
+
+Stage Summary:
+- Preview TIDAK rusak di server — penyebabnya sesi PWA basi di device user; kini auto-reload 1x per versi SW baru membuat update selalu diterapkan mulus.
+- sw.js kini mengumumkan versinya saat activate (postMessage SW_ACTIVATED).
+- Produksi live: v116 (app version 2026-09-22-v51), 1 deployment tersimpan (storage aman).
+- Catatan: user cukup tutup-buka app sekali untuk mendapat v116; setelah itu update berikutnya otomatis (maks 60 dtk + 1 refresh cepat).
