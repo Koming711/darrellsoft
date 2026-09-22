@@ -10714,3 +10714,21 @@ Stage Summary:
 - Sumber kebocoran kuota disarikan: git link my-project dihapus → push repo tidak lagi auto-build produksi di Vercel.
 - Produksi sehat: HTTP 200, API OK, sw v113.
 - Rekomendasi: (1) deploy hanya bila diminta — tiap deploy menyimpan ~130 bundle function; (2) project Vercel "my-project" kini kosong & tanpa link, boleh dihapus manual di dashboard; (3) bila mau, retensi deployment bisa dipangkas di Dashboard → Settings → Deployment Retention (API tidak mengizinkan).
+
+---
+Task ID: deploy-v114
+Agent: Z.ai Code (main)
+Task: "deploy ke www.darrellsoft.com. token vcp_..."
+
+Work Log:
+- Bump versi sesuai konvensi: public/sw.js CACHE_NAME v113→v114 + service-worker-registration.tsx APP_VERSION '2026-09-21-v48'→'2026-09-22-v49'; commit 3107a83 + push.
+- Deploy CLI #1 GAGAL (build ERROR di Vercel): Turbopack hard-error named import hilang — src/components/views/pricing-view.tsx:9 `import { formatIDR, priceDelta } from '@/lib/format'` padahal `priceDelta` tidak ada di mana pun (error TS2305 pre-existing di file mati tidak mengganggu build; file INI reachable via harga-khusus/page.tsx yang baru sejak v113).
+- Fix: tambahkan `priceDelta(price, base): number | null` (pembulatan bulat, guard base 0/NaN) di src/lib/format.ts — semantik sesuai pemakaian (delta<0 hijau/diskon, delta>0 merah). Intersect (file berubah sejak v113) ∩ (TS2305) = hanya file ini. Import `type` baris 10 (PriceRow) aman — type-only dihapus saat build.
+- Lint 2 file bersih; commit de8a913 + push.
+- Deploy CLI #2: READY (dpl_AJmtqoFbb76SfoaK6u).
+- Verifikasi produksi: homepage HTTP 200; sw.js = darrell-soft-v114 ✓; /api/public-settings OK; /potong-kertas HTTP 200.
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan sw v114 (app version 2026-09-22-v49): berisi Task 149-152 (harga /kg master-sync, tile /kg di preview potong kertas & rincian cetakan, hapus kotak Berat Kertas, harga modal per pcs, dll) sejak v113.
+- 1x build gagal (named import hilang) diperbaiki; produksi sehat.
+- Deployment lama tidak dihapus kali ini (baru 2 deployment: 1 ERROR dari percobaan pertama + 1 READY) — bisa dibersihkan kapan saja via API bila perlu.
