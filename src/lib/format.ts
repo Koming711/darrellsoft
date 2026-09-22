@@ -114,3 +114,14 @@ export function formatNum(n: number | null | undefined, maxFrac = 2): string {
 export function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
+
+/**
+ * Persentase selisih `price` terhadap `base` (dibulatkan ke bilangan bulat).
+ * Contoh: priceDelta(110000, 100000) -> 10; priceDelta(90000, 100000) -> -10.
+ * Returns null bila base/price tidak valid (bukan angka / base 0) — pemanggil
+ * mem-guard null sebelum render.
+ */
+export function priceDelta(price: number, base: number): number | null {
+  if (!Number.isFinite(price) || !Number.isFinite(base) || base === 0) return null
+  return Math.round(((price - base) / base) * 100)
+}
