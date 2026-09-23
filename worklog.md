@@ -10629,3 +10629,21 @@ Stage Summary:
 - Workspace sekarang = persis isi arsip user (commit 2782597). Dev server jalan normal.
 - PENTING: perubahan sidebar icon-only (e3b24c8) + hover-expand (4c0a72f) + preview fix (5f5ccd3) HILANG karena reset sandbox DAN tidak terkandung dalam arsip (arsip dibuat sebelum perubahan itu). Sidebar kembali ke versi lama (selalu tampil nama). User diinformasikan; bisa diterapkan ulang atas permintaan.
 - next.config.ts dalam arsip SUDAH memuat allowedDevOrigins (*.space-z.ai) sehingga fix preview tetap efektif.
+
+---
+Task ID: reapply-ui-icons-sidebar
+Agent: main (Z.ai Code)
+Task: Re-apply perubahan UI yang hilang karena reset sandbox — (1) mobile Lainnya: icon lebih besar + icon sesuai nama; (2) desktop sidebar icon-only + hover-expand semua nama + teks terang
+
+Work Log:
+- menu-home-screen.tsx: tile 46→56px (layar tinggi 52→62px, layar pendek 38→46px), icon 24→31px (34px/25px), rounded 14→17px (19/14), gap 4→5px, grid gap-y 8→10px, label 10→11px (12px layar tinggi), ghost drag ikut disesuaikan.
+- sidebar.tsx (mobile): mapping icon semantik — pembukaan BookOpen→Home, purchase_order ShoppingCart→ClipboardList, biaya_operasional Banknote→Wallet (hilangkan duplikasi dgn riwayat_pembayaran), hitung_ongkos_cetak DollarSign→Printer, hitung_harga_kertas FileText→FileStack, master_harga_kertas ScrollText→Tags, master_ongkos_cetak Wallet→PiggyBank, hak_akses Shield→ShieldCheck; bottomNavItems pembukaan → Home; import dibersihkan.
+- sidebar-desktop.tsx: rewrite penuh — icon-only rail (w-14), hover rail (state React railHover, BUKAN CSS :hover karena Tailwind v4 media (hover:hover)) → melebar w-56 overlay: SEMUA nama menu putih terang (semibold) di samping ikon, label section uppercase, brand "Darrell Soft", shadow-2xl; mouse leave → collapse; focus-within CSS untuk keyboard; icon mapping disinkronkan dgn mobile; toggle collapse Chevron dihapus.
+- dashboard-layout.tsx: desktopMargin statis lg:ml-14 (hapus dependensi useSidebarCollapse); import hook dihapus.
+- Verifikasi agent-browser: desktop hover → 224px, semua nama tampil (screenshot), mouse keluar → 56px, klik "Hitung Cetakan" → /hitung-cetakan; mobile 375x812 popup Lainnya: icon besar & semantik (Printer, PiggyBank, Tags, Wallet, ShieldCheck, Home, ClipboardList), klik tile Invoice → /invoice; 0 error console/dev.log; lint bersih.
+- Commit 9897cb4 (lokal, tanpa deploy — menunggu perintah user).
+
+Stage Summary:
+- Semua permintaan UI user (icon mobile lebih besar + sesuai nama; sidebar desktop icon-only + hover-expand semua nama + teks terang) diterapkan ulang dan terverifikasi di browser.
+- Konten margin desktop statis lg:ml-14; ekspansi sidebar overlay tidak menggeser konten.
+- hook use-sidebar-collapse.ts tidak lagi dipakai komponen mana pun (file dibiarkan, harmless).
