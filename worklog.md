@@ -10768,3 +10768,25 @@ Stage Summary:
 - sw.js kini mengumumkan versinya saat activate (postMessage SW_ACTIVATED).
 - Produksi live: v116 (app version 2026-09-22-v51), 1 deployment tersimpan (storage aman).
 - Catatan: user cukup tutup-buka app sekali untuk mendapat v116; setelah itu update berikutnya otomatis (maks 60 dtk + 1 refresh cepat).
+
+---
+Task ID: quota-fix-1
+Agent: main (Z.ai Code)
+Task: Kuota Vercel functions storage hampir habis — hapus yang tidak perlu + perbaikan permanen
+
+Work Log:
+- Audit Vercel API: hanya 1 project (darrellsoft) + 1 deployment (dpl_F813..., production, READY) di seluruh team → tidak ada lagi yang bisa dihapus (cleanup 159 deployment sebelumnya sudah bersih)
+- Root cause dipahami: 103 dari 111 API route meng-import @/lib/db → masing-masing membundel Rust query engine Prisma ~16.7MB (libquery_engine-rhel-openssl) → 1 deployment ≈ 2-3GB functions storage
+- Solusi permanen: Prisma driver adapters. Install @prisma/adapter-pg@6.19.2 + pg@8.23.0 (versi di-pin match dengan @prisma/client 6.19.2; versi 7 pertama ter-install salah lalu dikoreksi)
+- prisma/schema.prisma + schema.prisma (root): tambah previewFeatures = ["driverAdapters"]
+- src/lib/db.ts: createPrismaClient() sekarang pakai PrismaPg adapter (connectionString + max:1 paritas connection_limit=1 + ssl rejectUnauthorized=false) saat URL postgres; SQLite lokal tetap engine standar — tidak ada perubahan perilaku dev
+- next.config.ts: outputFileTracingExcludes (key "*" dan "/**") strip node_modules/@prisma/engines/** + .prisma/client/libquery_engine-* + *.so.node — engine tak pernah di-load runtime production karena adapter
+- Simulasi generate postgres (seperti di Vercel): terbukti client masih referensi .so.node 16.7MB (jadi excludes WAJIB), sementara jalur adapter hanya pakai query_engine_bg.wasm 2.1MB → hemat ±1.7GB per deployment (16.7MB × 103 function)
+- Hapus src/lib/db-init.ts (dead code, tidak di-import siapa pun)
+- Verifikasi: tsc 438 error (baseline 442, tidak ada error baru; log db.ts diperbaiki dengan Prisma.LogLevel[]), lint bersih untuk file yang diubah, dev server restart, browser test end-to-end: login aming → potong-kertas editor (ivory 65×100 210gsm, potongan 10×15, 1000 lbr, 1 mata) → Hitung → Preview dialog muncul + tile Harga Kertas /kg render → Riwayat tab (filter Semua, 8 baris) → klik baris → preview riwayat muncul dengan /kg derived Rp 15.158 → zero console errors
+
+Stage Summary:
+- Functions storage deployment berikutnya diperkirakan turun ~5x: dari ~2.5GB ke ~0.5GB (103 function berhenti membawa engine 16.7MB, berganti wasm 2.1MB + pg ~1MB)
+- Angka 8.28GB di dashboard = agregasi billing period yang akan terus menurun sendiri
+- Perbaikan belum di-deploy (menunggu perintah user); setelah deploy, deployment baru menggantikan yang lama sehingga kuota langsung lega
+- db-init.ts dihapus; adapter-pg dipin 6.19.2 agar kompatibel Prisma 6

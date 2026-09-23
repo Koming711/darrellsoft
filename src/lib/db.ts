@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -56,9 +57,31 @@ function createPrismaClient() {
     process.env.DATABASE_URL = poolerUrl
   }
 
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  })
+  const log: Prisma.LogLevel[] =
+    process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']
+
+  /**
+   * PRODUCTION (Vercel/Postgres): pakai driver adapter node-postgres.
+   * Dengan driverAdapters, Rust query engine (~20MB binary) TIDAK pernah
+   * di-load saat runtime → bisa di-exclude dari bundle → ukuran tiap
+   * serverless function turun dari ~20MB+ ke beberapa MB (functions
+   * storage Vercel turun ~5x).
+   *
+   * max:1 = paritas dengan connection_limit=1 sebelumnya (aman untuk
+   * kuota koneksi Supabase pooler free tier).
+   * ssl rejectUnauthorized=false = pola standar Supabase + node-postgres.
+   */
+  if (poolerUrl.startsWith('postgres')) {
+    const adapter = new PrismaPg({
+      connectionString: poolerUrl,
+      max: 1,
+      ssl: { rejectUnauthorized: false },
+    })
+    return new PrismaClient({ adapter, log })
+  }
+
+  // Local dev (SQLite): engine standar
+  return new PrismaClient({ log })
 }
 
 /* ------------------------------------------------------------------ */
