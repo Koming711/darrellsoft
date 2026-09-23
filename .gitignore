@@ -67,3 +67,10 @@ server.log
 /watchdog*.sh
 /.daemon.log
 /backups/invoice-gabungan-backup-*/
+# Database lokal (jangan pernah di-commit — bikin riwayat git bengkak)
+/db/*.db
+/db/*.db.*
+
+# Auto-backup lama & artefak sistem
+/backups/
+/.zscripts/*.png
