@@ -10790,3 +10790,24 @@ Stage Summary:
 - Angka 8.28GB di dashboard = agregasi billing period yang akan terus menurun sendiri
 - Perbaikan belum di-deploy (menunggu perintah user); setelah deploy, deployment baru menggantikan yang lama sehingga kuota langsung lega
 - db-init.ts dihapus; adapter-pg dipin 6.19.2 agar kompatibel Prisma 6
+
+---
+Task ID: quota-fix-2
+Agent: main (Z.ai Code)
+Task: Kuota functions storage 8.38/10GB — deploy build ramping + hapus deployment lama
+
+Work Log:
+- Deploy #1 (dpl_FPEvjU1, v117): build sukses tapi PRODUKSI RUSAK — Prisma "could not locate Query Engine rhel-openssl". Root cause: previewFeatures ["driverAdapters"] SAJA masih memakai Rust query engine native; outputFileTracingExcludes menghapus binary itu dari bundle
+- ROLLBACK INSTAN 2 detik via `vercel rollback dpl_F813` → login aming normal lagi
+- FIX: prepare-build.js sekarang inject queryCompiler + engineType = "client" saat build Vercel (client engine WASM 2.1MB, tanpa binary native); revert-schema.js membalikkannya agar local dev tetap library engine + sqlite
+- Simulasi build lokal: generate postgres+client engine → ZERO referensi libquery_engine di generated client; revert → schema kembali bersih; tsc tetap 438 (baseline); dev sqlite normal
+- Deploy #2 (dpl_C6pK, v117): READY. Tapi domain produksi TIDAK pindah otomatis (efek rollback — alias www/darrellsoft.com masih ke dpl_F813; sw.js v116 membuktikannya)
+- Solve: `vercel promote dpl_C6pK` → www.darrellsoft.com = v117
+- Verifikasi produksi: sw.js v117, public-settings data "Rajabowl", login aming sukses, riwayat 200, browser: login → potong-kertas → riwayat tab Semua → 100 baris data asli termuat via stack baru (client engine + adapter-pg)
+- HAPUS dpl_F813 (fat 2.64GB, target rollback) + dpl_FPEvjU1 (broken) → sisa 1 deployment ramping
+
+Stage Summary:
+- Sekarang hanya ada 1 deployment (dpl_C6pK, v117) dengan bundle tanpa native engine — Deployment Storage diperkirakan turun dari 2.64GB ke ~0.4-0.6GB
+- Angka "Functions Storage 8.38GB/10GB (Last 30 days)" = rolling window; akan menurun sendiri saat pemakaian lama (160+ deployment terhapus) keluar dari window 30 hari; kebocoran berjalan sudah berhenti
+- Rollback lama sudah tidak ada (dihapus); jika perlu emergency, redeploy commit c5e35ab mereproduksi deployment yang sama
+- Pelajaran: driverAdapters Prisma 6 WAJIB dipasang queryCompiler+engineType=client; setelah rollback, deployment baru harus di-promote manual
