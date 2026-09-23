@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { seedUserData } from '@/lib/auto-seed'
 import { sanitizeError } from '@/lib/api-error'
+import { normalizePhone, phoneVariants } from '@/lib/phone'
 import {
   buildDefaultPermissions,
   buildDefaultSubPermissions,
@@ -11,7 +12,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { namaLengkap, nomorHP, email, username, password } = body
+    const { namaLengkap, nomorHP, email, username, password, otpCode } = body
 
     // Validasi field wajib
     if (!namaLengkap || !nomorHP || !email || !username || !password) {
@@ -102,6 +103,104 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Email sudah terdaftar' }, { status: 409 })
       }
     }
+
+    // Cek nomor handphone sudah digunakan (CalonPembeli / Pembeli / Pengguna)
+    const phoneVariantList = phoneVariants(nomorHP)
+    const existingCalonPhone = await db.calonPembeli.findFirst({ where: { nomorHP: { in: phoneVariantList } } })
+    if (existingCalonPhone) {
+      return NextResponse.json(
+        { error: 'Nomor handphone sudah digunakan. Silakan gunakan nomor lain.', code: 'PHONE_EXISTS' },
+        { status: 409 }
+      )
+    }
+
+    const existingPembeliPhone = await db.pembeli.findFirst({ where: { nomorHP: { in: phoneVariantList } } })
+    if (existingPembeliPhone) {
+      return NextResponse.json(
+        { error: 'Nomor handphone sudah digunakan. Silakan gunakan nomor lain.', code: 'PHONE_EXISTS' },
+        { status: 409 }
+      )
+    }
+
+    const existingPenggunaPhone = await db.pengguna.findFirst({ where: { nomorHP: { in: phoneVariantList } } })
+    if (existingPenggunaPhone) {
+      if (existingPenggunaPhone.role !== 'admin' && existingPenggunaPhone.role !== 'superadmin') {
+        const linkedPembeli = await db.pembeli.findFirst({
+          where: { penggunaId: existingPenggunaPhone.id }
+        })
+        const linkedCalon = await db.calonPembeli.findFirst({
+          where: { userId: existingPenggunaPhone.id }
+        })
+        if (!linkedPembeli && !linkedCalon) {
+          // Orphaned record - auto cleanup then allow registration
+          await db.pengguna.delete({ where: { id: existingPenggunaPhone.id } })
+        } else {
+          return NextResponse.json(
+            { error: 'Nomor handphone sudah digunakan. Silakan gunakan nomor lain.', code: 'PHONE_EXISTS' },
+            { status: 409 }
+          )
+        }
+      } else {
+        return NextResponse.json(
+          { error: 'Nomor handphone sudah digunakan. Silakan gunakan nomor lain.', code: 'PHONE_EXISTS' },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Verifikasi OTP WhatsApp — wajib untuk pendaftaran mandiri
+    const otpValue = String(otpCode || '').trim()
+    if (!/^[0-9]{6}$/.test(otpValue)) {
+      return NextResponse.json(
+        { error: 'Kode OTP wajib diisi. Klik "Kirim OTP" untuk menerima kode via WhatsApp.', code: 'OTP_REQUIRED' },
+        { status: 400 }
+      )
+    }
+
+    const normalizedPhone = normalizePhone(nomorHP)
+    const otpRecord = await db.registerOtp.findFirst({
+      where: { nomorHP: normalizedPhone, consumed: false },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (!otpRecord) {
+      return NextResponse.json(
+        { error: 'Kode OTP tidak ditemukan atau sudah tidak berlaku. Silakan kirim OTP baru.', code: 'OTP_NOT_FOUND' },
+        { status: 400 }
+      )
+    }
+
+    if (otpRecord.expiresAt.getTime() < Date.now()) {
+      return NextResponse.json(
+        { error: 'Kode OTP sudah kedaluwarsa. Silakan kirim OTP baru.', code: 'OTP_EXPIRED' },
+        { status: 400 }
+      )
+    }
+
+    if (otpRecord.attempts >= 5) {
+      return NextResponse.json(
+        { error: 'Terlalu banyak percobaan salah. Silakan kirim OTP baru.', code: 'OTP_TOO_MANY_ATTEMPTS' },
+        { status: 429 }
+      )
+    }
+
+    if (otpRecord.code !== otpValue) {
+      await db.registerOtp.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      })
+      const remaining = Math.max(0, 5 - (otpRecord.attempts + 1))
+      return NextResponse.json(
+        { error: `Kode OTP salah. Sisa percobaan: ${remaining}.`, code: 'OTP_INVALID' },
+        { status: 400 }
+      )
+    }
+
+    // OTP valid — tandai sudah terpakai (satu kali pakai)
+    await db.registerOtp.update({
+      where: { id: otpRecord.id },
+      data: { consumed: true },
+    })
 
     // Ambil masa aktif demo dari settings
     const demoDaysSetting = await db.setting.findUnique({ where: { key: 'demo_days' } })

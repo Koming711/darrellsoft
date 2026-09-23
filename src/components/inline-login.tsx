@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Key, Eye, EyeOff, Phone, Mail, User as UserIcon, Loader2, AlertCircle, Info } from 'lucide-react'
+import { Key, Eye, EyeOff, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, XCircle } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 import { setAuthUser } from '@/lib/auth'
+import { PhoneOtpField, useUsernameCheck } from '@/components/phone-otp-field'
 
 
 export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
@@ -28,6 +29,11 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
   const [regConfirmPassword, setRegConfirmPassword] = useState('')
   const [regError, setRegError] = useState('')
   const [regLoading, setRegLoading] = useState(false)
+
+  // OTP WhatsApp + ketersediaan nomor/username
+  const [regOtpCode, setRegOtpCode] = useState('')
+  const [regPhoneBlocked, setRegPhoneBlocked] = useState(false)
+  const regUsernameStatus = useUsernameCheck(regUsername)
 
   // Demo popup state
   const [demoPopupOpen, setDemoPopupOpen] = useState(false)
@@ -118,6 +124,20 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
       return
     }
 
+    // Nomor handphone sudah terdaftar → tidak boleh daftar
+    if (regPhoneBlocked) {
+      setRegError('Nomor handphone sudah digunakan. Silakan gunakan nomor lain.')
+      setRegLoading(false)
+      return
+    }
+
+    // OTP wajib diisi sebelum mendaftar
+    if (!regOtpCode.trim() || regOtpCode.trim().length !== 6) {
+      setRegError('Klik "Kirim OTP" lalu masukkan kode verifikasi WhatsApp terlebih dahulu.')
+      setRegLoading(false)
+      return
+    }
+
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -128,6 +148,7 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
           email: regEmail.trim(),
           username: regUsername.trim(),
           password: regPassword,
+          otpCode: regOtpCode.trim(),
         })
       })
 
@@ -312,14 +333,14 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">{t('nomor_handphone')}</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input type="tel" placeholder="Contoh: 081234567890" required value={regNomorHP} onChange={(e) => setRegNomorHP(e.target.value)}
-                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                  </div>
-                </div>
+                {/* Nomor Handphone + OTP WhatsApp */}
+                <PhoneOtpField
+                  value={regNomorHP}
+                  onChange={setRegNomorHP}
+                  otpCode={regOtpCode}
+                  onOtpCodeChange={setRegOtpCode}
+                  onBlockedChange={setRegPhoneBlocked}
+                />
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">{t('email')}</label>
@@ -339,11 +360,26 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
                     <input type="text" placeholder="Buat username" required autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} minLength={3}
                       value={regUsername} onChange={(e) => setRegUsername(e.target.value)}
                       className={`w-full border rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        regUsername.length > 0 && regUsername.length < 3 ? 'border-red-300' : 'border-input'
+                        (regUsername.length > 0 && regUsername.length < 3) || regUsernameStatus === 'taken' ? 'border-red-300' : 'border-input'
                       }`} />
                   </div>
                   {regUsername.length > 0 && regUsername.length < 3 && (
                     <p className="text-xs text-red-500 mt-1">Username harus minimal 3 karakter ({regUsername.length}/3)</p>
+                  )}
+                  {regUsernameStatus === 'checking' && (
+                    <p className="text-xs text-muted-foreground mt-1">{t('username_mengecek')}</p>
+                  )}
+                  {regUsernameStatus === 'taken' && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <XCircle className="w-3 h-3 flex-shrink-0" />
+                      {t('username_sudah_digunakan')}
+                    </p>
+                  )}
+                  {regUsernameStatus === 'available' && (
+                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 flex-shrink-0" />
+                      {t('username_tersedia')}
+                    </p>
                   )}
                 </div>
 
@@ -385,7 +421,7 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
                   )}
                 </div>
 
-                <button type="submit" disabled={regLoading}
+                <button type="submit" disabled={regLoading || regPhoneBlocked || regUsernameStatus === 'taken'}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
                   {regLoading ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> {t('mendaftar')}</>
