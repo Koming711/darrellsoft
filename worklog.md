@@ -10811,3 +10811,25 @@ Stage Summary:
 - Angka "Functions Storage 8.38GB/10GB (Last 30 days)" = rolling window; akan menurun sendiri saat pemakaian lama (160+ deployment terhapus) keluar dari window 30 hari; kebocoran berjalan sudah berhenti
 - Rollback lama sudah tidak ada (dihapus); jika perlu emergency, redeploy commit c5e35ab mereproduksi deployment yang sama
 - Pelajaran: driverAdapters Prisma 6 WAJIB dipasang queryCompiler+engineType=client; setelah rollback, deployment baru harus di-promote manual
+
+---
+Task ID: register-otp-2
+Agent: Z.ai main
+Task: Install token Fonnte produksi + siapkan deploy OTP register
+
+Work Log:
+- Token user (c1yD...b87h) divalidasi ke api.fonnte.com/device → VALID, device "darrellsoft" (0818666711), package Free, quota 1000, expired 24 Oct 2026. Token pertama user (2L4q...) INVALID (device belum dibuat).
+- Workspace ditemukan ROLLBACK ke commit lama (sw v113, HEAD a9c57ed) — seluruh file OTP "hilang". ROOT CAUSE: bukan hilang, origin/main punya commit OTP 96a217d; local branch di-reset. Fix: git reset --hard origin/main → semua file OTP kembali (sw v117, APP_VERSION 2026-09-23-v52).
+- node_modules sync (bun install) + restart dev bersih (rm -rf .next) — fix "Can't resolve '@prisma/adapter-pg'" (turbopack cache stale).
+- DB lokal dibuat ulang dari nol (db/custom.db hilang saat rollback): db:push + db:seed + otp_dev_mode=true (scripts/set-dev-mode.mjs).
+- Test API lokal semua pass: check-phone available; send-otp → devCode; OTP salah → OTP_INVALID "Sisa percobaan: 4"; OTP benar → 201 auto-login; duplikat HP 08/62/+62 → PHONE_EXISTS; duplikat username → USERNAME_EXISTS; OTP tanpa kirim → OTP_NOT_FOUND.
+- E2E browser (420px): form register + tombol "Kirim OTP" + countdown 60s + banner devCode + OTP benar → toast "Pendaftaran berhasil" + popup Akun Demo; 0 console error.
+- Data uji dibersihkan (budi_otp_test, e2e_browser_test + master data turunannya, 3 record OTP).
+- Produksi: wa_api_key=c1yD...b87h di-insert ke Setting via pooler session mode 5432 (scripts/set-wa-api-key-prod.mjs; INSERT harus isi id manual karena cuid digenerate client). Tabel RegisterOtp di-push ke Supabase (scripts/push-register-otp-prod.mjs, pooler 5432 karena transaksi 6543 timeout saat DDL) — verifikasi 9 kolom ada.
+- Bump v118 (sw.js darrell-soft-v118, APP_VERSION 2026-09-23-v53), commit 0f52616, push origin main.
+- Deploy SENGAJA DITUNDA: device Fonnte masih "disconnect" (user belum scan QR). Deploy sekarang = pendaftaran online gagal kirim OTP.
+
+Stage Summary:
+- Token Fonnte terpasang di produksi + tabel RegisterOtp siap; kode OTP tervalidasi penuh (API + browser).
+- Deploy v118 menunggu device Fonnte online (user scan QR) → setelah itu deploy + verifikasi.
+- PELAJARAN: sandbox bisa rollback workspace — selalu cek git status/origin sebelum menganggap pekerjaan hilang; raw SQL INSERT ke tabel Prisma wajib isi id manual; pola rg substring "connect" cocok dengan "disconnect".
