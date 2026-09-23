@@ -2,28 +2,26 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calculator,
   Scissors,
-  FileText,
-  DollarSign,
+  FileStack,
+  Printer,
   Layers,
   Settings,
   Users,
-  Shield,
+  ShieldCheck,
   LogOut,
   Paintbrush,
   Receipt,
   Truck,
-  ShoppingCart,
-  BookOpen,
+  ClipboardList,
   Store,
-  ChevronLeft,
-  ChevronRight,
+  Home,
   Wallet,
-  ScrollText,
+  Tags,
   UserCog,
   Banknote,
   Package,
@@ -31,14 +29,13 @@ import {
   PieChart,
   HandCoins,
   Coins,
+  PiggyBank,
 } from 'lucide-react'
-import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { toast } from 'sonner'
-import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
 
 // ===== Theme tokens — DS logo blue background =====
 const SIDEBAR_BG = '#1e40af'
@@ -49,12 +46,12 @@ const SIDEBAR_BORDER = 'rgba(255,255,255,0.12)'
 // doesn't jump back to the top when a menu item is clicked.
 let savedSidebarScroll = 0
 
-// Menu items with their feature IDs for permission checking
+// Menu items — icon semantik sesuai nama menu (sinkron dengan sidebar mobile)
 const menuItems = [
   {
     titleKey: 'pembukaan' as TranslationKey,
     href: '/pembukaan',
-    icon: BookOpen,
+    icon: Home,
     featureId: 'pembukaan',
     section: undefined,
   },
@@ -96,7 +93,7 @@ const menuItems = [
   {
     titleKey: 'purchase_order' as TranslationKey,
     href: '/purchase-order',
-    icon: ShoppingCart,
+    icon: ClipboardList,
     featureId: 'purchase-order',
     section: 'dokumen',
   },
@@ -145,7 +142,7 @@ const menuItems = [
   {
     titleKey: 'biaya_operasional' as TranslationKey,
     href: '/biaya-operasional',
-    icon: Banknote,
+    icon: Wallet,
     featureId: 'biaya',
     section: 'biaya',
   },
@@ -159,28 +156,28 @@ const menuItems = [
   {
     titleKey: 'hitung_ongkos_cetak' as TranslationKey,
     href: '/hitung-ongkos-cetak',
-    icon: DollarSign,
+    icon: Printer,
     featureId: 'hitung-ongkos-cetak',
     section: 'biaya_produksi',
   },
   {
     titleKey: 'hitung_harga_kertas' as TranslationKey,
     href: '/hitung-harga-kertas',
-    icon: FileText,
+    icon: FileStack,
     featureId: 'hitung-harga-kertas',
     section: 'biaya_produksi',
   },
   {
     titleKey: 'master_harga_kertas' as TranslationKey,
     href: '/master-harga-kertas',
-    icon: ScrollText,
+    icon: Tags,
     featureId: 'master-harga-kertas',
     section: 'master_cetakan',
   },
   {
     titleKey: 'master_ongkos_cetak' as TranslationKey,
     href: '/master-ongkos-cetak',
-    icon: Wallet,
+    icon: PiggyBank,
     featureId: 'master-ongkos-cetak',
     section: 'master_cetakan',
   },
@@ -201,7 +198,7 @@ const menuItems = [
   {
     titleKey: 'hak_akses' as TranslationKey,
     href: '/administrasi/hak-akses',
-    icon: Shield,
+    icon: ShieldCheck,
     featureId: 'hak-akses',
     section: 'administrasi',
   },
@@ -243,22 +240,31 @@ interface SidebarProps {
 }
 
 /**
- * Sidebar — Desktop-only collapsible navigation.
+ * Sidebar — Desktop-only navigation rail with hover-expand.
  *
- * - Background: DS logo blue (`#1e40af`), white text.
- * - Menu boxes wrap tight to their content (icon + label), not the full
- *   sidebar width — left-aligned when expanded, centered when collapsed.
+ * - Background: DS logo blue (`#1e40af`), tulisan terang.
+ * - DEFAULT: HANYA IKON (w-14). Saat kursor hover di mana saja pada rail
+ *   sidebar, SELURUH sidebar melebar (w-56) dan SEMUA nama menu muncul
+ *   di sebelah ikon masing-masing (bukan satu nama saja) dengan tulisan
+ *   putih terang. Kursor keluar dari sidebar → kembali icon-only.
+ * - Ekspansi hover memakai STATE REACT (onMouseEnter/onMouseLeave), BUKAN
+ *   CSS :hover — karena Tailwind v4 membungkus varian hover: dalam
+ *   @media (hover: hover) yang bisa false di beberapa environment.
+ *   JS mouse events selalu bekerja.
+ * - Juga melebar via keyboard (focus-within CSS) agar tetap accessible.
+ * - position:fixed → saat melebar sidebar OVERLAY di atas konten utama,
+ *   konten tidak bergeser (main tetap lg:ml-14).
  * - Visible only on `lg:` and up (`hidden lg:flex`).
- * - Expanded width: `w-52` (with labels). Collapsed width: `w-14` (icon only).
- * - Collapse state persists in localStorage via `useSidebarCollapse`.
  * - Mobile continues to use the existing bottom nav (`MobileBottomNav`).
  */
 export function Sidebar({ username, role, onLogout, permVersion: _permVersion }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
-  const { collapsed, toggle } = useSidebarCollapse()
   const navRef = useRef<HTMLElement>(null)
+  // Ekspansi sidebar saat kursor hover di rail — pakai state React agar
+  // tidak bergantung pada @media (hover: hover) milik varian hover: Tailwind.
+  const [railHover, setRailHover] = useState(false)
 
   // Flag: while we are programmatically restoring scroll, ignore scroll
   // events so they don't overwrite the saved position with the transient 0
@@ -350,17 +356,19 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
 
   return (
     <aside
+      onMouseEnter={() => setRailHover(true)}
+      onMouseLeave={() => setRailHover(false)}
       className={cn(
-        'hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col transition-all duration-300 ease-in-out print:hidden',
-        collapsed ? 'w-14' : 'w-52'
+        'group/sb hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col print:hidden transition-[width] duration-200 ease-out focus-within:w-56 focus-within:shadow-2xl',
+        railHover ? 'w-56 shadow-2xl' : 'w-14'
       )}
       style={{ backgroundColor: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
     >
       {/* ===== Header / Branding ===== */}
       <div
         className={cn(
-          'flex h-14 items-center transition-all duration-300',
-          collapsed ? 'justify-center px-2' : 'px-4'
+          'flex h-14 items-center overflow-hidden transition-all group-focus-within/sb:justify-start group-focus-within/sb:px-3',
+          railHover ? 'justify-start px-3' : 'justify-center px-2'
         )}
         style={{ borderBottom: `1px solid ${SIDEBAR_BORDER}` }}
       >
@@ -370,24 +378,19 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
             startNavigation()
             window.dispatchEvent(new CustomEvent('navigation-start'))
           }}
-          className={cn(
-            'flex items-center overflow-hidden transition-all duration-300',
-            collapsed ? 'gap-0' : 'gap-2.5'
-          )}
           title={t('app_name')}
+          className="flex items-center gap-3"
         >
           <img
             src="/logo-ds.png"
             alt="Logo"
             className="h-8 w-8 shrink-0 rounded-lg object-contain"
           />
-          <span
-            className={cn(
-              'whitespace-nowrap text-base font-bold text-white transition-all duration-300',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-            )}
-          >
-            {t('app_name')}
+          <span className={cn(
+            'whitespace-nowrap text-sm font-bold text-white group-focus-within/sb:block',
+            railHover ? 'block' : 'hidden'
+          )}>
+            Darrell Soft
           </span>
         </Link>
       </div>
@@ -400,22 +403,33 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
 
           return (
             <div key={section.key ?? 'main'} className="mb-1">
-              {/* Section label — hidden when collapsed */}
-              <p
-                className={cn(
-                  'mb-1 overflow-hidden px-3 text-[10px] font-semibold uppercase tracking-widest text-blue-200/70 transition-all duration-300',
-                  collapsed ? 'h-0 opacity-0' : 'h-auto py-1.5 opacity-100'
-                )}
-              >
-                {t(section.labelKey)}
-              </p>
-
-              {/* Collapsed divider */}
-              {collapsed && section.key && (
-                <div className="my-2 mx-3" style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }} />
+              {/* Collapsed: divider saja. Expanded: label section uppercase terang */}
+              {section.key && (
+                <>
+                  <div
+                    className={cn(
+                      'my-2 mx-3 group-focus-within/sb:hidden',
+                      railHover && 'hidden'
+                    )}
+                    style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}
+                  />
+                  <div
+                    className={cn(
+                      'mt-3 mb-1 px-3 group-focus-within/sb:block',
+                      railHover ? 'block' : 'hidden'
+                    )}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200/80">
+                      {t(section.labelKey)}
+                    </span>
+                  </div>
+                </>
               )}
 
-              <ul className={cn('space-y-0.5', collapsed ? 'flex flex-col items-center px-1' : 'px-2')}>
+              <ul className={cn(
+                'flex flex-col space-y-0.5 px-1 group-focus-within/sb:items-stretch',
+                railHover ? 'items-stretch' : 'items-center'
+              )}>
                 {sectionItems.map((item) => {
                   const active = isActive(item.href)
                   return (
@@ -431,11 +445,13 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                           startNavigation()
                           window.dispatchEvent(new CustomEvent('navigation-start'))
                         }}
-                        title={collapsed ? t(item.titleKey) : undefined}
+                        aria-label={t(item.titleKey)}
                         className={cn(
-                          // w-fit → box wraps tight to icon+text only
-                          'flex w-fit items-center rounded-lg text-sm transition-colors relative',
-                          collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2',
+                          // Collapsed: icon-only kotak rapat di tengah rail.
+                          // Hover rail (state): full width, SEMUA nama muncul di samping ikon.
+                          'flex items-center rounded-lg py-2.5 transition-colors relative',
+                          'group-focus-within/sb:w-full group-focus-within/sb:justify-start group-focus-within/sb:gap-3 group-focus-within/sb:px-3',
+                          railHover ? 'w-full justify-start gap-3 px-3' : 'w-fit justify-center px-2',
                           item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                           active
                             ? 'bg-white/15 font-medium text-white'
@@ -445,21 +461,14 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                         <item.icon className="h-5 w-5 shrink-0" />
                         <span
                           className={cn(
-                            'whitespace-nowrap overflow-hidden transition-all duration-300',
-                            collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
+                            'whitespace-nowrap text-sm font-semibold text-white group-focus-within/sb:block',
+                            railHover ? 'block' : 'hidden'
                           )}
                         >
                           {t(item.titleKey)}
                         </span>
                         {item.isPro && (
-                          <span
-                            className={cn(
-                              'text-white font-black bg-amber-500 shadow',
-                              collapsed
-                                ? 'absolute top-0 right-0 text-[8px] leading-none px-1 py-0.5 rounded-sm'
-                                : 'text-[9px] leading-none px-1.5 py-0.5 rounded ml-auto'
-                            )}
-                          >
+                          <span className="absolute top-0 right-0 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">
                             PRO
                           </span>
                         )}
@@ -473,54 +482,31 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
         })}
       </nav>
 
-      {/* ===== Bottom: Logout + Collapse toggle ===== */}
+      {/* ===== Bottom: Logout ===== */}
       <div
         className="py-3"
         style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}
       >
-        <div className={cn('space-y-0.5', collapsed ? 'flex flex-col items-center px-1' : 'px-2')}>
+        <div className={cn(
+          'flex flex-col space-y-0.5 px-1 group-focus-within/sb:items-stretch',
+          railHover ? 'items-stretch' : 'items-center'
+        )}>
           {/* Logout */}
           <button
             onClick={handleLogout}
-            title={t('keluar')}
+            aria-label={t('keluar')}
             className={cn(
-              'flex w-fit items-center rounded-lg text-sm text-blue-100 transition-colors hover:bg-white/10 hover:text-white',
-              collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
+              'flex items-center rounded-lg py-2.5 text-sm text-blue-100 transition-colors hover:bg-white/10 hover:text-white',
+              'group-focus-within/sb:w-full group-focus-within/sb:justify-start group-focus-within/sb:gap-3 group-focus-within/sb:px-3',
+              railHover ? 'w-full justify-start gap-3 px-3' : 'w-fit justify-center px-2'
             )}
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            <span
-              className={cn(
-                'whitespace-nowrap overflow-hidden transition-all duration-300',
-                collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              )}
-            >
+            <span className={cn(
+              'whitespace-nowrap text-sm font-semibold text-white group-focus-within/sb:block',
+              railHover ? 'block' : 'hidden'
+            )}>
               {t('keluar')}
-            </span>
-          </button>
-
-          {/* Collapse / Expand toggle — desktop only */}
-          <button
-            onClick={toggle}
-            aria-label={collapsed ? t('expand') : t('collapse')}
-            title={collapsed ? t('expand') : t('collapse')}
-            className={cn(
-              'flex w-fit items-center rounded-lg text-sm text-blue-200/70 transition-colors hover:bg-white/10 hover:text-white',
-              collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
-            )}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-5 w-5 shrink-0" />
-            ) : (
-              <ChevronLeft className="h-5 w-5 shrink-0" />
-            )}
-            <span
-              className={cn(
-                'whitespace-nowrap overflow-hidden transition-all duration-300',
-                collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              )}
-            >
-              {t('collapse')}
             </span>
           </button>
         </div>
