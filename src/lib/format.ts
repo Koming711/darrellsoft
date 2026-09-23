@@ -106,6 +106,13 @@ export function formatIDR(n: number | null | undefined): string {
   return idrFormatter.format(Number(n ?? 0))
 }
 
+/** Selisih harga dalam persen (custom vs standar), dibulatkan 1 desimal.
+ *  Dipakai halaman Harga Khusus (pricing-view) — implementasi asli dari lib/format versi lama. */
+export function priceDelta(custom: number, standard: number): number {
+  if (!standard) return 0
+  return Math.round(((custom - standard) / standard) * 1000) / 10
+}
+
 /** Format angka biasa gaya Indonesia, contoh: 2,5 */
 export function formatNum(n: number | null | undefined, maxFrac = 2): string {
   return new Intl.NumberFormat('id-ID', { maximumFractionDigits: maxFrac }).format(Number(n ?? 0))
