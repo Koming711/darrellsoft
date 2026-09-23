@@ -271,7 +271,7 @@ export function MenuHomeScreen({
         onPointerUp={() => handlePointerEnd(false)}
         onPointerCancel={() => handlePointerEnd(true)}
         className={cn(
-          'relative flex touch-none flex-col items-center justify-start gap-[4px] rounded-[12px] px-[3px] py-[6px] transition-colors select-none',
+          'relative flex touch-none flex-col items-center justify-start gap-[5px] rounded-[12px] px-[3px] py-[6px] transition-colors select-none',
           item.isPro ? 'opacity-70' : '',
           active ? 'bg-white/15' : 'hover:bg-white/10',
           isDragSource && 'opacity-30',
@@ -282,9 +282,9 @@ export function MenuHomeScreen({
         <span
           aria-hidden="true"
           className={cn(
-            'flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br shadow-md [&>svg]:h-[24px] [&>svg]:w-[24px] [&>svg]:text-white [&>svg]:drop-shadow-sm',
-            '[@media(min-height:800px)]:h-[52px] [@media(min-height:800px)]:w-[52px] [@media(min-height:800px)]:rounded-[16px] [@media(min-height:800px)]:[&>svg]:h-[27px] [@media(min-height:800px)]:[&>svg]:w-[27px]',
-            '[@media(max-height:700px)]:h-[38px] [@media(max-height:700px)]:w-[38px] [@media(max-height:700px)]:rounded-[12px] [@media(max-height:700px)]:[&>svg]:h-[20px] [@media(max-height:700px)]:[&>svg]:w-[20px]',
+            'flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-[17px] bg-gradient-to-br shadow-md [&>svg]:h-[31px] [&>svg]:w-[31px] [&>svg]:text-white [&>svg]:drop-shadow-sm',
+            '[@media(min-height:800px)]:h-[62px] [@media(min-height:800px)]:w-[62px] [@media(min-height:800px)]:rounded-[19px] [@media(min-height:800px)]:[&>svg]:h-[34px] [@media(min-height:800px)]:[&>svg]:w-[34px]',
+            '[@media(max-height:700px)]:h-[46px] [@media(max-height:700px)]:w-[46px] [@media(max-height:700px)]:rounded-[14px] [@media(max-height:700px)]:[&>svg]:h-[25px] [@media(max-height:700px)]:[&>svg]:w-[25px]',
             TILE_GRADIENT[item.href] ?? 'from-slate-400 to-slate-600',
             active && 'ring-2 ring-white/80'
           )}
@@ -293,8 +293,8 @@ export function MenuHomeScreen({
         </span>
         <span
           className={cn(
-            'line-clamp-2 text-center text-[10px] font-medium leading-[1.15] text-white',
-            '[@media(min-height:800px)]:text-[11px]',
+            'line-clamp-2 text-center text-[11px] font-medium leading-[1.15] text-white',
+            '[@media(min-height:800px)]:text-[12px]',
             active && 'font-bold'
           )}
         >
@@ -318,7 +318,7 @@ export function MenuHomeScreen({
         <p className="mb-[8px] text-center text-[9px] leading-snug text-white/55">
           Tekan lama ikon lalu geser untuk memindah
         </p>
-        <div className="grid grid-cols-4 gap-x-[4px] gap-y-[8px]">
+        <div className="grid grid-cols-4 gap-x-[4px] gap-y-[10px]">
           {order.map((href, idx) => renderAppTile(href, idx))}
         </div>
       </div>
@@ -331,7 +331,7 @@ export function MenuHomeScreen({
         >
           <div
             className={cn(
-              'flex h-[52px] w-[52px] rotate-3 items-center justify-center rounded-[14px] bg-gradient-to-br shadow-2xl [&>svg]:h-[26px] [&>svg]:w-[26px] [&>svg]:text-white',
+              'flex h-[62px] w-[62px] rotate-3 items-center justify-center rounded-[17px] bg-gradient-to-br shadow-2xl [&>svg]:h-[34px] [&>svg]:w-[34px] [&>svg]:text-white',
               drag.gradient
             )}
           >
