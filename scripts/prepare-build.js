@@ -21,9 +21,25 @@ for (const schemaPath of schemaPaths) {
     console.log(`⏭️ ${path.basename(path.dirname(schemaPath))}/${path.basename(schemaPath)} already set to postgresql, skipping swap`)
   } else {
     content = content.replace('provider = "sqlite"', 'provider = "postgresql"')
-    fs.writeFileSync(schemaPath, content)
     console.log(`✅ ${path.basename(path.dirname(schemaPath))}/${path.basename(schemaPath)} provider swapped to postgresql`)
   }
+
+  /**
+   * PATCH client engine (queryCompiler) — WAJIB untuk driver adapters:
+   * Dengan previewFeatures ["driverAdapters"] SAJA, Prisma 6 masih mencari
+   * Rust query engine native (libquery_engine-rhel ~16.7MB) → crash di
+   * serverless ("could not locate the Query Engine"). Dengan queryCompiler +
+   * engineType = "client", query dikompilasi lewat WASM (2.1MB) → tidak ada
+   * binary native → bundle function kecil.
+   */
+  if (!content.includes('queryCompiler')) {
+    content = content.replace(
+      'previewFeatures = ["driverAdapters"]',
+      'previewFeatures = ["queryCompiler", "driverAdapters"]\n  engineType      = "client"'
+    )
+    console.log(`✅ generator patched: queryCompiler + engineType = "client" (client engine, no native binary)`)
+  }
+  fs.writeFileSync(schemaPath, content)
 }
 
 // Transform DATABASE_URL if it's a Supabase direct connection (IPv6-only)
