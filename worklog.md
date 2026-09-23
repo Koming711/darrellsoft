@@ -10611,3 +10611,21 @@ Work Log:
 
 Stage Summary:
 - Lokal: sidebar desktop & mobile kini menempatkan Hutang Dagang & Piutang Dagang di bawah grup LAPORAN. Produksi masih v113; saat deploy nanti perlu sw bump v113 -> v114 + APP_VERSION +1.
+
+---
+Task ID: restore-workspace-archive
+Agent: main (Z.ai Code)
+Task: "extract file ini. ganti semua conten dengan file ini" — restore workspace dari arsip split tar (workspace-7ffcedf3...tar.001-003)
+
+Work Log:
+- File split tar.001-003 tidak muncul di upload/; sistem platform menyimpannya sebagai /home/sync/repo.tar (131MB, gzip, 2380 entri) — diverifikasi isinya snapshot workspace lengkap (.git, .env, src, db, backups, dst).
+- Ekstrak penuh ke /tmp/restore-ws; git HEAD arsip = 2782597 = identik dengan HEAD workspace saat ini (sandbox sempat reset ke snapshot yang sama).
+- Diff rekursif penuh: working tree arsip == workspace, hanya beda file infra sandbox (next-env.d.ts, skills/).
+- Replace resmi via rsync -a --delete dengan exclude: node_modules/, .next/, upload/, skills/, next-env.d.ts, dev.log, dev.out, dev.pid, .daemon.pid → hasil: byte-identik dengan arsip, git status bersih di 2782597.
+- Restart dev server (setsid .zscripts/dev.sh) → HTTP 200.
+- Verifikasi agent-browser end-to-end: landing page OK, dialog Versi Baru OK, login superadmin/268899 OK → /pembukaan, dashboard load dengan data (Piutang Dagang Rp251.700.000, grafik penjualan), 0 error.
+
+Stage Summary:
+- Workspace sekarang = persis isi arsip user (commit 2782597). Dev server jalan normal.
+- PENTING: perubahan sidebar icon-only (e3b24c8) + hover-expand (4c0a72f) + preview fix (5f5ccd3) HILANG karena reset sandbox DAN tidak terkandung dalam arsip (arsip dibuat sebelum perubahan itu). Sidebar kembali ke versi lama (selalu tampil nama). User diinformasikan; bisa diterapkan ulang atas permintaan.
+- next.config.ts dalam arsip SUDAH memuat allowedDevOrigins (*.space-z.ai) sehingga fix preview tetap efektif.
