@@ -10833,3 +10833,18 @@ Stage Summary:
 - Token Fonnte terpasang di produksi + tabel RegisterOtp siap; kode OTP tervalidasi penuh (API + browser).
 - Deploy v118 menunggu device Fonnte online (user scan QR) → setelah itu deploy + verifikasi.
 - PELAJARAN: sandbox bisa rollback workspace — selalu cek git status/origin sebelum menganggap pekerjaan hilang; raw SQL INSERT ke tabel Prisma wajib isi id manual; pola rg substring "connect" cocok dengan "disconnect".
+
+---
+Task ID: register-otp-3
+Agent: Z.ai main
+Task: Deploy OTP register v118 ke produksi setelah device Fonnte online
+
+Work Log:
+- User scan QR → device_status "connect" (poll dengan match persis; pelajaran: substring "connect" cocok juga di "disconnect").
+- Test kirim WA asli via api.fonnte.com/send ke 0818666711 → "success! message in queue", kuota 1000→999.
+- Deploy: npx vercel --prod → darrellsoft-cyjs9vqlh Ready (1m) — www.darrellsoft.com otomatis pindah ke v118 (TIDAK perlu promote kali ini).
+- Verifikasi produksi: sw.js = darrell-soft-v118; POST /api/register/send-otp → {"success":true,"expiresInSeconds":300} (OTP asli terkirim via Fonnte — bukti end-to-end); GET /api/check-phone OK; wa_api_key=c1yD...b87h ada di Setting produksi; record OTP uji (081299990001) dihapus dari RegisterOtp produksi.
+
+Stage Summary:
+- FITUR OTP REGISTER LIVE DI PRODUKSI v118: daftar akun wajib OTP WhatsApp via Fonnte; nomor HP & username duplikat diblokir (3 format 08/62/+62); rate limit 5 OTP/15mnt + cooldown 60 dtk; OTP 6 digit berlaku 5 menit, max 5 percobaan.
+- Device Fonnte "darrellsoft" (0818666711) package Free kuota 1000, expired 24 Okt 2026 — jika OTP gagal kirim di masa depan: cek dashboard Fonnte, kemungkinan device perlu reconnect (scan QR ulang; token tetap).
