@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Calculator,
@@ -17,8 +17,6 @@ import {
   Truck,
   ClipboardList,
   Store,
-  ChevronLeft,
-  ChevronRight,
   Home,
   Wallet,
   UserCog,
@@ -39,7 +37,6 @@ import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { toast } from 'sonner'
-import { useSidebarCollapse } from '@/hooks/use-sidebar-collapse'
 
 // ===== Theme tokens — DS logo blue background =====
 const SIDEBAR_BG = '#1e40af'
@@ -244,22 +241,26 @@ interface SidebarProps {
 }
 
 /**
- * Sidebar — Desktop-only collapsible navigation.
+ * Sidebar — Desktop-only, ICON-ONLY navigation rail.
  *
- * - Background: DS logo blue (`#1e40af`), white text.
- * - Menu boxes wrap tight to their content (icon + label), not the full
- *   sidebar width — left-aligned when expanded, centered when collapsed.
+ * - Background: DS logo blue (`#1e40af`), tulisan terang.
+ * - HANYA IKON (w-14). Saat kursor hover di atas sebuah ikon, NAMA menu
+ *   muncul di sebelah kanan ikon (flyout) dengan tulisan putih terang.
+ * - Flyout memakai position:fixed agar tidak terpotong overflow <nav>.
  * - Visible only on `lg:` and up (`hidden lg:flex`).
- * - Expanded width: `w-52` (with labels). Collapsed width: `w-14` (icon only).
- * - Collapse state persists in localStorage via `useSidebarCollapse`.
  * - Mobile continues to use the existing bottom nav (`MobileBottomNav`).
  */
 export function Sidebar({ username, role, onLogout, permVersion: _permVersion }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
-  const { collapsed, toggle } = useSidebarCollapse()
   const navRef = useRef<HTMLElement>(null)
+  // Flyout = nama menu yang tampil di sebelah ikon saat kursor hover
+  const [flyout, setFlyout] = useState<{ x: number; y: number; label: string } | null>(null)
+  const showFlyout = (e: React.MouseEvent<HTMLElement>, label: string) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    setFlyout({ x: r.right + 10, y: r.top + r.height / 2, label })
+  }
 
   // Flag: while we are programmatically restoring scroll, ignore scroll
   // events so they don't overwrite the saved position with the transient 0
@@ -351,18 +352,12 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
 
   return (
     <aside
-      className={cn(
-        'hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col transition-all duration-300 ease-in-out print:hidden',
-        collapsed ? 'w-14' : 'w-52'
-      )}
+      className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-14 flex-col print:hidden"
       style={{ backgroundColor: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
     >
       {/* ===== Header / Branding ===== */}
       <div
-        className={cn(
-          'flex h-14 items-center transition-all duration-300',
-          collapsed ? 'justify-center px-2' : 'px-4'
-        )}
+        className="flex h-14 items-center justify-center px-2"
         style={{ borderBottom: `1px solid ${SIDEBAR_BORDER}` }}
       >
         <Link
@@ -371,10 +366,6 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
             startNavigation()
             window.dispatchEvent(new CustomEvent('navigation-start'))
           }}
-          className={cn(
-            'flex items-center overflow-hidden transition-all duration-300',
-            collapsed ? 'gap-0' : 'gap-2.5'
-          )}
           title={t('app_name')}
         >
           <img
@@ -382,14 +373,6 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
             alt="Logo"
             className="h-8 w-8 shrink-0 rounded-lg object-contain"
           />
-          <span
-            className={cn(
-              'whitespace-nowrap text-base font-bold text-white transition-all duration-300',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-            )}
-          >
-            {t('app_name')}
-          </span>
         </Link>
       </div>
 
@@ -401,22 +384,12 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
 
           return (
             <div key={section.key ?? 'main'} className="mb-1">
-              {/* Section label — hidden when collapsed */}
-              <p
-                className={cn(
-                  'mb-1 overflow-hidden px-3 text-[10px] font-semibold uppercase tracking-widest text-blue-200/70 transition-all duration-300',
-                  collapsed ? 'h-0 opacity-0' : 'h-auto py-1.5 opacity-100'
-                )}
-              >
-                {t(section.labelKey)}
-              </p>
-
-              {/* Collapsed divider */}
-              {collapsed && section.key && (
+              {/* Divider antar section (label teks tidak tampil — rail icon-only) */}
+              {section.key && (
                 <div className="my-2 mx-3" style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }} />
               )}
 
-              <ul className={cn('space-y-0.5', collapsed ? 'flex flex-col items-center px-1' : 'px-2')}>
+              <ul className="flex flex-col items-center space-y-0.5 px-1">
                 {sectionItems.map((item) => {
                   const active = isActive(item.href)
                   return (
@@ -432,11 +405,12 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                           startNavigation()
                           window.dispatchEvent(new CustomEvent('navigation-start'))
                         }}
-                        title={collapsed ? t(item.titleKey) : undefined}
+                        aria-label={t(item.titleKey)}
+                        onMouseEnter={(e) => showFlyout(e, t(item.titleKey))}
+                        onMouseLeave={() => setFlyout(null)}
                         className={cn(
-                          // w-fit → box wraps tight to icon+text only
-                          'flex w-fit items-center rounded-lg text-sm transition-colors relative',
-                          collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2',
+                          // Icon-only: kotak rapat di sekeliling ikon; nama muncul via flyout saat hover
+                          'flex w-fit items-center justify-center rounded-lg px-2 py-2.5 text-sm transition-colors relative',
                           item.isPro ? 'opacity-60 cursor-not-allowed' : '',
                           active
                             ? 'bg-white/15 font-medium text-white'
@@ -444,23 +418,8 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
                         )}
                       >
                         <item.icon className="h-5 w-5 shrink-0" />
-                        <span
-                          className={cn(
-                            'whitespace-nowrap overflow-hidden transition-all duration-300',
-                            collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-                          )}
-                        >
-                          {t(item.titleKey)}
-                        </span>
                         {item.isPro && (
-                          <span
-                            className={cn(
-                              'text-white font-black bg-amber-500 shadow',
-                              collapsed
-                                ? 'absolute top-0 right-0 text-[8px] leading-none px-1 py-0.5 rounded-sm'
-                                : 'text-[9px] leading-none px-1.5 py-0.5 rounded ml-auto'
-                            )}
-                          >
+                          <span className="absolute top-0 right-0 text-[8px] font-black leading-none px-1 py-0.5 rounded-sm bg-amber-500 text-white shadow">
                             PRO
                           </span>
                         )}
@@ -479,53 +438,29 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
         className="py-3"
         style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}
       >
-        <div className={cn('space-y-0.5', collapsed ? 'flex flex-col items-center px-1' : 'px-2')}>
+        <div className="flex flex-col items-center space-y-0.5 px-1">
           {/* Logout */}
           <button
             onClick={handleLogout}
-            title={t('keluar')}
-            className={cn(
-              'flex w-fit items-center rounded-lg text-sm text-blue-100 transition-colors hover:bg-white/10 hover:text-white',
-              collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
-            )}
+            aria-label={t('keluar')}
+            onMouseEnter={(e) => showFlyout(e, t('keluar'))}
+            onMouseLeave={() => setFlyout(null)}
+            className="flex w-fit items-center justify-center rounded-lg px-2 py-2.5 text-sm text-blue-100 transition-colors hover:bg-white/10 hover:text-white"
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            <span
-              className={cn(
-                'whitespace-nowrap overflow-hidden transition-all duration-300',
-                collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              )}
-            >
-              {t('keluar')}
-            </span>
-          </button>
-
-          {/* Collapse / Expand toggle — desktop only */}
-          <button
-            onClick={toggle}
-            aria-label={collapsed ? t('expand') : t('collapse')}
-            title={collapsed ? t('expand') : t('collapse')}
-            className={cn(
-              'flex w-fit items-center rounded-lg text-sm text-blue-200/70 transition-colors hover:bg-white/10 hover:text-white',
-              collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-2.5 py-2'
-            )}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-5 w-5 shrink-0" />
-            ) : (
-              <ChevronLeft className="h-5 w-5 shrink-0" />
-            )}
-            <span
-              className={cn(
-                'whitespace-nowrap overflow-hidden transition-all duration-300',
-                collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'
-              )}
-            >
-              {t('collapse')}
-            </span>
           </button>
         </div>
       </div>
+
+      {/* ===== Flyout nama menu — muncul di kanan ikon saat hover, tulisan putih terang ===== */}
+      {flyout && (
+        <div
+          className="pointer-events-none fixed z-[70] -translate-y-1/2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-semibold text-white shadow-xl ring-1 ring-white/25"
+          style={{ left: flyout.x, top: flyout.y, backgroundColor: 'rgba(15,23,42,0.95)' }}
+        >
+          {flyout.label}
+        </div>
+      )}
     </aside>
   )
 }
