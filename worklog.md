@@ -10863,3 +10863,20 @@ Work Log:
 Stage Summary:
 - Fitur OTP register tetap live di produksi v118; isi pesan OTP sudah memakai brand "*Darrell Soft*" dari Setting company_name.
 - Keputusan penggantian nomor pengirim menunggu user. Jika jalan Opsi A: user kirim token baru → validasi token → jalankan ulang scripts/set-wa-api-key-prod.mjs dengan token baru → tes kirim OTP ke nomor baru.
+
+---
+Task ID: icon-lainnya-besar-sesuai-nama
+Agent: Z.ai main
+Task: "ditampilan mobile. di halaman lainnya. buat icon lebih besar lagi, ganti icon yang lebih menarik. sesuai dengan nama iconnya. fix"
+
+Work Log:
+- Sasaran = popup "Lainnya" mobile (MenuHomeScreen, grid 4 kolom) + sumber icon menuItems di sidebar.tsx; desktop (sidebar-desktop.tsx) ikut disamakan agar icon per menu konsisten antar perangkat.
+- PERBESAR (menu-home-screen.tsx): tile 46→56px (SVG 24→31px), varian layar tinggi ≥800px 52→62px (SVG 34px), layar pendek ≤700px 38→46px (SVG 25px), radius 14/16/12→17/19/14, gap tile-label 4→5px, gap-y grid 8→10px, label 10→11px (12px layar tinggi), ghost drag 52→62px.
+- GANTI ICON (sidebar.tsx + sidebar-desktop.tsx): Beranda BookOpen→Home, Purchase Order ShoppingCart→ClipboardList, Biaya Operasional Banknote→Wallet (menghilangkan duplikat dgn Riwayat Pembayaran), Hitung Ongkos Cetak DollarSign→Printer, Hitung Harga Kertas FileText→FileStack, Master Harga Kertas ScrollText→Tags, Master Ongkos Cetak Wallet→PiggyBank, Hak Akses Shield→ShieldCheck. Bottom nav mobile: Beranda→Home. Import dibersihkan (buang FileText/DollarSign/ScrollText/BookOpen/ShoppingCart/Shield + sisa unused History/Sheet; tambah ClipboardList/Printer/FileStack/Tags/PiggyBank/ShieldCheck/Home).
+- Dev server sempat mati (proses next dev hilang) → restart via .zscripts/dev.sh, langsung 200.
+- E2E agent-browser: login superadmin → popup Lainnya 390×844 (24 tile, scrollW=390 tidak overflow, screenshot /tmp/lainnya-after.png — semua icon besar & sesuai nama, tanpa duplikat) → klik tile Purchase Order → navigate /purchase-order (dev compile, perlu tunggu) → layar pendek 360×640 varian kecil OK (scrollW=360, /tmp/lainnya-short.png) → desktop 1280 sidebar ikut icon baru (/tmp/desktop-after.png). Lint: 3 file 0 error. Catatan: "covered by grid" pada Playwright click = quirk hit-test (elementFromPoint tengah tile = svg di dalam button, isInsideBtn true — tap nyata sampai).
+- Commit 5404556 push origin main. TIDAK deploy (menunggu perintah user — pola task 10376: deploy selalu perintah terpisah).
+
+Stage Summary:
+- Popup Lainnya mobile kini tile 56px+ (SVG 31px+) dengan 24 icon unik yang sesuai nama menunya; bottom nav Beranda=Home; sidebar desktop ikut konsisten.
+- Belum diterapkan ke produksi (sw masih v118) — saat user bilang "deploy": bump sw.js CACHE_NAME v119 + APP_VERSION, commit, npx vercel --prod, verifikasi sw.js & promote bila perlu.
