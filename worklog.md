@@ -10848,3 +10848,18 @@ Work Log:
 Stage Summary:
 - FITUR OTP REGISTER LIVE DI PRODUKSI v118: daftar akun wajib OTP WhatsApp via Fonnte; nomor HP & username duplikat diblokir (3 format 08/62/+62); rate limit 5 OTP/15mnt + cooldown 60 dtk; OTP 6 digit berlaku 5 menit, max 5 percobaan.
 - Device Fonnte "darrellsoft" (0818666711) package Free kuota 1000, expired 24 Okt 2026 — jika OTP gagal kirim di masa depan: cek dashboard Fonnte, kemungkinan device perlu reconnect (scan QR ulang; token tetap).
+
+---
+Task ID: register-otp-4
+Agent: Z.ai main
+Task: Jawab pertanyaan user soal pengirim OTP ("bisa gak dikirim dari Fonnte, bukan nomor 0818666711?")
+
+Work Log:
+- Verifikasi status terkini: www.darrellsoft.com = sw v118 (live), device Fonnte "darrellsoft" (0818666711) status connect, quota 997/1000, route send-otp & check-phone hidup (405 pada method salah), git HEAD == origin/main (6de5b23) bersih — tidak ada yang perlu dikerjakan ulang.
+- Jelaskan ke user: dengan Fonnte mode scan-QR, PENGIRIM selalu = nomor WhatsApp yang jadi device (0818666711); tidak ada opsi "kirim dari Fonnte". OTP yang ia terima di chat sendiri saat tes karena target kirim = nomor device; pelanggan asli menerima OTP dari 0818666711 ke nomor masing-masing.
+- Sampaikan opsi: (A) ganti device ke nomor khusus baru (SIM/WA Business) → hapus device lama di dashboard Fonnte → Add Device → scan QR → token BARU → update Setting.wa_api_key produksi via scripts/set-wa-api-key-prod.mjs (tanpa deploy ulang, tanpa ubah kode); (B) WhatsApp Business API resmi (biaya + verifikasi Meta) untuk brand name terverifikasi; (C) tips gratis: profil WhatsApp Business (nama + logo) di nomor device.
+- Tidak ada perubahan kode / deploy pada task ini.
+
+Stage Summary:
+- Fitur OTP register tetap live di produksi v118; isi pesan OTP sudah memakai brand "*Darrell Soft*" dari Setting company_name.
+- Keputusan penggantian nomor pengirim menunggu user. Jika jalan Opsi A: user kirim token baru → validasi token → jalankan ulang scripts/set-wa-api-key-prod.mjs dengan token baru → tes kirim OTP ke nomor baru.
