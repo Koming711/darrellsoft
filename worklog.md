@@ -10647,3 +10647,20 @@ Stage Summary:
 - Semua permintaan UI user (icon mobile lebih besar + sesuai nama; sidebar desktop icon-only + hover-expand semua nama + teks terang) diterapkan ulang dan terverifikasi di browser.
 - Konten margin desktop statis lg:ml-14; ekspansi sidebar overlay tidak menggeser konten.
 - hook use-sidebar-collapse.ts tidak lagi dipakai komponen mana pun (file dibiarkan, harmless).
+
+---
+Task ID: deploy-prod-v119
+Agent: main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com" (token vercel diberikan user)
+
+Work Log:
+- Bump PWA: public/sw.js CACHE_NAME v113 → darrell-soft-v119 (produksi sebelumnya v118), APP_VERSION '2026-09-21-v48' → '2026-09-23-v54'. Commit a7dd493.
+- Deploy pertama GAGAL: next build error — pricing-view.tsx:9 import { priceDelta } dari '@/lib/format' yang tidak ada (harga-khusus page dari chain restore tidak pernah lolos build produksi; deploy v114 dulu dibatalkan user; fix lama 45e4a6d ada di lineage lain).
+- Fix minimal c17b332: tambahkan priceDelta(custom, standard) ke src/lib/format.ts — implementasi asli dari legacy lib/format.ts (selisih % 1 desimal). Fitur halaman Harga Khusus dipertahankan (tidak dihapus seperti fix lama).
+- Scan statis semua value-import '@/lib/*' + path modul '@/components|hooks|contexts|stores|lib' → tidak ada lagi yang missing.
+- Deploy ulang sukses: npx vercel --prod --yes --project darrellsoft.
+- Verifikasi produksi: sw.js = darrell-soft-v119 ✓, homepage 200 ✓; browser: login superadmin OK, desktop sidebar icon-only 56px → hover 224px semua nama putih terang (screenshot), mobile Lainnya icon besar & semantik (Home/ClipboardList/Wallet/Printer/FileStack/Tags/PiggyBank/ShieldCheck), 0 error.
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com = v119, berisi chain restore + re-apply UI icon/sidebar + priceDelta fix. PWA client akan auto-refresh cache.
+- Catatan: git remote (GitHub) masih di lineage lama (v115-v118); deploy via CLI dari lokal — TIDAK force-push. Lokal HEAD = c17b332.
