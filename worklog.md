@@ -10664,3 +10664,26 @@ Work Log:
 Stage Summary:
 - PRODUKSI www.darrellsoft.com = v119, berisi chain restore + re-apply UI icon/sidebar + priceDelta fix. PWA client akan auto-refresh cache.
 - Catatan: git remote (GitHub) masih di lineage lama (v115-v118); deploy via CLI dari lokal — TIDAK force-push. Lokal HEAD = c17b332.
+
+---
+Task ID: menu-stock-bahan
+Agent: main (Z.ai Code)
+Task: "tambahkan di menu. stock bahan" — tambah menu + halaman fitur Stock Bahan
+
+Work Log:
+- Prisma: model Bahan (kode auto BHN-###, kategori, satuan, stok, stokMin, hargaSatuan) + BahanMutasi (jenis masuk/keluar/penyesuaian, qty, stokSetelah); db push ke db/custom.db. Catatan: ditemukan schema.prisma DUPlikat di project root yang ikut terbaca prisma CLI — model baru disinkronkan ke kedua file.
+- Insiden: db ter-reset (prisma db push --force-reset salah sasaran saat verifikasi) → auto-seed via login API otomatis membuat ulang superadmin/admin; login superadmin/268899 diverifikasi OK.
+- auto-seed.ts: CREATE TABLE IF NOT EXISTS "Bahan"/"BahanMutasi" ditambahkan di jalur raw-SQL pg, upgrade missingTableChecks, dan jalur sqlite (REAL/DATETIME) agar tabel dibuat otomatis di produksi.
+- Permission: GROUP_FEATURES + id 'stock-bahan' (sub: lihat/tambah/edit/hapus); permissions.ts mapping /stock-bahan <-> stock-bahan (getFeatureIdForPath + getPathForFeatureId); muncul otomatis di Halaman Hak Akses (diverifikasi).
+- i18n id/en: stock_bahan ('Stock Bahan'/'Material Stock') + subtitle_stock_bahan.
+- Menu: sidebar.tsx (mobile popup) & sidebar-desktop.tsx — item Stock Bahan icon Boxes, section master_cetakan (setelah Master Suplier); menu-home-screen.tsx TILE_GRADIENT '/stock-bahan' = from-emerald-500 to-teal-700.
+- API: /api/stock-bahan (GET list nama asc, POST create + kode auto + mutasi "Stok awal", PUT edit + delta stok tercatat "Penyesuaian manual", DELETE by id) & /api/stock-bahan/mutasi (GET ?bahanId&limit, POST masuk/keluar dengan $transaction update stok; keluar > stok ditolak 400).
+- View stock-bahan-view.tsx + halaman /stock-bahan (pola master-barang: getAuthUser + hasSubPermission stock-bahan-*): 3 kartu ringkasan (total jenis, stok rendah, nilai stok Rp), search, tabel desktop / kartu mobile, dialog tambah/edit (Select satuan 12 opsi), dialog mutasi masuk/keluar, dialog riwayat (max-h-96 scroll), AlertDialog hapus.
+- Fix bug saat verifikasi: tanda penyesuaian negatif di riwayat (m.qty<0 → "−"); sebelumnya selalu "+".
+- Verifikasi agent-browser (superadmin): sidebar desktop w-14 → hover w-56 semua nama (Stock Bahan ada) → collapse; klik menu → /stock-bahan; tambah bahan (BHN-001 Art Paper 150gsm, stok awal 10 → mutasi MASUK +10); keluar 3 → stok 7 & nilai Rp 805.000; keluar 100 ditolak toast "Stok tidak cukup (stok saat ini: 7 pcs)"; edit stok 7→4 → PENYESUAIAN −3 + badge Stok Rendah (4 ≤ 5); hapus bahan kedua dengan konfirmasi; mobile 375x812: popup Lainnya 25 tile, tile Stock Bahan emerald + icon besar, klik → /stock-bahan kartu mobile; matriks Hak Akses menampilkan Stock Bahan (Lihat/Tambah/Edit/Hapus); 0 error console & dev.log; lint scoped bersih.
+- Commit 6f7313e (lokal, TANPA deploy — menunggu perintah user).
+
+Stage Summary:
+- Fitur Stock Bahan lengkap & terverifikasi end-to-end di dev: menu (desktop+mobile), CRUD, mutasi masuk/keluar anti-minus, riwayat, hak akses, i18n.
+- Schema di-sync ke prisma/schema.prisma DAN schema.prisma root (duplikat lama) supaya prisma CLI & generate konsisten.
+- Produksi www.darrellsoft.com masih v119 — BELUM memuat fitur ini.
