@@ -29,6 +29,7 @@ import {
   ClipboardList,
   Store,
   Home,
+  Boxes,
   MoreHorizontal,
   Wallet,
   Tags,
@@ -197,6 +198,13 @@ const menuItems = [
     href: '/master-toko-pemasok',
     icon: Store,
     featureId: 'master-toko-pemasok',
+    section: 'master_cetakan',
+  },
+  {
+    titleKey: 'stock_bahan' as TranslationKey,
+    href: '/stock-bahan',
+    icon: Boxes,
+    featureId: 'stock-bahan',
     section: 'master_cetakan',
   },
   {

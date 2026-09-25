@@ -108,6 +108,7 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/master-finishing') return 'master-finishing'
   if (pathname === '/master-customer') return 'master-customer'
   if (pathname === '/master-toko-pemasok') return 'master-toko-pemasok'
+  if (pathname === '/stock-bahan') return 'stock-bahan'
   if (pathname === '/riwayat') return 'riwayat'
   if (pathname === '/invoice') return 'invoice'
   if (pathname === '/surat-jalan') return 'surat-jalan'
@@ -140,6 +141,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'master-finishing': '/master-finishing',
     'master-customer': '/master-customer',
     'master-toko-pemasok': '/master-toko-pemasok',
+    'stock-bahan': '/stock-bahan',
     'riwayat': '/riwayat',
     'invoice': '/invoice',
     'surat-jalan': '/surat-jalan',

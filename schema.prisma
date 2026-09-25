@@ -482,3 +482,38 @@ model Biaya {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+model Bahan {
+  id          String   @id @default(cuid())
+  kode        String // auto: BHN-001, BHN-002, ... per user
+  nama        String
+  kategori    String   @default("") // e.g. Kertas, Tinta, Kimia, Plastik, Lainnya
+  satuan      String   @default("pcs") // pcs, rim, lembar, kg, roll, box, pack, liter, tube
+  stok        Float    @default(0)
+  stokMin     Float    @default(0) // batas minimum — peringatan stok rendah
+  hargaSatuan Float    @default(0) // harga per satuan (Rupiah) untuk nilai stok
+  keterangan  String   @default("")
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mutasi BahanMutasi[]
+
+  @@unique([userId, kode])
+  @@index([userId])
+}
+
+model BahanMutasi {
+  id         String   @id @default(cuid())
+  bahanId    String
+  jenis      String // 'masuk' | 'keluar' | 'penyesuaian'
+  qty        Float // selalu positif; arah ditentukan jenis (penyesuaian boleh negatif)
+  stokSetelah Float   @default(0) // snapshot stok setelah mutasi ini
+  keterangan String   @default("")
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  bahan Bahan @relation(fields: [bahanId], references: [id], onDelete: Cascade)
+
+  @@index([bahanId])
+  @@index([userId])
+}
