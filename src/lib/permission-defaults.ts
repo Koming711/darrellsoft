@@ -80,6 +80,15 @@ export const GROUP_FEATURES = [
     ]
   },
   {
+    id: 'stock-bahan', name: 'Stock Bahan',
+    subPermissions: [
+      { id: 'stock-bahan-lihat', name: 'Daftar Stock Bahan' },
+      { id: 'stock-bahan-tambah', name: 'Tambah Bahan' },
+      { id: 'stock-bahan-edit', name: 'Edit Bahan' },
+      { id: 'stock-bahan-hapus', name: 'Hapus Bahan' },
+    ]
+  },
+  {
     id: 'biaya', name: 'Biaya',
     subPermissions: [
       { id: 'biaya-lihat', name: 'Daftar Biaya' },

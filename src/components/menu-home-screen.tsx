@@ -36,6 +36,7 @@ const TILE_GRADIENT: Record<string, string> = {
   '/master-ongkos-cetak': 'from-green-500 to-teal-600',
   '/master-finishing': 'from-pink-400 to-fuchsia-600',
   '/master-toko-pemasok': 'from-orange-500 to-red-600',
+  '/stock-bahan': 'from-emerald-500 to-teal-700',
   '/administrasi/hak-akses': 'from-red-400 to-rose-600',
   '/administrasi/pengguna': 'from-sky-500 to-blue-600',
   '/administrasi/pengaturan': 'from-slate-400 to-slate-600',
