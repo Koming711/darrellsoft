@@ -10734,3 +10734,23 @@ Stage Summary:
 - Semua ikon emoji diganti Lucide, panel CTA dot-pattern & eyebrow badge konsisten, hero h1 pakai font-weight 900 + class ukuran persis produksi.
 - Logic tidak berubah: auto-login redirect, i18n id/en toggle, PWA, navbar, checkout routing (bulanan-ekonomis/bulanan/tahunan). src/lib/i18n.ts tidak disentuh; hanya src/app/page.tsx yang diubah; TIDAK commit, TIDAK deploy, dev server tidak direstart.
 - Status verifikasi: eslint bersih; curl 200; lifetime hilang; 3 harga baru tampil di SSR. Perlu verifikasi visual akhir (desktop+mobile+dark mode) oleh agent utama: FAQ accordion, panel CTA glass, gradient-border kartu popular, strip statistik.
+
+---
+Task ID: restore-v123
+Agent: main (Z.ai Code)
+Task: "balik ke v123" / "rubah ke versi v123" — pulihkan lokal ke kondisi produksi v123 setelah sandbox reset
+
+Work Log:
+- Diagnosis: produksi www.darrellsoft.com masih sw v123 (200 OK, 0 marker lifetime, harga 78/128/888rb); repo lokal ter-reset ke era v119+Stock Bahan (sw v119, commit v123 b65a858 hilang); GitHub masih lineage lama v115-v118; tanpa arsip & tanpa token vercel tersimpan → strategi: rekonstruksi lokal pakai produksi v123 sebagai blueprint.
+- Recon produksi via curl + agent-browser (login superadmin): /api/kategori 401 (ada) & shape [{id,nama,userId,createdAt,updatedAt}]; /api/stock-bahan 500 (route ada, tabel DB produksi belum dibuat); halaman /daftar-kategori (subtitle "10 kategori · dipakai di dropdown Kategori pada Master Harga Kertas", 10 chip); Master Harga Kertas (kolom KATEGORI "—", combobox "Semua kategori", dialog Kategori "Tanpa kategori"); checkout 3 paket tanpa lifetime; Master Customer dialog "Kode (otomatis)" readonly CUST-006; sidebar Daftar Kategori ikon ListTree di antara Master Harga Kertas & Master Ongkos Cetak, TANPA home tile, TANPA entri matriks hak akses; APP_VERSION produksi '2026-09-27-v58' diekstrak dari chunk JS; what's-new tidak berubah (masih announcement 2026-06-07-v2).
+- Delegasi 3 subagent paralel: 2-a landing (OK), 2-b kategori (dibatalkan sistem di akhir — pekerjaan ternyata hampir lengkap, saya audit & lengkapi), 2-c checkout+kode pelanggan+versi (OK). Semua file lint scoped bersih.
+- Audit & perbaikan 2-b: model Kategori + Paper.kategoriId (SetNull) sinkron di 2 schema, API GET/POST(409)/DELETE(409 dipakai Paper), auto-seed CREATE TABLE pg+sqlite + seedKategoriForUser 10 kategori, halaman + sidebar + i18n id/en + permissions (selalu tampil, mapping path) — semua OK.
+- FIX akar: route login memanggil ensureSeedData(null) & hanya seedUserData(userId) → seedKategoriForUser tidak pernah jalan → tambahkan pemanggilan seedKategoriForUser(userId) di src/app/api/auth/login/route.ts setelah login.
+- Insiden dev server mati berkali-kali (dibunuh ~10 detik setelah start) → solve dengan `(setsid bun run dev &)` detached; stabil 200 OK.
+- Verifikasi agent-browser dev: landing 3 kartu harga tanpa lifetime + eyebrow "Kesempatan Emas" + "Hemat Banget!" + FAQ; login OK; sidebar Daftar Kategori idx 19 (di antara 18 & 20) ikon list-tree; halaman kategori subtitle eksak + tambah/cari/hapus-chip + AlertDialog OK; Master Harga Kertas "Semua kategori" + kolom KATEGORI "—" + dialog field; checkout ?plan=lifetime → 0 terpilih, ?plan=tahunan → Premium terpilih, badge HEMAT 42%; Master Customer "Kode (otomatis)" CUST-006 readonly; Stock Bahan regression OK (BHN-001); mobile 375x812 popup Lainnya tile Daftar Kategori list-tree; toggle bahasa OK (kembali ke Indonesia); console & dev.log bersih.
+- Commit ad18d50 "restore: kembalikan lokal ke kondisi produksi v123 (sandbox reset)" (21 files, +1198/−500). TANPA deploy — produksi memang sudah v123; TANPA db push produksi.
+
+Stage Summary:
+- Lokal kembali = produksi v123: landing redesign + lifetime hilang (landing & checkout), fitur Daftar Kategori utuh + terseed 10 kategori, kode pelanggan CUST-### otomatis dengan preview dialog, sw v123 + APP_VERSION 2026-09-27-v58, Stock Bahan dipertahankan.
+- Dev terverifikasi E2E via browser; 16 file changed lint bersih (warna error lint global = pra-eksisting file lain).
+- Catatan produksi: /api/stock-bahan di www.darrellsoft.com masih 500 (tabel Bahan/BahanMutasi belum dibuat di DB produksi — auto-seed perlu dieksplor/eksekusi di sana saat fitur dipakai; BUKAN bagian restore ini).
