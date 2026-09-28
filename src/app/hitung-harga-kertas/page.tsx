@@ -18,6 +18,9 @@ interface Paper {
   width: number
   height: number
   pricePerRim: number
+  /** Nama suplier (dari Master Harga Kertas) — kertas sama bisa punya harga
+   *  berbeda tiap suplier, jadi nama suplier ditampilkan agar jelas. */
+  suplier?: string | null
 }
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors'
@@ -325,11 +328,13 @@ export default function HitungHargaKertasPage() {
   const handleWhatsApp = () => {
     if (!calculations) { toast.error('Masukkan data kertas terlebih dahulu'); return }
     const paperName = selectedPaper ? selectedPaper.name : 'Custom'
+    const suplierText = selectedPaper?.suplier || '-'
     const message = `Hitung Harga Kertas - www.darrellsoft.com
 
 Customer: ${namaCustomer || '-'}
 Nama Cetakan: ${namaCetakan || '-'}
 Kertas: ${paperName} (${grammage} gsm)
+Suplier: ${suplierText}
 Ukuran: ${paperWidth} x ${paperHeight} cm
 Harga/Rim: ${fmtRp(pricePerRim)}
 Berat/Rim: ${Math.round(calculations.weightPerRimKg)} kg` +
@@ -349,6 +354,7 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
     if (!printWindow) { toast.error('Gagal membuka jendela print'); return }
     const now = new Date().toLocaleString('id-ID')
     const paperName = selectedPaper ? selectedPaper.name : 'Custom'
+    const suplierText = selectedPaper?.suplier || '-'
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Hitung Harga Kertas</title>
       <style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px;color:#1e293b}
       h1{text-align:center;font-size:18px;margin-bottom:4px}
@@ -368,6 +374,7 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
       <p class="subtitle">${namaCetakan || '-'} · Dicetak: ${now}</p>
       <div class="info">
         <span>Kertas:</span> <strong>${paperName}</strong> &nbsp;|&nbsp;
+        <span>Suplier:</span> <strong>${suplierText}</strong> &nbsp;|&nbsp;
         <span>Gramatur:</span> <strong>${grammage} gsm</strong> &nbsp;|&nbsp;
         <span>Ukuran:</span> <strong>${paperWidth} × ${paperHeight} cm</strong> &nbsp;|&nbsp;
         <span>Harga/Rim:</span> <strong>${fmtRp(pricePerRim)}</strong>
@@ -518,7 +525,7 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
                   <select value={selectedPaperId} onChange={(e) => setSelectedPaperId(e.target.value)} className={selectClass}>
                     <option value="">Custom (Input Manual)</option>
                     {papers.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} — {p.grammage}gsm — {p.width}×{p.height}cm</option>
+                      <option key={p.id} value={p.id}>{p.name} — {p.grammage}gsm — {p.width}×{p.height}cm{p.suplier ? ` — ${p.suplier}` : ''}</option>
                     ))}
                   </select>
                 </div>
@@ -559,6 +566,10 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                       <span className="text-[11px] text-amber-600">Nama</span>
                       <p className="text-sm font-bold text-amber-800">{selectedPaper.name}</p>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 col-span-2">
+                      <span className="text-[11px] text-amber-600">Suplier</span>
+                      <p className="text-sm font-bold text-amber-800">{selectedPaper.suplier || '—'}</p>
                     </div>
                   </div>
                 )}

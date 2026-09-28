@@ -476,12 +476,9 @@ export default function MasterHargaKertasPage() {
       render: (paper: Paper) => (
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
-          <div className="min-w-0">
-            <span className="font-medium text-slate-800 truncate block">{paper.name}</span>
-            {paper.suplier && (
-              <span className="text-[11px] text-slate-400 truncate block">{paper.suplier}</span>
-            )}
-          </div>
+          {/* Nama saja — suplier sudah tampil di kolom "Suplier"
+              (subtitle di bawah nama membuat suplier tampil dobel). */}
+          <span className="font-medium text-slate-800 truncate block">{paper.name}</span>
         </div>
       )
     },
