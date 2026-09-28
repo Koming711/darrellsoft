@@ -10816,3 +10816,28 @@ Stage Summary:
 - Dropdown kertas di Buat PO menampilkan suplier; auto-isi harga mengikuti suplier yang dipilih.
 - Kolom Paper.suplier ter-seed otomatis di produksi lewat auto-seed migrations saat deploy nanti; backup/restore xlsx sudah kompatibel.
 - Belum dideploy (lokal saja).
+
+---
+Task ID: fix-po-harga-lembar-hitung-kertas-suplier
+Agent: main (Z.ai Code)
+Task: "dihalaman buat purchase order baru. di kotak item. harusnya harga satuan itu harga/lembar. dihalaman hitung harga kertas, tambahkan nama suplier. check and fix."
+
+Work Log:
+- Recon lokal: items-fields.tsx label "Harga Satuan" (shared dgn Invoice); hitung-harga-kertas/page.tsx TANPA suplier sama sekali (interface, dropdown, info box); master-harga-kertas & API & schema sudah dukung suplier (commit 69b9f11 sesi sebelumnya).
+- Recon produksi www.darrellsoft.com (agent-browser, superadmin): label PO produksi juga masih "Harga Satuan", pick duplek -> harga terisi 2.210.000 (per rim) -> kesimpulan: permintaan user adalah PERUBAHAN BARU, bukan restore; dropdown produksi belum tampilkan suplier (lokal sudah lebih maju).
+- Verifikasi: PO preview cetak TIDAK merender satuan & tidak ada dependensi downstream pada satuan 'rim' -> aman mengubah semantik harga.
+- items-fields.tsx: label kondisional isPaperMode ? 'Harga/Lembar' : 'Harga Satuan'; pickPaper kini harga = Math.round(pricePerRim/500) & satuan 'lembar' (konsisten dgn alur referensi Potong Kertas yang memakai hargaPerLembar + satuan 'lembar'); komentar doc diperbarui.
+- hitung-harga-kertas/page.tsx: interface Paper + suplier?; opsi dropdown "Jenis Kertas" tambah " — {suplier}"; info box amber baru "Suplier" (col-span-2, '—' bila kosong); pesan WhatsApp + hasil cetak (handlePrint) menyertakan baris "Suplier:"; custom/manual mode tidak berubah.
+- master-harga-kertas/page.tsx: hapus subtitle suplier di bawah nama bahan — duplikat dengan kolom Suplier (MobileTable merender semua kolom sbg key-value di mobile, jadi dobel di mana-mana).
+- E2E lokal (agent-browser): login -> Buat PO: label "Harga/Lembar" tampil; pick duplek -> harga 4.420 (2.210.000/500) ✓; qty 500 -> total 2.210.000, total+PPN11% 2.453.100 ✓; preview tabel Rp4.420 ✓.
+- E2E Hitung Harga Kertas: buat 2 kertas uji "duplek uji suplier" (CV Sinar Paper 2.210.000 / Toko Kertas Maju Jaya 2.500.000, POST 201) -> dropdown tampil "duplek uji suplier — 270gsm — 90×120cm — {suplier}" utk keduanya; pilih Toko -> info box Suplier=Toko Kertas Maju Jaya, Harga/Lembar Rp 5.000 ✓.
+- E2E Master Harga Kertas: baris uji tampil "nama | suplier | — | 270gsm..." tanpa duplikasi setelah fix subtitle.
+- E2E dropdown PO: kedua kertas bernama sama terbedakan "duplek uji suplier · CV Sinar Paper / · Toko Kertas Maju Jaya" dgn harga masing-masing ✓.
+- Regresi Invoice: label item tetap "Harga Satuan"+"Harga Modal" ✓ (isPaperMode hanya di PO).
+- Cleanup: 2 kertas uji dihapus (DELETE 200), 7 kertas asli tersisa; dev.log bersih (semua 200); lint scoped: 9 error pre-existing (react-hooks/static-components SectionHeader/ValueBox & useMemo compiler notes) — bukan dari perubahan.
+- Commit af25aaf. TANPA deploy.
+
+Stage Summary:
+- Kotak item Buat PO kini memakai "Harga/Lembar": pilih kertas -> harga otomatis per lembar (rim÷500), satuan lembar; Invoice tidak terpengaruh.
+- Halaman Hitung Harga Kertas menampilkan nama suplier di dropdown, info box, WhatsApp, dan cetak — kertas sama antar suplier mudah dibedakan & harga mengikuti suplier terpilih.
+- Master Harga Kertas: suplier tampil sekali di kolom sendiri (duplikasi subtitle dihapus).
