@@ -73,7 +73,7 @@ interface ItemsFieldsProps {
    * Barang menjadi kotak besar yang BISA diketik manual, dilengkapi tombol
    * dropdown berisi daftar kertas dari Master Harga Kertas. Memilih dari
    * dropdown otomatis mengisi Nama Barang ("duplek 270gsm 90x120cm"),
-   * Satuan ("rim") & Harga Satuan (harga per rim).
+   * Satuan ("lembar") & Harga/Lembar (harga per rim ÷ 500).
    */
   paperOptions?: PaperOption[];
   /**
@@ -149,16 +149,19 @@ export function ItemsFields({
 
   const pickPaper = (index: number, paper: PaperOption) => {
     setOpenPaperIndex(null);
-    // Nama barang ikut format kertas: "duplek 270gsm 90x120cm",
-    // satuan "rim", harga satuan = harga per rim. Qty tidak diubah.
+    // Nama barang ikut format kertas: "duplek 270gsm 90x120cm".
+    // Permintaan owner: di kotak item Buat PO, harga satuan = HARGA PER LEMBAR
+    // (harga per rim ÷ 500) & satuan "lembar" — konsisten dengan alur
+    // referensi Potong Kertas yang juga memakai harga per lembar.
+    // Qty tidak diubah.
     onChange(
       items.map((item, i) =>
         i === index
           ? {
               ...item,
               deskripsi: paperDeskripsi(paper),
-              satuan: 'rim',
-              harga: paper.pricePerRim || 0,
+              satuan: 'lembar',
+              harga: Math.round((paper.pricePerRim || 0) / 500),
             }
           : item
       )
@@ -200,7 +203,7 @@ export function ItemsFields({
                 /* MODE KERTAS (Buat Purchase Order) — kotak besar & bisa
                    diketik manual, plus tombol dropdown berisi daftar kertas
                    dari Master Harga Kertas (auto-isi nama "duplek 270gsm
-                   90x120cm", satuan rim & harga per rim). */
+                   90x120cm", satuan lembar & harga per lembar). */
                 <Popover
                   open={openPaperIndex === index}
                   onOpenChange={(open) => setOpenPaperIndex(open ? index : null)}
@@ -357,7 +360,9 @@ export function ItemsFields({
               </div>
               {showPrice && (
                 <div className="space-y-1">
-                  <Label className="text-xs">Harga Satuan</Label>
+                  {/* Mode kertas (PO): label "Harga/Lembar" — harga satuan diisi
+                      harga per lembar saat memilih kertas dari dropdown. */}
+                  <Label className="text-xs">{isPaperMode ? 'Harga/Lembar' : 'Harga Satuan'}</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
