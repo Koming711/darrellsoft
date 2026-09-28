@@ -1,7 +1,7 @@
 'use client'
 
 import { FileText, Plus, Search, Loader2, Printer, Download, DatabaseBackup, Upload } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,7 @@ interface Paper {
   width: number
   height: number
   pricePerRim: number
+  suplier?: string | null
   kategoriId?: string | null
   kategori?: { id: string; nama: string } | null
   createdAt: string
@@ -56,6 +57,7 @@ interface FormData {
   pricePerRim: string
   pricePerKg: string
   kategoriId: string
+  suplier: string
 }
 
 export default function MasterHargaKertasPage() {
@@ -67,6 +69,7 @@ export default function MasterHargaKertasPage() {
 
   const [searchTerm, setSearchTerm] = useState('')
   const [kategoriFilter, setKategoriFilter] = useState('all')
+  const [suplierFilter, setSuplierFilter] = useState('all')
   const [papers, setPapers] = useState<Paper[]>([])
   const [kategoriList, setKategoriList] = useState<KategoriItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,7 +82,8 @@ export default function MasterHargaKertasPage() {
     height: '',
     pricePerRim: '',
     pricePerKg: '',
-    kategoriId: ''
+    kategoriId: '',
+    suplier: ''
   })
   const [activeField, setActiveField] = useState<'pricePerKg' | 'pricePerRim' | null>(null)
   const [saving, setSaving] = useState(false)
@@ -117,6 +121,25 @@ export default function MasterHargaKertasPage() {
       console.error('Error fetching kategori:', error)
     }
   }
+
+  // Saran nama suplier untuk datalist dialog: gabungan nama toko dari
+  // Master Suplier + suplier yang sudah pernah dipakai di daftar kertas.
+  const [tokoNames, setTokoNames] = useState<string[]>([])
+  useEffect(() => {
+    authFetch('/api/toko-pemasok')
+      .then(res => res.ok ? res.json() : [])
+      .then((list) => {
+        const names = (Array.isArray(list) ? list : []).map((t: { namaToko?: string }) => (t.namaToko || '').trim()).filter(Boolean)
+        setTokoNames(Array.from(new Set(names)))
+      })
+      .catch(() => { /* diamkan saja — saran suplier opsional */ })
+  }, [])
+  const suplierSuggestions = useMemo(() => {
+    const set = new Set<string>()
+    papers.forEach(p => { const s = (p.suplier || '').trim(); if (s) set.add(s) })
+    tokoNames.forEach(n => set.add(n))
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [papers, tokoNames])
 
   const handleBackup = async () => {
     setBackupLoading('backup')
@@ -187,9 +210,19 @@ export default function MasterHargaKertasPage() {
   }
 
   const filteredPapers = papers.filter(paper =>
-    paper.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (kategoriFilter === 'all' || paper.kategoriId === kategoriFilter)
+    (paper.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     (paper.suplier || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (kategoriFilter === 'all' || paper.kategoriId === kategoriFilter) &&
+    (suplierFilter === 'all' || (paper.suplier || '') === (suplierFilter === '__none__' ? '' : suplierFilter))
   )
+
+  // Daftar suplier unik utk filter — suplier terisi + "(Tanpa suplier)" bila ada kertas tanpa suplier
+  const suplierFilterOptions = (() => {
+    const names = Array.from(new Set(papers.map(p => (p.suplier || '').trim()).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'id'))
+    const hasEmpty = papers.some(p => !(p.suplier || '').trim())
+    return { names, hasEmpty }
+  })()
 
   const handleAdd = () => {
     setEditingPaper(null)
@@ -200,7 +233,8 @@ export default function MasterHargaKertasPage() {
       height: '',
       pricePerRim: '',
       pricePerKg: '',
-      kategoriId: ''
+      kategoriId: '',
+      suplier: ''
     })
     setActiveField(null)
     setDialogOpen(true)
@@ -221,7 +255,8 @@ export default function MasterHargaKertasPage() {
       height: paper.height.toString(),
       pricePerRim: paper.pricePerRim.toString(),
       pricePerKg: calculatedPricePerKg.toString(),
-      kategoriId: paper.kategoriId || ''
+      kategoriId: paper.kategoriId || '',
+      suplier: paper.suplier || ''
     })
     setActiveField('pricePerRim')
     setDialogOpen(true)
@@ -281,7 +316,7 @@ export default function MasterHargaKertasPage() {
 
     // Add table
     printWindow.document.write('<table>')
-    printWindow.document.write('<thead><tr><th>No</th><th>Nama Bahan</th><th>Gramatur</th><th>Ukuran (cm)</th><th>Harga/Rim</th><th>Harga/Lembar</th></tr></thead>')
+    printWindow.document.write('<thead><tr><th>No</th><th>Nama Bahan</th><th>Suplier</th><th>Gramatur</th><th>Ukuran (cm)</th><th>Harga/Rim</th><th>Harga/Lembar</th></tr></thead>')
     printWindow.document.write('<tbody>')
 
     filteredPapers.forEach((paper, index) => {
@@ -290,6 +325,7 @@ export default function MasterHargaKertasPage() {
         <tr>
           <td>${index + 1}</td>
           <td>${paper.name}</td>
+          <td>${paper.suplier || '-'}</td>
           <td>${paper.grammage} gsm</td>
           <td>${paper.width} x ${paper.height}</td>
           <td class="right">Rp ${paper.pricePerRim.toLocaleString('id-ID')}</td>
@@ -386,12 +422,13 @@ export default function MasterHargaKertasPage() {
       height: parseFloat(formData.height),
       pricePerRim: parseFloat(formData.pricePerRim),
       kategoriId: formData.kategoriId || null,
+      suplier: formData.suplier.trim() || null,
     }
 
     handleSave(saveData)
   }
 
-  const handleSave = async (data: { name: string; grammage: number; width: number; height: number; pricePerRim: number; kategoriId: string | null }) => {
+  const handleSave = async (data: { name: string; grammage: number; width: number; height: number; pricePerRim: number; kategoriId: string | null; suplier: string | null }) => {
     if (saving) return
     setSaving(true)
     try {
@@ -439,8 +476,20 @@ export default function MasterHargaKertasPage() {
       render: (paper: Paper) => (
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
-          <span className="font-medium text-slate-800 truncate">{paper.name}</span>
+          <div className="min-w-0">
+            <span className="font-medium text-slate-800 truncate block">{paper.name}</span>
+            {paper.suplier && (
+              <span className="text-[11px] text-slate-400 truncate block">{paper.suplier}</span>
+            )}
+          </div>
         </div>
+      )
+    },
+    {
+      key: 'suplier',
+      title: 'Suplier',
+      render: (paper: Paper) => (
+        <span className="text-slate-600">{paper.suplier || '—'}</span>
       )
     },
     {
@@ -511,6 +560,24 @@ export default function MasterHargaKertasPage() {
                     {k.nama}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full lg:w-44">
+            <Select value={suplierFilter} onValueChange={setSuplierFilter}>
+              <SelectTrigger className="w-full" aria-label="Filter suplier">
+                <SelectValue placeholder="Semua suplier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua suplier</SelectItem>
+                {suplierFilterOptions.names.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+                {suplierFilterOptions.hasEmpty && (
+                  <SelectItem value="__none__">(Tanpa suplier)</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -604,6 +671,27 @@ export default function MasterHargaKertasPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
+              </div>
+
+              {/* Suplier (opsional — untuk membedakan harga antar suplier) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="suplier" className="text-sm font-medium">
+                  Suplier
+                </Label>
+                <Input
+                  id="suplier"
+                  type="text"
+                  list="suplier-suggestions"
+                  placeholder="Nama suplier (opsional)"
+                  value={formData.suplier}
+                  onChange={(e) => setFormData({ ...formData, suplier: e.target.value })}
+                  autoComplete="off"
+                />
+                <datalist id="suplier-suggestions">
+                  {suplierSuggestions.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Kategori (opsional — dari Daftar Kategori) */}

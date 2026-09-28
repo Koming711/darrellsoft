@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (authErr) return authErr
     const user = getServerUser(request)!
     const body = await request.json()
-    const { name, grammage, width, height, pricePerRim, kategoriId } = body
+    const { name, grammage, width, height, pricePerRim, kategoriId, suplier } = body
 
     if (!name || !grammage || !width || !height || !pricePerRim) {
       return NextResponse.json(
@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         height: parseFloat(height),
         pricePerRim: parseFloat(pricePerRim),
         kategoriId: validKategoriId,
+        suplier: suplier ? String(suplier).trim() || null : null,
         userId: user?.id || null,
       },
       include: { kategori: { select: { id: true, nama: true } } }

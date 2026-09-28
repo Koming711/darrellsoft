@@ -78,7 +78,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, grammage, width, height, pricePerRim, kategoriId } = body
+    const { name, grammage, width, height, pricePerRim, kategoriId, suplier } = body
 
     // Kategori opsional (null = Tanpa kategori) — validasi milik user agar tidak kena FK error
     let validKategoriId: string | null = null
@@ -100,7 +100,8 @@ export async function PUT(
         width: parseFloat(width),
         height: parseFloat(height),
         pricePerRim: parseFloat(pricePerRim),
-        kategoriId: validKategoriId
+        kategoriId: validKategoriId,
+        suplier: suplier !== undefined ? (String(suplier).trim() || null) : existing.suplier,
       },
       include: { kategori: { select: { id: true, nama: true } } }
     })

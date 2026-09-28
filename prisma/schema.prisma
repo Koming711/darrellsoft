@@ -113,6 +113,7 @@ model Paper {
   pricePerRim Float
   kategoriId  String?
   kategori    Kategori? @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
+  suplier     String?
   userId      String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

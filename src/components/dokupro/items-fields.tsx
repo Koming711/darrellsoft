@@ -38,6 +38,9 @@ export interface PaperOption {
   width: number | null;
   height: number | null;
   pricePerRim: number;
+  /** Nama suplier (dari Master Harga Kertas) — ditampilkan agar harga
+   *  kertas yang sama antar suplier mudah dibedakan. */
+  suplier?: string | null;
 }
 
 /** Susun deskripsi item dari data kertas, contoh: "duplek 270gsm 90x120cm". */
@@ -243,7 +246,12 @@ export function ItemsFields({
                               onMouseDown={(e) => { e.preventDefault(); pickPaper(index, p); }}
                               className={`w-full text-left px-3 py-2 text-sm transition-colors ${item.deskripsi === paperDeskripsi(p) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
                             >
-                              <span className="block truncate">{p.name}</span>
+                              <span className="block truncate">
+                                {p.name}
+                                {p.suplier && (
+                                  <span className="text-[11px] text-slate-400 ml-1.5">· {p.suplier}</span>
+                                )}
+                              </span>
                               <span className="block text-[11px] text-slate-400">{detailParts.join(' · ')}</span>
                               {showPrice && (
                                 <span className="block text-[11px] text-slate-400">{formatRupiah(p.pricePerRim)} / rim</span>
