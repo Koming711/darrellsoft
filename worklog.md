@@ -10776,3 +10776,21 @@ Stage Summary:
 - Lokal: daftar akun kembali WAJIB OTP WhatsApp (Fonnte) — paritas penuh dgn v118, di atas lineage v123.
 - PRODUKSI MASIH TANPA OTP (v123) — butuh deploy untuk memulihkan; token Fonnte c1yD...b87h sudah terpasang di Setting produksi (expired 24 Okt 2026, kuota 1000); device "darrellsoft" harus status connect (scan QR bila disconnect) saat deploy dilakukan.
 - otp_dev_mode di produksi TIDAK di-set true (hanya lokal) → produksi kirim WA asli.
+
+---
+Task ID: fix-po-dropdown-barang
+Agent: main (Z.ai Code)
+Task: "dihalaman buat purchase order baru juga sudah pernah dirubah nama barang jadi dropdown. sekarang tidak dropdown. check and fix"
+
+Work Log:
+- Diagnosis: ItemsFields sudah punya "barang mode" (textarea besar + tombol dropdown) tapi hanya dipakai invoice-editor & invoice-pelunasan-editor via prop barangOptions; purchase-order-editor memanggil ItemsFields TANPA options → Nama Barang jatuh ke Textarea polos. Git history (--all, -S barangOptions/stock-bahan) tidak memuat versi PO dropdown → fitur hilang bersama commit v120–v123 yang ter-reset dari sandbox.
+- Recon produksi www.darrellsoft.com (agent-browser, login superadmin): halaman /purchase-order → Buat PO → Nama Barang berupa textarea besar + tombol chevron aria-label "Pilih barang dari daftar"; dropdown header "MASTER HARGA KERTAS"; opsi 3 baris (nama / "260 gsm · 65 × 100 cm · Harga/Lembar Rp2.789" / "Rp1.394.250 / rim"); sumber data /api/papers (urutan API dipakai langsung, tanpa sort ulang); memilih kertas mengisi deskripsi "duplek 270gsm 90x120cm", harga = pricePerRim, qty tidak berubah; Harga/Lembar = Math.round(pricePerRim/500) (formatRupiah Math.round → 2788.5 → Rp2.789 cocok).
+- Implementasi: items-fields.tsx — tambah PaperOption + paperDeskripsi(), prop paperOptions, state openPaperIndex, pickPaper (deskripsi gabungan, satuan 'rim', harga pricePerRim, qty utuh), render mode kertas (header "Master Harga Kertas", aria "Pilih barang dari daftar", empty state "Belum ada data kertas di Master Harga Kertas"); paper mode dicek SEBELUM barang mode sehingga invoice tidak terpengaruh. purchase-order-editor.tsx — fetch /api/papers + pass paperOptions={paperList}.
+- E2E dev (agent-browser): dialog "Lengkapi Data Perusahaan" muncul (DB lokal kosong) → diisi & disimpan; Buat PO → dropdown terbuka dengan opsi kertas lokal (header MASTER HARGA KERTAS, format 3 baris identik produksi); pilih ivory → "ivory 210gsm 65x100cm" + harga 1.078.350; ketik manual → textarea tetap bisa diketik; pilih duplek → "duplek 270gsm 90x120cm" + 2.210.000 (persis produksi); preview tabel Qty/Nama Barang/Harga Satuan/Jumlah benar; Simpan → toast "Purchase Order berhasil disimpan — dokumen direset", nomor naik ke PO/09/26/0002, baris riwayat "Toko Kertas Maju Jaya | duplek 270gsm 90x120cm" muncul; data uji dihapus via Hapus.
+- Regresi: /invoice → Buat Invoice masih barang mode (aria "Pilih barang dari daftar customer", header Master Barang Customer) ✓; console & dev.log bersih (prisma:error kategoriId = noise startup auto-seed lama, non-fatal, bukan dari perubahan ini); eslint scoped 2 file bersih.
+- Commit adaec6d. TANPA deploy (produksi sudah benar; perbaikan ini menyamakan lokal dgn produksi).
+
+Stage Summary:
+- Halaman Buat Purchase Order Baru: Nama Barang kembali jadi dropdown bertingkat dari Master Harga Kertas (parity penuh dgn produksi v123), plus tetap bisa ketik manual.
+- items-fields kini mendukung 3 mode: polos / barang (customer, invoice) / kertas (Master Harga Kertas, PO) — saling tidak mengganggu.
+- Belum dideploy ke Vercel (produksi tidak terdampak; lokal saja).
