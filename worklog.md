@@ -10754,3 +10754,25 @@ Stage Summary:
 - Lokal kembali = produksi v123: landing redesign + lifetime hilang (landing & checkout), fitur Daftar Kategori utuh + terseed 10 kategori, kode pelanggan CUST-### otomatis dengan preview dialog, sw v123 + APP_VERSION 2026-09-27-v58, Stock Bahan dipertahankan.
 - Dev terverifikasi E2E via browser; 16 file changed lint bersih (warna error lint global = pra-eksisting file lain).
 - Catatan produksi: /api/stock-bahan di www.darrellsoft.com masih 500 (tabel Bahan/BahanMutasi belum dibuat di DB produksi — auto-seed perlu dieksplor/eksekusi di sana saat fitur dipakai; BUKAN bagian restore ini).
+
+---
+Task ID: restore-register-otp
+Agent: main (Z.ai Code)
+Task: "rubah daftar akun memakai kode otp untuk nomor whatsapp. sudah pernah dirubah, tapi balik lagi ke yang lama. fix"
+
+Work Log:
+- Diagnosis: OTP register pernah live di produksi v118 (commit 96a217d di origin/main) — tapi deploy v119-v123 dilakukan dari lineage lokal yang TIDAK memuat OTP → produksi kini 404 di /api/register/send-otp & /api/check-phone (diverifikasi curl), daftar kembali ke form lama.
+- Tidak bisa git reset --hard origin/main (akan menghapus restore v123) → git cherry-pick 96a217d ke HEAD: BERHASIL TANPA KONFLIK (10 file, +815/-32: RegisterOtp model ×2 schema, check-phone, send-otp, register, login page, inline-login, PhoneOtpField, phone.ts, i18n).
+- Checkout scripts bantu dari 0f52616 (set-dev-mode.mjs, push-register-otp-prod.mjs). bunx prisma db push → tabel RegisterOtp terbentuk di db/custom.db.
+- Setting otp_dev_mode=true via script (mode dev: send-otp mengembalikan devCode untuk testing, TIDAK kirim WA asli).
+- Restart dev server bersih (rm -rf .next + setsid) — server lama masih pegang Prisma Client tanpa model RegisterOtp ("Cannot read properties of undefined (reading 'count')").
+- Verifikasi API: check-phone {available:true}; send-otp {"success":true,"expiresInSeconds":300,"devMode":true,"devCode":"..."}.
+- Verifikasi browser E2E (form Daftar): field Nomor Handphone + feedback real-time "Nomor handphone tersedia"/"Username tersedia"; Kirim OTP → cooldown "Kirim ulang 50dtk" + input "Kode OTP WhatsApp" + banner "Mode Dev — Kode OTP: 697263"; submit → POST /api/register 201 "berhasil". (Catatan: tombol tab & tombol submit sama-sama bertuliskan "Daftar Akun" — klik via closest('form').)
+- Guard terverifikasi: duplikat nomor 08 & varian +62 → 409 PHONE_EXISTS; username duplikat → 409 USERNAME_EXISTS; OTP tanpa kirim → 400 OTP_NOT_FOUND; OTP salah → 400 OTP_INVALID "Sisa percobaan: 4".
+- Cleanup data uji: calonPembeli uji_otp_e2e + 3 record RegisterOtp dihapus; check-phone/check-username kembali available:true. Lint 10 file bersih.
+- Commit 05f23dd (cherry-pick) + fbe5901 (scripts + worklog). TANPA deploy.
+
+Stage Summary:
+- Lokal: daftar akun kembali WAJIB OTP WhatsApp (Fonnte) — paritas penuh dgn v118, di atas lineage v123.
+- PRODUKSI MASIH TANPA OTP (v123) — butuh deploy untuk memulihkan; token Fonnte c1yD...b87h sudah terpasang di Setting produksi (expired 24 Okt 2026, kuota 1000); device "darrellsoft" harus status connect (scan QR bila disconnect) saat deploy dilakukan.
+- otp_dev_mode di produksi TIDAK di-set true (hanya lokal) → produksi kirim WA asli.
