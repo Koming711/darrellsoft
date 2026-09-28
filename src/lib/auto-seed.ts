@@ -121,6 +121,8 @@ async function migrateExistingTablesPg(): Promise<void> {
     { table: '"RiwayatPotongKertas"', column: '"berapaMata"', type: "TEXT NOT NULL DEFAULT ''" },
     // Missing column for Paper (Daftar Kategori v123)
     { table: '"Paper"', column: '"kategoriId"', type: 'TEXT' },
+    // Missing column for Paper (Suplier per-suplier — harga beda tiap suplier)
+    { table: '"Paper"', column: '"suplier"', type: 'TEXT' },
   ]
   for (const m of migrations) {
     try {
