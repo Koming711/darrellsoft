@@ -10794,3 +10794,25 @@ Stage Summary:
 - Halaman Buat Purchase Order Baru: Nama Barang kembali jadi dropdown bertingkat dari Master Harga Kertas (parity penuh dgn produksi v123), plus tetap bisa ketik manual.
 - items-fields kini mendukung 3 mode: polos / barang (customer, invoice) / kertas (Master Harga Kertas, PO) — saling tidak mengganggu.
 - Belum dideploy ke Vercel (produksi tidak terdampak; lokal saja).
+
+---
+Task ID: feat-suplier-master-harga-kertas
+Agent: main (Z.ai Code)
+Task: "di master harga kertas, tambahkan nama suplier untuk membagi harga masing2 suplier yang berbeda"
+
+Work Log:
+- Riset struktur: Paper model (2 schema), /api/papers GET/POST & /api/papers/[id] PUT (tanpa validasi duplikat), halaman master-harga-kertas (search + filter kategori + MobileTable + print + backup/restore master), auto-seed punya mekanisme "missing columns" (pola kategoriId), backup xlsx Data sheet menulis kolom mentah → suplier otomatis ikut tanpa ubah route backup/restore.
+- Schema: tambah `suplier String?` di model Paper (prisma/schema.prisma + schema.prisma), bun run db:push OK (kolom dibuat di db/custom.db).
+- auto-seed.ts: tambah entry migration `{ table: '"Paper"', column: '"suplier"', type: 'TEXT' }` — kolom auto-dibuat di DB produksi saat fitur di-deploy (pola sama dgn kategoriId).
+- API: POST /api/papers & PUT /api/papers/[id] terima `suplier` (trim, kosong→null; PUT undefined→pertahankan existing). Insiden: edit pertama papers/route.ts salah replace (GET ketimpa POST) → file ditulis ulang utuh, diff diverifikasi minimal.
+- Halaman Master Harga Kertas: field Suplier (opsional) di dialog tambah/edit dgn datalist saran (gabungan namaToko dari /api/toko-pemasok + suplier pernah dipakai, sort localeCompare id); kolom SUPPLIER di tabel (+ subtitle suplier di kolom nama utk mobile card); filter "Semua suplier"/per-suplier/"(Tanpa suplier)" (sentinel __none__ karena Radix Select larang value ""); search juga cocokkan suplier; kolom Suplier di print tabel.
+- PO dropdown (items-fields paper mode): PaperOption.suplier ditampilkan di baris nama "art karton · CV Sumber Kertas" — kertas sama antar suplier beda harga mudah dibedakan; deskripsi item PO tetap TANPA suplier ("art karton 260gsm 65x100cm") karena dokumen PO sudah punya bagian Kepada Yth.
+- E2E dev: tambah kertas "art karton 260 65x100 / CV Sumber Kertas / Rp1.500.000" sukses (POST 201) — kertas sama dgn suplier beda & harga beda co-exist; filter suplier → hanya 1 baris itu; search "CV Sumber" → benar; edit → suplier terprefill; PO dropdown tampil "art karton · CV Sumber Kertas / Rp3.000 lembar / Rp1.500.000 rim", pick → harga 1.500.000 terisi; mobile 375px suplier tampil; data uji dihapus.
+- Insensi dev: setelah db:push, dev server lama masih pegang Prisma Client lama → POST /api/papers 500 PrismaClientValidationError (arg `suplier` unknown) → restart dev server (pkill + rm -rf .next + setsid bun run dev) → OK. Refs agent-browser sering stale setelah re-render dialog → solusi: re-snapshot sebelum klik & submit via Enter.
+- Lint scoped 5 file bersih; console & dev.log bersih. Commit 69b9f11. TANPA deploy.
+
+Stage Summary:
+- Master Harga Kertas kini mendukung harga per suplier: field Suplier opsional di dialog, kolom + filter + search + print; kertas sama dari suplier berbeda bisa entri terpisah dgn harga masing-masing.
+- Dropdown kertas di Buat PO menampilkan suplier; auto-isi harga mengikuti suplier yang dipilih.
+- Kolom Paper.suplier ter-seed otomatis di produksi lewat auto-seed migrations saat deploy nanti; backup/restore xlsx sudah kompatibel.
+- Belum dideploy (lokal saja).
