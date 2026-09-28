@@ -10841,3 +10841,27 @@ Stage Summary:
 - Kotak item Buat PO kini memakai "Harga/Lembar": pilih kertas -> harga otomatis per lembar (rim÷500), satuan lembar; Invoice tidak terpengaruh.
 - Halaman Hitung Harga Kertas menampilkan nama suplier di dropdown, info box, WhatsApp, dan cetak — kertas sama antar suplier mudah dibedakan & harga mengikuti suplier terpilih.
 - Master Harga Kertas: suplier tampil sekali di kolom sendiri (duplikasi subtitle dihapus).
+
+---
+Task ID: lanjutkan-register-otp-whatsapp
+Agent: main (Z.ai Code)
+Task: "lanjutkan registrasi otp whatsapp aja"
+
+Work Log:
+- State check: fitur OTP sudah di-restore sesi sebelumnya (cherry-pick 96a217d -> 05f23dd; routes /api/register/send-otp, /api/check-phone, /api/register, PhoneOtpField, model RegisterOtp di 2 schema — semua utuh di working tree). Sisa kerjanya: verifikasi ulang + siapkan produksi + deploy.
+- Inspeksi DB produksi Supabase (pooler session 5432, read-only): RegisterOtp & CalonPembeli SUDAH cocok dgn model lokal (dibuat era v118); Paper produksi ternyata TANPA kategoriId & suplier (punya kolom legacy 'kategori'); Bahan/BahanMutasi + 7 tabel Stock* legacy punya kolom ekstra (dibiarkan).
+- Diff schema menyeluruh (parser model lokal vs information_schema produksi): satu-satunya DDL nyata = Paper.kategoriId + Paper.suplier (kolom relasi Prisma seperti 'papers'/'pengguna' = virtual, diabaikan).
+- DDL produksi aman (TANPA --accept-data-loss, kolom legacy 'kategori' TIDAK disentuh): ALTER TABLE Paper ADD kategoriId TEXT + suplier TEXT; CREATE INDEX Paper_kategoriId_idx; ADD CONSTRAINT Paper_kategoriId_fkey REFERENCES Kategori(id) ON DELETE SET NULL ON UPDATE CASCADE. Semua OK.
+- Setting produksi: wa_api_key=c1yD...b87h (Fonnte, len 20) ADA; otp_dev_mode TIDAK di-set (produksi kirim WA asli). Fonnte /device (POST): device "darrellsoft" (0818666711) status CONNECT, kuota 997, expired 24 Okt 2026.
+- Cleanup residu: produksi 1 baris RegisterOtp expired+consumed (6287881747777, era v118 23 Sep) dihapus; lokal 1 baris OTP expired + Setting session_uji_otp_e2e dihapus.
+- E2E lokal ulang (dev server + agent-browser, mode dev otp_dev_mode=true): tab Daftar Akun -> field Nama Lengkap/Nomor Handphone/Email/Username/Password/Konfirmasi + tombol "Kirim OTP"; feedback real-time "Nomor handphone tersedia" & "Username tersedia"; Kirim OTP -> banner "Mode Dev — Kode OTP: 492370" + cooldown "Kirim ulang 59dtk"; isi "Masukkan 6 digit kode" -> Daftar -> toast "Pendaftaran berhasil! Selamat datang, Uji OTP Lanjut!". DB: CalonPembeli (nama/nomorHP/username, status baru, role demo) dibuat; OTP row phone dinormalisasi 628... consumed:true attempts:0. Data uji dihapus setelahnya.
+- Version bump utk deploy: public/sw.js CACHE_NAME darrell-soft-v123 -> v124; APP_VERSION 2026-09-27-v58 -> 2026-09-28-v59. Commit 1bd92c9; push --force-with-lease origin HEAD:main (e3b24c8 -> 1bd92c9) — origin/main kini = lineage v123+OTP (diverged dari v118 era, konten sidebar icon-only sudah setara produksi, diverifikasi 36px Beranda di kedua sisi).
+- .env.production.local direkonstruksi (gitignored) dgn DATABASE_URL pooler session 5432 agar scripts/push-register-otp-prod.mjs & set-wa-api-key-prod.mjs siap pakai.
+- Catatan auto-seed: entry migration {Paper.suplier} pakai "ADD COLUMN IF NOT EXISTS" (valid di Postgres produksi; di SQLite lokal error ter-catch sebagai warn startup — noise lama, non-fatal, kolom dijaga db:push).
+- DEPLOY PRODUKSI BELUM BISA: butuh VERCEL_TOKEN dari user (pola historis: npx vercel --prod --yes --token <TOKEN>, project koming711s-projects/darrellsoft). Semua prasyarat DB & Fonnte sudah siap.
+
+Stage Summary:
+- Semua prasyarat produksi untuk registrasi OTP WhatsApp LENGKAP: tabel RegisterOtp + kolom Paper baru + FK terpasang di Supabase; token Fonnte aktif & device connect; otp_dev_mode tidak di-set (OTP WA asli).
+- Lokal terverifikasi E2E penuh (daftar + OTP + konsumsi + guard), data uji dibersihkan.
+- origin/main disinkronkan dgn kandidat deploy (1bd92c9, v124).
+- Tinggal 1 langkah: deploy Vercel menunggu token dari user; setelah itu verifikasi produksi (form daftar punya Kirim OTP + endpoint send-otp 200).
