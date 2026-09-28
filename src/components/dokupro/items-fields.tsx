@@ -31,6 +31,23 @@ export interface BarangOption {
   qty: number;
 }
 
+export interface PaperOption {
+  id: string;
+  name: string;
+  grammage: number | null;
+  width: number | null;
+  height: number | null;
+  pricePerRim: number;
+}
+
+/** Susun deskripsi item dari data kertas, contoh: "duplek 270gsm 90x120cm". */
+export function paperDeskripsi(p: PaperOption): string {
+  let s = p.name || '';
+  if (p.grammage) s += ` ${p.grammage}gsm`;
+  if (p.width && p.height) s += ` ${p.width}x${p.height}cm`;
+  return s;
+}
+
 interface ItemsFieldsProps {
   items: DocumentItem[];
   onChange: (items: DocumentItem[]) => void;
@@ -49,6 +66,14 @@ interface ItemsFieldsProps {
   /** Dipanggil saat user memilih barang dari dropdown untuk item ke-N. */
   onPickBarang?: (itemIndex: number, barang: BarangOption) => void;
   /**
+   * Mode kertas (dipakai Buat Purchase Order): jika disediakan, kotak Nama
+   * Barang menjadi kotak besar yang BISA diketik manual, dilengkapi tombol
+   * dropdown berisi daftar kertas dari Master Harga Kertas. Memilih dari
+   * dropdown otomatis mengisi Nama Barang ("duplek 270gsm 90x120cm"),
+   * Satuan ("rim") & Harga Satuan (harga per rim).
+   */
+  paperOptions?: PaperOption[];
+  /**
    * Kunci Harga Satuan & Harga Modal (read-only) — permintaan owner: harga
    * hanya boleh diubah di Master Barang, tidak di halaman Buat Invoice.
    */
@@ -64,9 +89,12 @@ export function ItemsFields({
   emptyBarangMessage = 'Belum ada barang untuk customer ini',
   onPickBarang,
   lockPrices = false,
+  paperOptions,
 }: ItemsFieldsProps) {
   const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
+  const [openPaperIndex, setOpenPaperIndex] = useState<number | null>(null);
   const isBarangMode = Array.isArray(barangOptions);
+  const isPaperMode = Array.isArray(paperOptions);
 
   const addItem = () => {
     onChange([
@@ -116,6 +144,24 @@ export function ItemsFields({
     );
   };
 
+  const pickPaper = (index: number, paper: PaperOption) => {
+    setOpenPaperIndex(null);
+    // Nama barang ikut format kertas: "duplek 270gsm 90x120cm",
+    // satuan "rim", harga satuan = harga per rim. Qty tidak diubah.
+    onChange(
+      items.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              deskripsi: paperDeskripsi(paper),
+              satuan: 'rim',
+              harga: paper.pricePerRim || 0,
+            }
+          : item
+      )
+    );
+  };
+
   // Disable Tambah if no item has meaningful data yet
   const hasAnyData = items.some((item) => item.deskripsi.trim() !== '' || (showPrice && item.harga > 0));
 
@@ -147,7 +193,74 @@ export function ItemsFields({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Nama Barang</Label>
-              {isBarangMode ? (
+              {isPaperMode ? (
+                /* MODE KERTAS (Buat Purchase Order) — kotak besar & bisa
+                   diketik manual, plus tombol dropdown berisi daftar kertas
+                   dari Master Harga Kertas (auto-isi nama "duplek 270gsm
+                   90x120cm", satuan rim & harga per rim). */
+                <Popover
+                  open={openPaperIndex === index}
+                  onOpenChange={(open) => setOpenPaperIndex(open ? index : null)}
+                >
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <Textarea
+                        value={item.deskripsi}
+                        onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
+                        placeholder="Ketik nama barang atau pilih lewat tombol dropdown"
+                        className="text-sm min-h-[84px] pr-11"
+                        rows={3}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOpenPaperIndex(openPaperIndex === index ? null : index)}
+                        className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-slate-50 shadow-xs outline-none cursor-pointer transition-colors hover:bg-slate-100 ${openPaperIndex === index ? 'text-slate-700' : 'text-slate-400'}`}
+                        aria-label="Pilih barang dari daftar"
+                      >
+                        <ChevronDown className={`w-4 h-4 transition-transform ${openPaperIndex === index ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    {paperOptions!.length > 0 ? (
+                      <div>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
+                          Master Harga Kertas
+                        </div>
+                        {paperOptions!.map((p) => {
+                          const detailParts: string[] = [];
+                          if (p.grammage) detailParts.push(`${p.grammage} gsm`);
+                          if (p.width && p.height) detailParts.push(`${p.width} × ${p.height} cm`);
+                          detailParts.push(`Harga/Lembar ${formatRupiah(p.pricePerRim / 500)}`);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onMouseDown={(e) => { e.preventDefault(); pickPaper(index, p); }}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${item.deskripsi === paperDeskripsi(p) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                            >
+                              <span className="block truncate">{p.name}</span>
+                              <span className="block text-[11px] text-slate-400">{detailParts.join(' · ')}</span>
+                              {showPrice && (
+                                <span className="block text-[11px] text-slate-400">{formatRupiah(p.pricePerRim)} / rim</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
+                        <PackageSearch className="w-5 h-5 text-slate-300" />
+                        Belum ada data kertas di Master Harga Kertas
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              ) : isBarangMode ? (
                 /* MODE BARANG (Buat Invoice) — kotak besar & bisa diketik
                    manual, plus tombol dropdown untuk memilih barang milik
                    customer (auto-isi nama, qty dari master, satuan, harga
