@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from 'sonner'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -30,8 +37,15 @@ interface Paper {
   width: number
   height: number
   pricePerRim: number
+  kategoriId?: string | null
+  kategori?: { id: string; nama: string } | null
   createdAt: string
   updatedAt: string
+}
+
+interface KategoriItem {
+  id: string
+  nama: string
 }
 
 interface FormData {
@@ -41,6 +55,7 @@ interface FormData {
   height: string
   pricePerRim: string
   pricePerKg: string
+  kategoriId: string
 }
 
 export default function MasterHargaKertasPage() {
@@ -51,7 +66,9 @@ export default function MasterHargaKertasPage() {
   const canDelete = currentUser?.role === 'superadmin' || hasSubPermission(currentUser?.role || '', 'master-harga-kertas', 'master-harga-kertas-hapus')
 
   const [searchTerm, setSearchTerm] = useState('')
+  const [kategoriFilter, setKategoriFilter] = useState('all')
   const [papers, setPapers] = useState<Paper[]>([])
+  const [kategoriList, setKategoriList] = useState<KategoriItem[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPaper, setEditingPaper] = useState<Paper | null>(null)
@@ -61,7 +78,8 @@ export default function MasterHargaKertasPage() {
     width: '',
     height: '',
     pricePerRim: '',
-    pricePerKg: ''
+    pricePerKg: '',
+    kategoriId: ''
   })
   const [activeField, setActiveField] = useState<'pricePerKg' | 'pricePerRim' | null>(null)
   const [saving, setSaving] = useState(false)
@@ -70,6 +88,7 @@ export default function MasterHargaKertasPage() {
 
   useEffect(() => {
     fetchPapers()
+    fetchKategoriList()
   }, [])
 
   useDataChange(['papers'], () => {
@@ -86,6 +105,16 @@ export default function MasterHargaKertasPage() {
       toast.error('Gagal memuat data kertas')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchKategoriList = async () => {
+    try {
+      const response = await authFetch('/api/kategori')
+      const data = await response.json()
+      setKategoriList(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching kategori:', error)
     }
   }
 
@@ -158,7 +187,8 @@ export default function MasterHargaKertasPage() {
   }
 
   const filteredPapers = papers.filter(paper =>
-    paper.name.toLowerCase().includes(searchTerm.toLowerCase())
+    paper.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    (kategoriFilter === 'all' || paper.kategoriId === kategoriFilter)
   )
 
   const handleAdd = () => {
@@ -169,7 +199,8 @@ export default function MasterHargaKertasPage() {
       width: '',
       height: '',
       pricePerRim: '',
-      pricePerKg: ''
+      pricePerKg: '',
+      kategoriId: ''
     })
     setActiveField(null)
     setDialogOpen(true)
@@ -189,7 +220,8 @@ export default function MasterHargaKertasPage() {
       width: paper.width.toString(),
       height: paper.height.toString(),
       pricePerRim: paper.pricePerRim.toString(),
-      pricePerKg: calculatedPricePerKg.toString()
+      pricePerKg: calculatedPricePerKg.toString(),
+      kategoriId: paper.kategoriId || ''
     })
     setActiveField('pricePerRim')
     setDialogOpen(true)
@@ -353,12 +385,13 @@ export default function MasterHargaKertasPage() {
       width: parseFloat(formData.width),
       height: parseFloat(formData.height),
       pricePerRim: parseFloat(formData.pricePerRim),
+      kategoriId: formData.kategoriId || null,
     }
 
     handleSave(saveData)
   }
 
-  const handleSave = async (data: { name: string; grammage: number; width: number; height: number; pricePerRim: number }) => {
+  const handleSave = async (data: { name: string; grammage: number; width: number; height: number; pricePerRim: number; kategoriId: string | null }) => {
     if (saving) return
     setSaving(true)
     try {
@@ -411,6 +444,13 @@ export default function MasterHargaKertasPage() {
       )
     },
     {
+      key: 'kategori',
+      title: 'Kategori',
+      render: (paper: Paper) => (
+        <span className="text-slate-600">{paper.kategori?.nama || '—'}</span>
+      )
+    },
+    {
       key: 'grammage',
       title: 'Gramatur',
       render: (paper: Paper) => `${paper.grammage} gsm`
@@ -458,6 +498,21 @@ export default function MasterHargaKertasPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 lg:pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div className="w-full lg:w-48">
+            <Select value={kategoriFilter} onValueChange={setKategoriFilter}>
+              <SelectTrigger className="w-full" aria-label="Filter kategori">
+                <SelectValue placeholder="Semua kategori" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua kategori</SelectItem>
+                {kategoriList.map((k) => (
+                  <SelectItem key={k.id} value={k.id}>
+                    {k.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 w-full lg:w-auto flex-wrap">
             <Button onClick={handlePrint} variant="outline" className="flex-1 lg:flex-none">
@@ -549,6 +604,31 @@ export default function MasterHargaKertasPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
+              </div>
+
+              {/* Kategori (opsional — dari Daftar Kategori) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="kategori" className="text-sm font-medium">
+                  Kategori
+                </Label>
+                <Select
+                  value={formData.kategoriId || 'none'}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, kategoriId: value === 'none' ? '' : value })
+                  }
+                >
+                  <SelectTrigger id="kategori" className="w-full">
+                    <SelectValue placeholder="Tanpa kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Tanpa kategori</SelectItem>
+                    {kategoriList.map((k) => (
+                      <SelectItem key={k.id} value={k.id}>
+                        {k.nama}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Gramatur */}

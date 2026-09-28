@@ -10687,3 +10687,50 @@ Stage Summary:
 - Fitur Stock Bahan lengkap & terverifikasi end-to-end di dev: menu (desktop+mobile), CRUD, mutasi masuk/keluar anti-minus, riwayat, hak akses, i18n.
 - Schema di-sync ke prisma/schema.prisma DAN schema.prisma root (duplikat lama) supaya prisma CLI & generate konsisten.
 - Produksi www.darrellsoft.com masih v119 — BELUM memuat fitur ini.
+
+---
+Task ID: 2-c
+Agent: checkout-custcode-rebuild
+Task: Rekonstruksi checkout tanpa lifetime + kode pelanggan CUST-### + bump v123
+
+Work Log:
+- Baca worklog (150 baris terakhir) dulu sesuai instruksi; repo lokal era v119 (sw.js v119, APP_VERSION 2026-09-23-v54).
+- src/app/checkout/page.tsx: hapus entry PLANS 'lifetime' (Rp 3.888.000 / 'Sekali Bayar'); tambah helper normalizePlan() yang hanya menerima key PLANS yang dikenal (bulanan-ekonomis/bulanan/tahunan) — dipakai di useState awal (?plan= dari URL) DAN di resume localStorage (data.plan). Akibatnya ?plan=lifetime atau nilai tak dikenal TIDAK mempreselect apa pun (user pilih manual); ?plan=tahunan dsb tetap berfungsi. Alur langkah 2-3, validasi, cek username, PaymentDialog/Midtrans, popup "Nama Username Sudah Ada" — semua tak disentuh.
+- src/app/api/customers/next-code/route.ts: ganti format lama C001 (regex /^C(\d+)$/, max+1) menjadi salinan persis logika nextCode di POST /api/customers — count per user + 1, loop findFirst sampai unik, format CUST-### (padStart 3); user diambil via getServerUser (setelah requireAuth); response tetap { code }.
+- src/components/views/customers-view.tsx: state nextCode + fetch GET /api/customers/next-code di openCreate() (error ditelan senyap .catch(()=>{}) → tampil placeholder); dialog Tambah dapat field PERTAMA di atas Nama: Label "Kode (otomatis)" + Input id=cust-code readOnly+disabled placeholder "Otomatis oleh sistem" yang terisi preview kode; mode Edit TIDAK menampilkan field itu (kondisi !editing, Deskripsi edit "Kode CUST-xxx — perbarui data pelanggan." tetap).
+- public/sw.js baris 1: darrell-soft-v119 → darrell-soft-v123 (hanya angka). src/components/service-worker-registration.tsx: APP_VERSION '2026-09-23-v54' → '2026-09-27-v58' (string produksi eksak). Changelog/what's-new TIDAK disentuh.
+- Verifikasi eslint (bunx eslint) kelima file: bersih (exit 0).
+- Verifikasi curl: sw.js = darrell-soft-v123 ✓; POST /api/auth/login superadmin → cookie; GET /api/customers/next-code = {"code":"CUST-006"} (DB lokal superadmin punya 5 customer → 006, persis ekspektasi produksi) ✓; GET /checkout = 200, HTML SSR tidak mengandung "3.888.000"/"Tanpa Langganan" (page client-only → SSR hanya fallback loader; dilaporkan apa adanya) ✓.
+- Scan bundle dev .next/static/chunks: chunk yang memuat modul checkout (Pilih Paket yang Tepat/bulanan-ekonomis) BERSIH — 0 match lifetime/3.888.000/Sekali Bayar/Tanpa Langganan; string lifetime yg tersisa di chunk agregat lain berasal dari src/app/page.tsx (landing, milik agent lain, memang masih ada di produksi v123).
+- Verifikasi agent-browser (1280x800, superadmin): /checkout?plan=lifetime → 0 kartu terpilih, TEPAT 3 paket ("Bulanan Ekonomis — /bulan (1 akun)" Rp 78.000; "Langganan Bulanan — /bulan" Rp 128.000; "Langganan Tahunan — /tahun (hemat 42%)" Rp 888.000 + badge HEMAT 42%), judul "Pilih Paket yang Tepat"/"Bisa upgrade atau downgrade kapan saja"; /checkout?plan=tahunan → Premium terpilih otomatis ✓. Master Pelanggan → Tambah: field urutan [Kode (otomatis)=CUST-006 (readonly+disabled, placeholder "Otomatis oleh sistem"), Nama*, Telepon, Email, Alamat, Catatan] ✓; mode Edit: TANPA field kode ✓. 0 console/page error. TIDAK ada data diubah (dialog ditutup tanpa menyimpan).
+- Catatan: git status juga menampilkan db/custom.db, prisma/schema.prisma, schema.prisma (root) modified — itu kerja agent paralel (Task schema lain), BUKAN sentuhan agent ini; hanya 5 file di atas yang diubah.
+
+Stage Summary:
+- Checkout kini identik produksi v123: 3 paket tanpa Lifetime, ?plan tak dikenal (termasuk lifetime) diabaikan → pilih manual, alur bayar/Midtrans tak berubah.
+- Kode pelanggan otomatis CUST-### konsisten POST /api/customers (count+1 per user, loop-unik); endpoint next-code + preview "Kode (otomatis)" readonly di dialog Tambah Master Pelanggan (edit mode tanpa field itu).
+- Versi disamakan produksi: sw.js darrell-soft-v123 + APP_VERSION 2026-09-27-v58 (bukan versi baru; changelog tidak ditambah).
+- Lokal TIDAK di-commit/di-deploy; dev server :3000 tidak direstart; verifikasi visual final menunggu agent utama.
+
+---
+Task ID: 2-a
+Agent: landing-rebuild
+Task: Rekonstruksi landing page v123 (hapus lifetime + redesign sesuai produksi)
+
+Work Log:
+- Baca worklog (150 baris terakhir) + ekstrak blueprint /tmp/prod-landing-blueprint.html per-section via python (stats strip, navy dark, fitur, keunggulan, kenapa-langganan, cara kerja, harga, testimoni, CTA, FAQ, footer, hero, nav) — tidak dibaca sekaligus.
+- Verifikasi dep: lucide-react 0.525.0 punya semua ikon produksi (chart-column, circle-check, badge-check, lightbulb, quote, chevron-down, arrow-down, dst); custom CSS (dark-surface, cta-glow, ripple-btn, card-tap, advantage-tap, nav-link) ada di globals.css.
+- Rewrite SATU file src/app/page.tsx (presentasi saja; logic dipertahankan: authChecking auto-redirect, goToLogin, openPayment, CountUp/Counter, FadeIn, heroImagePanel, WHATSAPP_*, LANDING_T, navbar mobile, footer, PWA tak tersentuh). Backup lama: /tmp/page.tsx.bak-v119.
+- Urutan section baru = produksi: Hero → strip statistik dark (slate-950/blue-950 py-10/14 border-y, ikon kecil w-5, angka gradient sky-300→blue-400, label uppercase tracking-[0.18em], divide-x) → section navy dark "Penawaran Terbatas" (from-slate-950 via-blue-950 to-slate-900, dot-pattern 28px, 3 kartu glass bg-white/[0.06] hover -translate-y, CTA dual + ring-white/20) → #fitur → #keunggulan → #kenapa-langganan (4 kartu cloud + panel CTA glass) → Cara Kerja putih (timeline nomor 1/2/3 + garis konektor) → #harga (3 kartu) → #testimoni → CTA panel (max-w-5xl rounded-3xl gradient biru + dot-pattern) → FAQ accordion → footer.
+- Harga: HAPUS kartu lifetime (Rp 3.888.000) + semua key i18n price_lifetime_* dari LANDING_T (id+en; file page.tsx milik task ini; src/lib/i18n.ts TIDAK disentuh). Grid jadi grid-cols-1 sm:grid-cols-3; kartu regular bg-white/5 border-white/10 hover:bg-white/[0.07]; kartu popular dibungkus gradient-border p-[1.5px] from-blue-500 via-sky-400 to-blue-600 + glow + badge "Hemat Banget!" (Star fill-white); harga gradient text-2xl md:text-[32px]; CircleCheck green-400; CTA "Pilih Paket" + ArrowRight.
+- Panel CTA #kenapa-langganan dibangun eksak produksi: rounded-3xl from-slate-950 via-blue-950 to-slate-900 border-white/10, dot-pattern radial rgba(255,255,255,0.07) 26px, konten p-6 md:p-10, eyebrow Crown w-4 text-sky-300 + "Kesempatan Emas" text-sky-200 text-[11px] uppercase tracking-[0.18em], h3 + span gradient from-sky-300 to-blue-400, grid md:grid-cols-2 kartu glass bg-white/[0.06] p-5 (ChartColumn/Lightbulb w-4 text-sky-300), statistik 64 Juta+/Sedikit/Peluang Besar min-w-[170px] dgn ArrowRight (hidden md:block) / ArrowDown (md:hidden) text-white/30, CTA Crown + quote penutup.
+- Hero: h1 + tracking-tight dan span h1_2 & h1_3 kini gradient from-blue-600 to-sky-400 (hapus warna #4374C1 & gradient merah); badge pill span dgn dot animate-pulse; trust signals jadi grid sm:grid-cols-2 kotak border bg-gray-50/80 (Shield + 3 CircleCheck w-4.5, tanpa ikon X); CTA rounded-xl hover:brightness-105 active:scale-[0.98]; hero_p3 text-sm mt-1.
+- Emoji → ikon Lucide di seluruh landing (☁️🌍📱🛡️💎📊💡 dan panah teks →/↓ dihapus dari teks i18n); heading section konsisten text-3xl md:text-[42px] leading-[1.15] tracking-tight + EyebrowBadge pill dot baru; semua h3 tracking-tight; hover mikro-interaksi (hover:-translate-y-1, hover:shadow-xl hover:shadow-blue-600/10, group-hover:scale-110) sesuai blueprint.
+- FAQ diganti jadi accordion interaktif (state openFaq, item pertama terbuka; aria-expanded/aria-controls, ChevronDown rotate-180) sesuai produksi. Footer: judul kolom text-xs uppercase tracking-[0.18em], link hover:text-sky-300 gap-2.5, border-t-white/5. CTA card bawah: BadgeCheck w-4 text-blue-500 + teks tanpa emoji.
+- EN translation untuk string yang berubah disesuaikan wajar (cta_card_p_bottom tanpa emoji; harga/card lain key-nya sudah ada).
+- Verifikasi: bunx eslint src/app/page.tsx = CLEAN (0 error/warning); curl localhost:3000 = 200; rg "3.888.000|Tanpa Langganan" = 0; harga 78.000 (×1), 128.000 (×4), 888.000 (×1) muncul; marker section baru terverifikasi di SSR (dot-pattern 26px, gradient border popular, Kesempatan Emas, Hemat Banget, faq-panel-0); emoji lama = 0; dev.log bersih, GET / 200 tanpa error compile.
+
+Stage Summary:
+- Landing lokal kini = struktur & styling produksi v123: lifetime DIHAPUS, harga 3 kartu (Bulanan Ekonomis Rp 78.000 / Langganan Bulanan Rp 128.000 / Langganan Tahunan Rp 888.000 populer "Hemat Banget!"), catatan "Tanpa Ikatan Apapun!..." dipertahankan.
+- Semua ikon emoji diganti Lucide, panel CTA dot-pattern & eyebrow badge konsisten, hero h1 pakai font-weight 900 + class ukuran persis produksi.
+- Logic tidak berubah: auto-login redirect, i18n id/en toggle, PWA, navbar, checkout routing (bulanan-ekonomis/bulanan/tahunan). src/lib/i18n.ts tidak disentuh; hanya src/app/page.tsx yang diubah; TIDAK commit, TIDAK deploy, dev server tidak direstart.
+- Status verifikasi: eslint bersih; curl 200; lifetime hilang; 3 harga baru tampil di SSR. Perlu verifikasi visual akhir (desktop+mobile+dark mode) oleh agent utama: FAQ accordion, panel CTA glass, gradient-border kartu popular, strip statistik.

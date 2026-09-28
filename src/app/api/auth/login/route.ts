@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
-import { ensureSeedData, seedUserData } from '@/lib/auto-seed'
+import { ensureSeedData, seedUserData, seedKategoriForUser } from '@/lib/auto-seed'
 import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults'
 import { sanitizeError } from '@/lib/api-error'
 
@@ -138,6 +138,12 @@ async function buildLoginResponse(
   // This handles the case where existing accounts were created before auto-seed was added
   seedUserData(userId).catch(seedErr => {
     console.warn('⚠️ Seed data error during login (non-fatal):', seedErr)
+  })
+
+  // Seed 10 kategori default (Daftar Kategori v123) — independen dari master data,
+  // user lama yang sudah punya master data tetap mendapat kategori bawaan.
+  seedKategoriForUser(userId).catch(seedErr => {
+    console.warn('⚠️ Seed kategori error during login (non-fatal):', seedErr)
   })
 
   // Load custom permissions from database

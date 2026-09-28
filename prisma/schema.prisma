@@ -105,15 +105,29 @@ model BarangCustomer {
 }
 
 model Paper {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   grammage    Int
   width       Float
   height      Float
   pricePerRim Float
+  kategoriId  String?
+  kategori    Kategori? @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
   userId      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Daftar Kategori bahan kertas — dipakai di dropdown Kategori pada Master Harga Kertas.
+// TIDAK terdaftar di matriks Hak Akses (tampil untuk semua user login), pola produksi v123.
+model Kategori {
+  id        String   @id @default(cuid())
+  nama      String
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  papers Paper[]
 }
 
 model PrintingCost {

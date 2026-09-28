@@ -35,7 +35,8 @@ async function ensureTablesExist(): Promise<void> {
         CREATE TABLE IF NOT EXISTS "Pengguna" ("id" TEXT NOT NULL PRIMARY KEY, "namaLengkap" TEXT NOT NULL, "nomorHP" TEXT NOT NULL, "email" TEXT NOT NULL, "username" TEXT NOT NULL UNIQUE, "password" TEXT NOT NULL, "role" TEXT NOT NULL DEFAULT 'user', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "validUntil" TIMESTAMP(3));
         CREATE TABLE IF NOT EXISTS "Post" ("id" TEXT NOT NULL PRIMARY KEY, "title" TEXT NOT NULL, "content" TEXT, "published" BOOLEAN NOT NULL DEFAULT false, "authorId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
         CREATE TABLE IF NOT EXISTS "Customer" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "companyName" TEXT, "address" TEXT, "phone" TEXT, "email" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
-        CREATE TABLE IF NOT EXISTS "Paper" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "grammage" INTEGER NOT NULL, "width" DOUBLE PRECISION NOT NULL, "height" DOUBLE PRECISION NOT NULL, "pricePerRim" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+        CREATE TABLE IF NOT EXISTS "Paper" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "grammage" INTEGER NOT NULL, "width" DOUBLE PRECISION NOT NULL, "height" DOUBLE PRECISION NOT NULL, "pricePerRim" DOUBLE PRECISION NOT NULL, "kategoriId" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+        CREATE TABLE IF NOT EXISTS "Kategori" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
         CREATE TABLE IF NOT EXISTS "PrintingCost" ("id" TEXT NOT NULL PRIMARY KEY, "machineName" TEXT NOT NULL, "grammage" INTEGER NOT NULL, "printAreaWidth" DOUBLE PRECISION NOT NULL, "printAreaHeight" DOUBLE PRECISION NOT NULL, "pricePerColor" DOUBLE PRECISION NOT NULL, "specialColorPrice" DOUBLE PRECISION NOT NULL, "minimumPrintQuantity" INTEGER NOT NULL, "priceAboveMinimumPerSheet" DOUBLE PRECISION NOT NULL, "platePricePerSheet" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
         CREATE TABLE IF NOT EXISTS "Finishing" ("id" TEXT NOT NULL PRIMARY KEY, "name" TEXT NOT NULL, "minimumSheets" INTEGER NOT NULL, "minimumPrice" DOUBLE PRECISION NOT NULL, "additionalPrice" DOUBLE PRECISION NOT NULL, "pricePerCm" DOUBLE PRECISION NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
         CREATE TABLE IF NOT EXISTS "CalonPembeli" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "nomorHP" TEXT NOT NULL, "email" TEXT NOT NULL, "alamat" TEXT NOT NULL, "catatan" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'baru', "role" TEXT NOT NULL DEFAULT 'demo', "expiredDate" TIMESTAMP(3), "username" TEXT, "password" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
@@ -73,6 +74,20 @@ async function ensureTablesExist(): Promise<void> {
     } catch (err: any) {
       console.warn('⚠️ Ensure Bahan tables failed:', err?.message)
     }
+    // Ensure Daftar Kategori + kolom Paper.kategoriId exist even on SQLite (upgrade from older versions)
+    try {
+      await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "Kategori" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "userId" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL)`)
+    } catch (err: any) {
+      console.warn('⚠️ Ensure Kategori table failed:', err?.message)
+    }
+    try {
+      // SQLite has no ADD COLUMN IF NOT EXISTS — duplicate-column error is expected & ignored
+      await db.$executeRawUnsafe(`ALTER TABLE "Paper" ADD COLUMN "kategoriId" TEXT`)
+    } catch (err: any) {
+      if (!String(err?.message || '').toLowerCase().includes('duplicate column')) {
+        console.warn('⚠️ Ensure Paper.kategoriId failed:', err?.message)
+      }
+    }
   }
 }
 
@@ -104,6 +119,8 @@ async function migrateExistingTablesPg(): Promise<void> {
     // Missing columns for RiwayatPotongKertas
     { table: '"RiwayatPotongKertas"', column: '"jumlahPesanan"', type: "TEXT NOT NULL DEFAULT ''" },
     { table: '"RiwayatPotongKertas"', column: '"berapaMata"', type: "TEXT NOT NULL DEFAULT ''" },
+    // Missing column for Paper (Daftar Kategori v123)
+    { table: '"Paper"', column: '"kategoriId"', type: 'TEXT' },
   ]
   for (const m of migrations) {
     try {
@@ -125,6 +142,7 @@ async function migrateExistingTablesPg(): Promise<void> {
     { table: '"SuratJalan"', sql: 'CREATE TABLE IF NOT EXISTS "SuratJalan" ("id" TEXT NOT NULL PRIMARY KEY, "suratJalanNumber" TEXT NOT NULL UNIQUE, "customerName" TEXT NOT NULL, "customerAddress" TEXT NOT NULL DEFAULT \'\', "customerPhone" TEXT NOT NULL DEFAULT \'\', "driverName" TEXT NOT NULL DEFAULT \'\', "vehicleNumber" TEXT NOT NULL DEFAULT \'\', "deliveryDate" TEXT NOT NULL, "items" TEXT NOT NULL, "notes" TEXT NOT NULL DEFAULT \'\', "status" TEXT NOT NULL DEFAULT \'draft\', "invoiceId" TEXT, "riwayatCetakanId" TEXT, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
     { table: '"Bahan"', sql: 'CREATE TABLE IF NOT EXISTS "Bahan" ("id" TEXT NOT NULL PRIMARY KEY, "kode" TEXT NOT NULL, "nama" TEXT NOT NULL, "kategori" TEXT NOT NULL DEFAULT \'\', "satuan" TEXT NOT NULL DEFAULT \'pcs\', "stok" DOUBLE PRECISION NOT NULL DEFAULT 0, "stokMin" DOUBLE PRECISION NOT NULL DEFAULT 0, "hargaSatuan" DOUBLE PRECISION NOT NULL DEFAULT 0, "keterangan" TEXT NOT NULL DEFAULT \'\', "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
     { table: '"BahanMutasi"', sql: 'CREATE TABLE IF NOT EXISTS "BahanMutasi" ("id" TEXT NOT NULL PRIMARY KEY, "bahanId" TEXT NOT NULL, "jenis" TEXT NOT NULL, "qty" DOUBLE PRECISION NOT NULL, "stokSetelah" DOUBLE PRECISION NOT NULL DEFAULT 0, "keterangan" TEXT NOT NULL DEFAULT \'\', "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+    { table: '"Kategori"', sql: 'CREATE TABLE IF NOT EXISTS "Kategori" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
   ]
 
   for (const check of missingTableChecks) {
@@ -256,6 +274,46 @@ export async function seedUserData(userId: string): Promise<void> {
     console.log(`✅ Master data seeded for user: ${userId}`)
   } catch (error) {
     console.error(`❌ Seed data error for user ${userId}:`, error)
+  }
+}
+
+/**
+ * Seed kategori default (Daftar Kategori) — 10 kategori bawaan per user
+ * yang BELUM punya kategori sama sekali. Urutan = alpha asc, persis produksi v123.
+ * Berjalan independen dari seedUserData (user lama yang sudah punya master data
+ * tetap ikut mendapat kategori default saat pertama kali login setelah upgrade).
+ */
+const DEFAULT_KATEGORI = [
+  'Kardus',
+  'Kertas',
+  'Kimia',
+  'Lainnya',
+  'Lem',
+  'Packaging',
+  'PE Coating',
+  'Plastik',
+  'Sparepart',
+  'Tinta',
+]
+
+const kategoriSeededUsers = new Set<string>()
+
+export async function seedKategoriForUser(userId: string): Promise<void> {
+  if (kategoriSeededUsers.has(userId)) return
+  try {
+    const count = await db.kategori.count({ where: { userId } })
+    if (count > 0) {
+      kategoriSeededUsers.add(userId)
+      return
+    }
+    console.log(`🌱 Seeding default kategori for user: ${userId}`)
+    await db.kategori.createMany({
+      data: DEFAULT_KATEGORI.map((nama) => ({ nama, userId })),
+    })
+    kategoriSeededUsers.add(userId)
+    console.log(`✅ Kategori default seeded for user: ${userId}`)
+  } catch (error) {
+    console.error(`❌ Seed kategori error for user ${userId}:`, error)
   }
 }
 
@@ -402,5 +460,8 @@ export async function ensureSeedData(userId?: string | null): Promise<void> {
   // Seed per-user master data if userId is provided
   if (userId) {
     await seedUserData(userId)
+    // Kategori default (Daftar Kategori) — independen dari master data:
+    // user yang sudah punya master data pun tetap mendapat 10 kategori bawaan.
+    await seedKategoriForUser(userId)
   }
 }
