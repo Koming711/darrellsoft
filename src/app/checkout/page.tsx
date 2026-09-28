@@ -64,16 +64,14 @@ const PLANS: Record<string, {
     period: '/tahun (hemat 42%)',
     features: ['Semua fitur Basic', 'Multi perangkat', 'Master customer', 'Export laporan', 'Priority support'],
   },
-  lifetime: {
-    id: 'lifetime',
-    name: 'Lifetime',
-    subtitle: 'Sekali Bayar',
-    price: 3888000,
-    priceFormatted: 'Rp 3.888.000',
-    period: 'sekali bayar',
-    features: ['Semua fitur Premium', 'Update gratis selamanya', 'Unlimited pengguna', 'Custom branding', 'Dedicated support'],
-  },
 };
+
+// Hanya plan yang dikenal yang boleh dipreselect (dari URL ?plan= maupun
+// localStorage resume). Nilai lain/tak dikenal diabaikan —
+// user harus memilih paket secara manual.
+function normalizePlan(value: string | null | undefined): string {
+  return value && PLANS[value] ? value : '';
+}
 
 const STEPS = ['Pilih Paket', 'Info Pembayaran', 'Konfirmasi & Bayar'];
 const ADMIN_WHATSAPP = '6285888082208';
@@ -83,7 +81,7 @@ function CheckoutContent() {
   const router = useRouter();
 
   const [step, setStep] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<string>(searchParams.get('plan') || '');
+  const [selectedPlan, setSelectedPlan] = useState<string>(() => normalizePlan(searchParams.get('plan')));
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -112,7 +110,7 @@ function CheckoutContent() {
         const saved = localStorage.getItem('checkout_pending');
         if (saved) {
           const data = JSON.parse(saved);
-          setSelectedPlan(data.plan || '');
+          setSelectedPlan(normalizePlan(data.plan || ''));
           setCustomerName(data.name || '');
           setCustomerEmail(data.email || '');
           setCustomerPhone(data.phone || '');

@@ -62,6 +62,9 @@ export function getSubPermissions(roleId: string, featureId: string): Record<str
 
 /** Check if a role has page-level access to a feature */
 export function hasFeatureAccess(roleId: string, featureId: string): boolean {
+  // 'daftar-kategori' TIDAK terdaftar di matriks Hak Akses (pola produksi v123):
+  // menu & halaman selalu tampil/bisa diakses untuk semua user yang login.
+  if (featureId === 'daftar-kategori') return true
   return getFeaturePermissions(roleId)[featureId] || false
 }
 
@@ -104,6 +107,7 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/hitung-ongkos-cetak') return 'hitung-ongkos-cetak'
   if (pathname === '/hitung-harga-kertas') return 'hitung-harga-kertas'
   if (pathname === '/master-harga-kertas') return 'master-harga-kertas'
+  if (pathname === '/daftar-kategori') return 'daftar-kategori'
   if (pathname === '/master-ongkos-cetak') return 'master-ongkos-cetak'
   if (pathname === '/master-finishing') return 'master-finishing'
   if (pathname === '/master-customer') return 'master-customer'
@@ -137,6 +141,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'hitung-ongkos-cetak': '/hitung-ongkos-cetak',
     'hitung-harga-kertas': '/hitung-harga-kertas',
     'master-harga-kertas': '/master-harga-kertas',
+    'daftar-kategori': '/daftar-kategori',
     'master-ongkos-cetak': '/master-ongkos-cetak',
     'master-finishing': '/master-finishing',
     'master-customer': '/master-customer',

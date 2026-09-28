@@ -33,6 +33,7 @@ import {
   MoreHorizontal,
   Wallet,
   Tags,
+  ListTree,
   UserCog,
   Banknote,
   Package,
@@ -177,6 +178,13 @@ const menuItems = [
     href: '/master-harga-kertas',
     icon: Tags,
     featureId: 'master-harga-kertas',
+    section: 'master_cetakan',
+  },
+  {
+    titleKey: 'daftar_kategori' as TranslationKey,
+    href: '/daftar-kategori',
+    icon: ListTree,
+    featureId: 'daftar-kategori',
     section: 'master_cetakan',
   },
   {

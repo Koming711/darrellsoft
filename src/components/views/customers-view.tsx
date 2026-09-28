@@ -93,6 +93,8 @@ export default function CustomersView({
   const [editing, setEditing] = useState<Customer | null>(null)
   const [form, setForm] = useState<CustomerFormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  // Preview kode otomatis (mis. "CUST-006") untuk dialog Tambah.
+  const [nextCode, setNextCode] = useState('')
 
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -132,7 +134,12 @@ export default function CustomersView({
   const openCreate = () => {
     setEditing(null)
     setForm(EMPTY_FORM)
+    setNextCode('')
     setDialogOpen(true)
+    // Preview kode berikutnya — jika gagal, biarkan senyap (placeholder saja).
+    apiFetch<{ code: string }>('/api/customers/next-code')
+      .then((d) => setNextCode(d.code))
+      .catch(() => {})
   }
 
   const openEdit = (c: Customer) => {
@@ -452,6 +459,18 @@ export default function CustomersView({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
+            {!editing && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="cust-code">Kode (otomatis)</Label>
+                <Input
+                  id="cust-code"
+                  value={nextCode}
+                  readOnly
+                  disabled
+                  placeholder="Otomatis oleh sistem"
+                />
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="cust-name">Nama <span className="text-destructive">*</span></Label>
               <Input

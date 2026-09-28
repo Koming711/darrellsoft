@@ -78,7 +78,19 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, grammage, width, height, pricePerRim } = body
+    const { name, grammage, width, height, pricePerRim, kategoriId } = body
+
+    // Kategori opsional (null = Tanpa kategori) — validasi milik user agar tidak kena FK error
+    let validKategoriId: string | null = null
+    if (kategoriId) {
+      const kategori = await db.kategori.findFirst({
+        where: { id: String(kategoriId), userId: user?.id || null }
+      })
+      if (!kategori) {
+        return NextResponse.json({ error: 'Kategori tidak ditemukan' }, { status: 400 })
+      }
+      validKategoriId = kategori.id
+    }
 
     const paper = await db.paper.update({
       where: { id },
@@ -87,8 +99,10 @@ export async function PUT(
         grammage: parseInt(grammage),
         width: parseFloat(width),
         height: parseFloat(height),
-        pricePerRim: parseFloat(pricePerRim)
-      }
+        pricePerRim: parseFloat(pricePerRim),
+        kategoriId: validKategoriId
+      },
+      include: { kategori: { select: { id: true, nama: true } } }
     })
 
     return NextResponse.json(paper)
