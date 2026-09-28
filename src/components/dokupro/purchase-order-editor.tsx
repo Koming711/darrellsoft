@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
-import { ItemsFields } from './items-fields';
+import { ItemsFields, type PaperOption } from './items-fields';
 import { PurchaseOrderPreview } from './purchase-order-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
@@ -68,6 +68,23 @@ export function PurchaseOrderEditor() {
   const [pemasokInput, setPemasokInput] = useState(po.pemasok.nama);
   const [pemasokDropdownOpen, setPemasokDropdownOpen] = useState(false);
   const [pemasokTyping, setPemasokTyping] = useState(false);
+
+  // Daftar kertas dari Master Harga Kertas — sumber dropdown Nama Barang
+  const [paperList, setPaperList] = useState<PaperOption[]>([]);
+
+  const fetchPapers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/papers', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setPaperList(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
+  useEffect(() => { fetchPapers() }, [fetchPapers]);
 
   const fetchRiwayatPotongKertas = useCallback(async () => {
     try {
@@ -516,6 +533,7 @@ export function PurchaseOrderEditor() {
           items={po.items}
           onChange={(items) => setPurchaseOrder((prev) => ({ ...prev, items }))}
           showPrice
+          paperOptions={paperList}
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
