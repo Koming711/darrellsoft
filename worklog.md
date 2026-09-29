@@ -10906,3 +10906,22 @@ Stage Summary:
 - Nomor 5 dokumen (PK/HC/INV+SJ/PO/SPK/PEL) kini KONTINU lintas bulan & tahun, anti-mundur, anti-pakai-ulang; format PREFIX/MM/YY/NNNN dipertahankan.
 - Invoice baru: margin 10mm rata semua sisi, font +1pt, 100% hitam, semua row 7mm, tanda tangan menempel dasar halaman, SISA PEMBAYARAN bebas tumpang tindih — pratinjau = cetak = JPG.
 - Perubahan: src/lib/doc-number.ts, src/components/dokupro/invoice-preview.tsx, src/app/globals.css.
+
+---
+Task ID: revert-invoice-display-v124
+Agent: main (Z.ai Code)
+Task: "dihalaman invoice. rubah tampilan invoice jadi versi v124" — kembalikan TAMPILAN invoice ke v124 (nomorator kontinu dipertahankan)
+
+Work Log:
+- Konteks: sesi sebelumnya sempat mengubah tampilan invoice (font seragam 9pt, row 8mm, 10 row pengisian, margin 10mm rata) — ter-commit via auto-commit ec516f2 (UUID) di atas b84f225 (poles invoice + nomorator). User meminta tampilan invoice kembali ke v124.
+- Restore: git checkout ca20c72 -- src/components/dokupro/invoice-preview.tsx → diff vs b84f225^ = 0 baris (persis v124: padding 8mm/10mm, font campuran 8-16px, warna #555/#666/#888 + aksen amber, fillers 7-itemCount, row tinggi variatif).
+- globals.css: hapus 2 blok scoped yang ditambahkan b84f225/dimodifikasi sesi ini (#document-preview .a5-page.doc-margin-invoice dan .print-mode.doc-margin-invoice) → git diff ca20c72 -- globals.css = 0 (persis v124).
+- NOMORATOR TIDAK DISENTUH: git diff b84f225 -- src/lib/doc-number.ts = 0 — nomor dokumen kontinu lintas bulan/tahun (PK/HC/INV/PEL/PO/SJ/SPK) tetap jalan.
+- Verifikasi browser (login ulang superadmin karena browser relaunched + dialog "Versi Baru!" ditutup): detail INV/09/26/0002 → .a5-page 559x794, padding "30.2362px 37.7953px" (8mm/10mm khas v124), fonts campuran [8, 9.33, 10, 10.67, 11.33, 12, 14.67, 16]px, colors [hitam, #555, #666, #888, amber #b45309], 14 row dgn tinggi variatif, 7 baris pengisi — cocok dgn baseline v124 tercatat.
+- Screenshot: .zscreens/invoice-revert-v124-top.png & -bottom.png (DOWN PAYMENT amber khas v124 terlihat). dev.log bersih; ESLint bersih.
+- Catatan: auto-commit UUID (1910b96, ec516f2) menangkap state antara; commit manual 1a2e37d berisi revert 2 file (67+/102-).
+
+Stage Summary:
+- Tampilan invoice (preview, cetak, JPG) = v124 persis di seluruh halaman yang memakai InvoicePreview (invoice, editor, pelunasan, popup, laporan).
+- Fitur nomor dokumen kontinu lintas bulan/tahun TETAP AKTIF (doc-number.ts tak berubah dr b84f225).
+- HEAD = 1a2e37d; produksi masih v124 (sw darrell-soft-v124) — deploy menunggu VERCEL_TOKEN dari user.
