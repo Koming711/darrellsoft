@@ -10885,3 +10885,24 @@ Stage Summary:
 - Eksperimen invoice dari sesi lama resmi hilang; invoice kembali perilaku stabil v124 (A5 portrait).
 - DB lokal = snapshot v124 (1 PO soft-deleted); data invoice lama milik sandbox lama tidak ada — data asli user tetap aman di produksi; bisa Backup/Restore bila perlu.
 - Eksperimen invoice (multirow/landscape) bisa di-reapply dari nol di atas v124 atas permintaan.
+
+---
+Task ID: numbering-continuous-invoice-polish
+Agent: main (Z.ai Code)
+Task: "masing masing nomorator di halaman potong kertas, hitung cetakan, invoice, surat jalan, purchase order semuanya nyambung terus walaupun beda bulan dan tahun. buat tampilan invoice yang bagus dan sempurna margin kiri, kanan, atas, bawah rata semua. font diperbesar 1pt. semua tulisan dibuat hitam. dan row semua dibuat 7 mm. check and fix."
+
+Work Log:
+- Nomorator: akar masalah = buildCounterKey di src/lib/doc-number.ts memasukkan periode YYMM ke key counter → tiap ganti bulan sequence reset ke 0001. Semua 5 halaman (PK, HC, INV/PEL/PO/SJ/SPK) lewat file ini.
+- Fix: key counter = context|prefix|user (TANPA periode) → sequence kontinu lintas bulan/tahun; MM/YY pada nomor tetap mengikuti tanggal dokumen. Semua findCurrentMax diganti scan SEMUA periode (startsWith prefix) + max dgn legacyCounterMax (counter legacy per-bulan) supaya nomor lama yang pernah terbit (termasuk dokumen terhapus) tidak pernah dipakai ulang dan tidak mundur.
+- Tes end-to-end via bun script ke DB (dihapus setelahnya): preview 0002 → generate 0002, 0003; fake dokumen INV/12/26/0050 (Desember) → generate berikutnya 09/26/0051 ✓ KONTINU lintas periode; counter legacy 77 → 0078 ✓ tidak mundur. DB dibersihkan dari data uji.
+- Verifikasi API preview semua tipe: INV lanjut ke 0002 (nyambung dr dokumen lama), PEL/PO/SJ/SPK/PK/HC mulai 0001 (isolasi per-user benar).
+- Tampilan invoice (invoice-preview.tsx): margin seragam 10mm 4 sisi (padding 8mm 10mm → 10mm); semua font +1pt (base 9→10pt, INVOICE 12→13pt, perusahaan 11→12pt, label 7.5→8.5pt, dst); SEMUA tulisan #000 (hapus #555/#666/#888/#b45309/#15803d, icon SVG stroke #000, badge LUNAS teks hitam); SEMUA row tabel 7mm (header/item/pengisi/totals, height 7mm + verticalAlign middle); baris pengisi maks 6; blok tanda tangan marginTop:auto (menempel dasar halaman A5, footer ikut); fix SISA PEMBAYARAN: label colSpan=2 (Qty+Nama) dan nilai colSpan=2 (Harga+Jumlah, right-aligned) — nilai kini tepat di kolom Jumlah, tidak pernah ketumpuk (sebelumnya nilai masuk kolom Harga + row jadi 36px).
+- CSS scoped khusus invoice (globals.css): #document-preview .a5-page.doc-margin-invoice dan .print-mode.doc-margin-invoice → padding 10mm, font 10pt, min-height 210mm (print & capture). Surat Jalan & PO (share class a5-page/print-table-8mm) TIDAK ikut berubah.
+- Capture path dicek: captureDocumentPaperJpg clone elemen asli + lock dimensi → inline styles (10mm/10pt/7mm) ikut terbawa; generate-pdf.ts (dead code, tanpa pemanggil) tidak diubah.
+- Verifikasi browser: buat invoice DP (Budi Susanto, paperbowl qty 2, DP 500000) → tersimpan INV/09/26/0002 (nyambung); .a5-page 559×794, padding 37.79px=10mm seragam, rowHeights=[26px] SEMUA row persis 7mm, colors=["rgb(0,0,0)"] semua hitam, SISA OK tanpa overlap; JPG export tanpa error console/dev.log. Catatan: percobaan pertama ditolak API 409 = fitur anti-duplikat fingerprint v124 (data uji identik dgn invoice lama) — bukan bug.
+- ESLint bersih; error tsc di document-action-buttons/invoice-editor = pre-existing (ignoreBuildErrors: true, tidak memblokir build).
+
+Stage Summary:
+- Nomor 5 dokumen (PK/HC/INV+SJ/PO/SPK/PEL) kini KONTINU lintas bulan & tahun, anti-mundur, anti-pakai-ulang; format PREFIX/MM/YY/NNNN dipertahankan.
+- Invoice baru: margin 10mm rata semua sisi, font +1pt, 100% hitam, semua row 7mm, tanda tangan menempel dasar halaman, SISA PEMBAYARAN bebas tumpang tindih — pratinjau = cetak = JPG.
+- Perubahan: src/lib/doc-number.ts, src/components/dokupro/invoice-preview.tsx, src/app/globals.css.
