@@ -10925,3 +10925,23 @@ Stage Summary:
 - Tampilan invoice (preview, cetak, JPG) = v124 persis di seluruh halaman yang memakai InvoicePreview (invoice, editor, pelunasan, popup, laporan).
 - Fitur nomor dokumen kontinu lintas bulan/tahun TETAP AKTIF (doc-number.ts tak berubah dr b84f225).
 - HEAD = 1a2e37d; produksi masih v124 (sw darrell-soft-v124) — deploy menunggu VERCEL_TOKEN dari user.
+
+---
+Task ID: invoice-poles-final-9pt-7mm
+Agent: main (Z.ai Code)
+Task: "buat tampilan invoice yang bagus dan sempurna margin kiri, kanan, atas, bawah rata semua. font diperbesar jadi 9pt. semua tulisan dibuat hitam. dan row semua dibuat 7 mm. check and fix." (instruksi identik dikirim 2x; yang pertama di-cancel user)
+
+Work Log:
+- FORENSIK PENTING: file invoice-preview.tsx di v124 (ca20c72/HEAD) ternyata SUDAH berisi desain margin 10mm + font dasar 10pt + semua hitam + ROW_H 7mm (fillers 6). Pengukuran "gaya lama 8mm/10mm + abu-abu + amber" sesi revert sebelumnya = MODUL CACHE TURBOPACK USANG dr lineage sandbox lama (bukan isi HEAD). B84f225 tdk mengubah TSX (identik dgn parent); yg ditambah hanya 2 rule CSS scoped doc-margin-invoice + doc-number.ts.
+- Insiden: cold restart pertama menghasilkan .next korup (ENOENT build-manifest, curl hang 120s) krn server lama belum mati saat rm -rf .next. Fix: pkill "next dev"+"bun run dev" → tunggu 2 dtk → rm -rf .next → start ulang → compile fresh bersih.
+- Perubahan TSX (dari state v124): SEMUA fontSize → '9pt' seragam (root 10pt→9pt; 13pt logo/judul, 12pt perusahaan, 10pt klien/nomor, 9.5pt DP, 8.5pt/8pt/7.5pt/7pt label/footer — semua 9pt). ROW_H 7mm, fillers 6-itemCount, margin 10mm, lineHeight 1.35, spacing asli (sig gap 12mm) — TIDAK diubah.
+- globals.css: tambah 2 rule scoped (spt b84f225): #document-preview .a5-page.doc-margin-invoice & .print-mode.doc-margin-invoice → padding 10mm !important + font-size 9pt !important + min-height 210mm !important (rule generik preview 8mm/10mm+9pt otherwise menimpa inline di pratinjau).
+- Verifikasi browser (compile fresh, superadmin): INV/09/26/0002 (DP+PPN) & 0001 (reguler): .a5-page 559x794 TEPAT (fitA5 true), padding 37.7953px seragam 4 sisi, fonts=["12px"] tunggal (9pt seragam), colors=["rgb(0,0,0)"] tunggal, rowH=[26.45px]=7mm semua row, fillers 5 (1 item). 0 error console & dev.log.
+- Export JPG: INV-09-26-0002.jpg 1748x2480 (A5@300dpi) — capture menunjukkan font seragam, full hitam, margin rata, tanda tangan di dasar halaman (.zscreens/invoice-final-9pt-7mm.jpg).
+- ESLint bersih. Commit efb65e4 (auto-commit 8d735a7 menangkap state antara).
+
+Stage Summary:
+- Tampilan invoice FINAL: margin 10mm rata kiri/kanan/atas/bawah, font SERAGAM 9pt utk SEMUA tulisan, 100% hitam, SEMUA row tabel 7mm, muat pas 1 halaman A5 (794px) di pratinjau, cetak, dan JPG.
+- Row pengisian = default v124 (6 - jumlah item); permintaan "10 row" sebelumnya TIDAK diulang user dlm instruksi ini sehingga tidak diterapkan.
+- Fitur nomor dokumen kontinu lintas bulan/tahun tetap utuh (doc-number.ts tak disentuh).
+- Pelajaran: verifikasi visual SETELAH perubahan git-state wajib cold restart (pkill tunggu mati total → rm -rf .next → start) — Turbopack bisa menyajikan modul/cache lintas-lineage yg menyesatkan pengukuran.
