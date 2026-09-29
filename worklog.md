@@ -10985,3 +10985,23 @@ Work Log:
 Stage Summary:
 - Spesifikasi tampilan invoice user kini LENGKAP dan terverifikasi terukur: basis v124, margin 10mm rata kiri/kanan/atas/bawah, font seragam 9pt, semua tulisan hitam, judul INVOICE 13pt bold — di pratinjau, cetak, dan JPG.
 - Fitur sebelumnya tetap utuh: row 7mm seragam, kolom item rapat atas, FitInRow (nama multi-baris selalu muat 7mm), nomorator kontinu.
+
+---
+Task ID: revert-invoice-display-v124-2
+Agent: main (Z.ai Code)
+Task: "dihalaman invoice. rubah tampilan invoice jadi versi v124."
+
+Work Log:
+- Interpretasi: instruksi dikirim STANDALONE (tanpa klausa beautification) dan identik word-by-word dgn task revert sebelumnya yang menghasilkan tampilan v124 murni → mengikuti preseden tsb: revert TAMPILAN penuh ke v124. Fitur non-tampilan (nomorator kontinu) dipertahankan.
+- Revert: git checkout ca20c72 -- src/components/dokupro/invoice-preview.tsx (diff vs ca20c72 = 0). globals.css: hapus 2 blok scoped doc-margin-invoice (10mm/9pt) — diff vs ca20c72 = 0 (persis v124, tidak ada perubahan CSS lain sejak v124).
+- Yang ikut ter-revert (bagian dari tampilan): margin rata 10mm→8mm/10mm, font seragam 9pt→campuran, semua hitam→abu-abu+amber, row 7mm→variatif, rapat atas→middle, FitInRow→pre-line biasa, judul INVOICE 13pt→14.67px.
+- COLD RESTART dev server diterapkan (pkill → tunggu → rm -rf .next → start) sesuai pelajaran worklog — menghindari cache Turbopack lintas-lineage.
+- Verifikasi browser INV/09/26/0002 (DP): .a5-page 559×794px, padding "30.2362px 37.7953px" (8mm/10mm khas v124), fonts [8, 9.33, 10, 10.67, 11.33, 12, 14.67, 16]px = baseline v124 persis, colors [hitam, #555, #666, #888, amber rgb(180,83,9)] = palet v124, title 14.67px, rows [30.25×8, 16.2, 17.2, 19.08, 18.57, 18.57] variatif. DOWN PAYMENT tampil AMBER lagi.
+- Export JPG: 1748×2480 A5@300dpi dgn tampilan v124 autentik (.zscreens/invoice-v124-revert2-export.jpg). Klik pertama tombol JPG tertutup banner info (bukan bug) — scrollIntoView lalu klik ulang sukses.
+- ESLint = 0 problem; page errors = 0; dev.log hanya noise seed startup lama (prisma duplicate column, benign).
+- Commit ae5544a.
+
+Stage Summary:
+- Tampilan invoice (preview, cetak, JPG) = v124 MURNI di seluruh halaman pemakai InvoicePreview (invoice, editor, pelunasan, popup, laporan) — sama dgn produksi www.darrellsoft.com (v124).
+- Nomorator kontinu lintas bulan/tahun tetap aktif (doc-number.ts tak berubah).
+- riwayat commit menampilkan evolusi lengkap: v124 murni (ae5544a) ← 13pt bold (75eda18) ← fitrow+rapat atas (cd3e867) ← poles 9pt (efb65e4) — semua bisa di-reapply per bagian bila diminta.
