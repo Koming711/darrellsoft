@@ -633,16 +633,6 @@ textarea::placeholder {
     page-break-inside: avoid !important;
   }
 
-  /* Invoice (doc-margin-invoice): margin 10mm SERAGAM 4 sisi + font dasar 9pt
-     (seragam utk seluruh tulisan) + tinggi penuh A5 (flex column + marginTop:auto
-     pada blok tanda tangan) — pratinjau = cetak = JPG. Spesifisitas > rule generik. */
-  #document-preview .a5-page.doc-margin-invoice {
-    padding: 10mm !important;
-    font-size: 9pt !important;
-    line-height: 1.25 !important;
-    min-height: 210mm !important;
-  }
-
   /* Popup mode scaler wrapper — drop JS inline scaled dimensions */
   #document-preview [data-preview-scaler] {
     width: auto !important;
@@ -685,15 +675,6 @@ textarea::placeholder {
   line-height: 1.35 !important;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif !important;
   box-sizing: border-box !important;
-}
-
-/* Invoice (doc-margin-invoice) — capture JPG/PDF tetap margin 10mm seragam,
-   font dasar 9pt (seragam), dan tinggi penuh A5 (tanda tangan menempel dasar halaman). */
-.print-mode.doc-margin-invoice {
-  padding: 10mm !important;
-  font-size: 9pt !important;
-  line-height: 1.25 !important;
-  min-height: 210mm !important;
 }
 
 /* Ensure all preview colors and backgrounds are preserved in capture */
