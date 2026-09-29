@@ -633,12 +633,13 @@ textarea::placeholder {
     page-break-inside: avoid !important;
   }
 
-  /* Invoice (doc-margin-invoice): margin 10mm SERAGAM 4 sisi + font dasar 10pt
-     + tinggi penuh A5 (flex column + marginTop:auto pada blok tanda tangan) —
-     pratinjau = cetak = JPG. Spesifisitas lebih tinggi dr rule generik di atas. */
+  /* Invoice (doc-margin-invoice): margin 10mm SERAGAM 4 sisi + font dasar 9pt
+     (seragam utk seluruh tulisan) + tinggi penuh A5 (flex column + marginTop:auto
+     pada blok tanda tangan) — pratinjau = cetak = JPG. Spesifisitas > rule generik. */
   #document-preview .a5-page.doc-margin-invoice {
     padding: 10mm !important;
-    font-size: 10pt !important;
+    font-size: 9pt !important;
+    line-height: 1.25 !important;
     min-height: 210mm !important;
   }
 
@@ -687,10 +688,11 @@ textarea::placeholder {
 }
 
 /* Invoice (doc-margin-invoice) — capture JPG/PDF tetap margin 10mm seragam,
-   font dasar 10pt, dan tinggi penuh A5 (tanda tangan menempel dasar halaman). */
+   font dasar 9pt (seragam), dan tinggi penuh A5 (tanda tangan menempel dasar halaman). */
 .print-mode.doc-margin-invoice {
   padding: 10mm !important;
-  font-size: 10pt !important;
+  font-size: 9pt !important;
+  line-height: 1.25 !important;
   min-height: 210mm !important;
 }
 
