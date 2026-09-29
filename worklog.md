@@ -11091,3 +11091,20 @@ Work Log:
 Stage Summary:
 - Perintah "naik 12mm" DIBATALKAN — posisi blok Subtotal/Total/Terbilang/Catatan kembali persis ke keadaan setelah tugas turun-4cm (spacer elastis baseline 40mm per-invoice, menyusut otomatis agar tetap 1 halaman A5).
 - Semua spesifikasi lain utuh: margin 10mm rata 4 sisi, footer di dasar halaman, font 9pt hitam, judul INVOICE/DOWN PAYMENT tak berubah, nomorator kontinu, dokumen lain tak terpengaruh.
+
+---
+Task ID: deploy-vercel-darrellsoft
+Agent: main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com. token vcp_..."
+
+Work Log:
+- Validasi token Vercel via API (akun koming711 / team_QBdS4SJeRhBe19sMKMlDvqsj) — ditemukan project `darrellsoft` (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) + domain darrellsoft.com & www.darrellsoft.com sudah verified & attached (apex redirect ke www).
+- Env production sudah terpasang dari deploy sebelumnya: DATABASE_URL (PG/Supabase), Midtrans keys (server+client, production), NEXT_PUBLIC_BASE_URL.
+- `vercel link --yes --project darrellsoft` (bunx vercel 61.0.0, .vercel/project.json dibuat & .env* sudah tergitignore).
+- Deploy `vercel --prod`: build remote via vercel.json (installCommand bun install; buildCommand prepare-build.js → prisma generate → next build = schema swap sqlite→postgresql) — Build Completed ~2m, output https://darrellsoft-lew08fefx-koming711s-projects.vercel.app, Aliased → https://www.darrellsoft.com ✓.
+- Verifikasi live: curl www.darrellsoft.com HTTP 200 (publik, protection tidak memblokir domain), title "Darrell Soft - Kalkulator Hitung Cetakan" ✓; manifest.json 200; DNS CNAME → *.vercel-dns-017.com ✓; API DB-bound (/api/barang) HTTP 200 = Postgres produksi berfungsi; /api/auth/session 404 = normal (auth kustom).
+- Schema lokal tetap SQLite (revert hanya terjadi di pipeline build remote — prepare-build.js menjalankan swap sementara, file lokal tidak tersentuh).
+
+Stage Summary:
+- www.darrellsoft.com LIVE di Vercel (region sin1) dari commit 8b99784 — build lew08fefx, alias production terpasang, DNS verified, API + DB (Postgres) berjalan.
+- Catatan: peringatan "Deployment Protection" muncul di CLI tapi domain produksi tetap dapat diakses publik (HTTP 200); deploy berikutnya cukup `bunx vercel --prod --token <token>`.
