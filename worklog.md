@@ -11027,3 +11027,21 @@ Stage Summary:
 - Tampilan invoice = v124 + margin 10mm RATA keempat sisi + font dasar 9pt seragam + SEMUA tulisan abu-abu kini hitam — di pratinjau, cetak (print CSS), JPG, dan PDF (capture path dipatch).
 - Ukuran font judul INVOICE (12pt/11pt) dan subtitle DOWN PAYMENT (8.5pt) / PELUNASAN (8pt) TIDAK diubah persis sesuai permintaan; aksen warna non-abu (amber DP/jatuh tempo, hijau LUNAS) dipertahankan.
 - Fitur lama tetap: row item 8mm, rapat atas, nomorator kontinu; dokumen non-invoice tak terpengaruh (semua perubahan scoped ke doc-margin-invoice).
+
+---
+Task ID: invoice-bottom-margin-equal-top
+Agent: main (Z.ai Code)
+Task: "buat margin bawah sama dengan margin atas. fix."
+
+Work Log:
+- Diagnosa: padding sudah 10mm 4 sisi, tapi konten berakhir ~50mm di atas dasar halaman (blok tanda tangan mengalir normal setelah tabel; sisa ruang halaman terbuang DI BAWAH footer) → margin bawah visual ≠ margin atas. Terukur di JPG sebelumnya: top 10.08mm vs bottom_gap 586px@300dpi ≈ 49.6mm.
+- Fix komponen (invoice-preview.tsx): root .a5-page doc-margin-invoice jadi display:flex + flexDirection:column; blok SIGNATURES marginTop '3mm'→'auto' + paddingTop '3mm' → tanda tangan + footer didorong menempel dasar halaman A5; sisa ruang halaman terserap DI ATAS blok ttd; paddingTop 3mm jamin jarak minimum saat halaman penuh; margin bawah visual = padding-bottom 10mm = margin atas.
+- Fix capture (generate-pdf.ts, 2 jalur JPG+PDF): clone.style.cssText menimpa SEMUA inline style termasuk display:flex, dan min-height:auto mematikan ruang flex → marginTop:auto jadi 0 di capture. Kini kondisional utk doc-margin-invoice: min-height 210mm (bukan auto) + display:flex; flex-direction:column (bukan block) — dokumen lain tetap 8mm 10mm/auto/block.
+- Jalur cetak (@media print) tidak perlu perubahan: rule scoped doc-margin-invoice (padding 10mm/min-height 210mm, dari commit sebelumnya) sudah ada; inline display:flex tidak ditimpa rule print manapun.
+- Verifikasi pratinjau INV/09/26/0002 (DP): computed display flex/column; paddingTop 10.0000mm; bottomGap footer→tepi halaman 37.8px = 10mm PERSIS (sebelumnya ~50mm).
+- Verifikasi JPG export 0002: 1748×2480 A5@300dpi — top 10.08mm, bottom 10.67mm, left/right 10.24mm (selisih atas-bawah 0.6mm = antialiasing/descender, whitespace padding identik 10mm). Screenshot: .zscreens/invoice-bottom-margin-10mm.png, invoice-bottom-margin-10mm-footer.png (ttd+footer di dasar, ruang kosong terserap di atasnya).
+- ESLint 2 file = 0 problem; dev.log bersih (hanya noise seed lama).
+
+Stage Summary:
+- Margin bawah invoice kini SAMA dengan margin atas (10mm) — footer menempel dasar halaman di pratinjau, cetak, JPG, dan PDF; sisa ruang halaman diserap di atas blok tanda tangan.
+- Semua spesifikasi sebelumnya tetap: margin 10mm rata 4 sisi, font 9pt seragam, tulisan abu-abu hitam, ukuran judul INVOICE (12pt/11pt) & DOWN PAYMENT (8.5pt) tak berubah, nomorator kontinu utuh, dokumen non-invoice tak terpengaruh.

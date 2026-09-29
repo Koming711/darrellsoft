@@ -1198,15 +1198,21 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
 
   // Remove any transform scaling applied by JS preview, apply print-mode
   clone.classList.add('print-mode')
-  // Margin: invoice (doc-margin-invoice) = 10mm SERAGAM 4 sisi; dokumen lain = 8mm 10mm
-  const pagePadding = clone.classList.contains('doc-margin-invoice') ? '10mm' : '8mm 10mm'
+  // Layout invoice (doc-margin-invoice): padding 10mm seragam + tinggi penuh A5
+  // + flex column agar marginTop:auto tanda tangan bekerja (footer di dasar).
+  // Dokumen lain tetap 8mm 10mm / auto / block.
+  const isInv = clone.classList.contains('doc-margin-invoice')
+  const pagePadding = isInv ? '10mm' : '8mm 10mm'
+  const pageMinHeight = isInv ? '210mm' : 'auto'
+  const pageFlex = isInv ? 'display: flex; flex-direction: column;' : ''
   // Ensure the clone fills the wrapper exactly like the print page
   clone.style.cssText = `
     width: 148mm !important;
     max-width: 148mm !important;
-    min-height: auto !important;
+    min-height: ${pageMinHeight} !important;
     margin: 0 !important;
     padding: ${pagePadding} !important;
+    ${pageFlex}
     font-size: 9pt !important;
     line-height: 1.35 !important;
     font-family: Arial, Helvetica, sans-serif !important;
@@ -1284,14 +1290,20 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
   // ── Deep-clone the element ──
   const clone = element.cloneNode(true) as HTMLElement
   clone.classList.add('print-mode')
-  // Margin: invoice (doc-margin-invoice) = 10mm SERAGAM 4 sisi; dokumen lain = 8mm 10mm
-  const pdfPagePadding = clone.classList.contains('doc-margin-invoice') ? '10mm' : '8mm 10mm'
+  // Layout invoice (doc-margin-invoice): padding 10mm seragam + tinggi penuh A5
+  // + flex column agar marginTop:auto tanda tangan bekerja (footer di dasar).
+  // Dokumen lain tetap 8mm 10mm / auto / block.
+  const isInv = clone.classList.contains('doc-margin-invoice')
+  const pdfPagePadding = isInv ? '10mm' : '8mm 10mm'
+  const pdfPageMinHeight = isInv ? '210mm' : 'auto'
+  const pdfPageFlex = isInv ? 'display: flex; flex-direction: column;' : ''
   clone.style.cssText = `
     width: 148mm !important;
     max-width: 148mm !important;
-    min-height: auto !important;
+    min-height: ${pdfPageMinHeight} !important;
     margin: 0 !important;
     padding: ${pdfPagePadding} !important;
+    ${pdfPageFlex}
     font-size: 9pt !important;
     line-height: 1.35 !important;
     font-family: Arial, Helvetica, sans-serif !important;
