@@ -4,24 +4,57 @@ import { db } from '@/lib/db'
 // Persistent counter helpers
 //
 // The DocumentCounter table stores a monotonically-increasing sequence
-// number per (context, prefix, period, user). Unlike the old MAX()+1
+// number per (context, prefix, user). The sequence is CONTINUOUS — it does
+// NOT reset when the month or year changes ("nyambung terus"). The MM/YY
+// segment of the document number still follows the document date, but the
+// 4-digit sequence keeps incrementing forever. Unlike the old MAX()+1
 // approach, the counter NEVER decreases when documents are deleted —
 // so deleted numbers are truly never reused.
 // ============================================================
 
 /**
- * Build a unique counter key from context + prefix + period + user.
- * Example: "documentHistory|INV|2607|user123"
+ * Build a unique counter key from context + prefix + user.
+ * Example: "documentHistory|INV|user123"
+ *
+ * NOMOR KONTINU: sengaja TANPA periode (YYMM) — sequence berlanjut terus
+ * walaupun bulan/tahun berubah. MM/YY pada nomor dokumen tetap mengikuti
+ * tanggal pembuatan dokumen.
  */
 function buildCounterKey(
   context: string,
   prefix: string,
-  year: string,
-  month: string,
   dataFilter: Record<string, any>
 ): string {
   const userId = (dataFilter.userId as string) || 'global'
-  return `${context}|${prefix}|${year}${month}|${userId}`
+  return `${context}|${prefix}|${userId}`
+}
+
+/**
+ * Nilai counter LEGACY tertinggi (skema lama per-bulan:
+ * "context|prefix|YYMM|user"). Dipakai saat seeding counter global baru
+ * supaya nomor yang pernah dipakai (termasuk dokumen yang sudah dihapus,
+ * yang hanya tercatat di counter lama) tidak pernah terbit lagi.
+ */
+async function legacyCounterMax(
+  context: string,
+  prefix: string,
+  dataFilter: Record<string, any>
+): Promise<number> {
+  const userId = (dataFilter.userId as string) || 'global'
+  try {
+    const rows = await db.documentCounter.findMany({
+      where: { key: { startsWith: `${context}|${prefix}|` } },
+      select: { key: true, lastNum: true },
+    })
+    let max = 0
+    for (const r of rows) {
+      if (!r.key.endsWith(`|${userId}`)) continue
+      if (r.lastNum > max) max = r.lastNum
+    }
+    return max
+  } catch {
+    return 0
+  }
 }
 
 /**
@@ -101,23 +134,28 @@ export async function generateDocNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `${prefix}-${year}${month}`
-  const counterKey = buildCounterKey(model, prefix, year, month, dataFilter)
+  const counterKey = buildCounterKey(model, prefix, dataFilter)
 
+  // Nomor kontinu: cari sequence tertinggi dari SEMUA periode (prefix sama),
+  // lalu bandingkan dgn counter legacy per-bulan supaya nomor lama yang sudah
+  // pernah terbit (dokumennya mungkin dihapus) tidak dipakai lagi.
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await (db[model] as any).findFirst({
+    const docs = await (db[model] as any).findMany({
       where: {
         ...dataFilter,
-        [numberField]: { startsWith: datePrefix },
+        [numberField]: { startsWith: `${prefix}-` },
       },
-      orderBy: { [numberField]: 'desc' },
+      select: { [numberField]: true },
     })
-    if (lastDoc) {
-      const existingNumber: string = lastDoc[numberField]
+    let max = 0
+    for (const d of docs) {
+      const existingNumber: string = d[numberField]
       const parts = existingNumber.split('-')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax(model, prefix, dataFilter)
+    return Math.max(max, legacy)
   }
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -148,7 +186,8 @@ export async function generateDocNumber(
 /**
  * Generate the next sequential Potong Kertas number.
  * Format: PK/MM/YY/NNNN e.g. PK/06/25/0001
- * Uses a persistent counter so that deleted numbers are never reused.
+ * Sequence KONTINU lintas bulan/tahun (counter tanpa periode) dan tidak
+ * pernah memakai ulang nomor yang sudah terbit.
  */
 export async function generatePotongKertasNumber(
   dataFilter: Record<string, any>,
@@ -158,22 +197,24 @@ export async function generatePotongKertasNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `PK/${month}/${year}`
-  const counterKey = buildCounterKey('riwayatPotongKertas', 'PK', year, month, dataFilter)
+  const counterKey = buildCounterKey('riwayatPotongKertas', 'PK', dataFilter)
 
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await db.riwayatPotongKertas.findFirst({
+    const docs = await db.riwayatPotongKertas.findMany({
       where: {
         ...dataFilter,
-        nomorUrut: { startsWith: datePrefix },
+        nomorUrut: { startsWith: 'PK/' },
       },
-      orderBy: { nomorUrut: 'desc' },
+      select: { nomorUrut: true },
     })
-    if (lastDoc) {
-      const parts = lastDoc.nomorUrut.split('/')
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomorUrut.split('/')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax('riwayatPotongKertas', 'PK', dataFilter)
+    return Math.max(max, legacy)
   }
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -209,22 +250,24 @@ export async function previewPotongKertasNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `PK/${month}/${year}`
-  const counterKey = buildCounterKey('riwayatPotongKertas', 'PK', year, month, dataFilter)
+  const counterKey = buildCounterKey('riwayatPotongKertas', 'PK', dataFilter)
 
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await db.riwayatPotongKertas.findFirst({
+    const docs = await db.riwayatPotongKertas.findMany({
       where: {
         ...dataFilter,
-        nomorUrut: { startsWith: datePrefix },
+        nomorUrut: { startsWith: 'PK/' },
       },
-      orderBy: { nomorUrut: 'desc' },
+      select: { nomorUrut: true },
     })
-    if (lastDoc) {
-      const parts = lastDoc.nomorUrut.split('/')
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomorUrut.split('/')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax('riwayatPotongKertas', 'PK', dataFilter)
+    return Math.max(max, legacy)
   }
 
   const nextNum = await peekCounterNumber(counterKey, findCurrentMax)
@@ -234,7 +277,8 @@ export async function previewPotongKertasNumber(
 /**
  * Generate the next sequential Hitung Cetakan number.
  * Format: HC/MM/YY/NNNN e.g. HC/06/25/0001
- * Uses a persistent counter so that deleted numbers are never reused.
+ * Sequence KONTINU lintas bulan/tahun (counter tanpa periode) dan tidak
+ * pernah memakai ulang nomor yang sudah terbit.
  */
 export async function generateHitungCetakanNumber(
   dataFilter: Record<string, any>,
@@ -244,22 +288,24 @@ export async function generateHitungCetakanNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `HC/${month}/${year}`
-  const counterKey = buildCounterKey('riwayatCetakan', 'HC', year, month, dataFilter)
+  const counterKey = buildCounterKey('riwayatCetakan', 'HC', dataFilter)
 
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await db.riwayatCetakan.findFirst({
+    const docs = await db.riwayatCetakan.findMany({
       where: {
         ...dataFilter,
-        nomorUrut: { startsWith: datePrefix },
+        nomorUrut: { startsWith: 'HC/' },
       },
-      orderBy: { nomorUrut: 'desc' },
+      select: { nomorUrut: true },
     })
-    if (lastDoc) {
-      const parts = lastDoc.nomorUrut.split('/')
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomorUrut.split('/')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax('riwayatCetakan', 'HC', dataFilter)
+    return Math.max(max, legacy)
   }
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -295,22 +341,24 @@ export async function previewHitungCetakanNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `HC/${month}/${year}`
-  const counterKey = buildCounterKey('riwayatCetakan', 'HC', year, month, dataFilter)
+  const counterKey = buildCounterKey('riwayatCetakan', 'HC', dataFilter)
 
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await db.riwayatCetakan.findFirst({
+    const docs = await db.riwayatCetakan.findMany({
       where: {
         ...dataFilter,
-        nomorUrut: { startsWith: datePrefix },
+        nomorUrut: { startsWith: 'HC/' },
       },
-      orderBy: { nomorUrut: 'desc' },
+      select: { nomorUrut: true },
     })
-    if (lastDoc) {
-      const parts = lastDoc.nomorUrut.split('/')
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomorUrut.split('/')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax('riwayatCetakan', 'HC', dataFilter)
+    return Math.max(max, legacy)
   }
 
   const nextNum = await peekCounterNumber(counterKey, findCurrentMax)
@@ -320,9 +368,9 @@ export async function previewHitungCetakanNumber(
 /**
  * Generate the next sequential document number for DocumentHistory (Invoice, PO, SJ, SPK).
  * Format: {PREFIX}/MM/YY/NNNN e.g. INV/06/25/0001
- * Uses a persistent counter so that deleted numbers are NEVER reused —
- * even if the document with the highest number is deleted, the counter
- * keeps advancing.
+ * Sequence KONTINU lintas bulan/tahun (counter tanpa periode) dan tidak
+ * pernah memakai ulang nomor yang sudah terbit — even if the document with
+ * the highest number is deleted, the counter keeps advancing.
  */
 export async function generateDocumentHistoryNumber(
   prefix: 'INV' | 'PEL' | 'PO' | 'SJ' | 'SPK',
@@ -334,23 +382,25 @@ export async function generateDocumentHistoryNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `${prefix}/${month}/${year}`
-  const counterKey = buildCounterKey('documentHistory', prefix, year, month, dataFilter)
+  const counterKey = buildCounterKey('documentHistory', prefix, dataFilter)
 
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await db.documentHistory.findFirst({
+    const docs = await db.documentHistory.findMany({
       where: {
         docType,
-        nomor: { startsWith: datePrefix },
+        nomor: { startsWith: `${prefix}/` },
         ...dataFilter,
       },
-      orderBy: { nomor: 'desc' },
+      select: { nomor: true },
     })
-    if (lastDoc) {
-      const parts = lastDoc.nomor.split('/')
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomor.split('/')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax('documentHistory', prefix, dataFilter)
+    return Math.max(max, legacy)
   }
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -390,23 +440,25 @@ export async function previewDocumentHistoryNumber(
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const datePrefix = `${prefix}/${month}/${year}`
-  const counterKey = buildCounterKey('documentHistory', prefix, year, month, dataFilter)
+  const counterKey = buildCounterKey('documentHistory', prefix, dataFilter)
 
   const findCurrentMax = async (): Promise<number> => {
-    const lastDoc = await db.documentHistory.findFirst({
+    const docs = await db.documentHistory.findMany({
       where: {
         docType,
-        nomor: { startsWith: datePrefix },
+        nomor: { startsWith: `${prefix}/` },
         ...dataFilter,
       },
-      orderBy: { nomor: 'desc' },
+      select: { nomor: true },
     })
-    if (lastDoc) {
-      const parts = lastDoc.nomor.split('/')
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomor.split('/')
       const lastNum = parseInt(parts[parts.length - 1], 10)
-      if (!isNaN(lastNum)) return lastNum
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
     }
-    return 0
+    const legacy = await legacyCounterMax('documentHistory', prefix, dataFilter)
+    return Math.max(max, legacy)
   }
 
   const nextNum = await peekCounterNumber(counterKey, findCurrentMax)
