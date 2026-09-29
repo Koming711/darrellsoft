@@ -10945,3 +10945,25 @@ Stage Summary:
 - Row pengisian = default v124 (6 - jumlah item); permintaan "10 row" sebelumnya TIDAK diulang user dlm instruksi ini sehingga tidak diterapkan.
 - Fitur nomor dokumen kontinu lintas bulan/tahun tetap utuh (doc-number.ts tak disentuh).
 - Pelajaran: verifikasi visual SETELAH perubahan git-state wajib cold restart (pkill tunggu mati total → rm -rf .next → start) — Turbopack bisa menyajikan modul/cache lintas-lineage yg menyesatkan pengukuran.
+
+---
+Task ID: invoice-fitrow-7mm-topalign
+Agent: main (Z.ai Code)
+Task: "di kolom qty, nama barang, harga satuan dan jumlah buat rapat atas. gimana caranya apabila nama barang ada 5 baris seperti preview dikanan. tapi masuk row yang sama yaitu 7mm. fix"
+
+Work Log:
+- Diagnosa: semua td item memakai verticalAlign middle + td nama whiteSpace pre-line → nama yang wrap 5 baris membuat <tr> melar (height pada <tr> bersifat min-height) sehingga merusak keseragaman row 7mm; qty/harga/jumlah ikut center di tengah nama tinggi.
+- Fix A (rapat atas): 4 td item (Qty/Nama Barang/Harga Satuan/Jumlah) verticalAlign middle → top. Header + baris total tetap middle.
+- Fix B (auto-fit 7mm): komponen FitInRow di invoice-preview.tsx — wrapper div tinggi TETAP 7mm + overflow:hidden menahan <tr> tetap persis 7mm; teks inner diukur dari DOM nyata (clientHeight/scrollHeight — kebal transform scaler pratinjau); bila muat di 9pt → tidak berubah; bila tidak → binary search 12 iterasi mencari font TERBESAR (floor 3px) yang seluruh teksnya muat dalam row. Re-measure saat teks berubah & setelah document.fonts.ready.
+- Iterasi pertama memakai shrink rasio satu-langkah → hasil 3.22px (overshoot karena re-wrap memangkas baris 6→2); diganti binary search → 6.55px (3 baris) = font terbesar yang muat (tinggi konten monoton non-naik saat font mengecil → binary search valid).
+- Verifikasi browser (Buat Invoice, customer Budi Susanto, nama 204 karakter + item pendek "Kertas A4 70gsm"): trHeights=[27.31(header dgn border 2px), 26.31 ×8] SEMUA seragam = 7mm, tidak ada row melar; nama panjang 6.55px/3 baris fits=true; nama pendek tetap 12px (9pt); topOffsets=[0,~1,0,0] → rapat atas. Invoice tersimpan INV/09/26/0003 (nomor kontinu lanjut otomatis dari 0002).
+- JPG export: INV-09-26-0003.jpg 1748×2480 (A5@300dpi) — nama 3 baris kecil tetap dalam row 7mm yang sama; inline font-size ikut ter-clone oleh capture (path JPG aman). Screenshot: .zscreens/invoice-fitrow-preview.png, invoice-fitrow-export-0003.jpg.
+- Regression: INV/09/26/0001 (nama pendek) — row seragam 31.71px rect (= 7mm × scale 1.19857 detail view), font 12px, top-aligned ✓.
+- ESLint file = 0 problem; console/page errors = 0; dev.log bersih (prisma "duplicate column kategoriId" saat startup = seed idempotent lama, benign, sudah ada sebelumnya).
+- Catatan: invoice uji INV/09/26/0003 (harga Rp0, kabel NYAF + kertas A4) dibiarkan sebagai demo fitur — bisa dihapus via Riwayat→Sampah (nomor 0003 tetap terpakai oleh counter kontinu). Commit cd3e867; db/custom.db tidak di-commit (runtime state).
+
+Stage Summary:
+- Kolom Qty/Nama Barang/Harga Satuan/Jumlah kini RAPAT ATAS di setiap row.
+- Nama barang berapa pun jumlah barisnya (termasuk 5 baris) SELALU muat dalam row 7mm yang sama — font otomatis mengecil ke ukuran TERBESAR yang muat; nama pendek tetap 9pt.
+- Keseragaman row 7mm terjaga di pratinjau, cetak, dan JPG (inline styles ter-clone). Nomorator kontinu tidak tersentuh.
+- Perubahan: src/components/dokupro/invoice-preview.tsx saja (tanpa CSS/global; dokumen lain tak terpengaruh).
