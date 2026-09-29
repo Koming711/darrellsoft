@@ -11108,3 +11108,18 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com LIVE di Vercel (region sin1) dari commit 8b99784 — build lew08fefx, alias production terpasang, DNS verified, API + DB (Postgres) berjalan.
 - Catatan: peringatan "Deployment Protection" muncul di CLI tapi domain produksi tetap dapat diakses publik (HTTP 200); deploy berikutnya cukup `bunx vercel --prod --token <token>`.
+
+---
+Task ID: beranda-app-version
+Agent: main (Z.ai Code)
+Task: "sekarang versi berapa? tambahkan versi aplikasi di halaman beranda."
+
+Work Log:
+- Jawaban versi: package.json "version" = 0.2.0 (belum ada konstanta versi di src, tidak ada CHANGELOG/git tag).
+- Sumber tunggal baru: src/lib/app-version.ts — export APP_VERSION via import package.json (resolveJsonModule sudah true di tsconfig) → versi tampil selalu sinkron dgn package.json.
+- page.tsx footer bottom bar: setelah copyright ditambah " • v{APP_VERSION}" (span font-medium text-gray-500, title="Versi aplikasi", aria-hidden pada pemisah) — language-neutral, tidak perlu entri kamus i18n baru.
+- Verifikasi: ESLint 2 file = 0 problem; SSR curl homepage mengandung `title="Versi aplikasi">v0.2.0`; browser sesi segar (tanpa login) footer terbaca span text "v0.2.0". Screenshot: .zscreens/beranda-footer-version.png.
+- Catatan sesi browser lama: / redirect ke /pembukaan utk user yang sudah login (perilaku onboarding, bukan bug).
+
+Stage Summary:
+- Versi aplikasi saat ini 0.2.0 dan kini tampil di footer beranda sebagai "v0.2.0" — mengubah versi cukup edit package.json (sumber tunggal), tampilan ikut otomatis.

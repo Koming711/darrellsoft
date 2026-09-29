@@ -39,6 +39,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useLanguage } from '@/contexts/language-context';
+import { APP_VERSION } from '@/lib/app-version';
 
 
 /* ------------------------------------------------------------------ */
@@ -1937,6 +1938,8 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <p className="text-xs text-gray-600 text-center md:text-left">
                 &copy; {new Date().getFullYear()} Darrell Soft. {t.footer_bottom_rights}
+                <span aria-hidden="true" className="text-gray-700"> • </span>
+                <span className="font-medium text-gray-500" title="Versi aplikasi">v{APP_VERSION}</span>
               </p>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
