@@ -48,6 +48,10 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
         lineHeight: '1.35',
         fontFamily: 'var(--font-geist-sans), Arial, Helvetica, sans-serif',
         boxSizing: 'border-box',
+        // Flex column + marginTop:auto pada blok tanda tangan → footer selalu
+        // menempel di dasar halaman A5 → margin bawah = margin atas = 10mm.
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* === HEADER === */}
@@ -272,9 +276,12 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       )}
 
       {/* === SIGNATURES === */}
+      {/* marginTop:auto → tanda tangan + footer didorong ke dasar halaman A5
+          (sisa ruang halaman terserap DI ATAS blok ini); paddingTop 3mm
+          menjamin jarak minimum saat halaman penuh konten */}
       <div className="print-sig-grid" style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4mm',
-        marginTop: '3mm', textAlign: 'center', fontSize: '9pt',
+        marginTop: 'auto', paddingTop: '3mm', textAlign: 'center', fontSize: '9pt',
       }}>
         <div>
           <p style={{ fontWeight: '600', marginBottom: '12mm', color: '#000', margin: '0 0 12mm' }}>Diterima Oleh</p>
