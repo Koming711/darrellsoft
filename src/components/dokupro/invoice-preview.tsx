@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { InvoiceData } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
 import { formatRupiah, formatTanggal } from '@/lib/format';
@@ -11,6 +12,12 @@ interface InvoicePreviewProps {
   /** Override DP amount — when set, DP stays fixed regardless of total changes (used in pelunasan editor) */
   dpAmountOverride?: number;
 }
+
+// Tinggi spacer sebelum baris Subtotal: menurunkan blok Subtotal/Total/
+// Terbilang/Catatan 4cm (40mm) dari posisi semula. 40mm ≈ 151.18px @96dpi.
+const SPACER_BASE_PX = 40 * (96 / 25.4);
+// Tinggi A5 portrait @96dpi (210mm) — target maksimum konten agar cetak 1 halaman.
+const A5_H_PX = 210 * (96 / 25.4);
 
 export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: InvoicePreviewProps) {
   // Fallback defensif: data lama/backup lama bisa tanpa key `company`
@@ -34,9 +41,45 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
 
   const itemCount = items.length;
 
+  // ── Spacer elastis 4cm sebelum blok total ──
+  // Bila konten + spacer 40mm melebihi tinggi A5 (210mm), spacer menyusut
+  // otomatis (min 0) agar invoice tetap 1 halaman — diukur dari DOM nyata
+  // (kebal transform scaler pratinjau). Re-measure saat data berubah &
+  // setelah document.fonts.ready.
+  const pageRef = useRef<HTMLDivElement>(null);
+  const spacerRef = useRef<HTMLTableRowElement>(null);
+  const [spacerPx, setSpacerPx] = useState<number | null>(null);
+  const [fontTick, setFontTick] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    if (typeof document !== 'undefined' && document.fonts) {
+      document.fonts.ready.then(() => {
+        if (alive) setFontTick(t => t + 1);
+      });
+    }
+    return () => { alive = false; };
+  }, []);
+
+  useLayoutEffect(() => {
+    const page = pageRef.current;
+    const spacer = spacerRef.current;
+    if (!page || !spacer) return;
+    spacer.style.height = `${SPACER_BASE_PX}px`; // ukur dari baseline 40mm
+    // Catatan: box ber-min-height IKUT MEMBESAR mengikuti konten, sehingga
+    // scrollHeight - clientHeight selalu 0. Bandingkan langsung thd 210mm.
+    const overflow = page.scrollHeight - A5_H_PX;
+    const finalPx = overflow > 0
+      ? Math.max(0, SPACER_BASE_PX - overflow - 1) // -1px jaring pengaman pembulatan
+      : SPACER_BASE_PX;
+    spacer.style.height = `${finalPx}px`;
+    setSpacerPx(finalPx);
+  }, [itemCount, data.catatan, data.ppn, isDp, data.lunas, data.tanggalJatuhTempo, showPelunasanLabel, fontTick]);
+
   return (
     <div
       data-document-preview
+      ref={pageRef}
       className="a5-page doc-margin-invoice bg-white text-black print:shadow-none print:border-0 print:p-0 print:mb-0"
       style={{
         width: '148mm',
@@ -221,6 +264,13 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               <td /><td /><td /><td />
             </tr>
           ))}
+
+          {/* Spacer 4cm: menurunkan blok Subtotal/Total/Terbilang/Catatan
+              4cm dari posisi semula (permintaan user). Elastis — menyusut
+              otomatis bila halaman tak muat (lihat useLayoutEffect di atas). */}
+          <tr ref={spacerRef} style={{ height: spacerPx === null ? '40mm' : `${spacerPx}px` }}>
+            <td colSpan={4} />
+          </tr>
 
           {/* Totals inside table */}
           <tr className="total-row">

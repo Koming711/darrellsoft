@@ -11045,3 +11045,19 @@ Work Log:
 Stage Summary:
 - Margin bawah invoice kini SAMA dengan margin atas (10mm) — footer menempel dasar halaman di pratinjau, cetak, JPG, dan PDF; sisa ruang halaman diserap di atas blok tanda tangan.
 - Semua spesifikasi sebelumnya tetap: margin 10mm rata 4 sisi, font 9pt seragam, tulisan abu-abu hitam, ukuran judul INVOICE (12pt/11pt) & DOWN PAYMENT (8.5pt) tak berubah, nomorator kontinu utuh, dokumen non-invoice tak terpengaruh.
+
+---
+Task ID: invoice-total-block-down-4cm
+Agent: main (Z.ai Code)
+Task: "posisi subtotal, total, terbilang dan catatan diturunin 4cm dari yang sekarang"
+
+Work Log:
+- Interpretasi: blok Subtotal→SISA PEMBAYARAN (dalam tabel) + Terbilang + Catatan (mengalir setelah tabel) diturunkan 4cm (40mm) dari posisi semula. Karena terbilang & catatan mengalir setelah tabel, cukup SATU spacer row 40mm sebelum baris Subtotal — semua blok di bawahnya ikut turun 4cm serentak.
+- Baseline terukur (INV/09/26/0002): Subtotal top 56.09mm dari atas tabel; ruang kosong di atas ttd 38.86mm (auto margin ~35.9mm) → slack < 40mm → spacer statis akan meluber ke halaman 2 (box terukur 212.2mm).
+- Solusi spacer ELASTIS (pola FitInRow): <tr ref={spacerRef} height 40mm> disisipkan antara pengisi dan baris Subtotal; useLayoutEffect mengukur scrollHeight vs KONSTANTA A5 (793.7px = 210mm) — BUKAN scrollHeight-clientHeight (box min-height ikut membesar → selisih selalu 0, bug terdeteksi saat verifikasi pertama: pageH 212.2mm dgn overflow 0) — lalu menyusutkan spacer = 40mm - kelebihan (min 0, -1px safety). Re-measure saat itemCount/catatan/ppn/isDp/lunas/jatuhTempo/pelunasan berubah & setelah document.fonts.ready. Inline height px mengalahkan rule print CSS (height 8mm non-important) di semua jalur.
+- Hasil terukur: 0002 (DP, slack 38.9mm) → spacer 37.55mm, Subtotal top 56.09→93.64mm (turun maksimal yang muat), pageH 210.08mm; 0003 (reguler, item nama 204 karakter wrap 3 baris) → spacer 28.82mm, pageH 210.08mm. Blok total+terbilang kini menempel tepat di atas tanda tangan (gap 1.31mm); footer tetap 10mm dari dasar. Invoice dgn slack ≥40mm mendapat 4cm penuh.
+- Verifikasi JPG 0003: 1748×2480 A5@300dpi 1 halaman — top 10.08 / bottom 10.67 / left-right 10.24mm, konten tak terpotong (inline spacer px ter-clone ke capture). Screenshot: .zscreens/invoice-spacer-4cm.png. ESLint = 0 problem; dev.log bersih.
+
+Stage Summary:
+- Blok Subtotal/Total/Terbilang/Catatan kini turun maksimal 4cm dari posisi semula (40mm bila ruang cukup; otomatis menyusut agar invoice TETAP 1 halaman A5 — dipagari elastis per-invoice).
+- Semua spesifikasi sebelumnya utuh: margin 10mm rata 4 sisi, margin bawah = atas (footer di dasar), font 9pt, hitam, ukuran judul INVOICE/DOWN PAYMENT tak berubah, nomorator kontinu, dokumen lain tak terpengaruh.
