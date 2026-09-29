@@ -11005,3 +11005,25 @@ Stage Summary:
 - Tampilan invoice (preview, cetak, JPG) = v124 MURNI di seluruh halaman pemakai InvoicePreview (invoice, editor, pelunasan, popup, laporan) — sama dgn produksi www.darrellsoft.com (v124).
 - Nomorator kontinu lintas bulan/tahun tetap aktif (doc-number.ts tak berubah).
 - riwayat commit menampilkan evolusi lengkap: v124 murni (ae5544a) ← 13pt bold (75eda18) ← fitrow+rapat atas (cd3e867) ← poles 9pt (efb65e4) — semua bisa di-reapply per bagian bila diminta.
+
+---
+Task ID: invoice-v124-10mm-9pt-black
+Agent: main (Z.ai Code)
+Task: "dihalaman invoice. rubah tampilan invoice jadi versi v124. buat tampilan invoice yang bagus dan sempurna margin kiri, kanan, atas, bawah rata semua. font diperbesar jadi 9pt. tulisan abu2 dijadikan warna hitam. ukuran font invoice dan down payment jangan dirubah."
+
+Work Log:
+- Interpretasi: basis v124 murni (HEAD ae5544a) + 4 delta eksplisit: (1) margin 4 sisi rata, (2) font 9pt, (3) abu-abu→hitam, (4) ukuran font judul INVOICE & subtitle DOWN PAYMENT TIDAK diubah. Instruksi #4 = koreksi atas task 13pt sebelumnya (75eda18) → judul kembali/menetap di ukuran v124.
+- Yang DIUBAH di invoice-preview.tsx: padding '8mm 10mm'→'10mm' (rata semua) + className doc-margin-invoice; semua font <9pt dinaikkan ke 9pt (logo initial 12pt→9pt, company-name 11pt→9pt, alamat/telepon 7pt, bank 6.5pt, Kepada Yth/kontak/alamat/label No-Tanggal-Ref/cara bayar 7.5pt, LUNAS 7pt, jatuh tempo 7pt, terbilang 7pt, catatan 7.5pt, ttd 8pt, footer 6pt — semua→9pt); #555/#666/#888→#000 (semua tulisan abu-abu: company alamat/telepon/bank, kontak, Kepada Yth, label No/Tanggal/Ref, Cara Bayar, tgl giro, Subtotal/PPN/DP, terbilang, footer).
+- Yang TIDAK disentuh (sesuai instruksi): h2 INVOICE 12pt (regular & pelunasan) / 11pt (DP); subtitle DOWN PAYMENT 8.5pt & PELUNASAN 8pt — warna amber #b45309 dipertahankan (user hanya minta ABU-ABU→hitam); badge LUNAS hijau; icon jam amber; bg #f5f5f5 catatan; struktur row 8mm v124.
+- Pengisi tabel 8→6 row: kompensasi kenaikan font agar konten tetap muat 1 halaman A5 (794px) di varian terberat (DP+PPN+catatan) — terukur scrollH tepat 794, fits=true.
+- globals.css: re-add 2 blok scoped doc-margin-invoice — @media print (#document-preview .a5-page.doc-margin-invoice: padding 10mm/font 9pt/min-height 210mm, spesifisitas > rule generik 8mm 10mm) dan .print-mode.doc-margin-invoice (capture JPG/PDF) — pola terbukti dari siklus poles sebelumnya.
+- Bug capture ditemukan & diperbaiki di generate-pdf.ts: generateJpgFromElement & generatePdfFromElement menimpa cssText clone dgn 'padding: 8mm 10mm !important' (inline !important mengalahkan rule class) → JPG/PDF akan tetap margin lama. Fix: padding kondisional pagePadding/pdfPagePadding = contains('doc-margin-invoice') ? '10mm' : '8mm 10mm' — dokumen lain (surat jalan dll) tak terpengaruh.
+- Verifikasi browser INV/09/26/0003 (reguler): padding computed 37.7953px = 10mm RATA 4 sisi; fonts {12px×37 (9pt), 16px×1 (judul 12pt)}; colors {rgb(0,0,0)×38} = 100% hitam; h2 16px/700 = 12pt TIDAK berubah.
+- Verifikasi INV/09/26/0002 (DP): padding 37.7953px; fonts {12px×38, 14.6667px×1 (h2 11pt), 11.3333px×1 (DOWN PAYMENT 8.5pt)}; colors {35 hitam + 1 amber rgb(180,83,9) = subtitle} — ukuran & warna judul+subtitle PERSIS v124; rows item seragam 36.24px/scale 1.19857 = 8mm; scrollH 794 fits.
+- JPG export 0002: 1748×2480 (A5@300dpi), margin terukur top 10.08mm / left 10.25mm / right 10.25mm = 10mm seragam ✓ (.zscreens/invoice-10mm-9pt-dp.png). ESLint 2 file = 0 problem; dev.log bersih (prisma duplicate column = noise seed lama, benign).
+- Commit: lihat git log terakhir di repo ini.
+
+Stage Summary:
+- Tampilan invoice = v124 + margin 10mm RATA keempat sisi + font dasar 9pt seragam + SEMUA tulisan abu-abu kini hitam — di pratinjau, cetak (print CSS), JPG, dan PDF (capture path dipatch).
+- Ukuran font judul INVOICE (12pt/11pt) dan subtitle DOWN PAYMENT (8.5pt) / PELUNASAN (8pt) TIDAK diubah persis sesuai permintaan; aksen warna non-abu (amber DP/jatuh tempo, hijau LUNAS) dipertahankan.
+- Fitur lama tetap: row item 8mm, rapat atas, nomorator kontinu; dokumen non-invoice tak terpengaruh (semua perubahan scoped ke doc-margin-invoice).

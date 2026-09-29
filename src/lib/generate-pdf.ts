@@ -1198,13 +1198,15 @@ export async function generateJpgFromElement(element: HTMLElement): Promise<Blob
 
   // Remove any transform scaling applied by JS preview, apply print-mode
   clone.classList.add('print-mode')
+  // Margin: invoice (doc-margin-invoice) = 10mm SERAGAM 4 sisi; dokumen lain = 8mm 10mm
+  const pagePadding = clone.classList.contains('doc-margin-invoice') ? '10mm' : '8mm 10mm'
   // Ensure the clone fills the wrapper exactly like the print page
   clone.style.cssText = `
     width: 148mm !important;
     max-width: 148mm !important;
     min-height: auto !important;
     margin: 0 !important;
-    padding: 8mm 10mm !important;
+    padding: ${pagePadding} !important;
     font-size: 9pt !important;
     line-height: 1.35 !important;
     font-family: Arial, Helvetica, sans-serif !important;
@@ -1282,12 +1284,14 @@ export async function generatePdfFromElement(element: HTMLElement): Promise<Blob
   // ── Deep-clone the element ──
   const clone = element.cloneNode(true) as HTMLElement
   clone.classList.add('print-mode')
+  // Margin: invoice (doc-margin-invoice) = 10mm SERAGAM 4 sisi; dokumen lain = 8mm 10mm
+  const pdfPagePadding = clone.classList.contains('doc-margin-invoice') ? '10mm' : '8mm 10mm'
   clone.style.cssText = `
     width: 148mm !important;
     max-width: 148mm !important;
     min-height: auto !important;
     margin: 0 !important;
-    padding: 8mm 10mm !important;
+    padding: ${pdfPagePadding} !important;
     font-size: 9pt !important;
     line-height: 1.35 !important;
     font-family: Arial, Helvetica, sans-serif !important;
