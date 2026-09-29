@@ -10865,3 +10865,23 @@ Stage Summary:
 - Lokal terverifikasi E2E penuh (daftar + OTP + konsumsi + guard), data uji dibersihkan.
 - origin/main disinkronkan dgn kandidat deploy (1bd92c9, v124).
 - Tinggal 1 langkah: deploy Vercel menunggu token dari user; setelah itu verifikasi produksi (form daftar punya Kirim OTP + endpoint send-otp 200).
+
+---
+Task ID: revert-content-v124
+Agent: main (Z.ai Code)
+Task: "rubah conten kembali ke versi v124" — kembalikan konten lokal ke versi produksi v124
+
+Work Log:
+- Forensik: produksi www.darrellsoft.com terverifikasi live = darrell-soft-v124 (curl sw.js). Sandbox lokal berada di lineage 0538828 (v119-era + Stock Bahan) TANPA konten v124; eksperimen invoice sesi sebelumnya (FitDescription multirow, qty 14mm, APP_VERSION v60) tidak pernah masuk git/origin — hilang bersih, jadi tidak perlu di-revert manual.
+- git fetch origin --prune: origin/main maju 26a19b6 → ca20c72 (13 commit): restore v123 → OTP WhatsApp register (Fonnte) → suplier per kertas + Kategori → PO harga/lembar → 1bd92c9 bump v124 (PWA cache + APP_VERSION 2026-09-28-v59) → worklog.
+- Verifikasi tree ca20c72: sw.js = darrell-soft-v124 ✓, APP_VERSION 2026-09-28-v59 ✓, invoice-preview tanpa FitDescription (perilaku lama) ✓, Stock Bahan tetap ada ✓. Diff schema prisma murni additive (Kategori, RegisterOtp, Paper.suplier/kategoriId).
+- Fast-forward murni: git restore db/custom.db (runtime mod) → git merge --ff-only origin/main → HEAD = ca20c72, main == origin/main (tanpa force-push, tanpa history rewrite). bun run db:push: "already in sync" + regenerate client.
+- Cold restart dev server (pkill + rm -rf .next) → Ready 890ms, HTTP 200.
+- Verifikasi agent-browser end-to-end (superadmin/268899): dialog "Versi Baru!" muncul (v54→v59) & ditutup; login OK → beranda; menu lengkap termasuk Daftar Kategori (baru v124), Stock Bahan, Pendaftar Baru (OTP); /invoice → Buat Invoice → simpan INV/09/26/0001 (Budi Susanto + paperbowl) → preview/lightbox: .a5-page 559×794px A5 portrait gaya lama, tabel Qty|Nama Barang|Harga Satuan|Jumlah, baris item kosong pengisi, Subtotal/PPN/TOTAL, Terbilang, blok tanda tangan — persis v124; /daftar-kategori load dgn data Kardus.
+- 0 error console/page/dev.log.
+
+Stage Summary:
+- Konten lokal = produksi v124 (commit ca20c72), git lokal sinkron dengan GitHub (main == origin/main, fast-forward tanpa push).
+- Eksperimen invoice dari sesi lama resmi hilang; invoice kembali perilaku stabil v124 (A5 portrait).
+- DB lokal = snapshot v124 (1 PO soft-deleted); data invoice lama milik sandbox lama tidak ada — data asli user tetap aman di produksi; bisa Backup/Restore bila perlu.
+- Eksperimen invoice (multirow/landscape) bisa di-reapply dari nol di atas v124 atas permintaan.
