@@ -34,8 +34,11 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
 
   const itemCount = items.length;
 
-  // Semua row tabel tinggi tetap 7mm (26.46px @96dpi), konten center vertikal.
-  const ROW_H = '7mm';
+  // Semua row tabel tinggi tetap 8mm (30.24px @96dpi), konten center vertikal.
+  const ROW_H = '8mm';
+  // Jumlah row pengisian invoice: tabel item selalu menampilkan 10 row
+  // (item terisi + baris pengisi kosong). Bila item > 10, semua item tetap tampil.
+  const TOTAL_ITEM_ROWS = 10;
 
   return (
     <div
@@ -46,8 +49,9 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
         minHeight: '210mm',
         // Margin seragam 10mm keempat sisi (kiri/kanan/atas/bawah rata semua)
         padding: '10mm',
-        fontSize: '10pt',
-        lineHeight: '1.35',
+        // Font SERAGAM 9pt untuk seluruh tulisan invoice
+        fontSize: '9pt',
+        lineHeight: '1.25',
         fontFamily: 'var(--font-geist-sans), Arial, Helvetica, sans-serif',
         boxSizing: 'border-box',
         display: 'flex',
@@ -55,7 +59,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       }}
     >
       {/* === HEADER === */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3mm' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2mm' }}>
         {/* Company info */}
         <div style={{ display: 'flex', gap: '2mm', alignItems: 'flex-start' }}>
           <div
@@ -69,7 +73,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 'bold',
-              fontSize: '13pt',
+              fontSize: '9pt',
               flexShrink: 0,
               color: '#000',
             }}
@@ -81,21 +85,21 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             )}
           </div>
           <div className="company-info">
-            <p className="company-name" style={{ fontSize: '12pt', fontWeight: 'bold', color: '#000', margin: 0 }}>
+            <p className="company-name" style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000', margin: 0 }}>
               {company.nama || ''}
             </p>
             {company.alamat && (
-              <p style={{ fontSize: '8pt', color: '#000', margin: '0.5mm 0 0' }}>{company.alamat}</p>
+              <p style={{ fontSize: '9pt', color: '#000', margin: '0.5mm 0 0' }}>{company.alamat}</p>
             )}
             {(company.telepon || company.email) && (
-              <p style={{ fontSize: '8pt', color: '#000', margin: '0.3mm 0 0' }}>
+              <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>
                 {company.telepon && <span>{company.telepon}</span>}
                 {company.telepon && company.email && <span> | </span>}
                 {company.email && <span>{company.email}</span>}
               </p>
             )}
             {(company.bankName || company.bankName2) && (
-              <p style={{ fontSize: '7.5pt', color: '#000', margin: '0.3mm 0 0' }}>
+              <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>
                 {company.bankName && (
                   <span>{company.bankName} {company.bankAccount} a.n. {company.bankHolder}</span>
                 )}
@@ -111,16 +115,16 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
         <div style={{ textAlign: 'right' }}>
           {showPelunasanLabel ? (
             <>
-              <h2 style={{ fontSize: '13pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
+              <h2 style={{ fontSize: '9pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
               <p style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>PELUNASAN</p>
             </>
           ) : isDp ? (
             <>
-              <h2 style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0, color: '#000', lineHeight: 1.2 }}>INVOICE</h2>
-              <p style={{ fontSize: '9.5pt', fontWeight: 'bold', color: '#000', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>DOWN PAYMENT</p>
+              <h2 style={{ fontSize: '9pt', fontWeight: 'bold', margin: 0, color: '#000', lineHeight: 1.2 }}>INVOICE</h2>
+              <p style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000', letterSpacing: '1.5px', margin: '0.5mm 0 0' }}>DOWN PAYMENT</p>
             </>
           ) : (
-            <h2 style={{ fontSize: '13pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
+            <h2 style={{ fontSize: '9pt', fontWeight: 'bold', margin: 0, color: '#000' }}>INVOICE</h2>
           )}
 
           {data.lunas && (
@@ -130,13 +134,13 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               backgroundColor: '#dcfce7', border: '1.5px solid #22c55e',
             }}>
               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
-              <span style={{ fontSize: '8pt', fontWeight: '900', color: '#000', letterSpacing: '1px' }}>LUNAS</span>
+              <span style={{ fontSize: '9pt', fontWeight: '900', color: '#000', letterSpacing: '1px' }}>LUNAS</span>
             </div>
           )}
           {data.tanggalJatuhTempo && !data.lunas && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1mm', marginTop: '1mm' }}>
               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span style={{ fontSize: '8pt', fontWeight: '600', color: '#000' }}>
+              <span style={{ fontSize: '9pt', fontWeight: '600', color: '#000' }}>
                 Jatuh Tempo: {new Date(data.tanggalJatuhTempo).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}
               </span>
             </div>
@@ -145,34 +149,34 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </div>
 
       {/* === DIVIDER === */}
-      <div className="print-divider" style={{ borderBottom: '2px solid #000', marginBottom: '2mm' }} />
+      <div className="print-divider" style={{ borderBottom: '2px solid #000', marginBottom: '1.5mm' }} />
 
       {/* === CLIENT + DOC INFO === */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm', marginBottom: '2mm' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm', marginBottom: '1.5mm' }}>
         <div className="doc-recipient">
-          <p style={{ fontSize: '8.5pt', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#000', margin: '0 0 0.5mm' }}>
+          <p style={{ fontSize: '9pt', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#000', margin: '0 0 0.5mm' }}>
             Kepada Yth :
           </p>
-          <p style={{ fontSize: '10pt', fontWeight: '500', color: '#000', margin: 0 }}>
+          <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>
             {client.nama || '-'}
           </p>
           {client.kontak && (
-            <p style={{ fontSize: '8.5pt', color: '#000', margin: '0.3mm 0 0' }}>{client.kontak}</p>
+            <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>{client.kontak}</p>
           )}
           {client.alamat && (
-            <p style={{ fontSize: '8.5pt', color: '#000', margin: '0.3mm 0 0' }}>{client.alamat}</p>
+            <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>{client.alamat}</p>
           )}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="doc-detail" style={{ display: 'inline-block', textAlign: 'left' }}>
-            <p style={{ fontSize: '8.5pt', color: '#000', margin: 0 }}>No. Invoice</p>
-            <p style={{ fontSize: '10pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.nomor}</p>
-            <p style={{ fontSize: '8.5pt', color: '#000', margin: '0.5mm 0 0' }}>Tanggal</p>
-            <p style={{ fontSize: '10pt', color: '#000', margin: 0 }}>{formatTanggal(data.tanggal)}</p>
+            <p style={{ fontSize: '9pt', color: '#000', margin: 0 }}>No. Invoice</p>
+            <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.nomor}</p>
+            <p style={{ fontSize: '9pt', color: '#000', margin: '0.5mm 0 0' }}>Tanggal</p>
+            <p style={{ fontSize: '9pt', color: '#000', margin: 0 }}>{formatTanggal(data.tanggal)}</p>
             {showPelunasanLabel && data.referensiInvoiceNomor && (
               <>
-                <p style={{ fontSize: '8.5pt', color: '#000', margin: '0.5mm 0 0' }}>Ref.</p>
-                <p style={{ fontSize: '10pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.referensiInvoiceNomor}</p>
+                <p style={{ fontSize: '9pt', color: '#000', margin: '0.5mm 0 0' }}>Ref.</p>
+                <p style={{ fontSize: '9pt', fontWeight: '500', color: '#000', margin: 0 }}>{data.referensiInvoiceNomor}</p>
               </>
             )}
           </div>
@@ -181,7 +185,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
 
       {/* === PAYMENT INFO === */}
       {data.caraPembayaran && (
-        <div style={{ marginBottom: '2mm', fontSize: '8.5pt', display: 'flex', alignItems: 'center', gap: '1.5mm' }}>
+        <div style={{ marginBottom: '2mm', fontSize: '9pt', display: 'flex', alignItems: 'center', gap: '1.5mm' }}>
           <span style={{ color: '#000' }}>Cara Bayar:</span>
           <span style={{ fontWeight: '600', color: '#000', textTransform: 'uppercase' }}>
             {data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}
@@ -195,7 +199,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       )}
 
       {/* === ITEMS TABLE === */}
-      {/* Semua row (header, item, pengisi, totals) tinggi 7mm — konten center vertikal */}
+      {/* Semua row (header, item, pengisi, totals) tinggi 8mm — konten center vertikal */}
       <table className="print-table-8mm" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0' }}>
         <thead>
           <tr style={{ height: ROW_H, borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
@@ -214,8 +218,8 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
               <td style={{ padding: '0 3mm', textAlign: 'right', verticalAlign: 'middle', color: '#000' }}>{formatRupiah(item.qty * item.harga)}</td>
             </tr>
           ))}
-          {/* Empty rows to fill space */}
-          {Array.from({ length: Math.max(0, 6 - itemCount) }).map((_, i) => (
+          {/* Baris pengisi kosong — total row pengisian selalu 10 */}
+          {Array.from({ length: Math.max(0, TOTAL_ITEM_ROWS - itemCount) }).map((_, i) => (
             <tr key={`empty-${i}`} style={{ height: ROW_H }}>
               <td /><td /><td /><td />
             </tr>
@@ -260,8 +264,8 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </table>
 
       {/* === TERBILANG === */}
-      <div style={{ marginTop: '1.5mm', marginBottom: '1mm' }}>
-        <p style={{ fontSize: '8pt', fontStyle: 'italic', color: '#000', margin: 0 }}>
+      <div style={{ marginTop: '0.8mm', marginBottom: '0.5mm' }}>
+        <p style={{ fontSize: '9pt', fontStyle: 'italic', color: '#000', margin: 0 }}>
           Terbilang: {terbilang(isDp ? sisa : total)} rupiah
         </p>
       </div>
@@ -270,7 +274,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       {data.catatan && (
         <div style={{
           marginBottom: '2mm', borderRadius: '2px', padding: '2mm',
-          backgroundColor: '#f5f5f5', fontSize: '8.5pt', color: '#000',
+          backgroundColor: '#f5f5f5', fontSize: '9pt', color: '#000',
         }}>
           <p style={{ fontWeight: '600', margin: '0 0 0.5mm', color: '#000' }}>Catatan:</p>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{data.catatan}</p>
@@ -282,22 +286,22 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           halaman A5 (margin-top auto mengisi sisa ruang di atasnya) */}
       <div className="print-sig-grid" style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4mm',
-        marginTop: 'auto', paddingTop: '3mm', textAlign: 'center', fontSize: '9pt',
+        marginTop: 'auto', paddingTop: '2mm', textAlign: 'center', fontSize: '9pt',
       }}>
         <div>
-          <p style={{ fontWeight: '600', marginBottom: '12mm', color: '#000', margin: '0 0 12mm' }}>Diterima Oleh</p>
+          <p style={{ fontWeight: '600', color: '#000', margin: '0 0 7mm' }}>Diterima Oleh</p>
           <div className="print-sig-line" style={{ borderBottom: '1px solid #000', margin: '0 auto', width: '60%' }} />
         </div>
         <div>
-          <p style={{ fontWeight: '600', marginBottom: '12mm', color: '#000', margin: '0 0 12mm' }}>Hormat Kami</p>
+          <p style={{ fontWeight: '600', color: '#000', margin: '0 0 7mm' }}>Hormat Kami</p>
           <div className="print-sig-line" style={{ borderBottom: '1px solid #000', margin: '0 auto', width: '60%' }} />
         </div>
       </div>
 
       {/* === FOOTER === */}
       <p style={{
-        fontSize: '7pt', textAlign: 'center', marginTop: '3mm',
-        fontStyle: 'italic', color: '#000', margin: '3mm 0 0',
+        fontSize: '9pt', textAlign: 'center',
+        fontStyle: 'italic', color: '#000', margin: '1.5mm 0 0',
       }}>
         Barang yang sudah dibeli tidak bisa ditukar/dikembalikan.
       </p>
