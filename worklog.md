@@ -11076,3 +11076,18 @@ Work Log:
 Stage Summary:
 - Blok Subtotal/Total/Terbilang/Catatan resmi naik 12mm dari posisi sebelumnya; posisi net akhir = turun 28mm dari layout semula (4cm − 12mm), tetap elastis terpagari 1 halaman A5.
 - Semua spesifikasi sebelumnya utuh: margin 10mm rata 4 sisi, footer di dasar, font 9pt, hitam, judul INVOICE/DOWN PAYMENT tak berubah, nomorator kontinu.
+
+---
+Task ID: invoice-cancel-up-12mm
+Agent: main (Z.ai Code)
+Task: "cancel perintah terakhir"
+
+Work Log:
+- Interpretasi: perintah terakhir = "naik 12mm" (commit 358c54a) → dibatalkan, blok Subtotal/Total/Terbilang/Catatan kembali ke posisi terpasang sebelumnya (hasil turun-4cm, commit d666f82; spacer baseline efektif 40mm).
+- Implementasi: src/components/dokupro/invoice-preview.tsx dipulihkan ke versi d666f82 — SPACER_BASE_PX kembali 40mm (40 × 96/25.4), komentar riwayat 28mm dihapus, komentar spacer di JSX kembali "Spacer 4cm", formula elastis kembali `overflow > 0 ? max(0, BASE − overflow − 1) : BASE`.
+- Verifikasi terukur (pratinjau, scale 1.19857): 0002 (DP) spacer 170.0px ter-skala = 37.52mm (posisi naik-12mm akan membaca ~25.5mm); 0003 (Reguler) spacer 130.5px ter-skala = 28.81mm (vs 16.81mm saat dinaikkan) — kedua nilai persis sama dengan kondisi d666f82; overflow 0 = tetap 1 halaman A5.
+- Screenshot: .zscreens/invoice-cancel-up12mm-0003.png. ESLint file tunggal = 0 problem; worklog & riwayat commit tidak di-revert (hanya kode yang dipulihkan, riwayat 12mm tetap tercatat di atas).
+
+Stage Summary:
+- Perintah "naik 12mm" DIBATALKAN — posisi blok Subtotal/Total/Terbilang/Catatan kembali persis ke keadaan setelah tugas turun-4cm (spacer elastis baseline 40mm per-invoice, menyusut otomatis agar tetap 1 halaman A5).
+- Semua spesifikasi lain utuh: margin 10mm rata 4 sisi, footer di dasar halaman, font 9pt hitam, judul INVOICE/DOWN PAYMENT tak berubah, nomorator kontinu, dokumen lain tak terpengaruh.
