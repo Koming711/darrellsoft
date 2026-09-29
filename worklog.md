@@ -10967,3 +10967,21 @@ Stage Summary:
 - Nama barang berapa pun jumlah barisnya (termasuk 5 baris) SELALU muat dalam row 7mm yang sama — font otomatis mengecil ke ukuran TERBESAR yang muat; nama pendek tetap 9pt.
 - Keseragaman row 7mm terjaga di pratinjau, cetak, dan JPG (inline styles ter-clone). Nomorator kontinu tidak tersentuh.
 - Perubahan: src/components/dokupro/invoice-preview.tsx saja (tanpa CSS/global; dokumen lain tak terpengaruh).
+
+---
+Task ID: invoice-title-13pt-bold
+Agent: main (Z.ai Code)
+Task: "dihalaman invoice. rubah tampilan invoice jadi versi v124. buat tampilan invoice yang bagus dan sempurna margin kiri, kanan, atas, bawah rata semua. font diperbesar jadi 9pt. semua tulisan dibuat hitam. tulisan invoice dirubah fontnya menjadi 13pt bold. check and fix."
+
+Work Log:
+- Analisis: instruksi = spesifikasi lengkap tampilan invoice (v124 basis + margin rata + 9pt + hitam + judul INVOICE 13pt bold). State HEAD (efb65e4 + cd3e867) SUDAH memenuhi 4 butir pertama (v124 basis, margin 10mm rata, font 9pt seragam, 100% hitam, plus row 7mm + rapat atas + FitInRow dr task sebelumnya) — satu-satunya delta: judul INVOICE masih 9pt.
+- Perubahan: 3 h2 "INVOICE" (varian regular, DP, pelunasan) fontSize 9pt → 13pt (tetap bold). Subtitle "DOWN PAYMENT"/"PELUNASAN" tetap 9pt bold hitam (user hanya menyebut tulisan INVOICE).
+- Verifikasi browser INV/09/26/0001 (regular): page .a5-page 559.73×794.21px layout (A5 pas, judul 13pt TIDAK meluber — flex marginTop:auto menyerap), padding computed 37.7953px = 10mm rata 4 sisi, fonts = [12px (9pt), 17.3333px (13pt judul)] saja, colors = [rgb(0,0,0)] saja, rows [27.47(header+border), 26.47×8] = 7mm seragam, h2 INVOICE = 17.33px weight 700.
+- Verifikasi INV/09/26/0002 (DP): h2 INVOICE 17.33px/700 + subtitle DOWN PAYMENT 12px hitam (bukan amber lagi) ✓. Varian pelunasan memakai pola h2 identik (satu code path).
+- Export JPG 0002: 1748×2480 A5@300dpi — judul INVOICE 13pt bold tercapture benar (.zscreens/invoice-13pt-title-export-dp.jpg). Percobaan export pertama gagal memunculkan file karena Fast Refresh tengah berjalan saat klik; retry pada halaman stabil sukses (bukan bug).
+- ESLint file = 0 problem; console/page errors = 0.
+- Commit 75eda18. Catatan: harga invoice uji 0001/0002 menunjukkan Rp0 (data uji lama; harga item tidak relevan dgn perubahan tampilan ini).
+
+Stage Summary:
+- Spesifikasi tampilan invoice user kini LENGKAP dan terverifikasi terukur: basis v124, margin 10mm rata kiri/kanan/atas/bawah, font seragam 9pt, semua tulisan hitam, judul INVOICE 13pt bold — di pratinjau, cetak, dan JPG.
+- Fitur sebelumnya tetap utuh: row 7mm seragam, kolom item rapat atas, FitInRow (nama multi-baris selalu muat 7mm), nomorator kontinu.
