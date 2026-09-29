@@ -11061,3 +11061,18 @@ Work Log:
 Stage Summary:
 - Blok Subtotal/Total/Terbilang/Catatan kini turun maksimal 4cm dari posisi semula (40mm bila ruang cukup; otomatis menyusut agar invoice TETAP 1 halaman A5 — dipagari elastis per-invoice).
 - Semua spesifikasi sebelumnya utuh: margin 10mm rata 4 sisi, margin bawah = atas (footer di dasar), font 9pt, hitam, ukuran judul INVOICE/DOWN PAYMENT tak berubah, nomorator kontinu, dokumen lain tak terpengaruh.
+
+---
+Task ID: invoice-total-block-up-12mm
+Agent: main (Z.ai Code)
+Task: "posisi subtotal, total, terbilang dan catatan dinaikin 12mm dari yang sekarang"
+
+Work Log:
+- Interpretasi: "dari yang sekarang" = dari posisi TERPASANG saat ini (spacer elastis per-invoice: 0002 = 37.55mm, 0003 = 28.82mm) → spacer baru = spacer efektif − 12mm. Implementasi: baseline efektif spacer 40mm → 28mm (40 − 12); pengukuran overflow tetap diukur dari baseline historis 40mm (SPACER_MEASURE_PX) sehingga kenaikan relatif presisi di SEMUA invoice, termasuk yang terkena pagu elastis.
+- Formula final: finalPx = max(0, min(28mm, 28mm − overflow40 − 1px)); default render SSR '28mm'.
+- Verifikasi terukur: 0002 spacer 37.55 → 25.55mm (naik 12.00mm); 0003 spacer 28.82 → 16.81mm (naik 12.01mm); kedua halaman 210.08mm (tetap 1 A5); footer tetap 10mm dari dasar.
+- Verifikasi JPG 0002: 1748×2480 A5@300dpi 1 halaman — top 10.08 / bottom 10.67 / left-right 10.24mm. Screenshot: .zscreens/invoice-spacer-up12mm.png. ESLint = 0 problem.
+
+Stage Summary:
+- Blok Subtotal/Total/Terbilang/Catatan resmi naik 12mm dari posisi sebelumnya; posisi net akhir = turun 28mm dari layout semula (4cm − 12mm), tetap elastis terpagari 1 halaman A5.
+- Semua spesifikasi sebelumnya utuh: margin 10mm rata 4 sisi, footer di dasar, font 9pt, hitam, judul INVOICE/DOWN PAYMENT tak berubah, nomorator kontinu.
