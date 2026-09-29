@@ -1,9 +1,85 @@
 'use client';
 
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { InvoiceData } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
 import { formatRupiah, formatTanggal } from '@/lib/format';
 import { terbilang } from '@/lib/terbilang';
+
+// Tinggi tetap SEMUA row tabel invoice — 7mm (≈26.46px @96dpi)
+const ROW_H = '7mm';
+
+/**
+ * FitInRow — nama barang SELALU muat dalam row tetap 7mm, berapa pun jumlah
+ * barisnya (mis. 5 baris seperti di preview). Wrapper tinggi TETAP (bukan
+ * min-height) + overflow:hidden menahan <tr> tetap tepat 7mm; font otomatis
+ * mengecil (binary search, diukur dari DOM nyata) sampai seluruh teks masuk
+ * ke row yang sama — selalu ukuran font TERBESAR yang muat. Nama pendek
+ * (1 baris) tidak berubah — tetap 9pt.
+ */
+function FitInRow({ text }: { text: string }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [fontTick, setFontTick] = useState(0);
+
+  // Ukur ulang setelah webfont selesai dimuat (metrik font bisa berubah)
+  useEffect(() => {
+    let alive = true;
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (alive) setFontTick((t) => t + 1);
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    // Tinggi tersedia = tinggi layout wrapper (7mm). clientHeight/scrollHeight
+    // kebal terhadap transform scale di ancestor (pratinjau memakai scaler).
+    const avail = outer.clientHeight;
+    if (avail <= 0) return;
+
+    // Reset ke font dasar (9pt) sebelum mengukur ulang
+    inner.style.fontSize = '';
+    const base = parseFloat(window.getComputedStyle(inner).fontSize) || 12;
+    inner.style.fontSize = `${base}px`;
+
+    // Muat pada ukuran dasar (nama pendek 1 baris)? Tidak ada perubahan.
+    if (inner.scrollHeight <= avail) return;
+
+    // Binary search font TERBESAR yang seluruh teksnya masih muat dlm row —
+    // setelah font mengecil teks re-wrap (jumlah baris bisa berkurang drastis),
+    // jadi rasio satu-langkah bisa terlalu kecil; pencarian biner optimal.
+    // Tinggi konten monoton non-naik saat font mengecil → binary search valid.
+    let lo = 3;
+    let hi = base;
+    let best = lo;
+    for (let i = 0; i < 12; i++) {
+      const mid = (lo + hi) / 2;
+      inner.style.fontSize = `${mid}px`;
+      if (inner.scrollHeight <= avail) {
+        best = mid;
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    inner.style.fontSize = `${best}px`;
+  }, [text, fontTick]);
+
+  return (
+    <div ref={outerRef} style={{ height: ROW_H, overflow: 'hidden' }}>
+      <div ref={innerRef} style={{ whiteSpace: 'pre-line', color: '#000' }}>
+        {text}
+      </div>
+    </div>
+  );
+}
 
 interface InvoicePreviewProps {
   data: InvoiceData;
@@ -33,9 +109,6 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
   const companyInitials = (company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   const itemCount = items.length;
-
-  // Semua row tabel tinggi tetap 7mm (26.46px @96dpi), konten center vertikal.
-  const ROW_H = '7mm';
 
   return (
     <div
@@ -196,7 +269,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       )}
 
       {/* === ITEMS TABLE === */}
-      {/* Semua row (header, item, pengisi, totals) tinggi 7mm — konten center vertikal */}
+      {/* Semua row (header, item, pengisi, totals) tinggi 7mm — kolom item rapat atas (vertical-align: top) */}
       <table className="print-table-8mm" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0' }}>
         <thead>
           <tr style={{ height: ROW_H, borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
@@ -207,12 +280,15 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
           </tr>
         </thead>
         <tbody>
-          {items.map((item, i) => (
+          {items.map((item) => (
             <tr key={item.id} style={{ height: ROW_H }}>
-              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'middle', color: '#000' }}>{item.qty}</td>
-              <td style={{ padding: '0 1mm', verticalAlign: 'middle', color: '#000', whiteSpace: 'pre-line' }}>{item.deskripsi || ''}</td>
-              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'middle', color: '#000' }}>{formatRupiah(item.harga)}</td>
-              <td style={{ padding: '0 3mm', textAlign: 'right', verticalAlign: 'middle', color: '#000' }}>{formatRupiah(item.qty * item.harga)}</td>
+              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{item.qty}</td>
+              <td style={{ padding: '0 1mm', verticalAlign: 'top', color: '#000' }}>
+                {/* Rapat atas + auto-fit: nama barang 1–n baris SELALU masuk row 7mm yang sama */}
+                <FitInRow text={item.deskripsi || ''} />
+              </td>
+              <td style={{ padding: '0 1mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.harga)}</td>
+              <td style={{ padding: '0 3mm', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{formatRupiah(item.qty * item.harga)}</td>
             </tr>
           ))}
           {/* Empty rows to fill space */}
