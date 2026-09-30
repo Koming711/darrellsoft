@@ -104,6 +104,9 @@ export function ItemsFields({
   lockPrices = false,
   paperOptions,
 }: ItemsFieldsProps) {
+  // Dropdown barang per-baris (mode barang / Buat Invoice) — tombol chevron
+  // di kotak Nama Barang membuka daftar barang milik customer terpilih.
+  const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
   const [openPaperIndex, setOpenPaperIndex] = useState<number | null>(null);
   // Dialog Master Barang (mode barang): dibuka saat klik Tambah.
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -133,8 +136,9 @@ export function ItemsFields({
       },
     ]);
     // Mode barang (Buat Invoice): klik Tambah → baris baru + LANGSUNG buka
-    // dialog Master Barang (permintaan owner — dropdown lama di kotak Nama
-    // Barang dihapus; pemilihan & penambahan barang lewat dialog ini).
+    // dialog Master Barang (cari / pilih / tambah barang baru). Pemilihan
+    // cepat per baris juga tetap tersedia lewat tombol dropdown (chevron)
+    // di kotak Nama Barang.
     if (isBarangMode) {
       setPickerTargetIndex(newIndex);
       setBarangSearch('');
@@ -157,6 +161,7 @@ export function ItemsFields({
   };
 
   const pickBarang = (index: number, barang: BarangOption) => {
+    setOpenBarangIndex(null);
     if (onPickBarang) {
       onPickBarang(index, barang);
       return;
@@ -347,17 +352,69 @@ export function ItemsFields({
                   </PopoverContent>
                 </Popover>
               ) : isBarangMode ? (
-                /* MODE BARANG (Buat Invoice) — kotak teks biasa (bisa diketik
-                   manual). Dropdown/chevron di kotak DIHAPUS (permintaan
-                   owner): pemilihan & penambahan barang kini lewat tombol
-                   Tambah → dialog Master Barang per customer. */
-                <Textarea
-                  value={item.deskripsi}
-                  onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
-                  placeholder="Ketik nama barang"
-                  className="text-sm min-h-[84px]"
-                  rows={3}
-                />
+                /* MODE BARANG (Buat Invoice) — kotak besar & bisa diketik
+                   manual, plus tombol dropdown (chevron) untuk memilih barang
+                   milik customer (auto-isi nama, qty dari master, satuan,
+                   harga satuan & modal). Tambah barang baru tetap lewat
+                   tombol Tambah → dialog Master Barang. */
+                <Popover
+                  open={openBarangIndex === index}
+                  onOpenChange={(open) => setOpenBarangIndex(open ? index : null)}
+                >
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <Textarea
+                        value={item.deskripsi}
+                        onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
+                        placeholder="Ketik nama barang atau pilih lewat tombol dropdown"
+                        className="text-sm min-h-[84px] pr-11"
+                        rows={3}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setOpenBarangIndex(openBarangIndex === index ? null : index)}
+                        className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-slate-50 shadow-xs outline-none cursor-pointer transition-colors hover:bg-slate-100 ${openBarangIndex === index ? 'text-slate-700' : 'text-slate-400'}`}
+                        aria-label="Pilih barang dari daftar customer"
+                      >
+                        <ChevronDown className={`w-4 h-4 transition-transform ${openBarangIndex === index ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    {barangOptions!.length > 0 ? (
+                      <div>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
+                          Master Barang Customer
+                        </div>
+                        {barangOptions!.map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); pickBarang(index, b); }}
+                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${item.deskripsi === b.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                          >
+                            <span className="block truncate">{b.name}</span>
+                            {showPrice && (
+                              <span className="block text-[11px] text-slate-400">
+                                {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
+                                {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
+                        <PackageSearch className="w-5 h-5 text-slate-300" />
+                        {emptyBarangMessage}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               ) : (
                 <Textarea
                   value={item.deskripsi}
