@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
 import { onDataChange } from '@/lib/data-sync'
 import { formatIDR, formatNum } from '@/lib/format'
-import { UNIT_OPTIONS, type Item, type ItemCustomerRef, type SessionUser } from '@/lib/types'
+import { type Item, type ItemCustomerRef, type SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,22 +26,13 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PhotoUpload } from '@/components/photo-upload'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Command,
   CommandEmpty,
@@ -51,6 +42,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { BarangFormDialog } from '@/components/views/barang-form-dialog'
 import {
   Table,
   TableBody,
@@ -68,39 +60,6 @@ interface CustomerOption {
   id: string
   name: string
   companyName: string | null
-}
-
-interface ItemFormState {
-  name: string
-  unit: string
-  standardPrice: string
-  hpp: string
-  /** Bidang praktis: saat diisi → Harga Jual otomatis = Harga Modal + Profit */
-  profit: string
-  /** Jumlah stok barang */
-  qty: string
-  keterangan: string
-  isActive: boolean
-  /** Foto barang (data URL JPEG hasil kompresi ≤300KB); '' = tanpa foto */
-  photoUrl: string
-  /** Pelanggan tujuan saat create/duplicate ('none' = barang umum); tidak dipakai saat edit */
-  customerId: string
-}
-
-const EMPTY_FORM: ItemFormState = {
-  name: '', unit: 'pcs', standardPrice: '', hpp: '', profit: '', qty: '', keterangan: '', isActive: true, photoUrl: '', customerId: 'none',
-}
-
-function toNum(v: string): number | null {
-  if (v.trim() === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-function profitOf(jual: string, modal: string): string {
-  const j = toNum(jual)
-  const m = toNum(modal)
-  return j !== null && m !== null ? String(j - m) : ''
 }
 
 /** Helper foto (kompres ≤300KB JPG + format byte) kini di @/lib/image-compress + komponen @/components/photo-upload. */
@@ -180,8 +139,6 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const [editing, setEditing] = useState<Item | null>(null)
   /** Sumber duplikasi (mode salin) — null saat create/edit biasa */
   const [duplicateFrom, setDuplicateFrom] = useState<Item | null>(null)
-  const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
   /** ID barang yang sedang di-toggle status aktifnya (switch di tabel) */
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
@@ -233,7 +190,6 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const openCreate = () => {
     setEditing(null)
     setDuplicateFrom(null)
-    setForm({ ...EMPTY_FORM, customerId: customerId !== 'all' ? customerId : 'none' })
     setDialogOpen(true)
   }
 
@@ -241,145 +197,13 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const openDuplicate = (it: Item) => {
     setEditing(null)
     setDuplicateFrom(it)
-    const modalStr = it.hpp != null ? String(it.hpp) : ''
-    setForm({
-      name: it.name,
-      unit: it.unit,
-      standardPrice: String(it.standardPrice),
-      hpp: modalStr,
-      profit: profitOf(String(it.standardPrice), modalStr),
-      qty: String(it.qty ?? 0),
-      keterangan: it.keterangan ?? '',
-      isActive: true,
-      photoUrl: it.photoUrl ?? '',
-      customerId: it.customers && it.customers.length > 0 ? it.customers[0].id : (customerId !== 'all' ? customerId : 'none'),
-    })
     setDialogOpen(true)
   }
 
   const openEdit = (it: Item) => {
     setEditing(it)
     setDuplicateFrom(null)
-    const modalStr = it.hpp != null ? String(it.hpp) : ''
-    setForm({
-      name: it.name,
-      unit: it.unit,
-      standardPrice: String(it.standardPrice),
-      hpp: modalStr,
-      profit: profitOf(String(it.standardPrice), modalStr),
-      qty: String(it.qty ?? 0),
-      keterangan: it.keterangan ?? '',
-      isActive: it.isActive,
-      photoUrl: it.photoUrl ?? '',
-      customerId: 'none',
-    })
     setDialogOpen(true)
-  }
-
-
-  // Profit = harga jual − harga modal; Margin = profit / harga jual × 100
-  const marginInfo = (() => {
-    const std = Number(form.standardPrice)
-    const hpp = Number(form.hpp)
-    if (form.standardPrice === '' || form.hpp === '' || !Number.isFinite(std) || !Number.isFinite(hpp) || std <= 0) {
-      return null
-    }
-    const profit = std - hpp
-    const margin = (profit / std) * 100
-    return { profit, margin, negative: margin < 0 }
-  })()
-
-  /* Sinkronisasi dua arah: Jual ↔ Profit dengan Modal sebagai dasar.
-   - Ubah Harga Jual → Profit = Jual − Modal
-   - Ubah Harga Modal → Profit mengikuti Jual; bila Jual kosong tapi Profit terisi → Jual = Modal + Profit
-   - Ubah Profit → Jual = Modal + Profit */
-  const setJual = (v: string) => {
-    setForm((f) => ({ ...f, standardPrice: v, profit: profitOf(v, f.hpp) }))
-  }
-  const setModal = (v: string) => {
-    setForm((f) => {
-      const jual = toNum(f.standardPrice)
-      const modal = toNum(v)
-      if (jual !== null && modal !== null) {
-        return { ...f, hpp: v, profit: String(jual - modal) }
-      }
-      const profit = toNum(f.profit)
-      if (profit !== null && modal !== null) {
-        return { ...f, hpp: v, standardPrice: String(modal + profit) }
-      }
-      return { ...f, hpp: v, profit: f.standardPrice !== '' || f.profit === '' ? '' : f.profit }
-    })
-  }
-  const setProfit = (v: string) => {
-    setForm((f) => {
-      const modal = toNum(f.hpp)
-      const profit = toNum(v)
-      if (modal !== null && profit !== null) {
-        return { ...f, profit: v, standardPrice: String(modal + profit) }
-      }
-      return { ...f, profit: v }
-    })
-  }
-
-  const handleSave = async () => {
-    const std = Number(form.standardPrice)
-    if (!form.name.trim()) {
-      toast.error('Nama barang wajib diisi')
-      return
-    }
-    if (form.standardPrice === '' || !Number.isFinite(std) || std < 0) {
-      toast.error('Harga jual wajib diisi (min 0)')
-      return
-    }
-    const hppNum = form.hpp === '' ? null : Number(form.hpp)
-    if (hppNum !== null && (!Number.isFinite(hppNum) || hppNum < 0)) {
-      toast.error('HPP tidak boleh negatif')
-      return
-    }
-    const qtyNum = form.qty.trim() === '' ? 0 : Number(form.qty)
-    if (!Number.isFinite(qtyNum) || qtyNum < 0) {
-      toast.error('Qty tidak boleh negatif')
-      return
-    }
-    setSaving(true)
-    try {
-      const formCustomerName = customers.find((c) => c.id === form.customerId)?.name
-      const body = {
-        name: form.name.trim(),
-        unit: form.unit,
-        standardPrice: std,
-        hpp: hppNum,
-        qty: qtyNum,
-        keterangan: form.keterangan.trim(),
-        photoUrl: form.photoUrl || null,
-        ...(editing
-          ? { isActive: form.isActive }
-          : { customerId: form.customerId !== 'none' ? form.customerId : undefined }),
-      }
-      if (editing) {
-        await apiFetch<{ item: Item }>(`/api/items/${editing.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(body),
-        })
-        toast.success('Barang berhasil diperbarui')
-      } else {
-        await apiFetch<{ item: Item }>('/api/items', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        })
-        toast.success(
-          formCustomerName
-            ? `Barang berhasil ditambahkan untuk ${formCustomerName}`
-            : 'Barang berhasil ditambahkan'
-        )
-      }
-      setDialogOpen(false)
-      void load()
-    } catch (e) {
-      toast.error(errText(e))
-    } finally {
-      setSaving(false)
-    }
   }
 
   const handleDelete = async () => {
@@ -857,201 +681,17 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         )}
       </div>
 
-      {/* Dialog create / edit */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin">
-          <DialogHeader className="pr-8">
-            <DialogTitle>{editing ? 'Edit Barang' : duplicateFrom ? 'Duplikat Barang' : 'Tambah Barang'}</DialogTitle>
-            <DialogDescription>
-              {editing
-                ? `Kode ${editing.code} — perbarui data barang.`
-                : duplicateFrom
-                  ? `Salinan dari ${duplicateFrom.code} — ${duplicateFrom.name}. Kode baru dibuat otomatis.`
-                  : 'Kode barang dibuat otomatis oleh sistem.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 sm:gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-name">Nama Barang <span className="text-destructive">*</span></Label>
-              <Input
-                id="item-name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Nama barang / layanan"
-                autoComplete="off"
-              />
-            </div>
-            <PhotoUpload value={form.photoUrl} onChange={(v) => setForm((f) => ({ ...f, photoUrl: v }))} label="Foto Barang" />
-            {!editing && (
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-customer">Untuk Pelanggan</Label>
-                {customerId !== 'all' ? (
-                  <>
-                    <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))} disabled>
-                      <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.filter((c) => c.id === customerId).map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground">Mengikuti filter pelanggan aktif di atas.</p>
-                  </>
-                ) : (
-                  <>
-                    <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
-                      <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
-                        <SelectValue placeholder="Pilih pelanggan (opsional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
-                        {customers.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground">
-                      Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-            {editing && (
-              <div className="grid gap-1.5">
-                <Label>Pelanggan Terdaftar</Label>
-                <CustomerChips customers={editing.customers} />
-              </div>
-            )}
-            <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-unit">Satuan</Label>
-                <Select value={form.unit} onValueChange={(v) => setForm((f) => ({ ...f, unit: v }))}>
-                  <SelectTrigger id="item-unit" className="w-full min-h-[44px]" aria-label="Satuan barang">
-                    <SelectValue placeholder="Pilih satuan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNIT_OPTIONS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-qty">Qty</Label>
-                <Input
-                  id="item-qty"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step="any"
-                  value={form.qty}
-                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
-              <Input
-                id="item-price"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                step="any"
-                value={form.standardPrice}
-                onChange={(e) => setJual(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            {showHpp && (
-              <div className="grid gap-1.5">
-                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="item-modal">Harga Modal (Rp)</Label>
-                    <Input
-                      id="item-modal"
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      step="any"
-                      value={form.hpp}
-                      onChange={(e) => setModal(e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="item-profit">Profit (Rp)</Label>
-                    <Input
-                      id="item-profit"
-                      type="number"
-                      inputMode="numeric"
-                      step="any"
-                      value={form.profit}
-                      onChange={(e) => setProfit(e.target.value)}
-                      placeholder="Otomatis dari Harga Jual − Modal"
-                      className={marginInfo?.negative ? 'text-red-600' : ''}
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Isi Modal + Profit → Harga Jual terisi otomatis. Isi Harga Jual → Profit terhitung sendiri.
-                </p>
-                {marginInfo && (
-                  <div className={`text-xs rounded-md px-2 py-1.5 ${marginInfo.negative ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
-                    Profit: <span className="font-semibold">{formatIDR(marginInfo.profit)}</span>
-                    {' '}(Margin: {formatNum(marginInfo.margin, 1)}%)
-                    {marginInfo.negative ? ' — rugi! Harga Jual lebih kecil dari Modal.' : ''}
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-keterangan">Keterangan</Label>
-              <Input
-                id="item-keterangan"
-                value={form.keterangan}
-                onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
-                placeholder="Keterangan tambahan (opsional)"
-                maxLength={500}
-                autoComplete="off"
-              />
-            </div>
-            {editing && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 p-3">
-                <div>
-                  <Label htmlFor="item-active">Status Aktif</Label>
-                  <p className="text-xs text-muted-foreground">Nonaktif = tidak muncul saat buat invoice.</p>
-                </div>
-                <Switch
-                  id="item-active"
-                  checked={form.isActive}
-                  onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
-                  className="data-[state=checked]:bg-emerald-600"
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2 border-t border-stone-100 pt-3 mt-1">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="min-h-[44px]">
-              Batal
-            </Button>
-            <Button
-              onClick={() => void handleSave()}
-              disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px]"
-            >
-              {saving ? 'Menyimpan…' : 'Simpan'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog create / edit / duplikat — komponen bersama BarangFormDialog
+          (sama persis dipakai tombol "Tambah Barang" di halaman Buat Invoice). */}
+      <BarangFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={editing}
+        duplicateFrom={duplicateFrom}
+        customers={customers}
+        customerFilter={customerId}
+        onSaved={() => void load()}
+      />
 
       {/* Dialog lihat foto barang (klik baris tabel / kartu) */}
       <Dialog open={!!viewPhoto} onOpenChange={(o) => { if (!o) setViewPhoto(null) }}>

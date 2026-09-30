@@ -11292,3 +11292,19 @@ Work Log:
 
 Stage Summary:
 - Dua perintah terakhir dibatalkan sepenuhnya: Buat Invoice kembali ke perilaku 669c681 (chevron dropdown per baris + Tambah auto-open dropdown di baris baru, Tambah disabled saat kosong). Dialog Master Barang & form tambah barang dari f16fc97 tidak ada lagi. Test barang VERIFIKASI sudah dibersihkan dari DB. Deploy produksi tetap menunggu instruksi user.
+
+---
+Task ID: invoice-tambah-barang-popup-sama-master
+Agent: main (Z.ai Code)
+Task: "tambahkan tombol tambah master barang di halaman buat invoice baru. yang isinya popup tambah barang." + "apabila diklik tombol tambah barang maka muncul popup tambah barang sama persis dengan yang ada di master barang. fix"
+
+Work Log:
+- Iterasi 1: tombol "Tambah Barang" (icon PackagePlus) ditambahkan di header Item items-fields.tsx (hanya mode barang / Buat Invoice) + popup sederhana (5 input) via onCreateBarang → invoice-editor POST /api/items.
+- Iterasi 2 (permintaan "sama persis"): popup diganti komponen BERSAMA BARU `src/components/views/barang-form-dialog.tsx` — ekstraksi UTUH dialog Tambah/Edit/Duplikat dari Master Barang (items-view.tsx): Nama Barang*, Foto Barang (PhotoUpload + kompres ≤300KB), Untuk Pelanggan (select, terkunci bila customer invoice terpilih / bebas + "Barang umum" bila belum), Satuan (select UNIT_OPTIONS), Qty, Harga Jual*, Harga Modal + Profit (sinkron dua arah + info margin emerald/merah), Keterangan, Status Aktif (edit); validasi + toast identik ("Barang berhasil ditambahkan untuk {customer}" / "Barang berhasil ditambahkan" / "Barang berhasil diperbarui"); save via apiFetch /api/items (POST/PUT) sama dgn Master Barang.
+- items-view.tsx direfactor pakai komponen bersama (−≈250 baris logika dialog/form duplikat; import bersih PhotoUpload/Select/DialogFooter/UNIT_OPTIONS); perilaku Master Barang tidak berubah (create/edit/duplicate/prefill via editing+duplicateFrom props; onSaved → reload).
+- items-fields.tsx: tombol membuka BarangFormDialog (props barangFormCustomers, barangFormCustomerFilter 'all'|id, onBarangCreated); popup sederhana + state form dihapus.
+- invoice-editor.tsx: handleBarangCreated — barang tersimpan utk customer invoice (customerId === matchedCustomerId) → langsung di-append ke barangList → muncul di dropdown nama barang tanpa reload.
+- Verifikasi browser E2E (superadmin): Buat Invoice → klik "Tambah Barang" → popup identik Master Barang (title "Tambah Barang", desc "Kode barang dibuat otomatis", 9 field sama, "Untuk Pelanggan" terkunci "Budi Susanto — PT. Maju berkah" + note "Mengikuti filter pelanggan aktif di atas"); isi form → profit otomatis 4000 + margin "Profit: Rp 4.000 (Margin: 40%)"; Simpan → toast "Barang berhasil ditambahkan untuk Budi Susanto" → dropdown chevron langsung menampilkan "UJI POPUP SAMA Rp10.000 / pcs · 5 pcs". Master Barang smoke test: Tambah → popup dgn pilihan "Barang umum (tanpa pelanggan)" ✓; filter pelanggan Budi Susanto → Edit → "Edit Barang" prefill + chips pelanggan + switch aktif ✓. Test barang dihapus permanen via DB. ESLint 4 file = 0 problem; dev.log bersih.
+
+Stage Summary:
+- Tombol "Tambah Barang" di header Item (Buat Invoice) membuka popup yang SAMA PERSIS dengan popup Tambah/Edit Master Barang (komponen bersama barang-form-dialog.tsx — satu sumber kode, tidak bisa berbeda). Barang tersimpan untuk customer invoice langsung muncul di dropdown nama barang. Master Barang page direfactor memakai komponen yang sama tanpa perubahan perilaku. Deploy produksi menunggu instruksi user.

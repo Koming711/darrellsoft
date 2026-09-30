@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
 import { ItemsFields, type BarangOption } from './items-fields';
+import type { BarangFormSavedItem } from '@/components/views/barang-form-dialog';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
@@ -156,49 +157,21 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     return () => { cancelled = true; };
   }, [invoice.client.nama, customerList]);
 
-  // Tambah barang BARU ke Master Barang dari tombol "Tambah Barang"
-  // (popup di header Item) → POST /api/items dengan customerId → barang
-  // otomatis terdaftar untuk customer terpilih & langsung masuk daftar
-  // dropdown nama barang.
-  const handleCreateBarang = useCallback(async (input: { name: string; unit: string; standardPrice: number; hpp: number; qty: number }): Promise<BarangOption | null> => {
-    if (!matchedCustomerId) {
-      toast.error('Pilih customer terlebih dahulu');
-      return null;
-    }
-    try {
-      const res = await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
-          name: input.name,
-          unit: input.unit,
-          standardPrice: input.standardPrice,
-          hpp: input.hpp,
-          qty: input.qty,
-          customerId: matchedCustomerId,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        toast.error(err?.error || 'Gagal menambah barang');
-        return null;
-      }
-      const data = await res.json();
-      const it = data?.item;
-      if (!it?.id) return null;
+  // Barang BARU berhasil disimpan dari popup "Tambah Barang" (BarangFormDialog
+  // — sama persis dgn Master Barang) di header Item. Bila barang terdaftar
+  // untuk customer invoice ini → langsung masuk daftar dropdown nama barang.
+  const handleBarangCreated = useCallback((saved: BarangFormSavedItem | null, customerId: string) => {
+    if (!saved) return;
+    if (customerId && customerId === matchedCustomerId) {
       const option: BarangOption = {
-        id: it.id,
-        name: it.name,
-        unit: it.unit || 'pcs',
-        standardPrice: it.standardPrice || 0,
-        hpp: it.hpp ?? null,
-        qty: it.qty ?? 0,
+        id: saved.id,
+        name: saved.name,
+        unit: saved.unit || 'pcs',
+        standardPrice: saved.standardPrice || 0,
+        hpp: saved.hpp,
+        qty: saved.qty ?? 0,
       };
       setBarangList((prev) => [...prev, option]);
-      return option;
-    } catch {
-      toast.error('Gagal menambah barang');
-      return null;
     }
   }, [matchedCustomerId]);
 
@@ -758,12 +731,9 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               : 'Pilih customer terlebih dahulu'
           }
           onPickBarang={handlePickBarang}
-          onCreateBarang={matchedCustomerId ? handleCreateBarang : undefined}
-          createBarangNote={
-            invoice.client.nama.trim()
-              ? `Barang akan terdaftar untuk customer: ${invoice.client.nama.trim()}`
-              : undefined
-          }
+          barangFormCustomers={customerList.map((c) => ({ id: c.id, name: c.name, companyName: c.companyName ?? null }))}
+          barangFormCustomerFilter={matchedCustomerId ?? 'all'}
+          onBarangCreated={handleBarangCreated}
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
