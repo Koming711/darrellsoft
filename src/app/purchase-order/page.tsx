@@ -12,7 +12,6 @@ import { authFetch } from '@/lib/auth-fetch'
 import {
   History,
   Pencil,
-  RotateCcw,
   Trash2,
   Loader2,
   Search,
@@ -177,7 +176,6 @@ function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }
 // (filter periode, kartu ringkasan, tabel & kartu riwayat).
 // ============================================================
 function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => void; onOpenDetail: (id: string) => void }) {
-  const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder)
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -217,13 +215,6 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
     window.addEventListener('dokupro:history-updated', handler)
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory])
-
-  const restoreToEditor = (entry: HistoryEntry) => {
-    const parsed = parsePurchaseOrderData(entry)
-    setPurchaseOrder(parsed)
-    onCreate()
-    toast.success('Purchase Order berhasil dimuat ke editor')
-  }
 
   const handleDelete = async (id: string) => {
     try {
@@ -482,7 +473,6 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
@@ -495,7 +485,7 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
             </div>
 
             {/* Mobile cards — klik kartu → Detail PO (gaya baris riwayat invoice);
-                aksi Muat/Hapus tetap via tombol dgn stopPropagation */}
+                aksi Hapus tetap via tombol dgn stopPropagation */}
             <div className="md:hidden space-y-3">
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
@@ -520,9 +510,6 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
                         <p className="text-muted-foreground">Qty: <span className="font-medium text-stone-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '—'}</span></p>
                       </div>
                       <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={() => restoreToEditor(entry)}>
-                          <RotateCcw className="h-3.5 w-3.5" /> Muat
-                        </Button>
                         <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
                           <Trash2 className="h-3.5 w-3.5" /> Hapus
                         </Button>
