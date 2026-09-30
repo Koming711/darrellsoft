@@ -34,7 +34,7 @@ interface InvoiceHistoryItem {
   createdAt: string;
 }
 
-export function SuratJalanEditor() {
+export function SuratJalanEditor({ onSaved }: { onSaved?: (id: string) => void } = {}) {
   const sj = useDokuproStore((s) => s.suratJalan);
   const setSuratJalan = useDokuproStore((s) => s.setSuratJalan);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
@@ -263,6 +263,7 @@ export function SuratJalanEditor() {
             documentLabel="Surat Jalan"
             currentData={sj}
             onReset={() => resetDocument('surat-jalan')}
+            onSaved={onSaved}
           />
         }
       >

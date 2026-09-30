@@ -48,7 +48,7 @@ interface RiwayatPotongKertasItem {
   createdAt: string;
 }
 
-export function PurchaseOrderEditor() {
+export function PurchaseOrderEditor({ onSaved }: { onSaved?: (id: string) => void } = {}) {
   const po = useDokuproStore((s) => s.purchaseOrder);
   const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
@@ -333,6 +333,7 @@ export function PurchaseOrderEditor() {
             documentLabel="Purchase Order"
             currentData={po}
             onReset={() => resetDocument('purchase-order')}
+            onSaved={onSaved}
           />
         }
       >
