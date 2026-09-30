@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
-import { Plus, Trash2, ChevronDown, PackageSearch } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Trash2, ChevronDown, PackageSearch, PackagePlus, Loader2 } from 'lucide-react';
 import { formatRupiah } from '@/lib/format';
+import { toast } from 'sonner';
 import type { DocumentItem } from '@/lib/types';
 
 function generateId(): string {
@@ -69,6 +71,17 @@ interface ItemsFieldsProps {
   /** Dipanggil saat user memilih barang dari dropdown untuk item ke-N. */
   onPickBarang?: (itemIndex: number, barang: BarangOption) => void;
   /**
+   * Tambah barang BARU ke Master Barang dari halaman Buat Invoice (tombol
+   * "Tambah Barang" di header Item → popup tambah barang). Barang otomatis
+   * terdaftar untuk customer terpilih (API /api/items + customerId).
+   * Return BarangOption yang berhasil dibuat, atau null jika gagal.
+   * Jika TIDAK disediakan (customer belum dipilih), klik tombol hanya
+   * menampilkan toast "Pilih customer terlebih dahulu".
+   */
+  onCreateBarang?: (input: { name: string; unit: string; standardPrice: number; hpp: number; qty: number }) => Promise<BarangOption | null>;
+  /** Catatan kecil di popup tambah barang, mis. "Barang akan terdaftar untuk customer: Budi". */
+  createBarangNote?: string;
+  /**
    * Mode kertas (dipakai Buat Purchase Order): jika disediakan, kotak Nama
    * Barang menjadi kotak besar yang BISA diketik manual, dilengkapi tombol
    * dropdown berisi daftar kertas dari Master Harga Kertas. Memilih dari
@@ -91,11 +104,21 @@ export function ItemsFields({
   barangOptions,
   emptyBarangMessage = 'Belum ada barang untuk customer ini',
   onPickBarang,
+  onCreateBarang,
+  createBarangNote,
   lockPrices = false,
   paperOptions,
 }: ItemsFieldsProps) {
   const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
   const [openPaperIndex, setOpenPaperIndex] = useState<number | null>(null);
+  // Popup "Tambah Barang" (Master Barang) — mode barang / Buat Invoice.
+  const [addOpen, setAddOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newUnit, setNewUnit] = useState('pcs');
+  const [newQty, setNewQty] = useState('');
+  const [newHarga, setNewHarga] = useState('');
+  const [newHpp, setNewHpp] = useState('');
   const isBarangMode = Array.isArray(barangOptions);
   const isPaperMode = Array.isArray(paperOptions);
 
@@ -178,16 +201,73 @@ export function ItemsFields({
   // Disable Tambah if no item has meaningful data yet
   const hasAnyData = items.some((item) => item.deskripsi.trim() !== '' || (showPrice && item.harga > 0));
 
+  // ===== Popup "Tambah Barang" (Master Barang, mode Buat Invoice) =====
+  const parseNominal = (s: string) => {
+    const raw = s.replace(/\./g, '').replace(/,/g, '').trim();
+    return raw === '' ? 0 : (Number(raw) || 0);
+  };
+
+  const resetNewBarangForm = () => {
+    setNewName('');
+    setNewUnit('pcs');
+    setNewQty('');
+    setNewHarga('');
+    setNewHpp('');
+  };
+
+  const openAddBarang = () => {
+    if (!onCreateBarang) {
+      toast.error('Pilih customer terlebih dahulu');
+      return;
+    }
+    resetNewBarangForm();
+    setAddOpen(true);
+  };
+
+  const submitNewBarang = async () => {
+    if (!onCreateBarang || creating) return;
+    const name = newName.trim();
+    if (!name) {
+      toast.error('Nama barang wajib diisi');
+      return;
+    }
+    setCreating(true);
+    const created = await onCreateBarang({
+      name,
+      unit: newUnit.trim() || 'pcs',
+      standardPrice: parseNominal(newHarga),
+      hpp: parseNominal(newHpp),
+      qty: parseNominal(newQty),
+    });
+    setCreating(false);
+    if (created) {
+      toast.success(`"${name}" ditambahkan ke Master Barang`);
+      setAddOpen(false);
+      resetNewBarangForm();
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Item
         </h3>
-        <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
-          <Plus className="mr-1 h-3 w-3" />
-          Tambah
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {isBarangMode && (
+            /* Tombol Tambah Master Barang (Buat Invoice) — buka popup
+               tambah barang; barang otomatis terdaftar utk customer terpilih
+               dan LANGSUNG muncul di dropdown nama barang. */
+            <Button variant="outline" size="sm" onClick={openAddBarang} className="h-7 text-xs">
+              <PackagePlus className="mr-1 h-3 w-3" />
+              Tambah Barang
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
+            <Plus className="mr-1 h-3 w-3" />
+            Tambah
+          </Button>
+        </div>
       </div>
       <div className="space-y-3">
         {items.map((item, index) => (
@@ -415,6 +495,70 @@ export function ItemsFields({
           </div>
         ))}
       </div>
+
+      {/* Popup "Tambah Barang" (mode barang / Buat Invoice) — tombol header
+          Item. Barang baru otomatis terdaftar utk customer terpilih (lewat
+          onCreateBarang → POST /api/items + customerId) sehingga LANGSUNG
+          bisa dipilih di dropdown nama barang. */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md p-0 gap-0">
+          <DialogHeader className="px-4 pt-4 pb-3">
+            <DialogTitle className="text-base">Tambah Master Barang</DialogTitle>
+          </DialogHeader>
+          <div className="px-4 pb-4 space-y-2.5">
+            {createBarangNote && (
+              <p className="rounded-md bg-blue-50 px-2.5 py-1.5 text-[11px] text-blue-700">{createBarangNote}</p>
+            )}
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Nama barang *"
+              className="h-9 text-sm"
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="Satuan (pcs)"
+                className="h-9 text-sm"
+              />
+              <Input
+                value={newQty}
+                onChange={(e) => setNewQty(e.target.value)}
+                placeholder="Qty stok"
+                inputMode="numeric"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                value={newHarga}
+                onChange={(e) => setNewHarga(e.target.value)}
+                placeholder="Harga jual (Rp)"
+                inputMode="numeric"
+                className="h-9 text-sm"
+              />
+              <Input
+                value={newHpp}
+                onChange={(e) => setNewHpp(e.target.value)}
+                placeholder="Harga modal (Rp)"
+                inputMode="numeric"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="ghost" className="flex-1" onClick={() => setAddOpen(false)} disabled={creating}>
+                Batal
+              </Button>
+              <Button className="flex-1" disabled={creating || !newName.trim()} onClick={submitNewBarang}>
+                {creating ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                Tambahkan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -75,6 +75,8 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
 
   // Daftar barang milik customer terpilih (Master Barang per pelanggan)
   const [barangList, setBarangList] = useState<BarangOption[]>([]);
+  // id customer yang cocok dengan nama "Kepada Yth" (null = belum memilih).
+  const [matchedCustomerId, setMatchedCustomerId] = useState<string | null>(null);
   // Nama customer sebelumnya — untuk mendeteksi perubahan customer
   const prevClientNameRef = useRef<string>(invoice.client.nama);
   // Nama yang diisi otomatis oleh pemilihan referensi (hitung cetakan) —
@@ -130,6 +132,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     const found = nama
       ? customerList.find((c) => c.name.trim().toLowerCase() === nama)
       : undefined;
+    setMatchedCustomerId(found?.id ?? null);
     if (!found) {
       setBarangList([]);
       return;
@@ -152,6 +155,52 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       .catch(() => { if (!cancelled) setBarangList([]); });
     return () => { cancelled = true; };
   }, [invoice.client.nama, customerList]);
+
+  // Tambah barang BARU ke Master Barang dari tombol "Tambah Barang"
+  // (popup di header Item) → POST /api/items dengan customerId → barang
+  // otomatis terdaftar untuk customer terpilih & langsung masuk daftar
+  // dropdown nama barang.
+  const handleCreateBarang = useCallback(async (input: { name: string; unit: string; standardPrice: number; hpp: number; qty: number }): Promise<BarangOption | null> => {
+    if (!matchedCustomerId) {
+      toast.error('Pilih customer terlebih dahulu');
+      return null;
+    }
+    try {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: input.name,
+          unit: input.unit,
+          standardPrice: input.standardPrice,
+          hpp: input.hpp,
+          qty: input.qty,
+          customerId: matchedCustomerId,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || 'Gagal menambah barang');
+        return null;
+      }
+      const data = await res.json();
+      const it = data?.item;
+      if (!it?.id) return null;
+      const option: BarangOption = {
+        id: it.id,
+        name: it.name,
+        unit: it.unit || 'pcs',
+        standardPrice: it.standardPrice || 0,
+        hpp: it.hpp ?? null,
+        qty: it.qty ?? 0,
+      };
+      setBarangList((prev) => [...prev, option]);
+      return option;
+    } catch {
+      toast.error('Gagal menambah barang');
+      return null;
+    }
+  }, [matchedCustomerId]);
 
   // Ganti customer → otomatis KOSONGKAN nama barang di kotak item
   // (barang milik tiap pelanggan tidak boleh tercampur).
@@ -705,10 +754,16 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           lockPrices
           emptyBarangMessage={
             invoice.client.nama.trim()
-              ? 'Belum ada barang untuk customer ini — tambahkan di Master Barang'
+              ? 'Belum ada barang untuk customer ini — pakai tombol "Tambah Barang"'
               : 'Pilih customer terlebih dahulu'
           }
           onPickBarang={handlePickBarang}
+          onCreateBarang={matchedCustomerId ? handleCreateBarang : undefined}
+          createBarangNote={
+            invoice.client.nama.trim()
+              ? `Barang akan terdaftar untuk customer: ${invoice.client.nama.trim()}`
+              : undefined
+          }
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
