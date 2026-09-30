@@ -11155,3 +11155,18 @@ Work Log:
 
 Stage Summary:
 - Slide deck 11 halaman DIBATALKAN — landing page kembali seperti semula (tata vertikal satu halaman panjang dgn footer di bawah, state 90c6f69). Riwayat & worklog dipertahankan; tidak ada deploy ulang produksi (deck belum pernah dideploy ke www.darrellsoft.com).
+
+---
+Task ID: surat-jalan-samakan-invoice
+Agent: main (Z.ai Code)
+Task: "di halaman surat jalan. buat hasil tampilan cetak, jpg dan preview sama dengan invoice. fix"
+
+Work Log:
+- Analisis: pipeline Cetak & JPG (document-action-buttons.tsx → captureDocumentPaperJpg / printBlobHiRes) menangkap elemen .a5-page yang SAMA dengan preview — jadi perbedaan hasil cetak/JPG/preview murni dari styling preview surat jalan yang belum mengikuti standar invoice.
+- Perbedaan ditemukan (surat-jalan-preview.tsx vs invoice-preview.tsx): padding 8mm 10mm (vs 10mm seragam), tanpa class doc-margin-invoice (sehingga jalur capture generate-pdf.ts memaksa padding 8mm 10mm + tanpa flex), teks abu-abu #555/#666/#888 di banyak tempat (vs hitam semua), font bervariasi 6.5–11pt (vs 9pt seragam, judul 12pt), tanda tangan marginTop 3mm statis (vs marginTop:auto menempel dasar halaman), baris pengisi 10 (vs pola invoice minimal 6).
+- Fix menyeluruh surat-jalan-preview.tsx: (1) class doc-margin-invoice + padding 10mm seragam + flex column — kini jalur JPG/PDF capture (generate-pdf.ts isInv) dan CSS #document-preview/.print-mode otomatis memakai 10mm + min-height 210mm + flex, sama persis dengan invoice; (2) SEMUA teks hitam #000; (3) font seragam 9pt (judul SURAT JALAN 12pt, subjudul "Pengiriman Barang" 8.5pt bold hitam letterSpacing 1.5px mengikuti pola subjudul invoice); (4) blok tanda tangan marginTop:auto + paddingTop 3mm → footer selalu menempel dasar A5; (5) baris pengisi tabel mengikuti pola invoice (minimal 6 baris); (6) logo box initial 9pt, catatan & footer note 9pt hitam italic.
+- Verifikasi browser (login superadmin, editor /surat-jalan): class & padding live = doc-margin-invoice, 37.7953px (10mm) ✓; 0 elemen teks non-hitam ✓; flex column ✓; scrollHeight=clientHeight=794px (pas 1 halaman A5, tanpa overflow) ✓; jarak tabel→ttd 223px terserap marginTop:auto ✓; h2 16px (12pt) = invoice ✓.
+- Verifikasi jalur capture: simulasi clone PERSIS logika generate-pdf.ts (wrapper 559.37×793.7 + print-mode + cssText override) → clone scrollHeight=794 (1 halaman), padTop=padBottom=37.7953px (10mm seragam), footer+ttd di dasar (65px dari tepi bawah = footer 9pt + 3mm + padding 10mm) → hasil JPG/CETAK identik dengan preview. dev.log bersih; ESLint 0 problem. Screenshot: .zscreens/sj-preview-fixed.png, sj-preview-final.png.
+
+Stage Summary:
+- Surat Jalan kini 100% mengikuti standar Invoice: PREVIEW = CETAK = JPG — margin 10mm seragam 4 sisi, font 9pt seragam (judul 12pt), semua tulisan hitam, baris tabel 8mm, tanda tangan + footer menempel dasar halaman A5 (1 halaman penuh, tanpa overflow). Kuncinya: class doc-margin-invoice pada .a5-page → seluruh jalur capture (globals.css + generate-pdf.ts) otomatis memakai layout yang sama dengan invoice.
