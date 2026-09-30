@@ -11308,3 +11308,18 @@ Work Log:
 
 Stage Summary:
 - Tombol "Tambah Barang" di header Item (Buat Invoice) membuka popup yang SAMA PERSIS dengan popup Tambah/Edit Master Barang (komponen bersama barang-form-dialog.tsx — satu sumber kode, tidak bisa berbeda). Barang tersimpan untuk customer invoice langsung muncul di dropdown nama barang. Master Barang page direfactor memakai komponen yang sama tanpa perubahan perilaku. Deploy produksi menunggu instruksi user.
+
+---
+Task ID: invoice-tambah-barang-disabled-customer
+Agent: main (Z.ai Code)
+Task: "dihalaman invoice. apabila belum di pilih nama customer maka tombol tambah barang nonaktif. setelah aktif apabila diklik tombol tambah barang, maka muncul popup tambah barang. untuk pelanggan otomatis dipilih nama customernya. fix"
+
+Work Log:
+- items-fields.tsx: tombol "Tambah Barang" kini NONAKTIF (disabled + title "Pilih nama customer terlebih dahulu") selama belum ada customer invoice yang cocok — logika addBarangDisabled dari barangFormCustomerFilter ('all' = belum dipilih); prop pass-through baru barangFormLockedNote.
+- barang-form-dialog.tsx: prop opsional lockedCustomerNote (default teks Master Barang "Mengikuti filter pelanggan aktif di atas." — perilaku Master Barang 100% tak berubah) supaya konteks lain bisa menyesuaikan teks bantuan select pelanggan terkunci.
+- invoice-editor.tsx: kirim barangFormLockedNote="Mengikuti customer pada invoice ini."; customer otomatis terpilih di popup sudah berjalan via barangFormCustomerFilter={matchedCustomerId ?? 'all'} → select "Untuk Pelanggan" terkunci menampilkan nama customer invoice.
+- Verifikasi browser E2E (superadmin, /invoice?buat=1): tombol disabled=true + tooltip saat nama customer kosong ✓; ketik "Budi Susanto" → tombol aktif (disabled=false) ✓; klik → popup "Tambah Barang" terbuka dgn "Untuk Pelanggan" OTOMATIS terisi & terkunci "Budi Susanto — PT. Maju berkah" + note "Mengikuti customer pada invoice ini." ✓ (screenshot .zscreens/invoice-tambah-barang-popup.png); isi TESTINVPopup/5000/10 → Simpan → toast "Barang berhasil ditambahkan untuk Budi Susanto", dialog tertutup, barang LANGSUNG muncul di dropdown chevron ("TESTINVPopup Rp5.000 / pcs · 10 pcs") ✓; hapus nama customer → tombol nonaktif lagi ✓.
+- Cleanup DB: barang uji TESTINVPopup dihapus permanen (1 barang + 1 registrasi BarangCustomer) via script bun. ESLint 3 file = 0 problem; dev.log bersih.
+
+Stage Summary:
+- Tombol "Tambah Barang" di Buat Invoice kini nonaktif sampai nama customer dipilih/dikenali; setelah aktif, klik membuka popup SAMA PERSIS Master Barang dengan "Untuk Pelanggan" otomatis terisi nama customer invoice (terkunci). Barang baru langsung masuk dropdown nama barang. Master Barang tidak berubah perilaku. Deploy produksi menunggu instruksi user.

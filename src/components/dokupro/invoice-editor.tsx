@@ -733,6 +733,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           onPickBarang={handlePickBarang}
           barangFormCustomers={customerList.map((c) => ({ id: c.id, name: c.name, companyName: c.companyName ?? null }))}
           barangFormCustomerFilter={matchedCustomerId ?? 'all'}
+          barangFormLockedNote="Mengikuti customer pada invoice ini."
           onBarangCreated={handleBarangCreated}
         />
 
