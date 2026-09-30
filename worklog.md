@@ -11231,3 +11231,18 @@ Work Log:
 
 Stage Summary:
 - Riwayat Purchase Order kini tanpa aksi edit "Muat" — konsisten dgn Riwayat Surat Jalan: interaksi utama = klik baris/kartu → Detail PO, edit dilakukan dari tombol Edit di halaman Detail. Kolom Aksi tabel & kartu mobile hanya menyisakan Hapus.
+
+---
+Task ID: restore-workspace-archive
+Agent: main (Z.ai Code)
+Task: "extract file ini. ganti semua conten dengan file ini." (workspace-*.tar.001-003, 3-part split gzip tar, 163MB extracted)
+
+Work Log:
+- Inspeksi arsip: tar.001 = gzip head, tar.002/003 = kelanjutan byte; gabung via cat 3 part | tar -xzf. Isi = snapshot project lengkap (src/, prisma/, db/custom.db, .env, .git/, worklog.md, tanpa node_modules/upload).
+- Safety: backup dulu .git + .env + db/custom.db + worklog.md → /home/z/backup-before-restore/; dev server di-stop sebelum replace.
+- Replace: rsync -a --delete staging → /home/z/my-project/ dengan exclude /upload/ (arsip user tetap) dan /node_modules/ (di-reconcile bun install — "no changes", 994 installs OK).
+- State arsip: git HEAD = 2bb8fd0 (auto-commit daemon: hanya db/custom.db), parent = 7cfebba (commit PO riwayat terakhir di session ini). Work tree bersih.
+- Restart dev: Ready 858ms, GET / 200. Verifikasi browser: landing render normal; login superadmin → /pembukaan (data Daftar/Expired dr DB restored tampil); /invoice → Riwayat Invoice 3 baris data. dev.log hanya noise benign (duplicate column kategoriId). Staging dihapus.
+
+Stage Summary:
+- Seluruh isi /home/z/my-project kini = isi arsip workspace (git HEAD 2bb8fd0, work tree clean). upload/ & node_modules dipertahankan. Backup state lama di /home/z/backup-before-restore/ (git-backup/, .env, custom.db, worklog.md). Server jalan normal, data DB arsip terverifikasi via UI.
