@@ -11246,3 +11246,18 @@ Work Log:
 
 Stage Summary:
 - Seluruh isi /home/z/my-project kini = isi arsip workspace (git HEAD 2bb8fd0, work tree clean). upload/ & node_modules dipertahankan. Backup state lama di /home/z/backup-before-restore/ (git-backup/, .env, custom.db, worklog.md). Server jalan normal, data DB arsip terverifikasi via UI.
+
+---
+Task ID: invoice-tambah-auto-dropdown
+Agent: main (Z.ai Code)
+Task: "dihalaman buat invoice baru apabila klik tambah maka muncul nama barang dari master barang per customer. check and fix"
+
+Work Log:
+- Riset: fitur Master Barang per customer di Buat Invoice SUDAH ada & sehat — InvoiceEditor match nama customer → GET /api/items?customerId=&active=1 (filter BarangCustomer milik user) → ItemsFields mode barang (textarea + chevron dropdown "Master Barang Customer"). Data uji: admin memiliki barang "paperbowl" terdaftar utk customer Budi Susanto.
+- Gap UX: klik Tambah hanya menambah baris kosong — daftar barang TIDAK otomatis muncul; user harus klik chevron lagi.
+- Fix (src/components/dokupro/items-fields.tsx, addItem): setelah menambah baris baru, jika mode barang → setOpenBarangIndex(newIndex); jika mode kertas → setOpenPaperIndex(newIndex). Jadi klik Tambah = baris baru + dropdown pilihan LANGSUNG terbuka (nama barang dari Master Barang per customer tampil begitu saja). pickBarang/pickPaper tetap menutup popover setelah memilih.
+- Verifikasi browser (superadmin): registrasi test barang "Paper Bowl 12oz Uji" ke customer Budi Susanto (superadmin) via POST /api/items → Buat Invoice → pilih customer → chevron baris 1 → list muncul (Rp1.500/pcs · 5.000 pcs) ✓ → pilih → baris 1 terisi ✓ → Tambah (aktif) → baris 2 muncul + popover OTOMATIS terbuka di baris 2 (rotatedChevronRowIndex=1, item list tampil) ✓ → pilih dari popover → baris 2 terisi, popover tertutup ✓. PO editor: Tambah disabled saat baris 1 kosong (aturan sama, expected); mode kertas memakai jalur kode sama dgn barang mode.
+- Cleanup: test barang dihapus permanen via DB (Barang cascade BarangCustomer). ESLint 1 file = 0 problem. dev.log: hanya noise benign (EADDRINUSE transien saat restart + duplicate column kategoriId seed); server tunggal, 200.
+
+Stage Summary:
+- Klik "Tambah" di Buat Invoice sekarang langsung menampilkan daftar nama barang dari Master Barang per customer pada baris baru (tanpa klik chevron ekstra). Daftar tetap strictly per-customer (registrasi BarangCustomer milik user); customer tanpa registrasi menampilkan pesan "Belum ada barang untuk customer ini". Buat PO mendapat konsistensi yang sama (dropdown kertas auto-terbuka) lewat jalur kode yang sama.

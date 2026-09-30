@@ -100,6 +100,7 @@ export function ItemsFields({
   const isPaperMode = Array.isArray(paperOptions);
 
   const addItem = () => {
+    const newIndex = items.length;
     onChange([
       ...items,
       {
@@ -111,6 +112,12 @@ export function ItemsFields({
         ...(showModal ? { modal: 0 } : {}),
       },
     ]);
+    // Klik Tambah → dropdown pilihan langsung terbuka di baris baru, jadi
+    // daftar barang dari Master Barang per customer (mode Buat Invoice) atau
+    // daftar kertas Master Harga Kertas (mode Buat PO) LANGSUNG tampil tanpa
+    // perlu klik tombol chevron lagi.
+    if (isBarangMode) setOpenBarangIndex(newIndex);
+    if (isPaperMode) setOpenPaperIndex(newIndex);
   };
 
   const removeItem = (id: string) => {
