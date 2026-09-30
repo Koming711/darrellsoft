@@ -11170,3 +11170,18 @@ Work Log:
 
 Stage Summary:
 - Surat Jalan kini 100% mengikuti standar Invoice: PREVIEW = CETAK = JPG — margin 10mm seragam 4 sisi, font 9pt seragam (judul 12pt), semua tulisan hitam, baris tabel 8mm, tanda tangan + footer menempel dasar halaman A5 (1 halaman penuh, tanpa overflow). Kuncinya: class doc-margin-invoice pada .a5-page → seluruh jalur capture (globals.css + generate-pdf.ts) otomatis memakai layout yang sama dengan invoice.
+
+---
+Task ID: purchase-order-samakan-invoice
+Agent: main (Z.ai Code)
+Task: "di halaman purchase order. buat hasil tampilan cetak, jpg dan preview sama dengan invoice. fix"
+
+Work Log:
+- Pola perbaikan identik dengan surat jalan (19c233c): pipeline Cetak & JPG menangkap .a5-page yang sama dgn preview, jadi perbaikan dilakukan di purchase-order-preview.tsx.
+- Perbedaan ditemukan vs invoice: padding 8mm 10mm tanpa class doc-margin-invoice & tanpa flex; teks abu-abu #555 (company info, detail pemasok, baris Subtotal/PPN, Terbilang), #666 (label), #888 (footer); font campur 6.5–12pt (company 11pt/7pt/6.5pt, label 7.5pt, terbilang 7pt, ttd 8pt, footer 6pt, logo box 12pt); ttd marginTop 3mm statis; baris pengisi 8; subjudul "Pesanan Pembelian" 7pt abu; Jatuh Tempo 7pt.
+- Fix menyeluruh: (1) class doc-margin-invoice + padding 10mm seragam + flex column → jalur JPG/PDF capture (generate-pdf.ts) & CSS print-mode otomatis sama dgn invoice; (2) SEMUA teks hitam #000 (kecuali Jatuh Tempo amber #b45309 — sama persis dgn invoice); (3) font seragam 9pt (judul PURCHASE ORDER 12pt, subjudul 8.5pt bold hitam letterSpacing 1.5px); (4) ttd 3 kolom (Toko/Diketahui/Disetujui Oleh) marginTop:auto + paddingTop 3mm → footer menempel dasar A5, garis ttd 60%; (5) baris pengisi pola invoice (minimal 6); (6) logo box 9pt, terbilang/catatan/footer 9pt hitam italic.
+- Insiden: dev server mati saat verifikasi (ERR_CONNECTION_REFUSED) — di-restart (setsid bun run dev), log sebelumnya normal tanpa crash, HTTP 200 kembali.
+- Verifikasi browser (editor /purchase-order): class doc-margin-invoice ✓, padding 37.7953px (10mm) ✓, flex column ✓, 0 elemen teks non-hitam ✓, scrollHeight=clientHeight=794px (pas 1 halaman A5) ✓. Simulasi clone PERSIS generate-pdf.ts: clone 794px tanpa overflow, padTop=padBottom 10mm, ttd+footer di dasar (65px dari tepi bawah) — hasil JPG/CETAK = preview. ESLint 0 problem; dev.log bersih. Screenshot: .zscreens/po-preview-fixed.png.
+
+Stage Summary:
+- Purchase Order kini 100% mengikuti standar Invoice (setelah Surat Jalan): PREVIEW = CETAK = JPG — margin 10mm seragam, font 9pt hitam semua, baris 8mm, ttd 3 kolom + footer menempel dasar A5, Jatuh Tempo amber spt invoice. Ketiga dokumen (Invoice, Surat Jalan, PO) kini punya bahasa desain cetak yang identik.
