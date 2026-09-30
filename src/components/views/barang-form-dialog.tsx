@@ -129,6 +129,10 @@ interface BarangFormDialogProps {
   customers?: BarangCustomerOption[]
   /** 'all' = bebas pilih pelanggan (termasuk barang umum); id spesifik = select terkunci mengikuti filter */
   customerFilter?: string
+  /** Teks bantuan saat select pelanggan terkunci (customerFilter spesifik).
+   *  Default = teks Master Barang; halaman lain (mis. Buat Invoice) bisa
+   *  memberi teks yang lebih sesuai konteks. */
+  lockedCustomerNote?: string
   /** Dipanggil setelah barang berhasil disimpan (item hasil save + customerId terpilih) */
   onSaved?: (item: BarangFormSavedItem | null, customerId: string) => void
 }
@@ -140,6 +144,7 @@ export function BarangFormDialog({
   duplicateFrom = null,
   customers = [],
   customerFilter = 'all',
+  lockedCustomerNote = 'Mengikuti filter pelanggan aktif di atas.',
   onSaved,
 }: BarangFormDialogProps) {
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
@@ -338,7 +343,7 @@ export function BarangFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">Mengikuti filter pelanggan aktif di atas.</p>
+                  <p className="text-[11px] text-muted-foreground">{lockedCustomerNote}</p>
                 </>
               ) : (
                 <>

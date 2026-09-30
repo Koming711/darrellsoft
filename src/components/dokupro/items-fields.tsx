@@ -78,6 +78,8 @@ interface ItemsFieldsProps {
   barangFormCustomers?: BarangCustomerOption[];
   /** 'all' = bebas pilih pelanggan di popup; id spesifik = select terkunci mengikuti customer invoice. */
   barangFormCustomerFilter?: string;
+  /** Teks bantuan select pelanggan terkunci di popup (default = teks Master Barang). */
+  barangFormLockedNote?: string;
   /** Dipanggil setelah barang berhasil disimpan dari popup (untuk memperbarui daftar dropdown). */
   onBarangCreated?: (item: BarangFormSavedItem | null, customerId: string) => void;
   /**
@@ -105,6 +107,7 @@ export function ItemsFields({
   onPickBarang,
   barangFormCustomers,
   barangFormCustomerFilter,
+  barangFormLockedNote,
   onBarangCreated,
   lockPrices = false,
   paperOptions,
@@ -116,6 +119,11 @@ export function ItemsFields({
   const [addOpen, setAddOpen] = useState(false);
   const isBarangMode = Array.isArray(barangOptions);
   const isPaperMode = Array.isArray(paperOptions);
+  // Tombol "Tambah Barang" NONAKTIF saat customer belum dipilih (permintaan
+  // owner): barang hanya boleh ditambahkan untuk pelanggan tertentu. Filter
+  // 'all' berarti belum ada customer invoice yang cocok.
+  const addBarangDisabled =
+    isBarangMode && (!barangFormCustomerFilter || barangFormCustomerFilter === 'all');
 
   const addItem = () => {
     const newIndex = items.length;
@@ -207,8 +215,16 @@ export function ItemsFields({
             /* Tombol Tambah Master Barang (Buat Invoice) — buka popup
                BarangFormDialog SAMA PERSIS dengan popup Tambah Barang di
                halaman Master Barang; barang otomatis masuk daftar dropdown
-               nama barang setelah disimpan. */
-            <Button variant="outline" size="sm" onClick={() => setAddOpen(true)} className="h-7 text-xs">
+               nama barang setelah disimpan. NONAKTIF selama nama customer
+               belum dipilih/dikenali. */
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddOpen(true)}
+              disabled={addBarangDisabled}
+              title={addBarangDisabled ? 'Pilih nama customer terlebih dahulu' : undefined}
+              className="h-7 text-xs"
+            >
               <PackagePlus className="mr-1 h-3 w-3" />
               Tambah Barang
             </Button>
@@ -456,6 +472,7 @@ export function ItemsFields({
         onOpenChange={setAddOpen}
         customers={barangFormCustomers}
         customerFilter={barangFormCustomerFilter}
+        lockedCustomerNote={barangFormLockedNote}
         onSaved={onBarangCreated}
       />
     </div>
