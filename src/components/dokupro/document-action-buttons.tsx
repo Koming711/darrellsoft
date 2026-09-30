@@ -245,15 +245,17 @@ export function DocumentActionButtons({
     <div className="print:hidden">
       {/* Desktop: single row */}
       <div className="hidden sm:flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReset}
-          className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
-        >
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          Reset
-        </Button>
+        {!editingId && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            Reset
+          </Button>
+        )}
         {showPrintActions && (
         <Button
           size="sm"
@@ -328,15 +330,17 @@ export function DocumentActionButtons({
 
       {/* Mobile: 2x2 grid */}
       <div className={`grid gap-2 sm:hidden ${showPrintActions ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReset}
-          className="border-gray-200 text-gray-600 hover:bg-gray-50 h-9"
-        >
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          Reset
-        </Button>
+        {!editingId && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="border-gray-200 text-gray-600 hover:bg-gray-50 h-9"
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            Reset
+          </Button>
+        )}
         {showPrintActions && (
         <Button
           size="sm"

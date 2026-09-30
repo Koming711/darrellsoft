@@ -34,7 +34,7 @@ interface InvoiceHistoryItem {
   createdAt: string;
 }
 
-export function SuratJalanEditor({ onSaved }: { onSaved?: (id: string) => void } = {}) {
+export function SuratJalanEditor({ onSaved, editingId }: { onSaved?: (id: string) => void; editingId?: string | null } = {}) {
   const sj = useDokuproStore((s) => s.suratJalan);
   const setSuratJalan = useDokuproStore((s) => s.setSuratJalan);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
@@ -88,11 +88,13 @@ export function SuratJalanEditor({ onSaved }: { onSaved?: (id: string) => void }
 
   // Fetch next Surat Jalan number from server
   const fetchNextNumber = useCallback(() => {
+    // Mode edit: jangan timpa nomor dokumen yang sedang diedit
+    if (editingId) return
     fetch('/api/history?preview=next-number&docType=surat-jalan', { headers: getAuthHeaders() })
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.nextNumber) setSuratJalan((prev) => ({ ...prev, nomor: data.nextNumber })) })
       .catch(() => {});
-  }, [setSuratJalan]);
+  }, [setSuratJalan, editingId]);
 
   useEffect(() => { fetchNextNumber() }, [fetchNextNumber]);
 
@@ -263,6 +265,7 @@ export function SuratJalanEditor({ onSaved }: { onSaved?: (id: string) => void }
             documentLabel="Surat Jalan"
             currentData={sj}
             onReset={() => resetDocument('surat-jalan')}
+            editingId={editingId}
             onSaved={onSaved}
           />
         }

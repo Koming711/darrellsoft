@@ -11201,3 +11201,19 @@ Work Log:
 
 Stage Summary:
 - Alur Simpan → Detail kini konsisten di 3 dokumen: Buat Invoice, Buat Surat Jalan, dan Buat Purchase Order sama-sama mendarat di halaman Detail masing-masing (pratinjau A5 + Cetak/JPG/Hapus + lightbox), termasuk deep-link ?detail=<id>. Riwayat Purchase Order: icon/tombol preview dihilangkan — klik baris/kartu membuka Detail PO (pola riwayat Invoice); data uji dibersihkan.
+
+---
+Task ID: sj-riwayat-row-detail-edit-buttons
+Agent: main (Z.ai Code)
+Task: "di halaman riwayat surat jalan. apabila diklik baris di tabel, maka menuju halaman detail surat jalan. delete icon preview dan icon edit di tabel. tambahkan tombol edit di detail purchase order dan detail surat jalan. check and fix"
+
+Work Log:
+- Riwayat Surat Jalan (src/app/surat-jalan/page.tsx) disamakan dgn pola Riwayat PO: prop onOpenDetail baru; klik baris tabel desktop → Detail SJ (cursor-pointer), kartu mobile clickable (role=button + tabIndex + keyboard Enter/Space). Icon preview (Eye "Lihat") DAN icon edit (RotateCcw "Muat ke editor") DIHAPUS dari tabel & kartu — kolom Aksi hanya menyisakan Hapus (stopPropagation). Seluruh kode popup preview lama dihapus total (previewItem/previewOpen/previewScale/previewDims/previewWrapperRef/sendingPdf/sjData memo/useLayoutEffect scale/handleSendJpg/JSX popup + restoreToEditor) — fitur pratinjau kini sepenuhnya di halaman Detail. Import Eye/RotateCcw dibuang, Pencil ditambah.
+- Tombol Edit di halaman Detail (SJ & PO): DetailSuratJalanView & DetailPurchaseOrderView dapat prop onEdit?; tombol outline "Edit" (Pencil) ditambahkan di baris aksi (Cetak · JPG · Edit · Hapus). Klik Edit → setSuratJalan/setPurchaseOrder(data parsed) → buka layar editor dgn editingId.
+- Editor mode edit: SuratJalanEditor & PurchaseOrderEditor dapat prop editingId? → diteruskan ke DocumentActionButtons (sudah mendukung PUT /api/history/[id] sejak awal). fetchNextNumber di-guard `if (editingId) return` agar nomor dokumen tidak ditimpa saat edit. Judul layar dinamis: "Edit Surat Jalan"/"Edit Purchase Order" vs "Buat ...".
+- Safety di DocumentActionButtons: tombol Reset disembunyikan saat mode edit (mencegah Update menimpa record dgn form kosong). 
+- Wiring page (SJ & PO): state editingId + resetDocument; onSaved → keluar editor, reset dokumen jika mode edit, lalu setDetailId(id) → Detail memuat ulang data terbaru (update in-place, BUKAN record baru). closeCreate saat mode edit → reset editor ke default agar data lama tidak terbawa ke "Buat" berikutnya.
+- Verifikasi browser end-to-end (superadmin): SJ — Buat → Simpan → "Detail Surat Jalan" ✓; Edit → data termuat (customer/item/nomor SJ/09/26/0002 utuh), tombol "Update", Reset tersembunyi ✓; ubah item → Ya, Update → kembali ke Detail dgn data terbaru di preview, TIDAK ada record duplikat (riwayat tetap 1 baris) ✓; Kembali dari edit (cancel) → "Buat Surat Jalan" kembali fresh/kosong ✓. PO — alur sama lengkap ✓ (PO/09/26/0003). Riwayat SJ desktop: klik baris → Detail ✓, eyeIcons=0, muatIcons=0, hanya hapusIcons=1 ✓. Mobile (viewport <md): kartu SJ klik → Detail + tombol Edit tampil ✓. Riwayat PO tak berubah (Muat tetap, sesuai scope). Data uji 2 dokumen dihapus via UI + purge permanen dari Sampah (termasuk 3 sisa data uji lama) → Sampah kosong. ESLint 5 file = 0 problem; dev.log bersih. Screenshot: .zscreens/sj-riwayat-final.png.
+
+Stage Summary:
+- Riwayat Surat Jalan kini konsisten dgn Riwayat PO & Invoice: klik baris/kartu membuka halaman Detail SJ (popup preview lama dihapus); kolom Aksi hanya Hapus. Halaman Detail SJ & Detail PO kini punya tombol Edit → membuka editor dgn data terisi (judul "Edit ...", tombol Update, Reset disembunyikan, nomor tidak berubah) → menyimpan via PUT memperbarui record yang SAMA lalu kembali ke Detail. Tidak ada duplikasi riwayat; cancel edit tidak meninggalkan data sisa di editor.

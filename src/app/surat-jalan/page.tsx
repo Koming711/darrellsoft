@@ -25,12 +25,11 @@ import {
   Loader2,
   Search,
   X,
-  Eye,
   DatabaseBackup,
   Upload,
   Plus,
   ArrowLeft,
-  RotateCcw,
+  Pencil,
   Trash2,
   Printer,
   Image as ImageIcon,
@@ -172,21 +171,14 @@ function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }
 // SuratJalanRiwayatView — daftar surat jalan langsung tampil
 // (tanpa tab). UI mengikuti gaya halaman Invoice / Master Customer.
 // ============================================================
-function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
+function SuratJalanRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => void; onOpenDetail: (id: string) => void }) {
   const [sjHistory, setSjHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   // Filter nama penerima/pihak kedua (dropdown)
   const [partyFilter, setPartyFilter] = useState('')
-  const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewScale, setPreviewScale] = useState(1)
-  const [previewDims, setPreviewDims] = useState<{ w: number; h: number } | null>(null)
-  const previewWrapperRef = useRef<HTMLDivElement>(null)
-  const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const setSuratJalan = useDokuproStore((s) => s.setSuratJalan)
 
   // Filter periode (gaya Laporan Penjualan) — default: Semua Periode
   const [period, setPeriod] = useState<RiwayatPeriod>('all')
@@ -227,91 +219,6 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
     window.addEventListener('dokupro:history-updated', handler)
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory])
-
-  const sjData = useMemo(() => {
-    if (!previewItem) return null
-    return parseSuratJalanData(previewItem)
-  }, [previewItem])
-
-  // Measure actual rendered element and fit it to the available viewport space.
-  useLayoutEffect(() => {
-    if (!previewOpen) {
-      setPreviewDims(null)
-      setPreviewScale(1)
-      return
-    }
-    const measureAndScale = () => {
-      const el = previewWrapperRef.current
-      if (!el) return
-      const naturalW = el.offsetWidth
-      const naturalH = el.offsetHeight
-      if (naturalW === 0 || naturalH === 0) {
-        requestAnimationFrame(measureAndScale)
-        return
-      }
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const reservedH = 56 + 88 + 32
-      const reservedW = 32
-      const availW = Math.max(120, vw - reservedW)
-      const availH = Math.max(120, vh - reservedH)
-      const scale = Math.min(availW / naturalW, availH / naturalH, 1.4)
-      setPreviewScale(scale)
-      setPreviewDims({ w: naturalW * scale, h: naturalH * scale })
-    }
-    const t = setTimeout(measureAndScale, 50)
-    window.addEventListener('resize', measureAndScale)
-    return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
-  }, [previewOpen, sjData])
-
-  const handleSendJpg = useCallback(async () => {
-    if (!sjData) return
-    setSendingPdf(true)
-    try {
-      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — hasil identik
-      // mobile & desktop, bukan wrapper preview yang skala-nya mengikuti layar
-      const previewEl = resolveDocumentPreviewEl()
-      if (previewEl) {
-        const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
-        const fileName = `${(sjData.nomor || 'draft').replace(/\//g, '-')}.jpg`
-        const phone = sjData.penerima?.kontak || ''
-
-        const result = await shareJpgToWhatsApp({
-          blob,
-          fileName,
-          documentLabel: `Surat Jalan ${sjData.nomor}`,
-          phone,
-        })
-
-        if (result.status === 'shared') {
-          toast.success('Gambar dibagikan ke WhatsApp')
-        } else if (result.status === 'cancelled') {
-          // silent
-        } else if (result.status === 'downloaded') {
-          toast.success(`${fileName} tersimpan ke perangkat`, {
-            description: 'File JPG telah diunduh ke folder Downloads.',
-          })
-        } else {
-          toast.error(result.error || 'Gagal memproses JPG')
-        }
-      } else {
-        toast.error('Preview tidak ditemukan')
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error('Gagal mengirim gambar')
-    } finally {
-      setSendingPdf(false)
-    }
-  }, [sjData])
-
-  // Muat data surat jalan dari riwayat ke editor (ubah → simpan lagi)
-  const restoreToEditor = (entry: HistoryEntry) => {
-    const parsed = parseSuratJalanData(entry)
-    setSuratJalan(parsed)
-    onCreate()
-    toast.success('Surat Jalan berhasil dimuat ke editor')
-  }
 
   const handleDelete = async (id: string) => {
     try {
@@ -559,7 +466,7 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                       return (
                         <TableRow
                           key={entry.id}
-                          onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                          onClick={() => onOpenDetail(entry.id)}
                           className="cursor-pointer"
                         >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
@@ -574,26 +481,6 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                           <TableCell className="text-right tabular-nums text-muted-foreground">{info.totalQty.toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                title="Lihat"
-                                aria-label={`Lihat ${entry.nomor || 'surat jalan'}`}
-                                onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                title="Muat ke editor"
-                                aria-label={`Muat ${entry.nomor || 'surat jalan'}`}
-                                onClick={() => restoreToEditor(entry)}
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -621,7 +508,11 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                 return (
                   <div
                     key={entry.id}
-                    onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Buka detail ${entry.nomor || 'surat jalan'}`}
+                    onClick={() => onOpenDetail(entry.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(entry.id) } }}
                     className="cursor-pointer"
                   >
                     <Card className="p-0 gap-0 hover:bg-stone-50">
@@ -635,21 +526,7 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
                           <p className="text-muted-foreground">Barang: <span className="font-medium text-stone-700">{info.itemsCount}</span></p>
                           <p className="text-muted-foreground">Total Qty: <span className="font-medium text-stone-700">{info.totalQty.toLocaleString('id-ID')}</span></p>
                         </div>
-                        <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
-                          <Button
-                            variant="outline"
-                            className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
-                            onClick={(e) => { e.stopPropagation(); setPreviewItem(entry); setPreviewOpen(true) }}
-                          >
-                            <Eye className="h-3.5 w-3.5" /> Lihat
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs"
-                            onClick={(e) => { e.stopPropagation(); restoreToEditor(entry) }}
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" /> Muat
-                          </Button>
+                        <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="outline"
                             className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive"
@@ -687,48 +564,6 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Preview Popup */}
-      {previewOpen && sjData && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
-          {/* Close button */}
-          <div className="flex justify-end p-3 shrink-0">
-            <button
-              onClick={() => setPreviewOpen(false)}
-              aria-label="Tutup pratinjau"
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
-            >
-              <X className="w-4 h-4 text-slate-700" />
-            </button>
-          </div>
-          {/* Preview */}
-          <div className="flex-1 flex items-start justify-center overflow-auto p-4 pb-28 min-h-0">
-            <div
-              style={{ width: previewDims?.w, height: previewDims?.h }}
-              className="flex-shrink-0"
-            >
-              <div
-                ref={previewWrapperRef}
-                data-document-preview
-                style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
-              >
-                <SuratJalanPreview data={sjData} />
-              </div>
-            </div>
-          </div>
-          {/* Action buttons - fixed at bottom */}
-          <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
-            <Button
-              onClick={handleSendJpg}
-              disabled={sendingPdf}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
-            </Button>
-          </div>
-        </div>
-      )}
-
     </>
   )
 }
@@ -739,8 +574,9 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
 // /surat-jalan?detail=<id>. Gaya mengikuti Detail Invoice:
 // info ringkas + tombol aksi DI ATAS pratinjau + lightbox zoom.
 // ============================================================
-function DetailSuratJalanView({ id, onBack }: { id: string; onBack: () => void }) {
+function DetailSuratJalanView({ id, onBack, onEdit }: { id: string; onBack: () => void; onEdit?: (id: string) => void }) {
   const resetDocument = useDokuproStore((s) => s.resetDocument)
+  const setSuratJalan = useDokuproStore((s) => s.setSuratJalan)
   const [entry, setEntry] = useState<HistoryEntry | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -928,6 +764,11 @@ function DetailSuratJalanView({ id, onBack }: { id: string; onBack: () => void }
       <Button size="sm" onClick={handleJpg} disabled={jpgGenerating} className="bg-green-600 hover:bg-green-700 min-h-[36px]">
         {jpgGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> JPG...</> : <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>}
       </Button>
+      {onEdit && (
+        <Button size="sm" variant="outline" onClick={() => { if (data) setSuratJalan(data); onEdit(id) }} className="min-h-[36px]">
+          <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+        </Button>
+      )}
       <Button size="sm" variant="outline" onClick={() => setHapusOpen(true)} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[36px]">
         <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
       </Button>
@@ -1074,6 +915,9 @@ function DetailSuratJalanView({ id, onBack }: { id: string; onBack: () => void }
 export default function SuratJalanPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  // id dokumen yang sedang diedit di layar editor (null = buat baru).
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const resetDocument = useDokuproStore((s) => s.resetDocument)
 
   // Deep-link: /surat-jalan?detail=<id> → langsung buka Detail Surat Jalan.
   useEffect(() => {
@@ -1094,9 +938,15 @@ export default function SuratJalanPage() {
     }
   }
 
-  // Tutup layar Buat + bersihkan query param deep-link editor (?invoiceId=).
+  // Tutup layar Buat/Edit + bersihkan query param deep-link editor (?invoiceId=).
   const closeCreate = () => {
     setShowCreate(false)
+    // Keluar dari mode edit tanpa menyimpan → pulihkan editor ke default
+    // (data dokumen yang diedit jangan terbawa ke "Buat Surat Jalan" berikutnya).
+    if (editingId) {
+      setEditingId(null)
+      resetDocument('surat-jalan')
+    }
     if (typeof window !== 'undefined' && window.location.search) {
       window.history.replaceState(null, '', '/surat-jalan')
     }
@@ -1108,7 +958,11 @@ export default function SuratJalanPage() {
         <AutoOpenEditor param="invoiceId" onOpen={() => setShowCreate(true)} />
       </Suspense>
       {detailId ? (
-        <DetailSuratJalanView id={detailId} onBack={closeDetail} />
+        <DetailSuratJalanView
+          id={detailId}
+          onBack={closeDetail}
+          onEdit={(eid) => { setDetailId(null); setEditingId(eid); setShowCreate(true) }}
+        />
       ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
@@ -1121,16 +975,31 @@ export default function SuratJalanPage() {
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Kembali
             </Button>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Surat Jalan Baru</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">
+              {editingId ? 'Edit Surat Jalan' : 'Buat Surat Jalan Baru'}
+            </h2>
           </div>
           <Suspense fallback={null}>
-            {/* Simpan → menuju Detail Surat Jalan (seperti alur Buat Invoice) */}
-            <SuratJalanEditor onSaved={(id) => { setShowCreate(false); setDetailId(id) }} />
+            {/* Simpan/Update → menuju Detail Surat Jalan (seperti alur Buat Invoice) */}
+            <SuratJalanEditor
+              editingId={editingId}
+              onSaved={(id) => {
+                setShowCreate(false)
+                if (editingId) {
+                  setEditingId(null)
+                  resetDocument('surat-jalan')
+                }
+                setDetailId(id)
+              }}
+            />
           </Suspense>
         </div>
       ) : (
         <div className="print:hidden">
-          <SuratJalanRiwayatView onCreate={() => setShowCreate(true)} />
+          <SuratJalanRiwayatView
+            onCreate={() => setShowCreate(true)}
+            onOpenDetail={(id) => setDetailId(id)}
+          />
         </div>
       )}
     </DashboardLayout>
