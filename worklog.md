@@ -11277,3 +11277,18 @@ Work Log:
 
 Stage Summary:
 - Alur Buat Invoice: Tambah (selalu aktif) → dialog Master Barang per customer (search + pilih) → baris terisi otomatis; barang belum ada → tambah langsung dari dialog (form → POST /api/items + auto-registrasi BarangCustomer → langsung terpakai). Dropdown lama di kotak Nama Barang dihapus sesuai permintaan. Mode PO/SJ tidak berubah.
+
+---
+Task ID: invoice-cancel-2-perintah
+Agent: main (Z.ai Code)
+Task: "cancel 2 perintah terakhir" — batalkan dua permintaan terakhir di halaman Buat Invoice: (1) "dropdown di nama barang di hapus. aktifkan tombol tambah..." (commit f16fc97: dialog Master Barang) dan (2) "tombol dropdown di nama barang dimunculkan lagi" (restorasi chevron yang belum sempat di-commit user-approval).
+
+Work Log:
+- Identifikasi 2 perintah yang dibatalkan: perintah "hapus dropdown + Tambah buka dialog Master Barang" (f16fc97 — menyentuh items-fields.tsx & invoice-editor.tsx) dan perintah "tombol dropdown dimunculkan lagi" (kerja sesi ini, ter-commit otomatis di checkpoint 10efe7e).
+- Kembalikan kedua file ke keadaan SEBELUM f16fc97 (= keadaan 669c681): `git checkout 5ecb382 -- src/components/dokupro/items-fields.tsx src/components/dokupro/invoice-editor.tsx`; verifikasi md5 identik dgn versi 669c681/5ecb382 (items d92582d7, editor 30572c49).
+- Hasil perilaku kembali ke 669c681: kotak Nama Barang (Buat Invoice) kembali punya tombol dropdown chevron (popover "Master Barang Customer" per customer); Tambah disabled saat belum ada data, klik Tambah → baris baru + dropdown LANGSUNG terbuka di baris baru; dialog Master Barang + form tambah barang baru DIHAPUS; mode PO (kertas) tidak berubah.
+- Cleanup DB: barang percobaan "TESTDROPDOWN" (dibuat saat verifikasi fitur dialog yang dibatalkan) dihapus permanen via script bun (.zscripts/q-tmp.ts, model Barang pakai field `nama`) — 1 barang + 1 registrasi BarangCustomer terhapus.
+- Verifikasi browser E2E (superadmin, /invoice?buat=1): chevron tampil di kotak Nama Barang ✓; Tambah disabled saat baris kosong, aktif setelah isi "usaha cetak" ✓; klik Tambah → textarea bertambah 3 (2 baris + catatan) + popover auto-open "Belum ada barang untuk customer ini — tambahkan di Master Barang" ✓; tidak ada dialog modal ✓. ESLint 2 file = 0 problem; dev.log bersih; screenshot .zscreens/revert-cancel-2.png.
+
+Stage Summary:
+- Dua perintah terakhir dibatalkan sepenuhnya: Buat Invoice kembali ke perilaku 669c681 (chevron dropdown per baris + Tambah auto-open dropdown di baris baru, Tambah disabled saat kosong). Dialog Master Barang & form tambah barang dari f16fc97 tidak ada lagi. Test barang VERIFIKASI sudah dibersihkan dari DB. Deploy produksi tetap menunggu instruksi user.
