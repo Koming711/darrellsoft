@@ -11123,3 +11123,21 @@ Work Log:
 
 Stage Summary:
 - Versi aplikasi saat ini 0.2.0 dan kini tampil di footer beranda sebagai "v0.2.0" — mengubah versi cukup edit package.json (sumber tunggal), tampilan ikut otomatis.
+
+---
+Task ID: landing-slide-deck-11-halaman
+Agent: main (Z.ai Code)
+Task: "dihalaman landing. rubah menjadi 11 halaman yang digeser ke samping kanan."
+
+Work Log:
+- Interpretasi: 11 section landing (Hero, Stats, Urgency, Fitur, Keunggulan, Kenapa-Langgan, Cara Kerja, Harga, Testimoni, CTA, FAQ) diubah dari tata vertikal menjadi SLIDE DECK horizontal 11 halaman full-screen — navigasi bergeser ke samping (halaman berikut masuk dari kanan).
+- Implementasi (src/app/page.tsx): root jadi h-screen overflow-hidden (inline 100dvh utk mobile); main deck flex + motion.div translateX -page×100vw (ease cubic-bezier 0.55s); tiap section dibungkus <Slide> (w-screen shrink-0 overflow-y-auto flex-col) — konten lebih tinggi dari layar (kenapa-langganan, FAQ) scroll DI DALAM slide; konten pendek dipusatkan vertikal via my-auto (pola margin-auto tanpa clipping); footer pindah ke DALAM halaman 11 (mt-auto, setelah FAQ).
+- Navigasi: panah prev/next (bottom-right, disabled di tepi) + counter "n / 11" (aria-live); 11 dot indikator (kanan, hidden md:flex); keyboard (Arrow/PageUp-Down/Home/End); wheel (deltaY: flip saat slide tak bisa discroll / sudah di tepi atas-bawah; deltaX trackpad: langsung flip; lock 650ms anti-multi-flip; passive:false); touch swipe horizontal (>60px & 1.4× dy).
+- Anchor: #fitur→hal4, #kenapa-langganan→hal6, #harga→hal8, #testimoni→hal9, #faq→hal11 (PAGE_BY_ANCHOR); onClick goAnchor preventDefault + goToPage; hash URL tersinkron 2 arah (baca saat load via replaceState) — link /#harga tetap berfungsi.
+- Fix lint React Compiler: "Cannot access refs during render" → pageRef di-sync via useEffect; nextPage/prevPage pakai functional setState (2 klik cepat tetap maju 2 langkah).
+- globals.css: .landing-slide scrollbar tipis (6px, rgba slate).
+- Verifikasi browser (agent-browser, sesi segar 1280×720 & 390×844): 11 slide × 1280px; panah next → "2 / 11" translateX(-100vw); nav "Fitur" → "4 / 11" + hash #fitur; ArrowRight → "5 / 11"; wheel sintetis deltaY±→ flip maju/mundur (wheel CLI agent-browser tidak emit WheelEvent asli — diverifikasi via dispatchEvent); dot klik → lompat halaman; FAQ slide internal scroll + footer di dalam halaman 11; mobile: dots tersembunyi, panah+counter tampil, slide 390px; body tak bisa scroll vertikal. Screenshot: landing-deck-p1.png, landing-deck-p10-cta.png, landing-deck-mobile-p4.png. ESLint 0 problem; dev.log bersih.
+- Popup "Install Darrell Soft" (PWA prompt) = fitur lama, tidak terkait perubahan.
+
+Stage Summary:
+- Landing page kini SLIDE DECK 11 halaman full-screen yang digeser ke samping kanan: panah/keyboard/wheel/swipe/dot — konten, teks, harga, testimoni, FAQ, footer semuanya utuh; anchor nav & footer tetap berfungsi lompat ke halaman terkait; hash URL shareable per halaman.
