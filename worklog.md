@@ -11141,3 +11141,17 @@ Work Log:
 
 Stage Summary:
 - Landing page kini SLIDE DECK 11 halaman full-screen yang digeser ke samping kanan: panah/keyboard/wheel/swipe/dot — konten, teks, harga, testimoni, FAQ, footer semuanya utuh; anchor nav & footer tetap berfungsi lompat ke halaman terkait; hash URL shareable per halaman.
+
+---
+Task ID: landing-cancel-slide-deck
+Agent: main (Z.ai Code)
+Task: "cancel perintah terakhir." (membatalkan slide deck 11 halaman di landing)
+
+Work Log:
+- Identifikasi: perintah terakhir = "dihalaman landing. rubah menjadi 11 halaman yang digeser ke samping kanan" → sudah diterapkan di commit bf80002 (src/app/page.tsx +289/-27, src/app/globals.css +20) + worklog 4fbf8ac + commit screenshot 7d7beb9.
+- Pemulihan menyeluruh: src/app/page.tsx dan src/app/globals.css dikembalikan ke state 90c6f69 (sebelum slide deck) via git show — diff working tree = kebalikan persis commit fitur (27 insertions, 282 deletions).
+- Riwayat commit & worklog TIDAK dirombak (pola sama dgn cancel invoice 8b99784): entri landing-slide-deck-11-halaman tetap tercatat sebagai riwayat.
+- Verifikasi: ESLint page.tsx 0 problem; browser sesi segar — landing kembali vertikal (bodyScrollable=true, .landing-slide=0, counter deck kosong, h1 "Jangan jadi penonton saja!!!" tampil, footer ada). Screenshot: .zscreens/landing-cancel-deck.png. dev.log bersih.
+
+Stage Summary:
+- Slide deck 11 halaman DIBATALKAN — landing page kembali seperti semula (tata vertikal satu halaman panjang dgn footer di bawah, state 90c6f69). Riwayat & worklog dipertahankan; tidak ada deploy ulang produksi (deck belum pernah dideploy ke www.darrellsoft.com).
