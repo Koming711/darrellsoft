@@ -815,23 +815,3 @@ html:not(.dark) .dark-surface .text-stone-500 { color: #78716c !important; }
 html:not(.dark) .dark-surface .text-stone-600 { color: #57534e !important; }
 html:not(.dark) .dark-surface .text-stone-700 { color: #44403c !important; }
 html:not(.dark) .dark-surface .text-muted-foreground { color: #a1a1aa !important; }
-
-/* Landing slide-deck (11 halaman): scrollbar tipis & halus di dalam slide */
-.landing-slide {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.3) transparent;
-}
-.landing-slide::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.landing-slide::-webkit-scrollbar-track {
-  background: transparent;
-}
-.landing-slide::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.25);
-  border-radius: 9999px;
-}
-.landing-slide::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.4);
-}

@@ -1,11 +1,10 @@
 'use client';
 
 import { motion, useInView } from 'framer-motion';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowRight,
   BadgeCheck,
   Banknote,
@@ -129,46 +128,9 @@ function Counter({ end, suffix, prefix, duration }: { end: number; suffix: strin
 /* ------------------------------------------------------------------ */
 function Section({ children, className = '', id }: { children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <section id={id} className={`w-full py-20 md:py-28 px-4 md:px-8 my-auto ${className}`}>
+    <section id={id} className={`w-full py-20 md:py-28 px-4 md:px-8 ${className}`}>
       <div className="max-w-6xl mx-auto">{children}</div>
     </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Landing slide-deck: 11 halaman full-screen yang digeser ke samping */
-/* ------------------------------------------------------------------ */
-const SLIDE_COUNT = 11;
-
-// Anchor URL → indeks halaman (link #fitur, #harga, dst. di nav & footer)
-const PAGE_BY_ANCHOR: Record<string, number> = {
-  fitur: 3,
-  'kenapa-langganan': 5,
-  harga: 7,
-  testimoni: 8,
-  faq: 10,
-};
-
-// Indeks halaman → anchor URL (null = halaman tanpa anchor)
-const PAGE_ANCHORS: (string | null)[] = [
-  null, null, null, 'fitur', null, 'kenapa-langganan', null, 'harga', 'testimoni', null, 'faq',
-];
-
-// Satu "halaman" slide: selebar viewport. Konten yang lebih tinggi dari
-// layar (mis. kenapa-langganan) bisa discroll DI DALAM slide — margin auto
-// pada konten memusatkan secara vertikal tanpa clipping saat konten pendek.
-function Slide({ index, slidesRef, children }: {
-  index: number;
-  slidesRef: { current: (HTMLDivElement | null)[] };
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      ref={(el) => { slidesRef.current[index] = el; }}
-      className="landing-slide w-screen h-full shrink-0 overflow-y-auto overflow-x-hidden flex flex-col"
-    >
-      {children}
-    </div>
   );
 }
 
@@ -942,125 +904,6 @@ export default function Home() {
     setAuthChecking(false);
   }, [router]);
 
-  /* ---------------- SLIDE DECK: state & navigasi ---------------- */
-  const [page, setPage] = useState(0);
-  const mainRef = useRef<HTMLElement>(null);
-  const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const pageRef = useRef(0);
-  useEffect(() => { pageRef.current = page; }, [page]);
-
-  const goToPage = useCallback((i: number) => {
-    setPage(Math.max(0, Math.min(SLIDE_COUNT - 1, i)));
-  }, []);
-  // Functional update agar 2 klik cepat beruntun tetap maju/mandur 2 langkah
-  const nextPage = useCallback(() => setPage((p) => Math.min(SLIDE_COUNT - 1, p + 1)), []);
-  const prevPage = useCallback(() => setPage((p) => Math.max(0, p - 1)), []);
-
-  // Anchor di URL (#harga dsb.) → halaman terkait saat pertama load
-  useEffect(() => {
-    try {
-      const a = window.location.hash.replace('#', '');
-      if (a in PAGE_BY_ANCHOR) setPage(PAGE_BY_ANCHOR[a]);
-    } catch {}
-  }, []);
-
-  // Halaman aktif → hash URL agar posisi bisa dibagikan (#harga, #faq, ...)
-  useEffect(() => {
-    try {
-      const anchor = PAGE_ANCHORS[page];
-      window.history.replaceState(null, '', anchor ? `#${anchor}` : window.location.pathname);
-    } catch {}
-  }, [page]);
-
-  // Keyboard: panah kiri/kanan, PageUp/Down, Home/End
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-      if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); nextPage(); }
-      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prevPage(); }
-      else if (e.key === 'Home') { e.preventDefault(); goToPage(0); }
-      else if (e.key === 'End') { e.preventDefault(); goToPage(SLIDE_COUNT - 1); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [nextPage, prevPage, goToPage]);
-
-  // Roda mouse: pindah halaman saat slide tak bisa discroll / sudah di tepi.
-  // Trackpad geser samping (deltaX) juga dinavigasikan.
-  useEffect(() => {
-    const root = mainRef.current;
-    if (!root) return;
-    let lockedUntil = 0;
-    const flip = (dir: 1 | -1) => {
-      lockedUntil = Date.now() + 650;
-      if (dir > 0) nextPage(); else prevPage();
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (Date.now() < lockedUntil) { e.preventDefault(); return; }
-      const slide = slideRefs.current[pageRef.current];
-      if (!slide) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        if (Math.abs(e.deltaX) < 12) return;
-        e.preventDefault();
-        flip(e.deltaX > 0 ? 1 : -1);
-        return;
-      }
-      const canScroll = slide.scrollHeight - slide.clientHeight > 2;
-      if (!canScroll) {
-        if (Math.abs(e.deltaY) < 14) return;
-        e.preventDefault();
-        flip(e.deltaY > 0 ? 1 : -1);
-        return;
-      }
-      const atTop = slide.scrollTop <= 2;
-      const atBottom = slide.scrollTop + slide.clientHeight >= slide.scrollHeight - 2;
-      if ((e.deltaY > 0 && atBottom) || (e.deltaY < 0 && atTop)) {
-        if (Math.abs(e.deltaY) < 14) return;
-        e.preventDefault();
-        flip(e.deltaY > 0 ? 1 : -1);
-      }
-    };
-    root.addEventListener('wheel', onWheel, { passive: false });
-    return () => root.removeEventListener('wheel', onWheel);
-  }, [nextPage, prevPage]);
-
-  // Sentuhan: swipe horizontal ganti halaman (swipe vertikal tetap scroll isi)
-  useEffect(() => {
-    const root = mainRef.current;
-    if (!root) return;
-    let sx = 0, sy = 0, active = false;
-    const onStart = (e: TouchEvent) => {
-      active = true;
-      sx = e.touches[0].clientX;
-      sy = e.touches[0].clientY;
-    };
-    const onEnd = (e: TouchEvent) => {
-      if (!active) return;
-      active = false;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - sx;
-      const dy = t.clientY - sy;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-        if (dx < 0) nextPage(); else prevPage();
-      }
-    };
-    root.addEventListener('touchstart', onStart, { passive: true });
-    root.addEventListener('touchend', onEnd, { passive: true });
-    return () => {
-      root.removeEventListener('touchstart', onStart);
-      root.removeEventListener('touchend', onEnd);
-    };
-  }, [nextPage, prevPage]);
-
-  // Link anchor (#fitur, #harga, ...) → lompat ke halaman slide terkait
-  const goAnchor = (e: React.MouseEvent, anchor: string) => {
-    const i = PAGE_BY_ANCHOR[anchor];
-    if (i === undefined) return;
-    e.preventDefault();
-    goToPage(i);
-  };
-
   // FAQ accordion: item yang terbuka (null = semua tertutup). Item pertama
   // terbuka secara default — mengikuti perilaku produksi.
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -1159,7 +1002,7 @@ export default function Home() {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black" style={{ height: '100dvh' }}>
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
       {/* Overlay: sembunyikan landing saat masih memeriksa sesi (mencegah
           landing berkedip sebelum redirect otomatis ke Beranda) */}
       {authChecking && (
@@ -1182,10 +1025,10 @@ export default function Home() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#fitur" onClick={(e) => goAnchor(e, 'fitur')} className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_fitur}</a>
-            <a href="#kenapa-langganan" onClick={(e) => goAnchor(e, 'kenapa-langganan')} className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_kenapa}</a>
-            <a href="#harga" onClick={(e) => goAnchor(e, 'harga')} className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_harga}</a>
-            <a href="#testimoni" onClick={(e) => goAnchor(e, 'testimoni')} className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_testimoni}</a>
+            <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_fitur}</a>
+            <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_kenapa}</a>
+            <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_harga}</a>
+            <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_testimoni}</a>
             <div className="flex items-center gap-0.5">
               <LanguageToggle />
               <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
@@ -1209,17 +1052,8 @@ export default function Home() {
 
       </nav>
 
-      {/* ============ SLIDE DECK: 11 HALAMAN FULL-SCREEN, GESER KE SAMPING ============ */}
-      <main ref={mainRef} className="relative flex-1 min-h-0 overflow-hidden">
-        <motion.div
-          className="flex h-full"
-          initial={false}
-          animate={{ x: `-${page * 100}vw` }}
-          transition={{ duration: 0.55, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] }}
-        >
-          {/* ---- HALAMAN 1: HERO ---- */}
-          <Slide index={0} slidesRef={slideRefs}>
-      <section className="relative w-full my-auto overflow-hidden">
+      {/* =================== HERO =================== */}
+      <section className="relative w-full overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
           <div className="absolute top-20 left-1/4 w-72 h-72 bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-3xl" />
@@ -1308,11 +1142,9 @@ export default function Home() {
           </div>
         </div>
       </section>
-          </Slide>
 
-          {/* ---- HALAMAN 2: STATS BAR ---- */}
-          <Slide index={1} slidesRef={slideRefs}>
-      <section className="w-full my-auto bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 py-10 md:py-14 border-y border-white/5">
+      {/* =================== STATS BAR =================== */}
+      <section className="w-full bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 py-10 md:py-14 border-y border-white/5">
         <div className="max-w-6xl mx-auto px-4 md:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-0 md:divide-x md:divide-white/10">
             {[
@@ -1334,11 +1166,9 @@ export default function Home() {
           </div>
         </div>
       </section>
-          </Slide>
 
-          {/* ---- HALAMAN 3: AJAKAN BERLANGGANAN (URGENCY) ---- */}
-          <Slide index={2} slidesRef={slideRefs}>
-      <section className="w-full my-auto py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+      {/* =================== AJAKAN BERLANGGANAN (URGENCY) =================== */}
+      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
         {/* Background decoration */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl" />
@@ -1416,10 +1246,8 @@ export default function Home() {
           </FadeIn>
         </div>
       </section>
-          </Slide>
 
-          {/* ---- HALAMAN 4: FITUR ---- */}
-          <Slide index={3} slidesRef={slideRefs}>
+      {/* =================== FITUR =================== */}
       <Section id="fitur" className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -1455,10 +1283,8 @@ export default function Home() {
           />
         </div>
       </Section>
-          </Slide>
 
-          {/* ---- HALAMAN 5: KEUNGGULAN ---- */}
-          <Slide index={4} slidesRef={slideRefs}>
+      {/* =================== KEUNGGULAN =================== */}
       <Section id="keunggulan" className="bg-gradient-to-b from-blue-50/30 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -1519,10 +1345,8 @@ export default function Home() {
           ))}
         </div>
       </Section>
-          </Slide>
 
-          {/* ---- HALAMAN 6: KENAPA HARUS LANGGANAN ---- */}
-          <Slide index={5} slidesRef={slideRefs}>
+      {/* =================== KENAPA HARUS LANGGANAN =================== */}
       <Section id="kenapa-langganan" className="bg-gradient-to-b from-sky-50/50 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -1736,10 +1560,8 @@ export default function Home() {
           </div>
         </FadeIn>
       </Section>
-          </Slide>
 
-          {/* ---- HALAMAN 7: CARA KERJA ---- */}
-          <Slide index={6} slidesRef={slideRefs}>
+      {/* =================== CARA KERJA =================== */}
       <Section className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -1775,10 +1597,8 @@ export default function Home() {
           ))}
         </div>
       </Section>
-          </Slide>
 
-          {/* ---- HALAMAN 8: HARGA ---- */}
-          <Slide index={7} slidesRef={slideRefs}>
+      {/* =================== HARGA =================== */}
       <Section id="harga" className="bg-gradient-to-b from-slate-950 via-blue-950/50 to-slate-950">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -1867,10 +1687,8 @@ export default function Home() {
           </div>
         </FadeIn>
       </Section>
-          </Slide>
 
-          {/* ---- HALAMAN 9: TESTIMONI ---- */}
-          <Slide index={8} slidesRef={slideRefs}>
+      {/* =================== TESTIMONI =================== */}
       <Section id="testimoni" className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -1913,11 +1731,9 @@ export default function Home() {
           />
         </div>
       </Section>
-          </Slide>
 
-          {/* ---- HALAMAN 10: CTA FINAL (STRONG) ---- */}
-          <Slide index={9} slidesRef={slideRefs}>
-      <section className="w-full my-auto py-16 md:py-24 px-4 md:px-8 bg-white dark:bg-black">
+      {/* =================== CTA FINAL (STRONG) =================== */}
+      <section className="w-full py-16 md:py-24 px-4 md:px-8 bg-white dark:bg-black">
         <FadeIn>
           <div className="relative max-w-5xl mx-auto rounded-3xl bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 shadow-2xl shadow-blue-600/25 overflow-hidden">
             {/* Background decoration */}
@@ -2013,10 +1829,8 @@ export default function Home() {
           </div>
         </FadeIn>
       </section>
-          </Slide>
 
-          {/* ---- HALAMAN 11: FAQ + FOOTER ---- */}
-          <Slide index={10} slidesRef={slideRefs}>
+      {/* =================== FAQ =================== */}
       <Section className="bg-white dark:bg-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
@@ -2080,7 +1894,7 @@ export default function Home() {
       </Section>
 
       {/* =================== FOOTER =================== */}
-      <footer className="dark-surface mt-auto w-full bg-gray-900 pt-12 pb-8 px-4 md:px-8">
+      <footer className="dark-surface w-full bg-gray-900 pt-12 pb-8 px-4 md:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-8 mb-8">
             {/* Brand */}
@@ -2101,10 +1915,10 @@ export default function Home() {
             <div>
               <h4 className="text-white font-bold text-xs uppercase tracking-[0.18em] mb-4">{t.footer_nav_title}</h4>
               <div className="flex flex-col gap-2.5">
-                <a href="#fitur" onClick={(e) => goAnchor(e, 'fitur')} className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_fitur}</a>
-                <a href="#harga" onClick={(e) => goAnchor(e, 'harga')} className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_harga}</a>
-                <a href="#testimoni" onClick={(e) => goAnchor(e, 'testimoni')} className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_testimoni}</a>
-                <a href="#faq" onClick={(e) => goAnchor(e, 'faq')} className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_faq}</a>
+                <a href="#fitur" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_fitur}</a>
+                <a href="#harga" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_harga}</a>
+                <a href="#testimoni" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_testimoni}</a>
+                <a href="#faq" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_faq}</a>
               </div>
             </div>
 
@@ -2142,55 +1956,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-          </Slide>
-        </motion.div>
-
-        {/* ---- NAVIGASI SLIDE: titik (kanan) + panah prev/next ---- */}
-        <div
-          className="hidden md:flex absolute right-4 lg:right-6 top-1/2 -translate-y-1/2 z-40 flex-col gap-2.5"
-          role="navigation"
-          aria-label="Navigasi halaman landing"
-        >
-          {Array.from({ length: SLIDE_COUNT }).map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => goToPage(i)}
-              aria-label={`Ke halaman ${i + 1} dari ${SLIDE_COUNT}`}
-              aria-current={page === i ? 'true' : undefined}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                page === i
-                  ? 'bg-gradient-to-r from-blue-600 to-sky-400 scale-110 shadow-md shadow-blue-600/30'
-                  : 'bg-gray-300 dark:bg-white/25 hover:bg-blue-400 dark:hover:bg-white/50'
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-40 flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tabular-nums mr-1" aria-live="polite">
-            {page + 1} / {SLIDE_COUNT}
-          </span>
-          <button
-            type="button"
-            onClick={prevPage}
-            disabled={page === 0}
-            aria-label="Halaman sebelumnya"
-            className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/15 shadow-md flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg transition-all"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={nextPage}
-            disabled={page === SLIDE_COUNT - 1}
-            aria-label="Halaman berikutnya"
-            className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-sky-400 text-white shadow-md shadow-blue-600/25 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg transition-all"
-          >
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        </div>
-      </main>
 
     </div>
   );
