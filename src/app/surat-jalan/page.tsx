@@ -16,7 +16,7 @@ import {
 } from '@/components/dokupro/riwayat-period-filter'
 import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
-import { formatTanggalFull } from '@/lib/format'
+import { formatTanggalFull, formatTanggalShort } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
 import { useDokuproStore } from '@/lib/store'
@@ -32,6 +32,9 @@ import {
   ArrowLeft,
   RotateCcw,
   Trash2,
+  Printer,
+  Image as ImageIcon,
+  Maximize2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +49,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +62,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { SuratJalanPreview } from '@/components/dokupro/surat-jalan-preview'
 import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import type { SuratJalanData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
@@ -729,24 +734,387 @@ function SuratJalanRiwayatView({ onCreate }: { onCreate: () => void }) {
 }
 
 // ============================================================
+// DetailSuratJalanView — halaman detail surat jalan (pratinjau A5),
+// dibuka setelah Simpan di "Buat Surat Jalan Baru" & deep-link
+// /surat-jalan?detail=<id>. Gaya mengikuti Detail Invoice:
+// info ringkas + tombol aksi DI ATAS pratinjau + lightbox zoom.
+// ============================================================
+function DetailSuratJalanView({ id, onBack }: { id: string; onBack: () => void }) {
+  const resetDocument = useDokuproStore((s) => s.resetDocument)
+  const [entry, setEntry] = useState<HistoryEntry | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [jpgGenerating, setJpgGenerating] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [hapusOpen, setHapusOpen] = useState(false)
+  // Lightbox pratinjau — klik/ketuk gambar preview → tampil besar fit layar
+  const [zoomOpen, setZoomOpen] = useState(false)
+
+  // Pratinjau scaler
+  const scalerRef = useRef<HTMLDivElement>(null)
+  const zoomStageRef = useRef<HTMLDivElement>(null)
+  const zoomScalerRef = useRef<HTMLDivElement>(null)
+
+  const loadEntry = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetcher(`/api/history/${id}`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const json = await res.json()
+        setEntry(json.data || null)
+      } else {
+        setError('Surat jalan tidak ditemukan')
+      }
+    } catch {
+      setError('Gagal memuat surat jalan')
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => { loadEntry() }, [loadEntry])
+
+  const data = useMemo(() => (entry ? parseSuratJalanData(entry) : null), [entry])
+  const info = useMemo(() => (entry ? parseDocInfo(entry) : null), [entry])
+
+  // Scale pratinjau A5 agar pas dengan container (desktop ~+20% dari ukuran
+  // asli 148mm, mobile full-width). offsetWidth/Height tidak terpengaruh transform.
+  useLayoutEffect(() => {
+    if (!data) return
+    const fit = () => {
+      const wrapper = scalerRef.current
+      if (!wrapper) return
+      const a5 = wrapper.querySelector('.a5-page') as HTMLElement | null
+      if (!a5) return
+      const naturalW = a5.offsetWidth
+      const naturalH = a5.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const availW = wrapper.parentElement?.clientWidth || wrapper.clientWidth
+      if (availW === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const scale = availW / naturalW
+      a5.style.transform = `scale(${scale})`
+      a5.style.transformOrigin = 'top left'
+      wrapper.style.width = `${naturalW * scale}px`
+      wrapper.style.height = `${naturalH * scale}px`
+    }
+    fit()
+    const raf = requestAnimationFrame(fit)
+    const timer = setTimeout(fit, 250)
+    window.addEventListener('resize', fit)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
+  }, [data])
+
+  // Lightbox pratinjau: skala terbesar yang membuat SELURUH halaman A5 muat
+  // di viewport (fit lebar & tinggi) — di HP umumnya memenuhi lebar layar.
+  useLayoutEffect(() => {
+    if (!zoomOpen || !data) return
+    const fit = () => {
+      const stage = zoomStageRef.current
+      const wrap = zoomScalerRef.current
+      if (!stage || !wrap) return
+      const a5 = wrap.querySelector('.a5-page') as HTMLElement | null
+      if (!a5) return
+      const naturalW = a5.offsetWidth
+      const naturalH = a5.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const availW = stage.clientWidth
+      const availH = stage.clientHeight
+      if (availW === 0 || availH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const scale = Math.min(availW / naturalW, availH / naturalH)
+      a5.style.transform = `scale(${scale})`
+      a5.style.transformOrigin = 'top left'
+      wrap.style.width = `${naturalW * scale}px`
+      wrap.style.height = `${naturalH * scale}px`
+    }
+    fit()
+    const raf = requestAnimationFrame(fit)
+    const timer = setTimeout(fit, 250)
+    window.addEventListener('resize', fit)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
+  }, [zoomOpen, data])
+
+  const handleJpg = async () => {
+    if (!data) return
+    setJpgGenerating(true)
+    try {
+      // Hi-res 300 DPI dari elemen .a5-page (layout tetap 148mm di SEMUA
+      // perangkat), dikomposisi ke kanvas A5 portrait 300 DPI (1748×2480 px).
+      // marginPct: 0 — capture .a5-page SUDAH mengandung margin pratinjau 10mm.
+      const previewEl = resolveDocumentPreviewEl()
+      if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
+      const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
+      const phone = data.penerima?.kontak || ''
+      const result = await shareJpgToWhatsApp({
+        blob,
+        fileName,
+        documentLabel: `Surat Jalan ${data.nomor}`,
+        phone,
+      })
+      if (result.status === 'shared') toast.success('Gambar dibagikan ke WhatsApp')
+      else if (result.status === 'cancelled') { /* silent */ }
+      else if (result.status === 'downloaded') toast.success(`${fileName} tersimpan ke perangkat`, { description: 'File JPG telah diunduh ke folder Downloads.' })
+      else toast.error(result.error || 'Gagal memproses JPG')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal membuat JPG')
+    } finally {
+      setJpgGenerating(false)
+    }
+  }
+
+  // Cetak: hasil cetak = gambar JPG hi-res 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — bukan jalur @media print.
+  const handlePrint = async () => {
+    if (!data) return
+    setIsPrinting(true)
+    try {
+      const previewEl = resolveDocumentPreviewEl()
+      if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
+      const label = (data.nomor || 'surat-jalan').replace(/\//g, '-')
+      // @page margin: 0 — gambar (yang sudah mengandung margin pratinjau 10mm)
+      // memenuhi halaman A5 penuh → margin hasil cetak = margin pratinjau PERSIS.
+      const ok = await printBlobHiRes(blob, { title: `Surat Jalan ${label}`, page: '148mm 210mm', margin: '0' })
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+    } catch (e) {
+      console.error('Print error:', e)
+      toast.error('Gagal menyiapkan cetakan')
+    } finally { setIsPrinting(false) }
+  }
+
+  // Hapus — soft delete → masuk Sampah (bisa dipulihkan), sama dgn riwayat SJ
+  const handleHapus = async () => {
+    if (!entry) return
+    setUpdating(true)
+    try {
+      const res = await fetcher(`/api/history/${entry.id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      if (res.ok) {
+        toast.success('Surat Jalan dipindahkan ke Sampah')
+        setHapusOpen(false)
+        window.dispatchEvent(new CustomEvent('dokupro:history-updated'))
+        notifyDataChange('surat-jalan')
+        resetDocument('surat-jalan')
+        onBack()
+      } else {
+        toast.error('Gagal menghapus surat jalan')
+      }
+    } catch {
+      toast.error('Gagal menghapus surat jalan')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const actionButtons = (
+    <div className="flex flex-wrap gap-2 print:hidden">
+      <Button size="sm" onClick={handlePrint} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 min-h-[36px]">
+        {isPrinting ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Cetak...</> : <><Printer className="mr-1.5 h-3.5 w-3.5" /> Cetak</>}
+      </Button>
+      <Button size="sm" onClick={handleJpg} disabled={jpgGenerating} className="bg-green-600 hover:bg-green-700 min-h-[36px]">
+        {jpgGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> JPG...</> : <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>}
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => setHapusOpen(true)} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[36px]">
+        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
+      </Button>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Header — Kembali + judul "Detail Surat Jalan" */}
+      <div className="flex items-center gap-2 mb-3 print:hidden flex-wrap">
+        <Button onClick={onBack} variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+          <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+        </Button>
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Detail Surat Jalan</h2>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-[480px] w-full max-w-[670px] mx-auto rounded-xl" />
+        </div>
+      ) : error || !entry || !data || !info ? (
+        <RiwayatEmptyState icon={<History />} title={error || 'Surat jalan tidak ditemukan'} desc="Kembali ke riwayat dan pilih surat jalan lain." />
+      ) : (
+        <>
+          {/* Info ringkas */}
+          <div className="rounded-xl border border-stone-200 bg-white p-4 mb-4 print:hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">No. Surat Jalan</p>
+                <p className="font-semibold truncate">{entry.nomor || '-'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Tanggal</p>
+                <p className="font-medium">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Penerima</p>
+                <p className="font-medium truncate">{entry.pihakKedua || '-'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Jumlah Barang</p>
+                <p className="font-bold text-amber-700">{info.itemsCount}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Total Qty: <span className="font-semibold text-stone-700">{info.totalQty.toLocaleString('id-ID')}</span>
+              {info.referensi ? <> · Ref. Invoice: <span className="font-medium">{info.referensi}</span></> : null}
+              {data.noKendaraan ? <> · Kendaraan: <span className="font-medium">{data.noKendaraan}</span></> : null}
+              {data.pengemudi ? <> · Driver: <span className="font-medium">{data.pengemudi}</span></> : null}
+            </p>
+          </div>
+
+          {/* Tombol aksi — DI ATAS pratinjau */}
+          <div className="mb-4">{actionButtons}</div>
+
+          {/* Pratinjau A5 — outline, fit container. Klik/ketuk → lightbox. */}
+          <div className="flex justify-center print:hidden" id="document-preview">
+            <div className="w-full" style={{ maxWidth: '670px' }}>
+              <div
+                ref={scalerRef}
+                data-preview-scaler
+                data-document-preview
+                role="button"
+                tabIndex={0}
+                aria-label="Perbesar pratinjau surat jalan"
+                title="Klik / ketuk untuk memperbesar"
+                onClick={() => setZoomOpen(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoomOpen(true) } }}
+                className="a5-preview-container relative bg-white overflow-hidden cursor-zoom-in transition-shadow hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                style={{ border: '2px solid #cbd5e1', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
+              >
+                <SuratJalanPreview data={data} />
+                {/* Indikator tap-to-zoom (di luar .a5-page — tidak ikut ter-capture JPG) */}
+                <span className="pointer-events-none absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-stone-900/60 px-2 py-1 text-[10px] font-medium text-white shadow-md">
+                  <Maximize2 className="h-3 w-3" /> Perbesar
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Lightbox pratinjau — gambar preview langsung besar, fit layar.
+              Tutup: ✕ / klik luar. Portal → capture JPG/Cetak tetap target
+              #document-preview. */}
+          <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+            <DialogContent
+              showCloseButton={false}
+              aria-label="Pratinjau surat jalan diperbesar"
+              aria-describedby={undefined}
+              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-stone-950/95 p-0 overflow-hidden gap-0"
+              style={{ height: '100dvh' }}
+            >
+              <button
+                type="button"
+                onClick={() => setZoomOpen(false)}
+                aria-label="Tutup pratinjau"
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white transition-colors hover:bg-black/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="absolute inset-0 p-3 sm:p-6">
+                <div ref={zoomStageRef} className="flex h-full w-full items-center justify-center">
+                  <div
+                    ref={zoomScalerRef}
+                    className="overflow-hidden rounded-lg bg-white shadow-2xl"
+                    style={{ border: '1px solid #e7e5e4' }}
+                  >
+                    <SuratJalanPreview data={data} />
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Konfirmasi Hapus */}
+          <AlertDialog open={hapusOpen} onOpenChange={setHapusOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus surat jalan?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Surat jalan {entry.nomor} akan dipindahkan ke Sampah dan masih dapat dipulihkan dari sana.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={updating}>Batal</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={(e) => { e.preventDefault(); void handleHapus() }}>
+                  {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Hapus'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 // SuratJalanPage — daftar surat jalan langsung tampil (tanpa tab)
-// + layar "Buat Surat Jalan Baru" dari tombol Buat Surat Jalan.
+// + layar "Buat Surat Jalan Baru" dari tombol Buat Surat Jalan
+// + layar Detail Surat Jalan (setelah Simpan / deep-link ?detail=).
 // UI daftar & editor mengikuti gaya halaman Invoice.
 // ============================================================
 export default function SuratJalanPage() {
   const [showCreate, setShowCreate] = useState(false)
+  const [detailId, setDetailId] = useState<string | null>(null)
+
+  // Deep-link: /surat-jalan?detail=<id> → langsung buka Detail Surat Jalan.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const d = params.get('detail')
+      if (d) setDetailId(d)
+    } catch {
+      // abaikan — query tidak valid
+    }
+  }, [])
+
+  // Tutup detail + bersihkan query param agar refresh tidak membuka detail lagi.
+  const closeDetail = () => {
+    setDetailId(null)
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', '/surat-jalan')
+    }
+  }
+
+  // Tutup layar Buat + bersihkan query param deep-link editor (?invoiceId=).
+  const closeCreate = () => {
+    setShowCreate(false)
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', '/surat-jalan')
+    }
+  }
 
   return (
-    <DashboardLayout title="Surat Jalan" subtitle="Buat surat jalan dengan pratinjau popup dan cetak A5">
+    <DashboardLayout title="Surat Jalan" subtitle="Buat surat jalan dengan pratinjau langsung dan cetak A5">
       <Suspense fallback={null}>
         <AutoOpenEditor param="invoiceId" onOpen={() => setShowCreate(true)} />
       </Suspense>
-      {showCreate ? (
+      {detailId ? (
+        <DetailSuratJalanView id={detailId} onBack={closeDetail} />
+      ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
           <div className="flex items-center gap-2 mb-3">
             <Button
-              onClick={() => setShowCreate(false)}
+              onClick={closeCreate}
               variant="outline"
               size="sm"
               className="h-9 gap-1.5 text-xs"
@@ -756,7 +1124,8 @@ export default function SuratJalanPage() {
             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Surat Jalan Baru</h2>
           </div>
           <Suspense fallback={null}>
-            <SuratJalanEditor />
+            {/* Simpan → menuju Detail Surat Jalan (seperti alur Buat Invoice) */}
+            <SuratJalanEditor onSaved={(id) => { setShowCreate(false); setDetailId(id) }} />
           </Suspense>
         </div>
       ) : (

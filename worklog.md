@@ -11185,3 +11185,19 @@ Work Log:
 
 Stage Summary:
 - Purchase Order kini 100% mengikuti standar Invoice (setelah Surat Jalan): PREVIEW = CETAK = JPG — margin 10mm seragam, font 9pt hitam semua, baris 8mm, ttd 3 kolom + footer menempel dasar A5, Jatuh Tempo amber spt invoice. Ketiga dokumen (Invoice, Surat Jalan, PO) kini punya bahasa desain cetak yang identik.
+
+---
+Task ID: sj-po-detail-flow
+Agent: main (Z.ai Code)
+Task: "dihalaman buat surat jalan baru apabila diklik simpan, maka menuju halaman detail surat jalan seperti halaman detail invoice begitu juga dihalaman buat purchase order baru apabila diklik simpan, maka menuju halaman detail purchase order seperti halaman detail invoice. dihalaman riwayat purchase order hilangkan icon preview dan apabila diklik baris, maka muncul halaman detail"
+
+Work Log:
+- Pola acuan Detail Invoice (src/app/invoice/page.tsx): state detailId + onSaved editor → setDetailId(id) + DetailInvoiceView (info ringkas, tombol Cetak/JPG di atas pratinjau A5 ber-outline + lightbox zoom, Hapus soft-delete) + deep-link ?detail=<id>.
+- Editor: SuratJalanEditor & PurchaseOrderEditor diberi prop onSaved?: (id: string) => void → diteruskan ke DocumentActionButtons (sudah mendukung — dipanggil dgn id record setelah POST sukses, setelah onReset).
+- src/app/surat-jalan/page.tsx: komponen baru DetailSuratJalanView (kembali+judul, info ringkas No.SJ/Tanggal/Penerima/Jumlah Barang + baris Total Qty/Ref/Kendaraan/Driver, tombol Cetak(printBlobHiRes)+JPG(shareJpgToWhatsApp)+Hapus(soft delete→Sampah), pratinjau A5 scaler fit-container (max 670px ≈ +20% desktop) + lightbox Dialog fit-viewport + konfirmasi hapus); SuratJalanPage: state detailId + deep-link /surat-jalan?detail= + closeCreate/closeDetail bersih query; onSaved → tutup Buat + buka Detail. Riwayat SJ TIDAK diubah (popup preview tetap).
+- src/app/purchase-order/page.tsx: komponen baru DetailPurchaseOrderView (info ringkas No.PO/Tanggal/Suplier/Total + baris item/Qty/Ref/Jatuh Tempo, tombol sama); Riwayat PO: prop onOpenDetail, baris tabel onClick→detail (Aksi cell stopPropagation, hanya Muat+Hapus — icon Eye DIHAPUS), kartu mobile clickable (role=button+keyboard, Muat/Hapus stopPropagation — tombol Lihat DIHAPUS), popup preview lama + state-nya (previewItem/previewOpen/previewScale/previewDims/sendingPdf/poData/handleSendJpg) DIHAPUS total (fitur pindah ke halaman detail); PurchaseOrderPage: detailId + deep-link ?detail= + onSaved wiring.
+- Insiden: percobaan MultiEdit gagal karena old_str menyalin artefak output terminal (`const [month` tampil `const onth` — sanitasi ANSI memakan "[m"); file asli terbukti utuh via hexdump codepoints — BUKAN korupsi file. Popup preview PO sempat tertinggal → ReferenceError client crash "Application error" di /purchase-order → blok dihapus → sehat.
+- Verifikasi browser (superadmin): SJ — isi customer+barang → Simpan → Ya,Simpan → tampil "Detail Surat Jalan" (h2) + preview .a5-page + tombol Kembali/Cetak/JPG/Hapus ✓. PO — alur sama → "Detail Purchase Order" ✓. Riwayat PO: eyeIcons=0, baris klik → Detail ✓, mobile 390×844 kartu klik → Detail + preview tampil ✓. Hapus dari detail → soft delete + kembali riwayat ✓ (toast "dipindahkan ke Sampah"). Riwayat SJ popup preview tak diubah. Data uji (Customer/Pemasok Uji Alur) dihapus lewat UI setelah pengujian. ESLint 4 file = 0 problem; dev.log bersih. Screenshot: sj-detail-after-save.png, po-detail-after-save.png, po-detail-from-row.png, po-riwayat-mobile.png, po-detail-mobile.png.
+
+Stage Summary:
+- Alur Simpan → Detail kini konsisten di 3 dokumen: Buat Invoice, Buat Surat Jalan, dan Buat Purchase Order sama-sama mendarat di halaman Detail masing-masing (pratinjau A5 + Cetak/JPG/Hapus + lightbox), termasuk deep-link ?detail=<id>. Riwayat Purchase Order: icon/tombol preview dihilangkan — klik baris/kartu membuka Detail PO (pola riwayat Invoice); data uji dibersihkan.

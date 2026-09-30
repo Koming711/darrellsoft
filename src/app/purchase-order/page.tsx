@@ -6,12 +6,11 @@ import { DashboardLayout } from '@/components/dashboard-layout'
 import { PurchaseOrderEditor } from '@/components/dokupro/purchase-order-editor'
 import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
-import { formatRupiah, formatTanggal } from '@/lib/format'
+import { formatRupiah, formatTanggal, formatTanggalShort } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
 import {
   History,
-  Eye,
   RotateCcw,
   Trash2,
   Loader2,
@@ -21,6 +20,9 @@ import {
   Upload,
   Plus,
   ArrowLeft,
+  Printer,
+  Image as ImageIcon,
+  Maximize2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,8 +57,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { PurchaseOrderPreview } from '@/components/dokupro/purchase-order-preview'
 import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture-jpg'
+import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDokuproStore } from '@/lib/store'
 import type { PurchaseOrderData, CompanyInfo } from '@/lib/types'
@@ -171,7 +175,7 @@ function AutoOpenEditor({ param, onOpen }: { param: string; onOpen: () => void }
 // tampil (tanpa tab). UI mengikuti gaya halaman Laporan Penjualan
 // (filter periode, kartu ringkasan, tabel & kartu riwayat).
 // ============================================================
-function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
+function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => void; onOpenDetail: (id: string) => void }) {
   const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder)
   const [poHistory, setPoHistory] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -184,12 +188,6 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewScale, setPreviewScale] = useState(1)
-  const [previewDims, setPreviewDims] = useState<{ w: number; h: number } | null>(null)
-  const previewWrapperRef = useRef<HTMLDivElement>(null)
-  const [sendingPdf, setSendingPdf] = useState(false)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
 
   const fetchHistory = useCallback(async () => {
@@ -219,42 +217,6 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
     return () => window.removeEventListener('dokupro:history-updated', handler)
   }, [fetchHistory])
 
-  const poData = useMemo(() => {
-    if (!previewItem) return null
-    return parsePurchaseOrderData(previewItem)
-  }, [previewItem])
-
-  // Measure actual rendered element and fit it to the available viewport space.
-  useLayoutEffect(() => {
-    if (!previewOpen) {
-      setPreviewDims(null)
-      setPreviewScale(1)
-      return
-    }
-    const measureAndScale = () => {
-      const el = previewWrapperRef.current
-      if (!el) return
-      const naturalW = el.offsetWidth
-      const naturalH = el.offsetHeight
-      if (naturalW === 0 || naturalH === 0) {
-        requestAnimationFrame(measureAndScale)
-        return
-      }
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const reservedH = 56 + 88 + 32
-      const reservedW = 32
-      const availW = Math.max(120, vw - reservedW)
-      const availH = Math.max(120, vh - reservedH)
-      const scale = Math.min(availW / naturalW, availH / naturalH, 1.4)
-      setPreviewScale(scale)
-      setPreviewDims({ w: naturalW * scale, h: naturalH * scale })
-    }
-    const t = setTimeout(measureAndScale, 50)
-    window.addEventListener('resize', measureAndScale)
-    return () => { clearTimeout(t); window.removeEventListener('resize', measureAndScale) }
-  }, [previewOpen, poData])
-
   const restoreToEditor = (entry: HistoryEntry) => {
     const parsed = parsePurchaseOrderData(entry)
     setPurchaseOrder(parsed)
@@ -277,47 +239,6 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
     }
     setDeleteConfirmId(null)
   }
-
-  const handleSendJpg = useCallback(async () => {
-    if (!poData) return
-    setSendingPdf(true)
-    try {
-      // Hi-res 300 DPI dari .a5-page (ukuran tetap 148mm) — hasil identik
-      // mobile & desktop, bukan wrapper preview yang skala-nya mengikuti layar
-      const previewEl = resolveDocumentPreviewEl()
-      if (previewEl) {
-        const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
-        const fileName = `${(poData.nomor || 'draft').replace(/\//g, '-')}.jpg`
-        const phone = poData.pemasok?.kontak || ''
-
-        const result = await shareJpgToWhatsApp({
-          blob,
-          fileName,
-          documentLabel: `Purchase Order ${poData.nomor}`,
-          phone,
-        })
-
-        if (result.status === 'shared') {
-          toast.success('Gambar dibagikan ke WhatsApp')
-        } else if (result.status === 'cancelled') {
-          // silent
-        } else if (result.status === 'downloaded') {
-          toast.success(`${fileName} tersimpan ke perangkat`, {
-            description: 'File JPG telah diunduh ke folder Downloads.',
-          })
-        } else {
-          toast.error(result.error || 'Gagal memproses JPG')
-        }
-      } else {
-        toast.error('Preview tidak ditemukan')
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error('Gagal mengirim gambar')
-    } finally {
-      setSendingPdf(false)
-    }
-  }, [poData])
 
   const handleBackup = async () => {
     setBackupLoading('backup')
@@ -544,7 +465,11 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                     {filteredHistory.slice(0, 100).map((entry, i) => {
                       const info = parseDocInfo(entry)
                       return (
-                        <TableRow key={entry.id}>
+                        <TableRow
+                          key={entry.id}
+                          onClick={() => onOpenDetail(entry.id)}
+                          className="cursor-pointer"
+                        >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="whitespace-nowrap"><span className="font-mono text-xs">{entry.nomor || '-'}</span></TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap">{entry.tanggal ? formatTanggal(entry.tanggal) : '-'}</TableCell>
@@ -554,9 +479,8 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground hidden lg:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }} aria-label={`Lihat ${entry.nomor}`} title="Lihat"><Eye className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => restoreToEditor(entry)} aria-label={`Muat ${entry.nomor}`} title="Muat ke editor"><RotateCcw className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
                             </div>
@@ -569,12 +493,21 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
               </div>
             </div>
 
-            {/* Mobile cards — gaya Laporan Penjualan (aksi via tombol, kartu tidak clickable) */}
+            {/* Mobile cards — klik kartu → Detail PO (gaya baris riwayat invoice);
+                aksi Muat/Hapus tetap via tombol dgn stopPropagation */}
             <div className="md:hidden space-y-3">
               {filteredHistory.slice(0, 100).map((entry) => {
                 const info = parseDocInfo(entry)
                 return (
-                  <Card key={entry.id} className="p-0 gap-0">
+                  <Card
+                    key={entry.id}
+                    className="p-0 gap-0 cursor-pointer hover:bg-stone-50 transition-colors"
+                    onClick={() => onOpenDetail(entry.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Buka detail ${entry.nomor || 'purchase order'}`}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(entry.id) } }}
+                  >
                     <CardContent className="p-4 space-y-2">
                       <p className="font-mono text-xs font-semibold break-all">{entry.nomor || '-'}</p>
                       <p className="text-sm">
@@ -585,10 +518,7 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
                         <p className="text-muted-foreground">Total: <span className="font-medium text-stone-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '—'}</span></p>
                         <p className="text-muted-foreground">Qty: <span className="font-medium text-stone-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '—'}</span></p>
                       </div>
-                      <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5">
-                        <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={() => { setPreviewItem(entry); setPreviewOpen(true) }}>
-                          <Eye className="h-3.5 w-3.5" /> Lihat
-                        </Button>
+                      <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5" onClick={(e) => e.stopPropagation()}>
                         <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs" onClick={() => restoreToEditor(entry)}>
                           <RotateCcw className="h-3.5 w-3.5" /> Muat
                         </Button>
@@ -624,71 +554,393 @@ function PurchaseOrderRiwayatView({ onCreate }: { onCreate: () => void }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Preview Popup */}
-      {previewOpen && poData && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col">
-          {/* Close button */}
-          <div className="flex justify-end p-3 shrink-0">
-            <button
-              onClick={() => setPreviewOpen(false)}
-              aria-label="Tutup pratinjau"
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white transition-colors"
-            >
-              <X className="w-4 h-4 text-slate-700" />
-            </button>
-          </div>
-          {/* Preview */}
-          <div className="flex-1 flex items-start justify-center overflow-auto p-4 pb-28 min-h-0">
-            <div
-              style={{ width: previewDims?.w, height: previewDims?.h }}
-              className="flex-shrink-0"
-            >
-              <div
-                ref={previewWrapperRef}
-                data-document-preview
-                style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left' }}
-              >
-                <PurchaseOrderPreview data={poData} />
-              </div>
-            </div>
-          </div>
-          {/* Action buttons - fixed at bottom */}
-          <div className="fixed bottom-0 left-0 right-0 flex justify-center gap-2 p-4 pb-6 sm:pb-4 bg-black/60 backdrop-blur-sm">
-            <Button
-              onClick={handleSendJpg}
-              disabled={sendingPdf}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {sendingPdf ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Mengirim...</> : 'Kirim WhatsApp'}
-            </Button>
-          </div>
-        </div>
-      )}
-
     </>
   )
 }
 
 // ============================================================
+// DetailPurchaseOrderView — halaman detail purchase order
+// (pratinjau A5), dibuka setelah Simpan di "Buat Purchase Order
+// Baru", saat baris riwayat diklik, & deep-link /purchase-order?detail=<id>.
+// Gaya mengikuti Detail Invoice: info ringkas + tombol aksi DI ATAS
+// pratinjau + lightbox zoom.
+// ============================================================
+function DetailPurchaseOrderView({ id, onBack }: { id: string; onBack: () => void }) {
+  const resetDocument = useDokuproStore((s) => s.resetDocument)
+  const [entry, setEntry] = useState<HistoryEntry | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [jpgGenerating, setJpgGenerating] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [hapusOpen, setHapusOpen] = useState(false)
+  // Lightbox pratinjau — klik/ketuk gambar preview → tampil besar fit layar
+  const [zoomOpen, setZoomOpen] = useState(false)
+
+  // Pratinjau scaler
+  const scalerRef = useRef<HTMLDivElement>(null)
+  const zoomStageRef = useRef<HTMLDivElement>(null)
+  const zoomScalerRef = useRef<HTMLDivElement>(null)
+
+  const loadEntry = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetcher(`/api/history/${id}`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const json = await res.json()
+        setEntry(json.data || null)
+      } else {
+        setError('Purchase order tidak ditemukan')
+      }
+    } catch {
+      setError('Gagal memuat purchase order')
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => { loadEntry() }, [loadEntry])
+
+  const data = useMemo(() => (entry ? parsePurchaseOrderData(entry) : null), [entry])
+  const info = useMemo(() => (entry ? parseDocInfo(entry) : null), [entry])
+
+  // Scale pratinjau A5 agar pas dengan container (desktop ~+20% dari ukuran
+  // asli 148mm, mobile full-width). offsetWidth/Height tidak terpengaruh transform.
+  useLayoutEffect(() => {
+    if (!data) return
+    const fit = () => {
+      const wrapper = scalerRef.current
+      if (!wrapper) return
+      const a5 = wrapper.querySelector('.a5-page') as HTMLElement | null
+      if (!a5) return
+      const naturalW = a5.offsetWidth
+      const naturalH = a5.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const availW = wrapper.parentElement?.clientWidth || wrapper.clientWidth
+      if (availW === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const scale = availW / naturalW
+      a5.style.transform = `scale(${scale})`
+      a5.style.transformOrigin = 'top left'
+      wrapper.style.width = `${naturalW * scale}px`
+      wrapper.style.height = `${naturalH * scale}px`
+    }
+    fit()
+    const raf = requestAnimationFrame(fit)
+    const timer = setTimeout(fit, 250)
+    window.addEventListener('resize', fit)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
+  }, [data])
+
+  // Lightbox pratinjau: skala terbesar yang membuat SELURUH halaman A5 muat
+  // di viewport (fit lebar & tinggi) — di HP umumnya memenuhi lebar layar.
+  useLayoutEffect(() => {
+    if (!zoomOpen || !data) return
+    const fit = () => {
+      const stage = zoomStageRef.current
+      const wrap = zoomScalerRef.current
+      if (!stage || !wrap) return
+      const a5 = wrap.querySelector('.a5-page') as HTMLElement | null
+      if (!a5) return
+      const naturalW = a5.offsetWidth
+      const naturalH = a5.offsetHeight
+      if (naturalW === 0 || naturalH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const availW = stage.clientWidth
+      const availH = stage.clientHeight
+      if (availW === 0 || availH === 0) {
+        requestAnimationFrame(fit)
+        return
+      }
+      const scale = Math.min(availW / naturalW, availH / naturalH)
+      a5.style.transform = `scale(${scale})`
+      a5.style.transformOrigin = 'top left'
+      wrap.style.width = `${naturalW * scale}px`
+      wrap.style.height = `${naturalH * scale}px`
+    }
+    fit()
+    const raf = requestAnimationFrame(fit)
+    const timer = setTimeout(fit, 250)
+    window.addEventListener('resize', fit)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
+  }, [zoomOpen, data])
+
+  const handleJpg = async () => {
+    if (!data) return
+    setJpgGenerating(true)
+    try {
+      // Hi-res 300 DPI dari elemen .a5-page (layout tetap 148mm di SEMUA
+      // perangkat), dikomposisi ke kanvas A5 portrait 300 DPI (1748×2480 px).
+      // marginPct: 0 — capture .a5-page SUDAH mengandung margin pratinjau 10mm.
+      const previewEl = resolveDocumentPreviewEl()
+      if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
+      const fileName = `${(data.nomor || 'draft').replace(/\//g, '-')}.jpg`
+      const phone = data.pemasok?.kontak || ''
+      const result = await shareJpgToWhatsApp({
+        blob,
+        fileName,
+        documentLabel: `Purchase Order ${data.nomor}`,
+        phone,
+      })
+      if (result.status === 'shared') toast.success('Gambar dibagikan ke WhatsApp')
+      else if (result.status === 'cancelled') { /* silent */ }
+      else if (result.status === 'downloaded') toast.success(`${fileName} tersimpan ke perangkat`, { description: 'File JPG telah diunduh ke folder Downloads.' })
+      else toast.error(result.error || 'Gagal memproses JPG')
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal membuat JPG')
+    } finally {
+      setJpgGenerating(false)
+    }
+  }
+
+  // Cetak: hasil cetak = gambar JPG hi-res 300 DPI yang sama dengan hasil JPG
+  // (identik mobile & desktop) — bukan jalur @media print.
+  const handlePrint = async () => {
+    if (!data) return
+    setIsPrinting(true)
+    try {
+      const previewEl = resolveDocumentPreviewEl()
+      if (!previewEl) { toast.error('Pratinjau tidak ditemukan'); return }
+      const blob = await captureDocumentPaperJpg({ el: previewEl, paper: 'A5', orientation: 'portrait', marginPct: 0 })
+      const label = (data.nomor || 'purchase-order').replace(/\//g, '-')
+      // @page margin: 0 — gambar (yang sudah mengandung margin pratinjau 10mm)
+      // memenuhi halaman A5 penuh → margin hasil cetak = margin pratinjau PERSIS.
+      const ok = await printBlobHiRes(blob, { title: `Purchase Order ${label}`, page: '148mm 210mm', margin: '0' })
+      if (!ok) toast.error('Popup diblokir. Izinkan popup untuk mencetak.')
+    } catch (e) {
+      console.error('Print error:', e)
+      toast.error('Gagal menyiapkan cetakan')
+    } finally { setIsPrinting(false) }
+  }
+
+  // Hapus — soft delete → masuk Sampah (bisa dipulihkan), sama dgn riwayat PO
+  const handleHapus = async () => {
+    if (!entry) return
+    setUpdating(true)
+    try {
+      const res = await fetcher(`/api/history/${entry.id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      if (res.ok) {
+        toast.success('Purchase Order dipindahkan ke Sampah')
+        setHapusOpen(false)
+        window.dispatchEvent(new CustomEvent('dokupro:history-updated'))
+        notifyDataChange('purchase-order')
+        resetDocument('purchase-order')
+        onBack()
+      } else {
+        toast.error('Gagal menghapus purchase order')
+      }
+    } catch {
+      toast.error('Gagal menghapus purchase order')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const actionButtons = (
+    <div className="flex flex-wrap gap-2 print:hidden">
+      <Button size="sm" onClick={handlePrint} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 min-h-[36px]">
+        {isPrinting ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Cetak...</> : <><Printer className="mr-1.5 h-3.5 w-3.5" /> Cetak</>}
+      </Button>
+      <Button size="sm" onClick={handleJpg} disabled={jpgGenerating} className="bg-green-600 hover:bg-green-700 min-h-[36px]">
+        {jpgGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> JPG...</> : <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>}
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => setHapusOpen(true)} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[36px]">
+        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
+      </Button>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Header — Kembali + judul "Detail Purchase Order" */}
+      <div className="flex items-center gap-2 mb-3 print:hidden flex-wrap">
+        <Button onClick={onBack} variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+          <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+        </Button>
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Detail Purchase Order</h2>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-[480px] w-full max-w-[670px] mx-auto rounded-xl" />
+        </div>
+      ) : error || !entry || !data || !info ? (
+        <RiwayatEmptyState icon={<History />} title={error || 'Purchase order tidak ditemukan'} desc="Kembali ke riwayat dan pilih purchase order lain." />
+      ) : (
+        <>
+          {/* Info ringkas */}
+          <div className="rounded-xl border border-stone-200 bg-white p-4 mb-4 print:hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">No. PO</p>
+                <p className="font-semibold truncate">{entry.nomor || '-'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Tanggal</p>
+                <p className="font-medium">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Suplier</p>
+                <p className="font-medium truncate">{entry.pihakKedua || '-'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</p>
+                <p className="font-bold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Jumlah item: <span className="font-semibold text-stone-700">{data.items.length}</span>
+              {info.totalQty > 0 ? <> · Total Qty: <span className="font-semibold text-stone-700">{info.totalQty.toLocaleString('id-ID')}</span></> : null}
+              {info.referensi ? <> · Ref.: <span className="font-medium">{info.referensi}</span></> : null}
+              {info.tanggalJatuhTempo ? <> · Jatuh Tempo: <span className="font-medium">{formatTanggalShort(info.tanggalJatuhTempo)}</span></> : null}
+            </p>
+          </div>
+
+          {/* Tombol aksi — DI ATAS pratinjau */}
+          <div className="mb-4">{actionButtons}</div>
+
+          {/* Pratinjau A5 — outline, fit container. Klik/ketuk → lightbox. */}
+          <div className="flex justify-center print:hidden" id="document-preview">
+            <div className="w-full" style={{ maxWidth: '670px' }}>
+              <div
+                ref={scalerRef}
+                data-preview-scaler
+                data-document-preview
+                role="button"
+                tabIndex={0}
+                aria-label="Perbesar pratinjau purchase order"
+                title="Klik / ketuk untuk memperbesar"
+                onClick={() => setZoomOpen(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoomOpen(true) } }}
+                className="a5-preview-container relative bg-white overflow-hidden cursor-zoom-in transition-shadow hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                style={{ border: '2px solid #cbd5e1', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
+              >
+                <PurchaseOrderPreview data={data} />
+                {/* Indikator tap-to-zoom (di luar .a5-page — tidak ikut ter-capture JPG) */}
+                <span className="pointer-events-none absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-stone-900/60 px-2 py-1 text-[10px] font-medium text-white shadow-md">
+                  <Maximize2 className="h-3 w-3" /> Perbesar
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Lightbox pratinjau — gambar preview langsung besar, fit layar.
+              Tutup: ✕ / klik luar. Portal → capture JPG/Cetak tetap target
+              #document-preview. */}
+          <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+            <DialogContent
+              showCloseButton={false}
+              aria-label="Pratinjau purchase order diperbesar"
+              aria-describedby={undefined}
+              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-stone-950/95 p-0 overflow-hidden gap-0"
+              style={{ height: '100dvh' }}
+            >
+              <button
+                type="button"
+                onClick={() => setZoomOpen(false)}
+                aria-label="Tutup pratinjau"
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white transition-colors hover:bg-black/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="absolute inset-0 p-3 sm:p-6">
+                <div ref={zoomStageRef} className="flex h-full w-full items-center justify-center">
+                  <div
+                    ref={zoomScalerRef}
+                    className="overflow-hidden rounded-lg bg-white shadow-2xl"
+                    style={{ border: '1px solid #e7e5e4' }}
+                  >
+                    <PurchaseOrderPreview data={data} />
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Konfirmasi Hapus */}
+          <AlertDialog open={hapusOpen} onOpenChange={setHapusOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus purchase order?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Purchase order {entry.nomor} akan dipindahkan ke Sampah dan masih dapat dipulihkan dari sana.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={updating}>Batal</AlertDialogCancel>
+                <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={(e) => { e.preventDefault(); void handleHapus() }}>
+                  {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Hapus'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 // PurchaseOrderPage — daftar purchase order langsung tampil
-// (tanpa tab) + layar "Buat Purchase Order Baru" dari tombol Buat PO.
-// UI daftar & editor mengikuti gaya halaman Invoice.
+// (tanpa tab) + layar "Buat Purchase Order Baru" dari tombol Buat PO
+// + layar Detail Purchase Order (setelah Simpan / baris riwayat /
+// deep-link ?detail=). UI daftar & editor mengikuti gaya halaman Invoice.
 // ============================================================
 export default function PurchaseOrderPage() {
   const [showCreate, setShowCreate] = useState(false)
+  const [detailId, setDetailId] = useState<string | null>(null)
+
+  // Deep-link: /purchase-order?detail=<id> → langsung buka Detail PO.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const d = params.get('detail')
+      if (d) setDetailId(d)
+    } catch {
+      // abaikan — query tidak valid
+    }
+  }, [])
+
+  // Tutup detail + bersihkan query param agar refresh tidak membuka detail lagi.
+  const closeDetail = () => {
+    setDetailId(null)
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', '/purchase-order')
+    }
+  }
+
+  // Tutup layar Buat + bersihkan query param deep-link editor (?riwayatId=).
+  const closeCreate = () => {
+    setShowCreate(false)
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', '/purchase-order')
+    }
+  }
 
   return (
-    <DashboardLayout title="Purchase Order" subtitle="Buat purchase order dengan pratinjau popup dan cetak A5">
+    <DashboardLayout title="Purchase Order" subtitle="Buat purchase order dengan pratinjau langsung dan cetak A5">
       <Suspense fallback={null}>
         <AutoOpenEditor param="riwayatId" onOpen={() => setShowCreate(true)} />
       </Suspense>
-      {showCreate ? (
+      {detailId ? (
+        <DetailPurchaseOrderView id={detailId} onBack={closeDetail} />
+      ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
           <div className="flex items-center gap-2 mb-3">
             <Button
-              onClick={() => setShowCreate(false)}
+              onClick={closeCreate}
               variant="outline"
               size="sm"
               className="h-9 gap-1.5 text-xs"
@@ -698,12 +950,16 @@ export default function PurchaseOrderPage() {
             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Purchase Order Baru</h2>
           </div>
           <Suspense fallback={null}>
-            <PurchaseOrderEditor />
+            {/* Simpan → menuju Detail Purchase Order (seperti alur Buat Invoice) */}
+            <PurchaseOrderEditor onSaved={(id) => { setShowCreate(false); setDetailId(id) }} />
           </Suspense>
         </div>
       ) : (
         <div className="print:hidden">
-          <PurchaseOrderRiwayatView onCreate={() => setShowCreate(true)} />
+          <PurchaseOrderRiwayatView
+            onCreate={() => setShowCreate(true)}
+            onOpenDetail={(id) => setDetailId(id)}
+          />
         </div>
       )}
     </DashboardLayout>
