@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
-import { Plus, Trash2, ChevronDown, PackageSearch } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Trash2, ChevronDown, PackageSearch, Loader2, Search } from 'lucide-react';
 import { formatRupiah } from '@/lib/format';
+import { toast } from 'sonner';
 import type { DocumentItem } from '@/lib/types';
 
 function generateId(): string {
@@ -69,6 +71,13 @@ interface ItemsFieldsProps {
   /** Dipanggil saat user memilih barang dari dropdown untuk item ke-N. */
   onPickBarang?: (itemIndex: number, barang: BarangOption) => void;
   /**
+   * Mode barang (Buat Invoice): tambah barang BARU langsung dari dialog
+   * Master Barang (muncul saat klik Tambah). Barang otomatis terdaftar
+   * untuk customer terpilih (API /api/items + customerId). Return
+   * BarangOption yang berhasil dibuat, atau null jika gagal.
+   */
+  onCreateBarang?: (input: { name: string; unit: string; standardPrice: number; hpp: number; qty: number }) => Promise<BarangOption | null>;
+  /**
    * Mode kertas (dipakai Buat Purchase Order): jika disediakan, kotak Nama
    * Barang menjadi kotak besar yang BISA diketik manual, dilengkapi tombol
    * dropdown berisi daftar kertas dari Master Harga Kertas. Memilih dari
@@ -91,11 +100,22 @@ export function ItemsFields({
   barangOptions,
   emptyBarangMessage = 'Belum ada barang untuk customer ini',
   onPickBarang,
+  onCreateBarang,
   lockPrices = false,
   paperOptions,
 }: ItemsFieldsProps) {
-  const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
   const [openPaperIndex, setOpenPaperIndex] = useState<number | null>(null);
+  // Dialog Master Barang (mode barang): dibuka saat klik Tambah.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTargetIndex, setPickerTargetIndex] = useState<number | null>(null);
+  const [barangSearch, setBarangSearch] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newUnit, setNewUnit] = useState('pcs');
+  const [newQty, setNewQty] = useState('');
+  const [newHarga, setNewHarga] = useState('');
+  const [newHpp, setNewHpp] = useState('');
   const isBarangMode = Array.isArray(barangOptions);
   const isPaperMode = Array.isArray(paperOptions);
 
@@ -112,11 +132,16 @@ export function ItemsFields({
         ...(showModal ? { modal: 0 } : {}),
       },
     ]);
-    // Klik Tambah → dropdown pilihan langsung terbuka di baris baru, jadi
-    // daftar barang dari Master Barang per customer (mode Buat Invoice) atau
-    // daftar kertas Master Harga Kertas (mode Buat PO) LANGSUNG tampil tanpa
-    // perlu klik tombol chevron lagi.
-    if (isBarangMode) setOpenBarangIndex(newIndex);
+    // Mode barang (Buat Invoice): klik Tambah → baris baru + LANGSUNG buka
+    // dialog Master Barang (permintaan owner — dropdown lama di kotak Nama
+    // Barang dihapus; pemilihan & penambahan barang lewat dialog ini).
+    if (isBarangMode) {
+      setPickerTargetIndex(newIndex);
+      setBarangSearch('');
+      setShowAddForm(false);
+      setPickerOpen(true);
+    }
+    // Mode kertas (Buat PO): dropdown kertas langsung terbuka di baris baru.
     if (isPaperMode) setOpenPaperIndex(newIndex);
   };
 
@@ -132,7 +157,6 @@ export function ItemsFields({
   };
 
   const pickBarang = (index: number, barang: BarangOption) => {
-    setOpenBarangIndex(null);
     if (onPickBarang) {
       onPickBarang(index, barang);
       return;
@@ -176,7 +200,51 @@ export function ItemsFields({
   };
 
   // Disable Tambah if no item has meaningful data yet
+  // (mode barang selalu aktif — klik Tambah membuka dialog Master Barang)
   const hasAnyData = items.some((item) => item.deskripsi.trim() !== '' || (showPrice && item.harga > 0));
+
+  const parseNominal = (s: string) => {
+    const raw = s.replace(/\./g, '').replace(/,/g, '').trim();
+    return raw === '' ? 0 : (Number(raw) || 0);
+  };
+
+  const resetNewBarangForm = () => {
+    setNewName('');
+    setNewUnit('pcs');
+    setNewQty('');
+    setNewHarga('');
+    setNewHpp('');
+  };
+
+  const submitNewBarang = async () => {
+    if (!onCreateBarang || creating) return;
+    const name = newName.trim();
+    if (!name) {
+      toast.error('Nama barang wajib diisi');
+      return;
+    }
+    setCreating(true);
+    const created = await onCreateBarang({
+      name,
+      unit: newUnit.trim() || 'pcs',
+      standardPrice: parseNominal(newHarga),
+      hpp: parseNominal(newHpp),
+      qty: parseNominal(newQty),
+    });
+    setCreating(false);
+    if (created) {
+      toast.success(`"${name}" ditambahkan ke Master Barang`);
+      if (pickerTargetIndex !== null) pickBarang(pickerTargetIndex, created);
+      setPickerOpen(false);
+      setShowAddForm(false);
+      resetNewBarangForm();
+    }
+  };
+
+  const filteredBarang = (barangOptions ?? []).filter((b) => {
+    const q = barangSearch.trim().toLowerCase();
+    return !q || b.name.toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-3">
@@ -184,7 +252,7 @@ export function ItemsFields({
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Item
         </h3>
-        <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
+        <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData && !isBarangMode}>
           <Plus className="mr-1 h-3 w-3" />
           Tambah
         </Button>
@@ -279,68 +347,17 @@ export function ItemsFields({
                   </PopoverContent>
                 </Popover>
               ) : isBarangMode ? (
-                /* MODE BARANG (Buat Invoice) — kotak besar & bisa diketik
-                   manual, plus tombol dropdown untuk memilih barang milik
-                   customer (auto-isi nama, qty dari master, satuan, harga
-                   satuan & modal). */
-                <Popover
-                  open={openBarangIndex === index}
-                  onOpenChange={(open) => setOpenBarangIndex(open ? index : null)}
-                >
-                  <PopoverAnchor asChild>
-                    <div className="relative">
-                      <Textarea
-                        value={item.deskripsi}
-                        onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
-                        placeholder="Ketik nama barang atau pilih lewat tombol dropdown"
-                        className="text-sm min-h-[84px] pr-11"
-                        rows={3}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setOpenBarangIndex(openBarangIndex === index ? null : index)}
-                        className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-slate-50 shadow-xs outline-none cursor-pointer transition-colors hover:bg-slate-100 ${openBarangIndex === index ? 'text-slate-700' : 'text-slate-400'}`}
-                        aria-label="Pilih barang dari daftar customer"
-                      >
-                        <ChevronDown className={`w-4 h-4 transition-transform ${openBarangIndex === index ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-                  </PopoverAnchor>
-                  <PopoverContent
-                    align="start"
-                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                  >
-                    {barangOptions!.length > 0 ? (
-                      <div>
-                        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
-                          Master Barang Customer
-                        </div>
-                        {barangOptions!.map((b) => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); pickBarang(index, b); }}
-                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${item.deskripsi === b.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
-                          >
-                            <span className="block truncate">{b.name}</span>
-                            {showPrice && (
-                              <span className="block text-[11px] text-slate-400">
-                                {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
-                                {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
-                        <PackageSearch className="w-5 h-5 text-slate-300" />
-                        {emptyBarangMessage}
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
+                /* MODE BARANG (Buat Invoice) — kotak teks biasa (bisa diketik
+                   manual). Dropdown/chevron di kotak DIHAPUS (permintaan
+                   owner): pemilihan & penambahan barang kini lewat tombol
+                   Tambah → dialog Master Barang per customer. */
+                <Textarea
+                  value={item.deskripsi}
+                  onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
+                  placeholder="Ketik nama barang"
+                  className="text-sm min-h-[84px]"
+                  rows={3}
+                />
               ) : (
                 <Textarea
                   value={item.deskripsi}
@@ -415,6 +432,118 @@ export function ItemsFields({
           </div>
         ))}
       </div>
+
+      {/* Dialog Master Barang (mode barang / Buat Invoice) — terbuka saat klik
+          Tambah: daftar barang milik customer terpilih (bisa dicari) + form
+          tambah barang baru bila barang belum ada. Pilih barang → otomatis
+          mengisi baris item (nama, qty dari master, satuan, harga, modal). */}
+      <Dialog open={pickerOpen} onOpenChange={(o) => { setPickerOpen(o); if (!o) setShowAddForm(false); }}>
+        <DialogContent className="sm:max-w-md p-0 gap-0">
+          <DialogHeader className="px-4 pt-4 pb-3">
+            <DialogTitle className="text-base">Master Barang</DialogTitle>
+          </DialogHeader>
+          {showAddForm ? (
+            /* FORM TAMBAH BARANG BARU — barang otomatis terdaftar untuk
+               customer terpilih (customerId dikirim invoice editor). */
+            <div className="px-4 pb-4 space-y-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Barang Baru</p>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Nama barang *"
+                className="h-9 text-sm"
+                autoFocus
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  placeholder="Satuan (pcs)"
+                  className="h-9 text-sm"
+                />
+                <Input
+                  value={newQty}
+                  onChange={(e) => setNewQty(e.target.value)}
+                  placeholder="Qty stok"
+                  inputMode="numeric"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={newHarga}
+                  onChange={(e) => setNewHarga(e.target.value)}
+                  placeholder="Harga jual (Rp)"
+                  inputMode="numeric"
+                  className="h-9 text-sm"
+                />
+                <Input
+                  value={newHpp}
+                  onChange={(e) => setNewHpp(e.target.value)}
+                  placeholder="Harga modal (Rp)"
+                  inputMode="numeric"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="ghost" className="flex-1" onClick={() => setShowAddForm(false)}>
+                  Batal
+                </Button>
+                <Button className="flex-1" disabled={creating || !newName.trim()} onClick={submitNewBarang}>
+                  {creating ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                  Simpan &amp; Pakai
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="px-4 pb-4 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <Input
+                  value={barangSearch}
+                  onChange={(e) => setBarangSearch(e.target.value)}
+                  placeholder="Cari barang…"
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
+              <div className="max-h-72 overflow-y-auto scrollbar-thin rounded-lg border">
+                {filteredBarang.length > 0 ? (
+                  filteredBarang.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        if (pickerTargetIndex !== null) pickBarang(pickerTargetIndex, b);
+                        setPickerOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm transition-colors border-b border-slate-100 last:border-b-0 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      <span className="block truncate font-medium">{b.name}</span>
+                      {showPrice && (
+                        <span className="block text-[11px] text-slate-400">
+                          {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
+                          {b.qty > 0 ? ` · stok ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
+                        </span>
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
+                    <PackageSearch className="w-6 h-6 text-slate-300" />
+                    {emptyBarangMessage}
+                  </div>
+                )}
+              </div>
+              {onCreateBarang && (
+                <Button variant="outline" className="w-full" onClick={() => setShowAddForm(true)}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Tambah Barang Baru
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

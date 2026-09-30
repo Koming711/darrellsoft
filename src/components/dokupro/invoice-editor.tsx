@@ -75,6 +75,8 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
 
   // Daftar barang milik customer terpilih (Master Barang per pelanggan)
   const [barangList, setBarangList] = useState<BarangOption[]>([]);
+  // id customer yang cocok dgn nama "Kepada Yth" (null = belum memilih/unknown).
+  const [matchedCustomerId, setMatchedCustomerId] = useState<string | null>(null);
   // Nama customer sebelumnya — untuk mendeteksi perubahan customer
   const prevClientNameRef = useRef<string>(invoice.client.nama);
   // Nama yang diisi otomatis oleh pemilihan referensi (hitung cetakan) —
@@ -123,6 +125,26 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
 
+  // Ambil daftar barang milik customer (Master Barang per pelanggan).
+  const fetchBarangForCustomer = useCallback(async (customerId: string): Promise<BarangOption[]> => {
+    try {
+      const res = await fetch(`/api/items?customerId=${encodeURIComponent(customerId)}&active=1`, { headers: getAuthHeaders() });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rows = Array.isArray(data?.items) ? data.items : [];
+      return rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
+        id: r.id,
+        name: r.name,
+        unit: r.unit || 'pcs',
+        standardPrice: r.standardPrice || 0,
+        hpp: r.hpp ?? null,
+        qty: r.qty ?? 0,
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
+
   // Muat daftar barang milik customer terpilih (Master Barang per pelanggan).
   // Jika customer tidak dikenal / belum memilih, daftar barang = kosong.
   useEffect(() => {
@@ -130,28 +152,59 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     const found = nama
       ? customerList.find((c) => c.name.trim().toLowerCase() === nama)
       : undefined;
+    setMatchedCustomerId(found?.id ?? null);
     if (!found) {
       setBarangList([]);
       return;
     }
     let cancelled = false;
-    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1`, { headers: getAuthHeaders() })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => {
-        if (cancelled) return;
-        const rows = Array.isArray(data?.items) ? data.items : [];
-        setBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
-          id: r.id,
-          name: r.name,
-          unit: r.unit || 'pcs',
-          standardPrice: r.standardPrice || 0,
-          hpp: r.hpp ?? null,
-          qty: r.qty ?? 0,
-        })));
-      })
+    fetchBarangForCustomer(found.id)
+      .then((list) => { if (!cancelled) setBarangList(list); })
       .catch(() => { if (!cancelled) setBarangList([]); });
     return () => { cancelled = true; };
-  }, [invoice.client.nama, customerList]);
+  }, [invoice.client.nama, customerList, fetchBarangForCustomer]);
+
+  // Tambah barang BARU dari dialog Master Barang (tombol Tambah) → POST
+  // /api/items dengan customerId → barang otomatis terdaftar utk customer
+  // terpilih, lalu langsung masuk daftar agar bisa dipilih.
+  const handleCreateBarang = useCallback(async (input: { name: string; unit: string; standardPrice: number; hpp: number; qty: number }): Promise<BarangOption | null> => {
+    if (!matchedCustomerId) return null;
+    try {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: input.name,
+          unit: input.unit,
+          standardPrice: input.standardPrice,
+          hpp: input.hpp,
+          qty: input.qty,
+          customerId: matchedCustomerId,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error || 'Gagal menambah barang');
+        return null;
+      }
+      const data = await res.json();
+      const it = data?.item;
+      if (!it?.id) return null;
+      const option: BarangOption = {
+        id: it.id,
+        name: it.name,
+        unit: it.unit || 'pcs',
+        standardPrice: it.standardPrice || 0,
+        hpp: it.hpp ?? null,
+        qty: it.qty ?? 0,
+      };
+      setBarangList((prev) => [...prev, option]);
+      return option;
+    } catch {
+      toast.error('Gagal menambah barang');
+      return null;
+    }
+  }, [matchedCustomerId]);
 
   // Ganti customer → otomatis KOSONGKAN nama barang di kotak item
   // (barang milik tiap pelanggan tidak boleh tercampur).
@@ -705,10 +758,11 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           lockPrices
           emptyBarangMessage={
             invoice.client.nama.trim()
-              ? 'Belum ada barang untuk customer ini — tambahkan di Master Barang'
+              ? 'Belum ada barang untuk customer ini — tambahkan barang baru di bawah'
               : 'Pilih customer terlebih dahulu'
           }
           onPickBarang={handlePickBarang}
+          onCreateBarang={matchedCustomerId ? handleCreateBarang : undefined}
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">

@@ -11261,3 +11261,19 @@ Work Log:
 
 Stage Summary:
 - Klik "Tambah" di Buat Invoice sekarang langsung menampilkan daftar nama barang dari Master Barang per customer pada baris baru (tanpa klik chevron ekstra). Daftar tetap strictly per-customer (registrasi BarangCustomer milik user); customer tanpa registrasi menampilkan pesan "Belum ada barang untuk customer ini". Buat PO mendapat konsistensi yang sama (dropdown kertas auto-terbuka) lewat jalur kode yang sama.
+
+---
+Task ID: invoice-tambah-dialog-master-barang
+Agent: main (Z.ai Code)
+Task: "dihalaman buat invoice baru. dropdown di nama barang di hapus. aktifkan tombol tambah. apabila di klik tombol tambah. maka muncul data master barang. dan data master barang bisa di tambah apabila tidak ada. fix"
+
+Work Log:
+- items-fields.tsx (mode barang / Buat Invoice): tombol dropdown chevron di kotak Nama Barang DIHAPUS (textarea biasa, placeholder "Ketik nama barang"); Popover lama barang mode dibuang total. Tombol Tambah kini SELALU AKTIF di mode barang (disabled lama !hasAnyData hanya utk mode lain).
+- Klik Tambah (mode barang) → baris item baru + Dialog "Master Barang" langsung terbuka: daftar barang milik customer terpilih (dengan pencarian "Cari barang…", tampil harga jual/satuan/stok), klik item → baris otomatis terisi (nama, qty dari master, satuan, harga terkunci, modal). Baris baru tetap ada bila dialog ditutup tanpa memilih (bisa ketik manual).
+- Dialog juga punya tombol "Tambah Barang Baru" → form (Nama*, Satuan, Qty stok, Harga jual, Harga modal) → "Simpan & Pakai" → onCreateBarang (invoice-editor POST /api/items + customerId) → barang terdaftar ke customer tsb (BarangCustomer) → otomatis terpilih ke baris item + toast sukses. Validasi: nama wajib; tanpa customer → dialog hanya pesan "Pilih customer terlebih dahulu" tanpa form tambah.
+- invoice-editor.tsx: state matchedCustomerId; fetch daftar barang diekstrak ke fetchBarangForCustomer (dipakai effect + setelah create); handleCreateBarang (POST /api/items, append ke barangList, toast error bila gagal); ItemsFields dapat onCreateBarang={matchedCustomerId ? handleCreateBarang : undefined}; emptyBarangMessage dinamis.
+- Mode lain TIDAK berubah: PO tetap dropdown kertas (paper mode) dgn auto-open; SJ & Pelunasan tetap textarea polos.
+- Verifikasi browser E2E (superadmin): chevron=0 ✓; Tambah aktif saat baris kosong ✓; tanpa customer → dialog "Pilih customer terlebih dahulu" tanpa form ✓; pilih Budi Susanto → Tambah → dialog kosong + tombol "Tambah Barang Baru" ✓; isi form (Gelas Plastik Uji Otomatis/pcs/1200/2500/1500) → Simpan & Pakai → dialog tutup + baris terisi + toast ✓; DB: barang (userId=user-superadmin, jual 2500, modal 1500, qty 1200) + BarangCustomer terdaftar utk Budi Susanto (price 2500) ✓; reopen Tambah → barang tampil di daftar ✓; search "gelas" filter ✓; pilih dari daftar → baris 3 terisi ✓; Qty/Harga/Modal terisi terformat ("1.200"/"2.500"/"1.500") & readonly (lockPrices) ✓. Mobile: DialogContent shadcn default max-w-[calc(100%-2rem)] → aman. Test barang dihapus permanen (Barang cascade regs). ESLint 2 file = 0 problem; dev.log bersih.
+
+Stage Summary:
+- Alur Buat Invoice: Tambah (selalu aktif) → dialog Master Barang per customer (search + pilih) → baris terisi otomatis; barang belum ada → tambah langsung dari dialog (form → POST /api/items + auto-registrasi BarangCustomer → langsung terpakai). Dropdown lama di kotak Nama Barang dihapus sesuai permintaan. Mode PO/SJ tidak berubah.
