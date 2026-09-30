@@ -11217,3 +11217,17 @@ Work Log:
 
 Stage Summary:
 - Riwayat Surat Jalan kini konsisten dgn Riwayat PO & Invoice: klik baris/kartu membuka halaman Detail SJ (popup preview lama dihapus); kolom Aksi hanya Hapus. Halaman Detail SJ & Detail PO kini punya tombol Edit → membuka editor dgn data terisi (judul "Edit ...", tombol Update, Reset disembunyikan, nomor tidak berubah) → menyimpan via PUT memperbarui record yang SAMA lalu kembali ke Detail. Tidak ada duplikasi riwayat; cancel edit tidak meninggalkan data sisa di editor.
+
+---
+Task ID: po-riwayat-hapus-icon-edit
+Agent: main (Z.ai Code)
+Task: "dihalaman riwayat purchase order. delete icon edit di tabel. fix and deploy"
+
+Work Log:
+- src/app/purchase-order/page.tsx (PurchaseOrderRiwayatView): tombol edit "Muat ke editor" (RotateCcw) DIHAPUS dari tabel desktop — kolom Aksi kini hanya Hapus (Trash2, stopPropagation tetap; klik baris → Detail PO).
+- Kartu mobile: tombol "Muat" DIHAPUS — tinggal tombol Hapus (flex-1, stopPropagation tetap; klik kartu → Detail PO).
+- Kode mati dibuang: fungsi restoreToEditor, hook setPurchaseOrder (PurchaseOrderRiwayatView), import RotateCcw. parsePurchaseOrderData tetap (dipakai DetailPurchaseOrderView); onCreate tetap (tombol Buat PO).
+- Verifikasi browser (superadmin, data uji PO/09/26/0004 dibuat via API lalu di-purge): desktop tbody → muatIcons=0, rotateIcons=0, hapusBtns=1 ✓; klik baris → "Detail Purchase Order" + pratinjau A5 + Cetak/JPG/Edit/Hapus ✓; Kembali → Riwayat ✓; kartu mobile → tombol hanya "Hapus" ✓. Data uji soft-delete + purge → riwayat kembali kosong. ESLint 1 file = 0 problem; dev.log bersih (200 saja).
+
+Stage Summary:
+- Riwayat Purchase Order kini tanpa aksi edit "Muat" — konsisten dgn Riwayat Surat Jalan: interaksi utama = klik baris/kartu → Detail PO, edit dilakukan dari tombol Edit di halaman Detail. Kolom Aksi tabel & kartu mobile hanya menyisakan Hapus.
