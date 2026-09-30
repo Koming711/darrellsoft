@@ -11,6 +11,7 @@ import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
 import {
   History,
+  Pencil,
   RotateCcw,
   Trash2,
   Loader2,
@@ -565,8 +566,9 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
 // Gaya mengikuti Detail Invoice: info ringkas + tombol aksi DI ATAS
 // pratinjau + lightbox zoom.
 // ============================================================
-function DetailPurchaseOrderView({ id, onBack }: { id: string; onBack: () => void }) {
+function DetailPurchaseOrderView({ id, onBack, onEdit }: { id: string; onBack: () => void; onEdit?: (id: string) => void }) {
   const resetDocument = useDokuproStore((s) => s.resetDocument)
+  const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder)
   const [entry, setEntry] = useState<HistoryEntry | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -754,6 +756,11 @@ function DetailPurchaseOrderView({ id, onBack }: { id: string; onBack: () => voi
       <Button size="sm" onClick={handleJpg} disabled={jpgGenerating} className="bg-green-600 hover:bg-green-700 min-h-[36px]">
         {jpgGenerating ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> JPG...</> : <><ImageIcon className="mr-1.5 h-3.5 w-3.5" /> JPG</>}
       </Button>
+      {onEdit && (
+        <Button size="sm" variant="outline" onClick={() => { if (data) setPurchaseOrder(data); onEdit(id) }} className="min-h-[36px]">
+          <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+        </Button>
+      )}
       <Button size="sm" variant="outline" onClick={() => setHapusOpen(true)} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[36px]">
         <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
       </Button>
@@ -900,6 +907,9 @@ function DetailPurchaseOrderView({ id, onBack }: { id: string; onBack: () => voi
 export default function PurchaseOrderPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  // id dokumen yang sedang diedit di layar editor (null = buat baru).
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const resetDocument = useDokuproStore((s) => s.resetDocument)
 
   // Deep-link: /purchase-order?detail=<id> → langsung buka Detail PO.
   useEffect(() => {
@@ -920,9 +930,15 @@ export default function PurchaseOrderPage() {
     }
   }
 
-  // Tutup layar Buat + bersihkan query param deep-link editor (?riwayatId=).
+  // Tutup layar Buat/Edit + bersihkan query param deep-link editor (?riwayatId=).
   const closeCreate = () => {
     setShowCreate(false)
+    // Keluar dari mode edit tanpa menyimpan → pulihkan editor ke default
+    // (data dokumen yang diedit jangan terbawa ke "Buat PO" berikutnya).
+    if (editingId) {
+      setEditingId(null)
+      resetDocument('purchase-order')
+    }
     if (typeof window !== 'undefined' && window.location.search) {
       window.history.replaceState(null, '', '/purchase-order')
     }
@@ -934,7 +950,11 @@ export default function PurchaseOrderPage() {
         <AutoOpenEditor param="riwayatId" onOpen={() => setShowCreate(true)} />
       </Suspense>
       {detailId ? (
-        <DetailPurchaseOrderView id={detailId} onBack={closeDetail} />
+        <DetailPurchaseOrderView
+          id={detailId}
+          onBack={closeDetail}
+          onEdit={(eid) => { setDetailId(null); setEditingId(eid); setShowCreate(true) }}
+        />
       ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
@@ -947,11 +967,23 @@ export default function PurchaseOrderPage() {
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Kembali
             </Button>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">Buat Purchase Order Baru</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground truncate">
+              {editingId ? 'Edit Purchase Order' : 'Buat Purchase Order Baru'}
+            </h2>
           </div>
           <Suspense fallback={null}>
-            {/* Simpan → menuju Detail Purchase Order (seperti alur Buat Invoice) */}
-            <PurchaseOrderEditor onSaved={(id) => { setShowCreate(false); setDetailId(id) }} />
+            {/* Simpan/Update → menuju Detail Purchase Order (seperti alur Buat Invoice) */}
+            <PurchaseOrderEditor
+              editingId={editingId}
+              onSaved={(id) => {
+                setShowCreate(false)
+                if (editingId) {
+                  setEditingId(null)
+                  resetDocument('purchase-order')
+                }
+                setDetailId(id)
+              }}
+            />
           </Suspense>
         </div>
       ) : (

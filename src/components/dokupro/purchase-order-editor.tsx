@@ -48,7 +48,7 @@ interface RiwayatPotongKertasItem {
   createdAt: string;
 }
 
-export function PurchaseOrderEditor({ onSaved }: { onSaved?: (id: string) => void } = {}) {
+export function PurchaseOrderEditor({ onSaved, editingId }: { onSaved?: (id: string) => void; editingId?: string | null } = {}) {
   const po = useDokuproStore((s) => s.purchaseOrder);
   const setPurchaseOrder = useDokuproStore((s) => s.setPurchaseOrder);
   const resetDocument = useDokuproStore((s) => s.resetDocument);
@@ -120,11 +120,13 @@ export function PurchaseOrderEditor({ onSaved }: { onSaved?: (id: string) => voi
 
   // Fetch next PO number from server
   const fetchNextNumber = useCallback(() => {
+    // Mode edit: jangan timpa nomor dokumen yang sedang diedit
+    if (editingId) return
     fetch('/api/history?preview=next-number&docType=purchase-order', { headers: getAuthHeaders() })
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.nextNumber) setPurchaseOrder((prev) => ({ ...prev, nomor: data.nextNumber })) })
       .catch(() => {});
-  }, [setPurchaseOrder]);
+  }, [setPurchaseOrder, editingId]);
 
   useEffect(() => { fetchNextNumber() }, [fetchNextNumber]);
 
@@ -333,6 +335,7 @@ export function PurchaseOrderEditor({ onSaved }: { onSaved?: (id: string) => voi
             documentLabel="Purchase Order"
             currentData={po}
             onReset={() => resetDocument('purchase-order')}
+            editingId={editingId}
             onSaved={onSaved}
           />
         }
