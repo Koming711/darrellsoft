@@ -294,12 +294,18 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
             <>
               <tr className="total-row">
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{dpPercent > 0 ? `DP (${dpPercent}%)` : 'DP'}</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', color: '#000', whiteSpace: 'nowrap' }}>
+                  {/* Invoice pelunasan: label DP = uang muka yang SUDAH dibayar (bukan persen) */}
+                  {showPelunasanLabel ? 'DP YANG SUDAH DIBAYAR' : dpPercent > 0 ? `DP (${dpPercent}%)` : 'DP'}
+                </td>
                 <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', color: '#000' }}>{formatRupiah(dpAmount)}</td>
               </tr>
               <tr className="total-row print-sisa-border" style={{ borderTop: '1px solid #000' }}>
                 <td colSpan={2} />
-                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>SISA PEMBAYARAN</td>
+                <td style={{ padding: '0.5mm 1mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>
+                  {/* Invoice pelunasan: baris akhir = PELUNASAN (bukan "sisa pembayaran") */}
+                  {showPelunasanLabel ? 'PELUNASAN' : 'SISA PEMBAYARAN'}
+                </td>
                 <td style={{ padding: '0.5mm 3mm 0', textAlign: 'right', verticalAlign: 'top', fontWeight: 'bold', color: '#000' }}>{formatRupiah(sisa)}</td>
               </tr>
             </>
