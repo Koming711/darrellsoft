@@ -282,6 +282,26 @@ export function isSyncing(): boolean {
 }
 
 /**
+ * Event progres sinkronisasi:
+ * - 'offline-sync-progress' → { done, total } setiap 1 request selesai diproses
+ *   (dipakai banner "Sinkronisasi... 15/20 transaksi")
+ * - 'offline-sync-complete' → { synced, failed, remaining } saat replay berakhir
+ */
+function emitSyncProgress(done: number, total: number): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.dispatchEvent(new CustomEvent('offline-sync-progress', { detail: { done, total } }))
+  } catch {}
+}
+
+function emitSyncComplete(detail: { synced: number; failed: number; remaining: number }): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.dispatchEvent(new CustomEvent('offline-sync-complete', { detail }))
+  } catch {}
+}
+
+/**
  * Kirim seluruh antrian ke database (berurutan, FIFO).
  * Aman dipanggil berkali-kali — kalau sedang sync, panggilan baru diabaikan.
  */
@@ -301,11 +321,14 @@ export async function replayQueue(force = false): Promise<{ synced: number; fail
 
   let synced = 0
   let failed = 0
+  let processed = 0
+  let totalAtStart = 0
 
   try {
     for (;;) {
       const all = await getAllEntries()
       if (all.length === 0) break
+      if (totalAtStart === 0) totalAtStart = all.length + (synced + failed)
       const entry = all[0]
 
       let ok = false
@@ -332,6 +355,8 @@ export async function replayQueue(force = false): Promise<{ synced: number; fail
 
       if (ok || permanentFail) {
         if (entry.id != null) await deleteEntry(entry.id)
+        processed++
+        emitSyncProgress(processed, Math.max(totalAtStart, processed))
         if (ok) {
           synced++
           if (entry.entity && typeof window !== 'undefined') {
@@ -349,6 +374,9 @@ export async function replayQueue(force = false): Promise<{ synced: number; fail
   } finally {
     syncing = false
     await emitCount()
+    if (processed > 0) {
+      emitSyncComplete({ synced, failed, remaining: await getQueueCount() })
+    }
   }
 
   return { synced, failed, remaining: await getQueueCount() }

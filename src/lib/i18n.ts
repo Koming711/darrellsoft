@@ -94,7 +94,9 @@ export const translations = {
     // Offline & Sinkronisasi
     offline_banner: 'Anda offline — perubahan tetap disimpan di perangkat & otomatis disinkron saat online',
     offline_pending: 'perubahan menunggu sinkron',
-    sync_running: 'Menyinkronkan data offline…',
+    sync_running: 'Sinkronisasi...',
+    sync_progress: 'Sinkronisasi... {done}/{total} transaksi',
+    sync_all_done: 'Semua data telah tersinkronkan',
     offline_saved_toast: 'Tersimpan offline — otomatis masuk database saat internet kembali',
     sync_done_toast: 'Perubahan offline berhasil disinkron ke database',
 
@@ -734,7 +736,9 @@ export const translations = {
     // Offline & Sync
     offline_banner: 'You are offline — changes are saved on your device and sync automatically when back online',
     offline_pending: 'change(s) waiting to sync',
-    sync_running: 'Syncing offline changes…',
+    sync_running: 'Syncing...',
+    sync_progress: 'Syncing... {done}/{total} transaction(s)',
+    sync_all_done: 'All data has been synced',
     offline_saved_toast: 'Saved offline — goes to the database automatically when internet returns',
     sync_done_toast: 'Offline changes synced to database',
 

@@ -1,9 +1,10 @@
-const CACHE_NAME = 'darrell-soft-v124';
+const CACHE_NAME = 'darrell-soft-v125';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
 const API_CACHE_NAME = 'darrell-api-runtime';
 const MAX_API_CACHE_ENTRIES = 80;
 const OFFLINE_URL = '/offline.html';
+const START_URL = '/?source=pwa';
 const STATIC_ASSETS = [
   '/icon-192x192.png',
   '/icon-512x512.png',
@@ -28,6 +29,15 @@ self.addEventListener('install', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    return;
+  }
+
+  // PRECACHE_URLS: halaman mengirim daftar URL (semua route aplikasi +
+  // asset JS/CSS/font yang terlihat di dokumen) untuk di-cache SEKARANG,
+  // selama online. Setelah aplikasi dibuka sekali saat online, SELURUH
+  // asset aplikasi tersimpan → aplikasi tetap bisa dibuka saat offline.
+  if (event.data && event.data.type === 'PRECACHE_URLS' && Array.isArray(event.data.urls)) {
+    event.waitUntil(precacheUrls(event.data.urls));
   }
 });
 
@@ -59,6 +69,93 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// ---------------------------------------------------------------------------
+// PRECACHE — simpan seluruh asset aplikasi saat online (background, senyap)
+// ---------------------------------------------------------------------------
+
+const PRECACHE_CONCURRENCY = 3;
+
+/** Ambil semua URL /_next/static/... & aset lokal lain dari isi HTML */
+function extractAssetUrls(htmlText) {
+  const found = new Set();
+  const re = /\/_next\/static\/[A-Za-z0-9_\-./@%]+/g;
+  let m;
+  while ((m = re.exec(htmlText)) !== null) {
+    // Buang trailing escape/quote yang bisa ikut tertangkap
+    found.add(m[0].replace(/[.,;)\]]+$/, ''));
+  }
+  return Array.from(found);
+}
+
+async function precacheOne(cache, url) {
+  try {
+    const resp = await fetch(url, { cache: 'reload', credentials: 'same-origin' });
+    if (!resp.ok || resp.type === 'opaque') return { url, ok: false, assets: [] };
+    const contentType = resp.headers.get('content-type') || '';
+    const clone = resp.clone();
+    await cache.put(url, clone);
+    let assets = [];
+    // HTML halaman → parse referensi chunk JS/CSS Next.js lalu ikutkan,
+    // supaya halaman yang BELUM PERNAH dikunjungi juga punya asset lengkap offline.
+    if (contentType.includes('text/html')) {
+      const text = await resp.text();
+      assets = extractAssetUrls(text);
+    }
+    return { url, ok: true, assets };
+  } catch (e) {
+    return { url, ok: false, assets: [] };
+  }
+}
+
+async function precacheUrls(urls) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    // Dedupe + hanya same-origin / path relatif
+    const base = self.location.origin;
+    const seen = new Set();
+    const queue = [];
+    urls.forEach((raw) => {
+      try {
+        const abs = new URL(raw, base);
+        if (abs.origin !== base) return;
+        if (abs.pathname.startsWith('/api/')) return; // data API lewat strategi tersendiri
+        const key = abs.pathname + abs.search;
+        if (seen.has(key)) return;
+        seen.add(key);
+        queue.push(abs.href);
+      } catch (e) { /* skip url rusak */ }
+    });
+
+    let index = 0;
+    async function worker() {
+      while (index < queue.length) {
+        const url = queue[index++];
+        const res = await precacheOne(cache, url);
+        // Asset chunk yang ditemukan di HTML → tambahkan ke antrian
+        res.assets.forEach((a) => {
+          try {
+            const abs = new URL(a, base);
+            const key = abs.pathname;
+            if (!seen.has(key)) {
+              seen.add(key);
+              queue.push(abs.href);
+            }
+          } catch (e) { /* skip */ }
+        });
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(PRECACHE_CONCURRENCY, queue.length || 1) }, () => worker())
+    );
+  } catch (e) {
+    // Precache gagal → tidak fatal; SWR tetap mengcache asset yang dipakai
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch strategies
+// ---------------------------------------------------------------------------
+
 // Jaga ukuran cache data API agar tidak memenuhi storage perangkat
 async function trimApiCache() {
   try {
@@ -74,10 +171,11 @@ async function trimApiCache() {
 
 /**
  * Strategi data API (GET): network-first.
- * - Online  → selalu ambil data terbaru dari server (data tetap fresh,
- *   tidak ada kuota tambahan dibanding perilaku lama), lalu simpan salinan.
+ * - Online  → selalu ambil data terbaru dari server (data tetap fresh),
+ *   lalu simpan salinan.
  * - Offline → sajikan salinan terakhir yang pernah dibuka (cached copy),
- *   sehingga aplikasi tetap bisa dipakai tanpa internet.
+ *   sehingga aplikasi tetap bisa dipakai tanpa internet — TANPA
+ *   "Network Error" / "Failed to fetch" di halaman utama.
  */
 async function apiFetchHandler(request) {
   try {
@@ -116,7 +214,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For navigation requests (HTML pages), network first → cache → offline page
+  // Navigasi (HTML): network first → cache (exact → start_url → root) → offline.html
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -128,8 +226,14 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match(event.request);
-          if (cached) return cached;
+          const exact = await caches.match(event.request);
+          if (exact) return exact;
+          // Variants of start_url (mis. '/?source=pwa' saat dibuka dari icon PWA)
+          const withStartUrl = await caches.match(START_URL, { ignoreSearch: true });
+          if (withStartUrl) return withStartUrl;
+          // Root '/' selalu di-cache oleh precache → aplikasi tetap terbuka normal
+          const root = await caches.match('/');
+          if (root) return root;
           const offlinePage = await caches.match(OFFLINE_URL);
           return offlinePage || Response.error();
         })
@@ -137,7 +241,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets only (images, CSS, JS), use stale-while-revalidate
+  // Static assets (images, CSS, JS): stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const fetchPromise = fetch(event.request)
