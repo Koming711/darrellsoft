@@ -11367,3 +11367,31 @@ Work Log:
 
 Stage Summary:
 - Produksi www.darrellsoft.com sudah menjalankan versi terbaru: tombol "Tambah Barang" Buat Invoice (Regular & Pelunasan) + popup Master Barang + anti-duplikat + disabled sampai customer dipilih. 
+
+---
+Task ID: 1
+Agent: Main
+Task: Tambah tombol "Tambah Customer" di halaman Buat Invoice dengan popup Tambah Pelanggan sama persis seperti Master Pelanggan
+
+Work Log:
+- Eksplorasi: popup Tambah Pelanggan Master Pelanggan ada inline di customers-view.tsx (Dialog: Kode otomatis via /api/customers/next-code, Nama*, Telepon, Email, Alamat, Catatan, Status Aktif edit-only; POST/PUT /api/customers; toast "Pelanggan berhasil ditambahkan"/"diperbarui")
+- Membuat komponen bersama src/components/views/customer-form-dialog.tsx — salinan UTUH popup Master Pelanggan (pola sama seperti BarangFormDialog): props open/onOpenChange/editing/onSaved; ekspor tipe CustomerFormSavedCustomer; useEffect isi form + fetch next-code saat open (mode tambah); unwrapCustomer() normalisasi respons API (POST & PUT mengembalikan OBJEK customer LANGSUNG, bukan { customer } — ini penyebab auto-select gagal di percobaan pertama)
+- Refactor customers-view.tsx: dialog inline diganti <CustomerFormDialog>; state form/saving/nextCode + handleSave dihapus (pindah ke dialog); openCreate/openEdit cukup set editing + dialogOpen; onSaved → reload daftar; import dibersihkan (Dialog*, Label, Switch, Textarea dihapus)
+- invoice-editor.tsx: tombol "Tambah Customer" (UserPlus, Button outline sm h-7) di baris Label "Nama Customer" — tepat DI ATAS kotak input (card Kepada Yth); state customerFormOpen; handleCustomerCreated: refresh fetchCustomers() + auto-select customer baru (setClientInput + setInvoice client.nama/kontak=phone||email/alamat) — pola sama dgn handleClientSelect; <CustomerFormDialog> dirender di akhir JSX. Berlaku di tab Reguler & DP (editor sama); tab Pelunasan sengaja TIDAK (customer mengikuti invoice terpilih)
+- Perbaikan eslint: React Compiler error "preserve-manual-memoization" pada useCallback handleCustomerCreated → diganti fungsi biasa (gaya handleClientSelect)
+- Bug ditemukan saat E2E: toast sukses tapi auto-select kosong → penyebab respons POST /api/customers = objek customer langsung; fix dgn unwrapCustomer() yang menoleransi kedua bentuk
+- Verifikasi E2E agent-browser (login ulang superadmin dulu, tutup dialog "Versi Baru!"):
+  - /invoice?buat=1: tombol "Tambah Customer" tampil di atas kotak Nama Customer (tab Reguler & DP) ✓
+  - Klik → popup "Tambah Pelanggan" identik: Kode otomatis CUST-006 (disabled), Nama*, Telepon, Email, Alamat, Catatan, Batal/Simpan ✓
+  - Isi form → Simpan → toast "Pelanggan berhasil ditambahkan", dialog tutup, Nama Customer otomatis terisi customer baru + kontak & alamat ikut, tombol "Tambah Barang" langsung AKTIF (matchedCustomerId ter-set), customer baru muncul di dropdown chevron ✓
+  - Master Pelanggan: Tambah (CUST-007 preview, field lengkap), Edit (field terisi + switch aktif), Hapus via AlertDialog (toast "Pelanggan berhasil dihapus") — semua normal ✓
+- Data uji dibersihkan: UJI CUST INV (DELETE API), UJI CUST INV 2 (hapus via UI) — keduanya terhapus
+- Screenshot: .zscreens/invoice-tambah-customer-button.png (posisi tombol), .zscreens/invoice-tambah-customer-popup.png (popup)
+- eslint: customer-form-dialog.tsx, customers-view.tsx, invoice-editor.tsx → bersih; dev.log tanpa error
+- Commit: 77e9366
+
+Stage Summary:
+- Tombol "Tambah Customer" kini ada di atas kotak Nama Customer halaman Buat Invoice (tab Reguler & DP); klik memunculkan popup "Tambah Pelanggan" SAMA PERSIS dengan Master Pelanggan (komponen bersama CustomerFormDialog)
+- Setelah simpan: customer baru otomatis terpilih untuk invoice ini (nama + kontak + alamat terisi), masuk dropdown Master Customer, dan tombol "Tambah Barang" langsung aktif
+- Master Pelanggan kini memakai komponen bersama yang sama — perilaku tambah/edit/hapus tidak berubah (terverifikasi E2E)
+- Catatan teknis: respons POST/PUT /api/customers = objek customer langsung; unwrapCustomer() di customer-form-dialog menormalisasi
