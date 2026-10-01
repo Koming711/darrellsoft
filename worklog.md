@@ -11395,3 +11395,33 @@ Stage Summary:
 - Setelah simpan: customer baru otomatis terpilih untuk invoice ini (nama + kontak + alamat terisi), masuk dropdown Master Customer, dan tombol "Tambah Barang" langsung aktif
 - Master Pelanggan kini memakai komponen bersama yang sama — perilaku tambah/edit/hapus tidak berubah (terverifikasi E2E)
 - Catatan teknis: respons POST/PUT /api/customers = objek customer langsung; unwrapCustomer() di customer-form-dialog menormalisasi
+
+---
+Task ID: 2
+Agent: Main
+Task: Deploy ke produksi www.darrellsoft.com (permintaan eksplisit user + token)
+
+Work Log:
+- Cek pra-deploy: workspace bersih (commit mode-file 5a31b86 di atas fitur Tambah Customer 77e9366 + worklog ec11671)
+- Deploy #1: bunx vercel --prod --token ... → ditolak CLI (butuh konfirmasi) → ulang dgn --yes → sukses ke project "my-project" (my-project-three-psi-55.vercel.app)
+- Verifikasi di www.darrellsoft.com → tombol "Tambah Customer" TIDAK ADA! Investigasi mendalam:
+  - String fitur ADA di beberapa chunk JS domain, tapi chunk editor yg dieksekusi = kode lama
+  - Service Worker AKTIF ("darrell-soft-v124" + "darrell-api-runtime") menyajikan chunk lama dari cache → di-unregister + caches dihapus → masih lama
+  - Header respons: age: 56202 (~15,6 jam) + x-vercel-cache: HIT + x-nextjs-prerender: 1 → HTML prerender stale
+  - bunx vercel project ls → DUA PROJECT di akun: "my-project" (tanpa custom domain) dan "darrellsoft" (production URL = www.darrellsoft.com, updated 2 HARI lalu)
+  - AKAR MASALAH: link lokal .vercel/project.json menunjuk project "my-project" — SEMUA deploy sebelumnya (termasuk 12 jam lalu) masuk ke project yang SALAH; domain www.darrellsoft.com disajikan oleh project "darrellsoft" → fitur Tambah Barang 5 commit sebelumnya juga tak pernah live di domain!
+- FIX: bunx vercel link --yes --project darrellsoft → link lokal sekarang ke project "darrellsoft" (permanen, agar deploy berikutnya tepat sasaran). vercel link juga membuat .env.local berisi VERCEL_OIDC_TOKEN saja (aman; DATABASE_URL lokal tetap di .env)
+- Deploy #2: bunx vercel --prod --yes --token ... → sukses, "Aliased https://www.darrellsoft.com", Ready in 2m (deployment darrellsoft-7babd1324)
+- Verifikasi produksi menyeluruh (browser, SW dibersihkan dulu):
+  - HTTP 200 + age: 0 (cache edge segar)
+  - /invoice?buat=1: tombol "Tambah Customer" ADA; popup "Tambah Pelanggan" identik (Kode CUST-006 otomatis, semua field)
+  - Tab Regular: tombol "Tambah Barang" disabled sebelum customer dipilih ✓
+  - E2E via popup: buat customer "Toko Sumber Rejeki" (nama = customer invoice DP uji produksi) → toast sukses → auto-terpilih → tombol "Tambah Barang" LANGSUNG AKTIF ✓
+  - Tab Pelunasan: pilih INV/07/26/0005 (Toko Sumber Rejeki) → tombol "Tambah Barang" AKTIF ✓
+- Catatan: customer uji "Toko Sumber Rejeki" (CUST-006) kini ada di DB produksi — nama itu memang customer invoice INV/07/26/0005, dan akan hilang saat deploy berikutnya (SQLite ikut bundle build)
+- Catatan SW: app mendaftarkan service worker cache-first (darrell-soft-v124). User lama mungkin perlu hard-refresh/cache clear utk melihat versi baru; chunk baru (hash beda) tak ter-cache → diambil dari network
+
+Stage Summary:
+- www.darrellsoft.com KINI menjalankan build terbaru: fitur Tambah Customer popup Master Pelanggan + semua fitur Tambah Barang (popup sama Master Barang, disabled sampai customer dipilih, pelanggan otomatis terkunci, anti-duplikat, aktif di Pelunasan) — terverifikasi E2E langsung di domain produksi
+- AKAR MASALAH deploy lama: link .vercel lokal menunjuk project "my-project" (tanpa domain); domain milik project "darrellsoft". Link sudah diganti permanen ke "darrellsoft" — deploy berikutnya otomatis tepat sasaran
+- Deployment live: darrellsoft-7babd1324 (Production, alias www.darrellsoft.com)
