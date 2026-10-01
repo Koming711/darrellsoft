@@ -158,6 +158,12 @@ export function ItemsFields({
   };
 
   const pickBarang = (index: number, barang: BarangOption) => {
+    // Anti-duplikat: barang yang sudah dipakai di baris LAIN tidak bisa
+    // dipilih lagi — 1 barang hanya boleh muncul di 1 baris item invoice.
+    const taken = items.some(
+      (it, j) => j !== index && it.deskripsi.trim() === barang.name.trim()
+    );
+    if (taken) return;
     setOpenBarangIndex(null);
     if (onPickBarang) {
       onPickBarang(index, barang);
@@ -362,22 +368,36 @@ export function ItemsFields({
                         <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
                           Master Barang Customer
                         </div>
-                        {barangOptions!.map((b) => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); pickBarang(index, b); }}
-                            className={`w-full text-left px-3 py-2 text-sm transition-colors ${item.deskripsi === b.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
-                          >
-                            <span className="block truncate">{b.name}</span>
-                            {showPrice && (
-                              <span className="block text-[11px] text-slate-400">
-                                {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
-                                {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
+                        {barangOptions!.map((b) => {
+                          // Barang yang sudah dipakai di baris lain → tidak
+                          // bisa dipilih lagi di baris ini (anti duplikat).
+                          // Baris sendiri tetap boleh (nama tetap highlighted).
+                          const used = items.some(
+                            (it, j) => j !== index && it.deskripsi.trim() === b.name.trim()
+                          );
+                          return (
+                            <button
+                              key={b.id}
+                              type="button"
+                              disabled={used}
+                              onMouseDown={used ? undefined : (e) => { e.preventDefault(); pickBarang(index, b); }}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${used ? 'cursor-not-allowed text-slate-400' : item.deskripsi === b.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                            >
+                              <span className="block truncate">
+                                {b.name}
+                                {used && (
+                                  <span className="ml-1.5 text-[10px] text-slate-400">· Sudah dipakai</span>
+                                )}
                               </span>
-                            )}
-                          </button>
-                        ))}
+                              {showPrice && (
+                                <span className={`block text-[11px] ${used ? 'text-slate-300' : 'text-slate-400'}`}>
+                                  {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
+                                  {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">

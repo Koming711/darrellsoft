@@ -11323,3 +11323,18 @@ Work Log:
 
 Stage Summary:
 - Tombol "Tambah Barang" di Buat Invoice kini nonaktif sampai nama customer dipilih/dikenali; setelah aktif, klik membuka popup SAMA PERSIS Master Barang dengan "Untuk Pelanggan" otomatis terisi nama customer invoice (terkunci). Barang baru langsung masuk dropdown nama barang. Master Barang tidak berubah perilaku. Deploy produksi menunggu instruksi user.
+
+---
+Task ID: invoice-barang-anti-duplikat
+Agent: main (Z.ai Code)
+Task: "di halaman buat invoice baru. apabila data barang sudah dipakai, maka tidak bisa di pakai lagi untuk nambah di item berikutnya. fix"
+
+Work Log:
+- items-fields.tsx (mode barang / Buat Invoice): opsi dropdown nama barang yang SUDAH dipakai di baris item LAIN kini disabled + label "· Sudah dipakai" (abu-abu, cursor-not-allowed, onMouseDown dilepas); perhitungan used = deskripsi baris lain (trim) === nama barang. Baris SENDIRI tetap bisa (nama tetap highlighted biru). Guard sama ditambahkan di pickBarang (defense-in-depth).
+- Mode kertas (Buat PO) tidak diubah — permintaan hanya untuk halaman Buat Invoice.
+- Verifikasi browser E2E (superadmin, /invoice?buat=1, customer Budi Susanto): buat 2 barang uji via popup Tambah Barang (UJIDUPLIKAT A Rp3.000 & B Rp4.000 — toast sukses keduanya) ✓; baris 1 pilih A via chevron ✓; klik Tambah → baris 2 dropdown auto-open: A disabled "· Sudah dipakai", B aktif ✓; pilih B ✓; klik Tambah → baris 3: A dan B KEDUANYA disabled "· Sudah dipakai" ✓; dropdown baris 1: A tetap aktif + highlighted, B disabled ✓ (screenshot .zscreens/barang-anti-duplikat.png).
+- Catatan verifikasi: agent-browser find --name "Tambah" ternyata match substring "Tambah Barang" (membuka popup add) — dikoreksi pakai exact match textContent === 'Tambah'.
+- Cleanup DB: UJIDUPLIKAT A & B dihapus permanen (2 barang + 2 registrasi). ESLint 0 problem; dev.log bersih.
+
+Stage Summary:
+- Di Buat Invoice, satu barang hanya bisa dipakai di SATU baris item: setelah dipilih di sebuah baris, opsi yang sama di dropdown baris lain otomatis nonaktif dengan label "· Sudah dipakai"; baris pemiliknya tetap bisa mengganti/ melihat pilihannya. Mode PO tidak berubah. Deploy produksi menunggu instruksi user.
