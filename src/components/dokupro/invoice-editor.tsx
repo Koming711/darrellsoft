@@ -2,13 +2,16 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
 import { ItemsFields, type BarangOption } from './items-fields';
 import type { BarangFormSavedItem } from '@/components/views/barang-form-dialog';
+import { CustomerFormDialog, type CustomerFormSavedCustomer } from '@/components/views/customer-form-dialog';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
 import { DocumentActionButtons } from './document-action-buttons';
@@ -94,6 +97,8 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   const [clientInput, setClientInput] = useState(invoice.client.nama);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const [clientTyping, setClientTyping] = useState(false);
+  // Popup "Tambah Customer" (CustomerFormDialog — sama persis dgn Master Pelanggan)
+  const [customerFormOpen, setCustomerFormOpen] = useState(false);
 
   const fetchRiwayatCetakan = useCallback(async () => {
     try {
@@ -174,6 +179,25 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       setBarangList((prev) => [...prev, option]);
     }
   }, [matchedCustomerId]);
+
+  // Customer BARU berhasil disimpan dari popup "Tambah Customer" (CustomerFormDialog
+  // — sama persis dgn Master Pelanggan). Segarkan daftar dropdown lalu pilih
+  // otomatis customer baru utk invoice ini (kontak & alamat ikut terisi).
+  const handleCustomerCreated = (saved: CustomerFormSavedCustomer | null) => {
+    if (!saved) return;
+    void fetchCustomers();
+    setClientInput(saved.name);
+    setClientTyping(false);
+    setClientDropdownOpen(false);
+    setInvoice((prev) => ({
+      ...prev,
+      client: {
+        nama: saved.name,
+        kontak: saved.phone || saved.email || '',
+        alamat: saved.address || '',
+      },
+    }));
+  };
 
   // Ganti customer → otomatis KOSONGKAN nama barang di kotak item
   // (barang milik tiap pelanggan tidak boleh tercampur).
@@ -639,7 +663,22 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
             Kepada Yth :
           </h3>
           <div className="space-y-1.5">
-            <Label className="text-xs">Nama Customer</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs">Nama Customer</Label>
+              {/* Tombol Tambah Customer (permintaan owner): buka popup tambah
+                  pelanggan SAMA PERSIS dgn halaman Master Pelanggan;
+                  customer baru langsung terpilih utk invoice ini. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCustomerFormOpen(true)}
+                title="Tambah pelanggan baru"
+                className="h-7 text-xs"
+              >
+                <UserPlus className="mr-1 h-3 w-3" />
+                Tambah Customer
+              </Button>
+            </div>
             <Popover open={clientDropdownOpen} onOpenChange={setClientDropdownOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
@@ -813,6 +852,16 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
         </div>
         </div>
       </DocumentEditorLayout>
+
+      {/* Popup "Tambah Customer" — komponen bersama CustomerFormDialog: isi &
+          perilaku SAMA PERSIS dengan popup Tambah/Edit di halaman Master
+          Pelanggan (kode otomatis, nama*, telepon, email, alamat, catatan).
+          Customer yang disimpan langsung terpilih di kotak Nama Customer. */}
+      <CustomerFormDialog
+        open={customerFormOpen}
+        onOpenChange={setCustomerFormOpen}
+        onSaved={handleCustomerCreated}
+      />
     </>
   );
 }
