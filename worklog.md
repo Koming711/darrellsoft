@@ -11352,3 +11352,18 @@ Work Log:
 
 Stage Summary:
 - Tab Pelunasan di Buat Invoice Baru kini mendukung tombol "Tambah Barang" penuh: aktif otomatis saat invoice DP dipilih (customer dikenali), popup sama persis Master Barang dgn pelanggan terkunci mengikuti customer invoice, barang baru langsung masuk dropdown nama barang. Fitur anti-duplikat juga berlaku di tab ini. Deploy produksi menunggu instruksi user.
+
+---
+Task ID: deploy-prod
+Agent: main (Z.ai Code)
+Task: "deploy" — deploy semua fitur terakhir ke produksi www.darrellsoft.com
+
+Work Log:
+- Konfirmasi user: perintah "deploy" = izin deploy produksi (sebelumnya selalu menunggu instruksi).
+- Repo bersih, HEAD 35803ab (checkpoint di atas 7a75507). Rentang deploy mencakup: popup Tambah Barang sama persis Master Barang (5d991be), tombol nonaktif sampai customer dipilih + pelanggan otomatis terkunci (455119f), anti-duplikat barang antar baris item (d279f3e), dukungan Tambah Barang di tab Pelunasan (7a75507).
+- Deploy: `bunx vercel --prod --yes --token <token>` (percobaan pertama tanpa --yes dibatalkan CLI karena butuh konfirmasi).
+- Hasil: Production ready in 2m — https://my-project-three-psi-55.vercel.app → alias https://my-project-three-psi-55.vercel.app (Vercel Authentication aktif utk URL preview; domain produksi normal).
+- Verifikasi: https://www.darrellsoft.com → 200 OK (1.05s), title "Darrell Soft - Kalkulator Hitung Cetakan"; /login → 200.
+
+Stage Summary:
+- Produksi www.darrellsoft.com sudah menjalankan versi terbaru: tombol "Tambah Barang" Buat Invoice (Regular & Pelunasan) + popup Master Barang + anti-duplikat + disabled sampai customer dipilih. 
