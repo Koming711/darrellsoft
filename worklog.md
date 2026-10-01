@@ -11448,3 +11448,24 @@ Work Log:
 Stage Summary:
 - PWA offline lengkap: setelah dibuka sekali online, SELURUH asset aplikasi (40 route + chunk + data API yang pernah dibuka) tersimpan di Cache Storage/IndexedDB → internet putus: aplikasi terbuka normal dari icon PWA/browser, data tampil dari cache, tulisan masuk antrian & tersinkron otomatis dgn progres "Sinkronisasi... x/y transaksi" → "✓ Semua data telah tersinkronkan". Tanpa "Network Error". Install Windows/Desktop & Android via prompt + instruksi manual (sudah ada, terverifikasi tampil).
 - DEPLOY PRODUKSI PENDING: token Vercel tidak tersimpan di lingkungan (sesi lalu memakai --token dari chat, hilang saat kompaksi konteks). Git push TIDAK memicu deploy (project tanpa Git integration). Perlu token VERCEL_TOKEN dari user utk `bunx vercel --prod --yes --token <token>` (link .vercel sudah tepat ke project "darrellsoft").
+---
+Task ID: pel-preview-labels
+Agent: Main (Z.ai Code)
+Task: "di halaman detail invoice pelunasan, di preview invoice pelunasan, ganti tulisan dp (50%) dengan Dp yang sudah dibayar, dan sisa pembayaran dengan pelunasan"
+
+Work Log:
+- Mencari sumber label: "DP (50%)" dan "SISA PEMBAYARAN" dirender di komponen bersama src/components/dokupro/invoice-preview.tsx (baris total tabel A5), aktif bila isDp = dpPercent>0 || dpAmount>0.
+- Edit invoice-preview.tsx (blok {isDp && ...}): label baris DP kini kondisional — showPelunasanLabel ? 'DP YANG SUDAH DIBAYAR' : (dpPercent>0 ? `DP (${dpPercent}%)` : 'DP'); label baris akhir — showPelunasanLabel ? 'PELUNASAN' : 'SISA PEMBAYARAN'. Tambah whiteSpace:'nowrap' pada sel label DP (teks lebih panjang dari "DP (50%)").
+- Gaya huruf dipilih KAPITAL utk konsisten dgn label total eksisting ("TOTAL", "SISA PEMBAYARAN") pada dokumen A5.
+- Dampak otomatis konsisten di SEMUA lokasi pelunasan tanpa perubahan lain: halaman detail /invoice (lightbox + pratinjau), popup preview (master-customer), invoice-pelunasan-create (layar simpan), invoice-pelunasan-editor (live preview), invoice-pratinjau-screen, serta output CETAK & JPG (komponen DOM .a5-page yang sama).
+- Uji jalur: dev server di-restart (sebelumnya mati) → login admin/268899 → buka /invoice?detail=<id PEL/10/26/0003>.
+- Verifikasi browser (agent-browser):
+  - Preview detail PEL/10/26/0003: baris "DP YANG SUDAH DIBAYAR Rp625.000" + "PELUNASAN Rp775.000" (bold, garis atas 1px) ✓ screenshot .verify/pel-preview-rows.png
+  - Lightbox "Perbesar pratinjau": label sama, layout A5 utuh, label muat 1 baris tanpa overflow ✓ screenshot .verify/pel-zoom.png
+  - REGRESI: buka invoice DP biasa INV/10/26/0003 → masih "DP (50%)" + "SISA PEMBAYARAN" (kondisi showPelunasanLabel=false) ✓
+  - Lint file invoice-preview.tsx bersih (0 masalah); 1288 masalah lint repo lainnya pre-existing.
+- Catatan: baris ringkasan DI ATAS preview di halaman detail ("DP (50%): Rp625.000 · Sisa: Rp775.000") sengaja TIDAK diubah — itu elemen UI halaman, bukan dokumen preview (user minta preview saja).
+
+Stage Summary:
+- Preview invoice pelunasan kini menampilkan "DP YANG SUDAH DIBAYAR" (nominal DP yang sudah dibayar) dan "PELUNASAN" (nominal pelunasan) menggantikan "DP (x%)" dan "SISA PEMBAYARAN" — di layar, zoom, cetak, dan JPG. Invoice DP biasa tidak berubah.
+- Satu file diubah: src/components/dokupro/invoice-preview.tsx. DEPLOY PRODUKSI masih pending (perlu VERCEL_TOKEN, lihat entri sebelumnya).
