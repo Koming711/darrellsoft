@@ -51,6 +51,7 @@ export function ConnectivityKeeper() {
   const [offline, setOffline] = useState(false)
   const [pending, setPending] = useState(0)
   const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
   const [showSyncDone, setShowSyncDone] = useState(false)
   const { t } = useLanguage()
   const pendingRef = useRef(0)
@@ -59,6 +60,7 @@ export function ConnectivityKeeper() {
   const runSync = useCallback(async () => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
     setSyncing(true)
+    setSyncProgress(null)
     try {
       const r = await replayQueue()
       pendingRef.current = r.remaining
@@ -66,10 +68,11 @@ export function ConnectivityKeeper() {
       if (r.synced > 0) {
         toast.success(t('sync_done_toast'))
         setShowSyncDone(true)
-        setTimeout(() => setShowSyncDone(false), 2500)
+        setTimeout(() => setShowSyncDone(false), 3000)
       }
     } finally {
       setSyncing(false)
+      setSyncProgress(null)
     }
   }, [t])
 
@@ -95,6 +98,15 @@ export function ConnectivityKeeper() {
       toast(t('offline_saved_toast'), { duration: 5000 })
     }
     window.addEventListener('offline-queued', handleQueued)
+
+    // Progres sinkronisasi dari offline-queue ("Sinkronisasi... 15/20 transaksi")
+    const handleSyncProgress = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { done: number; total: number }
+      if (detail && typeof detail.done === 'number') setSyncProgress(detail)
+    }
+    const handleSyncComplete = () => setSyncProgress(null)
+    window.addEventListener('offline-sync-progress', handleSyncProgress)
+    window.addEventListener('offline-sync-complete', handleSyncComplete)
 
     // Pesan dari service worker (Background Sync) → jalankan sinkron
     let swHandler: ((e: MessageEvent) => void) | null = null
@@ -222,6 +234,8 @@ export function ConnectivityKeeper() {
 
     return () => {
       window.removeEventListener('offline-queued', handleQueued)
+      window.removeEventListener('offline-sync-progress', handleSyncProgress)
+      window.removeEventListener('offline-sync-complete', handleSyncComplete)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
       document.removeEventListener('visibilitychange', handleVisibility)
@@ -260,6 +274,11 @@ export function ConnectivityKeeper() {
   }
 
   if (pending > 0 || syncing) {
+    const progressText = syncProgress
+      ? t('sync_progress')
+          .replace('{done}', String(syncProgress.done))
+          .replace('{total}', String(syncProgress.total))
+      : t('sync_running')
     return (
       <div
         role="status"
@@ -269,10 +288,7 @@ export function ConnectivityKeeper() {
       >
         <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium">
           <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
-          <span className="min-w-0 truncate">
-            {t('sync_running')}
-            {pending > 0 ? ` (${pending})` : ''}
-          </span>
+          <span className="min-w-0 truncate">{progressText}</span>
         </div>
       </div>
     )
@@ -288,7 +304,7 @@ export function ConnectivityKeeper() {
       >
         <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium">
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 truncate">{t('sync_done_toast')}</span>
+          <span className="min-w-0 truncate">{t('sync_all_done')}</span>
         </div>
       </div>
     )

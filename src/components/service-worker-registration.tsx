@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect } from 'react'
+import { scheduleOfflineWarmup } from '@/lib/offline-warmup'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-28-v59'
+const APP_VERSION = '2026-09-28-v60'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -32,9 +33,14 @@ export function ServiceWorkerRegistration() {
     } catch (e) {}
 
     // Force clear old version: check app version in localStorage
+    // Baca versi TERSIMPAN SEBELUM diupdate — dipakai trigger warm-up
+    // (versi berubah = deploy baru = cache asset lama sudah dibuang SW,
+    // warm-up harus langsung jalan untuk mengisi ulang semua asset).
+    let versionChangedForWarmup = false
     try {
       const storedVersion = localStorage.getItem('app_version')
       if (storedVersion && storedVersion !== APP_VERSION) {
+        versionChangedForWarmup = true
         // Versi berubah — bersihkan key form lama SAJA, TANPA reload.
         // Reload paksa inilah penyebab "buka aplikasi suka di refresh".
         // Kode baru otomatis aktif pada kunjungan berikutnya (SW update
@@ -86,6 +92,12 @@ export function ServiceWorkerRegistration() {
           .then((reg) => {
             console.log('SW registered:', reg.scope)
 
+            // OFFLINE WARM-UP: simpan SELURUH asset aplikasi (semua route +
+            // chunk JS/CSS) ke Cache Storage saat online — aplikasi tetap
+            // bisa dibuka penuh saat offline. Throttle internal 12 jam /
+            // per versi, jalan di idle tanpa mengganggu user.
+            scheduleOfflineWarmup(versionChangedForWarmup)
+
             // Wait for the service worker to be active
             if (reg.installing) {
               reg.installing.addEventListener('statechange', () => {
@@ -123,7 +135,12 @@ export function ServiceWorkerRegistration() {
             }
             checkForUpdate()
             setInterval(checkForUpdate, 60_000)
-            window.addEventListener('online', checkForUpdate)
+            window.addEventListener('online', () => {
+              checkForUpdate()
+              // Kembali online → pastikan cache asset lengkap (mis. warm-up
+              // sebelumnya terlewat karena aplikasi dibuka saat offline)
+              scheduleOfflineWarmup(false)
+            })
           })
           .catch((err) => console.log('SW registration failed:', err))
       }
