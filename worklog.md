@@ -11338,3 +11338,17 @@ Work Log:
 
 Stage Summary:
 - Di Buat Invoice, satu barang hanya bisa dipakai di SATU baris item: setelah dipilih di sebuah baris, opsi yang sama di dropdown baris lain otomatis nonaktif dengan label "· Sudah dipakai"; baris pemiliknya tetap bisa mengganti/ melihat pilihannya. Mode PO tidak berubah. Deploy produksi menunggu instruksi user.
+
+---
+Task ID: invoice-pelunasan-tambah-barang
+Agent: main (Z.ai Code)
+Task: "dihalaman buat invoice baru, tab pelunasan. aktifkan tombol tambah barang karena nama customer sudah ada. check and fix."
+
+Work Log:
+- Akar masalah: invoice-pelunasan-editor.tsx memakai ItemsFields TANPA props barangForm* → barangFormCustomerFilter undefined → tombol "Tambah Barang" selalu disabled di tab Pelunasan meski nama customer sudah terisi otomatis dari invoice DP terpilih.
+- Fix invoice-pelunasan-editor.tsx: (1) state baru matchedCustomerId, di-set di effect pemuat Master Barang customer (pola sama dgn editor Regular); (2) handleBarangCreated (useCallback) — barang tersimpan utk customer pelunasan langsung di-append ke pelunasanBarangList; (3) ItemsFields kini menerima barangFormCustomers (dgn companyName), barangFormCustomerFilter={matchedCustomerId ?? 'all'}, barangFormLockedNote="Mengikuti customer pada invoice ini.", onBarangCreated; (4) customerList type diperluas companyName?: string|null; (5) emptyBarangMessage diselaraskan: pakai tombol "Tambah Barang".
+- Verifikasi browser E2E (superadmin): buat invoice DP uji INV/UJIPEL/001 (Budi Susanto, dp 50) langsung via DB script — WAJIB set userId=user-superadmin karena /api/history strict per-user isolation (getDataFilter: userId); pelunasan tab → cari & pilih → customer otomatis "Budi Susanto", tombol Tambah Barang AKTIF (disabled=false) ✓; klik → popup sama persis Master Barang, "Untuk Pelanggan" otomatis "Budi Susanto — PT. Maju berkah" (terkunci) + note kontekstual ✓; isi UJIPELPEL Barang/7000/2 → Simpan → toast "Barang berhasil ditambahkan untuk Budi Susanto" ✓; barang LANGSUNG muncul di dropdown chevron item pelunasan ✓ (screenshot .zscreens/pelunasan-tambah-barang.png). Anti-duplikat & disabled-saat-tanpa-customer dari iterasi sebelumnya otomatis berlaku di tab ini (komponen sama).
+- Cleanup DB: UJIPELPEL Barang (1 barang + 1 registrasi) & invoice uji INV/UJIPEL/001 dihapus permanen. ESLint 0 problem; dev.log bersih.
+
+Stage Summary:
+- Tab Pelunasan di Buat Invoice Baru kini mendukung tombol "Tambah Barang" penuh: aktif otomatis saat invoice DP dipilih (customer dikenali), popup sama persis Master Barang dgn pelanggan terkunci mengikuti customer invoice, barang baru langsung masuk dropdown nama barang. Fitur anti-duplikat juga berlaku di tab ini. Deploy produksi menunggu instruksi user.
