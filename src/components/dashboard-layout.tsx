@@ -75,9 +75,15 @@ interface DashboardLayoutProps {
   children: React.ReactNode
   title?: string
   subtitle?: string
+  /**
+   * Padding horizontal konten di desktop menjadi 3mm (±11px) alih-alih 32px
+   * (p-8) — dipakai halaman kalkulator padat (Potong Kertas, Hitung Cetakan)
+   * agar area kerja lebih lebar. Mobile tidak berubah (tetap p-4).
+   */
+  tightDesktopPadding?: boolean
 }
 
-export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title, subtitle, tightDesktopPadding = false }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<any>(null)
@@ -591,8 +597,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           userProfile={userProfile}
         />
 
-        {/* Main Content — extra bottom padding on mobile for bottom nav + safe area */}
-        <main className="p-4 pb-20 lg:p-8 lg:pb-8">
+        {/* Main Content — extra bottom padding on mobile for bottom nav + safe area.
+            tightDesktopPadding: margin kiri/kanan desktop 3mm (permintaan halaman kalkulator) */}
+        <main className={`${tightDesktopPadding ? 'p-4 pb-20 lg:py-8 lg:pb-8 lg:px-[3mm]' : 'p-4 pb-20 lg:p-8 lg:pb-8'}`}>
           {children}
         </main>
       </div>
