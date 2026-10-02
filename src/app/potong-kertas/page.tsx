@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon } from 'lucide-react'
+import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -30,6 +30,7 @@ import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
+import { CustomerFormDialog } from '@/components/views/customer-form-dialog'
 
 const CuttingDiagram = dynamic(
   () => import('@/components/cutting-results').then(m => ({ default: m.CuttingDiagram })),
@@ -465,6 +466,8 @@ function CalculatorPage() {
   })
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [customerTyping, setCustomerTyping] = useState(false)
+  // Popup "Tambah Cust" — dialog sama persis dengan Master Customer / Buat Invoice
+  const [addCustOpen, setAddCustOpen] = useState(false)
   const customerInputRef = useRef<HTMLInputElement>(null)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
   const customerWrapperRef = useRef<HTMLDivElement>(null)
@@ -592,6 +595,18 @@ function CalculatorPage() {
     }
     setCustomerDropdownOpen(false)
     saveNewCustomer(trimmed)
+  }
+
+  // Sukses simpan dari popup "Tambah Cust" → auto-pilih customer baru di form
+  const handleCustomerFormSaved = (saved: { id: string; name: string } | null) => {
+    if (!saved) {
+      fetchCustomersData()
+      return
+    }
+    setSelectedCustomerId(saved.id)
+    setCustomerInput(saved.name)
+    setCustomerTyping(false)
+    fetchCustomersData()
   }
 
   useEffect(() => {
@@ -1609,9 +1624,10 @@ function CalculatorPage() {
     <DashboardLayout
       title={t('potong_kertas')}
       subtitle={t('subtitle_potong_kertas')}
+      tightDesktopPadding
     >
       {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+      <div className="sticky top-0 z-20 -mx-4 px-4 lg:-mx-[3mm] lg:px-[3mm] bg-card flex items-center gap-2 mb-3">
         <button
           onClick={() => setActiveTab('editor')}
           className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
@@ -1657,7 +1673,18 @@ function CalculatorPage() {
             <div className="space-y-1.5">
               <div className="space-y-1.5">
                 <div className="relative">
-                  <label className={lbl}>{t('nama_customer')}</label>
+                  {/* Label + tombol "Tambah Cust" (popup Master Customer) di ATAS field nama customer */}
+                  <div className="flex items-center justify-between gap-2">
+                    <label className={lbl}>{t('nama_customer')}</label>
+                    <button
+                      type="button"
+                      onClick={() => setAddCustOpen(true)}
+                      title="Tambah customer baru — popup lengkap (nama, telepon, alamat, dll)"
+                      className="inline-flex items-center gap-1 h-6 px-2 mb-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
+                    >
+                      <UserPlus className="w-3 h-3" /> Tambah Cust
+                    </button>
+                  </div>
                   <div ref={customerWrapperRef} className="relative">
                     <input
                       ref={customerInputRef}
@@ -2516,6 +2543,12 @@ function CalculatorPage() {
         </>
       )}
       {simClearDialog}
+      {/* Popup "Tambah Cust" — sama persis dengan Master Customer (kode otomatis, nama*, telepon, email, alamat, catatan) */}
+      <CustomerFormDialog
+        open={addCustOpen}
+        onOpenChange={setAddCustOpen}
+        onSaved={handleCustomerFormSaved}
+      />
     </DashboardLayout>
   )
 }

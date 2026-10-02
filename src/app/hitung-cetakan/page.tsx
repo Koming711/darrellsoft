@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus } from 'lucide-react'
 import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -39,6 +39,7 @@ import { RincianCetakanPreview, parseSimulasiCepat, type SimulasiCepatItem } fro
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
+import { CustomerFormDialog } from '@/components/views/customer-form-dialog'
 
 // Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥1 jt → "11,6 jt"
 const fmtRpCompact = (n: number) => {
@@ -367,6 +368,38 @@ function HitungCetakanPage() {
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'gabung'>('editor')
   const [searchQuery, setSearchQuery] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
+  // === Customer combobox (gaya Potong Kertas) — BEBAS DIKETIK, dropdown hanya
+  // mempermudah memilih; + tombol "Tambah Cust" membuka popup Master Customer ===
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false)
+  const [custTyping, setCustTyping] = useState(false)
+  const [addCustOpen, setAddCustOpen] = useState(false)
+  const custWrapperRef = useRef<HTMLDivElement>(null)
+  const custDropdownRef = useRef<HTMLDivElement>(null)
+  const filteredCustList = custTyping
+    ? customers.filter((c) => c.name.toLowerCase().includes(formData.customerName.toLowerCase()))
+    : customers
+  // Klik di luar dropdown customer → tutup
+  useEffect(() => {
+    if (!custDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (
+        custWrapperRef.current && !custWrapperRef.current.contains(e.target as Node) &&
+        custDropdownRef.current && !custDropdownRef.current.contains(e.target as Node)
+      ) {
+        setCustDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [custDropdownOpen])
+  // Sukses simpan dari popup "Tambah Cust" → auto-isi nama customer di form
+  const handleCustFormSaved = (saved: { id: string; name: string } | null) => {
+    fetchCustomers()
+    if (saved) {
+      setFormData((prev) => ({ ...prev, customerName: saved.name }))
+      setCustTyping(false)
+    }
+  }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [period, setPeriod] = useState<RiwayatPeriod>('today')
@@ -2006,9 +2039,9 @@ function HitungCetakanPage() {
   )
 
   return (
-    <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
+    <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')} tightDesktopPadding>
       {/* Tab Navigation */}
-      <div className="sticky top-0 z-20 -mx-4 px-4 bg-card flex items-center gap-2 mb-3">
+      <div className="sticky top-0 z-20 -mx-4 px-4 lg:-mx-[3mm] lg:px-[3mm] bg-card flex items-center gap-2 mb-3">
         <button
           onClick={() => setActiveTab('editor')}
           className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
@@ -2068,29 +2101,74 @@ function HitungCetakanPage() {
               <div className="px-4 py-3">
                 <div className="space-y-2">
                   <div>
-                    <label className={labelClass}>{t('nama_customer')} <span className="text-red-500">*</span></label>
-                    <div className="relative">
+                    {/* Label + tombol "Tambah Cust" (popup Master Customer) di ATAS field nama customer */}
+                    <div className="flex items-center justify-between gap-2">
+                      <label className={labelClass}>{t('nama_customer')} <span className="text-red-500">*</span></label>
+                      <button
+                        type="button"
+                        onClick={() => setAddCustOpen(true)}
+                        title="Tambah customer baru — popup lengkap (nama, telepon, alamat, dll)"
+                        className="inline-flex items-center gap-1 h-6 px-2 mb-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
+                      >
+                        <UserPlus className="w-3 h-3" /> Tambah Cust
+                      </button>
+                    </div>
+                    <div ref={custWrapperRef} className="relative">
                       <UserSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                       <input
                         type="text"
-                        list="customer-list"
                         placeholder={t('pilih_customer') + ' / ketik manual'}
                         value={formData.customerName}
                         onChange={(e) => {
-                          const val = e.target.value
-                          setFormData({ ...formData, customerName: val })
-                          const match = customers.find((c) => c.name.toLowerCase() === val.toLowerCase())
-                          if (match) {
-                            setFormData(prev => ({ ...prev, customerName: match.name }))
-                          }
+                          setFormData((prev) => ({ ...prev, customerName: e.target.value }))
+                          setCustTyping(true)
+                          setCustDropdownOpen(true)
                         }}
-                        className={`${inputClass} pl-9`}
+                        onFocus={() => {
+                          setCustTyping(false)
+                          setCustDropdownOpen(true)
+                        }}
+                        onBlur={() => setTimeout(() => setCustDropdownOpen(false), 200)}
+                        className={`${inputClass} pl-9 pr-9`}
                       />
-                      <datalist id="customer-list">
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.name} />
-                        ))}
-                      </datalist>
+                      {/* Dropdown chevron — mempermudah memilih, input tetap bebas diketik */}
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-label="Tampilkan daftar customer"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setCustDropdownOpen((o) => !o)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      {/* Dropdown list — muncul saat fokus/ketik; pilih atau lanjutkan mengetik */}
+                      {custDropdownOpen && (
+                        <div ref={custDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {filteredCustList.length > 0 && (
+                            <div>
+                              <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 dark:bg-zinc-800 border-b border-slate-100 dark:border-zinc-700">Master Customer</div>
+                              {filteredCustList.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onMouseDown={(e) => { e.preventDefault(); setFormData((prev) => ({ ...prev, customerName: c.name })); setCustTyping(false); setCustDropdownOpen(false) }}
+                                  className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-900/30 transition-colors truncate cursor-pointer"
+                                >
+                                  {c.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {filteredCustList.length === 0 && (
+                            <div className="px-3 py-3 text-sm text-slate-400 text-center">
+                              {formData.customerName.trim()
+                                ? 'Tidak ada yang cocok — nama bebas diketik manual'
+                                : 'Belum ada customer — ketik manual atau pakai Tambah Cust'}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -3131,6 +3209,12 @@ function HitungCetakanPage() {
         </DialogContent>
       </Dialog>
       {simClearDialog}
+      {/* Popup "Tambah Cust" — sama persis dengan Master Customer (kode otomatis, nama*, telepon, email, alamat, catatan) */}
+      <CustomerFormDialog
+        open={addCustOpen}
+        onOpenChange={setAddCustOpen}
+        onSaved={handleCustFormSaved}
+      />
     </DashboardLayout>
   )
 }
