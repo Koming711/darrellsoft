@@ -11492,3 +11492,26 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com KINI menjalankan build dengan label preview invoice pelunasan baru: "DP YANG SUDAH DIBAYAR" + "PELUNASAN" (menggantikan "DP (x%)" + "SISA PEMBAYARAN") — terverifikasi E2E di domain produksi dgn data uji yang kemudian di-purge permanen; invoice DP biasa tetap "DP (x%)"/"SISA PEMBAYARAN".
 - KOREKSI PENGETAHUAN: production = Supabase Postgres (persisten antar deploy). Data uji tidak akan hilang sendiri — selalu purge setelah uji di production. User lama dengan SW cache v124/v125 perlu hard-refresh untuk chunk baru (SW update di background).
+---
+Task ID: pk-hc-customer-margin
+Agent: Main (Z.ai Code)
+Task: "di halaman potong kertas, nama customer tidak bisa diketik/diedit (hanya dropdown) + tombol Tambah Cust di atas nama customer; di halaman hitung cetakan customer tidak bisa diketik; kedua halaman margin kiri-kanan desktop 3mm. Catatan: user menyebut 'extract file ini ganti semua content' tapi TIDAK ADA file terlampir — dikerjakan permintaan tekstual saja."
+
+Work Log:
+- Investigasi keluhan "tidak bisa diketik": field customer potong-kertas (custom combobox) & hitung-cetakan (input+datalist) TERNYATA SUDAH bisa diketik — dibuktikan via agent-browser di localhost DAN www.darrellsoft.com (ketik teks sukses, dropdown filter jalan, opsi "Tambah sebagai customer baru" muncul). Dugaan kuat: perangkat user masih memegang versi ter-cache SW / UX-nya terasa "dropdown-only". Tetap dieksekusi perbaikan UX sesuai permintaan.
+- src/components/dashboard-layout.tsx: prop BARU `tightDesktopPadding?: boolean` — main padding desktop `lg:px-[3mm]` (11.3386px = tepat 3mm @96dpi) menggantikan lg:p-8 (32px) HANYA horizontal; mobile tetap p-4, vertical desktop tetap py-8. Default false → semua halaman lain tidak berubah.
+- src/app/potong-kertas/page.tsx: (1) tombol "Tambah Cust" (UserPlus, emerald) di baris label DI ATAS field customer → membuka CustomerFormDialog (popup SAMA PERSIS dgn Master Customer: kode otomatis, nama*, telepon, email, alamat, catatan); (2) onSaved → auto-pilih customer baru di field (setSelectedCustomerId + setCustomerInput + fetchCustomersData); (3) tightDesktopPadding; (4) sticky tab bar lg:-mx-[3mm] lg:px-[3mm] agar align.
+- src/app/hitung-cetakan/page.tsx: (1) HAPUS datalist native (penyebab UX "dropdown-only" di desktop Chrome) → ganti custom combobox gaya potong-kertas: ketik = filter realtime, chevron toggle dropdown, klik item = isi nama, blur 200ms tutup, klik-luar tutup, empty-state informatif ("nama bebas diketik manual"); (2) tombol "Tambah Cust" sama (dibuat juga demi konsistensi — user minta eksplisit hanya di potong-kertas, mudah dihapus jika tak diinginkan); (3) handleCustFormSaved → fetchCustomers + auto-isi nama; (4) tightDesktopPadding + sticky bar align.
+- Reuse komponen: src/components/views/customer-form-dialog.tsx (sudah ada, dipakai invoice editor) — TANPA modifikasi.
+- Verifikasi E2E localhost (agent-browser, admin/268899):
+  - PK: tombol tampil → popup buka (CUST-006 preview) → simpan "Uji Tambah Cust PK" → field auto-terisi ✓
+  - HC: ketik "Budi" → dropdown terfilter → klik "Budi Susanto" → field terisi ✓; popup Tambah Cust (CUST-007) → simpan → auto-isi ✓
+  - Margin desktop 1440px: main paddingLeft/Right = 11.3386px (3mm) di KEDUA halaman ✓; mobile 390px: 16px (p-4, tak berubah) ✓
+  - Screenshot: .verify/pk-desktop-3mm.png, .verify/hc-desktop-3mm.png
+- Cleanup: 2 customer uji dihapus permanen dari DB lokal (DELETE /api/customers/:id → 200).
+- Lint: file yang diubah 0 masalah; total repo 1288 = baseline (tak ada masalah baru).
+
+Stage Summary:
+- Halaman Potong Kertas & Hitung Cetakan kini punya field customer yang JELAS bisa diketik (HC tidak lagi pakai datalist native) + tombol "Tambah Cust" (popup Master Customer lengkap, kode otomatis, customer baru langsung terpilih) + margin kiri-kanan desktop 3mm (mobile & halaman lain tidak berubah).
+- Komit: feat(potong-kertas + hitung-cetakan) — BELUM dideploy ke produksi (butuh token Vercel; token sesi sebelumnya tidak disimpan permanen).
+- Catatan: pesan "extract file ini ganti semua content" tanpa lampiran — diminta user kirim ulang file jika memang ada konten pengganti.
