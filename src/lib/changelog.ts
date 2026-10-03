@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-06-07-v2'
+export const CURRENT_VERSION = '2026-10-03-v1'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,32 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v1',
+    date: { id: '3 Oktober 2026', en: '3 October 2026' },
+    title: {
+      id: 'Field Customer Fleksibel & Margin Rapi',
+      en: 'Flexible Customer Field & Clean Margins',
+    },
+    items: [
+      {
+        id: 'Nama Customer di Potong Kertas & Hitung Cetakan bisa diketik bebas ATAU dipilih dari daftar',
+        en: 'Customer name in Paper Cutting & Print Calculation can be typed freely OR picked from the list',
+      },
+      {
+        id: 'Tombol Tambah Cust di atas field customer — popup lengkap (telepon, alamat, dll), customer baru langsung terpilih',
+        en: 'Add Cust button above the customer field — full popup (phone, address, etc.), new customer auto-selected',
+      },
+      {
+        id: 'Margin kiri-kanan desktop 3mm di semua halaman agar area kerja lebih lebar',
+        en: '3mm left-right desktop margin on all pages for a wider workspace',
+      },
+      {
+        id: 'Update aplikasi kini otomatis aktif (maks 1 menit) tanpa perlu tutup-buka PWA',
+        en: 'App updates now activate automatically (max 1 minute) without closing/reopening the PWA',
+      },
+    ],
+  },
   {
     version: '2026-06-07-v2',
     date: { id: '7 Juni 2026', en: '7 June 2026' },

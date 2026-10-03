@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { scheduleOfflineWarmup } from '@/lib/offline-warmup'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-09-28-v60'
+const APP_VERSION = '2026-10-03-v61'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -81,11 +81,20 @@ export function ServiceWorkerRegistration() {
 
     // Register service worker (only after version check passes)
     if ('serviceWorker' in navigator) {
-      // CATATAN: TIDAK ADA auto-reload saat SW baru mengambil alih
-      // (controllerchange). Reload paksa saat user sedang memakai aplikasi
-      // adalah keluhan utama "aplikasi suka di refresh". SW baru (skipWaiting)
-      // aktif di latar belakang; kode baru dipakai pada buka berikutnya.
-      // Data TETAP fresh karena semua GET API network-first di sw.js.
+      // AUTO-RELOAD SEKALI PER DEPLOY saat SW baru (skipWaiting) mengambil alih
+      // (controllerchange). TANPA ini, PWA yang di-resume dari memori (bukan
+      // ditutup penuh) bisa berhari-hari menjalankan KODE LAMA padahal deploy
+      // selesai — penyebab keluhan "perubahan tidak muncul / field masih versi
+      // lama". Guard sessionStorage: maksimal 1x reload per versi per sesi →
+      // tidak ada loop reload, tidak mengganggu (draft form tersimpan di
+      // localStorage sehingga data tidak hilang).
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        try {
+          if (sessionStorage.getItem('sw_ctrl_' + APP_VERSION) === '1') return
+          sessionStorage.setItem('sw_ctrl_' + APP_VERSION, '1')
+          window.location.reload()
+        } catch (e) { /* sessionStorage tidak tersedia — jangan reload */ }
+      })
       const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
