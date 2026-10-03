@@ -11659,3 +11659,22 @@ Work Log:
 
 Stage Summary:
 - Halaman Potong Kertas: memilih suplier (mis. Bintang Timur) kini membuat dropdown Nama Bahan Kertas HANYA memuat kertas milik suplier tersebut; pilihan kertas yang bukan miliknya otomatis dikosongkan; harga tetap mengikuti Master Harga Kertas per suplier; petunjuk jelas bila suplier belum punya kertas.
+---
+Task ID: pk-bahan-filter-suplier-ketat (rilis produksi)
+Agent: Main (Z.ai Code)
+Task: Deploy produksi filter ketat bahan-per-suplier + verifikasi E2E produksi + cleanup.
+
+Work Log:
+- Deploy: darrellsoft-eso7c8i6l → https://www.darrellsoft.com/sw.js terverifikasi berisi darrell-soft-v128.
+- Dialog "Versi Baru!" produksi menampilkan changelog 2026-10-03-v3 "Dropdown Bahan Hanya Milik Suplier Terpilih" ✓
+- VERIFIKASI PRODUKSI (login admin/268899 → /potong-kertas):
+  - Data produksi riil: 0 suplier, 10 papers semua kolom Suplier kosong → sesuai kondisi itu, bila suplier dipilih dropdown memang kosong + petunjuk mengisi kolom Suplier.
+  - E2E dgn data uji TRANSIENT: buat suplier "Bintang Timur" + paper "Uji hapus - kertas BT" (65×100, 200gsm, Rp750.000/rim, suplier Bintang Timur).
+  - Pilih suplier Bintang Timur → dropdown Nama Bahan Kertas HANYA memuat "Uji hapus - kertas BT (65×100, 200gsm · Bintang Timur)" + Custom; 10 kertas lain (Art paper BT, Duplex buana, art karton buana, dst.) TERSEMBUNYI ✓
+  - Dipilih → harga/lembar OTOMATIS 1500 (750.000/500), harga/kg 11.538,46, gramatur 200 + hint emerald "Harga mengikuti Master Harga Kertas · Bintang Timur (Rp 750.000/rim)" ✓ (screenshot .verify/prod-pk-suplier-filter-bt.png)
+  - CLEANUP: DELETE paper uji (200) + DELETE suplier uji (200) → papers kembali 10, supliers 0, 0 data uji tersisa.
+- Git: cdd4760 (fitur) + d908afb (worklog) terpush; commit akhir worklog rilis menyusul.
+
+Stage Summary:
+- www.darrellsoft.com live dgn filter ketat: dropdown Nama Bahan Kertas di Potong Kertas hanya memuat kertas milik suplier terpilih; harga otomatis mengikuti Master Harga Kertas per suplier; petunjuk tampil bila suplier belum punya kertas.
+- CATATAN USER: agar fitur aktif untuk data asli, isi (1) Master Suplier → tambah "Bintang Timur" dll, (2) Master Harga Kertas → isi kolom Suplier pada kertas milik tiap suplier.
