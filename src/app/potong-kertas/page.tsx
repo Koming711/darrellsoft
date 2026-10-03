@@ -450,28 +450,11 @@ function CalculatorPage() {
 
   const selectedPaper = papers.find(p => p.id === selectedPaperId)
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
+  const selectedCustomerName = selectedCustomer?.name || ''
 
-  // Customer combobox state
-  const [customerInput, setCustomerInput] = useState(() => {
-    if (typeof window === 'undefined') return ''
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY()) || '{}')
-      const cid = saved.selectedCustomerId
-      if (cid) {
-        const c = customers.find(p => p.id === cid)
-        return c?.name || ''
-      }
-    } catch {}
-    return ''
-  })
-  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
-  const [customerTyping, setCustomerTyping] = useState(false)
+  // Customer DROPDOWN-ONLY (permintaan user): pilih dari Master Customer, tidak bisa diketik.
   // Popup "Tambah Cust" — dialog sama persis dengan Master Customer / Buat Invoice
   const [addCustOpen, setAddCustOpen] = useState(false)
-  const customerInputRef = useRef<HTMLInputElement>(null)
-  const customerDropdownRef = useRef<HTMLDivElement>(null)
-  const customerWrapperRef = useRef<HTMLDivElement>(null)
-  const [isSavingCustomer, setIsSavingCustomer] = useState(false)
 
   // Mark needsRecalc when any form field changes (after initial calculation or restore)
   useEffect(() => {
@@ -482,130 +465,19 @@ function CalculatorPage() {
     if (results) {
       setNeedsRecalc(true)
     }
-  }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, customerInput])
-
-  const filteredCustomersList = customerTyping
-    ? customers.filter(c => c.name.toLowerCase().includes(customerInput.toLowerCase()))
-    : customers
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (customerWrapperRef.current && !customerWrapperRef.current.contains(e.target as Node)) {
-        setCustomerDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  // Sync customerInput when customers load or restore
-  useEffect(() => {
-    if (selectedCustomerId) {
-      const c = customers.find(cu => cu.id === selectedCustomerId)
-      if (c) setCustomerInput(c.name)
-    }
-  }, [customers])
+  }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, selectedCustomerName])
 
   const handleCustomerSelect = (customer: any) => {
     setSelectedCustomerId(customer.id)
-    setCustomerInput(customer.name)
-    setCustomerTyping(false)
-    setCustomerDropdownOpen(false)
   }
 
-  const handleCustomerInputChange = (value: string) => {
-    setCustomerInput(value)
-    setCustomerTyping(true)
-    // If user clears input, deselect
-    if (!value.trim()) {
-      setSelectedCustomerId('')
-    } else {
-      // If matches an existing customer exactly, select it
-      const exactMatch = customers.find(c => c.name.toLowerCase() === value.trim().toLowerCase())
-      if (exactMatch) {
-        setSelectedCustomerId(exactMatch.id)
-      } else {
-        setSelectedCustomerId('')
-      }
-    }
-    setCustomerDropdownOpen(true)
-  }
-
-  const handleCustomerInputFocus = () => {
-    setCustomerTyping(false)
-    setCustomerDropdownOpen(true)
-  }
-
-  const handleCustomerInputBlur = () => {
-    setTimeout(() => {
-      setCustomerDropdownOpen(false)
-      // Auto-save new customer if not empty and not matching existing
-      const trimmed = customerInput.trim()
-      if (!trimmed) return
-      const match = customers.find(c => c.name.toLowerCase() === trimmed.toLowerCase())
-      if (match) {
-        setSelectedCustomerId(match.id)
-        setCustomerInput(match.name)
-        return
-      }
-      // No match - save new customer
-      if (isSavingCustomer) return
-      saveNewCustomer(trimmed)
-    }, 200)
-  }
-
-  const saveNewCustomer = async (name: string) => {
-    setIsSavingCustomer(true)
-    try {
-      const res = await fetcher('/api/customers', {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), companyName: '', address: '', phone: '', email: '' })
-      })
-      if (res.ok) {
-        const newCustomer = await res.json()
-        setCustomers(prev => [newCustomer, ...prev])
-        setSelectedCustomerId(newCustomer.id)
-        setCustomerInput(newCustomer.name)
-        toast.success(`Customer "${name}" berhasil ditambahkan!`)
-        notifyDataChange('customers')
-      } else {
-        const errData = await res.json().catch(() => null)
-        console.error('Save customer error:', res.status, errData)
-        toast.error(errData?.error || `Gagal menambahkan customer baru (${res.status})`)
-      }
-    } catch (err) {
-      console.error('Save customer exception:', err)
-      toast.error('Gagal menambahkan customer baru')
-    }
-    setIsSavingCustomer(false)
-  }
-
-  const handleAddNewCustomerClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    const trimmed = customerInput.trim()
-    if (!trimmed) return
-    const match = customers.find(c => c.name.toLowerCase() === trimmed.toLowerCase())
-    if (match) {
-      setSelectedCustomerId(match.id)
-      setCustomerInput(match.name)
-      setCustomerDropdownOpen(false)
-      return
-    }
-    setCustomerDropdownOpen(false)
-    saveNewCustomer(trimmed)
-  }
-
-  // Sukses simpan dari popup "Tambah Cust" → auto-pilih customer baru di form
+  // Sukses simpan dari popup "Tambah Cust" → auto-pilih customer baru di dropdown
   const handleCustomerFormSaved = (saved: { id: string; name: string } | null) => {
     if (!saved) {
       fetchCustomersData()
       return
     }
     setSelectedCustomerId(saved.id)
-    setCustomerInput(saved.name)
-    setCustomerTyping(false)
     fetchCustomersData()
   }
 
@@ -1684,70 +1556,23 @@ function CalculatorPage() {
                       <UserPlus className="w-3 h-3" /> Tambah Cust
                     </button>
                   </div>
-                  <div ref={customerWrapperRef} className="relative">
-                    <input
-                      ref={customerInputRef}
-                      type="text"
-                      placeholder={t('pilih_customer') + ' / ketik nama baru...'}
-                      value={customerInput}
-                      onChange={(e) => handleCustomerInputChange(e.target.value)}
-                      onFocus={handleCustomerInputFocus}
-                      onBlur={handleCustomerInputBlur}
-                      className={inp + ' pr-9' + (isSavingCustomer ? ' opacity-60' : '')}
-                    />
-                    {/* Dropdown chevron icon - clickable */}
-                    {!isSavingCustomer && (
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        onMouseDown={(e) => { e.preventDefault(); setCustomerTyping(false); setCustomerDropdownOpen(!customerDropdownOpen); }}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </button>
-                    )}
-                    {isSavingCustomer && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                      </div>
-                    )}
-                    {/* Dropdown list */}
-                    {customerDropdownOpen && (
-                      <div ref={customerDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {/* Existing customers */}
-                        {filteredCustomersList.length > 0 && (
-                          <div>
-                            <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100">Master Customer</div>
-                            {filteredCustomersList.map((c) => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onMouseDown={(e) => { e.preventDefault(); handleCustomerSelect(c) }}
-                                className={`w-full text-left px-3 py-2 text-sm transition-colors truncate ${selectedCustomerId === c.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
-                              >
-                                {c.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {/* Add new customer option */}
-                        {customerInput.trim() && !customers.find(c => c.name.toLowerCase() === customerInput.trim().toLowerCase()) && (
-                          <button
-                            type="button"
-                            onMouseDown={handleAddNewCustomerClick}
-                            className="w-full text-left px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors border-t border-slate-100 flex items-center gap-2"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            Tambah "<span className="truncate max-w-[140px]">{customerInput.trim()}</span>" sebagai customer baru
-                          </button>
-                        )}
-                        {/* No results */}
-                        {filteredCustomersList.length === 0 && !customerInput.trim() && (
-                          <div className="px-3 py-3 text-sm text-slate-400 text-center">Tidak ada customer</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <Select value={selectedCustomerId} onValueChange={(id) => setSelectedCustomerId(id)}>
+                    <SelectTrigger className="w-full h-9 text-sm">
+                      <SelectValue placeholder={t('pilih_customer')}>
+                        {selectedCustomer?.name || t('pilih_customer')}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {customers.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-slate-400 text-center">Tidak ada customer — pakai Tambah Cust</div>
+                      )}
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="text-[14px]">{c.name}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className={lbl}>{t('nama_cetakan')}</label>
@@ -1913,7 +1738,7 @@ function CalculatorPage() {
                 <span className="hidden xl:inline">WhatsApp</span>
                 <span className="xl:hidden">WA</span>
               </button>
-              <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !customerInput}
+              <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !selectedCustomerId}
                 className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
                 <RotateCcw className="w-3 h-3" />
                 <span className="hidden xl:inline">{t('reset')}</span>

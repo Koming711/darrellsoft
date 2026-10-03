@@ -23,6 +23,7 @@ import {
   Printer,
   Image as ImageIcon,
   Maximize2,
+  PackageCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -92,9 +93,11 @@ function parseDocInfo(entry: HistoryEntry) {
     const totalHarga = subtotal + (subtotal * ppn / 100)
     const referensi = parsed.referensi || ''
     const tanggalJatuhTempo = parsed.tanggalJatuhTempo || ''
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, referensi, tanggalJatuhTempo }
+    const diterima = parsed.diterima === true
+    const tanggalTerima = parsed.tanggalTerima || ''
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, referensi, tanggalJatuhTempo, diterima, tanggalTerima }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '', tanggalJatuhTempo: '' }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, referensi: '', tanggalJatuhTempo: '', diterima: false, tanggalTerima: '' }
   }
 }
 
@@ -230,6 +233,36 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
       toast.error('Gagal menghapus purchase order')
     }
     setDeleteConfirmId(null)
+  }
+
+  // ===== TERIMA BARANG (permintaan user): pembelian via PO otomatis masuk
+  // Stock Bahan — item PO ditambahkan ke Bahan (baru/naik stok) + mutasi 'masuk'.
+  const [receivingId, setReceivingId] = useState<string | null>(null)
+  const handleReceive = async (id: string, nomor: string) => {
+    setReceivingId(id)
+    try {
+      const res = await fetcher('/api/purchase-order/receive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ historyId: id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success) {
+        const baru = json.createdCount || 0
+        const naik = json.updatedCount || 0
+        toast.success(`PO ${json.nomor || nomor} diterima — stok bahan bertambah`, {
+          description: `${baru} bahan baru + ${naik} bahan bertambah stok. Cek halaman Stock Bahan.`,
+        })
+        notifyDataChange('purchase-order')
+        fetchHistory()
+      } else {
+        toast.error(json?.error || 'Gagal menerima purchase order')
+      }
+    } catch {
+      toast.error('Gagal menerima purchase order')
+    } finally {
+      setReceivingId(null)
+    }
   }
 
   const handleBackup = async () => {
@@ -472,7 +505,16 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
                           <TableCell className="text-right tabular-nums text-muted-foreground hidden lg:table-cell">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '-'}</TableCell>
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{info.totalHarga > 0 ? formatRupiah(info.totalHarga) : '-'}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-center gap-1">
+                            <div className="flex justify-center items-center gap-1">
+                              {info.diterima ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700" title={info.tanggalTerima ? `Diterima ${formatTanggal(info.tanggalTerima)}` : 'Barang diterima'}>
+                                  <PackageCheck className="h-3 w-3" /> Diterima
+                                </span>
+                              ) : (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => void handleReceive(entry.id, entry.nomor)} disabled={receivingId === entry.id} aria-label={`Terima barang ${entry.nomor}`} title="Terima barang — stok bahan otomatis bertambah">
+                                  {receivingId === entry.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+                                </Button>
+                              )}
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
@@ -510,6 +552,15 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
                         <p className="text-muted-foreground">Qty: <span className="font-medium text-stone-700">{info.totalQty > 0 ? info.totalQty.toLocaleString('id-ID') : '—'}</span></p>
                       </div>
                       <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                        {info.diterima ? (
+                          <span className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs font-semibold text-emerald-700">
+                            <PackageCheck className="h-3.5 w-3.5" /> Diterima{info.tanggalTerima ? ` · ${formatTanggalShort(info.tanggalTerima)}` : ''}
+                          </span>
+                        ) : (
+                          <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300" onClick={() => void handleReceive(entry.id, entry.nomor)} disabled={receivingId === entry.id}>
+                            {receivingId === entry.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PackageCheck className="h-3.5 w-3.5" />} Terima
+                          </Button>
+                        )}
                         <Button variant="outline" className="flex-1 min-h-[36px] h-8 px-2 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)}>
                           <Trash2 className="h-3.5 w-3.5" /> Hapus
                         </Button>
@@ -593,6 +644,34 @@ function DetailPurchaseOrderView({ id, onBack, onEdit }: { id: string; onBack: (
 
   const data = useMemo(() => (entry ? parsePurchaseOrderData(entry) : null), [entry])
   const info = useMemo(() => (entry ? parseDocInfo(entry) : null), [entry])
+  const [receiving, setReceiving] = useState(false)
+
+  // Terima barang dari detail — item PO otomatis masuk Stock Bahan
+  const handleReceiveDetail = async () => {
+    if (!entry) return
+    setReceiving(true)
+    try {
+      const res = await fetcher('/api/purchase-order/receive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ historyId: entry.id }),
+      })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.success) {
+        toast.success(`PO ${json.nomor || entry.nomor} diterima — stok bahan bertambah`, {
+          description: `${json.createdCount || 0} bahan baru + ${json.updatedCount || 0} bahan bertambah stok. Cek halaman Stock Bahan.`,
+        })
+        notifyDataChange('purchase-order')
+        await loadEntry()
+      } else {
+        toast.error(json?.error || 'Gagal menerima purchase order')
+      }
+    } catch {
+      toast.error('Gagal menerima purchase order')
+    } finally {
+      setReceiving(false)
+    }
+  }
 
   // Scale pratinjau A5 agar pas dengan container (desktop ~+20% dari ukuran
   // asli 148mm, mobile full-width). offsetWidth/Height tidak terpengaruh transform.
@@ -737,6 +816,15 @@ function DetailPurchaseOrderView({ id, onBack, onEdit }: { id: string; onBack: (
 
   const actionButtons = (
     <div className="flex flex-wrap gap-2 print:hidden">
+      {info?.diterima ? (
+        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 min-h-[36px]">
+          <PackageCheck className="h-4 w-4" /> Barang Diterima{info.tanggalTerima ? ` · ${formatTanggalShort(info.tanggalTerima)}` : ''}
+        </span>
+      ) : (
+        <Button size="sm" onClick={() => void handleReceiveDetail()} disabled={receiving} className="bg-emerald-600 hover:bg-emerald-700 min-h-[36px]">
+          {receiving ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Memproses...</> : <><PackageCheck className="mr-1.5 h-3.5 w-3.5" /> Terima Barang</>}
+        </Button>
+      )}
       <Button size="sm" onClick={handlePrint} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 min-h-[36px]">
         {isPrinting ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Cetak...</> : <><Printer className="mr-1.5 h-3.5 w-3.5" /> Cetak</>}
       </Button>
