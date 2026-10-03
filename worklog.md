@@ -11678,3 +11678,24 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com live dgn filter ketat: dropdown Nama Bahan Kertas di Potong Kertas hanya memuat kertas milik suplier terpilih; harga otomatis mengikuti Master Harga Kertas per suplier; petunjuk tampil bila suplier belum punya kertas.
 - CATATAN USER: agar fitur aktif untuk data asli, isi (1) Master Suplier → tambah "Bintang Timur" dll, (2) Master Harga Kertas → isi kolom Suplier pada kertas milik tiap suplier.
+---
+Task ID: menu-harga-per-customer + pk-hapus-keterangan + sample-po
+Agent: Main (Z.ai Code)
+Task: "di sidebar menu. menu master barang diganti jadi Harga per customer. hapus keterangan dibawah nama bahan kertas dihalaman potong kertas. buatlah sample purchase order sebanyak 3 buah dan pembelian bahannya masuk kedalam stock bahan."
+
+Work Log:
+- RENAME MENU: label sidebar datang dari i18n — src/lib/i18n.ts: master_barang 'Master Barang'→'Harga per Customer' (id) & 'Item Master'→'Price per Customer' (2 blok en). Varian short mobile sidebar: short_barang 'M.Barang'→'Hg/Cust'. Route /master-barang & halamannya TIDAK diubah (user hanya minta label menu).
+- PK PAGE: 3 paragraf keterangan di bawah dropdown Nama Bahan Kertas dihapus (amber "Bahan tidak ditemukan di master data", amber "Belum ada kertas milik suplier …", emerald "Harga mengikuti Master Harga Kertas …"). Pesan kosong DI DALAM dropdown ("Tidak ada kertas milik X …") dipertahankan agar suplier tanpa kertas tetap ada penjelasan saat dropdown dibuka. Verifikasi dev: block field kini 0 paragraf.
+- SAMPLE PO (PRODUKSI, dibuat via API — PO disimpan sbg DocumentHistory docType=purchase-order; receive endpoint /api/purchase-order/receive):
+  1. PO/10/26/0001 — Bintang Timur: Art Paper BT 260gsm 70×100 (10 rim @1.150.000) + Ivory BT 210gsm 70×100 (15 rim @780.000) → total hutang Rp 25.752.000 (PPN 11%)
+  2. PO/10/26/0002 — Buana: Art Karton Buana 260gsm 79×109 (8 rim @1.394.000) + Duplex Buana 270gsm 79×109 (12 rim @950.000) → Rp 25.032.720
+  3. PO/10/26/0003 — Indojaya: Kraft PE 120gsm 88×119 (20 rim @465.000) + Cupstock 230gsm 79×109 (10 rim @1.050.000) → Rp 21.978.000
+  Semua: tanggal 2026-10-03, jatuh tempo 2026-10-17, lalu DI-TERIMA (receive) → 6 bahan baru BHN-001…BHN-006 (kategori Kertas, stok sesuai qty rim, hargaSatuan sesuai PO) + mutasi 'masuk' ber-keterangan "PO …— <pemasok>"; dataJson PO = diterima:true + tanggalTerima + stokMasuk.
+  VERIFIKASI API produksi: /api/stock-bahan = 6 bahan ✓; /api/history?docType=purchase-order = 3 PO semua diterima:true ✓ → otomatis jadi Hutang Dagang total Rp 72.762.720.
+- Bump rilis: SW v128→v129, APP_VERSION v63→v64, changelog CURRENT_VERSION 2026-10-03-v4 "Menu Baru & Tampilan Lebih Bersih" (3 poin termasuk info sample PO). Lint 4 file: bersih.
+- E2E dev (admin/268899): sidebar /master-barang tampil "Harga per Customer" + "Hg/Cust" (screenshot .verify/dev-sidebar-harga-per-cust.png); dialog "Versi Baru!" v4 tampil ✓. Commit e5c98b0, push origin/main. Deploy produksi menyusul; sample PO TIDAK dihapus (data sengaja dibuat utk user).
+
+Stage Summary:
+- Sidebar: "Master Barang" kini bernama "Harga per Customer" (mobile: "Hg/Cust").
+- Halaman Potong Kertas: tidak ada keterangan lagi di bawah Nama Bahan Kertas.
+- Produksi berisi 3 sample PO (semua diterima) dengan barangnya otomatis masuk Stock Bahan (6 bahan) + tercatat sbg Hutang Dagang.
