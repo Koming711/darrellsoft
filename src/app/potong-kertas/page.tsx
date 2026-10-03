@@ -101,6 +101,7 @@ interface FormData {
   printName: string
   isCustomPaper: boolean
   optimizationMode: string
+  namaSuplier: string
 }
 
 function emptyFormData(): FormData {
@@ -108,6 +109,7 @@ function emptyFormData(): FormData {
     paperWidth: '', paperHeight: '', cutWidth: '', cutHeight: '',
     selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '', pricePerKg: '',
     quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
+    namaSuplier: '',
   }
 }
 
@@ -154,6 +156,9 @@ const inpDisabled = "w-full border border-slate-200 rounded-md px-2.5 py-1.5 tex
 const lbl = "text-xs font-medium text-slate-600 mb-0.5 block"
 // Harga per pcs: tampilkan 2 desimal bila < Rp1.000 (kertas murah bisa < Rp1/pcs)
 const fmtHargaPcs = (n: number) => `Rp ${n.toLocaleString('id-ID', { maximumFractionDigits: n > 0 && n < 1000 ? 2 : 0 })}`
+
+// Normalisasi nama suplier utk pencocokan (case-insensitive, trim)
+const normSup = (s?: string | null) => (s || '').trim().toLowerCase()
 
 /** Format ukuran "W × H cm"; '-' jika keduanya kosong. */
 function fmtUkuran(w?: string | number | null, h?: string | number | null): string {
@@ -233,6 +238,9 @@ function CalculatorPage() {
   }, [computedQuantity])
   const [setelanKertas, setSetelanKertas] = useState(initialForm.current.setelanKertas)
   const [printName, setPrintName] = useState(initialForm.current.printName)
+  // Nama Suplier utk harga bahan (permintaan user) — pilih dari Master Toko Pemasok
+  const [namaSuplier, setNamaSuplier] = useState(initialForm.current.namaSuplier || '')
+  const [supliers, setSupliers] = useState<any[]>([])
   const [isCustomPaper, setIsCustomPaper] = useState(initialForm.current.isCustomPaper)
   const [restoredPaperName, setRestoredPaperName] = useState<string | null>(null)
   const [results, setResults] = useState<CuttingResult | null>(() => {
@@ -364,6 +372,7 @@ function CalculatorPage() {
     paperWidth, paperHeight, cutWidth, cutHeight,
     selectedCustomerId, selectedPaperId, grammage, pricePerSheet, pricePerKg,
     quantity, jumlahPesanan, berapaMata, setelanKertas, printName, isCustomPaper, optimizationMode,
+    namaSuplier,
   }
 
   useEffect(() => {
@@ -391,6 +400,13 @@ function CalculatorPage() {
       .catch(() => setCustomers([]))
   }
 
+  const fetchSupliersData = () => {
+    authFetch('/api/toko-pemasok')
+      .then(res => { if (!res.ok) return []; return res.json() })
+      .then(data => { if (Array.isArray(data)) setSupliers(data); else setSupliers([]) })
+      .catch(() => setSupliers([]))
+  }
+
   const fetchNextNumber = () => {
     authFetch('/api/riwayat-potong-kertas?preview=next-number')
       .then(res => { if (!res.ok) return null; return res.json() })
@@ -403,6 +419,7 @@ function CalculatorPage() {
     fetchPapersData()
     fetchRiwayat()
     fetchNextNumber()
+    fetchSupliersData()
   }, [])
 
   useDataChange(['papers', 'customers', 'finishings', 'settings'], (entity) => {
@@ -451,6 +468,33 @@ function CalculatorPage() {
   const selectedPaper = papers.find(p => p.id === selectedPaperId)
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
   const selectedCustomerName = selectedCustomer?.name || ''
+
+  // Opsi dropdown bahan kertas: bila suplier dipilih, kertas milik suplier tsb (dari Master
+  // Harga Kertas) diurutkan paling atas supaya harga suplier langsung terlihat & mudah dipilih.
+  const paperOptions = useMemo(() => {
+    if (!namaSuplier) return papers
+    const ns = normSup(namaSuplier)
+    const match: Paper[] = []
+    const rest: Paper[] = []
+    papers.forEach(p => (normSup(p.suplier) === ns ? match : rest).push(p))
+    return [...match, ...rest]
+  }, [papers, namaSuplier])
+
+  // Harga mengikuti suplier (mis. "Bintang Timur"): bila suplier dipilih dan bahan terpilih
+  // punya entri dgn suplier tsb di Master Harga Kertas, otomatis pakai entri tersebut sehingga
+  // harga/lembar, harga/kg, gramatur & ukuran mengikuti harga suplier di master.
+  useEffect(() => {
+    if (isRestoringRef.current) return
+    if (!namaSuplier || isCustomPaper || !selectedPaper) return
+    if (normSup(selectedPaper.suplier) === normSup(namaSuplier)) return // sudah harga suplier ini
+    const variant = papers.find(p =>
+      normSup(p.suplier) === normSup(namaSuplier) &&
+      p.name.trim().toLowerCase() === selectedPaper.name.trim().toLowerCase())
+    if (variant) {
+      setSelectedPaperId(variant.id) // effect selectedPaper → harga/gramatur/ukuran terisi dr master
+      toast.success(`Harga ${selectedPaper.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+    }
+  }, [namaSuplier, papers, selectedPaper, isCustomPaper])
 
   // Customer DROPDOWN-ONLY (permintaan user): pilih dari Master Customer, tidak bisa diketik.
   // Popup "Tambah Cust" — dialog sama persis dengan Master Customer / Buat Invoice
@@ -677,7 +721,7 @@ function CalculatorPage() {
     setRestoredPaperName(null)
     setResults(null)
     setOptimizationMode('maximal')
-    setCustomerInput('')
+    setNamaSuplier('')
     setRestoredRiwayatId(null)
     setNeedsRecalc(false)
     restoreDoneRef.current = false
@@ -781,6 +825,7 @@ function CalculatorPage() {
     strategy: results?.strategy || '',
     jumlahPesanan: jumlahPesanan || '',
     berapaMata: berapaMata || '',
+    namaSuplier: namaSuplier || '',
     photoUrl,
   })
 
@@ -1042,16 +1087,15 @@ function CalculatorPage() {
       const match = customers.find(c => c.name === r.namaCustomer)
       if (match) {
         setSelectedCustomerId(match.id)
-        setCustomerInput(match.name)
         restoredCustomer = match
       } else {
         setSelectedCustomerId('')
-        setCustomerInput(r.namaCustomer)
       }
     } else {
       setSelectedCustomerId('')
-      setCustomerInput('')
     }
+    // Suplier ikut direstore dari riwayat (field baru)
+    setNamaSuplier(r.namaSuplier || '')
 
     // Auto-calculate cuts with restored values
     const pw = parseFloat(r.paperWidth)
@@ -1579,6 +1623,30 @@ function CalculatorPage() {
                   <input type="text" placeholder="Nama cetakan" value={printName} onChange={(e) => setPrintName(e.target.value)} className={inp} />
                 </div>
               </div>
+              {/* Nama Suplier di ATAS nama bahan kertas (permintaan user) — dropdown dari Master Toko Pemasok.
+                  Suplier menentukan sumber harga: bila suplier (mis. Bintang Timur) dipilih, harga bahan
+                  mengikuti entri suplier tsb di Master Harga Kertas. */}
+              <div>
+                <label className={lbl}>Nama Suplier</label>
+                <Select value={namaSuplier || 'none'} onValueChange={(v) => setNamaSuplier(v === 'none' ? '' : v)}>
+                  <SelectTrigger className="w-full h-9 text-sm">
+                    <SelectValue placeholder="Pilih suplier (opsional)">
+                      {namaSuplier || 'Pilih suplier (opsional)'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    <SelectItem value="none"><span className="text-[14px] text-slate-400">— Tanpa suplier —</span></SelectItem>
+                    {supliers.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400 text-center">Belum ada suplier — isi di Master Toko Pemasok</div>
+                    )}
+                    {supliers.map((s) => (
+                      <SelectItem key={s.id} value={s.namaToko}>
+                        <span className="text-[14px]">{s.namaToko}{s.jenisBarang ? ` · ${s.jenisBarang}` : ''}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <label className={lbl}>{t('nama_bahan_kertas')}</label>
                 <Select value={selectedPaperId} onValueChange={handlePaperChange}>
@@ -1599,13 +1667,19 @@ function CalculatorPage() {
                         <span className="text-[14px]">{t('custom_input_manual')}</span>
                       </div>
                     </SelectItem>
-                    {papers.map((p) => (<SelectItem key={p.id} value={p.id}><span className="text-[14px]">{p.name} ({p.width}×{p.height}, {p.grammage}gsm)</span></SelectItem>))}
+                    {paperOptions.map((p) => (<SelectItem key={p.id} value={p.id}><span className="text-[14px]">{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</span></SelectItem>))}
                   </SelectContent>
                 </Select>
                 {isCustomPaper && restoredPaperName && (
                   <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Bahan tidak ditemukan di master data
+                  </p>
+                )}
+                {namaSuplier && selectedPaper && normSup(selectedPaper.suplier) === normSup(namaSuplier) && (
+                  <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 shrink-0" />
+                    Harga mengikuti Master Harga Kertas · {selectedPaper.suplier} ({fmtRp(selectedPaper.pricePerRim)}/rim)
                   </p>
                 )}
               </div>

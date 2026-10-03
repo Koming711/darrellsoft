@@ -16,6 +16,7 @@ export interface Paper {
   width: number
   height: number
   pricePerRim: number
+  suplier?: string | null
   createdAt: string
   updatedAt: string
 }
