@@ -264,7 +264,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Master Barang</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Harga per Customer</h1>
           <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">

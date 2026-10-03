@@ -47,7 +47,7 @@ export default function MasterBarangPage() {
   }, [])
 
   return (
-    <DashboardLayout title="Master Barang" subtitle="Kelola daftar barang">
+    <DashboardLayout title="Harga per Customer" subtitle="Kelola harga barang per customer">
       {user ? (
         <ItemsView user={user} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
       ) : (

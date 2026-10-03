@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v4'
+export const CURRENT_VERSION = '2026-10-03-v5'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v5',
+    date: { id: '3 Oktober 2026', en: '3 October 2026' },
+    title: {
+      id: 'Perbaikan Nama Halaman & Data Contoh',
+      en: 'Page Name Fix & Sample Data',
+    },
+    items: [
+      {
+        id: 'Halaman "Harga per Customer": judul di dalam halaman kini ikut berubah dari "Master Barang"',
+        en: '"Price per Customer" page: in-page heading now changed from "Item Master" as well',
+      },
+      {
+        id: 'Sample Purchase Order kini tersedia juga untuk akun Superadmin (3 PO, barang otomatis masuk Stock Bahan)',
+        en: 'Sample Purchase Orders now available for the Superadmin account too (3 POs, items auto-added to Material Stock)',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v4',
     date: { id: '3 Oktober 2026', en: '3 October 2026' },
