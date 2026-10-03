@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v3'
+export const CURRENT_VERSION = '2026-10-03-v4'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v4',
+    date: { id: '3 Oktober 2026', en: '3 October 2026' },
+    title: {
+      id: 'Menu Baru & Tampilan Lebih Bersih',
+      en: 'New Menu & Cleaner Look',
+    },
+    items: [
+      {
+        id: 'Menu sidebar "Master Barang" diganti nama menjadi "Harga per Customer"',
+        en: 'Sidebar menu "Item Master" renamed to "Price per Customer"',
+      },
+      {
+        id: 'Keterangan di bawah field Nama Bahan Kertas di halaman Potong Kertas dihapus agar lebih bersih',
+        en: 'Notes below the Paper Material field on the Paper Cutting page removed for a cleaner look',
+      },
+      {
+        id: '3 Purchase Order contoh (Bintang Timur, Buana, Indojaya) sudah dibuat — barangnya otomatis masuk Stock Bahan (BHN-001 s/d BHN-006)',
+        en: '3 sample Purchase Orders (Bintang Timur, Buana, Indojaya) created — items auto-added to Material Stock (BHN-001 to BHN-006)',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v3',
     date: { id: '3 Oktober 2026', en: '3 October 2026' },

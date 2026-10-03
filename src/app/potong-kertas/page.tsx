@@ -1675,24 +1675,6 @@ function CalculatorPage() {
                     {paperOptions.map((p) => (<SelectItem key={p.id} value={p.id}><span className="text-[14px]">{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</span></SelectItem>))}
                   </SelectContent>
                 </Select>
-                {isCustomPaper && restoredPaperName && (
-                  <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Bahan tidak ditemukan di master data
-                  </p>
-                )}
-                {namaSuplier && !isCustomPaper && paperOptions.length === 0 && (
-                  <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                    Belum ada kertas milik suplier {namaSuplier} — isi kolom Suplier di Master Harga Kertas
-                  </p>
-                )}
-                {namaSuplier && selectedPaper && normSup(selectedPaper.suplier) === normSup(namaSuplier) && (
-                  <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 shrink-0" />
-                    Harga mengikuti Master Harga Kertas · {selectedPaper.suplier} ({fmtRp(selectedPaper.pricePerRim)}/rim)
-                  </p>
-                )}
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
