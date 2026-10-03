@@ -2,18 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { recalcBahan, nextStkNumber, todayStr } from '@/lib/stock-bahan-server'
 
 /**
  * GET /api/stock-bahan — daftar semua bahan milik user yang login.
- * Diurutkan berdasarkan nama agar mudah dipindai.
+ * Query opsional: q (nama/kode), kategori, aktif ('true'/'false')
  */
 export async function GET(request: NextRequest) {
   try {
     const user = getServerUser(request)
-    const bahan = await db.bahan.findMany({
+    const sp = request.nextUrl.searchParams
+    const q = (sp.get('q') || '').trim().toLowerCase()
+    const kategori = (sp.get('kategori') || '').trim()
+    const aktif = sp.get('aktif')
+
+    const rows = await db.bahan.findMany({
       where: await getDataFilter(user),
       orderBy: { nama: 'asc' },
     })
+
+    let bahan = rows
+    if (q) {
+      bahan = bahan.filter(
+        (b) => b.nama.toLowerCase().includes(q) || b.kode.toLowerCase().includes(q)
+      )
+    }
+    if (kategori) bahan = bahan.filter((b) => b.kategori === kategori)
+    if (aktif === 'true') bahan = bahan.filter((b) => b.aktif)
+    if (aktif === 'false') bahan = bahan.filter((b) => !b.aktif)
+
     return NextResponse.json(bahan, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     })
@@ -28,10 +45,10 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/stock-bahan — tambah bahan baru.
- * Body: { nama, kategori?, satuan?, stok?, stokMin?, hargaSatuan?, keterangan? }
- * - Kode auto-generate: BHN-001, BHN-002, ... (per user).
- * - Jika stok awal > 0, dibuat mutasi 'masuk' dengan keterangan "Stok awal"
- *   agar riwayat mutasi konsisten.
+ * Body: { nama, kategori?, satuan?, stokMin?, hargaSatuan?, suplierId?, suplierNama?,
+ *         lokasi?, aktif?, keterangan?, stokAwal? }
+ * - Kode auto: BHN-001, BHN-002, ... (per user).
+ * - stokAwal > 0 → dibuat transaksi Stok Masuk "Stok awal" agar saldo terlacak.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -39,22 +56,22 @@ export async function POST(request: NextRequest) {
     if (authErr) return authErr
     const user = getServerUser(request)!
     const body = await request.json()
-    const { nama, kategori, satuan, stok, stokMin, hargaSatuan, keterangan } = body
+    const { nama, kategori, satuan, stokMin, hargaSatuan, suplierId, suplierNama, lokasi, aktif, keterangan, stokAwal } = body
 
     if (!nama || String(nama).trim() === '') {
       return NextResponse.json({ error: 'Nama bahan wajib diisi' }, { status: 400 })
     }
+    if (!satuan || String(satuan).trim() === '') {
+      return NextResponse.json({ error: 'Satuan wajib diisi' }, { status: 400 })
+    }
 
     const userId = user?.id || null
-    const stokNum = Math.max(0, Number(stok) || 0)
     const stokMinNum = Math.max(0, Number(stokMin) || 0)
     const hargaNum = Math.max(0, Number(hargaSatuan) || 0)
+    const stokAwalNum = Math.max(0, Number(stokAwal) || 0)
 
     // Kode berurutan per user: BHN-001, BHN-002, ...
-    const existing = await db.bahan.findMany({
-      where: { userId },
-      select: { kode: true },
-    })
+    const existing = await db.bahan.findMany({ where: { userId }, select: { kode: true } })
     let maxNum = 0
     for (const b of existing) {
       const m = /^BHN-(\d+)$/i.exec(b.kode)
@@ -67,30 +84,42 @@ export async function POST(request: NextRequest) {
         kode,
         nama: String(nama).trim(),
         kategori: kategori ? String(kategori).trim() : '',
-        satuan: satuan ? String(satuan).trim() : 'pcs',
-        stok: stokNum,
+        satuan: String(satuan).trim(),
+        stok: 0, // stok hanya berubah lewat transaksi
         stokMin: stokMinNum,
         hargaSatuan: hargaNum,
+        suplierId: suplierId ? String(suplierId) : null,
+        suplierNama: suplierNama ? String(suplierNama).trim() : '',
+        lokasi: lokasi ? String(lokasi).trim() : '',
+        aktif: aktif === undefined ? true : Boolean(aktif),
         keterangan: keterangan ? String(keterangan) : '',
         userId,
       },
     })
 
-    // Mutasi awal agar riwayat mencatat stok pertama
-    if (stokNum > 0) {
-      await db.bahanMutasi.create({
+    if (stokAwalNum > 0) {
+      const nomor = await nextStkNumber(userId)
+      await db.bahanMasuk.create({
         data: {
+          nomor,
+          tanggal: todayStr(),
           bahanId: created.id,
-          jenis: 'masuk',
-          qty: stokNum,
-          stokSetelah: stokNum,
-          keterangan: 'Stok awal',
+          bahanNama: created.nama,
+          satuan: created.satuan,
+          qty: stokAwalNum,
+          hargaBeli: hargaNum,
+          total: stokAwalNum * hargaNum,
+          suplierNama: created.suplierNama,
+          nomorNota: '',
+          catatan: 'Stok awal',
           userId,
         },
       })
+      await recalcBahan(created.id)
     }
 
-    return NextResponse.json(created, { status: 201 })
+    const fresh = await db.bahan.findUnique({ where: { id: created.id } })
+    return NextResponse.json(fresh, { status: 201 })
   } catch (error: any) {
     console.error('Error creating bahan:', error)
     return NextResponse.json(
@@ -101,10 +130,11 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PUT /api/stock-bahan — edit data bahan.
- * Body: { id, nama, kategori?, satuan?, stok?, stokMin?, hargaSatuan?, keterangan? }
- * - Jika `stok` berubah, dibuat mutasi 'penyesuaian' (qty = selisih, boleh negatif)
- *   agar perubahan manual tetap tercatat di riwayat.
+ * PUT /api/stock-bahan — edit data master bahan.
+ * Body: { id, nama?, kategori?, satuan?, stokMin?, hargaSatuan?, suplierId?, suplierNama?,
+ *         lokasi?, aktif?, keterangan? }
+ * - Stok TIDAK bisa diubah langsung di sini (wajib lewat Stok Masuk/Keluar/Penyesuaian).
+ * - Transaksi lama tidak terpengaruh (nama/satuan tersimpan snapshot di transaksi).
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -112,12 +142,12 @@ export async function PUT(request: NextRequest) {
     if (authErr) return authErr
     const user = getServerUser(request)!
     const body = await request.json()
-    const { id, nama, kategori, satuan, stok, stokMin, hargaSatuan, keterangan } = body
+    const { id, nama, kategori, satuan, stokMin, hargaSatuan, suplierId, suplierNama, lokasi, aktif, keterangan } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID bahan wajib diisi' }, { status: 400 })
     }
-    if (!nama || String(nama).trim() === '') {
+    if (nama !== undefined && (!nama || String(nama).trim() === '')) {
       return NextResponse.json({ error: 'Nama bahan wajib diisi' }, { status: 400 })
     }
 
@@ -126,34 +156,34 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
-    const stokNum = Math.max(0, Number(stok) || 0)
+    // Jika memilih suplier via ID, ambil nama terkini dari tabel Suplier
+    let suplierNamaFinal = existing.suplierNama
+    if (suplierId !== undefined) {
+      if (suplierId) {
+        const sup = await db.suplier.findUnique({ where: { id: String(suplierId) } })
+        suplierNamaFinal = sup ? sup.nama : existing.suplierNama
+      } else {
+        suplierNamaFinal = ''
+      }
+    } else if (suplierNama !== undefined) {
+      suplierNamaFinal = String(suplierNama).trim()
+    }
+
     const updated = await db.bahan.update({
       where: { id },
       data: {
-        nama: String(nama).trim(),
+        nama: nama !== undefined ? String(nama).trim() : existing.nama,
         kategori: kategori !== undefined ? String(kategori).trim() : existing.kategori,
         satuan: satuan !== undefined && String(satuan).trim() !== '' ? String(satuan).trim() : existing.satuan,
-        stok: stokNum,
         stokMin: stokMin !== undefined ? Math.max(0, Number(stokMin) || 0) : existing.stokMin,
         hargaSatuan: hargaSatuan !== undefined ? Math.max(0, Number(hargaSatuan) || 0) : existing.hargaSatuan,
+        suplierId: suplierId !== undefined ? (suplierId ? String(suplierId) : null) : existing.suplierId,
+        suplierNama: suplierNamaFinal,
+        lokasi: lokasi !== undefined ? String(lokasi).trim() : existing.lokasi,
+        aktif: aktif !== undefined ? Boolean(aktif) : existing.aktif,
         keterangan: keterangan !== undefined ? String(keterangan) : existing.keterangan,
       },
     })
-
-    // Stok diubah manual → catat sebagai penyesuaian
-    const delta = stokNum - existing.stok
-    if (delta !== 0) {
-      await db.bahanMutasi.create({
-        data: {
-          bahanId: id,
-          jenis: 'penyesuaian',
-          qty: delta,
-          stokSetelah: stokNum,
-          keterangan: 'Penyesuaian manual',
-          userId: user?.id || null,
-        },
-      })
-    }
 
     return NextResponse.json(updated)
   } catch (error: any) {
@@ -166,7 +196,9 @@ export async function PUT(request: NextRequest) {
 }
 
 /**
- * DELETE /api/stock-bahan?id=xxx — hapus bahan (mutasi ikut terhapus / cascade).
+ * DELETE /api/stock-bahan?id=xxx — hapus bahan.
+ * Jika bahan sudah punya transaksi (masuk/keluar/penyesuaian) → ditolak 409.
+ * Gunakan PUT { aktif: false } untuk menonaktifkan alih-alih menghapus.
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -182,6 +214,21 @@ export async function DELETE(request: NextRequest) {
     const existing = await db.bahan.findUnique({ where: { id } })
     if (!existing || !canAccessRecord(user, existing.userId)) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
+    }
+
+    const [cMasuk, cKeluar, cAdj] = await Promise.all([
+      db.bahanMasuk.count({ where: { bahanId: id } }),
+      db.bahanKeluar.count({ where: { bahanId: id } }),
+      db.bahanPenyesuaian.count({ where: { bahanId: id } }),
+    ])
+    if (cMasuk + cKeluar + cAdj > 0) {
+      return NextResponse.json(
+        {
+          error: `Bahan sudah dipakai dalam ${cMasuk + cKeluar + cAdj} transaksi. Gunakan "Nonaktifkan" alih-alih menghapus.`,
+          canDeactivate: true,
+        },
+        { status: 409 }
+      )
     }
 
     await db.bahan.delete({ where: { id } })
