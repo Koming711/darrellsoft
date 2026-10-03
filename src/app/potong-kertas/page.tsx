@@ -469,20 +469,19 @@ function CalculatorPage() {
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
   const selectedCustomerName = selectedCustomer?.name || ''
 
-  // Opsi dropdown bahan kertas: bila suplier dipilih, kertas milik suplier tsb (dari Master
-  // Harga Kertas) diurutkan paling atas supaya harga suplier langsung terlihat & mudah dipilih.
+  // Opsi dropdown bahan kertas: bila suplier dipilih (mis. "Bintang Timur"), HANYA kertas milik
+  // suplier tsb (dari Master Harga Kertas) yang tampil — permintaan user. Tanpa suplier → semua kertas.
   const paperOptions = useMemo(() => {
     if (!namaSuplier) return papers
     const ns = normSup(namaSuplier)
-    const match: Paper[] = []
-    const rest: Paper[] = []
-    papers.forEach(p => (normSup(p.suplier) === ns ? match : rest).push(p))
-    return [...match, ...rest]
+    return papers.filter(p => normSup(p.suplier) === ns)
   }, [papers, namaSuplier])
 
   // Harga mengikuti suplier (mis. "Bintang Timur"): bila suplier dipilih dan bahan terpilih
   // punya entri dgn suplier tsb di Master Harga Kertas, otomatis pakai entri tersebut sehingga
-  // harga/lembar, harga/kg, gramatur & ukuran mengikuti harga suplier di master.
+  // harga/lembar, harga/kg, gramatur & ukuran mengikuti harga suplier di master. Bila tidak ada
+  // varian milik suplier tsb, pilihan bahan dikosongkan karena dropdown hanya memuat kertas
+  // milik suplier tsb (kertas lama bukan miliknya).
   useEffect(() => {
     if (isRestoringRef.current) return
     if (!namaSuplier || isCustomPaper || !selectedPaper) return
@@ -493,6 +492,8 @@ function CalculatorPage() {
     if (variant) {
       setSelectedPaperId(variant.id) // effect selectedPaper → harga/gramatur/ukuran terisi dr master
       toast.success(`Harga ${selectedPaper.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+    } else {
+      setSelectedPaperId('') // kertas terpilih bukan milik suplier ini → pilih ulang dari daftar suplier
     }
   }, [namaSuplier, papers, selectedPaper, isCustomPaper])
 
@@ -1625,7 +1626,8 @@ function CalculatorPage() {
               </div>
               {/* Nama Suplier di ATAS nama bahan kertas (permintaan user) — dropdown dari Master Toko Pemasok.
                   Suplier menentukan sumber harga: bila suplier (mis. Bintang Timur) dipilih, harga bahan
-                  mengikuti entri suplier tsb di Master Harga Kertas. */}
+                  mengikuti entri suplier tsb di Master Harga Kertas, dan dropdown bahan HANYA memuat
+                  kertas milik suplier tsb. */}
               <div>
                 <label className={lbl}>Nama Suplier</label>
                 <Select value={namaSuplier || 'none'} onValueChange={(v) => setNamaSuplier(v === 'none' ? '' : v)}>
@@ -1667,6 +1669,9 @@ function CalculatorPage() {
                         <span className="text-[14px]">{t('custom_input_manual')}</span>
                       </div>
                     </SelectItem>
+                    {namaSuplier && paperOptions.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-slate-400 text-center">Tidak ada kertas milik {namaSuplier} — isi kolom Suplier di Master Harga Kertas</div>
+                    )}
                     {paperOptions.map((p) => (<SelectItem key={p.id} value={p.id}><span className="text-[14px]">{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</span></SelectItem>))}
                   </SelectContent>
                 </Select>
@@ -1674,6 +1679,12 @@ function CalculatorPage() {
                   <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Bahan tidak ditemukan di master data
+                  </p>
+                )}
+                {namaSuplier && !isCustomPaper && paperOptions.length === 0 && (
+                  <p className="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                    Belum ada kertas milik suplier {namaSuplier} — isi kolom Suplier di Master Harga Kertas
                   </p>
                 )}
                 {namaSuplier && selectedPaper && normSup(selectedPaper.suplier) === normSup(namaSuplier) && (
