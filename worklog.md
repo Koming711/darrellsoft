@@ -11699,3 +11699,21 @@ Stage Summary:
 - Sidebar: "Master Barang" kini bernama "Harga per Customer" (mobile: "Hg/Cust").
 - Halaman Potong Kertas: tidak ada keterangan lagi di bawah Nama Bahan Kertas.
 - Produksi berisi 3 sample PO (semua diterima) dengan barangnya otomatis masuk Stock Bahan (6 bahan) + tercatat sbg Hutang Dagang.
+---
+Task ID: menu-harga-per-customer + pk-hapus-keterangan + sample-po (rilis)
+Agent: Main (Z.ai Code)
+Task: Deploy produksi + verifikasi E2E produksi lengkap.
+
+Work Log:
+- Deploy: darrellsoft-mci7vqyht → https://www.darrellsoft.com/sw.js = darrell-soft-v129 ✓; dialog "Versi Baru!" produksi menampilkan changelog v4 "Menu Baru & Tampilan Lebih Bersih" ✓.
+- VERIFIKASI PRODUKSI (login admin/268899):
+  - Sidebar /master-barang: "Harga per Customer" (desktop) + "Hg/Cust" (mobile short) ✓
+  - /potong-kertas: 0 paragraf keterangan di bawah Nama Bahan Kertas ✓
+  - /purchase-order: PO/10/26/0001 (Bintang Timur), PO/10/26/0002 (Buana), PO/10/26/0003 (Indojaya) semua tampil + badge "Diterima" ✓ (screenshot .verify/prod-po-sample.png)
+  - /stock-bahan: 6 bahan BHN-001…BHN-006 lengkap (Art Paper BT 10 rim, Ivory BT 15 rim, Art Karton Buana 8 rim, Duplex Buana 12 rim, Kraft PE 20 rim, Cupstock 10 rim) ✓ (screenshot .verify/prod-stock-bahan-sample.png)
+  - Hutang Dagang (via perhitungan API): 3 PO diterima → total hutang Rp 72.762.720 (PPN 11%) ✓
+- Sample PO adalah data yang SENGAJA dipertahankan untuk user (bukan data uji).
+- Git: e5c98b0 + da5cc3b terpush; commit worklog rilis menyusul.
+
+Stage Summary:
+- www.darrellsoft.com live: menu "Harga per Customer", halaman Potong Kertas bersih tanpa keterangan bahan, dan 3 sample PO (semua diterima) dengan barangnya otomatis masuk Stock Bahan (BHN-001 s/d BHN-006) + tercatat sebagai Hutang Dagang.
