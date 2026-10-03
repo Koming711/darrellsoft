@@ -11717,3 +11717,18 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com live: menu "Harga per Customer", halaman Potong Kertas bersih tanpa keterangan bahan, dan 3 sample PO (semua diterima) dengan barangnya otomatis masuk Stock Bahan (BHN-001 s/d BHN-006) + tercatat sebagai Hutang Dagang.
+---
+Task ID: harga-per-customer-judul + sample-po-multi-akun
+Agent: Main (Z.ai Code)
+Task: "sample purchase order belum ada. di halaman harga per customer. ganti tulisan master barang dengan harga per customer. check and fix."
+
+Work Log:
+- INVESTIGASI "sample PO belum ada": data 3 sample PO (PO/10/26/0001-0003) + 6 bahan MASIH ADA di produksi, tapi milik userId 'user-admin' (akun username 'admin'). Produksi punya 3 akun: admin (user-admin, 10 papers, ada sample-nya), superadmin (user-superadmin, 7 papers, 0 PO), aming (cmptzbbqj…, role user, 33 papers, 0 PO). Isolasi data KETAT per-user (getDataFilter → {userId: user.id}; login menghasilkan userId = id Pengguna). superadmin/268899 terverifikasi bisa login → user kemungkinan mengecek lewat akun superadmin ATAU lewat preview panel (dev server localhost:3000 yang datanya terpisah, 0 PO).
+- FIX SAMPLE PO: buat ulang 3 sample PO identik + receive (Terima) → (1) DEV localhost utk user-admin: PO/10/26/0003-0005 + 6 bahan BHN-001…006; (2) PROD utk user-superadmin: PO/10/26/0001-0003 + 6 bahan BHN-001…006. Verifikasi API kedua env: stock-bahan 6 bahan ✓. Akun 'aming' sengaja TIDAK diberi sample (role user terbatas & bukan milik owner).
+- RENAME JUDUL HALAMAN: src/app/master-barang/page.tsx DashboardLayout title "Master Barang"→"Harga per Customer" + subtitle→"Kelola harga barang per customer"; src/components/views/items-view.tsx h1 "Master Barang"→"Harga per Customer". (DialogTitle dialog "Edit/Tambah Barang" tidak mengandung teks Master Barang — tidak diubah.)
+- Bump rilis: SW v129→v130, APP_VERSION v64→v65, changelog CURRENT_VERSION 2026-10-03-v5 "Perbaikan Nama Halaman & Data Contoh". Lint 4 file: bersih.
+- Commit 89bdaa4 push origin/main. Deploy produksi menyusul; E2E dev & verifikasi produksi menyusul di entri rilis.
+
+Stage Summary:
+- "Sample PO belum ada" disebabkan data per-user: sample hanya ada di akun 'admin'. Kini sample PO (3 buah, semua diterima, barang masuk Stock Bahan) tersedia di akun admin (prod), superadmin (prod), DAN di preview/dev.
+- Halaman /master-barang kini berjudul lengkap "Harga per Customer" (menu + judul halaman + header mobile).
