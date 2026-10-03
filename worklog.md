@@ -11823,3 +11823,20 @@ Stage Summary:
 - Modul Stock Bahan produksi-ready: 8 submenu, ledger konsisten (setiap perubahan stok = stock movement dgn saldo), PO → stok masuk otomatis, validasi ketat (kode unik, qty>0, no-minus, hapus dinonaktifkan jika ada transaksi), responsif kasir-style.
 - Data produksi Supabase sudah di-push (tabel baru ada); 6 bahan lama akan otomatis mendapat "Saldo awal" saat modul pertama kali dibuka (migrasi idempoten per sesi).
 - Bukti: .verify/sb-01-dashboard.png, sb-02-laporan.png, sb-03-mobile-data.png, sb-04-mobile-fab.png
+---
+Task ID: 7-rilis
+Agent: Main
+Task: Deploy produksi + verifikasi + bersihkan data uji (modul Stock Bahan)
+
+Work Log:
+- Push schema ke Supabase produksi: prisma db push via pooler session aws-1-ap-southeast-1:5432 (provider di-swap postgresql sementara lalu revert sqlite) → tabel Suplier/BahanMasuk/BahanKeluar/BahanPenyesuaian + kolom baru Bahan/BahanMutasi terbentuk.
+- Deploy #1 darrellsoft-nxheqgxu9 (v131): VERIFIKASI PRODUKSI — login admin/268899 → /stock-bahan → migrasi otomatis jalan: 6 bahan riil mendapat "Saldo awal" STK-0001..0006 (Art Paper 10, Ivory 15, Karton 8, Duplex 12, Kraft PE 20, Cupstock 10; total stok 75). Dashboard 4 kartu benar.
+- TEMUAN: POST /api/purchase-order/receive gagal di produksi (P2028 transaction timeout 5s) — nextStkNumber dipanggil dalam tx interaktif di atas koneksi Supabase berlatensi tinggi. FIX (commit 030e789): pre-generate semua nomor STK di luar tx + timeout 20s.
+- Deploy #2 darrellsoft-j1kctu6zu (v131): uji PO→Stok di produksi — buat PO uji PO/10/26/0004 (Art Paper +2 rim) → receive SUKSES (STK-0008, saldo 10→12, keterangan memuat suplier+nota PO) → hapus transaksi uji via API (recalc → stok kembali 10) → purge permanen PO uji. Produksi kembali: 3 sample PO lama utuh, riwayat bersih (6 Saldo awal), stok sama seperti sebelum uji.
+- Verifikasi UI produksi: changelog popup "Modul Baru: Stock Bahan Lengkap" (v6) tampil; Data Bahan tabel 6 bahan + aksi lengkap; 8 tab semua berfungsi.
+- Catatan: nomor STK-0007 terlewat (dikonsumsi percobaan receive yang gagal) — counter monotonik by design, tidak dipakai ulang.
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v131 (changelog 2026-10-03-v6) dengan modul Stock Bahan lengkap 8 submenu.
+- Data produksi bersih tanpa residu uji; 6 bahan riil kini punya riwayat saldo awal yang terlacak.
+- Bukti: .verify/sb-05-prod-dashboard.png, sb-06-prod-data.png, sb-07-prod-final.png
