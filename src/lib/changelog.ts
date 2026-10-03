@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v2'
+export const CURRENT_VERSION = '2026-10-03-v3'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v3',
+    date: { id: '3 Oktober 2026', en: '3 October 2026' },
+    title: {
+      id: 'Dropdown Bahan Hanya Milik Suplier Terpilih',
+      en: 'Paper List Filtered by Selected Supplier',
+    },
+    items: [
+      {
+        id: 'Potong Kertas: pilih suplier (mis. Bintang Timur) → dropdown Nama Bahan Kertas HANYA menampilkan kertas milik suplier tsb',
+        en: 'Paper Cutting: pick a supplier (e.g. Bintang Timur) → the Paper Material dropdown shows ONLY papers belonging to that supplier',
+      },
+      {
+        id: 'Tanpa suplier → semua kertas tampil seperti biasa; kertas yang bukan milik suplier terpilih otomatis dibatalkan pilihannya',
+        en: 'No supplier → all papers shown as usual; a paper not owned by the selected supplier is auto-deselected',
+      },
+      {
+        id: 'Bila suplier belum punya kertas di Master Harga Kertas, muncul petunjuk untuk mengisi kolom Suplier',
+        en: 'If the supplier has no papers in the Paper Price Master yet, a hint appears to fill the Suplier column',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v2',
     date: { id: '3 Oktober 2026', en: '3 October 2026' },
