@@ -11515,3 +11515,22 @@ Stage Summary:
 - Halaman Potong Kertas & Hitung Cetakan kini punya field customer yang JELAS bisa diketik (HC tidak lagi pakai datalist native) + tombol "Tambah Cust" (popup Master Customer lengkap, kode otomatis, customer baru langsung terpilih) + margin kiri-kanan desktop 3mm (mobile & halaman lain tidak berubah).
 - Komit: feat(potong-kertas + hitung-cetakan) — BELUM dideploy ke produksi (butuh token Vercel; token sesi sebelumnya tidak disimpan permanen).
 - Catatan: pesan "extract file ini ganti semua content" tanpa lampiran — diminta user kirim ulang file jika memang ada konten pengganti.
+---
+Task ID: all-pages-3mm-margin
+Agent: Main (Z.ai Code)
+Task: "semua halaman di desktop margin kiri dan kanan 3mm. fix" — perluas margin desktop 3mm dari 2 halaman kalkulator ke SELURUH halaman.
+
+Work Log:
+- src/components/dashboard-layout.tsx: padding horizontal desktop `lg:px-[3mm]` (11.3386px @96dpi) kini DEFAULT GLOBAL untuk semua halaman yang memakai DashboardLayout (menggantikan lg:p-8=32px; mobile tetap p-4=16px, vertical desktop tetap py-8). Prop `tightDesktopPadding` DIHAPUS total (interface + signature + kondisi) karena perilakunya jadi default — 2 pemakaian lama dibersihkan. Layar no-access (PRO lock) ikut dikonsistenkan ke 3mm.
+- src/app/potong-kertas/page.tsx & src/app/hitung-cetakan/page.tsx: hapus prop `tightDesktopPadding` (kini redundan). Sticky tab bar `lg:-mx-[3mm] lg:px-[3mm]` kedua halaman tetap align sempurna dengan edge konten.
+- Audit negative-margin: seluruh src/app & src/components hanya 2 tempat pakai trik -mx (keduanya sudah [3mm]) → tidak ada elemen yang rusak align setelah perubahan global.
+- Verifikasi agent-browser (login admin/268899, desktop 1440px): 42 route diukur getComputedStyle(main).paddingLeft/Right → SEMUA persis 11.3386px: pembukaan, dashboard, invoice, master-customer, master-barang, potong-kertas, hitung-cetakan, hitung-harga-kertas, surat-jalan, purchase-order, riwayat, biaya, laporan(+penjualan, rugi-laba), administrasi(+pengaturan/pengguna/hak-akses/keamanan), stock-bahan, hutang-dagang, piutang-dagang, master-kertas, master-ongkos-cetak, daftar-barang-customer, riwayat-hitung-cetakan, riwayat-potong-kertas, riwayat-pembelian, riwayat-penjualan, riwayat-pembayaran, rekap-penjualan, harga-khusus, master-finishing, hitung-finishing, hitung-ongkos-cetak, master-harga-kertas, master-toko-pemasok, master-barang-customer, biaya-operasional, daftar-kategori, pembelian.
+- Mobile 390px: dashboard/invoice/potong-kertas/hitung-cetakan tetap 16px (p-4) — tidak berubah sesuai requirement.
+- Screenshot desktop: .verify/all-desktop-3mm-{dashboard,invoice,pk,hc}.png — layout rapi, tab bar align, tombol Tambah Cust & field customer typable tetap utuh.
+- Insiden lingkungan: dev server OOM-killed 2× saat batch navigation (next-server RSS 2.8GB vs sandbox 4GB) — bukan akibat perubahan (OOM terjadi setelah compile puluhan halaman); di-restart & verifikasi dilanjutkan batch kecil. Error pre-existing tak terkait: GET /api/master-kertas 500 (model masterKertas tidak ada di Prisma client) & db:push "duplicate column kategoriId".
+- Lint: 3 file diubah = 0 masalah. Commit 8c73638 (BELUM dideploy produksi — butuh token Vercel).
+
+Stage Summary:
+- SEMUA halaman (42 route terverifikasi) kini margin kiri-kanan 3mm (11.3386px) di desktop; mobile 16px tidak berubah; tidak ada halaman yang rusak align (audit negative-margin + screenshot visual).
+- Implementasi bersih: satu tempat (DashboardLayout), prop tightDesktopPadding dihapus, diff hanya ±17 baris.
+- Deploy produksi pending token Vercel dari user.
