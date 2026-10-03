@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, UserSearch, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus } from 'lucide-react'
 import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -368,36 +368,14 @@ function HitungCetakanPage() {
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'gabung'>('editor')
   const [searchQuery, setSearchQuery] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
-  // === Customer combobox (gaya Potong Kertas) — BEBAS DIKETIK, dropdown hanya
-  // mempermudah memilih; + tombol "Tambah Cust" membuka popup Master Customer ===
-  const [custDropdownOpen, setCustDropdownOpen] = useState(false)
-  const [custTyping, setCustTyping] = useState(false)
+  // === Customer DROPDOWN-ONLY (permintaan user): pilih dari Master Customer, tidak bisa diketik.
+  // Tombol "Tambah Cust" membuka popup Master Customer, customer baru langsung terpilih ===
   const [addCustOpen, setAddCustOpen] = useState(false)
-  const custWrapperRef = useRef<HTMLDivElement>(null)
-  const custDropdownRef = useRef<HTMLDivElement>(null)
-  const filteredCustList = custTyping
-    ? customers.filter((c) => c.name.toLowerCase().includes(formData.customerName.toLowerCase()))
-    : customers
-  // Klik di luar dropdown customer → tutup
-  useEffect(() => {
-    if (!custDropdownOpen) return
-    const handler = (e: MouseEvent) => {
-      if (
-        custWrapperRef.current && !custWrapperRef.current.contains(e.target as Node) &&
-        custDropdownRef.current && !custDropdownRef.current.contains(e.target as Node)
-      ) {
-        setCustDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [custDropdownOpen])
-  // Sukses simpan dari popup "Tambah Cust" → auto-isi nama customer di form
+  // Sukses simpan dari popup "Tambah Cust" → auto-pilih customer baru di dropdown
   const handleCustFormSaved = (saved: { id: string; name: string } | null) => {
     fetchCustomers()
     if (saved) {
       setFormData((prev) => ({ ...prev, customerName: saved.name }))
-      setCustTyping(false)
     }
   }
   const [dateFrom, setDateFrom] = useState('')
@@ -2113,64 +2091,23 @@ function HitungCetakanPage() {
                         <UserPlus className="w-3 h-3" /> Tambah Cust
                       </button>
                     </div>
-                    <div ref={custWrapperRef} className="relative">
-                      <UserSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                      <input
-                        type="text"
-                        placeholder={t('pilih_customer') + ' / ketik manual'}
+                    <div className="relative">
+                      <select
                         value={formData.customerName}
-                        onChange={(e) => {
-                          setFormData((prev) => ({ ...prev, customerName: e.target.value }))
-                          setCustTyping(true)
-                          setCustDropdownOpen(true)
-                        }}
-                        onFocus={() => {
-                          setCustTyping(false)
-                          setCustDropdownOpen(true)
-                        }}
-                        onBlur={() => setTimeout(() => setCustDropdownOpen(false), 200)}
-                        className={`${inputClass} pl-9 pr-9`}
-                      />
-                      {/* Dropdown chevron — mempermudah memilih, input tetap bebas diketik */}
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        aria-label="Tampilkan daftar customer"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => setCustDropdownOpen((o) => !o)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        onChange={(e) => setFormData((prev) => ({ ...prev, customerName: e.target.value }))}
+                        className={selectClass + ' pl-3 pr-8'}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </button>
-                      {/* Dropdown list — muncul saat fokus/ketik; pilih atau lanjutkan mengetik */}
-                      {custDropdownOpen && (
-                        <div ref={custDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                          {filteredCustList.length > 0 && (
-                            <div>
-                              <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 dark:bg-zinc-800 border-b border-slate-100 dark:border-zinc-700">Master Customer</div>
-                              {filteredCustList.map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onMouseDown={(e) => { e.preventDefault(); setFormData((prev) => ({ ...prev, customerName: c.name })); setCustTyping(false); setCustDropdownOpen(false) }}
-                                  className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-900/30 transition-colors truncate cursor-pointer"
-                                >
-                                  {c.name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {filteredCustList.length === 0 && (
-                            <div className="px-3 py-3 text-sm text-slate-400 text-center">
-                              {formData.customerName.trim()
-                                ? 'Tidak ada yang cocok — nama bebas diketik manual'
-                                : 'Belum ada customer — ketik manual atau pakai Tambah Cust'}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        <option value="">{t('pilih_customer')} (dropdown)</option>
+                        {/* Nilai tersimpan tapi tidak ada di master (mis. restore lama) tetap ditampilkan */}
+                        {formData.customerName && !customers.some((c) => c.name === formData.customerName) && (
+                          <option value={formData.customerName}>{formData.customerName}</option>
+                        )}
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                      <svg className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </div>                  </div>
                   <div>
                     <label className={labelClass}>{t('nama_cetakan')} <span className="text-red-500">*</span></label>
                     <input type="text" placeholder="Nama barang" value={formData.printName} onChange={(e) => setFormData({ ...formData, printName: e.target.value })} className={inputClass} />
