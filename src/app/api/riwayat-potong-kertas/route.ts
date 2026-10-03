@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
         strategy: body.strategy || '',
         jumlahPesanan: body.jumlahPesanan || '',
         berapaMata: body.berapaMata || '',
+        namaSuplier: body.namaSuplier || '',
         resultData: body.resultData || '',
         photoUrl: validatePhotoDataUrl(body.photoUrl),
         userId: user?.id || null,
