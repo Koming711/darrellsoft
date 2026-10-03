@@ -11636,3 +11636,26 @@ Stage Summary:
 - www.darrellsoft.com menjalankan fitur: Nama Suplier di atas Nama Bahan Kertas + harga bahan mengikuti entri suplier di Master Harga Kertas (terverifikasi live di produksi, data uji dibersihkan).
 - CATATAN UNTUK USER: agar dropdown "Nama Suplier" & harga-per-suplier aktif di produksi, isi (1) Master Suplier → tambah "Bintang Timur", (2) Master Harga Kertas → isi kolom Suplier pada kertas milik tiap suplier. Panduan juga tampil di dialog "Versi Baru!".
 - Git: 8d1b441 + 095c1ad terpush ke origin/main.
+---
+Task ID: pk-bahan-filter-suplier-ketat
+Agent: Main (Z.ai Code)
+Task: "apabila dipilih nama suplier bintang timur, maka yang muncul nama bahan kertas hanya punya bintang timur. fix"
+
+Work Log:
+- SEBELUM: dropdown Nama Bahan Kertas hanya MENGURUTKAN varian milik suplier terpilih ke paling atas, tapi kertas milik suplier lain / tanpa suplier tetap tampil.
+- SESUDAH (src/app/potong-kertas/page.tsx):
+  1. paperOptions memo → FILTER KETAT: bila namaSuplier diisi, hanya kertas dgn suplier cocok (case-insensitive via normSup) yang tampil; tanpa suplier → semua kertas.
+  2. Effect remap diperluas: bila kertas terpilih bukan milik suplier tsb → cari varian nama sama milik suplier (remap + harga ikut master + toast); bila TIDAK ada varian → pilihan direset ke "Pilih kertas" (kertas lama tak lagi ada di daftar).
+  3. Empty state: bila suplier belum punya kertas di Master Harga Kertas → pesan di dalam dropdown ("Tidak ada kertas milik <suplier>…") + hint amber di bawah field ("Belum ada kertas milik suplier <suplier> — isi kolom Suplier di Master Harga Kertas"). Opsi "Custom (Input Manual)" tetap tersedia.
+- E2E localhost (admin/268899; data: suplier Bintang Timur & Indojaya; papers: art karton BT / art karton Indojaya / art karton+ivory×3+duplex+duplek tanpa suplier):
+  - Suplier Bintang Timur → dropdown HANYA "art karton (79×109, 260gsm · Bintang Timur)" + Custom ✓
+  - Ganti ke Indojaya → otomatis remap ke "art karton · Indojaya", harga/lembar 3806 → 2687 (ikut master Indojaya) ✓
+  - Tanpa suplier → semua 8 kertas tampil kembali ✓
+  - Pilih "ivory" (tanpa suplier) lalu pilih suplier Bintang Timur (tak ada varian ivory-BT) → pilihan direset ke "Pilih kertas" ✓
+  - Suplier uji "Uji Kosong" (tanpa kertas) → dropdown hanya Custom + pesan kosong + hint amber ✓ (screenshot .verify/pk-suplier-filter-uji-kosong.png)
+- CLEANUP: suplier uji "Uji Kosong" dihapus (200); tak ada data uji lain yang dibuat.
+- Bump rilis: SW v127→v128, APP_VERSION 2026-10-03-v62→v63, changelog CURRENT_VERSION 2026-10-03-v3 "Dropdown Bahan Hanya Milik Suplier Terpilih". Lint 3 file: bersih.
+- Commit cdd4760, push origin/main 5d89faa..cdd4760. Deploy produksi menyusul.
+
+Stage Summary:
+- Halaman Potong Kertas: memilih suplier (mis. Bintang Timur) kini membuat dropdown Nama Bahan Kertas HANYA memuat kertas milik suplier tersebut; pilihan kertas yang bukan miliknya otomatis dikosongkan; harga tetap mengikuti Master Harga Kertas per suplier; petunjuk jelas bila suplier belum punya kertas.
