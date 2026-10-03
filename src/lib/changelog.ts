@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v1'
+export const CURRENT_VERSION = '2026-10-03-v2'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,32 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v2',
+    date: { id: '3 Oktober 2026', en: '3 October 2026' },
+    title: {
+      id: 'Suplier Menentukan Harga Kertas',
+      en: 'Supplier Determines Paper Price',
+    },
+    items: [
+      {
+        id: 'Potong Kertas: field Nama Suplier kini di ATAS Nama Bahan Kertas',
+        en: 'Paper Cutting: Supplier field now sits ABOVE Paper Material',
+      },
+      {
+        id: 'Pilih suplier (mis. Bintang Timur) → harga bahan otomatis mengikuti harga suplier tsb di Master Harga Kertas (harga/lembar, harga/kg, gramatur & ukuran terisi sendiri)',
+        en: 'Pick a supplier (e.g. Bintang Timur) → paper price auto-follows that supplier price in Paper Price Master (per-sheet, per-kg, grammage & size auto-filled)',
+      },
+      {
+        id: 'Kertas milik suplier terpilih tampil paling atas di dropdown dengan label nama suplier',
+        en: "Papers of the selected supplier appear first in the dropdown, labelled with the supplier name",
+      },
+      {
+        id: 'Panduan: isi Master Suplier (Master Toko Pemasok) lalu isi kolom Suplier di Master Harga Kertas agar harga per suplier aktif',
+        en: 'Guide: fill Master Supplier (Toko Pemasok) then set the Suplier column in Paper Price Master to enable per-supplier pricing',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v1',
     date: { id: '3 Oktober 2026', en: '3 October 2026' },
