@@ -11534,3 +11534,22 @@ Stage Summary:
 - SEMUA halaman (42 route terverifikasi) kini margin kiri-kanan 3mm (11.3386px) di desktop; mobile 16px tidak berubah; tidak ada halaman yang rusak align (audit negative-margin + screenshot visual).
 - Implementasi bersih: satu tempat (DashboardLayout), prop tightDesktopPadding dihapus, diff hanya ±17 baris.
 - Deploy produksi pending token Vercel dari user.
+---
+Task ID: deploy-all-3mm
+Agent: Main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com" (token vcp_3VxM…) — terapkan margin 3mm global + seluruh commit tertunda ke produksi.
+
+Work Log:
+- Pre-check: HEAD = 8f9885f (auto-backup screenshots) di atas 8c73638 (feat 3mm global). Folder .vercel hilang lagi → relink: bunx vercel link --yes --project darrellsoft (dgn token) ✓ (.env.local ikut dibuat oleh CLI).
+- Deploy: bunx vercel --prod --yes --token <token> → deployment darrellsoft-i945kz9mq-koming711s-projects.vercel.app. Warning "Deployment Protection" muncul seperti sebelumnya, akses publik tetap 200.
+- Verifikasi build: chunk CSS produksi ae9ab2f0a99e67b9.css mengandung rule baru `.lg\:px-\[3mm\]{padding-inline:3mm}` (grep "3mm" = 4 kemunculan) → build baru pasti live.
+- E2E produksi (agent-browser, login admin/268899 di www.darrellsoft.com):
+  - Desktop 1440px — 10 halaman diukur getComputedStyle(main): pembukaan, dashboard, invoice, master-customer, potong-kertas, hitung-cetakan, master-barang, surat-jalan, riwayat, administrasi → SEMUA persis 11.3386px kiri & kanan (3mm @96dpi).
+  - Mobile 390px — dashboard & potong-kertas tetap 16px (p-4) ✓.
+  - Screenshot .verify/prod-all-3mm-pk.png: layout rapi, tombol "Tambah Cust" + field customer typable tampil benar.
+- Backup git: push origin/main 03d8e2a..8f9885f (5 commit: label pelunasan+worklog, fitur 3mm 2 halaman, 3mm global, backup screenshots) — tidak memicu deploy (tanpa Git integration).
+
+Stage Summary:
+- www.darrellsoft.com KINI menjalankan margin kiri-kanan desktop 3mm untuk SEMUA halaman (mobile 16px tak berubah) — terverifikasi live di 10 route produksi + CSS chunk.
+- Fitur sebelumnya (field customer typable + tombol Tambah Cust di Potong Kertas & Hitung Cetakan) ikut ter-deploy dan tampil benar.
+- User dengan SW cache lama perlu hard-refresh (Ctrl+Shift+R) untuk melihat perubahan; SW akan update otomatis di background.
