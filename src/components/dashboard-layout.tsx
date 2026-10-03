@@ -75,15 +75,9 @@ interface DashboardLayoutProps {
   children: React.ReactNode
   title?: string
   subtitle?: string
-  /**
-   * Padding horizontal konten di desktop menjadi 3mm (±11px) alih-alih 32px
-   * (p-8) — dipakai halaman kalkulator padat (Potong Kertas, Hitung Cetakan)
-   * agar area kerja lebih lebar. Mobile tidak berubah (tetap p-4).
-   */
-  tightDesktopPadding?: boolean
 }
 
-export function DashboardLayout({ children, title, subtitle, tightDesktopPadding = false }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<any>(null)
@@ -545,7 +539,7 @@ export function DashboardLayout({ children, title, subtitle, tightDesktopPadding
         />
         <div className={`${desktopMargin} transition-all duration-300`}>
           <MobileHeader username={user?.username} role={user?.role} title={title} subtitle={subtitle} userProfile={userProfile} />
-          <main className="p-4 pb-20 lg:p-8 lg:pb-8">
+          <main className="p-4 pb-20 lg:py-8 lg:pb-8 lg:px-[3mm]">
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
               <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-5 relative">
                 <Lock className="w-9 h-9 text-amber-500" />
@@ -598,8 +592,8 @@ export function DashboardLayout({ children, title, subtitle, tightDesktopPadding
         />
 
         {/* Main Content — extra bottom padding on mobile for bottom nav + safe area.
-            tightDesktopPadding: margin kiri/kanan desktop 3mm (permintaan halaman kalkulator) */}
-        <main className={`${tightDesktopPadding ? 'p-4 pb-20 lg:py-8 lg:pb-8 lg:px-[3mm]' : 'p-4 pb-20 lg:p-8 lg:pb-8'}`}>
+            Margin kiri/kanan desktop 3mm untuk SEMUA halaman (permintaan user). Mobile tetap p-4. */}
+        <main className="p-4 pb-20 lg:py-8 lg:pb-8 lg:px-[3mm]">
           {children}
         </main>
       </div>

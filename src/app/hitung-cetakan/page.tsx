@@ -2039,7 +2039,7 @@ function HitungCetakanPage() {
   )
 
   return (
-    <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')} tightDesktopPadding>
+    <DashboardLayout title={t('hitung_cetakan')} subtitle={t('subtitle_potong_kertas')}>
       {/* Tab Navigation */}
       <div className="sticky top-0 z-20 -mx-4 px-4 lg:-mx-[3mm] lg:px-[3mm] bg-card flex items-center gap-2 mb-3">
         <button
