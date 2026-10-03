@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { recalcBahan, nextStkNumber, todayStr, getStockPengaturan } from '@/lib/stock-bahan-server'
 
 /**
- * GET /api/stock-bahan/mutasi — riwayat mutasi stok.
- * Query opsional:
- * - bahanId: hanya mutasi bahan tersebut
- * - limit: batasi jumlah baris (default 100)
+ * GET /api/stock-bahan/mutasi — riwayat mutasi stok (ledger gabungan).
+ * Query opsional: bahanId, limit (default 100)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
       include: {
         bahan: { select: { kode: true, nama: true, satuan: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ tanggal: 'desc' }, { createdAt: 'desc' }],
       take: limit,
     })
     return NextResponse.json(mutasi, {
@@ -42,10 +41,10 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/stock-bahan/mutasi — catat stok masuk / keluar.
+ * POST /api/stock-bahan/mutasi — catat stok masuk / keluar cepat.
  * Body: { bahanId, jenis: 'masuk' | 'keluar', qty, keterangan? }
- * - Stok bahan ikut diperbarui (masuk: +qty, keluar: -qty).
- * - Keluar melebihi stok ditolak agar stok tidak minus.
+ * Kompatibel dengan versi lama, tetapi sekarang membuat transaksi ledger
+ * (BahanMasuk/BahanKeluar) lalu recalc → saldo riwayat selalu konsisten.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -71,33 +70,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
-    if (jenis === 'keluar' && qtyNum > bahan.stok) {
-      return NextResponse.json(
-        { error: `Stok tidak cukup (stok saat ini: ${bahan.stok} ${bahan.satuan})` },
-        { status: 400 }
-      )
+    if (jenis === 'keluar') {
+      const { allowNegativeStock } = await getStockPengaturan()
+      if (!allowNegativeStock && qtyNum > bahan.stok) {
+        return NextResponse.json(
+          { error: `Stok tidak cukup (stok saat ini: ${bahan.stok} ${bahan.satuan})` },
+          { status: 400 }
+        )
+      }
     }
 
-    const stokBaru = jenis === 'masuk' ? bahan.stok + qtyNum : bahan.stok - qtyNum
+    const userId = user?.id || null
+    const nomor = await nextStkNumber(userId)
+    const tanggal = todayStr()
 
-    const [mutasi] = await db.$transaction([
-      db.bahanMutasi.create({
+    if (jenis === 'masuk') {
+      await db.bahanMasuk.create({
         data: {
+          nomor,
+          tanggal,
           bahanId,
-          jenis,
+          bahanNama: bahan.nama,
+          satuan: bahan.satuan,
           qty: qtyNum,
-          stokSetelah: stokBaru,
-          keterangan: keterangan ? String(keterangan) : '',
-          userId: user?.id || null,
+          hargaBeli: 0,
+          total: 0,
+          suplierNama: '',
+          nomorNota: '',
+          catatan: keterangan ? String(keterangan) : 'Stok masuk cepat',
+          userId,
         },
-      }),
-      db.bahan.update({
-        where: { id: bahanId },
-        data: { stok: stokBaru },
-      }),
-    ])
+      })
+    } else {
+      await db.bahanKeluar.create({
+        data: {
+          nomor,
+          tanggal,
+          bahanId,
+          bahanNama: bahan.nama,
+          satuan: bahan.satuan,
+          qty: qtyNum,
+          tujuan: 'Lainnya',
+          catatan: keterangan ? String(keterangan) : 'Stok keluar cepat',
+          userId,
+        },
+      })
+    }
 
-    return NextResponse.json(mutasi, { status: 201 })
+    await recalcBahan(bahanId)
+    const stokBaru = await db.bahan.findUnique({ where: { id: bahanId }, select: { stok: true } })
+    return NextResponse.json({ success: true, nomor, stok: stokBaru?.stok ?? 0 }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating mutasi bahan:', error)
     return NextResponse.json(
