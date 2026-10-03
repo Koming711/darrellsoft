@@ -101,7 +101,15 @@ export async function POST(request: NextRequest) {
     const stokMasuk: { bahanId: string; kode: string; nama: string; qty: number; satuan: string; baru: boolean }[] = []
     const affectedBahanIds = new Set<string>()
 
+    // Pre-generate nomor STK di LUAR transaksi (query terpisah di dalam tx interaktif
+    // bisa melebihi timeout 5s pada koneksi Supabase berlatensi tinggi)
+    const stkNumbers: string[] = []
+    for (let i = 0; i < items.length; i++) {
+      stkNumbers.push(await nextStkNumber(userId))
+    }
+
     await db.$transaction(async (tx) => {
+      let idx = 0
       for (const it of items) {
         const key = it.deskripsi.toLowerCase()
         let bahan = byName.get(key) || null
@@ -139,7 +147,7 @@ export async function POST(request: NextRequest) {
           byName.set(key, created)
         }
 
-        const stkNomor = await nextStkNumber(userId)
+        const stkNomor = stkNumbers[idx++]
         await tx.bahanMasuk.create({
           data: {
             nomor: stkNomor,
@@ -173,7 +181,7 @@ export async function POST(request: NextRequest) {
         where: { id: historyId },
         data: { dataJson: updatedDataJson },
       })
-    })
+    }, { timeout: 20000 })
 
     // Recalc saldo stok semua bahan yang terdampak (di luar tx — replay ledger)
     for (const bahanId of affectedBahanIds) {
