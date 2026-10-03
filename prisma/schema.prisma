@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -366,6 +366,7 @@ model RiwayatPotongKertas {
   strategy      String   @default("")
   jumlahPesanan String   @default("")
   berapaMata    String   @default("")
+  namaSuplier   String   @default("") // suplier harga bahan (Master Toko Pemasok)
   resultData    String   @default("")
   photoUrl      String?
   userId        String?
