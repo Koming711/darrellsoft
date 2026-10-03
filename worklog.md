@@ -11573,3 +11573,66 @@ Work Log:
 Stage Summary:
 - Akar keluhan berulang user = PWA menetap di kode lama (bukan bug field). Diperbaiki permanen: SW v126 + auto-reload 1x/deploy + dialog Versi Baru; perangkat user akan otomatis memakai versi baru maks ±1 menit setelah aplikasi dibuka/di-resume (asal online), TANPA perlu hard-refresh manual.
 - Field customer PK & HC terbukti bisa diketik bebas (keystroke nyata, mobile) + tombol Tambah Cust di atasnya; margin 3mm semua halaman tetap utuh.
+---
+Task ID: po-stock-hutang + customer-dropdown-only
+Agent: Main (Z.ai Code)
+Task: (1) "dihalaman purchase order, apabila ada pembelian melalui purchase order, maka otomatis masuk ke stock bahan. dan ditampilkan di stock bahan. dan purchase order dianggap hutang dan ada juga pelunasannya." (2) "dihalaman potong kertas / hitung cetakan, buatlah nama customer TIDAK BISA di ketik/di edit, hanya dropdown saja."
+
+Work Log:
+- (2) CUSTOMER DROPDOWN-ONLY: PK ganti combobox ketik → shadcn Select (value=selectedCustomerId, opsi dari Master Customer, placeholder "Pilih customer"); hapus semua state ketik-bebas (customerInput, customerTyping, customerDropdownOpen, auto-create on blur, filtered list); customerInput yg dipakai reset/recalc diganti selectedCustomerName/selectedCustomerId. HC ganti combobox ketik → native <select> (selectClass) + fallback opsi utk nilai restore lama; hapus custTyping/custDropdownOpen/filteredCustList/UserSearch. Tombol "Tambah Cust" TETAP di kedua halaman (popup Master Customer, customer baru langsung terpilih). Lint bersih.
+- (1) INVESTIGASI: PO disimpan sbg DocumentHistory docType=purchase-order (dataJson: pemasok, items[{deskripsi,qty,satuan,harga}], ppn, tanggalJatuhTempo). Halaman Hutang Dagang TERNYATA SUDAH ADA & otomatis membaca semua PO sbg hutang (sisa=total−dpAmount) + tombol "Tandai Lunas" (PUT dataJson lunas+tanggalPelunasan) — tidak perlu dibangun ulang. Yang TIDAK ada: integrasi ke Stock Bahan (Bahan+BahanMutasi).
+- (1) API BARU src/app/api/purchase-order/receive/route.ts (POST {historyId}): validasi kepemilikan+docType+soft-delete; tolak 409 bila sudah diterima (anti-dobel stok); per item: cocokkan Bahan per nama (case-insensitive di JS, portabel SQLite/Postgres) → stok += qty (hargaSatuan ikut diperbarui bila ada) ATAU buat bahan baru (kode BHN-xxx urut, kategori=jenisBarang pemasok, satuan item/pcs); tiap perubahan dicatat BahanMutasi jenis 'masuk' ket. "PO <nomor> — <pemasok>"; dataJson PO diperbarui {diterima:true, tanggalTerima, stokMasuk[]}; db.$transaction.
+- (1) UI PO page: parseDocInfo + diterima/tanggalTerima; tombol Terima (icon PackageCheck) di tabel desktop & kartu mobile + badge hijau "Diterima · tgl" bila sudah; Detail PO: tombol "Terima Barang" di actionButtons + badge "Barang Diterima"; toast ringkasan "X bahan baru + Y bahan bertambah stok"; reload list + notifyDataChange.
+- E2E localhost (admin/268899): buat PO uji via /api/history (PO/10/26/0002, 2 item Rp1.800.000, tempo 17/10) → klik Terima → detail tampak "Barang Diterima · 3/10/26" → /stock-bahan menampilkan BHN-001 Kertas Uji E2E 5 rim @Rp300.000 (Rp1.500.000) & BHN-002 Tinta Uji E2E 2 pcs → /api/stock-bahan/mutasi tercatat 2 mutasi 'masuk' dgn keterangan PO → /hutang-dagang menampilkan PO Rp1.800.000 "Belum Lunas · tempo 17 Okt" → Tandai Lunas → pindah ke tab "Lunas (1)" dgn "Lunas · 3 Oktober 2026". 
+- Cleanup: PO uji di-purge (DELETE ?purge=1), 2 bahan uji dihapus, 2 customer uji lokal (ttesting/tttf) dihapus. Dev server sempat OOM lagi saat sesi (di-restart). Error startup "duplicate column kategoriId" = pre-existing, tidak terkait.
+- Lint 4 file diubah: bersih. Commit d5f8440.
+
+Stage Summary:
+- Pembelian via PO kini OTOMATIS masuk Stock Bahan: klik "Terima" di halaman PO (list/detail) → item PO jadi bahan (baru/stok naik) + riwayat mutasi ber-referensi PO; tampil di halaman Stock Bahan. Anti-dobel stok.
+- PO otomatis dianggap Hutang Dagang (fitur lama yang sudah ada, terkonfirmasi jalan) + pelunasan via "Tandai Lunas" (terverifikasi E2E penuh).
+- Field Nama Customer di Potong Kertas & Hitung Cetakan kini dropdown-only sesuai permintaan terbaru; Tambah Cust tetap tersedia.
+- Deploy produksi menyusul (commit d5f8440).
+---
+Task ID: pk-suplier-di-atas-bahan + harga-ikut-master
+Agent: Main (Z.ai Code)
+Task: "dihalaman potong kertas, pindahkan nama suplier ke atas nama bahan kertas. apabila nama suplier bintang timur, maka harga sesuai dengan harga suplier yang ada di master harga kertas. fix"
+
+Work Log:
+- INVESTIGASI: Master Harga Kertas = model Paper (halaman /master-harga-kertas, API /api/papers) dan SUDAH punya kolom suplier (String?) — nama kertas sama bisa punya beberapa entri dgn harga berbeda per suplier. Di halaman Potong Kertas, field "Nama Suplier" (dari Master Toko Pemasok) sebelumnya DI BAWAH "Nama Bahan Kertas" dan tidak memengaruhi harga.
+- LAYOUT: blok field Nama Suplier dipindah ke ATAS blok Nama Bahan Kertas (urutan baru: Nama Customer → Nama Barang → Nama Suplier → Nama Bahan Kertas → Gramatur/Harga...).
+- HARGA IKUT SUPLIER (3 mekanisme di src/app/potong-kertas/page.tsx):
+  1. Effect remap: bila suplier dipilih (mis. "Bintang Timur") dan bahan terpilih punya entri dgn suplier tsb di Master Harga Kertas (pencocokan nama case-insensitive + trim via normSup), selectedPaperId otomatis dialihkan ke varian suplier tsb → effect selectedPaper yang sudah ada mengisi harga/lembar (=pricePerRim/500), harga/kg, gramatur & ukuran dari master suplier + toast konfirmasi. Guard: skip saat restore riwayat (isRestoringRef) & custom paper.
+  2. paperOptions memo: dropdown bahan mengurutkan varian milik suplier terpilih PALING ATAS; label item kini menyertakan " · <suplier>" bila ada (membedakan varian harga antar suplier).
+  3. Hint emerald di bawah dropdown bahan: "Harga mengikuti Master Harga Kertas · <suplier> (Rp X/rim)" saat bahan terpilih = varian suplier aktif.
+- src/lib/cutting-engine.ts: interface Paper + field suplier?: string | null (opsional, backward-safe).
+- E2E localhost (admin/268899, data dev sudah ada: TokoPemasok "Bintang Timur" + Paper "art karton" Rp1.903.031/rim suplier "Bintang Timur"; varian non-suplier Rp1.394.250):
+  - Pilih suplier Bintang Timur → paper "art karton" non-BT otomatis diremap ke varian BT → harga/lembar 2687 → 3806 (=round(1903031/500)) ✓ harga/kg ikut 16.999,72 ✓
+  - Dropdown bahan: "art karton (79×109, 260gsm · Bintang Timur)" paling atas & selected; label varian menyertakan suplier ✓
+  - Pilih varian non-BT saat suplier BT aktif → langsung diremap lagi (3806) ✓
+  - Hint emerald tampil: "Harga mengikuti Master Harga Kertas · Bintang Timur (Rp 1.903.031/rim)" ✓
+  - Hasil perhitungan kanan ikut: "Harga / Lembar Rp 3.806", Total Rp 13.435 ✓
+  - Desktop 1440px & iPhone 14: urutan Suplier di atas Bahan Kertas tampil benar (screenshot .verify/supplier-above-paper-{desktop,mobile}.png) ✓
+- Lint 2 file diubah: bersih. Commit 8d1b441, push origin/main d5f8440..8d1b441.
+
+Stage Summary:
+- Halaman Potong Kertas: Nama Suplier kini DI ATAS Nama Bahan Kertas; memilih suplier (termasuk Bintang Timur) membuat harga bahan OTOMATIS mengikuti entri suplier tsb di Master Harga Kertas (harga/lembar, harga/kg, gramatur, ukuran), dengan urutan dropdown, label varian, hint emerald, dan toast sebagai penanda harga sumber suplier.
+- namaSuplier & paperId varian suplier ikut tersimpan di riwayat (buildPayload sudah ada sebelumnya) — restore riwayat aman (guard isRestoringRef).
+- Deploy produksi menyusul (commit 8d1b441).
+---
+Task ID: pk-suplier-di-atas-bahan (release)
+Agent: Main (Z.ai Code)
+Task: Rilis produksi fitur suplier → harga master + verifikasi E2E produksi + bump versi PWA.
+
+Work Log:
+- Deploy 1: darrellsoft-it4pfi9l1 (commit 8d1b441) → live.
+- VERIFIKASI PRODUKSI www.darrellsoft.com (login admin/268899, desktop 1440px):
+  - Snapshot: urutan field benar — Nama Customer → Nama Barang → Nama Suplier → Nama Bahan Kertas ✓
+  - TEMUAN DATA: Master Toko Pemasok produksi KOSONG & kolom Suplier di Master Harga Kertas belum diisi (10 papers semua suplier=null; user menyimpan suplier di nama kertas: "Art paper BT", "Cupstock bintang timur", dst).
+  - E2E dgn data uji TRANSIENT: buat TokoPemasok "Bintang Timur" (cmuskfuo90000l3040l4oz60k) + Paper "Uji hapus - kertas BT" 750.000/rim suplier Bintang Timur (cmuskfus00002l304gp0p5n5o) → /potong-kertas: pilih suplier Bintang Timur → dropdown kertas menempatkan varian BT paling atas dgn label "· Bintang Timur" → dipilih → Harga/Lembar OTOMATIS 1500 (750.000/500), harga/kg 11.538,46, gramatur 200, ukuran 65×100 + hint emerald "Harga mengikuti Master Harga Kertas · Bintang Timur (Rp 750.000/rim)" ✓ (screenshot .verify/prod-supplier-bintang-timur.png).
+  - CLEANUP: DELETE paper uji (200) + DELETE toko uji (200) → papers kembali 10, toko 0, 0 data uji tersisa.
+- Bump rilis (commit 095c1ad): SW CACHE_NAME v126→v127, APP_VERSION 2026-10-03-v62, changelog 2026-10-03-v2 "Suplier Menentukan Harga Kertas" (termasuk panduan isi Master Suplier & kolom Suplier). Deploy 2: darrellsoft-r2cxgj3ve → https://www.darrellsoft.com/sw.js terverifikasi berisi darrell-soft-v127.
+
+Stage Summary:
+- www.darrellsoft.com menjalankan fitur: Nama Suplier di atas Nama Bahan Kertas + harga bahan mengikuti entri suplier di Master Harga Kertas (terverifikasi live di produksi, data uji dibersihkan).
+- CATATAN UNTUK USER: agar dropdown "Nama Suplier" & harga-per-suplier aktif di produksi, isi (1) Master Suplier → tambah "Bintang Timur", (2) Master Harga Kertas → isi kolom Suplier pada kertas milik tiap suplier. Panduan juga tampil di dialog "Versi Baru!".
+- Git: 8d1b441 + 095c1ad terpush ke origin/main.
