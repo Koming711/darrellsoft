@@ -11553,3 +11553,23 @@ Stage Summary:
 - www.darrellsoft.com KINI menjalankan margin kiri-kanan desktop 3mm untuk SEMUA halaman (mobile 16px tak berubah) — terverifikasi live di 10 route produksi + CSS chunk.
 - Fitur sebelumnya (field customer typable + tombol Tambah Cust di Potong Kertas & Hitung Cetakan) ikut ter-deploy dan tampil benar.
 - User dengan SW cache lama perlu hard-refresh (Ctrl+Shift+R) untuk melihat perubahan; SW akan update otomatis di background.
+---
+Task ID: pk-hc-typable-rootfix
+Agent: Main (Z.ai Code)
+Task: (keluhan berulang) "dihalaman potong kertas, nama customer tidak bisa di ketik/di edit, hanya dropdown saja. diatas nama customer, tambahkan tombol tambah cust. dihalaman hitung cetakan, nama customer tidak bisa di ketik/di edit, hanya dropdown saja."
+
+Work Log:
+- DIAGNOSIS MENDALAM: kode field customer di PK (custom combobox, input controlled) & HC (input controlled) SUDAH benar & bisa diketik. Dibuktikan LIVE di PRODUksi dgn emulasi iPhone 14 + KEYSTROKE NYATA (agent-browser press per-tombol, bukan fill): PK value="testing"/"uji" + dropdown terfilter + opsi "Tambah ... sebagai customer baru" ✓; HC value + empty-state "nama bebas diketik manual" ✓. Tombol "Tambah Cust" juga tampil di atas field (samabaris label). (Catatan: dugaan "reproduksi gagal ketik" pertama ternyata salah sintaks CLI agent-browser `type` tanpa ref — bukan bug aplikasi.)
+- AKAR MASALAH SEBENARNYA: perangkat user menjalankan KODE LAMA yg menetap. Mekanisme lama: (1) SW static assets stale-while-revalidate → load pertama pasca-deploy masih chunk lama; (2) registration SENGAJA tanpa reload saat controllerchange ("keluhan aplikasi suka refresh") → PWA yang di-resume dari memori tidak pernah memuat kode baru sampai proses benar-benar dimatikan; (3) APP_VERSION (2026-09-28-v60) & SW CACHE_NAME (v125) tak pernah memaksa invalidasi.
+- FIX (3 file, commit bef0806):
+  1. public/sw.js: CACHE_NAME v125 → v126 (activate menghapus semua cache darrell-soft-* lama).
+  2. src/components/service-worker-registration.tsx: APP_VERSION → 2026-10-03-v61; TAMBAH handler controllerchange yang auto-reload SEKALI per deploy per sesi (guard sessionStorage sw_ctrl_<versi>) — PWA lama otomatis memakai kode baru maks ~1 menit (reg.update() tiap 60 dtk sudah ada) tanpa loop reload; draft form aman (localStorage).
+  3. src/lib/changelog.ts: CURRENT_VERSION → 2026-10-03-v1 + entri "Field Customer Fleksibel & Margin Rapi" → dialog "Versi Baru!" memberi konfirmasi visual ke user bahwa versi baru sudah aktif.
+- INSIDEN DEPLOY: deploy pertama hari ini nyasar ke project Vercel "my-project" (folder .vercel ternyata sudah re-link ke project lain; deployment my-project-64dwanmkr dibuat sia-sia). Re-link ke darrellsoft (prj_ZoKYf…) + redeploy → sukses darrellsoft-qqg9zo7dy; https://www.darrellsoft.com/sw.js kini v126.
+- VERIFIKASI PRODUKSI (emulasi iPhone 14): SW v126 aktif & controlling, cache lama terhapus (hanya darrell-soft-v126 tersisa) ✓; dialog "Versi Baru!" menampilkan entri 3 Okt 2026 ✓; ketik nyata PK: "uji" ✓ + dropdown ✓; Tambah Cust ✓; desktop 1440px pad 11.3386px (3mm) tetap ✓.
+- CLEANUP: customer uji "uji" dihapus dari DB produksi (DELETE 200) — kembali 5 customer asli (Budi Susanto, jaya, Jaya Wijaya, Lunggan, Siti Rohana). Pelajaran: blur PK auto-create customer dari teks terakhir — saat testing JANGAN blur dgn teks uji di field.
+- Git: push origin/main 8f9885f..bef0806.
+
+Stage Summary:
+- Akar keluhan berulang user = PWA menetap di kode lama (bukan bug field). Diperbaiki permanen: SW v126 + auto-reload 1x/deploy + dialog Versi Baru; perangkat user akan otomatis memakai versi baru maks ±1 menit setelah aplikasi dibuka/di-resume (asal online), TANPA perlu hard-refresh manual.
+- Field customer PK & HC terbukti bisa diketik bebas (keystroke nyata, mobile) + tombol Tambah Cust di atasnya; margin 3mm semua halaman tetap utuh.
