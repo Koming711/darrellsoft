@@ -11732,3 +11732,20 @@ Work Log:
 Stage Summary:
 - "Sample PO belum ada" disebabkan data per-user: sample hanya ada di akun 'admin'. Kini sample PO (3 buah, semua diterima, barang masuk Stock Bahan) tersedia di akun admin (prod), superadmin (prod), DAN di preview/dev.
 - Halaman /master-barang kini berjudul lengkap "Harga per Customer" (menu + judul halaman + header mobile).
+---
+Task ID: harga-per-customer-judul + sample-po-multi-akun (rilis)
+Agent: Main (Z.ai Code)
+Task: Deploy produksi + verifikasi E2E produksi (akun superadmin).
+
+Work Log:
+- Deploy: darrellsoft-b069h5vpb → https://www.darrellsoft.com/sw.js = darrell-soft-v130 ✓.
+- VERIFIKASI PRODUKSI login superadmin/268899:
+  - /purchase-order: PO/10/26/0001-0003 (Bintang Timur, Buana, Indojaya) tampil + "Diterima" ✓
+  - /master-barang: judul halaman kini "Harga per Customer" ✓ (satu-satunya teks "Master Barang" tersisa ada DI DALAM isi dialog "Versi Baru!" — deskripsi changelog, bukan UI halaman)
+  - /stock-bahan: 6 bahan BHN-001…006 lengkap ✓ (screenshot .verify/prod-superadmin-stock-bahan.png)
+- Akun admin (user-admin) di produksi juga tetap punya 3 sample PO + 6 bahan (dibuat di sesi sebelumnya); dev/preview juga sudah diisi 3 sample PO (PO/10/26/0003-0005) + 6 bahan.
+- Git: 89bdaa4 + 3880049 terpush; commit worklog rilis menyusul.
+
+Stage Summary:
+- Sample PO kini TERLIHAT apa pun akun yang dipakai (admin ATAU superadmin) dan di preview/dev — 3 PO diterima + barang masuk Stock Bahan.
+- Halaman Harga per Customer sudah konsisten: menu sidebar, judul halaman, dan header mobile semuanya "Harga per Customer".
