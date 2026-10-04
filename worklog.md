@@ -11936,3 +11936,21 @@ Stage Summary:
 - Akar masalah 2: dropdown barang tidak difilter per suplier — kini difilter otomatis mengikuti Nama Suplier (kosong = semua).
 - Receive PO produksi kanti tahan timeout Supabase (pre-gen nomor + tx 20s) dan menghasilkan ledger kualitas form Stok Masuk.
 - Versi berikutnya bila rilis lagi: v134/v69/v9. Bukti: .verify/fix-01..05-*.png
+---
+Task ID: po-receive-suplier-filter-rilis
+Agent: Main
+Task: Deploy produksi v133 (fix PO suplier filter + receive ledger lengkap) + verifikasi browser
+
+Work Log:
+- Commit 34ae9aa push origin/main → deploy Vercel prod darrellsoft-7uufxwhng SUKSES; https://www.darrellsoft.com/sw.js = darrell-soft-v133; root 200.
+- Verifikasi produksi (login admin/268899): whats-new popup v8 "Perbaikan Purchase Order & Stok Bahan" tampil sekali lalu tertutup normal.
+- /purchase-order: daftar PO utuh (PO/10/26/0001..0003, status Diterima); Buat PO menampilkan nomor berikutnya PO/10/26/0005.
+- Filter suplier tervalidasi di produksi: ketik "Indojaya" di Nama Suplier → dropdown barang menampilkan pesan panduan "Tidak ada barang dari suplier …" (benar, karena data Paper produksi belum punya field suplier); hapus nama suplier → semua 10 kertas tampil kembali (fix-06, fix-07).
+- /stock-bahan produksi utuh: Total Jenis Bahan 6, Total Stok 75, Menipis 0, Habis 0, Nilai persediaan Rp 65.552.000 (fix-08).
+- Mobile 390px Buat PO render sempurna + bottom nav (fix-09); page errors = 0.
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v133 (APP_VERSION 2026-10-03-v68, changelog v8).
+- Perilaku baru: Nama Barang di Buat PO mengikuti Nama Suplier (kosong = semua); Terima PO menulis ledger SM lengkap (nomor/tanggal/pemasok/nota/harga); toast simpan PO mengingatkan langkah "Terima".
+- Catatan utk user di produksi: agar filter Indojaya menampilkan barang, isi kolom "Suplier" pada Master Harga Kertas (lokal sudah terisi; produksi masih kosong — filter menampilkan pesan panduan bila belum ada).
+- Versi berikutnya bila rilis lagi: v134/v69/v9. Bukti: .verify/fix-06..09-prod-*.png
