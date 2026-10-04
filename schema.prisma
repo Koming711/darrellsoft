@@ -512,6 +512,8 @@ model Biaya {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+// ===== STOCK BAHAN (bahan baku cetak: kertas, tinta, dll.) =====
 model Bahan {
   id          String   @id @default(cuid())
   kode        String // auto: BHN-001, BHN-002, ... per user
@@ -520,8 +522,11 @@ model Bahan {
   satuan      String   @default("pcs") // pcs, rim, lembar, kg, roll, box, pack, liter, tube
   stok        Float    @default(0)
   stokMin     Float    @default(0) // batas minimum — peringatan stok rendah
-  hargaSatuan Float    @default(0) // harga per satuan (Rupiah) untuk nilai stok
-  keterangan  String   @default("")
+  hargaSatuan Float    @default(0) // harga modal per satuan (Rupiah) untuk nilai stok
+  keterangan  String   @default("") // catatan bebas + "Ref PO: ..." dari Referensi PO
+  aktif       Boolean  @default(true) // status aktif bahan
+  lokasi      String   @default("") // lokasi penyimpanan (mis. Gudang A — Rak 2)
+  pemasok     String   @default("") // supplier utama bahan ini
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -533,14 +538,25 @@ model Bahan {
 }
 
 model BahanMutasi {
-  id         String   @id @default(cuid())
-  bahanId    String
-  jenis      String // 'masuk' | 'keluar' | 'penyesuaian'
-  qty        Float // selalu positif; arah ditentukan jenis (penyesuaian boleh negatif)
-  stokSetelah Float   @default(0) // snapshot stok setelah mutasi ini
-  keterangan String   @default("")
-  userId     String?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  bahanId     String
+  jenis       String // 'masuk' | 'keluar' | 'penyesuaian'
+  qty         Float // masuk/keluar: selalu positif; penyesuaian: delta (boleh negatif)
+  stokSetelah Float    @default(0) // snapshot stok setelah mutasi ini
+  keterangan  String   @default("")
+  nomor       String   @default("") // nomor transaksi auto: SM-001 / SK-001 / SP-001
+  tanggal     String   @default("") // tanggal transaksi (yyyy-mm-dd) pilihan user
+  nomorNota   String   @default("") // nomor nota / faktur pembelian (stok masuk)
+  pemasok     String   @default("") // nama supplier (stok masuk)
+  hargaBeli   Float    @default(0) // harga beli per satuan (stok masuk)
+  totalHarga  Float    @default(0) // qty × hargaBeli (stok masuk)
+  satuanBahan String   @default("") // snapshot satuan bahan saat transaksi
+  namaBahan   String   @default("") // snapshot nama bahan saat transaksi
+  tujuan      String   @default("") // tujuan stok keluar: Produksi/Sampel/Rusak/Pemakaian internal/Lainnya
+  alasan      String   @default("") // alasan penyesuaian: Stok opname/Stok rusak/dll.
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   bahan Bahan @relation(fields: [bahanId], references: [id], onDelete: Cascade)
 
