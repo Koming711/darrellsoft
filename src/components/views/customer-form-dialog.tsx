@@ -8,9 +8,17 @@
  * /api/customers/next-code), nama *, telepon, email, alamat, catatan, status
  * aktif (edit saja), validasi & toast sama. Save tetap via apiFetch
  * /api/customers (POST/PUT).
+ *
+ * Mobile: bila perangkat mendukung Web Contact Picker API (Chrome Android),
+ * tampil tombol "Isi Nama & Telepon dari Phone Book" — pilih kontak dari
+ * phone book HP, nama + nomor telepon terisi otomatis. Kolom tetap bisa
+ * diketik/diedit manual kapan saja. Di perangkat yang tidak mendukung
+ * (desktop / iOS Safari) tombol tidak tampil dan tetap ketik manual;
+ * autocomplete name/tel membantu saran isi bawaan keyboard.
  */
 
 import { useEffect, useState } from 'react'
+import { BookUser } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
 import type { Customer } from '@/lib/types'
@@ -31,6 +39,16 @@ import { Textarea } from '@/components/ui/textarea'
 function errText(e: unknown): string {
   return e instanceof Error ? e.message : 'Terjadi kesalahan'
 }
+
+/* ==== Web Contact Picker API (Chrome Android) — tipe mini ==== */
+interface PickerContact {
+  name?: string[]
+  tel?: string[]
+}
+interface ContactsManager {
+  select(properties: string[], options?: { multiple?: boolean }): Promise<PickerContact[]>
+}
+type NavigatorWithContacts = Navigator & { contacts?: ContactsManager }
 
 /**
  * Respons API /api/customers (POST & PUT) berupa OBJEK customer LANGSUNG
@@ -87,6 +105,9 @@ export function CustomerFormDialog({
   const [saving, setSaving] = useState(false)
   // Preview kode otomatis (mis. "CUST-006") untuk dialog Tambah.
   const [nextCode, setNextCode] = useState('')
+  // true bila perangkat mendukung Contact Picker API (Chrome Android) —
+  // dicek tiap kali dialog dibuka.
+  const [contactPickable, setContactPickable] = useState(false)
 
   // Isi form setiap kali dialog dibuka — replika openCreate/openEdit di
   // customers-view (sama persis). Mode tambah juga memuat preview kode
@@ -110,6 +131,44 @@ export function CustomerFormDialog({
         .catch(() => {})
     }
   }, [open, editing])
+
+  // Deteksi dukungan Contact Picker API setiap kali dialog dibuka.
+  useEffect(() => {
+    if (!open) return
+    setContactPickable(
+      typeof (navigator as NavigatorWithContacts).contacts?.select === 'function'
+    )
+  }, [open])
+
+  /** Ambil nama + nomor telepon dari phone book HP (Contact Picker API). */
+  const pickFromPhoneBook = async () => {
+    const contacts = (navigator as NavigatorWithContacts).contacts
+    if (!contacts?.select) {
+      toast.error('Perangkat tidak mendukung pemilih kontak')
+      return
+    }
+    try {
+      const picked = await contacts.select(['name', 'tel'], { multiple: false })
+      // User menutup picker tanpa memilih — biarkan form apa adanya.
+      if (!picked || picked.length === 0) return
+      const name = picked[0]?.name?.[0]?.trim() ?? ''
+      const tel = picked[0]?.tel?.[0]?.trim() ?? ''
+      if (!name && !tel) {
+        toast.error('Kontak tidak memiliki nama / nomor telepon')
+        return
+      }
+      setForm((f) => ({
+        ...f,
+        name: name || f.name,
+        phone: tel || f.phone,
+      }))
+      toast.success('Data kontak dimasukkan — silakan koreksi bila perlu')
+    } catch (e) {
+      // User membatalkan picker bawaan HP — bukan error.
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      toast.error('Gagal mengambil kontak dari phone book')
+    }
+  }
 
   const handleSave = async () => {
     if (!form.name.trim()) {
@@ -169,6 +228,18 @@ export function CustomerFormDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
+          {contactPickable && (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] w-full border-dashed"
+              onClick={() => void pickFromPhoneBook()}
+              disabled={saving}
+            >
+              <BookUser className="mr-2 h-4 w-4" />
+              Isi Nama &amp; Telepon dari Phone Book
+            </Button>
+          )}
           {!editing && (
             <div className="grid gap-1.5">
               <Label htmlFor="cust-code">Kode (otomatis)</Label>
@@ -188,7 +259,7 @@ export function CustomerFormDialog({
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Nama pelanggan / toko"
-              autoComplete="off"
+              autoComplete="name"
             />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -201,7 +272,7 @@ export function CustomerFormDialog({
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 placeholder="08xxxxxxxxxx"
-                autoComplete="off"
+                autoComplete="tel"
               />
             </div>
             <div className="grid gap-1.5">
