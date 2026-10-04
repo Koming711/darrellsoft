@@ -108,6 +108,9 @@ export function CustomerFormDialog({
   // true bila perangkat mendukung Contact Picker API (Chrome Android) —
   // dicek tiap kali dialog dibuka.
   const [contactPickable, setContactPickable] = useState(false)
+  // true bila perangkat layar sentuh (HP/tablet) — dipakai utk petunjuk
+  // ketika Contact Picker tidak tersedia.
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
 
   // Isi form setiap kali dialog dibuka — replika openCreate/openEdit di
   // customers-view (sama persis). Mode tambah juga memuat preview kode
@@ -132,12 +135,17 @@ export function CustomerFormDialog({
     }
   }, [open, editing])
 
-  // Deteksi dukungan Contact Picker API setiap kali dialog dibuka.
+  // Deteksi dukungan Contact Picker API + layar sentuh setiap dialog dibuka.
   useEffect(() => {
     if (!open) return
     setContactPickable(
       typeof (navigator as NavigatorWithContacts).contacts?.select === 'function'
     )
+    try {
+      setIsTouchDevice(window.matchMedia('(pointer: coarse)').matches)
+    } catch {
+      setIsTouchDevice(false)
+    }
   }, [open])
 
   /** Ambil nama + nomor telepon dari phone book HP (Contact Picker API). */
@@ -171,6 +179,7 @@ export function CustomerFormDialog({
   }
 
   const handleSave = async () => {
+    if (saving) return // cegah dobel submit (klik ganda / Enter)
     if (!form.name.trim()) {
       toast.error('Nama pelanggan wajib diisi')
       return
@@ -218,7 +227,7 @@ export function CustomerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Pelanggan' : 'Tambah Pelanggan'}</DialogTitle>
           <DialogDescription>
@@ -227,7 +236,13 @@ export function CustomerFormDialog({
               : 'Kode pelanggan dibuat otomatis oleh sistem.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4">
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void handleSave()
+          }}
+        >
           {contactPickable && (
             <Button
               type="button"
@@ -239,6 +254,13 @@ export function CustomerFormDialog({
               <BookUser className="mr-2 h-4 w-4" />
               Isi Nama &amp; Telepon dari Phone Book
             </Button>
+          )}
+          {!contactPickable && isTouchDevice && (
+            <p className="-mt-1 text-xs leading-relaxed text-muted-foreground">
+              Isi otomatis dari phone book hanya tersedia di aplikasi Chrome (Android).
+              Semua kolom di bawah tetap bisa diketik manual — di iPhone, saran kontak
+              dapat muncul di atas keyboard saat mengetik.
+            </p>
           )}
           {!editing && (
             <div className="grid gap-1.5">
@@ -256,10 +278,12 @@ export function CustomerFormDialog({
             <Label htmlFor="cust-name">Nama <span className="text-destructive">*</span></Label>
             <Input
               id="cust-name"
+              name="name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Nama pelanggan / toko"
               autoComplete="name"
+              className="text-base sm:text-sm"
             />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -267,23 +291,27 @@ export function CustomerFormDialog({
               <Label htmlFor="cust-phone">Telepon</Label>
               <Input
                 id="cust-phone"
+                name="tel"
                 type="tel"
                 inputMode="tel"
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 placeholder="08xxxxxxxxxx"
                 autoComplete="tel"
+                className="text-base sm:text-sm"
               />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="cust-email">Email</Label>
               <Input
                 id="cust-email"
+                name="email"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 placeholder="nama@email.com"
                 autoComplete="off"
+                className="text-base sm:text-sm"
               />
             </div>
           </div>
@@ -291,20 +319,24 @@ export function CustomerFormDialog({
             <Label htmlFor="cust-address">Alamat</Label>
             <Textarea
               id="cust-address"
+              name="address"
               rows={2}
               value={form.address}
               onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               placeholder="Alamat lengkap pelanggan"
+              className="text-base sm:text-sm"
             />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="cust-notes">Catatan</Label>
             <Textarea
               id="cust-notes"
+              name="notes"
               rows={2}
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               placeholder="Catatan tambahan (opsional)"
+              className="text-base sm:text-sm"
             />
           </div>
           {editing && (
@@ -321,7 +353,7 @@ export function CustomerFormDialog({
               />
             </div>
           )}
-        </div>
+        </form>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="min-h-[44px]">
             Batal
