@@ -19,7 +19,6 @@ const TILE_GRADIENT: Record<string, string> = {
   '/potong-kertas': 'from-rose-500 to-red-600',
   '/hitung-cetakan': 'from-violet-500 to-purple-600',
   '/invoice': 'from-amber-400 to-orange-500',
-  '/riwayat-pembayaran': 'from-emerald-400 to-green-600',
   '/surat-jalan': 'from-orange-400 to-amber-600',
   '/purchase-order': 'from-teal-400 to-cyan-600',
   '/hutang-dagang': 'from-red-500 to-rose-700',
