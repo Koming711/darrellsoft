@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v12'
+export const CURRENT_VERSION = '2026-10-03-v13'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v13',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Popup Pelanggan Kecil & Pas di Layar HP',
+      en: 'Customer Popup Compact & Fits Phone Screens',
+    },
+    items: [
+      {
+        id: 'Popup Tambah Pelanggan dibuat lebih kecil & rapat — muat di layar HP tanpa digulir: kode otomatis di baris atas, Telepon & Email sejajar, tombol Batal & Simpan berdampingan',
+        en: 'The Add Customer popup is smaller & tighter — fits phone screens without scrolling: auto code on the top line, Phone & Email side by side, Cancel & Save buttons in one row',
+      },
+      {
+        id: 'Tombol phone book lebih ringkas ("Isi dari Phone Book") dan petunjuk browser tak didukung lebih pendek',
+        en: 'Shorter phone book button ("Isi dari Phone Book") and a more concise hint on unsupported browsers',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v12',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },

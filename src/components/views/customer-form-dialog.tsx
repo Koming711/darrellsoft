@@ -10,11 +10,16 @@
  * /api/customers (POST/PUT).
  *
  * Mobile: bila perangkat mendukung Web Contact Picker API (Chrome Android),
- * tampil tombol "Isi Nama & Telepon dari Phone Book" — pilih kontak dari
- * phone book HP, nama + nomor telepon terisi otomatis. Kolom tetap bisa
- * diketik/diedit manual kapan saja. Di perangkat yang tidak mendukung
- * (desktop / iOS Safari) tombol tidak tampil dan tetap ketik manual;
- * autocomplete name/tel membantu saran isi bawaan keyboard.
+ * tampil tombol "Isi dari Phone Book" — pilih kontak dari phone book HP,
+ * nama + nomor telepon terisi otomatis. Kolom tetap bisa diketik/diedit
+ * manual kapan saja. Di perangkat yang tidak mendukung (desktop / iOS
+ * Safari) tombol tidak tampil dan tetap ketik manual; autocomplete
+ * name/tel membantu saran isi bawaan keyboard.
+ *
+ * Layout KOMPAK fit-to-mobile: kode otomatis cukup di baris deskripsi
+ * (tanpa field disabled), Telepon+Email sejajar 1 baris, tombol Batal &
+ * Simpan sejajar, gap/padding rapat — popup muat di layar HP tanpa
+ * digulir (fallback scroll tetap ada utk layar sangat pendek).
  */
 
 import { useEffect, useState } from 'react'
@@ -227,17 +232,21 @@ export function CustomerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6">
+      <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] gap-3 overflow-y-auto overscroll-contain p-4 sm:gap-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Edit Pelanggan' : 'Tambah Pelanggan'}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base sm:text-lg">
+            {editing ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
+          </DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             {editing
               ? `Kode ${editing.code} — perbarui data pelanggan.`
-              : 'Kode pelanggan dibuat otomatis oleh sistem.'}
+              : nextCode
+                ? `Kode otomatis: ${nextCode}`
+                : 'Kode pelanggan dibuat otomatis oleh sistem.'}
           </DialogDescription>
         </DialogHeader>
         <form
-          className="grid gap-4"
+          className="grid gap-3 sm:gap-4"
           onSubmit={(e) => {
             e.preventDefault()
             void handleSave()
@@ -252,29 +261,16 @@ export function CustomerFormDialog({
               disabled={saving}
             >
               <BookUser className="mr-2 h-4 w-4" />
-              Isi Nama &amp; Telepon dari Phone Book
+              Isi dari Phone Book
             </Button>
           )}
           {!contactPickable && isTouchDevice && (
             <p className="-mt-1 text-xs leading-relaxed text-muted-foreground">
-              Isi otomatis dari phone book hanya tersedia di aplikasi Chrome (Android).
-              Semua kolom di bawah tetap bisa diketik manual — di iPhone, saran kontak
-              dapat muncul di atas keyboard saat mengetik.
+              Isi otomatis dari phone book hanya di aplikasi Chrome (Android) — semua
+              kolom tetap bisa diketik manual.
             </p>
           )}
-          {!editing && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="cust-code">Kode (otomatis)</Label>
-              <Input
-                id="cust-code"
-                value={nextCode}
-                readOnly
-                disabled
-                placeholder="Otomatis oleh sistem"
-              />
-            </div>
-          )}
-          <div className="grid gap-1.5">
+          <div className="grid gap-1">
             <Label htmlFor="cust-name">Nama <span className="text-destructive">*</span></Label>
             <Input
               id="cust-name"
@@ -286,8 +282,8 @@ export function CustomerFormDialog({
               className="text-base sm:text-sm"
             />
           </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="grid gap-1.5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
               <Label htmlFor="cust-phone">Telepon</Label>
               <Input
                 id="cust-phone"
@@ -301,7 +297,7 @@ export function CustomerFormDialog({
                 className="text-base sm:text-sm"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-1">
               <Label htmlFor="cust-email">Email</Label>
               <Input
                 id="cust-email"
@@ -315,7 +311,7 @@ export function CustomerFormDialog({
               />
             </div>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1">
             <Label htmlFor="cust-address">Alamat</Label>
             <Textarea
               id="cust-address"
@@ -327,7 +323,7 @@ export function CustomerFormDialog({
               className="text-base sm:text-sm"
             />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1">
             <Label htmlFor="cust-notes">Catatan</Label>
             <Textarea
               id="cust-notes"
@@ -354,14 +350,19 @@ export function CustomerFormDialog({
             </div>
           )}
         </form>
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="min-h-[44px]">
+        <DialogFooter className="flex-row gap-2">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+            className="min-h-[44px] flex-1 sm:flex-none"
+          >
             Batal
           </Button>
           <Button
             onClick={() => void handleSave()}
             disabled={saving}
-            className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px]"
+            className="min-h-[44px] flex-1 bg-emerald-600 hover:bg-emerald-700 sm:flex-none"
           >
             {saving ? 'Menyimpan…' : 'Simpan'}
           </Button>

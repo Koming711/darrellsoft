@@ -12096,3 +12096,34 @@ Stage Summary:
 - Popup Tambah/Edit Pelanggan di HP kini pas layar, bisa digulir, tidak terpotong, tidak zoom sendiri; tombol phone book muncul di Chrome Android; browser lain dapat petunjuk jelas + saran kontak keyboard (iOS).
 - Catatan utk user: bila tombol phone book tidak muncul di HP = browser bukan Chrome Android → pakai aplikasi Chrome; pastikan versi baru terbuka (tutup-buka app / refresh 2x).
 - Versi berikutnya bila rilis lagi: v138/v73/v13.
+
+---
+Task ID: fix-popup-pelanggan-fit-mobile
+Agent: Main
+Task: User (produksi v137): "popup tambah pelanggan masih berantakan. kecilkan lagi sampai fit to mobile phone." — popup harus benar-benar kecil & muat di layar HP, bukan sekadar bisa digulir.
+
+Work Log:
+- Diagnosa: v137 hanya menambah max-h + scroll — di HP popup tetap ~770px (lebih tinggi dari layar) sehingga harus digulir & terasa berantakan. Penyebab: field Kode (otomatis) disabled makan tempat, Telepon & Email ditumpuk di mobile, tombol Batal & Simpan ditumpuk vertikal, gap/padding longgar, teks tombol & petunjuk panjang.
+- Redesign kompak fit-to-mobile di src/components/views/customer-form-dialog.tsx:
+  * Field "Kode (otomatis)" DIHAPUS — kode sekarang di baris deskripsi: "Kode otomatis: CUST-006" (mode edit tetap "Kode {code} — …").
+  * Telepon + Email: grid-cols-2 di mobile juga (sebelumnya sm:grid-cols-2 = tumpuk di HP).
+  * DialogFooter: flex-row di semua ukuran — Batal & Simpan sejajar; di mobile keduanya flex-1 (lebar sama), di sm+ sm:flex-none rata kanan (desktop tak berubah).
+  * Gap rapat: DialogContent gap-3 sm:gap-4, form gap-3 sm:gap-4, label gap-1; judul text-base sm:text-lg, deskripsi text-xs sm:text-sm; p-4 sm:p-6.
+  * Tombol phone book dipendekkan: "Isi dari Phone Book"; petunjuk browser tak didukung dipendekkan 1 kalimat.
+  * Fallback max-h-[calc(100dvh-2rem)] overflow-y-auto dipertahankan utk layar sangat pendek/landscape.
+- Verifikasi agent-browser lokal (fresh session, login admin):
+  * 390x844 tambah: dialog 458px (dari ~770px) — fits, TANPA scroll ✔ (fit-01)
+  * 360x640: fits tanpa scroll ✔; 320x568: fits tanpa scroll ✔ (fit-02/03)
+  * 320x568 + stub Contact Picker: tombol "Isi dari Phone Book" tampil → klik → Nama "Toko Amanah Jaya" + Telepon terisi, toast sukses, dialog 514px tetap fits ✔ (fit-04/05)
+  * Landscape 640x360: dialog 328px (max-h dvh) dengan scroll fallback ✔ (fit-06)
+  * Edit mode 390px: 582px fits, switch Status Aktif ada ✔ (fit-07)
+  * End-to-end: simpan "UJI Fit Mobile" via footer baru → muncul di daftar → dihapus via UI → 0 data uji.
+  * Desktop 1440px: w512, footer rata kanan lebar natural (Batal 68/Simpan 82), telepon+email sejajar — tak ada regresi ✔ (fit-08)
+  * Page errors / console errors: 0.
+- Bump rilis: public/sw.js darrell-soft-v138; APP_VERSION 2026-10-03-v73; changelog CURRENT_VERSION 2026-10-03-v13 + entri "Popup Pelanggan Kecil & Pas di Layar HP" (2 item id+en).
+- eslint file yang berubah: bersih.
+
+Stage Summary:
+- Popup Tambah/Edit Pelanggan kini KOMPAK fit-to-mobile: 458px di 390x844 (tanpa gulir; sebelumnya ~770px harus digulir), tetap rapi & fungsional dari 320px sampai desktop.
+- Komponen bersama — popup "Tambah Customer" di halaman Buat Invoice otomatis ikut rapi.
+- Versi berikutnya bila rilis lagi: v139/v74/v14.
