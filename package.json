@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "NODE_OPTIONS='--max-old-space-size=2048' next dev -p 3000 2>&1 | tee dev.log",
     "build": "node scripts/prepare-build.js && npx prisma generate && npx next build && node scripts/revert-schema.js",
     "build:local": "prisma generate && next build",
     "start": "next start",

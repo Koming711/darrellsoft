@@ -12127,3 +12127,23 @@ Stage Summary:
 - Popup Tambah/Edit Pelanggan kini KOMPAK fit-to-mobile: 458px di 390x844 (tanpa gulir; sebelumnya ~770px harus digulir), tetap rapi & fungsional dari 320px sampai desktop.
 - Komponen bersama — popup "Tambah Customer" di halaman Buat Invoice otomatis ikut rapi.
 - Versi berikutnya bila rilis lagi: v139/v74/v14.
+
+---
+Task ID: fix-preview-blank
+Agent: Main
+Task: User: "preview tidak muncul" — Preview Panel sandbox blank.
+
+Work Log:
+- Diagnosa: dev server (port 3000) MATI — curl 000. Preview Panel menampilkan proyek lewat dev server, jadi blank.
+- Akar penyebab (2 lapis):
+  1. OOM KILLER: server lama berjalan >1 hari, RSS membesar sampai 2.77GB (heap cap 4096MB di script dev) pada sandbox RAM 4GB → dmesg "Out of memory: Killed process next-server". Total 12 kejadian oom-kill dalam history.
+  2. Restart biasa (`nohup bun run dev &` maupun `setsid ... &`) MATI diam-diam antar tool-call (bukan OOM, tanpa log error) — proses background biasa dari tool call di-reap sandbox. Proses yang survive = yang benar-benar ter-daemonize (contoh: daemon agent-browser, PPID 1, double-fork).
+- Fix berjalan: restart dev server dengan DOUBLE-FORK via python3 (fork → setsid → fork → execvp bun run dev, stdio ke /dev/null + dev.log) → server TAHAN lintas tool-call, terbukti hidup & melayani request di call berikutnya.
+- Verifikasi agent-browser: / 200, splash DS → redirect ke Login normal, 0 page errors. Preview kembali tampil.
+- Fix preventif: package.json script dev heap cap 4096→2048 MB (sandbox 4GB) — mencegah next-server membesar ke territory OOM lagi; tidak berefek ke produksi (Vercel tidak menjalankan script dev).
+- Produksi www.darrellsoft.com TIDAK terdampak (masalah hanya sandbox dev server).
+
+Stage Summary:
+- Preview Panel hidup lagi: dev server berjalan stabil (double-fork daemonization), aplikasi render normal.
+- PELAJARAN UTK AGENT BERIKUTNYA: bila dev server mati, JANGAN pakai `nohup bun run dev &` biasa (akan di-reap antar tool call) — pakai double-fork python3 (pola terbukti di log ini) atau start-stop-daemon.
+- Versi PWA tidak berubah (tidak ada perubahan kode app). Commit: bump heap cap dev script.
