@@ -11840,3 +11840,21 @@ Stage Summary:
 - PRODUKSI www.darrellsoft.com AKTIF v131 (changelog 2026-10-03-v6) dengan modul Stock Bahan lengkap 8 submenu.
 - Data produksi bersih tanpa residu uji; 6 bahan riil kini punya riwayat saldo awal yang terlacak.
 - Bukti: .verify/sb-05-prod-dashboard.png, sb-06-prod-data.png, sb-07-prod-final.png
+---
+Task ID: rollback-v130
+Agent: Main
+Task: Rollback aplikasi & produksi ke versi v130 (undo rilis modul Stock Bahan v131) atas permintaan user: "kembali ke versi v130"
+
+Work Log:
+- Investigasi state: HEAD = ce04d20 (v131 Stock Bahan, deploy darrellsoft-j1kctu6zu aktif di produksi); v130 = commit 72aab71 (judul "Harga per Customer" + sample PO; sw darrell-soft-v130, APP_VERSION 2026-10-03-v65, changelog 2026-10-03-v5).
+- git revert --no-commit 030e789 880a480 → konflik hanya di worklog.md (diharapkan). Resolusi: worklog.md di-restore penuh dari ce04d20 agar riwayat entri 6-a/6-b/6-c/7/7-rilis tidak hilang; bukti .verify/sb-01..04.png dan backup data v131 (backups/auto-backup-2026-10-03T*) juga dipertahankan.
+- Kode kembali persis v130: 9 route API stock-bahan baru + 9 komponen sb-* + stock-bahan-server/types DIHAPUS; stock-bahan-view.tsx kembali tampilan sederhana; purchase-order/receive kembali tulis BahanMutasi langsung (tanpa BahanMasuk/nextStkNumber); model Suplier/BahanMasuk/BahanKeluar/BahanPenyesuaian & kolom tambahan Bahan hilang dari schema.
+- Versi PWA kembali v130: sw.js darrell-soft-v130, APP_VERSION 2026-10-03-v65, changelog 2026-10-03-v5 (popup whats-new akan muncul sekali dgn konten v5 bagi user yang sudah melihat v6 — perilaku authentic v130).
+- Normalisasi provider schema kembali ke sqlite sesuai konvensi repo (v130 ter-commit postgresql; skrip scripts/prepare-build.js otomatis menukar ke postgresql saat build Vercel, revert-schema.js untuk lokal) → prisma generate (client sqlite) + restart dev server (client lama v131 masih ter-cache menyebabkan "column Bahan.suplierId does not exist").
+- DB produksi (Supabase) SENGAJA tidak di-push ulang: tabel/kolom baru v131 dibiarkan ada (harmless, tidak dibaca kode v130); TIDAK menjalankan db push dgn schema lama untuk menghindari drop tabel/data produksi.
+- Verifikasi lokal: eslint 6 file berubah = 0 error; /api/stock-bahan & /api/stock-bahan/mutasi & /api/history?docType=purchase-order mengembalikan data normal; root / 200.
+
+Stage Summary:
+- Kode & versi = v130 exactly (sw v130 / APP_VERSION v65 / changelog v5); riwayat worklog & bukti v131 tetap terpelihara di repo.
+- Data produksi tidak diubah: 3 sample PO + 6 bahan utuh; ledger "Saldo awal" STK-0001..0006 hasil migrasi v131 tetap di BahanMutasi dan akan tampil apa adanya di halaman stock-bahan versi lama (nilai stok konsisten).
+- Deploy produksi menyusul di commit ini; versi berikutnya bila rilis baru: sw v131 sudah terpakai → gunakan v132/v67/v7 agar tidak bentrok dengan rilis v131 yang di-rollback.
