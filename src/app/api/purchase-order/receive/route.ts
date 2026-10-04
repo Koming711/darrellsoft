@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { nextNomorMutasi, todayJakarta } from '@/lib/stock-bahan-server'
 
 /**
  * POST /api/purchase-order/receive — terima barang dari Purchase Order.
@@ -11,8 +12,15 @@ import { sanitizeError } from '@/lib/api-error'
  * - Untuk setiap item PO (deskripsi, qty, satuan, harga):
  *   - Bahan dengan nama sama (per user) → stok BERTAMBAH (+qty) + mutasi 'masuk'.
  *   - Bahan belum ada → dibuat otomatis (kode BHN-xxx) + mutasi 'masuk'.
+ * - Setiap mutasi tercatat LENGKAP seperti form Stok Masuk: nomor SM-xxx
+ *   otomatis, tanggal hari ini, pemasok, no. nota (= no. PO), harga beli &
+ *   total per item — jadi Riwayat Stok & harga modal terupdate konsisten.
  * - dataJson PO diperbarui: diterima=true, tanggalTerima, stokMasuk (ringkasan).
  *   PO yang sudah diterima ditolak (409) agar stok tidak dobel.
+ *
+ * Catatan performa (pelajaran rilis v131 di Supabase): semua nomor SM
+ * PRE-GENERATED di luar transaksi (menghindari query berat dalam tx di atas
+ * koneksi berlatensi tinggi) dan transaksi diberi timeout 20s.
  *
  * Hutang: PO otomatis sudah dihitung sebagai hutang dagang (halaman Hutang
  * Dagang membaca docType=purchase-order); pelunasan lewat "Tandai Lunas".
@@ -23,11 +31,6 @@ interface PoItem {
   qty?: number
   satuan?: string
   harga?: number
-}
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export async function POST(request: NextRequest) {
@@ -85,7 +88,9 @@ export async function POST(request: NextRequest) {
     const pemasokObj = parsed.pemasok as Record<string, unknown> | undefined
     const pemasokNama = String(pemasokObj?.nama ?? '') || record.pihakKedua || '-'
     const pemasokJenis = String(pemasokObj?.jenisBarang ?? '').trim()
+    const tanggalTerimaStr = todayJakarta()
 
+    // ===== Persiapan di luar transaksi (read-only + generate nomor) =====
     // Muat bahan milik user sekali — pencocokan nama dilakukan di JS agar
     // portabel antara SQLite (lokal) & Postgres (produksi).
     const existingBahans = await db.bahan.findMany({ where: { userId } })
@@ -99,10 +104,19 @@ export async function POST(request: NextRequest) {
       if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10))
     }
 
+    // Pre-generate nomor SM untuk semua item (di luar tx — cepat & aman).
+    const baseSm = await nextNomorMutasi(userId, 'masuk')
+    const baseSmNum = parseInt(/(\d+)$/.exec(baseSm)?.[1] || '0', 10)
+    const smNumbers = items.map((_, i) => {
+      const n = (baseSmNum > 0 ? baseSmNum : 1) + i
+      return `${baseSm.replace(/(\d+)$/, '')}${String(n).padStart(3, '0')}`
+    })
+
     const stokMasuk: { bahanId: string; kode: string; nama: string; qty: number; satuan: string; baru: boolean }[] = []
 
     await db.$transaction(async (tx) => {
-      for (const it of items) {
+      for (let idx = 0; idx < items.length; idx++) {
+        const it = items[idx]
         const key = it.deskripsi.toLowerCase()
         let bahan = byName.get(key) || null
 
@@ -121,7 +135,15 @@ export async function POST(request: NextRequest) {
               jenis: 'masuk',
               qty: it.qty,
               stokSetelah: stokBaru,
-              keterangan: `PO ${nomor} — ${pemasokNama}`,
+              keterangan: `Ref PO: ${nomor}`,
+              nomor: smNumbers[idx],
+              tanggal: tanggalTerimaStr,
+              nomorNota: nomor,
+              pemasok: pemasokNama,
+              hargaBeli: it.harga,
+              totalHarga: it.harga * it.qty,
+              satuanBahan: bahan.satuan || it.satuan,
+              namaBahan: bahan.nama,
               userId,
             },
           })
@@ -150,7 +172,15 @@ export async function POST(request: NextRequest) {
               jenis: 'masuk',
               qty: it.qty,
               stokSetelah: it.qty,
-              keterangan: `PO ${nomor} — ${pemasokNama}`,
+              keterangan: `Ref PO: ${nomor}`,
+              nomor: smNumbers[idx],
+              tanggal: tanggalTerimaStr,
+              nomorNota: nomor,
+              pemasok: pemasokNama,
+              hargaBeli: it.harga,
+              totalHarga: it.harga * it.qty,
+              satuanBahan: created.satuan,
+              namaBahan: created.nama,
               userId,
             },
           })
@@ -163,14 +193,14 @@ export async function POST(request: NextRequest) {
       const updatedDataJson = JSON.stringify({
         ...parsed,
         diterima: true,
-        tanggalTerima: todayStr(),
+        tanggalTerima: tanggalTerimaStr,
         stokMasuk,
       })
       await tx.documentHistory.update({
         where: { id: historyId },
         data: { dataJson: updatedDataJson },
       })
-    })
+    }, { timeout: 20_000 })
 
     return NextResponse.json({
       success: true,

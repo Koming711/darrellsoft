@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -322,6 +322,19 @@ export function PurchaseOrderEditor({ onSaved, editingId }: { onSaved?: (id: str
   const ppnAmount = subtotal * (po.ppn / 100);
   const total = subtotal + ppnAmount;
 
+  // Filter daftar kertas mengikuti suplier terpilih (permintaan owner):
+  // memilih "Indojaya" di Nama Suplier → dropdown Nama Barang HANYA
+  // menampilkan barang milik suplier tersebut (pencocokan nama suplier
+  // pada Master Harga Kertas, tidak peka huruf besar/kecil). Kalau nama
+  // suplier kosong → semua barang tampil seperti sebelumnya.
+  const suplierFilter = pemasokInput.trim().toLowerCase();
+  const filteredPaperList = useMemo(() => {
+    if (!suplierFilter) return paperList;
+    return paperList.filter((p) =>
+      (p.suplier || '').trim().toLowerCase().includes(suplierFilter)
+    );
+  }, [paperList, suplierFilter]);
+
   return (
     <>
       <DocumentEditorLayout
@@ -537,7 +550,12 @@ export function PurchaseOrderEditor({ onSaved, editingId }: { onSaved?: (id: str
           items={po.items}
           onChange={(items) => setPurchaseOrder((prev) => ({ ...prev, items }))}
           showPrice
-          paperOptions={paperList}
+          paperOptions={filteredPaperList}
+          emptyPaperMessage={
+            suplierFilter
+              ? `Tidak ada barang dari suplier "${pemasokInput.trim()}" di Master Harga Kertas — ketik nama barang manual, atau hapus nama suplier untuk melihat semua barang`
+              : undefined
+          }
         />
 
         <div className="rounded-lg border bg-card p-3 sm:p-4 shadow-sm">
