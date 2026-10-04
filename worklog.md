@@ -11876,3 +11876,24 @@ Work Log:
 Stage Summary:
 - PRODUKSI www.darrellsoft.com AKTIF v130 sesuai permintaan user; modul Stock Bahan v131 tidak lagi tersedia di produksi (kode masih di riwayat git: commit 880a480 bila suatu saat ingin di-reintroduce sebagai v132).
 - Bukti: .verify/rb-01-prod-landing.png, rb-02-prod-stockbahan-lama.png, rb-03-prod-riwayat-saldo-awal.png, rb-04-prod-po-list.png, rb-05-prod-mobile-stockbahan.png, rb-06-prod-mobile-footer.png
+---
+Task ID: stock-bahan-restore-arsip
+Agent: Main
+Task: Ekstrak arsip split-tar upload user (workspace-51d6513f...tar.001-003) & ganti konten Stock Bahan dengan implementasi dari arsip tersebut
+
+Work Log:
+- Ekstrak 3 bagian arsip (cat | tar -xzf) ke /home/z/extract-tmp: workspace lain (session 51d6513f) berisi proyek sama dgn modul "Stock Bahan v123 — paritas produksi" berbeda dari v130 maupun v131 yang di-rollback.
+- Analisis arsip: view 2247 baris (8 menu dalam satu file: Dashboard/Data/Masuk/Keluar/Penyesuaian/Riwayat/Laporan/Kategori), API route bahan (CRUD + kode BHN auto + Ref PO compose) & mutasi (SM/SK/SP auto number, hargaBeli→harga modal, nomorNota, pemasok, tujuan, alasan, izinkan minus via UserSetting stock_izinkan_minus), lib stock-bahan-server.ts (76 baris helper). page.tsx IDENTIK; /api/settings & /api/purchase-order IDENTIK dgn current; tidak ada components/stock-bahan/ terpisah.
+- FALSE ALARM korupsi: tampilan tool memakan urutan "[m" pada output (mis. "const [mutasi]" tampil "const utasi]") — tsc memvalidasi semua file arsip valid; tidak ada file rusak.
+- Salin 4 file: stock-bahan-view.tsx (785→2247), api/stock-bahan/route.ts (196→227), api/stock-bahan/mutasi/route.ts (108→209), lib/stock-bahan-server.ts (BARU). Dependensi lengkap (jspdf, sonner, lib/client, lib/format, lib/types, semua komponen ui, UserSetting model ada).
+- Schema Bahan + BahanMutasi diganti versi arsip (Bahan +aktif/lokasi/pemasok; BahanMutasi +nomor/tanggal/nomorNota/pemasok/hargaBeli/totalHarga/satuanBahan/namaBahan/tujuan/alasan/updatedAt) di prisma/ & root; provider tetap sqlite.
+- DB lokal: db push gagal (kolom required updatedAt pd tabel berisi) → solusi manual SQL ALTER ADD + UPDATE backfill createdAt → push ulang = in sync.
+- DB PRODUKSI Supabase: manual SQL (ADD COLUMN IF NOT EXISTS updatedAt, backfill, SET NOT NULL) via pooler session 5432 → schema:to-pg → prisma db push --accept-data-loss (drop residu v131: kolom masuk/keluar/refId, tabel BahanMasuk; kolom Bahan.suplierId/suplierNama & tabel BahanKeluar/BahanPenyesuaian ikut disinkronkan) → in sync → schema:to-sqlite + generate. Data inti (bahan, ledger qty/stokSetelah/keterangan/nomor STK lama) utuh.
+- Verifikasi lokal curl: masuk 5 @1.2jt → stok 15 & harga modal terupdate & SM-001; keluar 999 ditolak "Stok tidak cukup (stok saat ini: 15 rim)"; keluar 3 → SK-001; penyesuaian fisik 20 → SP-001 delta +9; stok akhir 20 konsisten.
+- Verifikasi lokal browser: 8 tab tampil; Dashboard kartu (6 jenis, total 85, menipis 0, habis 0, nilai Rp78.052.000); Riwayat Stok menampilkan SP/SK/SM + baris lama tanpa tanggal ("-") tetap terbaca; mobile 390px menu-sheet + FAB + tabel scroll OK.
+- Bump PWA: sw.js darrell-soft-v132, APP_VERSION 2026-10-03-v67, changelog 2026-10-03-v7 "Stock Bahan Lengkap — 8 Menu Transaksi" (3 item). eslint 6 file = 0 error; tsc tidak ada error pd file modul.
+
+Stage Summary:
+- Konten Stock Bahan produksi kini = implementasi arsip user (v123-parity, 8 menu satu halaman): nomor transaksi otomatis SM/SK/SP, harga beli→harga modal otomatis, nota & pemasok, tujuan keluar, alasan penyesuaian, izinkan-minus per user, Print/PDF riwayat & laporan.
+- Kompatibilitas terjaga: receive PO (route lama) tetap jalan (field baru ber-default); entri ledger lama tampil graceful; dropdown Referensi PO terisi bila ada row di tabel PurchaseOrder.
+- Versi berikutnya: v133/v68/v8. Bukti: .verify/sbnew-01..03-lokal-*.png; verifikasi produksi menyusul di entri rilis.

@@ -2,23 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { nextNomorMutasi, todayJakarta, isIzinkanMinus } from '@/lib/stock-bahan-server'
 
 /**
- * GET /api/stock-bahan/mutasi — riwayat mutasi stok.
+ * GET /api/stock-bahan/mutasi — riwayat / ledger mutasi stok.
  * Query opsional:
- * - bahanId: hanya mutasi bahan tersebut
- * - limit: batasi jumlah baris (default 100)
+ * - bahanId : hanya mutasi bahan tersebut
+ * - jenis   : 'masuk' | 'keluar' | 'penyesuaian'
+ * - limit   : batasi jumlah baris (default 500)
  */
 export async function GET(request: NextRequest) {
   try {
     const user = getServerUser(request)
     const bahanId = request.nextUrl.searchParams.get('bahanId') || undefined
-    const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '100', 10)
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 500) : 100
+    const jenis = request.nextUrl.searchParams.get('jenis') || undefined
+    const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '500', 10)
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 1000) : 500
 
     const where = {
       ...(await getDataFilter(user)),
       ...(bahanId ? { bahanId } : {}),
+      ...(jenis ? { jenis } : {}),
     }
 
     const mutasi = await db.bahanMutasi.findMany({
@@ -42,28 +46,33 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/stock-bahan/mutasi — catat stok masuk / keluar.
- * Body: { bahanId, jenis: 'masuk' | 'keluar', qty, keterangan? }
- * - Stok bahan ikut diperbarui (masuk: +qty, keluar: -qty).
- * - Keluar melebihi stok ditolak agar stok tidak minus.
+ * POST /api/stock-bahan/mutasi — catat transaksi stok:
+ * - jenis 'masuk'       : pembelian & penerimaan barang (SM-001, ...)
+ *     body: { bahanId, qty, tanggal?, hargaBeli?, nomorNota?, pemasok?, keterangan? }
+ *     → stok +qty; hargaSatuan bahan diperbarui bila hargaBeli > 0 (harga modal terakhir).
+ * - jenis 'keluar'      : produksi, sampel, rusak (SK-001, ...)
+ *     body: { bahanId, qty, tanggal?, tujuan?, keterangan? }
+ *     → stok -qty; ditolak bila stok tidak cukup KECUALI "Izinkan stok minus" aktif.
+ * - jenis 'penyesuaian' : stok fisik vs sistem (SP-001, ...)
+ *     body: { bahanId, stokFisik, tanggal?, alasan?, keterangan? }
+ *     → stok = stokFisik; qty tercatat sebagai selisih (boleh negatif).
+ *
+ * Nomor transaksi dibuat otomatis per user per jenis (SM-/SK-/SP- + urutan).
  */
 export async function POST(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
     if (authErr) return authErr
     const user = getServerUser(request)!
+    const userId = user?.id || null
     const body = await request.json()
-    const { bahanId, jenis, qty, keterangan } = body
+    const { bahanId, jenis, qty, tanggal, keterangan } = body
 
     if (!bahanId) {
       return NextResponse.json({ error: 'Bahan wajib dipilih' }, { status: 400 })
     }
-    if (jenis !== 'masuk' && jenis !== 'keluar') {
+    if (jenis !== 'masuk' && jenis !== 'keluar' && jenis !== 'penyesuaian') {
       return NextResponse.json({ error: 'Jenis mutasi tidak valid' }, { status: 400 })
-    }
-    const qtyNum = Number(qty)
-    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
-      return NextResponse.json({ error: 'Jumlah harus lebih dari 0' }, { status: 400 })
     }
 
     const bahan = await db.bahan.findUnique({ where: { id: bahanId } })
@@ -71,30 +80,122 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
-    if (jenis === 'keluar' && qtyNum > bahan.stok) {
+    const tanggalStr = tanggal ? String(tanggal) : todayJakarta()
+    const nomor = await nextNomorMutasi(userId, jenis)
+
+    // ============ STOK MASUK (pembelian & penerimaan) ============
+    if (jenis === 'masuk') {
+      const qtyNum = Number(qty)
+      if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+        return NextResponse.json({ error: 'Jumlah harus lebih dari 0' }, { status: 400 })
+      }
+      const hargaBeli = Math.max(0, Number(body.hargaBeli) || 0)
+      const stokBaru = bahan.stok + qtyNum
+
+      const [, , updatedBahan] = await db.$transaction([
+        db.bahanMutasi.create({
+          data: {
+            bahanId,
+            jenis: 'masuk',
+            qty: qtyNum,
+            stokSetelah: stokBaru,
+            keterangan: keterangan ? String(keterangan) : '',
+            nomor,
+            tanggal: tanggalStr,
+            nomorNota: body.nomorNota ? String(body.nomorNota).trim() : '',
+            pemasok: body.pemasok ? String(body.pemasok).trim() : '',
+            hargaBeli,
+            totalHarga: hargaBeli * qtyNum,
+            satuanBahan: bahan.satuan,
+            namaBahan: bahan.nama,
+            userId,
+          },
+        }),
+        db.bahan.update({
+          where: { id: bahanId },
+          data: {
+            stok: stokBaru,
+            // harga modal terakhir ikut terbarui dari pembelian
+            ...(hargaBeli > 0 ? { hargaSatuan: hargaBeli } : {}),
+          },
+        }),
+        db.bahan.findUnique({ where: { id: bahanId } }),
+      ])
+
       return NextResponse.json(
-        { error: `Stok tidak cukup (stok saat ini: ${bahan.stok} ${bahan.satuan})` },
-        { status: 400 }
+        { ...updatedBahan, nomorTransaksi: nomor },
+        { status: 201 }
       )
     }
 
-    const stokBaru = jenis === 'masuk' ? bahan.stok + qtyNum : bahan.stok - qtyNum
+    // ============ STOK KELUAR (produksi, sampel, rusak) ============
+    if (jenis === 'keluar') {
+      const qtyNum = Number(qty)
+      if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+        return NextResponse.json({ error: 'Jumlah harus lebih dari 0' }, { status: 400 })
+      }
+
+      const izinkanMinus = await isIzinkanMinus(userId)
+      if (!izinkanMinus && qtyNum > bahan.stok) {
+        return NextResponse.json(
+          { error: `Stok tidak cukup (stok saat ini: ${bahan.stok} ${bahan.satuan})` },
+          { status: 400 }
+        )
+      }
+      const stokBaru = bahan.stok - qtyNum
+
+      const [mutasi] = await db.$transaction([
+        db.bahanMutasi.create({
+          data: {
+            bahanId,
+            jenis: 'keluar',
+            qty: qtyNum,
+            stokSetelah: stokBaru,
+            keterangan: keterangan ? String(keterangan) : '',
+            nomor,
+            tanggal: tanggalStr,
+            tujuan: body.tujuan ? String(body.tujuan).trim() : 'Lainnya',
+            satuanBahan: bahan.satuan,
+            namaBahan: bahan.nama,
+            userId,
+          },
+        }),
+        db.bahan.update({ where: { id: bahanId }, data: { stok: stokBaru } }),
+      ])
+
+      return NextResponse.json(mutasi, { status: 201 })
+    }
+
+    // ============ PENYESUAIAN STOK (stok fisik vs sistem) ============
+    if (!Number.isFinite(Number(body.stokFisik))) {
+      return NextResponse.json({ error: 'Stok fisik wajib diisi' }, { status: 400 })
+    }
+    const stokFisik = Math.max(0, Number(body.stokFisik))
+    const delta = stokFisik - bahan.stok
+    if (delta === 0) {
+      return NextResponse.json(
+        { error: 'Stok fisik sama dengan stok sistem — tidak ada yang perlu disesuaikan' },
+        { status: 400 }
+      )
+    }
 
     const [mutasi] = await db.$transaction([
       db.bahanMutasi.create({
         data: {
           bahanId,
-          jenis,
-          qty: qtyNum,
-          stokSetelah: stokBaru,
+          jenis: 'penyesuaian',
+          qty: delta,
+          stokSetelah: stokFisik,
           keterangan: keterangan ? String(keterangan) : '',
-          userId: user?.id || null,
+          nomor,
+          tanggal: tanggalStr,
+          alasan: body.alasan ? String(body.alasan).trim() : 'Lainnya',
+          satuanBahan: bahan.satuan,
+          namaBahan: bahan.nama,
+          userId,
         },
       }),
-      db.bahan.update({
-        where: { id: bahanId },
-        data: { stok: stokBaru },
-      }),
+      db.bahan.update({ where: { id: bahanId }, data: { stok: stokFisik } }),
     ])
 
     return NextResponse.json(mutasi, { status: 201 })

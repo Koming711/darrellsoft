@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v5'
+export const CURRENT_VERSION = '2026-10-03-v7'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v7',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Stock Bahan Lengkap — 8 Menu Transaksi',
+      en: 'Complete Material Stock — 8 Menu Module',
+    },
+    items: [
+      {
+        id: 'Stok Masuk/Keluar/Penyesuaian dengan nomor otomatis (SM/SK/SP), harga beli, no. nota & supplier',
+        en: 'Stock In/Out/Adjustment with auto numbers (SM/SK/SP), purchase price, receipt no. & supplier',
+      },
+      {
+        id: 'Riwayat & Laporan stok dengan filter tanggal/bahan/jenis + Print/PDF',
+        en: 'Stock history & report with date/material/type filters + Print/PDF',
+      },
+      {
+        id: 'Opsi "Izinkan stok minus" per pengguna, bahan aktif/nonaktif, lokasi & peringatan stok menipis',
+        en: 'Per-user "Allow negative stock" option, active/inactive materials, location & low-stock alerts',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v5',
     date: { id: '3 Oktober 2026', en: '3 October 2026' },
