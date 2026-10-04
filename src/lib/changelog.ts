@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v10'
+export const CURRENT_VERSION = '2026-10-03-v11'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v11',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Isi Pelanggan dari Phone Book & Menu Lebih Ringkas',
+      en: 'Fill Customers from Phone Book & Leaner Menu',
+    },
+    items: [
+      {
+        id: 'Popup Tambah Pelanggan kini bisa mengisi Nama & Telepon langsung dari phone book HP (Android/Chrome); tetap bisa diketik manual',
+        en: 'The Add Customer popup can now fill Name & Phone straight from the phone book (Android/Chrome); manual typing still works',
+      },
+      {
+        id: 'Menu Riwayat Pembayaran dihapus dari sidebar — halaman masih bisa dibuka dari kartu Jatuh Tempo di Beranda',
+        en: 'Payment History removed from the sidebar — the page is still reachable from the Due card on Home',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v10',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },
