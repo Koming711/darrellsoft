@@ -11897,3 +11897,21 @@ Stage Summary:
 - Konten Stock Bahan produksi kini = implementasi arsip user (v123-parity, 8 menu satu halaman): nomor transaksi otomatis SM/SK/SP, harga beli→harga modal otomatis, nota & pemasok, tujuan keluar, alasan penyesuaian, izinkan-minus per user, Print/PDF riwayat & laporan.
 - Kompatibilitas terjaga: receive PO (route lama) tetap jalan (field baru ber-default); entri ledger lama tampil graceful; dropdown Referensi PO terisi bila ada row di tabel PurchaseOrder.
 - Versi berikutnya: v133/v68/v8. Bukti: .verify/sbnew-01..03-lokal-*.png; verifikasi produksi menyusul di entri rilis.
+---
+Task ID: stock-bahan-restore-arsip-rilis
+Agent: Main
+Task: Deploy produksi modul Stock Bahan (dari arsip user) + verifikasi browser + bersihkan data uji
+
+Work Log:
+- Commit d76a813 push origin/main → deploy Vercel prod darrellsoft-etan9ab9f SUKSES; https://www.darrellsoft.com/sw.js = darrell-soft-v132; root 200.
+- Verifikasi produksi (login admin/268899): /stock-bahan menampilkan 8 menu (Dashboard Stock, Data Bahan, Stok Masuk, Stok Keluar, Penyesuaian Stok, Riwayat Stok, Laporan Stok, Kategori 1 kategori terpakai) + toggle "Izinkan stok minus".
+- GOLDEN PATH produksi: form Stok Masuk → pilih BHN-001 (combobox), qty 2, harga beli 1.150.000, supplier "Uji Produksi", nota TEST-RB-1 → Catat → Riwayat Stok menampilkan "04 Okt 2026 | SM-001 | Masuk | Art Paper | +2 rim | 12 rim"; Nilai persediaan otomatis Rp 65.552.000 → Rp 67.852.000 (2×1.150.000) — konsisten.
+- Ledger lama tampil graceful: baris STK-0001..0006 "Saldo awal" (tanggal 03 Okt 2026) terbaca normal di UI baru.
+- CLEANUP data uji: SQL produksi UPDATE Bahan stok −2 (bahanId dari baris nota TEST-RB-1) + DELETE BahanMutasi nomorNota=TEST-RB-1 → reload dashboard: Total Stok kembali 75, Nilai persediaan kembali Rp 65.552.000, Bahan Menipis 0, Bahan Habis 0. Laporan Stok render (filter kategori/supplier, Print, PDF) — nilai sama 65.552.000.
+- Mobile 390px: Laporan Stok & menu sheet + FAB + bottom nav render sempurna; console error = 0 (hanya noise favicon/manifest).
+- DB lokal dev menyimpan transaksi uji curl (SM-001/SK-001/SK-002/SP-001 di BHN-001 lokal) — environment dev saja, tidak mempengaruhi produksi.
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v132 (APP_VERSION 2026-10-03-v67, changelog v7 "Stock Bahan Lengkap — 8 Menu Transaksi") dengan konten Stock Bahan = implementasi dari arsip user.
+- Produksi bersih tanpa residu uji; 6 bahan riil + ledger STK lama utuh; nomor SM-001 terkonsumsi uji (transaksi nyata berikutnya mulai SM-002 — counter monotonik by design).
+- Bukti: .verify/sbnew-04-prod-dashboard.png, sbnew-05-prod-riwayat.png, sbnew-06-prod-dashboard-final.png, sbnew-07-prod-mobile.png
