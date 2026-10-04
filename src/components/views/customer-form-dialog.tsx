@@ -282,7 +282,7 @@ export function CustomerFormDialog({
               className="text-base sm:text-sm"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="grid gap-1">
               <Label htmlFor="cust-phone">Telepon</Label>
               <Input
