@@ -11,6 +11,13 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useState, useEffect, useRef } from "react"
 import { Loader2, Contact as ContactIcon, Smartphone } from "lucide-react"
 import { toast } from "sonner"
@@ -24,9 +31,11 @@ interface DialogFormProps {
   fields: {
     name: string
     label: string
-    type: 'text' | 'number' | 'email' | 'tel'
+    type: 'text' | 'number' | 'email' | 'tel' | 'select'
     placeholder?: string
     required?: boolean
+    /** Untuk type 'select' — daftar pilihan value/label */
+    options?: { value: string; label: string }[]
   }[]
   initialData?: Record<string, string | number>
   onSave: (data: Record<string, string | number>) => void | Promise<void>
@@ -171,16 +180,36 @@ export function DialogForm({ open, onOpenChange, title, description, fields, ini
                 <Label htmlFor={field.name} className="sm:text-right">
                   {field.label}
                 </Label>
-                <Input
-                  id={field.name}
-                  type={field.type}
-                  placeholder={field.placeholder}
-                  required={field.required}
-                  value={formData[field.name] || ''}
-                  onChange={(e) => setFormData({ ...formData, [field.name]: field.type === 'number' ? parseFloat(e.target.value) || '' : e.target.value })}
-                  className="sm:col-span-3 cursor-text"
-                  disabled={isSaving}
-                />
+                {field.type === 'select' ? (
+                  <Select
+                    value={String(formData[field.name] ?? '')}
+                    onValueChange={(v) => setFormData({ ...formData, [field.name]: v })}
+                    disabled={isSaving}
+                    required={field.required}
+                  >
+                    <SelectTrigger id={field.name} className="sm:col-span-3 w-full">
+                      <SelectValue placeholder={field.placeholder || 'Pilih...'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(field.options || []).map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id={field.name}
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                    value={formData[field.name] || ''}
+                    onChange={(e) => setFormData({ ...formData, [field.name]: field.type === 'number' ? parseFloat(e.target.value) || '' : e.target.value })}
+                    className="sm:col-span-3 cursor-text"
+                    disabled={isSaving}
+                  />
+                )}
               </div>
             ))}
           </div>

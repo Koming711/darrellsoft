@@ -1,7 +1,7 @@
 'use client'
 
-import { Store, Plus, Search, Phone, MapPin, Package, Loader2, EyeOff, DatabaseBackup, Upload, Printer, Pencil, Trash2 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Store, Plus, Search, Phone, MapPin, Tag, Loader2, EyeOff, DatabaseBackup, Upload, Printer, Pencil, Trash2 } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { DialogForm } from '@/components/dialog-form'
@@ -45,9 +45,12 @@ export default function MasterTokoPemasokPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<TokoPemasok | null>(null)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
+  // Daftar kategori dari menu Daftar Kategori — untuk dropdown di popup
+  const [kategoriList, setKategoriList] = useState<{ id: string; nama: string }[]>([])
 
   useEffect(() => {
     fetchData()
+    fetchKategoriList()
   }, [])
 
   useDataChange(['toko-pemasok'], () => {
@@ -66,6 +69,31 @@ export default function MasterTokoPemasokPage() {
       setLoading(false)
     }
   }
+
+  const fetchKategoriList = async () => {
+    try {
+      const response = await authFetch('/api/kategori')
+      const result = await response.json()
+      setKategoriList(Array.isArray(result) ? result : [])
+    } catch {
+      // Diamkan — dropdown kategori tetap bisa dipakai tanpa daftar
+    }
+  }
+
+  // Opsi dropdown Kategori: "Tanpa kategori" + semua kategori dari Daftar
+  // Kategori. Nilai lama toko yang tidak ada di daftar tetap muncul sbg
+  // opsi "(lama)" agar data lama tidak hilang saat diedit.
+  const kategoriOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = kategoriList.map((k) => ({
+      value: k.nama,
+      label: k.nama,
+    }))
+    const legacy = (editingItem?.jenisBarang || '').trim()
+    if (legacy && !kategoriList.some((k) => k.nama.toLowerCase() === legacy.toLowerCase())) {
+      opts.push({ value: legacy, label: `${legacy} (lama)` })
+    }
+    return [{ value: '__none__', label: 'Tanpa kategori' }, ...opts]
+  }, [kategoriList, editingItem])
 
   const handlePrint = () => {
     const printWindow = window.open('', '', 'height=800,width=1000')
@@ -99,7 +127,7 @@ export default function MasterTokoPemasokPage() {
     printWindow.document.write('<tr>')
     printWindow.document.write('<th>No</th>')
     printWindow.document.write('<th>Nama Toko</th>')
-    printWindow.document.write('<th>Jenis Barang</th>')
+    printWindow.document.write('<th>Kategori</th>')
     printWindow.document.write('<th>Kontak</th>')
     printWindow.document.write('<th>Alamat</th>')
     printWindow.document.write('</tr>')
@@ -230,18 +258,23 @@ export default function MasterTokoPemasokPage() {
 
   const handleSave = async (formData: any) => {
     try {
+      // Sentinel '__none__' dari dropdown Kategori dikembalikan ke string kosong
+      const payload = {
+        ...formData,
+        jenisBarang: formData.jenisBarang === '__none__' ? '' : (formData.jenisBarang || ''),
+      }
       let response: Response
       if (editingItem) {
         response = await authFetch(`/api/toko-pemasok/${editingItem.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(payload)
         })
       } else {
         response = await authFetch('/api/toko-pemasok', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(payload)
         })
       }
 
@@ -325,7 +358,7 @@ export default function MasterTokoPemasokPage() {
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[50px] text-center">#</TableHead>
                       <TableHead className="min-w-[200px]">Nama Toko</TableHead>
-                      <TableHead className="min-w-[160px]">Jenis Barang</TableHead>
+                      <TableHead className="min-w-[160px]">Kategori</TableHead>
                       <TableHead className="min-w-[140px]">Kontak</TableHead>
                       <TableHead className="min-w-[200px]">Alamat</TableHead>
                       <TableHead className="text-center w-[100px]">Aksi</TableHead>
@@ -388,7 +421,7 @@ export default function MasterTokoPemasokPage() {
                         <h3 className="font-semibold text-sm text-slate-800 truncate">{item.namaToko}</h3>
                         {item.jenisBarang && (
                           <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Package className="w-3 h-3 flex-shrink-0" />
+                            <Tag className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{item.jenisBarang}</span>
                           </p>
                         )}
@@ -461,13 +494,15 @@ export default function MasterTokoPemasokPage() {
         description={editingItem ? 'Edit informasi toko/pemasok' : 'Isi informasi toko/pemasok baru'}
         fields={[
           { name: 'namaToko', label: 'Nama Toko', type: 'text', placeholder: 'Nama toko/pemasok', required: true },
-          { name: 'jenisBarang', label: 'Jenis Barang', type: 'text', placeholder: 'Contoh: Kertas, Tinta, dll', required: false },
+          // Kategori dipilih dari dropdown Daftar Kategori (bukan ketik manual).
+          // Nilai lama yang tidak ada di daftar tetap ditampilkan sbg opsi "(lama)".
+          { name: 'jenisBarang', label: 'Kategori', type: 'select', placeholder: 'Pilih kategori (opsional)', options: kategoriOptions },
           { name: 'kontak', label: 'Kontak', type: 'text', placeholder: '081234567890 (opsional)', required: false },
           { name: 'alamat', label: 'Alamat', type: 'text', placeholder: 'Alamat lengkap (opsional)', required: false }
         ]}
         initialData={editingItem ? {
           namaToko: editingItem.namaToko,
-          jenisBarang: editingItem.jenisBarang || '',
+          jenisBarang: editingItem.jenisBarang || '__none__',
           kontak: editingItem.kontak || '',
           alamat: editingItem.alamat || ''
         } : undefined}

@@ -25,6 +25,8 @@ export type DataEntity =
   | 'calon-pembeli'
   | 'pembeli'
   | 'biaya'
+  | 'kategori'
+  | 'toko-pemasok'
 
 // BroadcastChannel for cross-tab sync
 let channel: BroadcastChannel | null = null
