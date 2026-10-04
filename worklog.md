@@ -11858,3 +11858,21 @@ Stage Summary:
 - Kode & versi = v130 exactly (sw v130 / APP_VERSION v65 / changelog v5); riwayat worklog & bukti v131 tetap terpelihara di repo.
 - Data produksi tidak diubah: 3 sample PO + 6 bahan utuh; ledger "Saldo awal" STK-0001..0006 hasil migrasi v131 tetap di BahanMutasi dan akan tampil apa adanya di halaman stock-bahan versi lama (nilai stok konsisten).
 - Deploy produksi menyusul di commit ini; versi berikutnya bila rilis baru: sw v131 sudah terpakai → gunakan v132/v67/v7 agar tidak bentrok dengan rilis v131 yang di-rollback.
+---
+Task ID: rollback-v130-rilis
+Agent: Main
+Task: Deploy produksi hasil rollback + verifikasi browser end-to-end
+
+Work Log:
+- Commit f60f5a5 push ke origin/main → deploy Vercel prod darrellsoft-gzt1gyxx9 SUKSES.
+- Produksi terverifikasi: https://www.darrellsoft.com/sw.js = darrell-soft-v130; SW cache browser aktif = darrell-soft-v130.
+- Login admin/268899 OK → whats-new popup sekali dgn konten v5 "Perbaikan Nama Halaman & Data Contoh" (diharapkan, authentic v130) → ditutup normal.
+- /stock-bahan = tampilan LAMA v130: kartu Total Jenis Bahan 6 / Stok Rendah 0 / Nilai Stok Rp 65.552.000; tabel 6 bahan (BHN-001..006) + aksi Stok masuk/keluar/Riwayat/Edit/Hapus; TANPA modul 8 tab v131.
+- Dialog Riwayat Mutasi (Art Karton) tampil konsisten: MASUK +8 rim, Stok: 8 (entri saldo awal migrasi v131 terbaca normal di UI lama).
+- /purchase-order = 3 sample PO utuh (PO/10/26/0001..0003, semua Diterima).
+- /master-barang = judul sidebar & in-page "Harga per Customer" (perbaikan task 3 tetap ada di v130).
+- Mobile 390px /stock-bahan render kartu + bottom nav "Hg/Cust" sempurna; console & page errors = 0.
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v130 sesuai permintaan user; modul Stock Bahan v131 tidak lagi tersedia di produksi (kode masih di riwayat git: commit 880a480 bila suatu saat ingin di-reintroduce sebagai v132).
+- Bukti: .verify/rb-01-prod-landing.png, rb-02-prod-stockbahan-lama.png, rb-03-prod-riwayat-saldo-awal.png, rb-04-prod-po-list.png, rb-05-prod-mobile-stockbahan.png, rb-06-prod-mobile-footer.png
