@@ -1,6 +1,6 @@
 'use client'
 
-import { FileText, Plus, Search, Loader2, Printer, Download, DatabaseBackup, Upload } from 'lucide-react'
+import { FileText, Plus, Search, Loader2, Printer, Download, DatabaseBackup, Upload, ChevronDown } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { MobileTable } from '@/components/mobile-table'
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
@@ -47,6 +48,17 @@ interface Paper {
 interface KategoriItem {
   id: string
   nama: string
+}
+
+interface TokoItem {
+  id: string
+  namaToko?: string
+  jenisBarang?: string
+}
+
+interface SuplierOption {
+  name: string
+  jenisBarang?: string
 }
 
 interface FormData {
@@ -122,24 +134,35 @@ export default function MasterHargaKertasPage() {
     }
   }
 
-  // Saran nama suplier untuk datalist dialog: gabungan nama toko dari
-  // Master Suplier + suplier yang sudah pernah dipakai di daftar kertas.
-  const [tokoNames, setTokoNames] = useState<string[]>([])
+  // Daftar suplier utk dropdown dialog: gabungan nama toko dari Master Toko
+  // Pemasok (Master Suplier) + suplier yang sudah pernah dipakai di kertas.
+  // Pakai dropdown Popover sungguhan (bukan <datalist> yang sering tidak
+  // tampil di browser/HP) supaya daftar selalu muncul saat diklik.
+  const [tokoList, setTokoList] = useState<TokoItem[]>([])
+  const [suplierDropdownOpen, setSuplierDropdownOpen] = useState(false)
   useEffect(() => {
     authFetch('/api/toko-pemasok')
       .then(res => res.ok ? res.json() : [])
-      .then((list) => {
-        const names = (Array.isArray(list) ? list : []).map((t: { namaToko?: string }) => (t.namaToko || '').trim()).filter(Boolean)
-        setTokoNames(Array.from(new Set(names)))
-      })
+      .then((list) => setTokoList(Array.isArray(list) ? list : []))
       .catch(() => { /* diamkan saja — saran suplier opsional */ })
   }, [])
-  const suplierSuggestions = useMemo(() => {
-    const set = new Set<string>()
-    papers.forEach(p => { const s = (p.suplier || '').trim(); if (s) set.add(s) })
-    tokoNames.forEach(n => set.add(n))
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
-  }, [papers, tokoNames])
+  const suplierOptions = useMemo<SuplierOption[]>(() => {
+    const map = new Map<string, SuplierOption>()
+    papers.forEach(p => {
+      const s = (p.suplier || '').trim()
+      if (s && !map.has(s.toLowerCase())) map.set(s.toLowerCase(), { name: s })
+    })
+    tokoList.forEach(t => {
+      const s = (t.namaToko || '').trim()
+      if (s && !map.has(s.toLowerCase())) map.set(s.toLowerCase(), { name: s, jenisBarang: t.jenisBarang || undefined })
+    })
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'id'))
+  }, [papers, tokoList])
+  const filteredSuplierOptions = useMemo(() => {
+    const q = formData.suplier.trim().toLowerCase()
+    if (!q) return suplierOptions
+    return suplierOptions.filter(o => o.name.toLowerCase().includes(q))
+  }, [suplierOptions, formData.suplier])
 
   const handleBackup = async () => {
     setBackupLoading('backup')
@@ -670,25 +693,83 @@ export default function MasterHargaKertasPage() {
                 />
               </div>
 
-              {/* Suplier (opsional — untuk membedakan harga antar suplier) */}
+              {/* Suplier (opsional — untuk membedakan harga antar suplier).
+                  Dropdown Popover selalu tampil saat input diklik / ikon ▼. */}
               <div className="space-y-1.5">
                 <Label htmlFor="suplier" className="text-sm font-medium">
                   Suplier
                 </Label>
-                <Input
-                  id="suplier"
-                  type="text"
-                  list="suplier-suggestions"
-                  placeholder="Nama suplier (opsional)"
-                  value={formData.suplier}
-                  onChange={(e) => setFormData({ ...formData, suplier: e.target.value })}
-                  autoComplete="off"
-                />
-                <datalist id="suplier-suggestions">
-                  {suplierSuggestions.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
+                <Popover open={suplierDropdownOpen} onOpenChange={setSuplierDropdownOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <Input
+                        id="suplier"
+                        type="text"
+                        placeholder="Ketik atau pilih suplier (opsional)"
+                        value={formData.suplier}
+                        onChange={(e) => setFormData({ ...formData, suplier: e.target.value })}
+                        onClick={() => setSuplierDropdownOpen(true)}
+                        autoComplete="off"
+                        role="combobox"
+                        aria-expanded={suplierDropdownOpen}
+                        aria-controls="suplier-dropdown-list"
+                        className="pr-9"
+                      />
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-label="Buka daftar suplier"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <div id="suplier-dropdown-list" role="listbox" aria-label="Daftar suplier">
+                      {filteredSuplierOptions.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">Master Suplier</div>
+                          {filteredSuplierOptions.map((o) => (
+                            <button
+                              key={o.name}
+                              type="button"
+                              role="option"
+                              aria-selected={formData.suplier === o.name}
+                              onMouseDown={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, suplier: o.name })); setSuplierDropdownOpen(false) }}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${formData.suplier === o.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                            >
+                              <span className="truncate">{o.name}</span>
+                              {o.jenisBarang && <span className="text-slate-400 ml-1.5 text-[11px]">({o.jenisBarang})</span>}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {filteredSuplierOptions.length === 0 && (
+                        <div className="px-3 py-3 text-sm text-slate-400 text-center">
+                          {suplierOptions.length === 0
+                            ? 'Belum ada suplier — tambahkan dulu di menu Master Toko Pemasok, atau ketik nama manual di kolom ini'
+                            : 'Tidak ada suplier yang cocok — ketik nama manual di kolom ini'}
+                        </div>
+                      )}
+                      {formData.suplier.trim() && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, suplier: '' })) }}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-slate-100"
+                        >
+                          Hapus nama suplier
+                        </button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Kategori (opsional — dari Daftar Kategori) */}

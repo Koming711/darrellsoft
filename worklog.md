@@ -11954,3 +11954,19 @@ Stage Summary:
 - Perilaku baru: Nama Barang di Buat PO mengikuti Nama Suplier (kosong = semua); Terima PO menulis ledger SM lengkap (nomor/tanggal/pemasok/nota/harga); toast simpan PO mengingatkan langkah "Terima".
 - Catatan utk user di produksi: agar filter Indojaya menampilkan barang, isi kolom "Suplier" pada Master Harga Kertas (lokal sudah terisi; produksi masih kosong — filter menampilkan pesan panduan bila belum ada).
 - Versi berikutnya bila rilis lagi: v134/v69/v9. Bukti: .verify/fix-06..09-prod-*.png
+---
+Task ID: suplier-dropdown-kertas
+Agent: Main
+Task: Fix laporan user (produksi): di popup "Tambah Kertas Baru" (Master Harga Kertas), dropdown nama suplier tidak muncul
+
+Work Log:
+- Akar masalah: kolom Suplier memakai <input list> + <datalist> — tidak ada panah dropdown, perilaku tampil tiap browser/HP tidak konsisten, dan di produksi saran kosong (data Paper produksi belum punya kolom suplier; /api/toko-pemasok tidak terlihat sebagai dropdown) sehingga terkesan "dropdown tidak muncul".
+- Reimplementasi jadi dropdown Popover sungguhan (pola yang sama dgn Nama Suplier di Buat PO): input tetap bisa ketik manual + ikon chevron ▼ (PopoverTrigger) + daftar "MASTER SUPLIER" berisi gabungan nama toko dari Master Toko Pemasok + suplier yang pernah dipakai di daftar kertas (dedup case-insensitive, urut abjad, tampil jenisBarang bila ada).
+- Bug lanjutan ditemukan saat verifikasi: membuka dropdown via event focus langsung tertutup lagi oleh event click yang sama (urutan pointerdown→focusin→ARIA:true→click→ARIA:false, terlacak via instrumentasi event). Fix: buka daftar saat input DI-KLIK (event terakhir, tidak ada event penutup setelahnya) dan chevron jadi PopoverTrigger asli agar Radix kelola toggle/dismiss dengan benar.
+- Fitur pendukung: filter daftar sambil mengetik, sorot nilai terpilih, aksi merah "Hapus nama suplier", pesan panduan bila daftar kosong ("Belum ada suplier — tambahkan dulu di menu Master Toko Pemasok…"), aria role=combobox/listbox/option.
+- Verifikasi lokal (agent-browser, login admin): klik input (mouse beneran) → dropdown tampil & TETAP terbuka (Bintang Timur, Indojaya); pilih Indojaya → terisi & tertutup; ketik "ind" → terfilter; chevron toggle tutup/buka OK; "Hapus nama suplier" mengosongkan; simpan kertas uji "UJI Suplier Dropdown" (suplier Indojaya) → toast sukses + baris tampil di tabel dgn kolom Suplier "Indojaya" → kertas uji DIHAPUS permanen via API (DB lokal bersih). Mobile 390px OK. 0 error console/page/dev.log; eslint bersih.
+- Bump PWA: sw.js darrell-soft-v134, APP_VERSION 2026-10-03-v69, changelog 2026-10-03-v9 "Dropdown Suplier di Tambah Kertas Baru" (2 item).
+
+Stage Summary:
+- Dropdown nama suplier di popup Tambah Kertas Baru kini SELALU muncul saat kolom diklik / ikon ▼ ditekan — berisi daftar Master Suplier (Master Toko Pemasok) + suplier kertas yang pernah dipakai; tetap bisa ketik manual.
+- Versi berikutnya bila rilis lagi: v135/v70/v10. Bukti: .verify/sup-01-dropdown-open.png, sup-02-selected.png, sup-03-mobile-dropdown.png
