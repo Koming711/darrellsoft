@@ -12147,3 +12147,23 @@ Stage Summary:
 - Preview Panel hidup lagi: dev server berjalan stabil (double-fork daemonization), aplikasi render normal.
 - PELAJARAN UTK AGENT BERIKUTNYA: bila dev server mati, JANGAN pakai `nohup bun run dev &` biasa (akan di-reap antar tool call) — pakai double-fork python3 (pola terbukti di log ini) atau start-stop-daemon.
 - Versi PWA tidak berubah (tidak ada perubahan kode app). Commit: bump heap cap dev script.
+
+---
+Task ID: popup-telepon-email-2-baris
+Agent: Main
+Task: User: "di tampilan mobile, popup tambah pelanggan, telepon dan email dibuat 2 baris. deploy" — Telepon & Email ditumpuk 2 baris di mobile + deploy.
+
+Work Log:
+- Ubah src/components/views/customer-form-dialog.tsx: wrapper Telepon+Email dari "grid grid-cols-2 gap-3" (sejajar di mobile, hasil kompaksi v138) menjadi "grid gap-3 sm:grid-cols-2 sm:gap-4" → di mobile tersusun 2 baris penuh lebar, di sm+ (desktop/tablet) kembali sejajar seperti semula.
+- Verifikasi agent-browser lokal (login admin):
+  * 390x844: teleponEmailStacked=true (gap vertikal 30px), dialog 524px FITS tanpa scroll ✔ (tel-01)
+  * 360x640: 524px fits tanpa scroll ✔
+  * 320x568: 524px fits tanpa scroll ✔ (tel-02)
+  * Desktop 1440: teleponEmailSejajar=true (top sama), dialog w512 h502 — tanpa regresi ✔ (tel-03)
+  * Page/console errors: 0.
+- Bump rilis: public/sw.js darrell-soft-v139; APP_VERSION 2026-10-03-v74; changelog CURRENT_VERSION 2026-10-03-v14 + entri "Telepon & Email Jadi 2 Baris di HP" (1 item id+en).
+- eslint file berubah: bersih.
+
+Stage Summary:
+- Popup Tambah/Edit Pelanggan di HP: Telepon & Email kini 2 baris penuh lebar (lebih lega diisi), sisanya kompak seperti v138; desktop tidak berubah.
+- Versi berikutnya bila rilis lagi: v140/v75/v15.

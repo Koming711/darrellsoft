@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v13'
+export const CURRENT_VERSION = '2026-10-03-v14'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v14',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Telepon & Email Jadi 2 Baris di HP',
+      en: 'Phone & Email on 2 Rows on Phones',
+    },
+    items: [
+      {
+        id: 'Di popup Tambah Pelanggan pada layar HP, kolom Telepon dan Email kini tersusun 2 baris (penuh lebar) agar lebih lega diisi — di desktop tetap berdampingan',
+        en: 'In the Add Customer popup on phone screens, the Phone and Email fields are now stacked in 2 full-width rows for easier typing — side by side on desktop unchanged',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v13',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },
