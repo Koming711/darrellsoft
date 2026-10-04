@@ -12010,3 +12010,21 @@ Work Log:
 - Commit push origin/main → deploy Vercel prod SUKSES; https://www.darrellsoft.com/sw.js = darrell-soft-v135; root 200.
 - Verifikasi produksi (admin): whats-new popup v10 tampil sekali; /master-toko-pemasok header "Kategori" (bukan Jenis Barang); popup Tambah Toko/Pemasok punya dropdown Kategori berisi kategori Daftar Kategori; /daftar-kategori 3 kartu ringkasan + tabel (Nama Kategori/Pemakaian/Dibuat/Aksi) + tombol Edit/Hapus per baris; mobile 390px OK; page/console errors 0.
 - Bukti: .verify/ktg-05..07-prod-*.png
+
+---
+Task ID: hapus-menu-riwayat-pembayaran
+Agent: Main
+Task: Hapus menu "Riwayat Pembayaran" dari sidebar (desktop + mobile). JANGAN deploy.
+
+Work Log:
+- src/components/sidebar.tsx: hapus item menu { riwayat_pembayaran, /riwayat-pembayaran, icon Banknote } dari menuItems + import Banknote (tak terpakai lagi).
+- src/components/sidebar-desktop.tsx: sama — hapus item menu + import Banknote.
+- src/components/menu-home-screen.tsx: hapus entri gradient '/riwayat-pembayaran' dari TILE_GRADIENT (tak terpakai; drawer merender dari props items sehingga tile otomatis hilang; urutan lama di localStorage yang masih memuat href tsb otomatis di-skip oleh guard byHref.has).
+- Dipertahankan (di luar cakupan "sidebar menu"): halaman /riwayat-pembayaran tetap ada & bisa diakses via URL langsung; kartu dashboard "Jatuh Tempo ≤7 Hari" (pembukaan) tetap menavigasi ke halaman tsb; daftar offline-warmup tetap memuat route.
+- Verifikasi lokal (agent-browser, admin): desktop 1440px — nav links tanpa /riwayat-pembayaran (urutan invoice → surat-jalan) ✔; akses langsung /riwayat-pembayaran masih 200 & konten utuh ✔; mobile 390px — bottom nav & drawer "Lainnya" tanpa tile Riwayat Pembayaran ✔; console/page errors 0; eslint 3 file bersih.
+- TIDAK deploy, TIDAK bump versi (permintaan user "jangan deploy"); commit + push saja.
+- Bukti: .verify/rp-01-desktop-sidebar.png, rp-02-mobile.png, rp-03-mobile-lainnya.png
+
+Stage Summary:
+- Menu "Riwayat Pembayaran" hilang dari sidebar desktop, bottom nav mobile, dan drawer Lainnya; halamannya sendiri masih hidup via URL langsung & kartu Jatuh Tempo.
+- Produksi masih v135 (APP_VERSION 2026-10-03-v70, changelog v10) — belum memuat perubahan ini sampai rilis berikutnya (bila dirilis: v136/v71/v11).
