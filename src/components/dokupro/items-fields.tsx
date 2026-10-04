@@ -90,6 +90,8 @@ interface ItemsFieldsProps {
    * Satuan ("lembar") & Harga/Lembar (harga per rim ÷ 500).
    */
   paperOptions?: PaperOption[];
+  /** Pesan saat daftar kertas kosong (mode PO) — mis. saat difilter per suplier. */
+  emptyPaperMessage?: string;
   /**
    * Kunci Harga Satuan & Harga Modal (read-only) — permintaan owner: harga
    * hanya boleh diubah di Master Barang, tidak di halaman Buat Invoice.
@@ -111,6 +113,7 @@ export function ItemsFields({
   onBarangCreated,
   lockPrices = false,
   paperOptions,
+  emptyPaperMessage = 'Belum ada data kertas di Master Harga Kertas',
 }: ItemsFieldsProps) {
   const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
   const [openPaperIndex, setOpenPaperIndex] = useState<number | null>(null);
@@ -325,7 +328,7 @@ export function ItemsFields({
                     ) : (
                       <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
                         <PackageSearch className="w-5 h-5 text-slate-300" />
-                        Belum ada data kertas di Master Harga Kertas
+                        {emptyPaperMessage}
                       </div>
                     )}
                   </PopoverContent>

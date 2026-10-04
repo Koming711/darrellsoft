@@ -11915,3 +11915,24 @@ Stage Summary:
 - PRODUKSI www.darrellsoft.com AKTIF v132 (APP_VERSION 2026-10-03-v67, changelog v7 "Stock Bahan Lengkap — 8 Menu Transaksi") dengan konten Stock Bahan = implementasi dari arsip user.
 - Produksi bersih tanpa residu uji; 6 bahan riil + ledger STK lama utuh; nomor SM-001 terkonsumsi uji (transaksi nyata berikutnya mulai SM-002 — counter monotonik by design).
 - Bukti: .verify/sbnew-04-prod-dashboard.png, sbnew-05-prod-riwayat.png, sbnew-06-prod-dashboard-final.png, sbnew-07-prod-mobile.png
+---
+Task ID: po-receive-suplier-filter
+Agent: Main
+Task: Fix laporan user: (1) PO/10/26/0006 tidak muncul di Stock Bahan, (2) di halaman Buat Purchase Order Baru pilihan suplier "Indojaya" harus memfilter daftar Nama Barang hanya barang suplier tsb
+
+Work Log:
+- Investigasi data: PO/10/26/0006 (Indojaya, 2 item art karton) ADA di DB lokal (user menguji via preview panel → server dev port 3000), status diterima=NULL — user belum klik "Terima" sehingga wajar Stock Bahan kosong; produksi (Supabase) tidak ada jejak attempt (benar, user mengerjakan di preview lokal).
+- Reproduksi UI lokal: pilih suplier Indojaya di Buat PO → dropdown Nama Barang masih menampilkan SEMUA kertas tercampur (art karton·Indojaya, art karton·Bintang Timur, ivory, duplex…) — inilah keluhan kedua user.
+- FIX 1 — /api/purchase-order/receive dirombak: mutasi 'masuk' kini tercatat lengkap khas form Stok Masuk (nomor SM-xxx otomatis via nextNomorMutasi, tanggal todayJakarta, pemasok, nomorNota=no. PO, hargaBeli & totalHarga per item, satuanBahan & namaBahan snapshot, keterangan "Ref PO: …"); semua nomor SM PRE-GENERATED di luar transaksi + db.$transaction timeout 20s (pelajaran P2028 Supabase rilis v131).
+- FIX 2 — purchase-order-editor.tsx: filteredPaperList useMemo — bila Nama Suplier terisi, paperOptions difilter ke kertas dgn field suplier yang cocok (case-insensitive, includes); suplier kosong → semua kertas. items-fields.tsx: prop baru emptyPaperMessage utk empty-state mode kertas; editor mengirim pesan panduan saat suplier tidak punya barang ("Tidak ada barang dari suplier "X" … ketik manual / hapus nama suplier").
+- FIX 3 — document-action-buttons.tsx: toast sukses simpan PO kini memuat deskripsi pengingat "Barang masuk ke Stock Bahan setelah PO diterima — klik ikon Terima pada daftar PO saat barang datang."
+- Data fix lokal: rollback receive cepat versi lama atas PO/10/26/0006 (hapus BHN-007/008 + mutasinya + dataJson dikembalikan tanpa diterima), lalu re-receive via route baru → SM-001 (+5000 lembar art karton 79x109 @2.687 = 13.435.000) & SM-002 (+500 lembar @2.789 = 1.394.500), pemasok Indojaya, nota PO/10/26/0006; Data Bahan kini punya BHN-007/008; Nilai persediaan 65.552.000 → 80.381.500.
+- Bersihkan residu uji lama di DB lokal: hapus mutasi SM-001/SK-001/SK-002/SP-001 hasil curl verifikasi v132, BHN-001 stok & hargaSatuan dikembalikan (10 rim / 1.150.000) — konsisten dgn produksi.
+- Bump PWA: sw.js darrell-soft-v133, APP_VERSION 2026-10-03-v68, changelog 2026-10-03-v8 "Perbaikan Purchase Order & Stok Bahan" (3 item). eslint 6 file = 0 error; tsc bersih utk file src (error tsc hanya di backups/ lama).
+- Verifikasi lokal (agent-browser): filter Indojaya → dropdown hanya "art karton·Indojaya" (screenshot fix-01); suplier tak dikenal → pesan panduan (fix-02); suplier kosong → semua kertas (fix-03); simpan PO uji 0007 → toast pengingat tampil lalu PO uji dihapus permanen + counter PO dikembalikan ke 6 (nomor 0007 tidak dibakar); Riwayat Stok menampilkan SM-001/SM-002 lengkap (fix-05); console & dev.log bersih.
+
+Stage Summary:
+- Akar masalah 1: PO hanya masuk stok setelah di-"Terima" (by design) — data PO/10/26/0006 kini SUDAH diterima & tampil di Stock Bahan dgn ledger lengkap; ditambah pengingat di toast simpan agar tidak bingung lagi.
+- Akar masalah 2: dropdown barang tidak difilter per suplier — kini difilter otomatis mengikuti Nama Suplier (kosong = semua).
+- Receive PO produksi kanti tahan timeout Supabase (pre-gen nomor + tx 20s) dan menghasilkan ledger kualitas form Stok Masuk.
+- Versi berikutnya bila rilis lagi: v134/v69/v9. Bukti: .verify/fix-01..05-*.png

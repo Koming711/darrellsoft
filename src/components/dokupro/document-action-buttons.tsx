@@ -135,7 +135,12 @@ export function DocumentActionButtons({
           // saja. Dokumen pelunasan dibuat saat user mencatat pelunasan lewat
           // tab "Pelunasan" (InvoicePelunasanEditor) atau Tandai Lunas.
 
-          toast.success(`${documentLabel} berhasil disimpan — dokumen direset`);
+          toast.success(`${documentLabel} berhasil disimpan — dokumen direset`, {
+            description:
+              docType === 'purchase-order'
+                ? 'Barang masuk ke Stock Bahan setelah PO diterima — klik ikon Terima pada daftar PO saat barang datang.'
+                : undefined,
+          });
           window.dispatchEvent(new CustomEvent('dokupro:history-updated'));
           onReset();
           if (onSaved) onSaved(savedData.id);

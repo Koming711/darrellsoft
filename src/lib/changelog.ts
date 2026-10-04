@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v7'
+export const CURRENT_VERSION = '2026-10-03-v8'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v8',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Perbaikan Purchase Order & Stok Bahan',
+      en: 'Purchase Order & Material Stock Improvements',
+    },
+    items: [
+      {
+        id: 'Daftar barang di Buat PO kini mengikuti suplier terpilih — pilih Indojaya → hanya barang Indojaya',
+        en: 'Item list in Create PO now follows the selected supplier — pick Indojaya → only Indojaya items',
+      },
+      {
+        id: 'Terima PO kini mencatat nomor SM, tanggal, supplier, no. nota & harga beli lengkap di Riwayat Stok',
+        en: 'Receiving a PO now records SM number, date, supplier, receipt no. & purchase price in Stock History',
+      },
+      {
+        id: 'Pengingat setelah simpan PO: barang masuk Stock Bahan setelah klik Terima',
+        en: 'Reminder after saving a PO: items enter Stock Bahan once received (Terima)',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v7',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },
