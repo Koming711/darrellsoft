@@ -12001,3 +12001,12 @@ Work Log:
 - Verifikasi lokal (agent-browser): header tabel "Kategori" ✔; dropdown popup berisi 10 kategori (Kardus, Kertas, Kimia, …) ✔; siklus toko uji: tambah dgn Kategori "Kertas" → edit jadi "Tinta" → hapus (confirm diterima, DB bersih) ✔; daftar-kategori: 3 kartu ringkasan + header tabel benar + 10 tombol edit/hapus ✔; siklus kategori uji: tambah "UJI Kategori UI" → rename "UJI Kategori UI Revisi" (toast "diubah menjadi") → hapus ✔; mobile 390px kedua halaman ✔; 0 error console/page/dev.log; eslint bersih.
 - Bump PWA: sw.js darrell-soft-v135, APP_VERSION 2026-10-03-v70, changelog 2026-10-03-v10 "Kategori di Master Suplier & Daftar Kategori Baru" (2 item).
 - Bukti: .verify/ktg-01..04-*.png
+---
+Task ID: kategori-jenis-barang-rilis
+Agent: Main
+Task: Deploy produksi v135 (Kategori Master Suplier + redesign Daftar Kategori) + verifikasi browser www.darrellsoft.com
+
+Work Log:
+- Commit push origin/main → deploy Vercel prod SUKSES; https://www.darrellsoft.com/sw.js = darrell-soft-v135; root 200.
+- Verifikasi produksi (admin): whats-new popup v10 tampil sekali; /master-toko-pemasok header "Kategori" (bukan Jenis Barang); popup Tambah Toko/Pemasok punya dropdown Kategori berisi kategori Daftar Kategori; /daftar-kategori 3 kartu ringkasan + tabel (Nama Kategori/Pemakaian/Dibuat/Aksi) + tombol Edit/Hapus per baris; mobile 390px OK; page/console errors 0.
+- Bukti: .verify/ktg-05..07-prod-*.png
