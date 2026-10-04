@@ -11970,3 +11970,20 @@ Work Log:
 Stage Summary:
 - Dropdown nama suplier di popup Tambah Kertas Baru kini SELALU muncul saat kolom diklik / ikon ▼ ditekan — berisi daftar Master Suplier (Master Toko Pemasok) + suplier kertas yang pernah dipakai; tetap bisa ketik manual.
 - Versi berikutnya bila rilis lagi: v135/v70/v10. Bukti: .verify/sup-01-dropdown-open.png, sup-02-selected.png, sup-03-mobile-dropdown.png
+---
+Task ID: suplier-dropdown-kertas-rilis
+Agent: Main
+Task: Deploy produksi v134 (dropdown suplier Tambah Kertas Baru) + verifikasi browser www.darrellsoft.com
+
+Work Log:
+- Commit 735daad push origin/main → deploy Vercel prod SUKSES; https://www.darrellsoft.com/sw.js = darrell-soft-v134; root 200.
+- Verifikasi produksi (login admin/268899): whats-new popup v9 "Dropdown Suplier di Tambah Kertas Baru" tampil sekali lalu tertutup normal.
+- Popup Tambah Kertas Baru: klik kolom Suplier (mouse beneran) → dropdown MASTER SUPLIER langsung muncul & TETAP terbuka; pilih Indojaya → terisi & tertutup; ketik "bin" → terfilter ke Bintang Timur; Batal menutup dialog tanpa jejak.
+- Data produksi: Master Toko Pemasok produksi ternyata KOSONG (0 baris) — ini alasan tambahan dropdown terasa "tidak muncul" di produksi. Di-seed 2 data riil user (sama dgn DB lokal, dibuat user 28 Sep): Indojaya (toko kertas, 021 42879120, Jl. kalibaru barat) & Bintang Timur (toko kertas, 0214219430, jl. bungur raya) — bukan data uji, tidak dihapus.
+- Mobile 390px: dropdown tampil 2 opsi sempurna. Page errors = 0, console errors = 0.
+- Bukti: .verify/sup-04-prod-dropdown-empty.png (kondisi kosong + pesan panduan), sup-05-prod-dropdown-list.png, sup-06-prod-selected.png, sup-07-prod-mobile.png
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v134 (APP_VERSION 2026-10-03-v69, changelog v9).
+- Dropdown nama suplier di popup Tambah Kertas Baru kini SELALU tampil saat kolom diklik/ikon ▼, berisi Master Suplier (Indojaya & Bintang Timur sudah terisi di produksi); tetap bisa ketik manual & ada aksi hapus nama suplier.
+- Versi berikutnya bila rilis lagi: v135/v70/v10.
