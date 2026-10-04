@@ -12028,3 +12028,23 @@ Work Log:
 Stage Summary:
 - Menu "Riwayat Pembayaran" hilang dari sidebar desktop, bottom nav mobile, dan drawer Lainnya; halamannya sendiri masih hidup via URL langsung & kartu Jatuh Tempo.
 - Produksi masih v135 (APP_VERSION 2026-10-03-v70, changelog v10) — belum memuat perubahan ini sampai rilis berikutnya (bila dirilis: v136/v71/v11).
+
+---
+Task ID: phonebook-tambah-pelanggan
+Agent: Main
+Task: Popup Tambah Pelanggan di mobile — nama & no. telp bisa diambil dari phone book HP bila ada; kalau tidak ada, ketik manual. (lanjutan instruksi "jangan deploy")
+
+Work Log:
+- src/components/views/customer-form-dialog.tsx (dialog bersama yang dipakai Master Pelanggan + tombol Tambah Customer di Buat Invoice, dll):
+  * Tambah Web Contact Picker API (navigator.contacts.select(['name','tel'], {multiple:false})) — tombol full-width outline "Isi Nama & Telepon dari Phone Book" (ikon BookUser) di atas form, hanya dirender bila perangkat mendukung (deteksi typeof navigator.contacts?.select === 'function', dicek tiap dialog dibuka).
+  * Setelah pilih kontak: nama = contact.name[0], telepon = contact.tel[0]; bila kontak tak punya nama/telepon → toast peringatan; batal pilih (AbortError / array kosong) → form tidak berubah; kolom tetap bisa diedit manual kapan saja.
+  * autoComplete name → "name", telepon → "tel" (sebelumnya "off") — fallback saran isi keyboard di iOS/desktop yang tak punya Contact Picker API.
+  * Perangkat tanpa dukungan (desktop & iOS Safari): tombol tidak tampil, perilaku lama (ketik manual) utuh.
+- Verifikasi lokal (agent-browser): desktop 1440px tanpa navigator.contacts → dialog buka, tombol TIDAK tampil ✔; stub navigator.contacts → buka ulang dialog → tombol tampil ✔; klik tombol → Nama "Toko Budi Santoso" + Telepon "0812-3456-7890" terisi + toast sukses ✔; edit manual setelah pick ✔; kontak tanpa telepon → hanya nama terisi, telepon tetap kosong utk ketik manual ✔; batal pilih (return []) → form tidak berubah ✔; mobile 390px → tombol full-width rapi, terisi benar ✔; console/page/dev.log errors 0; eslint bersih.
+- Tidak ada data uji tersimpan (form tidak pernah di-Simpan; hanya isi kolom di dialog).
+- TIDAK deploy & TIDAK bump versi (instruksi user "jangan deploy" masih berlaku); commit + push saja.
+- Bukti: .verify/pb-01-desktop-tanpa-tombol.png, pb-02-terisi-dari-phonebook.png, pb-03-mobile-terisi.png
+
+Stage Summary:
+- Popup Tambah/Edit Pelanggan kini mendukung pengisian nama + telepon dari phone book HP via Contact Picker API (Chrome Android, butuh HTTPS), dengan fallback ketik manual di semua perangkat + autocomplete name/tel.
+- Catatan rilis nanti: butuh deploy ke produksi (HTTPS) supaya bisa dipakai di HP asli; jangan lupa bump sw v136 / APP_VERSION v71 / changelog v11 saat dirilis.
