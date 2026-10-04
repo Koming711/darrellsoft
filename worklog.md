@@ -11987,3 +11987,17 @@ Stage Summary:
 - PRODUKSI www.darrellsoft.com AKTIF v134 (APP_VERSION 2026-10-03-v69, changelog v9).
 - Dropdown nama suplier di popup Tambah Kertas Baru kini SELALU tampil saat kolom diklik/ikon ▼, berisi Master Suplier (Indojaya & Bintang Timur sudah terisi di produksi); tetap bisa ketik manual & ada aksi hapus nama suplier.
 - Versi berikutnya bila rilis lagi: v135/v70/v10.
+---
+Task ID: kategori-jenis-barang
+Agent: Main
+Task: (1) Halaman Master Suplier: "Jenis Barang" diganti jadi "Kategori"; popup Tambah/Edit Toko/Pemasok "Kategori" jadi dropdown dari Daftar Kategori. (2) Halaman Daftar Kategori: redesign CRUD UI/UX
+
+Work Log:
+- master-toko-pemasok/page.tsx: label kolom tabel + header cetak + label form diganti "Jenis Barang" → "Kategori"; ikon mobile card ganti Tag; field popup kini type select (dropdown) — opsi = "Tanpa kategori" + semua kategori dari /api/kategori; nilai lama toko yang tidak ada di daftar tetap tampil sbg opsi "(lama)" agar tidak hilang saat edit; sentinel '__none__' dikonversi ke string kosong saat simpan.
+- dialog-form.tsx: field type 'select' baru + prop options (shadcn Select) — dipakai DialogForm master-toko-pemasok & master-ongkos-cetak (additive, aman).
+- /api/kategori: tambah PUT (ubah nama kategori; guard duplikat 409; cek akses user) — Paper menyimpan kategoriId jadi rename aman utk semua bahan yang memakainya.
+- data-sync.ts: DataEntity + 'kategori' & 'toko-pemasok'.
+- daftar-kategori/page.tsx dirombak: 3 kartu ringkasan (Total Kategori, Terpakai, Total Pemakaian); toolbar cari + tombol "Tambah Kategori" (dialog, bukan input baris); desktop tabel (No, Nama Kategori, Pemakaian badge "Dipakai N bahan"/"Belum dipakai", Dibuat, Aksi Edit+Hapus); mobile kartu; dialog tambah/edit nama (duplikat dicek client + server); hapus dgn AlertDialog + guard pemakaian; empty state dgn tombol tambah; sinkron antar-tab via useDataChange(['kategori','papers']) + notifyDataChange('kategori').
+- Verifikasi lokal (agent-browser): header tabel "Kategori" ✔; dropdown popup berisi 10 kategori (Kardus, Kertas, Kimia, …) ✔; siklus toko uji: tambah dgn Kategori "Kertas" → edit jadi "Tinta" → hapus (confirm diterima, DB bersih) ✔; daftar-kategori: 3 kartu ringkasan + header tabel benar + 10 tombol edit/hapus ✔; siklus kategori uji: tambah "UJI Kategori UI" → rename "UJI Kategori UI Revisi" (toast "diubah menjadi") → hapus ✔; mobile 390px kedua halaman ✔; 0 error console/page/dev.log; eslint bersih.
+- Bump PWA: sw.js darrell-soft-v135, APP_VERSION 2026-10-03-v70, changelog 2026-10-03-v10 "Kategori di Master Suplier & Daftar Kategori Baru" (2 item).
+- Bukti: .verify/ktg-01..04-*.png

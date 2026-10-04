@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v9'
+export const CURRENT_VERSION = '2026-10-03-v10'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v10',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Kategori di Master Suplier & Daftar Kategori Baru',
+      en: 'Category in Supplier Master & New Category List',
+    },
+    items: [
+      {
+        id: 'Jenis Barang di Master Toko/Pemasok diganti jadi Kategori — kini dropdown pilihan dari Daftar Kategori',
+        en: 'Item Type in Supplier Master is now Category — a dropdown fed from the Category List',
+      },
+      {
+        id: 'Halaman Daftar Kategori tampilan baru: ringkasan, tabel/kartu, tambah, edit nama, dan hapus dengan konfirmasi',
+        en: 'Category List page redesigned: summary stats, table/cards, add, rename, and delete with confirmation',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v9',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },

@@ -73,6 +73,66 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PUT /api/kategori — ubah nama kategori milik user sendiri.
+ * Body: { id, nama }
+ * - Aman untuk bahan kertas yang memakai kategori ini (Paper menyimpan
+ *   kategoriId, bukan nama) — nama lama otomatis ikut terubah di semua
+ *   tempat yang membaca relasi kategori.
+ * - Nama baru wajib diisi; nama yang sama (per user, selain diri sendiri)
+ *   ditolak dengan 409.
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const authErr = requireAuth(request)
+    if (authErr) return authErr
+    const user = getServerUser(request)!
+    const body = await request.json()
+    const { id, nama } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID kategori wajib diisi' }, { status: 400 })
+    }
+    if (!nama || String(nama).trim() === '') {
+      return NextResponse.json({ error: 'Nama kategori wajib diisi' }, { status: 400 })
+    }
+
+    const existing = await db.kategori.findUnique({ where: { id } })
+    if (!existing || !canAccessRecord(user, existing.userId)) {
+      return NextResponse.json({ error: 'Kategori tidak ditemukan' }, { status: 404 })
+    }
+
+    const trimmed = String(nama).trim()
+    if (trimmed === existing.nama) {
+      return NextResponse.json(existing)
+    }
+
+    // Cegah duplikat per user (kecuali diri sendiri)
+    const duplicate = await db.kategori.findFirst({
+      where: { nama: trimmed, userId: existing.userId },
+    })
+    if (duplicate && duplicate.id !== id) {
+      return NextResponse.json(
+        { error: `Kategori "${trimmed}" sudah ada` },
+        { status: 409 }
+      )
+    }
+
+    const updated = await db.kategori.update({
+      where: { id },
+      data: { nama: trimmed },
+    })
+
+    return NextResponse.json(updated)
+  } catch (error: any) {
+    console.error('Error updating kategori:', error)
+    return NextResponse.json(
+      { error: sanitizeError(error, 'Failed to update kategori') },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * DELETE /api/kategori?id=xxx — hapus kategori milik user sendiri.
  * Kategori yang masih dipakai bahan kertas (Paper) TIDAK bisa dihapus (409).
  */
