@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v8'
+export const CURRENT_VERSION = '2026-10-03-v9'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v9',
+    date: { id: '4 Oktober 2026', en: '4 October 2026' },
+    title: {
+      id: 'Dropdown Suplier di Tambah Kertas Baru',
+      en: 'Supplier Dropdown in Add New Paper',
+    },
+    items: [
+      {
+        id: 'Kolom Suplier di popup Tambah Kertas Baru kini punya dropdown daftar Master Suplier yang selalu muncul saat diklik',
+        en: 'The Supplier field in the Add New Paper popup now has a Master Supplier dropdown that always appears on click',
+      },
+      {
+        id: 'Daftar suplier = Master Toko Pemasok + suplier yang pernah dipakai; ketik untuk mencari, ada pilihan hapus nama suplier',
+        en: 'Supplier list = Supplier Store master + previously used suppliers; type to search, with a clear-field option',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v8',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },
