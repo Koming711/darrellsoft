@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v6'
+export const CURRENT_VERSION = '2026-10-03-v5'
 
 export interface ChangelogEntry {
   version: string
@@ -11,36 +11,6 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
-  {
-    version: '2026-10-03-v6',
-    date: { id: '3 Oktober 2026', en: '3 October 2026' },
-    title: {
-      id: 'Modul Baru: Stock Bahan Lengkap',
-      en: 'New Module: Complete Material Stock',
-    },
-    items: [
-      {
-        id: 'Menu Stock Bahan kini punya 8 submenu: Dashboard Stock, Data Bahan, Stok Masuk, Stok Keluar, Penyesuaian Stok, Riwayat Stok, Laporan Stok & Data Supplier',
-        en: 'Material Stock menu now has 8 submenus: Stock Dashboard, Materials, Stock In, Stock Out, Adjustments, Stock History, Stock Reports & Suppliers',
-      },
-      {
-        id: 'Setiap stok masuk/keluar/penyesuaian tercatat otomatis di Riwayat dengan saldo; edit/hapus transaksi lama menghitung ulang stok secara aman',
-        en: 'Every stock in/out/adjustment is auto-recorded in History with running balance; editing/deleting past transactions safely recalculates stock',
-      },
-      {
-        id: 'Pembelian via Purchase Order otomatis masuk Riwayat Stok dengan harga beli & supplier (riwayat harga modal terlihat di detail bahan)',
-        en: 'Purchases via Purchase Order automatically appear in Stock History with purchase price & supplier (price history visible in material detail)',
-      },
-      {
-        id: 'Stok tidak boleh minus kecuali admin mengaktifkan Allow Negative Stock; bahan yang sudah dipakai transaksi dinonaktifkan alih-alih dihapus',
-        en: 'Stock cannot go negative unless admin enables Allow Negative Stock; materials with transactions are deactivated instead of deleted',
-      },
-      {
-        id: 'Tampilan mobile ala kasir: kartu ringkas + tombol + untuk transaksi cepat, laporan siap cetak/PDF',
-        en: 'Cashier-style mobile view: compact cards + quick-transaction + button, print/PDF-ready reports',
-      },
-    ],
-  },
   {
     version: '2026-10-03-v5',
     date: { id: '3 Oktober 2026', en: '3 October 2026' },

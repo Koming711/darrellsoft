@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
-import { recalcBahan, nextStkNumber, todayStr } from '@/lib/stock-bahan-server'
 
 /**
  * POST /api/purchase-order/receive — terima barang dari Purchase Order.
@@ -10,10 +9,8 @@ import { recalcBahan, nextStkNumber, todayStr } from '@/lib/stock-bahan-server'
  *
  * Alur (permintaan user): pembelian melalui PO → otomatis masuk Stock Bahan.
  * - Untuk setiap item PO (deskripsi, qty, satuan, harga):
- *   - Bahan dengan nama sama (per user) → stok BERTAMBAH via transaksi Stok Masuk.
- *   - Bahan belum ada → dibuat otomatis (kode BHN-xxx) + transaksi Stok Masuk.
- *   - Setiap item tercatat di ledger (BahanMasuk) dengan nomor STK-xxxx,
- *     harga beli item, suplier, dan referensi nomor PO → riwayat harga & saldo akurat.
+ *   - Bahan dengan nama sama (per user) → stok BERTAMBAH (+qty) + mutasi 'masuk'.
+ *   - Bahan belum ada → dibuat otomatis (kode BHN-xxx) + mutasi 'masuk'.
  * - dataJson PO diperbarui: diterima=true, tanggalTerima, stokMasuk (ringkasan).
  *   PO yang sudah diterima ditolak (409) agar stok tidak dobel.
  *
@@ -26,6 +23,11 @@ interface PoItem {
   qty?: number
   satuan?: string
   harga?: number
+}
+
+function todayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export async function POST(request: NextRequest) {
@@ -83,7 +85,6 @@ export async function POST(request: NextRequest) {
     const pemasokObj = parsed.pemasok as Record<string, unknown> | undefined
     const pemasokNama = String(pemasokObj?.nama ?? '') || record.pihakKedua || '-'
     const pemasokJenis = String(pemasokObj?.jenisBarang ?? '').trim()
-    const tanggalTerima = todayStr()
 
     // Muat bahan milik user sekali — pencocokan nama dilakukan di JS agar
     // portabel antara SQLite (lokal) & Postgres (produksi).
@@ -99,30 +100,34 @@ export async function POST(request: NextRequest) {
     }
 
     const stokMasuk: { bahanId: string; kode: string; nama: string; qty: number; satuan: string; baru: boolean }[] = []
-    const affectedBahanIds = new Set<string>()
-
-    // Pre-generate nomor STK di LUAR transaksi (query terpisah di dalam tx interaktif
-    // bisa melebihi timeout 5s pada koneksi Supabase berlatensi tinggi)
-    const stkNumbers: string[] = []
-    for (let i = 0; i < items.length; i++) {
-      stkNumbers.push(await nextStkNumber(userId))
-    }
 
     await db.$transaction(async (tx) => {
-      let idx = 0
       for (const it of items) {
         const key = it.deskripsi.toLowerCase()
         let bahan = byName.get(key) || null
-        let bahanId: string
-        let bahanNama: string
-        let bahanSatuan: string
-        let baru = false
 
         if (bahan) {
-          bahanId = bahan.id
-          bahanNama = bahan.nama
-          bahanSatuan = bahan.satuan || it.satuan
-          byName.set(key, { ...bahan })
+          const stokBaru = bahan.stok + it.qty
+          await tx.bahan.update({
+            where: { id: bahan.id },
+            data: {
+              stok: stokBaru,
+              ...(it.harga > 0 ? { hargaSatuan: it.harga } : {}),
+            },
+          })
+          await tx.bahanMutasi.create({
+            data: {
+              bahanId: bahan.id,
+              jenis: 'masuk',
+              qty: it.qty,
+              stokSetelah: stokBaru,
+              keterangan: `PO ${nomor} — ${pemasokNama}`,
+              userId,
+            },
+          })
+          stokMasuk.push({ bahanId: bahan.id, kode: bahan.kode, nama: bahan.nama, qty: it.qty, satuan: bahan.satuan || it.satuan, baru: false })
+          bahan = { ...bahan, stok: stokBaru }
+          byName.set(key, bahan)
         } else {
           maxNum += 1
           const kode = `BHN-${String(maxNum).padStart(3, '0')}`
@@ -132,61 +137,40 @@ export async function POST(request: NextRequest) {
               nama: it.deskripsi,
               kategori: pemasokJenis,
               satuan: it.satuan || 'pcs',
-              stok: 0, // stok diisi via transaksi Stok Masuk di bawah
+              stok: it.qty,
               stokMin: 0,
               hargaSatuan: it.harga,
-              suplierNama: pemasokNama,
               keterangan: `Dari PO ${nomor}`,
               userId,
             },
           })
-          bahanId = created.id
-          bahanNama = created.nama
-          bahanSatuan = created.satuan
-          baru = true
+          await tx.bahanMutasi.create({
+            data: {
+              bahanId: created.id,
+              jenis: 'masuk',
+              qty: it.qty,
+              stokSetelah: it.qty,
+              keterangan: `PO ${nomor} — ${pemasokNama}`,
+              userId,
+            },
+          })
+          stokMasuk.push({ bahanId: created.id, kode, nama: created.nama, qty: it.qty, satuan: created.satuan, baru: true })
           byName.set(key, created)
         }
-
-        const stkNomor = stkNumbers[idx++]
-        await tx.bahanMasuk.create({
-          data: {
-            nomor: stkNomor,
-            tanggal: tanggalTerima,
-            bahanId,
-            bahanNama,
-            satuan: bahanSatuan,
-            qty: it.qty,
-            hargaBeli: it.harga,
-            total: it.qty * it.harga,
-            suplierNama: pemasokNama,
-            nomorNota: nomor,
-            poNomor: nomor,
-            catatan: `Terima PO ${nomor}`,
-            userId,
-          },
-        })
-
-        affectedBahanIds.add(bahanId)
-        stokMasuk.push({ bahanId, kode: (byName.get(key) as { kode: string }).kode, nama: bahanNama, qty: it.qty, satuan: bahanSatuan, baru })
       }
 
       // Tandai PO diterima di dataJson (ringkasan ikut disimpan)
       const updatedDataJson = JSON.stringify({
         ...parsed,
         diterima: true,
-        tanggalTerima,
+        tanggalTerima: todayStr(),
         stokMasuk,
       })
       await tx.documentHistory.update({
         where: { id: historyId },
         data: { dataJson: updatedDataJson },
       })
-    }, { timeout: 20000 })
-
-    // Recalc saldo stok semua bahan yang terdampak (di luar tx — replay ledger)
-    for (const bahanId of affectedBahanIds) {
-      await recalcBahan(bahanId)
-    }
+    })
 
     return NextResponse.json({
       success: true,

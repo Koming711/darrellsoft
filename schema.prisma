@@ -512,151 +512,38 @@ model Biaya {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
-
-// ===== STOCK BAHAN (bahan baku cetak: kertas, tinta, lem, dll.) =====
-// Struktur: Suplier → Bahan (materials) → BahanMasuk/BahanKeluar/BahanPenyesuaian
-// (stock_in / stock_out / stock_adjustments) → BahanMutasi (stock_movements, saldo).
-// Semua tabel terelasi via ID; nama/satuan di-snapshot agar transaksi lama
-// tidak berubah ketika master diedit.
 model Bahan {
   id          String   @id @default(cuid())
   kode        String // auto: BHN-001, BHN-002, ... per user
   nama        String
-  kategori    String   @default("") // e.g. Kertas, PE Coating, Tinta, Lem, Kardus, Plastik, Lainnya
+  kategori    String   @default("") // e.g. Kertas, Tinta, Kimia, Plastik, Lainnya
   satuan      String   @default("pcs") // pcs, rim, lembar, kg, roll, box, pack, liter, tube
   stok        Float    @default(0)
   stokMin     Float    @default(0) // batas minimum — peringatan stok rendah
-  hargaSatuan Float    @default(0) // harga modal TERAKHIR (Rupiah) — diisi otomatis dari stok masuk terakhir
-  suplierId   String?  // relasi ke Suplier (opsional)
-  suplierNama String   @default("") // snapshot nama suplier (aman jika suplier dihapus)
-  lokasi      String   @default("") // lokasi penyimpanan (rak/gudang)
-  aktif       Boolean  @default(true) // false = nonaktif (dipakai alih-alih hard delete jika sudah ada transaksi)
-  keterangan  String   @default("") // catatan
+  hargaSatuan Float    @default(0) // harga per satuan (Rupiah) untuk nilai stok
+  keterangan  String   @default("")
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  suplier  Suplier?       @relation(fields: [suplierId], references: [id], onDelete: SetNull)
-  mutasi   BahanMutasi[]
-  masuk    BahanMasuk[]
-  keluar   BahanKeluar[]
-  penyesuaian BahanPenyesuaian[]
+  mutasi BahanMutasi[]
 
   @@unique([userId, kode])
   @@index([userId])
 }
 
-// Data Supplier untuk modul Stock Bahan (bisa dipilih saat Stok Masuk)
-model Suplier {
-  id        String   @id @default(cuid())
-  nama      String
-  kontak    String   @default("") // nama kontak / PIC / telepon
-  whatsapp  String   @default("")
-  alamat    String   @default("")
-  catatan   String   @default("")
-  aktif     Boolean  @default(true)
-  userId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bahan Bahan[]
-
-  @@index([userId])
-}
-
-// Stock In — pembelian/penerimaan bahan. Menyimpan harga beli per transaksi
-// agar riwayat harga bahan bisa dilihat (harga modal transaksi lama TIDAK diubah).
-model BahanMasuk {
-  id          String   @id @default(cuid())
-  nomor       String   @default("") // STK-0001 (berbagi urutan dgn keluar/penyesuaian)
-  tanggal     String   @default("") // YYYY-MM-DD
-  bahanId     String
-  bahanNama   String   @default("") // snapshot nama bahan
-  satuan      String   @default("") // snapshot satuan
-  qty         Float
-  hargaBeli   Float    @default(0) // harga per satuan saat transaksi
-  total       Float    @default(0) // qty × hargaBeli
-  suplierId   String?
-  suplierNama String   @default("") // snapshot nama suplier
-  nomorNota   String   @default("") // nomor nota/faktur
-  catatan     String   @default("")
-  poNomor     String   @default("") // jika berasal dari Purchase Order
-  userId      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  bahan Bahan @relation(fields: [bahanId], references: [id], onDelete: Cascade)
-
-  @@index([bahanId])
-  @@index([userId])
-  @@index([tanggal])
-}
-
-// Stock Out — pemakaian bahan (produksi, sampel, rusak, internal)
-model BahanKeluar {
-  id        String   @id @default(cuid())
-  nomor     String   @default("") // STK-xxxx
-  tanggal   String   @default("") // YYYY-MM-DD
-  bahanId   String
-  bahanNama String   @default("") // snapshot
-  satuan    String   @default("") // snapshot
-  qty       Float
-  tujuan    String   @default("") // Produksi, Sampel, Rusak, Pemakaian Internal, Lainnya
-  catatan   String   @default("")
-  userId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bahan Bahan @relation(fields: [bahanId], references: [id], onDelete: Cascade)
-
-  @@index([bahanId])
-  @@index([userId])
-  @@index([tanggal])
-}
-
-// Penyesuaian Stok — stok fisik berbeda dengan stok sistem (opname)
-model BahanPenyesuaian {
+model BahanMutasi {
   id         String   @id @default(cuid())
-  nomor      String   @default("") // STK-xxxx
-  tanggal    String   @default("") // YYYY-MM-DD
   bahanId    String
-  bahanNama  String   @default("") // snapshot
-  satuan     String   @default("") // snapshot
-  stokSistem Float // stok sistem sebelum penyesuaian (snapshot)
-  stokFisik  Float // hasil hitung fisik → stok baru
-  selisih    Float // stokFisik − stokSistem (boleh minus)
-  alasan     String   @default("") // alasan penyesuaian
-  catatan    String   @default("")
+  jenis      String // 'masuk' | 'keluar' | 'penyesuaian'
+  qty        Float // selalu positif; arah ditentukan jenis (penyesuaian boleh negatif)
+  stokSetelah Float   @default(0) // snapshot stok setelah mutasi ini
+  keterangan String   @default("")
   userId     String?
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 
   bahan Bahan @relation(fields: [bahanId], references: [id], onDelete: Cascade)
 
   @@index([bahanId])
   @@index([userId])
-  @@index([tanggal])
-}
-
-// Stock Movements — ledger gabungan utk Riwayat Stok (regenerated oleh recalcBahan)
-model BahanMutasi {
-  id          String   @id @default(cuid())
-  bahanId     String
-  jenis       String // 'masuk' | 'keluar' | 'penyesuaian'
-  qty         Float // selalu positif; arah ditentukan jenis
-  masuk       Float    @default(0) // utk tabel riwayat (penyesuaian positif → masuk)
-  keluar      Float    @default(0) // utk tabel riwayat (penyesuaian negatif → keluar)
-  stokSetelah Float    @default(0) // saldo setelah mutasi ini
-  nomor       String   @default("") // STK-xxxx
-  tanggal     String   @default("") // YYYY-MM-DD (tanggal transaksi)
-  refId       String   @default("") // id BahanMasuk/BahanKeluar/BahanPenyesuaian
-  keterangan  String   @default("")
-  userId      String?
-  createdAt   DateTime @default(now())
-
-  bahan Bahan @relation(fields: [bahanId], references: [id], onDelete: Cascade)
-
-  @@index([bahanId])
-  @@index([userId])
-  @@index([tanggal])
 }
