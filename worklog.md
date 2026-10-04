@@ -12072,3 +12072,27 @@ Stage Summary:
 - Menu Riwayat Pembayaran hilang dari sidebar desktop & mobile (halaman tetap ada via kartu Jatuh Tempo / URL langsung).
 - Popup Tambah Pelanggan mendukung isi nama+telepon dari phone book HP (Chrome Android, perlu izin kontak; iOS/desktop fallback ketik manual + autocomplete).
 - Versi berikutnya bila rilis lagi: v137/v72/v12.
+
+---
+Task ID: fix-popup-pelanggan-mobile
+Agent: Main
+Task: Laporan user (produksi): popup Tambah Pelanggan di HP "berantakan" + isi nama/telepon dari phone book "masih tidak bisa". Fix + rilis.
+
+Work Log:
+- Akar masalah "berantakan": DialogContent (ui/dialog.tsx) tidak punya max-height/scroll — di layar HP pendek (360x640, apalagi saat keyboard terbuka) popup lebih tinggi dari layar → kolom terpotong & tak bisa discroll. Ditambah input 14px bikin iOS Safari zoom sendiri saat fokus.
+- Fix layout (src/components/views/customer-form-dialog.tsx): DialogContent + max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-4 sm:p-6 → popup pas layar & bisa digulir; semua Input/Textarea + className "text-base sm:text-sm" (16px) → anti zoom iOS.
+- Fix "phonebook masih tidak bisa" (diagnosa: kode sudah live & benar — terbukti stub di produksi; penyebab di HP user = browser tak mendukung Contact Picker API (hanya Chrome Android; Samsung Internet/iOS tidak) ATAU cache versi lama):
+  * Petunjuk tampil bila dialog dibuka di perangkat sentuh (pointer:coarse) tanpa dukungan Contact Picker: "Isi otomatis dari phone book hanya tersedia di aplikasi Chrome (Android)… di iPhone saran kontak dapat muncul di atas keyboard."
+  * Field dibungkus <form> (Enter = simpan) + atribut name="name"/"tel"/"email" + autoComplete name/tel → autofill kontak iOS/keyboard & password manager bekerja.
+  * Guard dobel submit di handleSave (if saving return).
+- sw.js sudah punya skipWaiting+clients.claim (bukan penyebab) — tidak diubah.
+- Verifikasi lokal (agent-browser): 360x640 dialog dalam viewport (h=608=100dvh-2rem), scrollable, Simpan terlihat ✔; desktop: tanpa hint/tombol ✔; touch+stub: tombol tampil, hint hilang, terisi ✔; submit form (requestSubmit) tersimpan ✔; data uji "UJI Phonebook Mobile" dihapus via UI ✔; eslint + 0 error.
+- Bump: sw v137, APP_VERSION v72, changelog v12 "Popup Tambah Pelanggan Rapi di HP" (2 item). Commit 91392ea push.
+- Deploy Vercel prod SUKSES; sw.js = darrell-soft-v137. Verifikasi produksi (360x640): dialog dalam viewport & scroll ✔; stub contacts → tombol + terisi "PROD Cek v137" ✔; scroll bawah → Simpan terlihat ✔; ditutup tanpa menyimpan (0 data uji); page/console errors 0.
+- Bukti: .verify/pb-07..09 (lokal), pb-10-prod-360-dialog.png, pb-11-prod-137-terisi.png
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v137 (APP_VERSION 2026-10-03-v72, changelog v12).
+- Popup Tambah/Edit Pelanggan di HP kini pas layar, bisa digulir, tidak terpotong, tidak zoom sendiri; tombol phone book muncul di Chrome Android; browser lain dapat petunjuk jelas + saran kontak keyboard (iOS).
+- Catatan utk user: bila tombol phone book tidak muncul di HP = browser bukan Chrome Android → pakai aplikasi Chrome; pastikan versi baru terbuka (tutup-buka app / refresh 2x).
+- Versi berikutnya bila rilis lagi: v138/v73/v13.
