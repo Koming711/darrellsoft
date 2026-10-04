@@ -12048,3 +12048,27 @@ Work Log:
 Stage Summary:
 - Popup Tambah/Edit Pelanggan kini mendukung pengisian nama + telepon dari phone book HP via Contact Picker API (Chrome Android, butuh HTTPS), dengan fallback ketik manual di semua perangkat + autocomplete name/tel.
 - Catatan rilis nanti: butuh deploy ke produksi (HTTPS) supaya bisa dipakai di HP asli; jangan lupa bump sw v136 / APP_VERSION v71 / changelog v11 saat dirilis.
+
+---
+Task ID: rilis-v136-phonebook-menu
+Agent: Main
+Task: Deploy produksi www.darrellsoft.com — isi pelanggan dari phone book + hapus menu Riwayat Pembayaran (v136)
+
+Work Log:
+- Bump versi: public/sw.js darrell-soft-v135→v136; APP_VERSION 2026-10-03-v70→v71; changelog CURRENT_VERSION v10→v11 + entri baru "Isi Pelanggan dari Phone Book & Menu Lebih Ringkas" (2 item, id+en).
+- Commit 8582d52 push origin/main (di atas 21ff248 phonebook & f1729ed hapus menu; commit sistem ad69020 hanya db/custom.db ikut push — aman, produksi pakai Supabase).
+- Deploy `bunx vercel --prod --yes --token <token user>` SUKSES (deployment darrellsoft-qt66kqhca).
+- Verifikasi produksi https://www.darrellsoft.com (admin):
+  * curl root 200; https://www.darrellsoft.com/sw.js = darrell-soft-v136 ✔
+  * whats-new "Versi Baru!" v11 tampil sekali: judul + 2 item benar ✔ (pb-04)
+  * Desktop 1440px: nav links 25, /riwayat-pembayaran TIDAK ada ✔; popup Tambah Pelanggan buka — tombol Phone Book tidak tampil (desktop tak dukung, perilaku benar) ✔
+  * Stub navigator.contacts di produksi → tombol "Isi Nama & Telepon dari Phone Book" tampil, klik → Nama+Telepon terisi dari stub ✔ (pb-05) — bukti kode baru live. Dialog ditutup Escape, TIDAK disimpan → 0 data uji di DB produksi.
+  * Mobile 390px: nav & drawer Lainnya 25 tile tanpa Riwayat Pembayaran ✔ (pb-06)
+  * Page/console errors 0.
+- Bukti: .verify/pb-04-prod-whatsnew-v11.png, pb-05-prod-phonebook.png, pb-06-prod-mobile-drawer.png
+
+Stage Summary:
+- PRODUKSI www.darrellsoft.com AKTIF v136 (APP_VERSION 2026-10-03-v71, changelog v11).
+- Menu Riwayat Pembayaran hilang dari sidebar desktop & mobile (halaman tetap ada via kartu Jatuh Tempo / URL langsung).
+- Popup Tambah Pelanggan mendukung isi nama+telepon dari phone book HP (Chrome Android, perlu izin kontak; iOS/desktop fallback ketik manual + autocomplete).
+- Versi berikutnya bila rilis lagi: v137/v72/v12.
