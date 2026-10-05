@@ -12354,3 +12354,21 @@ Work Log:
 Stage Summary:
 - Preview Potong Kertas kini menampilkan Harga Kertas /kg (editor: konversi otomatis dari harga/lembar atau input manual; riwayat: dihitung dari data riwayat) dan sel Harga/Lembar + Harga/Lembar Setelah Dipotong kini akurat di mode riwayat
 - Versi berikutnya: v145 / v80 / v20
+
+---
+Task ID: feat-kg-price-potong-kertas-preview (verifikasi produksi)
+Agent: main (Z.ai Code)
+Task: Deploy v144 + verifikasi harga kertas /kg di www.darrellsoft.com
+
+Work Log:
+- Deploy ke project darrellsoft (link .vercel benar) → Ready; sw.js = darrell-soft-v144 (last-modified Mon, 05 Oct 2026 11:58 GMT, age 0)
+- Whats-new v19 "Harga Kertas /kg di Preview Potong Kertas" tampil saat buka produksi → kode baru aktif
+- Verifikasi editor mode (65×100cm, 150gsm, harga/lembar 2000): preview menampilkan Harga Kertas /kg Rp 20.512,82 ✓
+- Verifikasi mode riwayat (row PK/07/26/221925 — Lunggan, 79×109cm, 310gsm, Rp 3.770/lbr): Harga/Lembar Rp 3.770 (kini dari data riwayat ✓), Harga Kertas /kg Rp 14.122,97 ✓ (persis = 3770×10⁷/(79×109×310)), Harga/Lembar Setelah Dipotong Rp 290 ✓, Total Rp 350.610 ✓
+- 0 error console / page error
+- Catatan: screenshot agent-browser menampilkan frame basi (quirk environment), verifikasi memakai pembacaan DOM langsung yang akurat
+- Bukti: .verify/kg-03-prod-riwayat.png (frame editor), verifikasi riwayat via DOM eval
+
+Stage Summary:
+- TERVERIFIKASI di produksi: Preview Potong Kertas menampilkan Harga Kertas /kg di mode editor (konversi otomatis dari harga/lembar) maupun mode riwayat (dihitung dari data riwayat), plus perbaikan konsistensi Harga/Lembar mode riwayat
+- Production www.darrellsoft.com = v144 (SW v144 / APP v79 / changelog v19); versi berikutnya: v145 / v80 / v20
