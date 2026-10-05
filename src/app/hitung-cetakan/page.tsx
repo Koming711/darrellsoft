@@ -116,6 +116,7 @@ interface PrintCalculation {
   packingCost: string
   shippingCost: string
   pricePerSheet: string
+  pricePerKg?: string
   hargaPlat: string
   totalPrice: number
   customerName: string
@@ -1043,7 +1044,7 @@ function HitungCetakanPage() {
       printingCost: calculatedCost, finishingId: selectedFinishings.join(','),
       finishingName: selectedFinishingItems.map(f => f.name).join(', '),
       packingCost: formData.packingCost, shippingCost: formData.shippingCost,
-      pricePerSheet: formData.pricePerSheet, totalPrice: totalCost,
+      pricePerSheet: formData.pricePerSheet, pricePerKg: formData.pricePerKg, totalPrice: totalCost,
       customerName: formData.customerName,
       machineId2: formData.machineId2, machineName2: selectedMachine2?.machineName || '',
       warna2: formData.warna2, warnaKhusus2: formData.warnaKhusus2, hargaPlat2: formData.hargaPlat2,

@@ -74,6 +74,8 @@ export interface RincianCetakanData {
   hargaPlat?: string
   hargaPlat2?: string
   pricePerSheet: string
+  /** Harga kertas /kg dari form editor (tidak tersimpan di riwayat — riwayat derive dari harga/lembar). */
+  pricePerKg?: string
   totalPaperPrice?: number
   finishingName?: string
   finishingBreakdown?: { name: string; cost: number }[]
@@ -208,6 +210,16 @@ const formatRp = (n: number) => `Rp ${fmtNum(n)}`
 // Harga per pcs: 2 desimal bila < Rp1.000 (sama dengan halaman editor)
 const formatHargaPcs = (n: number) => `Rp ${n.toLocaleString('id-ID', { maximumFractionDigits: n > 0 && n < 1000 ? 2 : 0 })}`
 
+// Konversi harga kertas per lembar → per kg: hargaKg = hargaLbr × 10⁷ / (L × W × gramatur)
+// (rumus sama dgn halaman Hitung Cetakan & Potong Kertas; berat 1 lembar kg = L(cm)×W(cm)×g/10⁷)
+function sheetToKgPrice(sheet: number, l?: number | string | null, w?: number | string | null, g?: number | string | null): number {
+  const L = parseFloat(String(l ?? '')) || 0
+  const W = parseFloat(String(w ?? '')) || 0
+  const G = parseFloat(String(g ?? '')) || 0
+  if (!(sheet > 0) || !(L > 0) || !(W > 0) || !(G > 0)) return 0
+  return Math.round((sheet * 10000000) / (L * W * G) * 100) / 100
+}
+
 // Field tile for the CRUD-style info grid
 function PvField({ label, value, accent = 'text-slate-800' }: { label: string; value: React.ReactNode; accent?: string }) {
   return (
@@ -272,6 +284,12 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
   const pvSetelan = parseInt(d?.setelanKertas || '0') || 0
   const pvBerapaMata = d?.berapaMata || ''
   const pvGrammage = d?.paperGrammage || 0
+  // Harga kertas /kg: utamakan input manual pricePerKg dari form (bisa diisi walau tanpa
+  // gramatur); jika kosong derive dari harga per lembar + ukuran kertas + gramatur.
+  // (field pricePerKg form tidak tersimpan di record — mode riwayat selalu jalur derive,
+  // konsisten dengan halaman Potong Kertas)
+  const pvHargaPerKgManual = parseFloat(d?.pricePerKg || '0') || 0
+  const pvHargaPerKg = pvHargaPerKgManual > 0 ? pvHargaPerKgManual : sheetToKgPrice(pvHargaPerLembar, d?.paperLength, d?.paperWidth, pvGrammage)
   const pvHargaPlat1 = parseFloat(d?.hargaPlat || '0') || 0
   const pvHargaPlat2 = parseFloat(d?.hargaPlat2 || '0') || 0
   const pvGlueLength = parseFloat(d?.glueLengthCm || '0') || 0
@@ -364,6 +382,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               <PvField label="Lembar Kertas" value={pvSheetsNeeded > 0 ? `${fmtNum(pvSheetsNeeded)} lbr` : '-'} accent="text-teal-800" />
               {pvBerapaMata !== '' && pvBerapaMata !== '0' && <PvField label="Berapa Mata" value={pvBerapaMata} />}
               <PvField label="Ukuran Kertas" value={pvUkuranKertas} accent="text-teal-800" />
+              <PvField label="Harga Kertas /kg" value={pvHargaPerKg > 0 ? `Rp ${pvHargaPerKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })}` : '-'} accent="text-teal-800" />
               <PvField label="Ukuran Potongan" value={pvUkuranPotongan} />
               <PvField label="Warna Cetak" value={`${d.warna || 0} warna${d.warnaKhusus && parseInt(d.warnaKhusus) > 0 ? ` + ${d.warnaKhusus} khusus` : ''}`} />
               {pvHasCetak2 && (

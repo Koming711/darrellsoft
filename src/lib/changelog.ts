@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v19'
+export const CURRENT_VERSION = '2026-10-03-v20'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v20',
+    date: { id: '5 Oktober 2026', en: '5 October 2026' },
+    title: {
+      id: 'Harga Kertas /kg di Rincian Harga Cetakan',
+      en: 'Paper Price per Kg in Print Calculation Details',
+    },
+    items: [
+      {
+        id: 'Detail Rincian Cetakan di Hitung Cetakan kini menampilkan Harga Kertas /kg (sesuai harga di form, atau dihitung otomatis dari harga per lembar, ukuran kertas & gramatur) — ikut tampil di hasil cetak & gambar JPG',
+        en: 'The print calculation details page now shows Paper Price per Kg (as entered in the form, or auto-calculated from price per sheet, paper size & grammage) — included in print & JPG output too',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v19',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },
