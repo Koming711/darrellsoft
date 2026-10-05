@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v18'
+export const CURRENT_VERSION = '2026-10-03-v19'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v19',
+    date: { id: '5 Oktober 2026', en: '5 October 2026' },
+    title: {
+      id: 'Harga Kertas /kg di Preview Potong Kertas',
+      en: 'Paper Price per Kg in Cutting Preview',
+    },
+    items: [
+      {
+        id: 'Preview Potong Kertas kini menampilkan Harga Kertas /kg (otomatis dari harga per lembar, atau sesuai input manual) — ikut tampil di hasil cetak & gambar JPG',
+        en: 'The paper cutting preview now shows Paper Price per Kg (auto-converted from price per sheet, or as entered manually) — included in print & JPG output too',
+      },
+      {
+        id: 'Perbaikan: Harga/Lembar di preview riwayat kini menampilkan harga sesuai data riwayat (bukan harga yang sedang ada di form)',
+        en: 'Fix: Price/Sheet in history preview now shows the price recorded in that history entry (not the form\'s current price)',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v18',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },
