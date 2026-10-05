@@ -1,7 +1,9 @@
-const CACHE_NAME = 'darrell-soft-v140';
+const CACHE_NAME = 'darrell-soft-v141';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
-const API_CACHE_NAME = 'darrell-api-runtime';
+// v2: kunci cache kini PER-USER (lihat apiCacheKeyRequest) — cache lama
+// (campuran antar akun) dibuang agar offline selalu = data akun yang login.
+const API_CACHE_NAME = 'darrell-api-runtime-v2';
 const MAX_API_CACHE_ENTRIES = 80;
 const OFFLINE_URL = '/offline.html';
 const START_URL = '/?source=pwa';
@@ -177,7 +179,29 @@ async function trimApiCache() {
  *   sehingga aplikasi tetap bisa dipakai tanpa internet — TANPA
  *   "Network Error" / "Failed to fetch" di halaman utama.
  */
+/**
+ * Kunci cache data API PER-USER.
+ *
+ * Data API ter-isolasi per akun (server memfilter by x-user-id), tapi kunci
+ * cache bawaan Cache API hanya URL — dua akun berbeda di perangkat yang sama
+ * saling menimpa cache URL yang sama, dan saat OFFLINE SW bisa menyajikan
+ * data milik akun LAIN (harga mesin/kertas beda → hitungan offline ≠ online).
+ * Solusi: kunci cache = URL + __uid dari header x-user-id, sehingga offline
+ * SELALU menyajikan data akun yang sedang login — persis seperti online.
+ */
+function apiCacheKeyRequest(request) {
+  try {
+    const uid = request.headers.get('x-user-id') || '';
+    const url = new URL(request.url);
+    url.searchParams.set('__uid', uid);
+    return new Request(url.href, { method: 'GET' });
+  } catch (e) {
+    return request;
+  }
+}
+
 async function apiFetchHandler(request) {
+  const cacheKey = apiCacheKeyRequest(request);
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -185,13 +209,14 @@ async function apiFetchHandler(request) {
       // Hanya cache respons JSON (data) — file export/pdf/gambar tidak
       if (contentType.includes('application/json')) {
         const cache = await caches.open(API_CACHE_NAME);
-        await cache.put(request, response.clone());
+        await cache.put(cacheKey, response.clone());
         trimApiCache();
       }
     }
     return response;
   } catch (error) {
-    const cached = await caches.match(request);
+    const cache = await caches.open(API_CACHE_NAME);
+    const cached = await cache.match(cacheKey);
     if (cached) {
       return cached;
     }

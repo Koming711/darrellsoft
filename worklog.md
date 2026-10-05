@@ -12221,3 +12221,25 @@ Work Log:
 Stage Summary:
 - PENTING utk deploy selanjutnya: pastikan .vercel/project.json menunjuk project "darrellsoft" — kalau sandbox di-restore, cek ulang link ini sebelum deploy (gejala: domain masih versi lama meski deploy "Ready")
 - Production www.darrellsoft.com = v140 (SW v140 / APP v75 / changelog v15); versi berikutnya: v141 / v76 / v16
+
+---
+Task ID: fix-ongkos-offline-online
+Agent: main (Z.ai Code)
+Task: Halaman Hitung Cetakan — hasil hitungan ongkos cetak offline vs online berbeda; yang benar hitungan offline (permintaan user). Fix.
+
+Work Log:
+- Investigasi: rumus ongkos cetak identik di semua jalur (kotak live, simulasi, halaman /hitung-ongkos-cetak, preview, simpan-riwayat) — tidak ada cabang offline/online di kode hitung
+- Reproduksi bersih (login 1 akun, form fresh): online vs offline (SW cache) di production menghasilkan angka SAMA (Rp 1.140.000) → beda angka di perangkat user harus dari STATE perangkat
+- Ditemukan 2 mekanisme nyata penyebab "hitungan beda":
+  (1) SW cache data API (`darrell-api-runtime`) berkunci URL SAJA — padahal data API ter-isolasi per akun (getDataFilter by x-user-id). Dua akun di perangkat yang sama saling menimpa cache URL sama → saat OFFLINE SW bisa menyajikan master mesin/kertas milik akun LAIN → ongkos cetak beda dari yang terlihat online
+  (2) hitung-cetakan: hargaPlat TIDAK di-reset saat ganti mesin (hanya diisi saat kosong) → harga plat sisa mesin sebelumnya (mis. oliver58 Rp 20.000) dipakai di hitungan mesin lain (sm52 Rp 18.000) — kotak "Plat" tampil nilai mesin baru tapi hitungan pakai nilai lama → total tidak konsisten antar sesi; halaman /hitung-ongkos-cetak sudah benar (setHargaPlat('') saat ganti)
+- Fix A (public/sw.js): kunci cache API kini PER-USER — apiCacheKeyRequest() menambahkan __uid dari header x-user-id ke kunci cache; cache lama di-invalidasi dengan bump API_CACHE_NAME ke 'darrell-api-runtime-v2'; offline kini HANYA menyajikan data akun yang login (persis seperti online)
+- Fix B (hitung-cetakan): 4 select mesin (mobile+desktop × mesin 1&2) — onChange reset hargaPlat/hargaPlat2 ke '' (dengan guard nilai sama = no-op) → effect prefill mengisi dari mesin BARU; flow restore riwayat tetap utuh (hargaPlat historis dari record tidak ditimpa)
+- Verifikasi lokal: pilih sm52 (qty 13000, warna 4, khusus 1) → Plat 90.000 / Ongkos 1.140.000; ganti oliver 58 → Plat 100.000 / Ongkos 1.490.000 (angka "yang benar" milik user muncul persis — job mereka di oliver58, sebelumnya harga plat sisa sm52 membuat total melenceng); balik ke sm52 → 1.140.000 lagi; ESLint bersih; node --check sw.js OK
+- Bukti: .verify/hc-01-machine-sync.png
+- Bump versi: sw.js v140→v141 + API_CACHE_NAME v2, APP_VERSION v75→v76, changelog v15→v16 ("Hitungan Ongkos Cetak Konsisten (Online = Offline)", 2 item)
+
+Stage Summary:
+- Offline kini deterministik: cache API per-akun → hitungan offline = online untuk akun yang sama; ganti mesin selalu menyinkronkan harga plat
+- CATATAN VERIFIKASI POST-DEPLOY: production perlu dicek offline lagi dengan SW baru (cache v2 per-user); user perlu buka app sekali ONLINE agar cache v2 terisi sebelum offline dipakai
+- Versi berikutnya: v142 / v77 / v17

@@ -2236,7 +2236,7 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')} <span className="text-red-500">*</span></label>
-                    <select value={formData.machineId} onChange={(e) => setFormData({ ...formData, machineId: e.target.value })} className={selectClass}>
+                    <select value={formData.machineId} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId ? prev : { ...prev, machineId: v, hargaPlat: '' })) }} className={selectClass}>
                       <option value="">Pilih mesin</option>
                       {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
                     </select>
@@ -2272,7 +2272,7 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')}</label>
-                    <select value={formData.machineId2} onChange={(e) => setFormData({ ...formData, machineId2: e.target.value })} className={selectClass}>
+                    <select value={formData.machineId2} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId2 ? prev : { ...prev, machineId2: v, hargaPlat2: '' })) }} className={selectClass}>
                       <option value="">Pilih mesin</option>
                       {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
                     </select>
@@ -2534,7 +2534,7 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-1 gap-1">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')} <span className="text-red-500">*</span></label>
-                    <select value={formData.machineId} onChange={(e) => setFormData({ ...formData, machineId: e.target.value })} className={selectClass}>
+                    <select value={formData.machineId} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId ? prev : { ...prev, machineId: v, hargaPlat: '' })) }} className={selectClass}>
                       <option value="">Pilih mesin</option>
                       {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
                     </select>
@@ -2572,7 +2572,7 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-1 gap-1">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')}</label>
-                    <select value={formData.machineId2} onChange={(e) => setFormData({ ...formData, machineId2: e.target.value })} className={selectClass}>
+                    <select value={formData.machineId2} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId2 ? prev : { ...prev, machineId2: v, hargaPlat2: '' })) }} className={selectClass}>
                       <option value="">Pilih mesin</option>
                       {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
                     </select>
