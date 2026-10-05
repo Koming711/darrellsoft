@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v17'
+export const CURRENT_VERSION = '2026-10-03-v18'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v18',
+    date: { id: '5 Oktober 2026', en: '5 October 2026' },
+    title: {
+      id: 'Semua Tabel Bisa Di-Resize Kolomnya',
+      en: 'All Tables Have Resizable Columns',
+    },
+    items: [
+      {
+        id: 'Tarik tepi kanan judul kolom di semua tabel untuk membesarkan/mengecilkan kolom secara manual — lebar tersimpan otomatis per halaman; dobel-klik handle untuk mengembalikan ke lebar awal',
+        en: 'Drag the right edge of any column header in all tables to manually widen/narrow it — widths are saved automatically per page; double-click the handle to reset',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v17',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },

@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/contexts/theme-context";
 import { NextThemesProvider } from "@/components/providers/next-themes-provider";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { TableColumnResizer } from "@/components/table-column-resizer";
 import { ConnectivityKeeper } from "@/components/connectivity-keeper";
 import { SplashScreen } from "@/components/splash-screen";
 import { InstallPrompt } from "@/components/install-prompt";
@@ -96,6 +97,7 @@ export default function RootLayout({
           </LanguageProvider>
         </AuthProvider>
         <ServiceWorkerRegistration />
+        <TableColumnResizer />
       </body>
     </html>
   );

@@ -12297,3 +12297,23 @@ Stage Summary:
 - TERVERIFIKASI di produksi: aplikasi TIDAK PERNAH me-reload dirinya sendiri (uji controllerchange + siklus update-check), dan saat offline tetap standby penuh dari cache
 - Perilaku versi baru: SW baru aktif senyap di latar belakang; versi kode baru otomatis dipakai pada cold start berikutnya — user tidak pernah lagi melihat refresh mendadak walau aplikasi tidak dipakai 1 hari / 1 minggu
 - Production www.darrellsoft.com = v142 (SW v142 / APP v77 / changelog v17); versi berikutnya: v143 / v78 / v18
+
+---
+Task ID: feat-resizable-columns
+Agent: main (Z.ai Code)
+Task: Semua tabel di aplikasi bisa di-resize kolomnya secara manual (dibesarkan/dikecilkan) — permintaan user. Check and fix.
+
+Work Log:
+- Eksplorasi: tabel tersebar di ~23 file (1 komponen bersama MobileTable, primitif shadcn ui/table, sisanya tabel inline per halaman) + 4 template dokumen cetak (invoice/surat-jalan/PO/rincian preview) — memodifikasi per halaman berisiko tinggi
+- Keputusan desain: SATU komponen global src/components/table-column-resizer.tsx yang dipasang di root layout — otomatis memindai semua <table> via MutationObserver + resize listener + retry awal, memasang handle drag di tepi kanan setiap <th>
+- Mekanisme: drag (pointer events + setPointerCapture, mouse & touch) mengubah inline width seluruh sel kolom (colSpan-aware walk per baris); layout tabel tetap auto → tampilan tidak berubah sebelum user men-drag, konten tidak terpotong paksa; MIN 56px
+- Persistensi: lebar tersimpan di localStorage per tabel (kunci = pathname + index + sidik jari header kolom) → dipulihkan otomatis setelah reload / baris baru hasil render React; perubahan kolom (sidik jari beda) → lebar lama dibuang
+- Dobel-klik handle = reset SELURUH tabel ke lebar otomatis (semantik per-kolom tidak deterministik pada layout auto — kolom bebas menyerap sisa ruang)
+- Guard keamanan: header multi-baris / colspan / rowspan / tabel tersembunyi (mobile, tab nonaktif, print) tidak diberi handle; opt-out via atribut data-no-resize-cols (dipasang di 3 template cetak dokumen: invoice-preview, surat-jalan-preview, purchase-order-preview); handle disembunyikan saat print via @media print; click setelah drag di-suppress agar tidak memicu row-click/sort
+- Verifikasi lokal (agent-browser): handle terpasang di semua kolom (master-harga-kertas 9/9, master-toko-pemasok 6/6, rekap-penjualan 8/8, hak-akses 6/6); drag +80px → 166→246 persis; reload → 246 dipulihkan dari localStorage; dobel-klik → kembali 166 & storage bersih; drag -60px (perkecil) → 236→176 persis; viewport 390 → 0 handle (mobile aman); 0 error console; konten sel utuh (td width = th width 256px)
+- Catatan: dev server sempat mati saat verifikasi → di-restart dengan double-fork daemon; kekeliruan bump changelog (awalnya target v19 padahal berikutnya v18) sudah dikoreksi → final v143 / v78 / v18
+- Bukti: .verify/col-01-resized.png
+
+Stage Summary:
+- SEMUA tabel aplikasi kini mendukung resize kolom manual (drag tepi kanan header; dobel-klik = reset) dengan persistensi otomatis — tanpa mengubah satu halaman pun (komponen global), template dokumen cetak dikecualikan
+- Versi berikutnya: v144 / v79 / v19
