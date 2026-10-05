@@ -12278,3 +12278,22 @@ Work Log:
 Stage Summary:
 - Aplikasi kini TIDAK PERNAH me-reload dirinya sendiri — walau idle 1 hari / 1 minggu dan walau ada deploy baru; SW baru aktif senyap di latar, versi baru berlaku pada buka-ulang berikutnya, offline tetap standby dari cache
 - Versi berikutnya: v143 / v78 / v18
+
+---
+Task ID: fix-no-auto-refresh-standby (verifikasi produksi)
+Agent: main (Z.ai Code)
+Task: Deploy v142 + verifikasi end-to-end di www.darrellsoft.com bahwa aplikasi tidak pernah me-refresh dirinya sendiri dan selalu standby
+
+Work Log:
+- Deploy ke project darrellsoft (link .vercel benar) → Ready; www.darrellsoft.com menyajikan sw.js v142 (last-modified Mon, 05 Oct 2026 10:01 GMT, age 0)
+- Whats-new v17 "Aplikasi Selalu Standby — Tanpa Auto-Refresh" tampil saat buka produksi → kode baru aktif
+- Uji marker no-reload: set window.__standby_marker → dispatch event 'controllerchange' SINTETIS (event persis yang dulu memicu window.location.reload()) → tunggu 4 dtk → marker masih hidup, performance navigation entries = 1 → TIDAK ADA reload ✓
+- Simulasi idle 130 detik (≥2 siklus reg.update() berkala 60 dtk) → marker masih hidup, navigation tetap 1 → tidak ada reload saat update-check berjalan ✓
+- Uji standby offline: set offline → reload manual (user-initiated) → aplikasi tetap terbuka penuh dari cache SW v142 (darrell-soft-v142 + darrell-api-runtime-v2) → Beranda render dgn data asli (Piutang Rp5.848.000, Grafik Penjualan Rp9.598.000), banner offline tampil tanpa reload paksa ✓
+- 0 error console / page error
+- Bukti: .verify/sb-02-prod-offline-standby.png
+
+Stage Summary:
+- TERVERIFIKASI di produksi: aplikasi TIDAK PERNAH me-reload dirinya sendiri (uji controllerchange + siklus update-check), dan saat offline tetap standby penuh dari cache
+- Perilaku versi baru: SW baru aktif senyap di latar belakang; versi kode baru otomatis dipakai pada cold start berikutnya — user tidak pernah lagi melihat refresh mendadak walau aplikasi tidak dipakai 1 hari / 1 minggu
+- Production www.darrellsoft.com = v142 (SW v142 / APP v77 / changelog v17); versi berikutnya: v143 / v78 / v18
