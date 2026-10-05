@@ -12185,3 +12185,22 @@ Stage Summary:
 - Sandbox lokal = origin/main = v139 persis. Preview menampilkan versi terbaru.
 - Catatan: jika preview tampil versi lama lagi, cek dulu `git log --oneline -3` — kemungkinan sandbox ter-restore snapshot lama; solusinya `git fetch origin && git reset --hard origin/main`.
 - Versi saat ini: SW v139 / APP v74 / changelog v14. Versi berikutnya bila rilis lagi: v140/v75/v15.
+
+---
+Task ID: fix-harga-kg-col
+Agent: main (Z.ai Code)
+Task: Halaman Master Harga Kertas — tambahkan kolom Harga/Kg di tabel (permintaan user: "dihalaman master harga kertas, tambahkan kolom harga/kg di tabel. fix")
+
+Work Log:
+- Baca src/app/master-harga-kertas/page.tsx: tabel pakai MobileTable (desktop table + mobile card) dari array `columns`; harga/kg sudah dikalkulasi di dialog (rumus (pricePerRim*20000)/(w*h*g)) tapi tidak ditampilkan di tabel
+- Tambah helper calculatePricePerKg(paper) — sama dengan rumus konversi dialog, guard utk dimensi/harga <= 0 (return 0)
+- Tambah kolom `pricePerKg` ("Harga/Kg", warna amber) di antara Ukuran (cm) dan Harga/Rim — otomatis ikut tampil di desktop table & mobile card
+- Tambah kolom Harga/Kg juga di output "Cetak Tabel" (handlePrint) supaya konsisten
+- Verifikasi agent-browser (login admin): desktop 1440px kolom Harga/KG tampil; mobile 390x844 card menampilkan baris "Harga/Kg"; kalkulasi dicek manual (art karton 79x109 260gsm rim 1.343.316 → Rp 12.000/kg ✓, duplex 79x109 270gsm rim 1.765.000 → Rp 15.183/kg ✓); 0 error console
+- Bukti: .verify/kg-01-desktop.png, .verify/kg-02-mobile.png
+- Bump versi: sw.js CACHE_NAME v139→v140, APP_VERSION v74→v75, changelog CURRENT_VERSION v14→v15 + entri "Kolom Harga/Kg di Master Harga Kertas"
+- ESLint bersih utk semua file yang diubah
+
+Stage Summary:
+- Kolom Harga/Kg kini tampil di tabel Master Harga Kertas (desktop + mobile + print), dihitung otomatis dari Harga/Rim & ukuran — tidak ada perubahan skema DB / API (harga kg tetap derived, bukan disimpan)
+- Versi berikutnya: v141 / v76 / v16

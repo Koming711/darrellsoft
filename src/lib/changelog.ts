@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v14'
+export const CURRENT_VERSION = '2026-10-03-v15'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v15',
+    date: { id: '5 Oktober 2026', en: '5 October 2026' },
+    title: {
+      id: 'Kolom Harga/Kg di Master Harga Kertas',
+      en: 'Price/Kg Column in Paper Price Master',
+    },
+    items: [
+      {
+        id: 'Tabel Master Harga Kertas kini menampilkan kolom Harga/Kg (otomatis dihitung dari Harga/Rim & ukuran kertas) — tampil di desktop, HP, dan hasil cetak tabel',
+        en: 'The Paper Price Master table now shows a Price/Kg column (auto-calculated from Price/Rim & paper size) — on desktop, mobile, and printed table',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v14',
     date: { id: '4 Oktober 2026', en: '4 October 2026' },
