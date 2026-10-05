@@ -238,7 +238,7 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       )}
 
       {/* === ITEMS TABLE === */}
-      <table className="print-table-8mm" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0' }}>
+      <table className="print-table-8mm" data-no-resize-cols="true" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0' }}>
         <thead>
           <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
             <th style={{ padding: '1.5mm 1mm', textAlign: 'right', fontWeight: '600', width: '10mm' }}>Qty</th>
