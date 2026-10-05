@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v15'
+export const CURRENT_VERSION = '2026-10-03-v16'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v16',
+    date: { id: '5 Oktober 2026', en: '5 October 2026' },
+    title: {
+      id: 'Hitungan Ongkos Cetak Konsisten (Online = Offline)',
+      en: 'Print Cost Calculation Consistent (Online = Offline)',
+    },
+    items: [
+      {
+        id: 'Perbaikan hasil hitungan ongkos cetak di Hitung Cetakan yang berbeda antara mode offline & online: data master (mesin, kertas, dll) di mode offline kini tersimpan per-akun, jadi selalu sama dengan yang terlihat saat online',
+        en: 'Fixed print cost results in Hitung Cetakan differing between offline & online modes: master data (machines, papers, etc.) is now cached per-account offline, always matching what online shows',
+      },
+      {
+        id: 'Harga plat kini otomatis mengikuti mesin yang dipilih saat ganti mesin — tidak lagi memakai sisa harga plat dari mesin sebelumnya',
+        en: 'Plate price now automatically follows the selected machine when switching machines — no longer reusing the previous machine\'s plate price',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v15',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },
