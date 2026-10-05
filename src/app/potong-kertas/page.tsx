@@ -363,6 +363,21 @@ function CalculatorPage() {
   const [pkPhotoZoom, setPkPhotoZoom] = useState(false)
   // Foto lampiran aktif untuk popup preview: mode riwayat pakai photoUrl baris riwayat, mode editor pakai foto di form
   const previewPhotoUrl = previewRiwayatData ? ((previewRiwayatRow?.photoUrl as string) || '') : photoUrl
+  // Harga kertas /kg untuk preview: pakai input pricePerKg jika diisi manual; jika kosong,
+  // konversi otomatis dari harga per lembar (mode riwayat: konversi dari data baris riwayat)
+  const hargaKgPreview: string = previewRiwayatData
+    ? sheetToKgPrice(
+        parseFloat(previewRiwayatRow?.pricePerSheet) || 0,
+        previewRiwayatRow?.paperWidth || previewRiwayatData.paperWidth,
+        previewRiwayatRow?.paperHeight || previewRiwayatData.paperHeight,
+        previewRiwayatRow?.grammage || 0
+      )
+    : ((parseFloat(pricePerKg) || 0) > 0 ? pricePerKg : sheetToKgPrice(parseFloat(pricePerSheet) || 0, paperWidth, paperHeight, grammage))
+  // Harga per lembar aktif utk preview: mode riwayat pakai data baris riwayat, mode editor pakai form
+  // (sebelumnya mode riwayat salah menampilkan harga form — bikin Harga/kg & Harga/Lembar Setelah Dipotong tidak konsisten)
+  const hargaPerLembarPreview: number = previewRiwayatData
+    ? (parseFloat(previewRiwayatRow?.pricePerSheet) || 0)
+    : (parseFloat(pricePerSheet) || 0)
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -2345,11 +2360,15 @@ function CalculatorPage() {
               </div>
               <div className="bg-white border border-slate-200 rounded-lg p-2.5">
                 <p className="text-[10px] text-slate-600 font-medium">Harga / Lembar</p>
-                <p className="text-base font-bold text-black">Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID')}</p>
+                <p className="text-base font-bold text-black">Rp {Math.round(hargaPerLembarPreview).toLocaleString('id-ID')}</p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                <p className="text-[10px] text-slate-600 font-medium">Harga Kertas /kg</p>
+                <p className="text-base font-bold text-black">{hargaKgPreview ? `Rp ${Number(hargaKgPreview).toLocaleString('id-ID', { maximumFractionDigits: 2 })}` : '-'}</p>
               </div>
               <div className="bg-white border border-slate-200 rounded-lg p-2.5">
                 <p className="text-[10px] text-slate-600 font-medium">Harga/Lembar Setelah Dipotong</p>
-                <p className="text-base font-bold text-black">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round((parseFloat(pricePerSheet) || 0) / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+                <p className="text-base font-bold text-black">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round(hargaPerLembarPreview / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
               </div>
             </div>
 

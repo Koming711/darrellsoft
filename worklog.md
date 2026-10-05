@@ -12334,3 +12334,23 @@ Work Log:
 Stage Summary:
 - TERVERIFIKASI di produksi: semua tabel mendukung resize kolom manual (drag tepi kanan header = besarkan/kecilkan, dobel-klik = reset), lebar tersimpan per halaman & perangkat
 - Production www.darrellsoft.com = v143 (SW v143 / APP v78 / changelog v18); versi berikutnya: v144 / v79 / v19
+
+---
+Task ID: feat-kg-price-potong-kertas-preview
+Agent: main (Z.ai Code)
+Task: Preview Potong Kertas — tambahkan harga kertas /kg (permintaan user)
+
+Work Log:
+- Tambah cell "Harga Kertas /kg" di grid info popup preview (posisi: setelah Harga/Lembar, sebelum Harga/Lembar Setelah Dipotong — mirror urutan field di form; grid 14→15 cell = 5 baris × 3 kolom pas)
+- Nilai (mode editor): pakai input pricePerKg manual jika diisi; jika kosong konversi otomatis dari harga per lembar via sheetToKgPrice (rumus sama dgn form: kg = hargaLbr×10⁷/(W×H×gramatur))
+- Nilai (mode riwayat): konversi dari data baris riwayat (pricePerSheet, paperWidth/Height, grammage) — riwayat lama tanpa gramatur tampil "-"
+- Karena capture cetak/JPG = isi preview, harga/kg otomatis ikut di hasil cetak & gambar JPG (tanpa perubahan tambahan)
+- FIX BUG TERKAIT: sel "Harga / Lembar" & "Harga/Lembar Setelah Dipotong" di mode riwayat sebelumnya salah pakai harga FORM (mis. Rp 2.000 padahal riwayat Rp 2.789) → kini kedua sel + Harga/kg konsisten pakai data baris riwayat
+- Verifikasi lokal (agent-browser): editor mode 65×100cm g150 harga/lembar 2000 → kg Rp 20.512,82 ✓; riwayat PK/09/26/0001 (2789/lbr, 260gsm, 65×100) → Harga/Lembar Rp 2.789 + kg Rp 16.502,96 + Setelah Dipotong Rp 697 (2789/4) semua konsisten ✓; mobile 390px skala 0.5167 grid fit tanpa overflow ✓; 0 error console; lint bersih
+- Catatan: error prisma "namaSuplier unknown argument" di dev.log adalah log LAMA (schema kini sudah punya field tsb) — bukan bug aktif; saat verifikasi riwayat sempat ter-klik tombol hapus → dialog konfirmasi di-DISMISS, data tidak terhapus
+- Versi: sw v144 / APP v79 / changelog v19
+- Bukti: .verify/kg-01-editor-preview.png (desktop), .verify/kg-02-mobile-preview.png
+
+Stage Summary:
+- Preview Potong Kertas kini menampilkan Harga Kertas /kg (editor: konversi otomatis dari harga/lembar atau input manual; riwayat: dihitung dari data riwayat) dan sel Harga/Lembar + Harga/Lembar Setelah Dipotong kini akurat di mode riwayat
+- Versi berikutnya: v145 / v80 / v20
