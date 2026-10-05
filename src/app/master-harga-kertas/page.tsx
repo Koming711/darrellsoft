@@ -232,6 +232,15 @@ export default function MasterHargaKertasPage() {
     return Math.round(pricePerRim / 500)
   }
 
+  // Harga/Kg dihitung dari Harga/Rim & ukuran kertas:
+  // berat 1 rim = w(cm) x h(cm) x grammage(gsm) / 20000 kg
+  // (sama dengan rumus konversi di dialog tambah/edit).
+  const calculatePricePerKg = (paper: Paper): number => {
+    const { width, height, grammage, pricePerRim } = paper
+    if (width <= 0 || height <= 0 || grammage <= 0 || pricePerRim <= 0) return 0
+    return Math.round((pricePerRim * 20000) / (width * height * grammage))
+  }
+
   const filteredPapers = papers.filter(paper =>
     (paper.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
      (paper.suplier || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
@@ -339,11 +348,12 @@ export default function MasterHargaKertasPage() {
 
     // Add table
     printWindow.document.write('<table>')
-    printWindow.document.write('<thead><tr><th>No</th><th>Nama Bahan</th><th>Suplier</th><th>Gramatur</th><th>Ukuran (cm)</th><th>Harga/Rim</th><th>Harga/Lembar</th></tr></thead>')
+    printWindow.document.write('<thead><tr><th>No</th><th>Nama Bahan</th><th>Suplier</th><th>Gramatur</th><th>Ukuran (cm)</th><th>Harga/Kg</th><th>Harga/Rim</th><th>Harga/Lembar</th></tr></thead>')
     printWindow.document.write('<tbody>')
 
     filteredPapers.forEach((paper, index) => {
       const pricePerSheet = calculatePricePerSheet(paper.pricePerRim)
+      const pricePerKg = calculatePricePerKg(paper)
       printWindow.document.write(`
         <tr>
           <td>${index + 1}</td>
@@ -351,6 +361,7 @@ export default function MasterHargaKertasPage() {
           <td>${paper.suplier || '-'}</td>
           <td>${paper.grammage} gsm</td>
           <td>${paper.width} x ${paper.height}</td>
+          <td class="right">${pricePerKg > 0 ? 'Rp ' + pricePerKg.toLocaleString('id-ID') : '-'}</td>
           <td class="right">Rp ${paper.pricePerRim.toLocaleString('id-ID')}</td>
           <td class="right">Rp ${pricePerSheet.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         </tr>
@@ -528,6 +539,17 @@ export default function MasterHargaKertasPage() {
       key: 'size',
       title: 'Ukuran (cm)',
       render: (paper: Paper) => `${paper.width} x ${paper.height}`
+    },
+    {
+      key: 'pricePerKg',
+      title: 'Harga/Kg',
+      render: (paper: Paper) => (
+        <span className="text-amber-600 font-medium">
+          {calculatePricePerKg(paper) > 0
+            ? `Rp ${calculatePricePerKg(paper).toLocaleString('id-ID')}`
+            : '—'}
+        </span>
+      )
     },
     {
       key: 'pricePerRim',
