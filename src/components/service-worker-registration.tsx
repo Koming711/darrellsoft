@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { scheduleOfflineWarmup } from '@/lib/offline-warmup'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-10-03-v76'
+const APP_VERSION = '2026-10-03-v77'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -81,20 +81,18 @@ export function ServiceWorkerRegistration() {
 
     // Register service worker (only after version check passes)
     if ('serviceWorker' in navigator) {
-      // AUTO-RELOAD SEKALI PER DEPLOY saat SW baru (skipWaiting) mengambil alih
-      // (controllerchange). TANPA ini, PWA yang di-resume dari memori (bukan
-      // ditutup penuh) bisa berhari-hari menjalankan KODE LAMA padahal deploy
-      // selesai — penyebab keluhan "perubahan tidak muncul / field masih versi
-      // lama". Guard sessionStorage: maksimal 1x reload per versi per sesi →
-      // tidak ada loop reload, tidak mengganggu (draft form tersimpan di
-      // localStorage sehingga data tidak hilang).
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        try {
-          if (sessionStorage.getItem('sw_ctrl_' + APP_VERSION) === '1') return
-          sessionStorage.setItem('sw_ctrl_' + APP_VERSION, '1')
-          window.location.reload()
-        } catch (e) { /* sessionStorage tidak tersedia — jangan reload */ }
-      })
+      // KEBIJAKAN "SELALU STANDBY — TANPA AUTO-REFRESH":
+      // Aplikasi TIDAK PERNAH me-reload dirinya sendiri — walau tidak dipakai
+      // 1 hari, 1 minggu, atau lebih, dan walau ada deploy baru di antara
+      // waktu itu. Dulu ada auto-reload pada 'controllerchange' (saat SW baru
+      // skipWaiting mengambil alih) — itulah penyebab "buka aplikasi setelah
+      // lama tidak dipakai, kok tiba-tiba refresh". Sekarang SW baru cukup
+      // mengambil alih SENYAP di latar belakang: halaman yang terbuka terus
+      // berjalan tanpa reload, data tetap fresh (GET API network-first), dan
+      // versi kode baru otomatis dipakai pada cold start BERIKUTNYA (buka
+      // ulang aplikasi) karena navigasi HTML juga network-first. Saat
+      // offline, seluruh aplikasi tersaji dari cache (offline warm-up) —
+      // selalu standby tanpa refresh.
       const registerSW = () => {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
@@ -132,13 +130,11 @@ export function ServiceWorkerRegistration() {
               }
             })
 
-            // CEK UPDATE SEGERA + BERKALA (tiap 60 dtk) — KRITICAL:
-            // PWA yang masih "resume" dari memori (tidak pernah reload) TIDAK
-            // pernah mengecek SW baru, sehingga user terus melihat versi lama
-            // walau deploy sudah selesai (keluhan "belum ada perubahan").
-            // Dengan reg.update() berkala + controllerchange auto-reload di
-            // atas, setiap deploy otomatis diterapkan maksimal 1 menit setelah
-            // aplikasi dibuka/diresume — tanpa perlu tutup-buka aplikasi.
+            // CEK UPDATE SEGERA + BERKALA (tiap 60 dtk) — SENYAP, TANPA
+            // reload: hanya menyiapkan SW baru di latar belakang agar versi
+            // terbaru sudah tersimpan di cache saat aplikasi dibuka ulang
+            // berikutnya (cold start). Halaman yang sedang terbuka tidak
+            // pernah diganggu — aplikasi selalu standby dari cache.
             const checkForUpdate = () => {
               reg.update().catch(() => {})
             }

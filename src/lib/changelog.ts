@@ -1,7 +1,7 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
 
-export const CURRENT_VERSION = '2026-10-03-v16'
+export const CURRENT_VERSION = '2026-10-03-v17'
 
 export interface ChangelogEntry {
   version: string
@@ -11,6 +11,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v17',
+    date: { id: '5 Oktober 2026', en: '5 October 2026' },
+    title: {
+      id: 'Aplikasi Selalu Standby — Tanpa Auto-Refresh',
+      en: 'App Always Standby — No Auto-Refresh',
+    },
+    items: [
+      {
+        id: 'Aplikasi tidak lagi me-refresh dirinya sendiri walau tidak dipakai berhari-hari — selalu langsung siap pakai dari cache, versi baru otomatis aktif saat dibuka ulang',
+        en: 'The app no longer refreshes itself even after days of inactivity — always instantly ready from cache; new versions apply automatically on next open',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v16',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },
