@@ -12204,3 +12204,20 @@ Work Log:
 Stage Summary:
 - Kolom Harga/Kg kini tampil di tabel Master Harga Kertas (desktop + mobile + print), dihitung otomatis dari Harga/Rim & ukuran — tidak ada perubahan skema DB / API (harga kg tetap derived, bukan disimpan)
 - Versi berikutnya: v141 / v76 / v16
+
+---
+Task ID: fix-harga-kg-col (lanjutan — deploy)
+Agent: main (Z.ai Code)
+Task: Deploy v140 ke production — menemukan & memperbaiki link deploy yang salah akibat snapshot restore
+
+Work Log:
+- Deploy pertama `bunx vercel --prod` ternyata masuk project "my-project" (bukan production) — .vercel/project.json masih menunjuk my-project (link lama sisa snapshot sandbox yang di-restore)
+- Gejala: www.darrellsoft.com masih menyajikan sw.js v139 (x-vercel-cache HIT, age ~15 jam, last-modified deploy kemarin), padahal deployment baru "Ready"
+- Diagnosis: `vercel domains inspect darrellsoft.com` → domain www.darrellsoft.com + darrellsoft.com ter-attach ke project "darrellsoft" (bukan "my-project"); `vercel ls darrellsoft` memuat semua deploy historis
+- Fix: tulis ulang .vercel/project.json → projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB / projectName darrellsoft (file gitignored), deploy ulang → sukses, domain ter-assign
+- Verifikasi production: sw.js = darrell-soft-v140 (last-modified Mon, 05 Oct 2026 06:04 GMT); whats-new v15 muncul ("Kolom Harga/Kg di Master Harga Kertas"); login admin → desktop 1440px header tabel: NAMA BAHAN..UKURAN..HARGA/KG..HARGA/RIM..HARGA/LEMBAR (Art paper BT 79x109 150gsm rim 1.194.776 → Rp 18.500/kg ✓); mobile 390x844 card menampilkan "Harga/Kg Rp 18.500"; 0 error console
+- Bukti: .verify/kg-03-prod-mobile.png
+
+Stage Summary:
+- PENTING utk deploy selanjutnya: pastikan .vercel/project.json menunjuk project "darrellsoft" — kalau sandbox di-restore, cek ulang link ini sebelum deploy (gejala: domain masih versi lama meski deploy "Ready")
+- Production www.darrellsoft.com = v140 (SW v140 / APP v75 / changelog v15); versi berikutnya: v141 / v76 / v16
