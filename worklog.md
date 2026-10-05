@@ -12393,3 +12393,18 @@ Work Log:
 Stage Summary:
 - Detail Rincian Cetakan (Hitung Cetakan) kini menampilkan Harga Kertas /kg di mode editor (nilai form) maupun riwayat (derive dari record), konsisten rumus dengan halaman Potong Kertas
 - Versi berikutnya: v146 / v81 / v21
+
+---
+Task ID: feat-kg-price-rincian-cetakan (verifikasi produksi)
+Agent: main (Z.ai Code)
+Task: Deploy v145 + verifikasi harga kertas /kg di Detail Rincian Cetakan www.darrellsoft.com
+
+Work Log:
+- Deploy ke project darrellsoft (link .vercel benar) → Ready; sw.js = darrell-soft-v145 (last-modified Mon, 05 Oct 2026 14:13 GMT, age 0)
+- Whats-new v20 "Harga Kertas /kg di Rincian Harga Cetakan" tampil saat buka produksi → kode baru aktif
+- Verifikasi mode riwayat (HC/07/26/23383714 — ivory buana 310gsm, 79×109cm, Rp 3.770/lbr): detail tampil "HARGA KERTAS /KG = Rp 14.122,97" ✓ persis = 3770×10⁷/(79×109×310), posisi tepat setelah Ukuran Kertas
+- 0 error console / page error
+
+Stage Summary:
+- TERVERIFIKASI di produksi: Detail Rincian Cetakan menampilkan Harga Kertas /kg (editor: nilai form; riwayat: derive dari record) — konsisten dengan halaman Potong Kertas
+- Production www.darrellsoft.com = v145 (SW v145 / APP v80 / changelog v20); versi berikutnya: v146 / v81 / v21
