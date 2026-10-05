@@ -12372,3 +12372,24 @@ Work Log:
 Stage Summary:
 - TERVERIFIKASI di produksi: Preview Potong Kertas menampilkan Harga Kertas /kg di mode editor (konversi otomatis dari harga/lembar) maupun mode riwayat (dihitung dari data riwayat), plus perbaikan konsistensi Harga/Lembar mode riwayat
 - Production www.darrellsoft.com = v144 (SW v144 / APP v79 / changelog v19); versi berikutnya: v145 / v80 / v20
+
+---
+Task ID: feat-kg-price-rincian-cetakan
+Agent: main (Z.ai Code)
+Task: Halaman Hitung Cetakan → Detail Rincian Cetakan: tambahkan harga kertas /kg (permintaan user)
+
+Work Log:
+- Target: src/components/rincian-cetakan-preview.tsx ("Rincian Harga Cetakan" — SATU SUMBER KEBENARAN untuk preview editor & detail riwayat Hitung Cetakan, sekaligus sumber capture cetak/JPG)
+- Tambah helper sheetToKgPrice (rumus sama dgn Potong Kertas & form Hitung Cetakan: kg = hargaLbr×10⁷/(L×W×gramatur))
+- Tambah PvField "Harga Kertas /kg" di grid Informasi Pesanan — posisi setelah Ukuran Kertas, sebelum Ukuran Potongan
+- Sumber nilai: utamakan pricePerKg dari form editor (ditambahkan ke tipe PrintCalculation + RincianCetakanData + payload handlePreview; form tidak menyimpannya ke record riwayat) → mode riwayat otomatis jalur derive dari pricePerSheet+paperLength+paperWidth+paperGrammage record; data tanpa gramatur/ukuran tampil "-"
+- Karena capture cetak/JPG = isi preview, harga/kg otomatis ikut di hasil cetak & JPG
+- Fix teknis: urutan deklarasi pvGrammage vs pvHargaPerKg (hindari TDZ ReferenceError) sebelum sempat terpakai
+- Verifikasi lokal (agent-browser): editor mode — pilih kertas "art karton (260 gsm)" → harga/lembar 2687 & harga/kg 12001.64 auto dari master → preview tampil "HARGA KERTAS /KG = Rp 12.001,64" persis sama dgn form ✓; mode riwayat — detail HC/10/26/0001 (3806/lbr, 79×109cm, 260gsm) → "HARGA KERTAS /KG = Rp 16.999,72" persis = 3806×10⁷/(79×109×260) ✓; mobile 390px field tetap tampil (FixedDocScaler) ✓; 0 error console; lint bersih
+- Catatan: screenshot agent-browser kembali frame basi (quirk environment) — verifikasi memakai pembacaan DOM
+- Versi: sw v145 / APP v80 / changelog v20
+- Bukti: verifikasi DOM eval (screenshot basi tidak dipakai sebagai bukti)
+
+Stage Summary:
+- Detail Rincian Cetakan (Hitung Cetakan) kini menampilkan Harga Kertas /kg di mode editor (nilai form) maupun riwayat (derive dari record), konsisten rumus dengan halaman Potong Kertas
+- Versi berikutnya: v146 / v81 / v21
