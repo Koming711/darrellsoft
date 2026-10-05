@@ -12243,3 +12243,21 @@ Stage Summary:
 - Offline kini deterministik: cache API per-akun → hitungan offline = online untuk akun yang sama; ganti mesin selalu menyinkronkan harga plat
 - CATATAN VERIFIKASI POST-DEPLOY: production perlu dicek offline lagi dengan SW baru (cache v2 per-user); user perlu buka app sekali ONLINE agar cache v2 terisi sebelum offline dipakai
 - Versi berikutnya: v142 / v77 / v17
+
+---
+Task ID: fix-ongkos-offline-online (verifikasi produksi)
+Agent: main (Z.ai Code)
+Task: Deploy v141 + verifikasi end-to-end offline vs online di www.darrellsoft.com
+
+Work Log:
+- Deploy ke project darrellsoft (link .vercel sudah benar) → Ready, www.darrellsoft.com menyajikan sw.js v141 (last-modified Mon, 05 Oct 2026 06:36 GMT)
+- Verifikasi online: buka /hitung-cetakan (login admin) → SW v141 aktif; cache baru 'darrell-api-runtime-v2' terisi dgn kunci per-user (/api/printing-costs?__uid=user-admin, /api/papers?__uid=user-admin, dst — 10 entri)
+- Verifikasi offline: set offline on → reload (app shell dari SW) → mesin sm52 tampil dari cache per-user → input sama (qty 13000, warna 4, khusus 1) → Ongkos Cetak Rp 1.140.000 = PERSIS sama dgn online ✓
+- Verifikasi ganti mesin offline: oliver 58 → Plat 100.000 / Ongkos 1.490.000 ✓ (harga plat ikut mesin, bahkan offline)
+- 0 error console; browser kembali online
+- Bukti: .verify/hc-02-offline-oliver.png
+
+Stage Summary:
+- TERVERIFIKASI di produksi: hitungan ongkos cetak offline = online (cache API per-user v2); harga plat selalu ikut mesin terpilih
+- PENTING utk user: setelah update ini, buka aplikasi sekali saat ONLINE agar cache per-user v2 terisi — setelah itu hitungan offline dijamin sama dgn online
+- Versi berikutnya: v142 / v77 / v17
