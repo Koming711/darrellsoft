@@ -12261,3 +12261,20 @@ Stage Summary:
 - TERVERIFIKASI di produksi: hitungan ongkos cetak offline = online (cache API per-user v2); harga plat selalu ikut mesin terpilih
 - PENTING utk user: setelah update ini, buka aplikasi sekali saat ONLINE agar cache per-user v2 terisi — setelah itu hitungan offline dijamin sama dgn online
 - Versi berikutnya: v142 / v77 / v17
+
+---
+Task ID: fix-no-auto-refresh-standby
+Agent: main (Z.ai Code)
+Task: Aplikasi online tidak boleh me-refresh sendiri walau tidak dipakai 1 hari/1 minggu — selalu standby dari cache (permintaan user). Fix.
+
+Work Log:
+- Investigasi penyebab "harus refresh": satu-satunya mekanisme reload otomatis adalah listener 'controllerchange' di service-worker-registration.tsx — saat user membuka/melanjutkan aplikasi setelah idle dan ada deploy baru, reg.update() menemukan SW baru (skipWaiting+clients.claim) → window.location.reload() → aplikasi me-refresh dirinya sendiri di depan user
+- Audit menyeluruh memastikan tidak ada pemicu lain: auth berbasis localStorage (tanpa sesi server yang expired), dashboard-layout auto-logout adalah setting keamanan user (dengan countdown, bukan refresh), connectivity-keeper & offline-warmup sudah tanpa reload, event 'swactivated' tidak punya listener lain
+- Fix: hapus TOTAL auto-reload 'controllerchange' dari service-worker-registration.tsx — kebijakan baru "SELALU STANDBY TANPA AUTO-REFRESH": halaman yang terbuka tidak pernah diganggu walau SW baru mengambil alih; versi kode baru otomatis dipakai pada cold start berikutnya (HTML navigasi network-first); data tetap fresh (GET API network-first); offline tetap tersaji penuh dari cache (warm-up)
+- reg.update() berkala (60 dtk) dipertahankan — kini murni senyap (menyiapkan SW baru di latar, tanpa efek apa pun ke halaman yang terbuka)
+- Bump versi: sw.js v141→v142, APP_VERSION v76→v77, changelog v16→v17 ("Aplikasi Selalu Standby — Tanpa Auto-Refresh", 1 item)
+- Verifikasi: node --check sw.js OK; ESLint bersih; halaman lokal render normal tanpa error console; SW tidak bisa diuji di dev (dev sengaja unregister SW) → verifikasi perilaku no-reload dilakukan langsung di production
+
+Stage Summary:
+- Aplikasi kini TIDAK PERNAH me-reload dirinya sendiri — walau idle 1 hari / 1 minggu dan walau ada deploy baru; SW baru aktif senyap di latar, versi baru berlaku pada buka-ulang berikutnya, offline tetap standby dari cache
+- Versi berikutnya: v143 / v78 / v18
