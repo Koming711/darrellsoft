@@ -12167,3 +12167,21 @@ Work Log:
 Stage Summary:
 - Popup Tambah/Edit Pelanggan di HP: Telepon & Email kini 2 baris penuh lebar (lebih lega diisi), sisanya kompak seperti v138; desktop tidak berubah.
 - Versi berikutnya bila rilis lagi: v140/v75/v15.
+
+---
+Task ID: restore-v139
+Agent: Main
+Task: User: "conten kembali ke versi v139" — konten sandbox balik ke v139.
+
+Work Log:
+- Diagnosa: sandbox ter-restore ke snapshot LAMA (HEAD lokal = 9d0d210, checkpoint UUID di atas commit "margin 3mm"; sw.js lokal = v125/2026-09-28-v60) — semua kerja v136-v139 hilang dari working tree, tapi AMAN di origin/main. Ini juga menjelaskan laporan user sebelumnya "tombol simpan dan batal dibuat 1 baris saja" — yang mereka lihat di preview adalah kode LAMA (footer bertumpuk), bukan v139 (footer sudah 1 baris).
+- Fix: `git fetch origin` + `git reset --hard origin/main` (2a07182). Commit lokal-only 9d0d210 hanya checkpoint db/custom.db — aman dibuang. Tidak ada work lain yang hilang (semua commit fitur "margin 3mm" & "combobox customer" sudah jadi ancestor origin/main).
+- Verifikasi: sw.js lokal = darrell-soft-v139; APP_VERSION = 2026-10-03-v74; changelog CURRENT_VERSION = 2026-10-03-v14; customer-form-dialog.tsx = telepon/email 2 baris di mobile + DialogFooter flex-row (1 baris) + kode otomatis di deskripsi.
+- Dev server tetap hidup, hot-reload file hasil restore; preview menyajikan v139 (whats-new "Telepon & Email Jadi 2 Baris di HP" tampil).
+- Verifikasi popup via agent-browser: 390x844 → teleponEmail2Baris=true, tombol1Baris=true, dialog 524px fits tanpa scroll; desktop 1280 → tombol1Baris=true, layout normal; 0 error.
+- Produksi www.darrellsoft.com tidak pernah terdampak (tetap v139 sejak deploy terakhir).
+
+Stage Summary:
+- Sandbox lokal = origin/main = v139 persis. Preview menampilkan versi terbaru.
+- Catatan: jika preview tampil versi lama lagi, cek dulu `git log --oneline -3` — kemungkinan sandbox ter-restore snapshot lama; solusinya `git fetch origin && git reset --hard origin/main`.
+- Versi saat ini: SW v139 / APP v74 / changelog v14. Versi berikutnya bila rilis lagi: v140/v75/v15.
