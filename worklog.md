@@ -12317,3 +12317,20 @@ Work Log:
 Stage Summary:
 - SEMUA tabel aplikasi kini mendukung resize kolom manual (drag tepi kanan header; dobel-klik = reset) dengan persistensi otomatis — tanpa mengubah satu halaman pun (komponen global), template dokumen cetak dikecualikan
 - Versi berikutnya: v144 / v79 / v19
+
+---
+Task ID: feat-resizable-columns (verifikasi produksi)
+Agent: main (Z.ai Code)
+Task: Deploy v143 + verifikasi resize kolom di www.darrellsoft.com
+
+Work Log:
+- Deploy ke project darrellsoft (link benar) → Ready; sw.js = darrell-soft-v143 (last-modified Mon, 05 Oct 2026 11:32 GMT, age 0)
+- Whats-new v18 "Semua Tabel Bisa Di-Resize Kolomnya" tampil → kode baru aktif di produksi
+- Verifikasi desktop 1440px di /master-harga-kertas: 9 handle pada 9 kolom; drag handle kolom "Nama Bahan" +80px → lebar 269 → 349 (delta 80 persis); tersimpan ke localStorage (tcr-colw:/master-harga-kertas#...)
+- Reload halaman → lebar 349 dipulihkan otomatis (persisted: true)
+- 0 error console / page error
+- Bukti: .verify/col-02-prod-resized.png
+
+Stage Summary:
+- TERVERIFIKASI di produksi: semua tabel mendukung resize kolom manual (drag tepi kanan header = besarkan/kecilkan, dobel-klik = reset), lebar tersimpan per halaman & perangkat
+- Production www.darrellsoft.com = v143 (SW v143 / APP v78 / changelog v18); versi berikutnya: v144 / v79 / v19
