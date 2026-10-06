@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Sparkles, ChevronRight } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { CURRENT_VERSION, CHANGELOG } from '@/lib/changelog'
+import { CURRENT_VERSION, CHANGELOG, releaseVersionLabel } from '@/lib/changelog'
 import { useLanguage } from '@/contexts/language-context'
 
 const T = {
@@ -62,7 +62,10 @@ export function WhatsNewDialog() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">{t.new_version}</h2>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                {t.new_version}
+                <span className="text-[10px] font-bold tracking-wide bg-white/25 text-white rounded-full px-2 py-0.5" title="Versi aplikasi">{releaseVersionLabel()}</span>
+              </h2>
               <p className="text-xs text-white/70 font-medium">{latestEntry.date[language]}</p>
             </div>
           </div>
