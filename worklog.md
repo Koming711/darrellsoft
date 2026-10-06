@@ -12453,3 +12453,22 @@ Stage Summary:
 - Hitung Harga Kertas & Hitung Cetakan kini punya dropdown Nama Suplier (Master Toko Pemasok) yang memfilter bahan & mengikuti harga suplier di Master Harga Kertas; tersimpan & ter-restore di riwayat kedua halaman.
 - Harga Kertas /kg di Hitung Cetakan, Potong Kertas & Detail Rincian Cetakan (preview/JPG/cetak) DIBULATKAN ke rupiah penuh — persis kolom Harga/kg Master Harga Kertas.
 - Rilis: SW v147 / APP v82 / label v146. Versi berikutnya: SW v148 / APP v83 / label v147.
+---
+Task ID: suplier-rounding-v146 (deploy + verifikasi produksi)
+Agent: Main (Z.ai Code)
+Task: Deploy v147 ke www.darrellsoft.com + migrasi kolom namaSuplier + verifikasi E2E produksi
+
+Work Log:
+- Pre-check .vercel → darrellsoft (prj_ZoKYf7… ✓), deploy `vercel --prod` → Ready (darrellsoft-74q6di2jc). Prod sw.js = darrell-soft-v147 ✓.
+- Migrasi DB produksi: login admin → POST /api/database/update → success: "25 kolom diperiksa/ditambahkan di PostgreSQL, 17/17 tabel ditemukan" (termasuk RiwayatCetakan.namaSuplier & RiwayatHargaKertas.namaSuplier).
+- Verifikasi produksi (agent-browser, www.darrellsoft.com, admin):
+  - Popup What's New v146 "Nama Suplier di Kalkulator + Harga Kertas /kg Dibulatkan" tampil & tersimpan (whats_new_version=2026-10-03-v146) → kode baru pasti live.
+  - Hitung Harga Kertas: dropdown "Nama Suplier" tampil ✓.
+  - Hitung Cetakan: dropdown Nama Suplier tampil dgn data asli ("Bintang Timur · toko kertas", "Indojaya · toko kertas") ✓.
+  - Detail Rincian Cetakan riwayat HC/07/26/233837 (ivory buana, 310gsm, 79×109, Rp 3.770/lbr): "HARGA KERTAS /KG = Rp 14.123" — DIBULATKAN (sebelumnya 14.122,97) ✓.
+  - Uji tulis DB: POST riwayat-harga-kertas dgn namaSuplier="Bintang Timur" → tersimpan, lalu DELETE bersih ✓.
+  - 0 error console ✓.
+
+Stage Summary:
+- TERVERIFIKASI di produksi www.darrellsoft.com (v147): Nama Suplier tersedia di Hitung Harga Kertas & Hitung Cetakan (filter bahan + harga ikut master + tersimpan di riwayat), dan Harga Kertas /kg dibulatkan ke rupiah penuh di Hitung Cetakan, Potong Kertas & Detail Rincian Cetakan — konsisten dgn Master Harga Kertas.
+- Production = SW v147 / APP v82 / label v146. Versi berikutnya: SW v148 / APP v83 / label v147.
