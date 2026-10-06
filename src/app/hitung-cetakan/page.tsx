@@ -64,6 +64,7 @@ interface Paper {
   width: number
   height: number
   pricePerRim: number
+  suplier?: string | null
 }
 
 interface PrintingCost {
@@ -165,7 +166,13 @@ function sheetToKgPrice(sheet: number, w: number | string, h: number | string, g
   const G = parseFloat(String(g)) || 0
   if (!(sheet > 0) || !(W > 0) || !(H > 0) || !(G > 0)) return ''
   const kg = (sheet * 10000000) / (W * H * G)
-  return (Math.round(kg * 100) / 100).toString()
+  // DIBULATKAN ke rupiah penuh — konsisten dgn kolom Harga/kg di Master Harga Kertas (Math.round)
+  return Math.round(kg).toString()
+}
+
+// Normalisasi nama suplier utk pencocokan (case-insensitive, trim) — sama dgn Potong Kertas
+function normSup(s?: string | null): string {
+  return (s || '').trim().toLowerCase()
 }
 
 // Preview Dialog Component
@@ -239,6 +246,8 @@ function HitungCetakanPage() {
   const [printingCosts, setPrintingCosts] = useState<PrintingCost[]>([])
   const [finishings, setFinishings] = useState<Finishing[]>([])
   const [hydrated, setHydrated] = useState(false)
+  // Nama Suplier utk harga bahan (pola sama dgn Potong Kertas) — dari Master Toko Pemasok
+  const [supliers, setSupliers] = useState<any[]>([])
 
   const [selectedFinishings, setSelectedFinishings] = useState<string[]>([])
 
@@ -262,6 +271,7 @@ function HitungCetakanPage() {
     shippingCost: '',
     pricePerSheet: '',
     pricePerKg: '',
+    namaSuplier: '',
     glueLengthCm: '',
     glueCostPerCm: '',
     glueBoronganPerSheet: '',
@@ -776,6 +786,13 @@ function HitungCetakanPage() {
     }
   }
 
+  const fetchSupliersData = () => {
+    fetcher('/api/toko-pemasok', { headers: getAuthHeaders() })
+      .then(res => { if (!res.ok) return []; return res.json() })
+      .then(data => { if (Array.isArray(data)) setSupliers(data); else setSupliers([]) })
+      .catch(() => setSupliers([]))
+  }
+
   // Matching restore data setelah fetch selesai
   useEffect(() => {
     if (!isRestoring) return
@@ -868,6 +885,7 @@ function HitungCetakanPage() {
     fetchPapers()
     fetchPrintingCosts()
     fetchFinishings()
+    fetchSupliersData()
     fetchRiwayatCetakan()
     fetchNextNumber()
     // Jangan override profitPercent saat restore
@@ -905,6 +923,38 @@ function HitungCetakanPage() {
       setFormData(prev => ({ ...prev, pricePerSheet: sheet.toString(), pricePerKg: sheetToKgPrice(sheet, selectedPaper.width, selectedPaper.height, selectedPaper.grammage) }))
     }
   }, [selectedPaper])
+
+  // Opsi dropdown Nama Bahan: bila suplier dipilih (mis. "Bintang Timur"), HANYA kertas milik
+  // suplier tsb (dari Master Harga Kertas) yang tampil — pola sama dgn Potong Kertas.
+  const paperOptions = useMemo(() => {
+    const ns = formData.namaSuplier
+    if (!ns) return papers
+    return papers.filter(p => normSup(p.suplier) === normSup(ns))
+  }, [papers, formData.namaSuplier])
+
+  // Saat user memilih suplier: bila bahan terpilih bukan milik suplier tsb, pindah ke varian
+  // nama sama milik suplier (harga/ukuran mengikuti master) atau kosongkan bila tidak ada.
+  const handleSuplierChange = (v: string) => {
+    const sup = v === 'none' ? '' : v
+    setFormData(prev => ({ ...prev, namaSuplier: sup }))
+    const cur = papers.find(p => p.id === formData.paperId)
+    if (!sup || !cur || normSup(cur.suplier) === normSup(sup)) return
+    const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === cur.name.trim().toLowerCase())
+    if (variant) {
+      const sheet = Math.round(variant.pricePerRim / 500)
+      setFormData(prev => ({
+        ...prev,
+        paperId: variant.id,
+        paperLength: variant.width.toString(),
+        paperWidth: variant.height.toString(),
+        pricePerSheet: sheet.toString(),
+        pricePerKg: sheetToKgPrice(sheet, variant.width, variant.height, variant.grammage),
+      }))
+      toast.success(`Harga ${cur.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+    } else {
+      setFormData(prev => ({ ...prev, paperId: '' }))
+    }
+  }
 
   useEffect(() => {
     const qty = parseInt(formData.quantity) || 0
@@ -1091,7 +1141,7 @@ function HitungCetakanPage() {
 
   const resetForm = () => {
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1113,7 +1163,7 @@ function HitungCetakanPage() {
     const simPayload = buildSimulasiCepatPayload()
     return {
       type: 'hitung_cetakan',
-      printName: formData.printName, customerName: formData.customerName, paperName: selectedPaper?.name || '',
+      printName: formData.printName, customerName: formData.customerName, namaSuplier: formData.namaSuplier || '', paperName: selectedPaper?.name || '',
       paperGrammage: selectedPaper?.grammage?.toString() || '0',
       paperLength: formData.paperLength, paperWidth: formData.paperWidth,
       cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
@@ -1147,7 +1197,7 @@ function HitungCetakanPage() {
     setRestoredRiwayatId(null)
     setPhotoUrl('')
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1337,6 +1387,7 @@ function HitungCetakanPage() {
     const restoredForm = {
       customerName: r.customerName || '',
       printName: r.printName || '',
+      namaSuplier: r.namaSuplier || '',
       paperLength: r.paperLength || '',
       paperWidth: r.paperWidth || '',
       cutWidth: r.cutWidth || '',
@@ -2153,11 +2204,22 @@ function HitungCetakanPage() {
               <div className="px-3 py-2 lg:px-3 lg:py-2">
                 <div className="space-y-1.5">
                   <div>
+                    <label className={labelClass}>Nama Suplier</label>
+                    <select value={formData.namaSuplier || 'none'} onChange={(e) => handleSuplierChange(e.target.value)} className={selectClass}>
+                      <option value="none">— Tanpa suplier —</option>
+                      {supliers.length === 0 && <option value="" disabled>Belum ada suplier — isi di Master Toko Pemasok</option>}
+                      {supliers.map((s) => <option key={s.id} value={s.namaToko}>{s.namaToko}{s.jenisBarang ? ` · ${s.jenisBarang}` : ''}</option>)}
+                    </select>
+                  </div>
+                  <div>
                     <label className={labelClass}>Nama Bahan <span className="text-red-500">*</span></label>
                     <select value={formData.paperId} onChange={(e) => setFormData({ ...formData, paperId: e.target.value })} className={selectClass}>
                       <option value="">Pilih bahan kertas</option>
-                      {papers.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.grammage} gsm)</option>)}
+                      {paperOptions.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.grammage} gsm{p.suplier ? ` · ${p.suplier}` : ''})</option>)}
                     </select>
+                    {formData.namaSuplier && paperOptions.length === 0 && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">Tidak ada kertas milik {formData.namaSuplier} — isi kolom Suplier di Master Harga Kertas</p>
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Uk. Bahan (P×L cm)</label>

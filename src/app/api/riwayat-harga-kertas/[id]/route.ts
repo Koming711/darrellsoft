@@ -27,6 +27,7 @@ export async function PUT(
       data: {
         namaCustomer: body.namaCustomer ?? item.namaCustomer,
         namaCetakan: body.namaCetakan ?? item.namaCetakan,
+        namaSuplier: body.namaSuplier ?? item.namaSuplier,
         paperName: body.paperName ?? item.paperName,
         paperId: body.paperId ?? item.paperId,
         grammage: body.grammage ?? item.grammage,

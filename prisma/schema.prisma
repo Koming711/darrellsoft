@@ -247,6 +247,7 @@ model RiwayatCetakan {
   quantity           String
   jumlahPesanan      String   @default("")
   berapaMata         String   @default("")
+  namaSuplier        String   @default("") // suplier harga bahan (Master Toko Pemasok)
   setelanKertas      String   @default("")
   warna              String
   warnaKhusus        String
@@ -331,6 +332,7 @@ model RiwayatHargaKertas {
   namaCetakan  String
   paperName    String
   paperId      String   @default("")
+  namaSuplier  String   @default("") // suplier harga bahan (Master Toko Pemasok)
   grammage     String   @default("0")
   paperWidth   String   @default("0")
   paperHeight  String   @default("0")

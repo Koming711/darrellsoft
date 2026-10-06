@@ -4,7 +4,7 @@
 // aplikasi (SW) — mis. "2026-10-03-v145" = rilis v145 — supaya versi yang
 // dilihat user (popup What's New & footer) sama dengan versi deploy.
 
-export const CURRENT_VERSION = '2026-10-03-v145'
+export const CURRENT_VERSION = '2026-10-03-v146'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -19,6 +19,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v146',
+    date: { id: '6 Oktober 2026', en: '6 October 2026' },
+    title: {
+      id: 'Nama Suplier di Kalkulator + Harga Kertas /kg Dibulatkan',
+      en: 'Supplier Name in Calculators + Rounded Paper Price per Kg',
+    },
+    items: [
+      {
+        id: 'Hitung Harga Kertas & Hitung Cetakan kini punya pilihan Nama Suplier (dari Master Toko Pemasok) — pilih suplier untuk memfilter bahan & harga mengikuti Master Harga Kertas milik suplier tsb, tersimpan di riwayat',
+        en: 'Paper Price Calculator & Print Calculation now have a Supplier Name picker (from the Supplier Master) — picking a supplier filters materials & prices follow that supplier\'s Paper Price Master, saved in history',
+      },
+      {
+        id: 'Harga Kertas /kg di Hitung Cetakan & Potong Kertas dibulatkan ke rupiah penuh — konsisten dengan kolom Harga/kg di Master Harga Kertas (tidak ada desimal lagi)',
+        en: 'Paper Price per Kg in Print Calculation & Paper Cutting is now rounded to whole rupiah — consistent with the Price/Kg column in the Paper Price Master (no more decimals)',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v145',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },

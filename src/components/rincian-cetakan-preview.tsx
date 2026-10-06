@@ -217,7 +217,8 @@ function sheetToKgPrice(sheet: number, l?: number | string | null, w?: number | 
   const W = parseFloat(String(w ?? '')) || 0
   const G = parseFloat(String(g ?? '')) || 0
   if (!(sheet > 0) || !(L > 0) || !(W > 0) || !(G > 0)) return 0
-  return Math.round((sheet * 10000000) / (L * W * G) * 100) / 100
+  // DIBULATKAN ke rupiah penuh — konsisten dgn kolom Harga/kg di Master Harga Kertas (Math.round)
+  return Math.round((sheet * 10000000) / (L * W * G))
 }
 
 // Field tile for the CRUD-style info grid
