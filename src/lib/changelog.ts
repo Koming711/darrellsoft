@@ -1,7 +1,15 @@
 // Changelog data for "What's New" feature
 // Bump CURRENT_VERSION when deploying new features
+// Catatan versi: mulai rilis ini, nomor versi changelog mengikuti nomor rilis
+// aplikasi (SW) — mis. "2026-10-03-v145" = rilis v145 — supaya versi yang
+// dilihat user (popup What's New & footer) sama dengan versi deploy.
 
-export const CURRENT_VERSION = '2026-10-03-v20'
+export const CURRENT_VERSION = '2026-10-03-v145'
+
+/** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
+export function releaseVersionLabel(): string {
+  return CURRENT_VERSION.split('-').pop() || CURRENT_VERSION
+}
 
 export interface ChangelogEntry {
   version: string
@@ -12,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '2026-10-03-v20',
+    version: '2026-10-03-v145',
     date: { id: '5 Oktober 2026', en: '5 October 2026' },
     title: {
       id: 'Harga Kertas /kg di Rincian Harga Cetakan',

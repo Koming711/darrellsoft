@@ -12408,3 +12408,29 @@ Work Log:
 Stage Summary:
 - TERVERIFIKASI di produksi: Detail Rincian Cetakan menampilkan Harga Kertas /kg (editor: nilai form; riwayat: derive dari record) — konsisten dengan halaman Potong Kertas
 - Production www.darrellsoft.com = v145 (SW v145 / APP v80 / changelog v20); versi berikutnya: v146 / v81 / v21
+---
+Task ID: unify-version-label-v145
+Agent: Main (Z.ai Code)
+Task: "ganti conten dengan versi v145" — tampilkan versi rilis v145 pada konten yang dilihat user (popup What's New & footer landing), selaraskan penomoran changelog dengan nomor rilis aplikasi.
+
+Work Log:
+- Sinkronisasi repo: local tertinggal 57 commit dari origin/main (v145 sudah dideploy & terverifikasi sesi sebelumnya); rebase auto-backup lokal konflik (db/worklog) → reset ke origin/main (18dd473). Produksi terkonfirmasi sw.js = darrell-soft-v145.
+- Masalah: nomor versi tidak konsisten & membingungkan — footer landing menampilkan "v0.2.0" (package.json, tak pernah di-bump), popup What's New TIDAK menampilkan nomor versi sama sekali, changelog pakai penomoran sendiri (v20) berbeda dari nomor rilis SW (v145).
+- src/lib/changelog.ts: CURRENT_VERSION '2026-10-03-v20' → '2026-10-03-v145' (penomoran changelog kini mengikuti nomor rilis aplikasi; entri tetap konten rilis v145 "Harga Kertas /kg di Rincian Harga Cetakan"); helper BARU releaseVersionLabel() = segmen terakhir CURRENT_VERSION → "v145".
+- src/components/whats-new-dialog.tsx: badge versi "v145" di header popup di samping "Versi Baru!" (pill bg-white/25, title="Versi aplikasi"); class uppercase dihapus agar tampil "v145" (bukan "V145").
+- src/app/page.tsx: footer "Versi aplikasi" ganti v{APP_VERSION package.json 0.2.0} → {releaseVersionLabel()} = "v145"; import APP_VERSION diganti releaseVersionLabel (lib/app-version tidak lagi dipakai halaman manapun, file dibiarkan).
+- Bump rilis: public/sw.js CACHE_NAME → darrell-soft-v146 (wajib — strategi SW: navigasi network-first + static stale-while-revalidate, tanpa bump bundle baru tidak pasti sampai ke perangkat berk cache); APP service-worker-registration → '2026-10-03-v81'.
+- Efek samping disengaja (baik): CURRENT_VERSION berubah → popup What's New muncul ULANG di semua perangkat, kini berlabel v145 (re-announcement fitur v145).
+- Verifikasi lokal (agent-browser, desktop 1440px & mobile 390px):
+  - Footer landing: "v145" tampil (2 kemunculan v145 saat popup terbuka: badge + footer) ✓
+  - Popup: "Versi Baru! v145 · 5 Oktober 2026 · Harga Kertas /kg di Rincian Harga Cetakan" ✓ desktop & mobile
+  - Tutup popup → localStorage whats_new_version = '2026-10-03-v145' ✓
+  - Mobile 390px: overflowX=false ✓; 0 error console ✓
+  - Screenshot: .verify/v145-label-desktop.png (bukti utama tetap DOM eval — screenshot agent-browser rawan frame basi)
+- Lint: 4 file TS/TSX diubah = 0 masalah.
+- Konvensi mulai rilis ini: nomor di CURRENT_VERSION (label yang dilihat user) = nomor rilis fitur; SW CACHE_NAME = nomor deploy (bila ada rilis infrastruktur tanpa konten baru, SW bisa lebih 1 — catat di worklog).
+
+Stage Summary:
+- Konten versi yang dilihat user kini "v145": popup What's New berlabel v145 (dengan konten fitur v145: Harga Kertas /kg di Rincian Harga Cetakan) & footer landing menampilkan v145 (bukan v0.2.0 lagi).
+- Penomoran changelog diselaraskan dengan nomor rilis aplikasi (v145); popup re-announce otomatis di semua perangkat.
+- Rilis ini: SW v146 / APP v81 / changelog label v145. Versi berikutnya: SW v147 / APP v82 / label v146 (atau ikut nomor rilis fitur berikutnya).
