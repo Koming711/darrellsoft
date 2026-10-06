@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
         { table: '"RiwayatOngkosCetak"', column: '"totalOngkosCetak2"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
         { table: '"RiwayatPotongKertas"', column: '"jumlahPesanan"', type: "TEXT NOT NULL DEFAULT ''" },
         { table: '"RiwayatPotongKertas"', column: '"berapaMata"', type: "TEXT NOT NULL DEFAULT ''" },
+        { table: '"RiwayatPotongKertas"', column: '"namaSuplier"', type: "TEXT NOT NULL DEFAULT ''" },
+        { table: '"RiwayatCetakan"', column: '"namaSuplier"', type: "TEXT NOT NULL DEFAULT ''" },
+        { table: '"RiwayatHargaKertas"', column: '"namaSuplier"', type: "TEXT NOT NULL DEFAULT ''" },
       ]
 
       let added = 0

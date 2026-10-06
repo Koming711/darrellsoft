@@ -28,6 +28,7 @@ export async function PUT(
       data: {
         printName: body.printName ?? item.printName,
         customerName: body.customerName ?? item.customerName,
+        namaSuplier: body.namaSuplier ?? item.namaSuplier,
         paperName: body.paperName ?? item.paperName,
         paperGrammage: body.paperGrammage ?? item.paperGrammage,
         paperLength: body.paperLength ?? item.paperLength,

@@ -100,6 +100,9 @@ export default function HitungHargaKertasPage() {
   const [selectedPaperId, setSelectedPaperId] = useState('')
   const [namaCustomer, setNamaCustomer] = useState('')
   const [namaCetakan, setNamaCetakan] = useState('')
+  // Nama Suplier utk harga bahan (pola sama dgn Potong Kertas) — dari Master Toko Pemasok
+  const [namaSuplier, setNamaSuplier] = useState('')
+  const [supliers, setSupliers] = useState<any[]>([])
   const [customGrammage, setCustomGrammage] = useState('')
   const [customWidth, setCustomWidth] = useState('')
   const [customHeight, setCustomHeight] = useState('')
@@ -141,6 +144,7 @@ export default function HitungHargaKertasPage() {
         if (data.selectedPaperId) setSelectedPaperId(data.selectedPaperId)
         if (data.namaCustomer) setNamaCustomer(data.namaCustomer)
         if (data.namaCetakan) setNamaCetakan(data.namaCetakan)
+        if (data.namaSuplier) setNamaSuplier(data.namaSuplier)
         if (data.customGrammage) setCustomGrammage(data.customGrammage)
         if (data.customWidth) setCustomWidth(data.customWidth)
         if (data.customHeight) setCustomHeight(data.customHeight)
@@ -155,9 +159,9 @@ export default function HitungHargaKertasPage() {
   useEffect(() => {
     if (!mounted) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      selectedPaperId, namaCustomer, namaCetakan, customGrammage, customWidth, customHeight, customPricePerRim, quantity
+      selectedPaperId, namaCustomer, namaCetakan, namaSuplier, customGrammage, customWidth, customHeight, customPricePerRim, quantity
     }))
-  }, [mounted, selectedPaperId, namaCustomer, namaCetakan, customGrammage, customWidth, customHeight, customPricePerRim, quantity])
+  }, [mounted, selectedPaperId, namaCustomer, namaCetakan, namaSuplier, customGrammage, customWidth, customHeight, customPricePerRim, quantity])
 
   useEffect(() => {
     fetchPapers()
@@ -166,6 +170,11 @@ export default function HitungHargaKertasPage() {
       .then(r => r.ok ? r.json() : [])
       .then(data => { if (Array.isArray(data)) setCustomers(data) })
       .catch(() => {})
+    // Suplier (Master Toko Pemasok) — pola sama dgn Potong Kertas
+    fetcher('/api/toko-pemasok', { headers: getAuthHeaders() })
+      .then(res => { if (!res.ok) return []; return res.json() })
+      .then(data => { if (Array.isArray(data)) setSupliers(data); else setSupliers([]) })
+      .catch(() => setSupliers([]))
   }, [])
 
   useDataChange(['papers', 'settings'], (entity) => {
@@ -174,6 +183,31 @@ export default function HitungHargaKertasPage() {
 
   const selectedPaper = papers.find(p => p.id === selectedPaperId) || null
   const isCustom = !selectedPaperId
+
+  // Normalisasi nama suplier utk pencocokan (case-insensitive, trim) — sama dgn Potong Kertas
+  const normSup = (s?: string | null) => (s || '').trim().toLowerCase()
+
+  // Opsi dropdown Jenis Kertas: bila suplier dipilih, HANYA kertas milik suplier tsb yang tampil
+  const paperOptions = useMemo(() => {
+    if (!namaSuplier) return papers
+    const ns = normSup(namaSuplier)
+    return papers.filter(p => normSup(p.suplier) === ns)
+  }, [papers, namaSuplier])
+
+  // Saat user memilih suplier: bila kertas terpilih bukan milik suplier tsb, pindah ke varian
+  // nama sama milik suplier (harga mengikuti master) atau kosongkan (custom) bila tidak ada.
+  const handleSuplierChange = (v: string) => {
+    const sup = v === 'none' ? '' : v
+    setNamaSuplier(sup)
+    if (!sup || !selectedPaper || normSup(selectedPaper.suplier) === normSup(sup)) return
+    const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === selectedPaper.name.trim().toLowerCase())
+    if (variant) {
+      setSelectedPaperId(variant.id)
+      toast.success(`Harga ${selectedPaper.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+    } else {
+      setSelectedPaperId('') // kertas terpilih bukan milik suplier ini → pilih ulang / custom
+    }
+  }
 
   const grammage = selectedPaper ? selectedPaper.grammage : (parseFloat(customGrammage) || 0)
   const paperWidth = selectedPaper ? selectedPaper.width : (parseFloat(customWidth) || 0)
@@ -210,6 +244,7 @@ export default function HitungHargaKertasPage() {
   const buildPayload = () => ({
     namaCustomer: namaCustomer || '-',
     namaCetakan: namaCetakan || '-',
+    namaSuplier: namaSuplier || '',
     paperName: selectedPaper ? selectedPaper.name : 'Custom',
     paperId: selectedPaper?.id || '',
     grammage: grammage.toString(),
@@ -225,6 +260,7 @@ export default function HitungHargaKertasPage() {
     setSelectedPaperId('')
     setNamaCustomer('')
     setNamaCetakan('')
+    setNamaSuplier('')
     setCustomGrammage('')
     setCustomWidth('')
     setCustomHeight('')
@@ -292,6 +328,7 @@ export default function HitungHargaKertasPage() {
     setRestoredRiwayatId(r.id)
     setNamaCustomer(r.namaCustomer || '')
     setNamaCetakan(r.namaCetakan || '')
+    setNamaSuplier(r.namaSuplier || '')
     setSelectedPaperId(r.paperId || '')
     setCustomGrammage(r.grammage || '')
     setCustomWidth(r.paperWidth || '')
@@ -328,7 +365,7 @@ export default function HitungHargaKertasPage() {
   const handleWhatsApp = () => {
     if (!calculations) { toast.error('Masukkan data kertas terlebih dahulu'); return }
     const paperName = selectedPaper ? selectedPaper.name : 'Custom'
-    const suplierText = selectedPaper?.suplier || '-'
+    const suplierText = namaSuplier || selectedPaper?.suplier || '-'
     const message = `Hitung Harga Kertas - www.darrellsoft.com
 
 Customer: ${namaCustomer || '-'}
@@ -354,7 +391,7 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
     if (!printWindow) { toast.error('Gagal membuka jendela print'); return }
     const now = new Date().toLocaleString('id-ID')
     const paperName = selectedPaper ? selectedPaper.name : 'Custom'
-    const suplierText = selectedPaper?.suplier || '-'
+    const suplierText = namaSuplier || selectedPaper?.suplier || '-'
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Hitung Harga Kertas</title>
       <style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px;color:#1e293b}
       h1{text-align:center;font-size:18px;margin-bottom:4px}
@@ -521,13 +558,26 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
               <SectionHeader icon={<FileText className="w-3.5 h-3.5 text-amber-600" />} label="Pilih Kertas" />
               <div className="px-4 py-3 space-y-3">
                 <div>
+                  <label className={labelClass}>Nama Suplier</label>
+                  <select value={namaSuplier || 'none'} onChange={(e) => handleSuplierChange(e.target.value)} className={selectClass}>
+                    <option value="none">— Tanpa suplier —</option>
+                    {supliers.length === 0 && <option value="" disabled>Belum ada suplier — isi di Master Toko Pemasok</option>}
+                    {supliers.map((s) => (
+                      <option key={s.id} value={s.namaToko}>{s.namaToko}{s.jenisBarang ? ` · ${s.jenisBarang}` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className={labelClass}>Jenis Kertas</label>
                   <select value={selectedPaperId} onChange={(e) => setSelectedPaperId(e.target.value)} className={selectClass}>
                     <option value="">Custom (Input Manual)</option>
-                    {papers.map((p) => (
+                    {paperOptions.map((p) => (
                       <option key={p.id} value={p.id}>{p.name} — {p.grammage}gsm — {p.width}×{p.height}cm{p.suplier ? ` — ${p.suplier}` : ''}</option>
                     ))}
                   </select>
+                  {namaSuplier && paperOptions.length === 0 && (
+                    <p className="text-xs text-slate-400 mt-1 text-center">Tidak ada kertas milik {namaSuplier} — isi kolom Suplier di Master Harga Kertas</p>
+                  )}
                 </div>
 
                 {isCustom ? (

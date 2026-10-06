@@ -126,7 +126,8 @@ function sheetToKgPrice(sheet: number, w: number | string, h: number | string, g
   const G = parseFloat(String(g)) || 0
   if (!(sheet > 0) || !(W > 0) || !(H > 0) || !(G > 0)) return ''
   const kg = (sheet * 10000000) / (W * H * G)
-  return (Math.round(kg * 100) / 100).toString()
+  // DIBULATKAN ke rupiah penuh — konsisten dgn kolom Harga/kg di Master Harga Kertas (Math.round)
+  return Math.round(kg).toString()
 }
 function canConvertKg(w: string | number, h: string | number, g: string | number): boolean {
   return (parseFloat(String(w)) || 0) > 0 && (parseFloat(String(h)) || 0) > 0 && (parseFloat(String(g)) || 0) > 0

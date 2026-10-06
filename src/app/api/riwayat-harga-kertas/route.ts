@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       data: {
         namaCustomer: body.namaCustomer || '',
         namaCetakan: body.namaCetakan || '',
+        namaSuplier: body.namaSuplier || '',
         paperName: body.paperName || '',
         paperId: body.paperId || '',
         grammage: body.grammage || '0',

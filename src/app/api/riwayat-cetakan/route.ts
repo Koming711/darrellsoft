@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
         type: body.type || 'hitung_cetakan',
         printName: body.printName || '',
         customerName: body.customerName || '',
+        namaSuplier: body.namaSuplier || '',
         paperName: body.paperName || '',
         paperGrammage: body.paperGrammage || '0',
         paperLength: body.paperLength || '',
