@@ -8,6 +8,7 @@ declare global {
     __restoreFinishingNames?: string
     __restorePricePerSheet?: string
     __pkLinkMatch?: {
+      pkRiwayatId: string
       printName: string
       customerName: string
       paperName: string
@@ -399,6 +400,9 @@ function HitungCetakanPage() {
   // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
   const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
+  // id RiwayatPotongKertas sumber saat datang dari tombol "Hitung Cetakan Lengkap"
+  // (mode edit Potong Kertas) — disimpan di riwayat HC agar hubungan deterministik.
+  const pkLinkRiwayatIdRef = useRef<string>('')
   const [riwayatCetakanList, setRiwayatCetakanList] = useState<any[]>([])
   const [riwayatLoading, setRiwayatLoading] = useState(true)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
@@ -783,7 +787,9 @@ function HitungCetakanPage() {
     // kertas ini dicari & dilanjutkan (simpan = update), bukan membuat baru lagi.
     const pkRiwayatId = searchParams.get('pkRiwayatId')
     if (pkRiwayatId) {
+      pkLinkRiwayatIdRef.current = pkRiwayatId
       window.__pkLinkMatch = {
+        pkRiwayatId,
         printName: printName || '',
         customerName: customerNameParam || '',
         paperName: paperNameParam || '',
@@ -849,6 +855,9 @@ function HitungCetakanPage() {
 
   const applyLinkedRiwayatCetakan = (r: any) => {
     setRestoredRiwayatId(r.id)
+    // Tampilkan No. Hitung Cetakan MILIK riwayat yang tersambung (bukan nomor baru)
+    if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
+    if (r.pkRiwayatId) pkLinkRiwayatIdRef.current = r.pkRiwayatId
     // Data CETAKAN diambil dari riwayat (data kertas/lembar tetap dari form hasil edit Potong Kertas)
     const rQty = parseInt(r.quantity) || 0
     const rJumlahPesanan = parseInt(r.jumlahPesanan) || rQty
@@ -907,11 +916,19 @@ function HitungCetakanPage() {
         if (cancelled) return
         delete window.__pkLinkMatch
         const list = (Array.isArray(data) ? data : []).filter((r: any) => r.type === 'hitung_cetakan')
-        const matched = findLinkedRiwayatCetakan(list, identity)
+        // 1) Hubungan DETERMINISTIK: riwayat HC yang tersimpan dengan pkRiwayatId ini
+        //    (pernah dibuat/diupdate dari riwayat Potong Kertas yang sama) — ambil terbaru.
+        // 2) Fallback: kecocokan identitas pekerjaan (nama cetakan + customer) utk data lama.
+        const linked = identity.pkRiwayatId
+          ? list.filter((r: any) => r.pkRiwayatId === identity.pkRiwayatId)
+              .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] || null
+          : null
+        const matched = linked || findLinkedRiwayatCetakan(list, identity)
         if (matched) {
           applyLinkedRiwayatCetakan(matched)
-          toast.success('Melanjutkan riwayat hitung cetakan yang sudah ada — simpan akan memperbarui riwayat tsb, bukan membuat baru.')
+          toast.success(`Melanjutkan riwayat ${matched.nomorUrut || 'hitung cetakan'} yang sudah ada — simpan akan memperbarui riwayat tsb, bukan membuat baru.`)
         } else {
+          fetchNextNumber()
           toast('Tidak ada riwayat hitung cetakan yang tersambung dengan data ini — lanjutkan & simpan untuk membuat riwayat baru.')
         }
       } catch {
@@ -1062,7 +1079,9 @@ function HitungCetakanPage() {
     fetchFinishings()
     fetchSupliersData()
     fetchRiwayatCetakan()
-    fetchNextNumber()
+    // Saat datang dari Potong Kertas mode EDIT (pkRiwayatId): jangan tampilkan nomor BARU dulu —
+    // nomor riwayat HC yang tersambung akan dipakai bila match ditemukan.
+    if (!searchParams.get('pkRiwayatId')) fetchNextNumber()
     // Jangan override profitPercent saat restore
     fetchProfitSetting()
   }, [])
@@ -1341,6 +1360,7 @@ function HitungCetakanPage() {
 
   const resetForm = () => {
     clearStorage()
+    pkLinkRiwayatIdRef.current = ''
     setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
@@ -1388,6 +1408,8 @@ function HitungCetakanPage() {
       glueCost: calculatedGlueCost, glueBorongan: calculatedGlueBoronganSheet,
       glueLengthCm: formData.glueLengthCm, glueCostPerCm: formData.glueCostPerCm,
       subTotal, profitPercent, profitAmount, grandTotal,
+      // Simpan hubungan dgn riwayat Potong Kertas sumber (bila ada) — undefined = jangan ubah
+      pkRiwayatId: pkLinkRiwayatIdRef.current || undefined,
       simulasiCepat: simPayload.length > 0 ? JSON.stringify(simPayload) : '',
       photoUrl
     }
@@ -1566,6 +1588,8 @@ function HitungCetakanPage() {
         toast.success('Riwayat berhasil diupdate!', { description: 'Data form tetap — cukup ketik jumlah pesanan & profit baru untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-cetakan')
         fetchRiwayatCetakan()
+        // Kembali ke mode perhitungan baru → nomor tampil kembali ke nomor berikutnya
+        fetchNextNumber()
         // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan & profit).
         setRestoredRiwayatId(null)
       } else { toast.error('Gagal mengupdate riwayat') }
@@ -1575,6 +1599,9 @@ function HitungCetakanPage() {
 
   const handleRestoreRiwayat = (r: any) => {
     setRestoredRiwayatId(r.id)
+    // Saat mengedit riwayat dari tab Riwayat: tampilkan nomor riwayat tsb (bukan nomor baru)
+    if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
+    pkLinkRiwayatIdRef.current = r.pkRiwayatId || ''
     setPhotoUrl(r.photoUrl || '')
     setActiveTab('editor')
     const rQty = parseInt(r.quantity) || 0
@@ -1666,7 +1693,11 @@ function HitungCetakanPage() {
       if (res.ok) {
         toast.success('Riwayat berhasil dihapus')
         notifyDataChange('riwayat-cetakan')
-        if (restoredRiwayatId === id) setRestoredRiwayatId(null)
+        if (restoredRiwayatId === id) {
+          setRestoredRiwayatId(null)
+          pkLinkRiwayatIdRef.current = ''
+          fetchNextNumber()
+        }
         fetchRiwayatCetakan()
         return true
       }

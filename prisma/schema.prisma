@@ -281,6 +281,7 @@ model RiwayatCetakan {
   profitAmount       Float
   grandTotal         Float
   simulasiCepat      String   @default("")
+  pkRiwayatId        String? // id RiwayatPotongKertas sumber — hubungan deterministik Potong Kertas ↔ Hitung Cetakan
   photoUrl           String?
   userId             String?
   createdAt          DateTime @default(now())

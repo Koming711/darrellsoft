@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
         grandTotal: body.grandTotal || 0,
         // Tabel Simulasi Cepat: JSON array [{jumlah,profit,sheets,modal,modalPcs,jual,jualPcs}]
         simulasiCepat: typeof body.simulasiCepat === 'string' ? body.simulasiCepat.slice(0, 50000) : '',
+        pkRiwayatId: typeof body.pkRiwayatId === 'string' && body.pkRiwayatId ? body.pkRiwayatId : null,
         photoUrl: validatePhotoDataUrl(body.photoUrl),
         userId: user?.id || null,
       }
