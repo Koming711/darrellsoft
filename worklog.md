@@ -12542,3 +12542,23 @@ Work Log:
 Stage Summary:
 - Mengedit riwayat Potong Kertas lalu klik "Hitung Cetakan Lengkap" kini MELANJUTKAN riwayat hitung cetakan yang pernah dibuat dari data tsb (mesin/warna/profit/finishing/simulasi ter-restore, tombol jadi "Update Riwayat") — tidak lagi membuat riwayat baru tiap kali. Bila memang belum ada riwayat yang tersambung, perilaku lama (buat baru) berjalan dgn toast penjelas.
 - Belum dideploy sesuai instruksi user ("jangan deploy"). Produksi masih SW v148 (deploy v149/konten v148 dari commit 7abda5f juga masih pending).
+---
+Task ID: pk-to-hc-linked-riwayat-verify
+Agent: Main (Z.ai Code)
+Task: "dihalaman potong kertas setelah diisi maka diklik tombol hitung cetakan lengkap lalu masuk ke halaman hitung cetakan dan setelah disi lalu data disimpan. dan apabila mau di edit potong kertas, memilih di riwayat yang mau diedit. setelah diedit maka masuk ke halaman hitung cetakan. otomatis dihalaman hitung cetakan data yg telah disimpan dimunculkan kembali untuk diedit. jadi kesimpulan. data di potong cetakan yang di edit, otomatis data yang ada hubungan di halaman hitung cetakan juga di edit. check and fix"
+
+Work Log:
+- Kondisi awal sesi: fix inti SUDAH di-commit sesi sebelumnya (0f9dcf7, sudah di origin/main) namun verifikasi akhirnya terpotong context. Sesi ini = re-verifikasi menyeluruh + rapikan repo.
+- Housekeeping git: hapus commit lokal tak sengaja "0921fe3" (UUID, hanya db/custom.db) via git reset --mixed 0f9dcf7 → HEAD kembali = origin/main, perubahan db dibiarkan unstaged.
+- Cek produksi (read-only): sw.js produksi = darrell-soft-v149 & footer landing = v148 → deploy konten v148 sesi lama TERBUKTI sukses (result deploy sebelumnya terpotong).
+- Re-verifikasi E2E lokal (agent-browser, admin, :3000):
+  - Alur BARU (bukan edit): form Potong Kertas diisi (Budi Susanto, "Test PK-HC Edit Flow", art karton 79×109 260gsm, potong 20×15, qty 1000, mata 1) → Hitung Potongan → Hitung Cetakan Lengkap → Hitung Cetakan ter-prefill penuh (nama/qty/ukuran/harga/lembar & /kg), tombol "Simpan Riwayat" (tanpa toast lanjutkan) → pilih mesin sm52 → Simpan → POST 201, riwayat hc 2→3. ✓ (perilaku buat baru utk pekerjaan baru tetap)
+  - Alur EDIT: Riwayat Potong Kertas → klik baris → Edit → form ter-restore → Hitung Potongan → Hitung Cetakan Lengkap → Hitung Cetakan otomatis MEMBUKA riwayat hc yang pernah dibuat dari data tsb: tombol berubah "Update Riwayat", toast lanjutan muncul, data cetakan (mesin sm52, profit 40%) ter-restore + data kertas/lembar mengikuti hasil edit terbaru. Klik Update → PUT 200 "Riwayat berhasil diupdate!", id SAMA, updatedAt naik, jumlah riwayat TIDAK bertambah. ✓
+  - Ulang alur edit ke-2: mesin sm52 kini ter-restore benar (pengecualian awal hanya artefak klik test yang tidak memicu onChange React). ✓
+  - Catatan: record 'brosur'/Jaya Wijaya yang muncul 15:29 BUKAN bug — terbukti dari dev.log berasal dari sesi manusia paralel (preview panel) yang menyimpan riwayat potong kertas + hitung cetakan sendiri (POST /api/riwayat-potong-kertas & POST /api/riwayat-cetakan 15:29). Data user TIDAK disentuh.
+- Cleanup: 2 record test ("Test PK-HC Edit Flow": PK cmuy9ef4h… + HC cmuy9g08c…) dihapus via API (success:true ×2); riwayat hc kembali 3 (2 lama + 1 milik user). Offline queue IndexedDB kosong; hanya 1 sesi browser aktif.
+- Lint 0 masalah. TIDAK deploy sesuai instruksi user.
+
+Stage Summary:
+- Fix "edit riwayat Potong Kertas → Hitung Cetakan Lengkap melanjutkan riwayat hitung cetakan yang pernah dibuat (Update, bukan buat baru)" ter-VERIFIKASI ulang penuh; kode tidak berubah dari commit 0f9dcf7 (sudah di origin/main, tidak ada commit baru).
+- Produksi: SW v149 / footer v148 sudah live (deploy 7abda5f sukses). Fix pk→hc BELUM di produksi (menunggu deploy berikutnya atas izin user).
