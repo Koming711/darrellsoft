@@ -1893,6 +1893,10 @@ function CalculatorPage() {
               if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
               params.set('fromPotongKertas', '1')
               params.set('reset', '1')
+              // Saat MENGEDIT riwayat potong kertas: kirim id riwayatnya agar
+              // Hitung Cetakan melanjutkan riwayat hitung cetakan yang pernah
+              // dibuat dari data ini (simpan = update), bukan membuat baru lagi.
+              if (restoredRiwayatId) params.set('pkRiwayatId', restoredRiwayatId)
               // Foto lampiran ikut dibawa ke editor Hitung Cetakan.
               // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
               if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)

@@ -12517,3 +12517,28 @@ Work Log:
 Stage Summary:
 - Seluruh konten versi user-facing kini v148: badge popup What's New = v148, footer landing = v148, entri changelog teratas = 2026-10-03-v148 (fitur suplier sync + profit >100%).
 - Rilis: SW v149 / APP v84 / label v148. Deploy produksi menyusul (relink .vercel dulu — project.json hilang lagi).
+---
+Task ID: pk-to-hc-linked-riwayat
+Agent: Main (Z.ai Code)
+Task: "dihalaman potong kertas, apabila mengedit riwayat potong kertas lalu mengklik hitung cetakan lengkap, maka menuju halaman hitung cetakan berikut riwayat yang pernah dibuat dari halaman potong kertas. jadi tidak buat baru lagi. check and fix. jangan deploy"
+
+Work Log:
+- ROOT CAUSE: tombol "Hitung Cetakan Lengkap" (potong-kertas) selalu membuka Hitung Cetakan sebagai perhitungan BARU (prefill param saja, restoredRiwayatId tidak diisi) → tiap kali simpan, riwayat hitung cetakan baru dibuat walau pekerjaan sama sudah punya riwayat.
+- potong-kertas/page.tsx: handler tombol kini mengirim param pkRiwayatId hanya saat MENGEDIT riwayat (restoredRiwayatId terisi) — `if (restoredRiwayatId) params.set('pkRiwayatId', restoredRiwayatId)`.
+- hitung-cetakan/page.tsx:
+  - Global Window type + __pkLinkMatch (declare global).
+  - Efek restore-param: bila pkRiwayatId ada, simpan identitas pekerjaan (printName, customerName, paperName, ukuran, quantity, jumlahPesanan, berapaMata, setelanKertas, pricePerSheet, totalPaperPrice) ke window.__pkLinkMatch sebelum URL params dibersihkan; toast prefill biasa dilewati (toast hasil match yang menang).
+  - Helper findLinkedRiwayatCetakan: filter kandidat wajib printName+customerName sama, skor kemiripan field lain (paper, ukuran potong, qty, harga, total — numeric compare), tie-break riwayat terbaru.
+  - applyLinkedRiwayatCetakan (HYBRID): data KERTAS/lembar tetap dari form (hasil edit terbaru Potong Kertas); data CETAKAN dari riwayat (mesin via __restoreMachineName/2, finishing via __restoreFinishingNames, warna, plat, ongkos lem/glue, biaya lain + label, profit, simulasi cepat); restoredRiwayatId = riwayat tsb → tombol berubah jadi "Update Riwayat" (PUT), bukan bikin baru. Suplier & foto tetap ikut halaman potong kertas.
+  - Efek one-shot: fetch /api/riwayat-cetakan → match? restore+toast "Melanjutkan riwayat hitung cetakan yang sudah ada — simpan akan memperbarui…" : toast "Tidak ada riwayat hitung cetakan yang tersambung…(perilaku lama)". Guard cancelled utk StrictMode/unmount.
+- ENV FIX saat verifikasi: POST /api/riwayat-cetakan gagal 500 "Unknown argument namaSuplier" — Prisma client di memori dev server basi (schema v146 menambah kolom). bun run db:push + restart dev server via .zscripts/dev.sh → normal.
+- Verifikasi E2E (agent-browser, admin, localhost:3000):
+  - Alur LAMA (bukan edit): form potong kertas baru → Hitung Cetakan Lengkap → prefill + toast lama + tombol "Simpan Riwayat" → simpan → riwayat hc 1→2 (perilaku tidak berubah). ✓
+  - Baru A (edit, belum ada riwayat hc tersambung): Riwayat → pilih baris "Test PK-HC Link" → Edit → Hitung Cetakan Lengkap → toast "Tidak ada riwayat hitung cetakan yang tersambung…" + tombol tetap "Simpan Riwayat". ✓
+  - Baru B (edit, riwayat hc sudah ada): isi mesin sm52 → Simpan (hc #2 = cmuy81cah…) → kembali ke Potong Kertas → Edit riwayat yang sama → Hitung Cetakan Lengkap → Hitung Potongan dulu (results) → Hitung Cetakan membuka riwayat lama: TOAST + tombol "Update Riwayat", mesin sm52 ter-restore, suplier/kertas/ukuran/harga ikut form terbaru, total sama (26.642). ✓
+  - Klik "Update Riwayat" → toast "Riwayat berhasil diupdate!", jumlah riwayat hc TETAP 2, id sama, updatedAt naik. ✓ ("tidak buat baru lagi" tercapai)
+  - 0 page error; lint 0 masalah; data uci dihapus via API (success:true ×2).
+
+Stage Summary:
+- Mengedit riwayat Potong Kertas lalu klik "Hitung Cetakan Lengkap" kini MELANJUTKAN riwayat hitung cetakan yang pernah dibuat dari data tsb (mesin/warna/profit/finishing/simulasi ter-restore, tombol jadi "Update Riwayat") — tidak lagi membuat riwayat baru tiap kali. Bila memang belum ada riwayat yang tersambung, perilaku lama (buat baru) berjalan dgn toast penjelas.
+- Belum dideploy sesuai instruksi user ("jangan deploy"). Produksi masih SW v148 (deploy v149/konten v148 dari commit 7abda5f juga masih pending).
