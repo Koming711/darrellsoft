@@ -29,6 +29,27 @@ const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700
 const fmtNum = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 const fmtRp = (n: number) => `Rp ${fmtNum(n)}`
 
+// Form state key per-user (pola sama dgn Potong Kertas & Hitung Cetakan)
+function userKey(base: string): string {
+  try {
+    const a = JSON.parse(localStorage.getItem('auth') || '{}')
+    if (a.id) return `${base}_${a.id}`
+  } catch {}
+  return base
+}
+
+// === Nama Suplier BERSAMA antar halaman kalkulator (Hitung Harga Kertas ↔ Potong Kertas ↔ Hitung Cetakan) ===
+// Permintaan user: bila suplier di halaman lain (mis. Bintang Timur di Potong Kertas) terakhir dipilih,
+// halaman ini juga memakainya — satu sumber kebenaran di localStorage (per-user).
+const SHARED_SUPLIER_KEY = () => userKey('hitung-nama-suplier')
+function getSharedSuplierOrNull(): string | null {
+  if (typeof window === 'undefined') return null
+  try { return localStorage.getItem(SHARED_SUPLIER_KEY()) } catch { return null }
+}
+function setSharedSuplier(v: string) {
+  try { localStorage.setItem(SHARED_SUPLIER_KEY(), v) } catch {}
+}
+
 // Kartu riwayat (mobile) — 1 halaman fit to mobile, CRUD (Restore/Hapus) selalu bisa diakses
 function RiwayatCards({ items, restoredId, onRestore, onDelete }: {
   items: any[]
@@ -137,10 +158,12 @@ export default function HitungHargaKertasPage() {
 
   // === localStorage ===
   useEffect(() => {
+    let savedData: { namaSuplier?: string } | null = null
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const data = JSON.parse(saved)
+        savedData = data
         if (data.selectedPaperId) setSelectedPaperId(data.selectedPaperId)
         if (data.namaCustomer) setNamaCustomer(data.namaCustomer)
         if (data.namaCetakan) setNamaCetakan(data.namaCetakan)
@@ -153,6 +176,14 @@ export default function HitungHargaKertasPage() {
 
       }
     } catch {}
+    // Nama Suplier = pilihan terakhir BERSAMA antar halaman kalkulator: bila di halaman lain
+    // (mis. Potong Kertas) terakhir memilih Bintang Timur, halaman ini juga memakainya.
+    const shared = getSharedSuplierOrNull()
+    if (shared !== null) {
+      setNamaSuplier(shared)
+    } else if (savedData?.namaSuplier) {
+      setSharedSuplier(savedData.namaSuplier) // seed dari form tersimpan halaman ini
+    }
     setMounted(true)
   }, [])
 
@@ -199,6 +230,7 @@ export default function HitungHargaKertasPage() {
   const handleSuplierChange = (v: string) => {
     const sup = v === 'none' ? '' : v
     setNamaSuplier(sup)
+    setSharedSuplier(sup) // pilihan suplier berlaku juga di halaman kalkulator lain
     if (!sup || !selectedPaper || normSup(selectedPaper.suplier) === normSup(sup)) return
     const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === selectedPaper.name.trim().toLowerCase())
     if (variant) {
@@ -208,6 +240,20 @@ export default function HitungHargaKertasPage() {
       setSelectedPaperId('') // kertas terpilih bukan milik suplier ini → pilih ulang / custom
     }
   }
+
+  // Saat namaSuplier berubah dari luar dropdown (nilai bersama antar halaman saat mount/restore):
+  // pastikan kertas terpilih milik suplier tsb — auto pindah ke varian nama sama milik suplier
+  // atau kosongkan (custom) bila tidak ada. Pola sama dgn Potong Kertas.
+  useEffect(() => {
+    if (!mounted) return
+    const sup = namaSuplier
+    if (!sup) return
+    if (!selectedPaper) return
+    if (normSup(selectedPaper.suplier) === normSup(sup)) return
+    const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === selectedPaper.name.trim().toLowerCase())
+    if (variant) setSelectedPaperId(variant.id)
+    else setSelectedPaperId('')
+  }, [namaSuplier, papers, selectedPaper, mounted])
 
   const grammage = selectedPaper ? selectedPaper.grammage : (parseFloat(customGrammage) || 0)
   const paperWidth = selectedPaper ? selectedPaper.width : (parseFloat(customWidth) || 0)
@@ -329,6 +375,7 @@ export default function HitungHargaKertasPage() {
     setNamaCustomer(r.namaCustomer || '')
     setNamaCetakan(r.namaCetakan || '')
     setNamaSuplier(r.namaSuplier || '')
+    setSharedSuplier(r.namaSuplier || '') // pilihan suplier berlaku juga di halaman kalkulator lain
     setSelectedPaperId(r.paperId || '')
     setCustomGrammage(r.grammage || '')
     setCustomWidth(r.paperWidth || '')

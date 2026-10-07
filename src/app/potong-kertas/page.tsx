@@ -51,6 +51,22 @@ const STORAGE_VERSION_KEY = () => userKey('potong-kertas-form-version')
 const STORAGE_VERSION = 'v6'
 const SIM_ROWS_STORAGE_KEY = () => userKey('potong-kertas-simulasi-rows')
 
+// === Nama Suplier BERSAMA antar halaman kalkulator (Potong Kertas ↔ Hitung Cetakan ↔ Hitung Harga Kertas) ===
+// Permintaan user: pilihan suplier di satu halaman (mis. "Bintang Timur" di Potong Kertas)
+// otomatis dipakai juga di halaman lain — satu sumber kebenaran di localStorage (per-user).
+const SHARED_SUPLIER_KEY = () => userKey('hitung-nama-suplier')
+function getSharedSuplierOrNull(): string | null {
+  if (typeof window === 'undefined') return null
+  try { return localStorage.getItem(SHARED_SUPLIER_KEY()) } catch { return null }
+}
+function getSharedSuplier(fallback: string): string {
+  const v = getSharedSuplierOrNull()
+  return v !== null ? v : fallback
+}
+function setSharedSuplier(v: string) {
+  try { localStorage.setItem(SHARED_SUPLIER_KEY(), v) } catch {}
+}
+
 // Baris Tabel Simulasi Cepat (CRUD): jumlah & profit disimpan; nilai (kertas, jual, dll)
 // dihitung ulang live dari parameter form. snap = nilai saat baris disimpan,
 // dipakai fallback bila form belum bisa menghitung (mis. setelah reload dgn form kosong).
@@ -240,7 +256,8 @@ function CalculatorPage() {
   const [setelanKertas, setSetelanKertas] = useState(initialForm.current.setelanKertas)
   const [printName, setPrintName] = useState(initialForm.current.printName)
   // Nama Suplier utk harga bahan (permintaan user) — pilih dari Master Toko Pemasok
-  const [namaSuplier, setNamaSuplier] = useState(initialForm.current.namaSuplier || '')
+  // Suplier diambil dari nilai BERSAMA antar halaman (fallback: form tersimpan halaman ini)
+  const [namaSuplier, setNamaSuplier] = useState(() => getSharedSuplier(initialForm.current.namaSuplier || ''))
   const [supliers, setSupliers] = useState<any[]>([])
   const [isCustomPaper, setIsCustomPaper] = useState(initialForm.current.isCustomPaper)
   const [restoredPaperName, setRestoredPaperName] = useState<string | null>(null)
@@ -512,6 +529,16 @@ function CalculatorPage() {
       setSelectedPaperId('') // kertas terpilih bukan milik suplier ini → pilih ulang dari daftar suplier
     }
   }, [namaSuplier, papers, selectedPaper, isCustomPaper])
+
+  // Seed nilai suplier bersama dari form tersimpan (sekali di mount, bila belum ada pilihan bersama)
+  useEffect(() => {
+    try {
+      const savedSup = initialForm.current.namaSuplier || ''
+      if (savedSup && localStorage.getItem(SHARED_SUPLIER_KEY()) === null) {
+        localStorage.setItem(SHARED_SUPLIER_KEY(), savedSup)
+      }
+    } catch {}
+  }, [])
 
   // Customer DROPDOWN-ONLY (permintaan user): pilih dari Master Customer, tidak bisa diketik.
   // Popup "Tambah Cust" — dialog sama persis dengan Master Customer / Buat Invoice
@@ -1111,8 +1138,9 @@ function CalculatorPage() {
     } else {
       setSelectedCustomerId('')
     }
-    // Suplier ikut direstore dari riwayat (field baru)
+    // Suplier ikut direstore dari riwayat (field baru) + jadi pilihan bersama antar halaman
     setNamaSuplier(r.namaSuplier || '')
+    setSharedSuplier(r.namaSuplier || '')
 
     // Auto-calculate cuts with restored values
     const pw = parseFloat(r.paperWidth)
@@ -1351,7 +1379,7 @@ function CalculatorPage() {
         </div>
         <div className="w-[76px] lg:w-32 flex-shrink-0">
           <label className={lbl}>Profit (%)</label>
-          <input type="number" step="0.1" min="0" max="100" inputMode="decimal" placeholder="0" value={simProfitInput} onChange={(e) => setSimProfitInput(e.target.value)} className={inp} />
+          <input type="number" step="0.1" min="0" inputMode="decimal" placeholder="0" value={simProfitInput} onChange={(e) => setSimProfitInput(e.target.value)} className={inp} />
         </div>
         <button onClick={addSimulasiRow} disabled={!simulasi} title="Tambahkan ke tabel simulasi" className="flex-shrink-0 h-[34px] px-3 flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500 text-white text-xs font-semibold rounded-lg transition-colors">
           <Plus className="w-3.5 h-3.5" />
@@ -1411,7 +1439,7 @@ function CalculatorPage() {
                       </div>
                       <div>
                         <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Profit (%)</label>
-                        <input type="number" step="0.1" min="0" max="100" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-full mt-1 ${simEditInputClass}`} />
+                        <input type="number" step="0.1" min="0" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-full mt-1 ${simEditInputClass}`} />
                       </div>
                     </div>
                   )}
@@ -1496,7 +1524,7 @@ function CalculatorPage() {
                       </TableCell>
                       <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>
                         {isEditing ? (
-                          <input type="number" step="0.1" min="0" max="100" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-12 ${simEditInputClass}`} />
+                          <input type="number" step="0.1" min="0" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-12 ${simEditInputClass}`} />
                         ) : row.profit > 0 ? `${row.profit}%` : '–'}
                       </TableCell>
                       <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>{v.qty > 0 ? v.qty.toLocaleString('id-ID') : '–'}</TableCell>
@@ -1646,7 +1674,7 @@ function CalculatorPage() {
                   kertas milik suplier tsb. */}
               <div>
                 <label className={lbl}>Nama Suplier</label>
-                <Select value={namaSuplier || 'none'} onValueChange={(v) => setNamaSuplier(v === 'none' ? '' : v)}>
+                <Select value={namaSuplier || 'none'} onValueChange={(v) => { const sup = v === 'none' ? '' : v; setNamaSuplier(sup); setSharedSuplier(sup) }}>
                   <SelectTrigger className="w-full h-9 text-sm">
                     <SelectValue placeholder="Pilih suplier (opsional)">
                       {namaSuplier || 'Pilih suplier (opsional)'}

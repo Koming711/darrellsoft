@@ -4,7 +4,7 @@
 // aplikasi (SW) — mis. "2026-10-03-v145" = rilis v145 — supaya versi yang
 // dilihat user (popup What's New & footer) sama dengan versi deploy.
 
-export const CURRENT_VERSION = '2026-10-03-v146'
+export const CURRENT_VERSION = '2026-10-03-v147'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -19,6 +19,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-03-v147',
+    date: { id: '7 Oktober 2026', en: '7 October 2026' },
+    title: {
+      id: 'Nama Suplier Tersinkron Antar Halaman + Profit Bisa Lebih dari 100%',
+      en: 'Supplier Name Synced Across Pages + Profit Can Exceed 100%',
+    },
+    items: [
+      {
+        id: 'Pilihan Nama Suplier kini tersinkron antar halaman Hitung Cetakan, Potong Kertas & Hitung Harga Kertas — pilih sekali di halaman mana pun (mis. Bintang Timur di Potong Kertas), halaman lain otomatis mengikuti',
+        en: 'The Supplier Name choice now syncs across the Print Calculation, Paper Cutting & Paper Price Calculator pages — pick it once on any page (e.g. Bintang Timur on Paper Cutting) and the other pages follow automatically',
+      },
+      {
+        id: 'Profit (%) kini bisa diisi lebih dari 100% di Hitung Cetakan & Potong Kertas (sebelumnya dibatasi maksimal 100%)',
+        en: 'Profit (%) can now be set above 100% in Print Calculation & Paper Cutting (previously capped at 100%)',
+      },
+    ],
+  },
   {
     version: '2026-10-03-v146',
     date: { id: '6 Oktober 2026', en: '6 October 2026' },
