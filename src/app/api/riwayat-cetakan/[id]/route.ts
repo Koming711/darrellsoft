@@ -70,6 +70,7 @@ export async function PUT(
         profitPercent: body.profitPercent ?? item.profitPercent,
         profitAmount: body.profitAmount ?? item.profitAmount,
         grandTotal: body.grandTotal ?? item.grandTotal,
+        pkRiwayatId: body.pkRiwayatId === undefined ? item.pkRiwayatId : (body.pkRiwayatId || null),
         photoUrl: body.photoUrl === undefined ? item.photoUrl : validatePhotoDataUrl(body.photoUrl),
       }
     })

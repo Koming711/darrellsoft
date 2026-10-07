@@ -12562,3 +12562,30 @@ Work Log:
 Stage Summary:
 - Fix "edit riwayat Potong Kertas → Hitung Cetakan Lengkap melanjutkan riwayat hitung cetakan yang pernah dibuat (Update, bukan buat baru)" ter-VERIFIKASI ulang penuh; kode tidak berubah dari commit 0f9dcf7 (sudah di origin/main, tidak ada commit baru).
 - Produksi: SW v149 / footer v148 sudah live (deploy 7abda5f sukses). Fix pk→hc BELUM di produksi (menunggu deploy berikutnya atas izin user).
+---
+Task ID: pk-hc-number-linked-display
+Agent: Main (Z.ai Code)
+Task: "masih tidak conect. harusnya dilihat dari no hitung cetakan saja. harusnya no hitung cetakan yang muncul HC/10/26/0013 bukan nomor yang baru tapi nomor yang terconect dengan no potong kertas. check and fix"
+
+Work Log:
+- ROOT CAUSE: kotak "No. Hitung Cetakan" di editor selalu menampilkan NOMOR BERIKUTNYA (preview=next-number) — termasuk saat mode Update (riwayat HC tersambung sudah dibuka). User menilai "tidak conect" dari nomor yang tampil; nomor riwayat lama (mis. HC/10/26/0013) tidak pernah muncul.
+- HUBUNGAN DETERMINISTIK (schema): RiwayatCetakan + kolom `pkRiwayatId String?` (id RiwayatPotongKertas sumber). Di-push ke SQLite lokal (db:push). KEDUA file schema (prisma/schema.prisma & schema.prisma root) diubah karena keduanya di-swap sqlite↔postgresql oleh scripts/prepare-build.js & revert-schema.js — penting untuk migrasi Supabase saat deploy (bun run deploy:push-db).
+- API: POST /api/riwayat-cetakan menerima & menyimpan body.pkRiwayatId; PUT /api/riwayat-cetakan/[id] mempertahankan nilai lama bila body tidak mengirim (undefined → preserve, ''/null → clear).
+- hitung-cetakan/page.tsx:
+  - pkLinkRiwayatIdRef menyimpan id PK sumber (diisi dari param pkRiwayatId & dari riwayat yang di-restore).
+  - buildRiwayatPayload mengirim pkRiwayatId (undefined = tidak diubah) → POST/PUT menyimpan hubungan.
+  - Saat pkRiwayatId ada di URL: fetchNextNumber DILEWATI di mount (nomor baru tidak ditampilkan dulu).
+  - Pencarian riwayat tersambung 2 tahap: (1) DETERMINISTIK — r.pkRiwayatId === id PK (ambil terbaru); (2) fallback heuristik nama+customer utk data lama.
+  - applyLinkedRiwayatCetakan & handleRestoreRiwayat kini menampilkan nomorUrut riwayat tersambung di kotak "No. Hitung Cetakan"; toast menyebut nomornya ("Melanjutkan riwayat HC/10/26/0013 yang sudah ada…").
+  - Setelah Update sukses / hapus riwayat ter-restore / Reset: nomor tampil kembali ke nomor berikutnya & ref dibersihkan.
+- ENV: dev server harus di-restart setelah prisma generate (client basi → 500 "Unknown argument pkRiwayatId"); restart via .zscripts/dev.sh (setsid) → normal. (nohup manual ternyata mati sendiri; pakai script platform.)
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Skenario test sendiri: PK/10/26/0018 "Test HC Number Link" disimpan → HC Lengkap (baru) → tampil HC/10/26/0016 + tombol Simpan → simpan jadi HC/10/26/0016 → Edit PK → HC Lengkap → **tampil HC/10/26/0016 (bukan 0017)**, toast sebut nomor, tombol "Update Riwayat", mesin sm52 ter-restore → Update → pkRiwayatId TERSIMPAN di record (diverifikasi via API), jumlah riwayat tidak bertambah.
+  - Skenario ASLI user: PK/10/26/0017 'bronilab'/'angel' → Edit → HC Lengkap → **tampil HC/10/26/0013** (persis nomor yang user sebut) + toast + "Update Riwayat". TIDAK di-save (data user utuh).
+  - Record 'bronilab'/angel (15:38) & 'brosur' (15:29) terbukti dari sesi paralel user (preview panel) — tidak disentuh.
+  - Cleanup: 2 record test dihapus (success ×2); 0 error 500 di dev.log setelah restart; lint 0 masalah.
+- TIDAK deploy sesuai pola instruksi user sebelumnya.
+
+Stage Summary:
+- Edit riwayat Potong Kertas → Hitung Cetakan Lengkap kini menampilkan nomor riwayat HC yang TERHUBUNG (mis. HC/10/26/0013), toast menyebut nomor tsb, dan simpan = Update riwayat yang sama. Hubungan kini DETERMINISTIK (pkRiwayatId tersimpan di DB) — tahan terhadap perubahan nama/customer & data duplikat; data lama masih dicocokkan via heuristik nama+customer lalu otomatis ter-link saat Update pertama.
+- File: prisma/schema.prisma, schema.prisma (kolom pkRiwayatId), api/riwayat-cetakan (POST/PUT), hitung-cetakan/page.tsx. Perlu migrasi DB di produksi saat deploy (bun run deploy:push-db sudah menjalankan db push ke Supabase).
