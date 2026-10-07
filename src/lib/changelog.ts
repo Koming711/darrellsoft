@@ -4,7 +4,7 @@
 // aplikasi (SW) — mis. "2026-10-03-v145" = rilis v145 — supaya versi yang
 // dilihat user (popup What's New & footer) sama dengan versi deploy.
 
-export const CURRENT_VERSION = '2026-10-03-v147'
+export const CURRENT_VERSION = '2026-10-03-v148'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '2026-10-03-v147',
+    version: '2026-10-03-v148',
     date: { id: '7 Oktober 2026', en: '7 October 2026' },
     title: {
       id: 'Nama Suplier Tersinkron Antar Halaman + Profit Bisa Lebih dari 100%',

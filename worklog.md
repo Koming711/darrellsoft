@@ -12496,3 +12496,24 @@ Stage Summary:
 - Nama Suplier kini SATU pilihan bersama di Hitung Cetakan, Potong Kertas & Hitung Harga Kertas: pilih sekali (mis. Bintang Timur di Potong Kertas) → halaman lain otomatis mengikuti, termasuk filter bahan & harga master suplier tsb; tersimpan juga saat restore riwayat.
 - Profit (%) boleh lebih dari 100% di Hitung Cetakan & Potong Kertas (clamp `<=100` dan atribut max="100" dihapus; kalkulasi linear terverifikasi 150% → Rp 161.055).
 - Rilis: SW v148 / APP v83 / label v147. Versi berikutnya: SW v149 / APP v84 / label v148.
+---
+Task ID: content-v148
+Agent: Main (Z.ai Code)
+Task: "rubah semua conten dengan versi v148" — samakan seluruh konten versi user-facing menjadi v148 (badge popup What's New, footer landing, entri changelog teratas).
+
+Work Log:
+- Sinkronisasi repo: local tertinggal 61 commit dari origin/main (rilis v146 & v147 sudah dikerjakan+deploy sesi lain; produksi sudah SW v148). git reset --hard origin/main (580ae69); commit lokal-only 696880f (auto-backup .verify + worklog deploy-all-3mm) sudah terkandung di origin.
+- changelog.ts: CURRENT_VERSION '2026-10-03-v147' → '2026-10-03-v148'; entri teratas di-renumber v147 → v148 (isi tetap: "Nama Suplier Tersinkron Antar Halaman + Profit Bisa Lebih dari 100%", 2 item id/en, tanggal 7 Oktober 2026). Tidak ada fitur baru sejak v147 → konten v148 = fitur terbaru yang belum sempat dilihat user.
+- public/sw.js: CACHE_NAME 'darrell-soft-v148' → 'darrell-soft-v149' (nomor deploy = label + 1, pola konsisten v145→SW146, v146→SW147, v147→SW148).
+- service-worker-registration.tsx: APP_VERSION '2026-10-03-v83' → '2026-10-03-v84'.
+- Badge popup & footer landing otomatis ikut karena memakai releaseVersionLabel() dari CURRENT_VERSION (tanpa perubahan kode).
+- Lint: 0 masalah pada 3 file yang dicek (changelog, sw-registration, whats-new-dialog).
+- Verifikasi lokal (agent-browser, dev :3000, login admin):
+  - Popup What's New muncul otomatis (whats_new_version lama '2026-10-03-v147' ≠ CURRENT) — badge "Versi Baru! v148", tanggal 7 Oktober 2026, judul+item terbaca penuh via DOM eval; screenshot .verify/v148-whatsnew-popup.png.
+  - Klik "Oke, Mengerti" → localStorage whats_new_version = '2026-10-03-v148' ✓.
+  - Footer landing: "© 2026 Darrell Soft. All rights reserved. • v148" ✓.
+  - Login admin → /pembukaan normal, 0 page error, 0 console error; screenshot .verify/v148-dashboard.png.
+
+Stage Summary:
+- Seluruh konten versi user-facing kini v148: badge popup What's New = v148, footer landing = v148, entri changelog teratas = 2026-10-03-v148 (fitur suplier sync + profit >100%).
+- Rilis: SW v149 / APP v84 / label v148. Deploy produksi menyusul (relink .vercel dulu — project.json hilang lagi).
