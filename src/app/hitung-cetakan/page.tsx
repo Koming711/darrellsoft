@@ -231,6 +231,18 @@ const FORM_STORAGE_VERSION_KEY = () => userKey('hitung-cetakan-form-data-version
 const FORM_STORAGE_VERSION = 'v5'
 const SIM_ROWS_STORAGE_KEY = () => userKey('hitung-cetakan-simulasi-rows')
 
+// === Nama Suplier BERSAMA antar halaman kalkulator (Hitung Cetakan ↔ Potong Kertas ↔ Hitung Harga Kertas) ===
+// Permintaan user: bila suplier di halaman lain (mis. Bintang Timur di Potong Kertas) terakhir dipilih,
+// halaman ini juga memakainya — satu sumber kebenaran di localStorage (per-user).
+const SHARED_SUPLIER_KEY = () => userKey('hitung-nama-suplier')
+function getSharedSuplierOrNull(): string | null {
+  if (typeof window === 'undefined') return null
+  try { return localStorage.getItem(SHARED_SUPLIER_KEY()) } catch { return null }
+}
+function setSharedSuplier(v: string) {
+  try { localStorage.setItem(SHARED_SUPLIER_KEY(), v) } catch {}
+}
+
 // Baris Tabel Simulasi Cepat (CRUD): jumlah & profit disimpan; nilai (modal, jual, dll)
 // dihitung ulang live dari parameter form. snap = nilai saat baris disimpan,
 // dipakai fallback bila form belum bisa menghitung (mis. setelah reload dgn form kosong).
@@ -554,8 +566,9 @@ function HitungCetakanPage() {
     // If navigating with reset flag (from Potong Kertas), skip localStorage restore
     const params = new URLSearchParams(window.location.search)
     const shouldReset = params.get('reset') === '1' || params.get('fromPotongKertas') === '1'
+    let saved: any = null
     if (!shouldReset) {
-      const saved = loadFromStorage()
+      saved = loadFromStorage()
       if (saved) {
         if (saved.formData) setFormData(saved.formData)
         if (saved.selectedFinishings) setSelectedFinishings(saved.selectedFinishings)
@@ -563,6 +576,14 @@ function HitungCetakanPage() {
       }
     } else {
       clearStorage()
+    }
+    // Nama Suplier = pilihan terakhir BERSAMA antar halaman kalkulator: bila di halaman lain
+    // (mis. Potong Kertas) terakhir memilih Bintang Timur, halaman ini juga memakainya.
+    const shared = getSharedSuplierOrNull()
+    if (shared !== null) {
+      setFormData(prev => ({ ...prev, namaSuplier: shared }))
+    } else if (saved?.formData?.namaSuplier) {
+      setSharedSuplier(saved.formData.namaSuplier) // seed dari form tersimpan halaman ini
     }
     setHydrated(true)
   }, [])
@@ -937,6 +958,7 @@ function HitungCetakanPage() {
   const handleSuplierChange = (v: string) => {
     const sup = v === 'none' ? '' : v
     setFormData(prev => ({ ...prev, namaSuplier: sup }))
+    setSharedSuplier(sup) // pilihan suplier berlaku juga di halaman kalkulator lain
     const cur = papers.find(p => p.id === formData.paperId)
     if (!sup || !cur || normSup(cur.suplier) === normSup(sup)) return
     const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === cur.name.trim().toLowerCase())
@@ -955,6 +977,30 @@ function HitungCetakanPage() {
       setFormData(prev => ({ ...prev, paperId: '' }))
     }
   }
+
+  // Saat namaSuplier berubah dari luar dropdown (nilai bersama antar halaman saat mount/restore):
+  // pastikan bahan terpilih milik suplier tsb — auto pindah ke varian nama sama milik suplier
+  // (harga/ukuran ikut master) atau kosongkan bila tidak ada. Pola sama dgn Potong Kertas.
+  useEffect(() => {
+    const sup = formData.namaSuplier
+    if (!sup) return
+    const cur = papers.find(p => p.id === formData.paperId)
+    if (!cur || normSup(cur.suplier) === normSup(sup)) return
+    const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === cur.name.trim().toLowerCase())
+    if (variant) {
+      const sheet = Math.round(variant.pricePerRim / 500)
+      setFormData(prev => ({
+        ...prev,
+        paperId: variant.id,
+        paperLength: variant.width.toString(),
+        paperWidth: variant.height.toString(),
+        pricePerSheet: sheet.toString(),
+        pricePerKg: sheetToKgPrice(sheet, variant.width, variant.height, variant.grammage),
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, paperId: '' }))
+    }
+  }, [formData.namaSuplier, formData.paperId, papers])
 
   useEffect(() => {
     const qty = parseInt(formData.quantity) || 0
@@ -1416,6 +1462,7 @@ function HitungCetakanPage() {
       hargaPlat2: r.hargaPlat2?.toString() || ''
     }
     setFormData(restoredForm)
+    setSharedSuplier(r.namaSuplier || '') // pilihan suplier berlaku juga di halaman kalkulator lain
     if (r.totalPaperPrice) setTotalPaperPrice(r.totalPaperPrice)
     if (r.profitPercent) { setProfitPercent(r.profitPercent); setProfitInput(r.profitPercent === 0 ? '' : r.profitPercent.toString()) }
     if (r.otherCostLabel) setBiayaLain1Label(r.otherCostLabel)
@@ -1863,7 +1910,6 @@ function HitungCetakanPage() {
               type="number"
               step="0.1"
               min="0"
-              max="100"
               inputMode="decimal"
               placeholder={profitPercent > 0 ? profitPercent.toString() : '0'}
               value={simProfitInput}
@@ -1925,7 +1971,7 @@ function HitungCetakanPage() {
                         </div>
                         <div>
                           <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Profit (%)</label>
-                          <input type="number" step="0.1" min="0" max="100" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-full mt-1 ${simEditInputClass}`} />
+                          <input type="number" step="0.1" min="0" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-full mt-1 ${simEditInputClass}`} />
                         </div>
                       </div>
                     )}
@@ -2010,7 +2056,7 @@ function HitungCetakanPage() {
                         </TableCell>
                         <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>
                           {isEditing ? (
-                            <input type="number" step="0.1" min="0" max="100" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-12 ${simEditInputClass}`} />
+                            <input type="number" step="0.1" min="0" inputMode="decimal" value={simEditProfit} onChange={(e) => setSimEditProfit(e.target.value)} aria-label="Ubah profit (%)" className={`w-12 ${simEditInputClass}`} />
                           ) : row.profit > 0 ? `${row.profit}%` : '–'}
                         </TableCell>
                         <TableCell className={`${simTdClass} text-right text-slate-600 dark:text-slate-300`}>{v.qty > 0 ? v.qty.toLocaleString('id-ID') : '–'}</TableCell>
@@ -2513,7 +2559,6 @@ function HitungCetakanPage() {
                     <input
                       type="number"
                       min="0"
-                      max="100"
                       placeholder="0"
                       value={profitInput}
                       onChange={(e) => {
@@ -2524,7 +2569,8 @@ function HitungCetakanPage() {
                           return
                         }
                         const val = parseFloat(raw)
-                        if (!isNaN(val) && val >= 0 && val <= 100) {
+                        // Profit boleh LEBIH DARI 100% (permintaan user) — cukup non-negatif
+                        if (!isNaN(val) && val >= 0) {
                           setProfitPercent(val)
                           setProfitInput(raw)
                         }
@@ -2812,7 +2858,6 @@ function HitungCetakanPage() {
                     <input
                       type="number"
                       min="0"
-                      max="100"
                       placeholder="0"
                       value={profitInput}
                       onChange={(e) => {
@@ -2823,7 +2868,8 @@ function HitungCetakanPage() {
                           return
                         }
                         const val = parseFloat(raw)
-                        if (!isNaN(val) && val >= 0 && val <= 100) {
+                        // Profit boleh LEBIH DARI 100% (permintaan user) — cukup non-negatif
+                        if (!isNaN(val) && val >= 0) {
                           setProfitPercent(val)
                           setProfitInput(raw)
                         }

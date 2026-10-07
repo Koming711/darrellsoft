@@ -12472,3 +12472,27 @@ Work Log:
 Stage Summary:
 - TERVERIFIKASI di produksi www.darrellsoft.com (v147): Nama Suplier tersedia di Hitung Harga Kertas & Hitung Cetakan (filter bahan + harga ikut master + tersimpan di riwayat), dan Harga Kertas /kg dibulatkan ke rupiah penuh di Hitung Cetakan, Potong Kertas & Detail Rincian Cetakan — konsisten dgn Master Harga Kertas.
 - Production = SW v147 / APP v82 / label v146. Versi berikutnya: SW v148 / APP v83 / label v147.
+---
+Task ID: suplier-sync-profit-v147
+Agent: Main (Z.ai Code)
+Task: "dihalaman hitung cetakan, apabila nama suplier dihalaman potong kertas bintang timur, maka dihalaman hitung kertas juga bintang timur. untuk perhitungan profit bisa lebih dari 100%. fix"
+
+Work Log:
+- SUPLIER SINKRON ANTAR HALAMAN: sebelumnya tiap halaman menyimpan suplier sendiri-sendiri di localStorage (potong-kertas-form / hitung-cetakan-form-data / darrellpos-hitung-harga-kertas) sehingga pilihan di satu halaman tidak mengikuti ke halaman lain. Kini ada SATU key bersama per-user: userKey('hitung-nama-suplier') di 3 halaman (hitung-cetakan, potong-kertas, hitung-harga-kertas).
+- Semantik: shared = pilihan suplier terakhir yang eksplisit (dropdown / restore riwayat) di halaman mana pun; saat mount shared MENANG atas form tersimpan halaman tsb; bila shared belum ada (null), di-seed dari form tersimpan halaman pertama yang punya suplier. Reset form TIDAK menghapus shared (suplier preferensi user tersisa; hitung-harga-kertas auto-reset setelah simpan riwayat tidak lagi menghapus suplier halaman lain).
+- potong-kertas: helper getSharedSuplierOrNull/getSharedSuplier/setSharedSuplier; useState awal dari shared (fallback form tersimpan); seed effect mount; Select onChange + handleRestore ikut menulis shared; auto-variant effect lama sudah menangani switch kertas saat shared diterapkan.
+- hitung-cetakan: helper sama; mount effect loadFromStorage diperluas (saved variable + apply/seed shared, termasuk jalur ?reset=1 dari Potong Kertas supaya suplier tetap ikut); handleSuplierChange + handleRestoreRiwayat menulis shared; effect BARU auto-variant (mirror potong-kertas) — saat namaSuplier berubah dari luar dropdown (mount/restore), kertas auto pindah ke varian nama sama milik suplier (harga/ukuran ikut master) atau dikosongkan.
+- hitung-harga-kertas: tambah helper userKey (sebelumnya STORAGE_KEY tidak per-user) + shared helpers; mount effect apply/seed shared; handleSuplierChange + handleRestore menulis shared; effect BARU auto-variant (guard mounted/selectedPaper).
+- PROFIT > 100%: dua clamp onChange di hitung-cetakan (summary desktop `val <= 100` + versi mobile) Relax jadi `val >= 0` saja (comment "Profit boleh LEBIH DARI 100%"); hapus atribut max="100" dari 8 input profit: hitung-cetakan ×5 (sim bar, sim edit mobile+desktop, summary desktop+mobile) & potong-kertas ×3 (sim bar, sim edit mobile+desktop). Rumus profitAmount = subTotal × profit/100 tidak diubah (memang linear).
+- Verifikasi lokal (agent-browser, admin, dev server di-restart dulu karena SQLite "attempt to write a readonly database"):
+  - Sync: HHK pilih Bintang Timur → shared key terisi; Potong Kertas mount → suplier "Bintang Timur" + bahan terfilter; PK ganti ke Indojaya → toast "Harga art karton mengikuti Master Harga Kertas · Indojaya", harga/lbr 2687 & harga/kg 12002 auto, shared=Indojaya; Hitung Cetakan mount → suplier=Indojaya + bahan hanya "art karton (260 gsm · Indojaya)"; HHK → suplier=Indojaya ✓. Round-trip 3 halaman konsisten.
+  - Profit: HC isi form (200 pcs, mata 4, uk bahan 79×109, potong 30×40, sm52, warna 1) → Sub Total 107.370; ketik 150 di profit desktop → diterima, Profit Rp 161.055 = 107.370 × 1.5, Total 268.425, per Pcs 1.342 ✓; mobile 390px profit (w-12) 150 → sama ✓; overflowX false; reload → restore normal.
+  - 0 error console di 3 halaman; whats-new popup tampil v147.
+  - Catatan: sempat salah target saat eval (150 masuk Uk. Potong L → mata 0 → Rp ∞) — BUKAN bug aplikasi, dipulihkan dan profit diisi di input yang benar.
+- Lint: 0 masalah pada file berubah (5 error hanya baseline pre-existing hitung-harga-kertas, sama dgn HEAD).
+- Versi: SW v148 / APP v83 / changelog label v147 (entri "Nama Suplier Tersinkron Antar Halaman + Profit Bisa Lebih dari 100%", 2 item id/en).
+
+Stage Summary:
+- Nama Suplier kini SATU pilihan bersama di Hitung Cetakan, Potong Kertas & Hitung Harga Kertas: pilih sekali (mis. Bintang Timur di Potong Kertas) → halaman lain otomatis mengikuti, termasuk filter bahan & harga master suplier tsb; tersimpan juga saat restore riwayat.
+- Profit (%) boleh lebih dari 100% di Hitung Cetakan & Potong Kertas (clamp `<=100` dan atribut max="100" dihapus; kalkulasi linear terverifikasi 150% → Rp 161.055).
+- Rilis: SW v148 / APP v83 / label v147. Versi berikutnya: SW v149 / APP v84 / label v148.
