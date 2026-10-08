@@ -13006,3 +13006,24 @@ Work Log:
 
 Stage Summary:
 - Landing page kini menampilkan 12 FITUR AKUNTANSI (3×4 grid): 9 fitur lama + Hitung Potong Kertas, Hitung Cetakan, Hitung Finishing — bilingual id/en, light+dark, mobile rapi, 0 error. Semua fitur tersedia nyata di aplikasi (/potong-kertas, /hitung-cetakan, /hitung-finishing).
+---
+Task ID: landing-gold-burgundy
+Agent: Main (Z.ai Code)
+Task: "dijudul kesempatan emas warna background diganti jadi warna gold. pilih paket terbaik kamu background diganti menjadi warna block merah burgundy. fix"
+
+Work Log:
+- Banner KESEMPATAN EMAS (Bagian 2, src/app/page.tsx ~L1600-1697) diganti tema GOLD via python splice scoped region (34 replacement, tidak menyentuh section lain):
+  - Panel: from-slate-950 via-emerald-950 to-slate-900 → from-amber-300 via-yellow-400 to-amber-500, border-amber-600/30, shadow-amber-700/40.
+  - Dekor: blob teal/emerald → yellow-200/40 & amber-600/25; dot pattern putih → titik amber gelap rgba(120,53,15,0.22).
+  - Badge: glass putih/teal → amber-950/10 + border-amber-800/25, Crown & teks amber.
+  - H3: putih → amber-950; baris 2 gradient teal→emerald → from-amber-950 to-amber-700.
+  - Kartu Fakta/Artinya & 3 stat: glass putih 6% → bg-white/25 border-amber-900/15; ikon chip bg-white/30; teks slate-300 → amber-950/80; strong teal-300→amber-900, strong putih→amber-950 (fix kontras setelah render pertama masih pudar); nilai stat gradient → amber-950→amber-700; label → amber-800; panah → amber-900/40.
+  - CTA2 WhatsApp: white glass → amber-950/10 border-amber-900/25 teks amber-950; CTA1 (Jadilah Bos Percetakan!) dipertahankan emerald.
+  - Quote: slate-200 → amber-950/90; divider teal→emerald → from-amber-700 to-amber-950.
+- Section HARGA "Pilih Paket Terbaik Kamu" (L1742): bg from-slate-950 via-emerald-950/50 to-slate-950 → bg-gradient-to-b from-[#3f0d14] via-[#800020] to-[#3f0d14] (burgundy #800020). H2 putih + badge + kartu glass & kartu populer navy dipertahankan — kontras baik; chip garansi emerald tetap terbaca; transisi ke Testimoni putih bersih.
+- eslint src/app/page.tsx BERSIH.
+- Verifikasi E2E (agent-browser, :3000): desktop 1440×900 banner gold (cek computed backgroundImage = gradient amber; .verify/gold-banner-desktop.png), harga burgundy atas (burgundy-harga-desktop.png) + bawah dgn garansi & boundary testimoni (burgundy-harga-bottom.png), mobile 390×844 banner gold 1 kolom (gold-banner-mobile.png); popup changelog v148 + install PWA ditutup utk screenshot; reload fresh → console --clear + errors → 0 error console/page.
+- TIDAK deploy (user belum menyebut "deploy" di pesan ini) — produksi masih tema lama sampai deploy berikutnya.
+
+Stage Summary:
+- Banner Kesempatan Emas kini berlatar GOLD (gradasi amber-300→yellow-400→amber-500) dengan teks gelap amber kontras; section Harga "Pilih Paket Terbaik Kamu" kini berlatar BURGUNDY (#800020, tepi gelap #3f0d14). Light mode, mobile & desktop rapi, 0 error; konten & semua elemen lain tidak berubah.

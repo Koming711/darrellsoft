@@ -1599,48 +1599,48 @@ export default function Home() {
 
         {/* ---- Bagian 2: Kesempatan Emas Banner (panel CTA glass dot-pattern) ---- */}
         <FadeIn delay={0.3}>
-          <div className="relative rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border border-white/10 shadow-2xl shadow-emerald-950/40 overflow-hidden">
+          <div className="relative rounded-3xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 border border-amber-600/30 shadow-2xl shadow-amber-700/40 overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-              <div className="absolute -top-24 right-10 w-72 h-72 bg-teal-500/15 rounded-full blur-3xl" />
-              <div className="absolute -bottom-32 left-1/4 w-80 h-80 bg-emerald-600/15 rounded-full blur-3xl" />
-              <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
+              <div className="absolute -top-24 right-10 w-72 h-72 bg-yellow-200/40 rounded-full blur-3xl" />
+              <div className="absolute -bottom-32 left-1/4 w-80 h-80 bg-amber-600/25 rounded-full blur-3xl" />
+              <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(rgba(120,53,15,0.22) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
             </div>
 
             <div className="relative z-10 p-6 md:p-10">
               <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur rounded-full px-4 py-1.5 border border-white/15 mb-4">
-                  <Crown className="w-4 h-4 text-teal-300" />
-                  <span className="text-teal-200 font-bold text-[11px] uppercase tracking-[0.18em]">{t.golden_badge}</span>
+                <div className="inline-flex items-center gap-2 bg-amber-950/10 backdrop-blur rounded-full px-4 py-1.5 border border-amber-800/25 mb-4">
+                  <Crown className="w-4 h-4 text-amber-800" />
+                  <span className="text-amber-950 font-bold text-[11px] uppercase tracking-[0.18em]">{t.golden_badge}</span>
                 </div>
-                <h3 className="text-2xl md:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                <h3 className="text-2xl md:text-4xl font-extrabold text-amber-950 leading-tight tracking-tight">
                   {t.golden_h3_1}<br />
-                  <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_h3_2}</span>
+                  <span className="bg-gradient-to-r from-amber-950 to-amber-700 bg-clip-text text-transparent">{t.golden_h3_2}</span>
                 </h3>
               </div>
 
               {/* Fakta & Artinya */}
               <div className="grid md:grid-cols-2 gap-4 md:gap-5 mb-8">
-                <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/10">
+                <div className="bg-white/25 backdrop-blur-md rounded-2xl p-5 border border-amber-900/15">
                   <div className="flex items-center gap-2.5 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                      <ChartColumn className="w-4 h-4 text-teal-300" />
+                    <div className="w-8 h-8 rounded-lg bg-white/30 flex items-center justify-center shrink-0">
+                      <ChartColumn className="w-4 h-4 text-amber-900" />
                     </div>
-                    <h4 className="font-bold text-white text-base">{t.golden_fakta}</h4>
+                    <h4 className="font-bold text-amber-950 text-base">{t.golden_fakta}</h4>
                   </div>
-                  <p className="text-slate-300/90 text-sm leading-relaxed">
-                    {t.golden_fakta_p_pre} <strong className="text-teal-300">{t.golden_fakta_p_bold1}</strong>{t.golden_fakta_p_mid} <strong className="text-white">{t.golden_fakta_p_bold2}</strong>{t.golden_fakta_p_post}
+                  <p className="text-amber-950/80 text-sm leading-relaxed">
+                    {t.golden_fakta_p_pre} <strong className="text-amber-900">{t.golden_fakta_p_bold1}</strong>{t.golden_fakta_p_mid} <strong className="text-amber-950">{t.golden_fakta_p_bold2}</strong>{t.golden_fakta_p_post}
                   </p>
                 </div>
-                <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/10">
+                <div className="bg-white/25 backdrop-blur-md rounded-2xl p-5 border border-amber-900/15">
                   <div className="flex items-center gap-2.5 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                      <Lightbulb className="w-4 h-4 text-teal-300" />
+                    <div className="w-8 h-8 rounded-lg bg-white/30 flex items-center justify-center shrink-0">
+                      <Lightbulb className="w-4 h-4 text-amber-900" />
                     </div>
-                    <h4 className="font-bold text-white text-base">{t.golden_artinya}</h4>
+                    <h4 className="font-bold text-amber-950 text-base">{t.golden_artinya}</h4>
                   </div>
-                  <p className="text-slate-300/90 text-sm leading-relaxed">
-                    {t.golden_artinya_p_pre} <strong className="text-teal-300">{t.golden_artinya_p_bold1}</strong>{t.golden_artinya_p_mid} <strong className="text-white">{t.golden_artinya_p_bold2}</strong>
+                  <p className="text-amber-950/80 text-sm leading-relaxed">
+                    {t.golden_artinya_p_pre} <strong className="text-amber-900">{t.golden_artinya_p_bold1}</strong>{t.golden_artinya_p_mid} <strong className="text-amber-950">{t.golden_artinya_p_bold2}</strong>
                   </p>
                 </div>
               </div>
@@ -1648,25 +1648,25 @@ export default function Home() {
               {/* 3 Statistics Flow */}
               <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-5 mb-8">
                 <FadeIn delay={0.4}>
-                  <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 text-center min-w-[170px]">
-                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_stat1_val}</p>
-                    <p className="text-slate-400 text-sm mt-1">{t.golden_stat1_label}</p>
+                  <div className="bg-white/25 backdrop-blur-md rounded-2xl px-6 py-4 border border-amber-900/15 text-center min-w-[170px]">
+                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-amber-950 to-amber-700 bg-clip-text text-transparent">{t.golden_stat1_val}</p>
+                    <p className="text-amber-800 text-sm mt-1">{t.golden_stat1_label}</p>
                   </div>
                 </FadeIn>
-                <ArrowRight className="hidden md:block w-5 h-5 text-white/30" />
-                <ArrowDown className="md:hidden w-5 h-5 text-white/30" />
+                <ArrowRight className="hidden md:block w-5 h-5 text-amber-900/40" />
+                <ArrowDown className="md:hidden w-5 h-5 text-amber-900/40" />
                 <FadeIn delay={0.5}>
-                  <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 text-center min-w-[170px]">
-                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_stat2_val}</p>
-                    <p className="text-slate-400 text-sm mt-1">{t.golden_stat2_label}</p>
+                  <div className="bg-white/25 backdrop-blur-md rounded-2xl px-6 py-4 border border-amber-900/15 text-center min-w-[170px]">
+                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-amber-950 to-amber-700 bg-clip-text text-transparent">{t.golden_stat2_val}</p>
+                    <p className="text-amber-800 text-sm mt-1">{t.golden_stat2_label}</p>
                   </div>
                 </FadeIn>
-                <ArrowRight className="hidden md:block w-5 h-5 text-white/30" />
-                <ArrowDown className="md:hidden w-5 h-5 text-white/30" />
+                <ArrowRight className="hidden md:block w-5 h-5 text-amber-900/40" />
+                <ArrowDown className="md:hidden w-5 h-5 text-amber-900/40" />
                 <FadeIn delay={0.6}>
-                  <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 text-center min-w-[170px]">
-                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_stat3_val}</p>
-                    <p className="text-slate-400 text-sm mt-1">{t.golden_stat3_label}</p>
+                  <div className="bg-white/25 backdrop-blur-md rounded-2xl px-6 py-4 border border-amber-900/15 text-center min-w-[170px]">
+                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-amber-950 to-amber-700 bg-clip-text text-transparent">{t.golden_stat3_val}</p>
+                    <p className="text-amber-800 text-sm mt-1">{t.golden_stat3_label}</p>
                   </div>
                 </FadeIn>
               </div>
@@ -1681,20 +1681,20 @@ export default function Home() {
                 </Button>
                 <Button
                   asChild
-                  className="ripple-btn rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-6 px-8 transition-all duration-300 active:scale-[0.98]"
+                  className="ripple-btn rounded-xl bg-amber-950/10 hover:bg-amber-950/20 border border-amber-900/25 text-amber-950 font-bold py-6 px-8 transition-all duration-300 active:scale-[0.98]"
                 >
                   <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
-                    <MessageCircle className="mr-2 w-5 h-5 text-teal-300" /> {t.golden_cta2}
+                    <MessageCircle className="mr-2 w-5 h-5 text-amber-900" /> {t.golden_cta2}
                   </a>
                 </Button>
               </div>
 
               {/* Quote penutup */}
               <div className="text-center">
-                <blockquote className="text-slate-200/90 text-base md:text-lg italic font-medium max-w-2xl mx-auto leading-relaxed">
+                <blockquote className="text-amber-950/90 text-base md:text-lg italic font-medium max-w-2xl mx-auto leading-relaxed">
                   &ldquo;{t.golden_quote}&rdquo;
                 </blockquote>
-                <div className="w-16 h-1 bg-gradient-to-r from-teal-400 to-emerald-500 mx-auto mt-4 rounded-full" />
+                <div className="w-16 h-1 bg-gradient-to-r from-amber-700 to-amber-950 mx-auto mt-4 rounded-full" />
               </div>
             </div>
           </div>
@@ -1739,7 +1739,7 @@ export default function Home() {
       </Section>
 
       {/* =================== HARGA =================== */}
-      <Section id="harga" className="bg-gradient-to-b from-slate-950 via-emerald-950/50 to-slate-950">
+      <Section id="harga" className="bg-gradient-to-b from-[#3f0d14] via-[#800020] to-[#3f0d14]">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
             <EyebrowBadge label={t.harga_badge} dark />
