@@ -1038,6 +1038,7 @@ function MasukTab({
   const [dari, setDari] = useState('')
   const [sampai, setSampai] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editRow, setEditRow] = useState<Mutasi | null>(null)
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -1091,7 +1092,12 @@ function MasukTab({
             </TableHeader>
             <TableBody>
               {rows.map((m) => (
-                <TableRow key={m.id}>
+                <TableRow
+                  key={m.id}
+                  className="cursor-pointer"
+                  title="Klik untuk edit transaksi"
+                  onClick={() => setEditRow(m)}
+                >
                   <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
                   <TableCell className="text-sm font-medium">{m.namaBahan || m.bahan?.nama || '-'}</TableCell>
@@ -1109,7 +1115,16 @@ function MasukTab({
         </div>
       )}
 
-      <MasukDialog open={dialogOpen} onOpenChange={setDialogOpen} bahan={bahan} onSaved={onSaved} />
+      <MasukDialog
+        open={dialogOpen || !!editRow}
+        onOpenChange={(o) => {
+          setDialogOpen(o)
+          if (!o) setEditRow(null)
+        }}
+        bahan={bahan}
+        onSaved={onSaved}
+        edit={editRow}
+      />
     </div>
   )
 }
@@ -1147,11 +1162,13 @@ function MasukDialog({
   onOpenChange,
   bahan,
   onSaved,
+  edit,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   bahan: Bahan[]
   onSaved: () => Promise<void>
+  edit?: Mutasi | null
 }) {
   const [bahanId, setBahanId] = useState('')
   const [tanggal, setTanggal] = useState(todayStr())
@@ -1162,7 +1179,20 @@ function MasukDialog({
   const [keterangan, setKeterangan] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const selected = bahan.find((b) => b.id === bahanId)
+  // Bahan nonaktif tidak ada di daftar `bahan` — tambahkan dari snapshot mutasi agar tetap tampil saat edit.
+  const bahanList = useMemo(() => {
+    if (!edit || bahan.some((b) => b.id === edit.bahanId)) return bahan
+    const fallback = {
+      id: edit.bahanId,
+      kode: edit.bahan?.kode || '',
+      nama: edit.namaBahan || edit.bahan?.nama || '(bahan nonaktif)',
+      satuan: edit.satuanBahan || edit.bahan?.satuan || 'pcs',
+      stok: 0,
+    } as Bahan
+    return [...bahan, fallback]
+  }, [bahan, edit])
+
+  const selected = bahanList.find((b) => b.id === bahanId)
   const total = (Number(qty) || 0) * (Number(hargaBeli) || 0)
   const canSave = !!bahanId && Number(qty) > 0 && !saving
 
@@ -1176,26 +1206,58 @@ function MasukDialog({
     setKeterangan('')
   }
 
+  // Prefill saat edit transaksi; reset saat mode tambah.
+  useEffect(() => {
+    if (!open) return
+    if (edit) {
+      setBahanId(edit.bahanId)
+      setTanggal(edit.tanggal || todayStr())
+      setQty(String(edit.qty ?? ''))
+      setHargaBeli(String(edit.hargaBeli ?? 0))
+      setPemasok(edit.pemasok || '')
+      setNomorNota(edit.nomorNota || '')
+      setKeterangan(edit.keterangan || '')
+    } else {
+      reset()
+    }
+  }, [open, edit])
+
   const submit = async () => {
     if (!canSave) return
     setSaving(true)
     try {
-      await apiFetch('/api/stock-bahan/mutasi', {
-        method: 'POST',
-        body: JSON.stringify({
-          bahanId,
-          jenis: 'masuk',
-          qty: Number(qty),
-          tanggal,
-          hargaBeli: Number(hargaBeli) || 0,
-          pemasok,
-          nomorNota,
-          keterangan,
-        }),
-      })
-      toast.success(`Stok masuk tercatat (${selected?.nama} +${fmtNum(Number(qty))} ${selected?.satuan})`)
+      if (edit) {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'PUT',
+          body: JSON.stringify({
+            id: edit.id,
+            bahanId,
+            qty: Number(qty),
+            tanggal,
+            hargaBeli: Number(hargaBeli) || 0,
+            pemasok,
+            nomorNota,
+            keterangan,
+          }),
+        })
+        toast.success(`Transaksi ${edit.nomor} diperbarui (stok ikut disesuaikan)`)
+      } else {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'POST',
+          body: JSON.stringify({
+            bahanId,
+            jenis: 'masuk',
+            qty: Number(qty),
+            tanggal,
+            hargaBeli: Number(hargaBeli) || 0,
+            pemasok,
+            nomorNota,
+            keterangan,
+          }),
+        })
+        toast.success(`Stok masuk tercatat (${selected?.nama} +${fmtNum(Number(qty))} ${selected?.satuan})`)
+      }
       onOpenChange(false)
-      reset()
       await onSaved()
     } catch (e: any) {
       toast.error(e?.message || 'Gagal menyimpan stok masuk')
@@ -1208,8 +1270,12 @@ function MasukDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Stok Masuk</DialogTitle>
-          <DialogDescription>Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.</DialogDescription>
+          <DialogTitle>{edit ? 'Edit Stok Masuk' : 'Stok Masuk'}</DialogTitle>
+          <DialogDescription>
+            {edit
+              ? `Nomor ${edit.nomor} — ubah data transaksi. Stok bahan disesuaikan otomatis.`
+              : 'Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.'}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -1219,11 +1285,11 @@ function MasukDialog({
           <div className="space-y-1.5">
             <Label>Bahan</Label>
             <BahanPicker
-              bahan={bahan}
+              bahan={bahanList}
               value={bahanId}
               onChange={(id) => {
                 setBahanId(id)
-                const b = bahan.find((x) => x.id === id)
+                const b = bahanList.find((x) => x.id === id)
                 if (b?.pemasok && !pemasok) setPemasok(b.pemasok)
               }}
             />
@@ -1265,7 +1331,7 @@ function MasukDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
           <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!canSave} onClick={submit}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
-            Catat Stok Masuk
+            {edit ? 'Simpan Perubahan' : 'Catat Stok Masuk'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1294,6 +1360,7 @@ function KeluarTab({
   const [dari, setDari] = useState('')
   const [sampai, setSampai] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editRow, setEditRow] = useState<Mutasi | null>(null)
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -1343,7 +1410,12 @@ function KeluarTab({
             </TableHeader>
             <TableBody>
               {rows.map((m) => (
-                <TableRow key={m.id}>
+                <TableRow
+                  key={m.id}
+                  className="cursor-pointer"
+                  title="Klik untuk edit transaksi"
+                  onClick={() => setEditRow(m)}
+                >
                   <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
                   <TableCell className="text-sm font-medium">{m.namaBahan || m.bahan?.nama || '-'}</TableCell>
@@ -1359,7 +1431,16 @@ function KeluarTab({
         </div>
       )}
 
-      <KeluarDialog open={dialogOpen} onOpenChange={setDialogOpen} bahan={bahan} onSaved={onSaved} />
+      <KeluarDialog
+        open={dialogOpen || !!editRow}
+        onOpenChange={(o) => {
+          setDialogOpen(o)
+          if (!o) setEditRow(null)
+        }}
+        bahan={bahan}
+        onSaved={onSaved}
+        edit={editRow}
+      />
     </div>
   )
 }
@@ -1369,11 +1450,13 @@ function KeluarDialog({
   onOpenChange,
   bahan,
   onSaved,
+  edit,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   bahan: Bahan[]
   onSaved: () => Promise<void>
+  edit?: Mutasi | null
 }) {
   const [bahanId, setBahanId] = useState('')
   const [tanggal, setTanggal] = useState(todayStr())
@@ -1382,7 +1465,20 @@ function KeluarDialog({
   const [keterangan, setKeterangan] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const selected = bahan.find((b) => b.id === bahanId)
+  // Bahan nonaktif tidak ada di daftar `bahan` — tambahkan dari snapshot mutasi agar tetap tampil saat edit.
+  const bahanList = useMemo(() => {
+    if (!edit || bahan.some((b) => b.id === edit.bahanId)) return bahan
+    const fallback = {
+      id: edit.bahanId,
+      kode: edit.bahan?.kode || '',
+      nama: edit.namaBahan || edit.bahan?.nama || '(bahan nonaktif)',
+      satuan: edit.satuanBahan || edit.bahan?.satuan || 'pcs',
+      stok: 0,
+    } as Bahan
+    return [...bahan, fallback]
+  }, [bahan, edit])
+
+  const selected = bahanList.find((b) => b.id === bahanId)
   const canSave = !!bahanId && Number(qty) > 0 && !saving
 
   const reset = () => {
@@ -1393,17 +1489,38 @@ function KeluarDialog({
     setKeterangan('')
   }
 
+  // Prefill saat edit transaksi; reset saat mode tambah.
+  useEffect(() => {
+    if (!open) return
+    if (edit) {
+      setBahanId(edit.bahanId)
+      setTanggal(edit.tanggal || todayStr())
+      setQty(String(edit.qty ?? ''))
+      setTujuan(edit.tujuan || 'Lainnya')
+      setKeterangan(edit.keterangan || '')
+    } else {
+      reset()
+    }
+  }, [open, edit])
+
   const submit = async () => {
     if (!canSave) return
     setSaving(true)
     try {
-      await apiFetch('/api/stock-bahan/mutasi', {
-        method: 'POST',
-        body: JSON.stringify({ bahanId, jenis: 'keluar', qty: Number(qty), tanggal, tujuan, keterangan }),
-      })
-      toast.success(`Stok keluar tercatat (${selected?.nama} −${fmtNum(Number(qty))} ${selected?.satuan})`)
+      if (edit) {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'PUT',
+          body: JSON.stringify({ id: edit.id, bahanId, qty: Number(qty), tanggal, tujuan, keterangan }),
+        })
+        toast.success(`Transaksi ${edit.nomor} diperbarui (stok ikut disesuaikan)`)
+      } else {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'POST',
+          body: JSON.stringify({ bahanId, jenis: 'keluar', qty: Number(qty), tanggal, tujuan, keterangan }),
+        })
+        toast.success(`Stok keluar tercatat (${selected?.nama} −${fmtNum(Number(qty))} ${selected?.satuan})`)
+      }
       onOpenChange(false)
-      reset()
       await onSaved()
     } catch (e: any) {
       toast.error(e?.message || 'Gagal menyimpan stok keluar')
@@ -1416,8 +1533,12 @@ function KeluarDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Stok Keluar</DialogTitle>
-          <DialogDescription>Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.</DialogDescription>
+          <DialogTitle>{edit ? 'Edit Stok Keluar' : 'Stok Keluar'}</DialogTitle>
+          <DialogDescription>
+            {edit
+              ? `Nomor ${edit.nomor} — ubah data transaksi. Stok bahan disesuaikan otomatis.`
+              : 'Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.'}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -1426,7 +1547,7 @@ function KeluarDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Bahan</Label>
-            <BahanPicker bahan={bahan} value={bahanId} onChange={setBahanId} />
+            <BahanPicker bahan={bahanList} value={bahanId} onChange={setBahanId} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -1460,7 +1581,7 @@ function KeluarDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
           <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!canSave} onClick={submit}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageMinus className="h-4 w-4" />}
-            Catat Stok Keluar
+            {edit ? 'Simpan Perubahan' : 'Catat Stok Keluar'}
           </Button>
         </DialogFooter>
       </DialogContent>
