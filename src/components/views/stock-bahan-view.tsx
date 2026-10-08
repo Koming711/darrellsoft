@@ -2052,6 +2052,13 @@ function BahanFormDialog({
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [bahan])
 
+  // Ketik manual selalu bisa; daftar dropdown menyeleksi mengikuti teks yang diketik.
+  const filteredSuppliers = useMemo(() => {
+    const q = pemasok.trim().toLowerCase()
+    if (!q) return supplierOptions
+    return supplierOptions.filter((s) => s.toLowerCase().includes(q))
+  }, [supplierOptions, pemasok])
+
   useEffect(() => {
     if (!open) return
     if (editing) {
@@ -2138,7 +2145,7 @@ function BahanFormDialog({
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Bahan' : 'Tambah Bahan'}</DialogTitle>
           <DialogDescription>
-            {editing ? `Kode ${editing.kode} — ubah data bahan.` : 'Kode bahan dibuat otomatis (BHN-001, …).'}
+            {editing ? `Kode ${editing.kode} — ubah data bahan.` : 'Kode bahan : (otomatis)'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -2198,9 +2205,13 @@ function BahanFormDialog({
                     value={pemasok}
                     onChange={(e) => {
                       setPemasok(e.target.value)
-                      setSupplierListOpen(false)
+                      setSupplierListOpen(true)
                     }}
-                    placeholder="mis. Toko Kertas Maju Jaya"
+                    onFocus={() => setSupplierListOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setSupplierListOpen(false)
+                    }}
+                    placeholder="Ketik manual atau pilih dari daftar…"
                   />
                   <Button
                     type="button"
@@ -2216,9 +2227,11 @@ function BahanFormDialog({
                 {supplierListOpen && (
                   <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-md">
                     {supplierOptions.length === 0 ? (
-                      <div className="p-3 text-xs text-muted-foreground">Belum ada supplier tersimpan.</div>
+                      <div className="p-3 text-xs text-muted-foreground">Belum ada supplier tersimpan — ketik manual saja.</div>
+                    ) : filteredSuppliers.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Tidak ada yang cocok — ketik manual lanjut.</div>
                     ) : (
-                      supplierOptions.map((s) => (
+                      filteredSuppliers.map((s) => (
                         <button
                           key={s}
                           type="button"
