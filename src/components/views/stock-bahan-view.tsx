@@ -2059,6 +2059,16 @@ function BahanFormDialog({
     return supplierOptions.filter((s) => s.toLowerCase().includes(q))
   }, [supplierOptions, pemasok])
 
+  // Prediksi kode bahan berikutnya — logika sama persis dgn POST /api/stock-bahan (BHN-001, …).
+  const nextKode = useMemo(() => {
+    let maxNum = 0
+    for (const b of bahan) {
+      const m = /^BHN-(\d+)$/i.exec(b.kode || '')
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10))
+    }
+    return `BHN-${String(maxNum + 1).padStart(3, '0')}`
+  }, [bahan])
+
   useEffect(() => {
     if (!open) return
     if (editing) {
@@ -2145,7 +2155,7 @@ function BahanFormDialog({
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Bahan' : 'Tambah Bahan'}</DialogTitle>
           <DialogDescription>
-            {editing ? `Kode ${editing.kode} — ubah data bahan.` : 'Kode bahan : (otomatis)'}
+            {editing ? `Kode ${editing.kode} — ubah data bahan.` : `Kode bahan : ${nextKode} (otomatis)`}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
