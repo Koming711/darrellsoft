@@ -12882,3 +12882,17 @@ Work Log:
 
 Stage Summary:
 - Nama Supplier di popup Tambah Bahan kini jelas bisa diketik manual: mengetik menyeleksi daftar (type-to-search) dan ketikan selalu dipertahankan. Teks kode otomatis diganti "Kode bahan : (otomatis)".
+---
+Task ID: bahan-popup-tampilkan-kode
+Agent: Main (Z.ai Code)
+Task: "tampilkan kode bahan nya di popup tambah bahan."
+
+Work Log:
+- Sebelumnya deskripsi popup Tambah hanya "Kode bahan : (otomatis)" — kode asli baru terbit saat simpan (server auto-generate).
+- Implementasi: prediksi kode berikutnya di klien dgn logika IDENTIK dgn POST /api/stock-bahan (regex /^BHN-(\d+)$/i atas seluruh bahan milik user → max+1, padStart 3) via useMemo nextKode pada BahanFormDialog (prop bahan = data mentah penuh dari GET /api/stock-bahan, sama spt sumber perhitungan server). Deskripsi mode Tambah kini: "Kode bahan : BHN-XXX (otomatis)". Mode Edit tetap "Kode {kode} — ubah data bahan.".
+- Verifikasi E2E (agent-browser, admin, :3000, mobile 390×844): API return kode existing BHN-007..009 → popup tampil "Kode bahan : BHN-010 (otomatis)" ✓ (bukti .verify/bahan-popup-kode-bhn010.png). Lint bersih, 0 error console.
+- Catatan: karena kode benar-benar diterbitkan server saat menyimpan, label "(otomatis)" dipertahankan; bila ada 2 orang menambah bahan bersamaan, nomor final ditentukan server.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Popup Tambah Bahan kini menampilkan kode bahan berikutnya (mis. "Kode bahan : BHN-010 (otomatis)") — dihitung dgn logika yang sama seperti generator kode server.
