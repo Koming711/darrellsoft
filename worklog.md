@@ -12966,3 +12966,24 @@ Work Log:
 
 Stage Summary:
 - Landing page kini bertema EMERALD/TEAL senada dengan isi & tampilan aplikasi (tombol/aksi hijau emerald), bukan biru generic lagi; mode gelap, mobile, dan seluruh section (hero, fitur, kenapa langganan, harga, testimoni, FAQ, footer) konsisten. Logo DS & permukaan gelap dipertahankan.
+---
+Task ID: landing-tema-akuntansi
+Agent: Main (Z.ai Code)
+Task: "ganti isi halaman landing dengan tema aplikasi akuntansi, buat invoice, surat jalan, purchase order, stock bahan baku, piutang dagang, hutang dagang, hitung harga kertas, laba rugi, laporan penjualan dengan system POS."
+
+Work Log:
+- LANDING_T (id+en, 261 key per bahasa, paritas terverifikasi) ditulis ulang dengan tema APLIKASI AKUNTANSI untuk bisnis cetak; 9 fitur yang diminta user kini menjadi inti konten: Buat Invoice, Surat Jalan, Purchase Order, Stock Bahan Baku, Piutang Dagang, Hutang Dagang, Hitung Harga Kertas, Laporan Laba Rugi, Laporan Penjualan POS.
+- Hero: badge "Aplikasi Akuntansi untuk Bisnis Cetak"; H1 "Buat Invoice, Surat Jalan, Purchase Order & Stock Bahan, Laba Rugi — Semua Satu Aplikasi!"; hero_p2 menyebut seluruh 9 fitur; badge mengambang diganti "Invoice Jadi < 1 Menit" & "Laba Rugi Real-Time".
+- Hero visual DIGANTI: grid 9 foto produk (dus kue, hampers, dll) → MOCK INVOICE HTML/CSS (header INVOICE #INV-2026-0042 + badge LUNAS, 3 baris item dengan qty & harga, TOTAL Rp 6.750.000 gradient emerald, 3 chips Surat Jalan/Stock Bahan/Piutang) + foto mesin cetak dipertahankan di bawahnya. Key hero_label_* (9) dihapus, key hero_inv_* (16) ditambah.
+- Section Fitur: dari 3 kartu → 9 FeatureCard (grid 3×3) dengan ikon FileText/Truck/ShoppingCart/Boxes/HandCoins/CreditCard/Calculator/ChartColumn/Store; heading "9 Fitur Akuntansi dalam Satu Aplikasi".
+- Urgency: "…Berantakan Karena Pencatatan Manual!" + 3 kartu Pencatatan Rapi (ClipboardList) / Arus Kas Terpantau (Wallet) / Laporan Instan (Zap).
+- Cara Kerja: langkah diganti "Buat Invoice & Surat Jalan" (FileText) → "Transaksi Tercatat Otomatis" (Boxes) → "Lihat Laporan & Untung" (ChartColumn).
+- Harga: list fitur 3 paket diganti fitur akuntansi (invoice & surat jalan, hitung harga kertas, stock bahan, piutang & hutang, laba rugi, laporan POS).
+- Testimoni/CTA/FAQ/footer disesuaikan ke narasi akuntansi (piutang lupa tertagih, laba rugi real-time, dsb); footer_brand_desc sekarang menyebut semua 9 fitur.
+- Import ikon: +Boxes ClipboardList CreditCard FileText HandCoins Receipt ShoppingCart Store Truck Wallet; −DollarSign MousePointerClick Package. Stats bar icon transaksi → Receipt.
+- Edit via python splice line-precise (anchor assertion per baris) + verifikasi: parity key id/en 261=261, 0 referensi tersisa ke key/ikon lama, eslint page.tsx BERSIH.
+- Verifikasi E2E (agent-browser, :3000): desktop 1440×900 light (hero mock invoice + badge, .verify/akuntansi-hero-desktop2.png; fitur 9 kartu akuntansi-harga dst; cara kerja; harga dgn fitur akuntansi), dark mode hero (akuntansi-darkmode.png), EN toggle (H1 & 9 fitur & footer berbahasa Inggris, akuntansi-english.png), mobile 390×844 (hero, fitur 1 kolom, footer — akuntansi-mobile-*.png). Interaksi: CTA "Lihat Paket Harga" scroll ke #harga (top=0) ✓, FAQ accordion buka/tutup ✓, popup install PWA ditutup utk screenshot. Console dibersihkan → 0 error console/page (hanya Fast Refresh log). prisma:error "duplicate column kategoriId" di dev.log = error LAMA line 15/64 (saat startup sebelumnya), tidak terkait.
+- TIDAK deploy (user belum menyebut "deploy" di pesan ini) — produksi masih konten lama sampai deploy berikutnya.
+
+Stage Summary:
+- Landing page kini bertema APLIKASI AKUNTANSI bisnis cetak: hero + mock invoice interaktif-look, 9 kartu fitur (invoice, surat jalan, PO, stock bahan baku, piutang, hutang, hitung harga kertas, laba rugi, laporan POS), cara kerja 1-2-3 akuntansi, paket harga & testimoni & FAQ & footer senada. Bilingual id/en lengkap, light+dark, mobile rapi, 0 error.
