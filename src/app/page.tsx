@@ -142,11 +142,11 @@ function EyebrowBadge({ label, dark = false }: { label: string; dark?: boolean }
     <span
       className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] border mb-5 ${
         dark
-          ? 'bg-white/5 text-sky-300 border-white/10'
-          : 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900/60'
+          ? 'bg-white/5 text-teal-300 border-white/10'
+          : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900/60'
       }`}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-600 to-sky-400" aria-hidden="true" />
+      <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400" aria-hidden="true" />
       {label}
     </span>
   );
@@ -168,10 +168,10 @@ function FeatureCard({
 }) {
   return (
     <FadeIn delay={delay}>
-      <Card className="card-tap group relative overflow-hidden rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-xl hover:shadow-blue-600/10 hover:-translate-y-1 transition-all duration-300 h-full">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-600 to-sky-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <Card className="card-tap group relative overflow-hidden rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-xl hover:shadow-emerald-600/10 hover:-translate-y-1 transition-all duration-300 h-full">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-600 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <CardContent className="relative p-6 pt-8 flex flex-col items-center text-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-300">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-110 transition-transform duration-300">
             <Icon className="w-6 h-6 text-white" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">{title}</h3>
@@ -220,12 +220,12 @@ function PricingCard({
       }
     >
       {popular && (
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-sky-400/20 blur-3xl rounded-full pointer-events-none" />
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-32 bg-teal-400/20 blur-3xl rounded-full pointer-events-none" />
       )}
       <CardHeader className="relative p-5 pb-3 text-center">
         {popular && (
           <div className="flex justify-center mb-3">
-            <Badge className="bg-gradient-to-r from-blue-600 to-sky-400 text-white border-0 px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider shadow-lg shadow-blue-600/40">
+            <Badge className="bg-gradient-to-r from-emerald-600 to-teal-400 text-white border-0 px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider shadow-lg shadow-emerald-600/40">
               <Star className="w-3 h-3 mr-1 fill-white" /> {popularLabel}
             </Badge>
           </div>
@@ -233,7 +233,7 @@ function PricingCard({
         <h3 className="text-base font-bold text-white tracking-tight">{title}</h3>
         <p className="text-gray-400 text-xs mt-0.5">{description}{descriptionExtra && <><br />{descriptionExtra}</>}</p>
         <div className="mt-3">
-          <span className="text-2xl md:text-[32px] font-extrabold tracking-tight bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">
+          <span className="text-2xl md:text-[32px] font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">
             {price}
           </span>
           <p className="text-gray-400 text-xs mt-1">{period}</p>
@@ -244,7 +244,7 @@ function PricingCard({
         <ul className="space-y-2.5">
           {features.map((feature, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
-              <CircleCheck className="w-3.5 h-3.5 text-green-400 shrink-0 mt-0.5" />
+              <CircleCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
               <span>{feature}</span>
             </li>
           ))}
@@ -254,7 +254,7 @@ function PricingCard({
         <Button
           className={`ripple-btn w-full py-2.5 text-xs font-semibold rounded-xl transition-all duration-300 ${
             popular
-              ? 'cta-glow bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-500 hover:to-sky-300 text-white shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-500/40'
+              ? 'cta-glow bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-500 hover:to-teal-300 text-white shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-500/40'
               : 'bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-white/20'
           }`}
         >
@@ -272,7 +272,7 @@ function PricingCard({
         className="h-full"
       >
         {popular ? (
-          <div className="relative h-full rounded-2xl p-[1.5px] bg-gradient-to-b from-blue-500 via-sky-400 to-blue-600 shadow-2xl shadow-blue-600/30">
+          <div className="relative h-full rounded-2xl p-[1.5px] bg-gradient-to-b from-emerald-500 via-teal-400 to-emerald-600 shadow-2xl shadow-emerald-600/30">
             {card}
           </div>
         ) : (
@@ -301,7 +301,7 @@ function TestimonialCard({
 }) {
   return (
     <FadeIn delay={delay}>
-      <Card className="card-tap group rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-xl hover:shadow-blue-600/10 hover:-translate-y-1 transition-all duration-300 h-full overflow-hidden">
+      <Card className="card-tap group rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-xl hover:shadow-emerald-600/10 hover:-translate-y-1 transition-all duration-300 h-full overflow-hidden">
         <CardContent className="p-6 flex flex-col gap-4">
           <div className="flex items-start justify-between">
             <div className="flex gap-1">
@@ -309,12 +309,12 @@ function TestimonialCard({
                 <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
               ))}
             </div>
-            <Quote className="w-8 h-8 text-blue-100 dark:text-blue-900/50 fill-blue-100 dark:fill-blue-900/50 -mt-1" />
+            <Quote className="w-8 h-8 text-emerald-100 dark:text-emerald-900/50 fill-emerald-100 dark:fill-emerald-900/50 -mt-1" />
           </div>
           <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">&ldquo;{quote}&rdquo;</p>
           <div className="flex items-center gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-white/5">
-            <div className="p-[2px] rounded-full bg-gradient-to-br from-blue-600 to-sky-400 shrink-0 shadow-sm shadow-blue-600/30">
-              <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-sm font-extrabold bg-gradient-to-br from-blue-600 to-sky-400 bg-clip-text text-transparent">
+            <div className="p-[2px] rounded-full bg-gradient-to-br from-emerald-600 to-teal-400 shrink-0 shadow-sm shadow-emerald-600/30">
+              <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-sm font-extrabold bg-gradient-to-br from-emerald-600 to-teal-400 bg-clip-text text-transparent">
                 {avatar}
               </div>
             </div>
@@ -920,7 +920,7 @@ export default function Home() {
   // On mobile it renders inline right after the H1; on desktop it's in the right column.
   const heroImagePanel = (
     <div className="relative">
-      <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-blue-600/10 border border-blue-50 dark:border-white/10 p-3 sm:p-4 -ml-3 sm:-ml-4 md:ml-0 bg-gradient-to-br from-blue-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+      <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-emerald-600/10 border border-emerald-50 dark:border-white/10 p-3 sm:p-4 -ml-3 sm:-ml-4 md:ml-0 bg-gradient-to-br from-emerald-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
         <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
           {[
             { src: '/dus-kue.jpg', label: t.hero_label_dus_kue },
@@ -971,12 +971,12 @@ export default function Home() {
             className="absolute top-2 right-2 md:top-3 md:right-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
           >
             <div className="flex items-center gap-1.5 md:gap-2">
-              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center">
-                <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-blue-700 dark:text-blue-400" />
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center">
+                <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">{t.hero_badge_hitung_cepat}</p>
-                <p className="text-xs md:text-base font-bold text-blue-700 dark:text-blue-400 leading-tight">{t.hero_badge_hitung_cepat_val}</p>
+                <p className="text-xs md:text-base font-bold text-emerald-700 dark:text-emerald-400 leading-tight">{t.hero_badge_hitung_cepat_val}</p>
               </div>
             </div>
           </motion.div>
@@ -987,12 +987,12 @@ export default function Home() {
             className="absolute bottom-2 left-2 md:bottom-3 md:left-3 bg-white/95 dark:bg-black/80 backdrop-blur-sm rounded-lg shadow-xl p-1.5 md:p-2.5 border border-white/40 dark:border-white/10 z-10"
           >
             <div className="flex items-center gap-1.5 md:gap-2">
-              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                <TrendingUp className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-green-600 dark:text-green-400" />
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">{t.hero_badge_profit_naik}</p>
-                <p className="text-xs md:text-base font-bold text-green-600 dark:text-green-400 leading-tight">{t.hero_badge_profit_naik_val}</p>
+                <p className="text-xs md:text-base font-bold text-emerald-600 dark:text-emerald-400 leading-tight">{t.hero_badge_profit_naik_val}</p>
               </div>
             </div>
           </motion.div>
@@ -1002,7 +1002,7 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 via-white to-white dark:from-black dark:via-black dark:to-black">
       {/* Overlay: sembunyikan landing saat masih memeriksa sesi (mencegah
           landing berkedip sebelum redirect otomatis ke Beranda) */}
       {authChecking && (
@@ -1018,22 +1018,22 @@ export default function Home() {
           {/* Logo */}
           <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
             <img src="/logo-ds.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-xl object-contain shadow-none shrink-0" />
-            <span className="hidden min-[360px]:inline text-[15px] md:text-[22px] tracking-tight text-blue-900 dark:text-blue-300 whitespace-nowrap" style={{ fontWeight: 900 }}>
+            <span className="hidden min-[360px]:inline text-[15px] md:text-[22px] tracking-tight text-emerald-900 dark:text-emerald-300 whitespace-nowrap" style={{ fontWeight: 900 }}>
               darrellsoft.com
             </span>
           </div>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_fitur}</a>
-            <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_kenapa}</a>
-            <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_harga}</a>
-            <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-400 transition-colors">{t.nav_testimoni}</a>
+            <a href="#fitur" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors">{t.nav_fitur}</a>
+            <a href="#kenapa-langganan" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors">{t.nav_kenapa}</a>
+            <a href="#harga" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors">{t.nav_harga}</a>
+            <a href="#testimoni" className="nav-link text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors">{t.nav_testimoni}</a>
             <div className="flex items-center gap-0.5">
               <LanguageToggle />
               <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
             </div>
-            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300">
+            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-700 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all duration-300">
               Login <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
@@ -1044,7 +1044,7 @@ export default function Home() {
               <LanguageToggle compact />
               <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
             </div>
-            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-700 hover:to-sky-500 text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 transition-all duration-300 text-xs px-2.5 py-1.5 h-8 whitespace-nowrap">
+            <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-700 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all duration-300 text-xs px-2.5 py-1.5 h-8 whitespace-nowrap">
               Login <ChevronRight className="ml-1 w-3 h-3" />
             </Button>
           </div>
@@ -1056,16 +1056,16 @@ export default function Home() {
       <section className="relative w-full overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-20 left-1/4 w-72 h-72 bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-100/20 dark:bg-blue-900/10 rounded-full blur-3xl" />
+          <div className="absolute top-20 left-1/4 w-72 h-72 bg-emerald-100/30 dark:bg-emerald-900/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-emerald-100/20 dark:bg-emerald-900/10 rounded-full blur-3xl" />
         </div>
 
         <div className="max-w-6xl mx-auto px-4 md:px-8 pt-4 md:pt-6 pb-16 md:pb-24">
           {/* Section title — centered, close to the Darrellsoft navbar banner */}
           <FadeIn direction="down" delay={0.05}>
             <div className="flex justify-center mb-5 md:mb-8 px-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 dark:border-blue-900/60 bg-white/80 dark:bg-white/5 backdrop-blur px-4 py-2 text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-300 shadow-sm shadow-blue-600/5 whitespace-nowrap">
-                <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-600 to-sky-400 animate-pulse" aria-hidden="true" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 dark:border-emerald-900/60 bg-white/80 dark:bg-white/5 backdrop-blur px-4 py-2 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 shadow-sm shadow-emerald-600/5 whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-400 animate-pulse" aria-hidden="true" />
                 {t.hero_badge}
               </span>
             </div>
@@ -1077,18 +1077,18 @@ export default function Home() {
               <div className="flex flex-col gap-6">
                 <h1 className="text-gray-900 dark:text-gray-100 leading-[1.1] tracking-tight text-[33.67px] md:text-[43.67px] lg:text-[55.67px]" style={{ fontWeight: 900 }}>
                   <span style={{ fontWeight: 900 }}>{t.hero_h1_1}{' '}</span>
-                  <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_2}</span>{' '}
-                  <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_3}</span>
+                  <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_2}</span>{' '}
+                  <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_3}</span>
                 </h1>
 
                 {/* Mobile: show images right after H1 (below the "Hampers" text) */}
                 <div className="md:hidden">{heroImagePanel}</div>
 
                 <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 leading-relaxed">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{t.hero_p1_bold1}</span><br />
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{t.hero_p1_bold1}</span><br />
                   <span className="font-bold text-gray-900 dark:text-gray-100">{t.hero_p1_bold2}</span>.<br />
                   {t.hero_p1_text}
-                  {' '}<span className="font-semibold text-blue-700 dark:text-blue-400">{t.hero_p1_emphasis}</span>{' '}{t.hero_p1_end}
+                  {' '}<span className="font-semibold text-emerald-700 dark:text-emerald-400">{t.hero_p1_emphasis}</span>{' '}{t.hero_p1_end}
                 </p>
 
                 <p className="text-base text-gray-500 dark:text-gray-500 leading-relaxed">
@@ -1098,19 +1098,19 @@ export default function Home() {
                 {/* Trust signals */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
                   <div className="flex items-center gap-2.5 rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50/80 dark:bg-white/5 px-3.5 py-2.5">
-                    <Shield className="w-4.5 h-4.5 text-green-500 shrink-0" />
+                    <Shield className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t.hero_trust1}</span>
                   </div>
                   <div className="flex items-center gap-2.5 rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50/80 dark:bg-white/5 px-3.5 py-2.5">
-                    <CircleCheck className="w-4.5 h-4.5 text-green-500 shrink-0" />
+                    <CircleCheck className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t.hero_trust2}</span>
                   </div>
                   <div className="flex items-center gap-2.5 rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50/80 dark:bg-white/5 px-3.5 py-2.5">
-                    <CircleCheck className="w-4.5 h-4.5 text-green-500 shrink-0" />
+                    <CircleCheck className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t.hero_trust3}</span>
                   </div>
                   <div className="flex items-center gap-2.5 rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50/80 dark:bg-white/5 px-3.5 py-2.5">
-                    <CircleCheck className="w-4.5 h-4.5 text-green-500 shrink-0" />
+                    <CircleCheck className="w-4.5 h-4.5 text-emerald-500 shrink-0" />
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t.hero_trust4}</span>
                   </div>
                 </div>
@@ -1119,14 +1119,14 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row gap-2.5 mt-6">
                   <Button
                     onClick={() => goToLogin('register')}
-                    className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-500 hover:to-sky-300 hover:brightness-105 active:scale-[0.98] text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-sm font-bold py-3 px-5"
+                    className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-500 hover:to-teal-300 hover:brightness-105 active:scale-[0.98] text-white shadow-lg shadow-emerald-600/25 hover:shadow-xl hover:shadow-emerald-600/30 transition-all duration-300 text-sm font-bold py-3 px-5"
                   >
                     {t.hero_cta1} <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => document.getElementById('harga')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="ripple-btn rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 hover:border-blue-500 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/30 font-bold transition-all duration-300 active:scale-[0.98] text-sm py-3 px-5"
+                    className="ripple-btn rounded-xl border-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 dark:border-emerald-400 dark:text-emerald-400 dark:hover:bg-emerald-900/30 font-bold transition-all duration-300 active:scale-[0.98] text-sm py-3 px-5"
                   >
                     {t.hero_cta2}
                   </Button>
@@ -1144,7 +1144,7 @@ export default function Home() {
       </section>
 
       {/* =================== STATS BAR =================== */}
-      <section className="w-full bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 py-10 md:py-14 border-y border-white/5">
+      <section className="w-full bg-gradient-to-r from-slate-950 via-emerald-950 to-slate-950 py-10 md:py-14 border-y border-white/5">
         <div className="max-w-6xl mx-auto px-4 md:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-0 md:divide-x md:divide-white/10">
             {[
@@ -1155,8 +1155,8 @@ export default function Home() {
             ].map((stat, i) => (
               <FadeIn key={i} delay={i * 0.1}>
                 <div className="flex flex-col items-center text-center md:px-6">
-                  <stat.icon className="w-5 h-5 text-sky-400/80 mb-2.5" />
-                  <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">
+                  <stat.icon className="w-5 h-5 text-teal-400/80 mb-2.5" />
+                  <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">
                     <CountUp end={stat.value} suffix={stat.suffix} />
                   </p>
                   <p className="text-[10px] md:text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mt-1.5">{stat.label}</p>
@@ -1168,23 +1168,23 @@ export default function Home() {
       </section>
 
       {/* =================== AJAKAN BERLANGGANAN (URGENCY) =================== */}
-      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
+      <section className="w-full py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900">
         {/* Background decoration */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -right-24 w-[28rem] h-[28rem] bg-sky-500/10 rounded-full blur-3xl" />
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-600/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -right-24 w-[28rem] h-[28rem] bg-teal-500/10 rounded-full blur-3xl" />
           <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
         </div>
 
         <div className="max-w-4xl mx-auto px-4 md:px-8 relative z-10">
           <FadeIn>
             <div className="text-center mb-10 md:mb-14">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 backdrop-blur px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300 mb-5">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 backdrop-blur px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-300 mb-5">
                 <Zap className="w-3.5 h-3.5" /> {t.urg_badge}
               </span>
               <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-[1.12] tracking-tight">
                 {t.urg_h2_1}<br className="hidden md:block" />{' '}
-                <span className="bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{t.urg_h2_2}</span>{' '}
+                <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.urg_h2_2}</span>{' '}
                 {t.urg_h2_3}
               </h2>
               <p className="text-slate-300/90 mt-5 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
@@ -1197,7 +1197,7 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-4 md:gap-5 mb-10">
             <FadeIn delay={0}>
               <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/[0.09] hover:-translate-y-1 transition-all duration-300 h-full">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-950/50 mb-4">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-950/50 mb-4">
                   <CircleCheck className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">{t.urg_card1_title}</h3>
@@ -1206,7 +1206,7 @@ export default function Home() {
             </FadeIn>
             <FadeIn delay={0.15}>
               <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/[0.09] hover:-translate-y-1 transition-all duration-300 h-full">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-950/50 mb-4">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-950/50 mb-4">
                   <TrendingUp className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">{t.urg_card2_title}</h3>
@@ -1215,7 +1215,7 @@ export default function Home() {
             </FadeIn>
             <FadeIn delay={0.3}>
               <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/[0.09] hover:-translate-y-1 transition-all duration-300 h-full">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-950/50 mb-4">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-950/50 mb-4">
                   <Zap className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">{t.urg_card3_title}</h3>
@@ -1229,7 +1229,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3.5 justify-center mb-5">
               <Button
                 onClick={() => goToLogin('register')}
-                className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 hover:from-blue-400 hover:to-sky-300 hover:brightness-105 active:scale-[0.98] text-white text-base font-bold py-6 px-8 shadow-xl shadow-blue-600/30 ring-1 ring-white/20"
+                className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 hover:brightness-105 active:scale-[0.98] text-white text-base font-bold py-6 px-8 shadow-xl shadow-emerald-600/30 ring-1 ring-white/20"
               >
                 {t.urg_cta1} <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
@@ -1238,7 +1238,7 @@ export default function Home() {
                 className="ripple-btn rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-6 px-8 transition-all duration-300 active:scale-[0.98]"
               >
                 <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
-                  <MessageCircle className="mr-2 w-5 h-5 text-sky-300" /> {t.urg_cta2}
+                  <MessageCircle className="mr-2 w-5 h-5 text-teal-300" /> {t.urg_cta2}
                 </a>
               </Button>
             </div>
@@ -1254,7 +1254,7 @@ export default function Home() {
             <EyebrowBadge label={t.fitur_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
               {t.fitur_h2_1}{' '}
-              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.fitur_h2_2}</span>
+              <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.fitur_h2_2}</span>
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-gray-600 dark:text-gray-400">
               {t.fitur_p}
@@ -1285,12 +1285,12 @@ export default function Home() {
       </Section>
 
       {/* =================== KEUNGGULAN =================== */}
-      <Section id="keunggulan" className="bg-gradient-to-b from-blue-50/30 to-white dark:from-black dark:to-black">
+      <Section id="keunggulan" className="bg-gradient-to-b from-emerald-50/30 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
             <EyebrowBadge label={t.keunggulan_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.keunggulan_h2_1}</span> {t.keunggulan_h2_2}
+              <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.keunggulan_h2_1}</span> {t.keunggulan_h2_2}
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-gray-600 dark:text-gray-400">
               {t.keunggulan_p}
@@ -1332,8 +1332,8 @@ export default function Home() {
             },
           ].map((item, i) => (
             <FadeIn key={i} delay={i * 0.1}>
-              <div className="advantage-tap group flex items-start gap-4 p-5 rounded-2xl bg-white dark:bg-[#111] shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-white/10 hover:border-blue-100 dark:hover:border-white/20 cursor-pointer">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <div className="advantage-tap group flex items-start gap-4 p-5 rounded-2xl bg-white dark:bg-[#111] shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-white/10 hover:border-emerald-100 dark:hover:border-white/20 cursor-pointer">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 shrink-0 group-hover:scale-110 transition-transform duration-300">
                   <item.icon className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -1347,13 +1347,13 @@ export default function Home() {
       </Section>
 
       {/* =================== KENAPA HARUS LANGGANAN =================== */}
-      <Section id="kenapa-langganan" className="bg-gradient-to-b from-sky-50/50 to-white dark:from-black dark:to-black">
+      <Section id="kenapa-langganan" className="bg-gradient-to-b from-teal-50/50 to-white dark:from-black dark:to-black">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
             <EyebrowBadge label={t.kenapa_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-              {t.kenapa_h2_1} <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.kenapa_h2_2}</span>{' '}
-              {t.kenapa_h2_3} <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.kenapa_h2_4}</span>
+              {t.kenapa_h2_1} <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.kenapa_h2_2}</span>{' '}
+              {t.kenapa_h2_3} <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.kenapa_h2_4}</span>
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-gray-600 dark:text-gray-400">
               {t.kenapa_p}
@@ -1365,20 +1365,20 @@ export default function Home() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 mb-12">
           {/* Card 1: Data Aman di Cloud */}
           <FadeIn delay={0}>
-            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-blue-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-50 to-transparent dark:from-blue-900/20 dark:to-transparent rounded-bl-full" />
+            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-50 to-transparent dark:from-emerald-900/20 dark:to-transparent rounded-bl-full" />
               <div className="relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
                   <Cloud className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t.cloud1_title}</h3>
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span>{t.cloud1_b1_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud1_b1_bold}</strong> {t.cloud1_b1_post}</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span>{t.cloud1_b2_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud1_b2_bold}</strong></span>
                   </li>
                 </ul>
@@ -1388,20 +1388,20 @@ export default function Home() {
 
           {/* Card 2: Bisa Buka di Mana Saja */}
           <FadeIn delay={0.1}>
-            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-blue-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-50 to-transparent dark:from-blue-900/20 dark:to-transparent rounded-bl-full" />
+            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-50 to-transparent dark:from-emerald-900/20 dark:to-transparent rounded-bl-full" />
               <div className="relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
                   <Globe className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t.cloud2_title}</h3>
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span>{t.cloud2_b1_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud2_b1_bold}</strong></span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span>{t.cloud2_b2_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud2_b2_bold}</strong> {t.cloud2_b2_post}</span>
                   </li>
                 </ul>
@@ -1411,21 +1411,21 @@ export default function Home() {
 
           {/* Card 3: HP & Laptop, Semua Bisa */}
           <FadeIn delay={0.2}>
-            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-blue-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-50 to-transparent dark:from-blue-900/20 dark:to-transparent rounded-bl-full" />
+            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-50 to-transparent dark:from-emerald-900/20 dark:to-transparent rounded-bl-full" />
               <div className="relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
                   <Smartphone className="w-5 h-5 text-white mr-0.5" />
                   <Monitor className="w-4 h-4 text-white ml-0.5" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t.cloud3_title}</h3>
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span><strong className="text-gray-900 dark:text-gray-100">{t.cloud3_b1_bold}</strong> {t.cloud3_b1_post}</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span>{t.cloud3_b2_pre} <strong className="text-gray-900 dark:text-gray-100">{t.cloud3_b2_bold}</strong> {t.cloud3_b2_post}</span>
                   </li>
                 </ul>
@@ -1435,20 +1435,20 @@ export default function Home() {
 
           {/* Card 4: Kenapa Bayar? */}
           <FadeIn delay={0.3}>
-            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-blue-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-50 to-transparent dark:from-blue-900/20 dark:to-transparent rounded-bl-full" />
+            <div className="group bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-white/10 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-100 dark:hover:border-white/20 transition-all duration-300 h-full relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-50 to-transparent dark:from-emerald-900/20 dark:to-transparent rounded-bl-full" />
               <div className="relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-110 transition-transform duration-300 mb-4">
                   <Banknote className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">{t.cloud4_title}</h3>
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                    <span>{t.cloud4_b1_pre} <strong className="text-blue-600 dark:text-blue-400">{t.cloud4_b1_bold}</strong> {t.cloud4_b1_post}</span>
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>{t.cloud4_b1_pre} <strong className="text-emerald-600 dark:text-emerald-400">{t.cloud4_b1_bold}</strong> {t.cloud4_b1_post}</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                    <CircleCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span><strong className="text-gray-900 dark:text-gray-100">{t.cloud4_b2_bold}</strong> {t.cloud4_b2_post}</span>
                   </li>
                 </ul>
@@ -1459,23 +1459,23 @@ export default function Home() {
 
         {/* ---- Bagian 2: Kesempatan Emas Banner (panel CTA glass dot-pattern) ---- */}
         <FadeIn delay={0.3}>
-          <div className="relative rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 border border-white/10 shadow-2xl shadow-blue-950/40 overflow-hidden">
+          <div className="relative rounded-3xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 border border-white/10 shadow-2xl shadow-emerald-950/40 overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-              <div className="absolute -top-24 right-10 w-72 h-72 bg-sky-500/15 rounded-full blur-3xl" />
-              <div className="absolute -bottom-32 left-1/4 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl" />
+              <div className="absolute -top-24 right-10 w-72 h-72 bg-teal-500/15 rounded-full blur-3xl" />
+              <div className="absolute -bottom-32 left-1/4 w-80 h-80 bg-emerald-600/15 rounded-full blur-3xl" />
               <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
             </div>
 
             <div className="relative z-10 p-6 md:p-10">
               <div className="text-center mb-8">
                 <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur rounded-full px-4 py-1.5 border border-white/15 mb-4">
-                  <Crown className="w-4 h-4 text-sky-300" />
-                  <span className="text-sky-200 font-bold text-[11px] uppercase tracking-[0.18em]">{t.golden_badge}</span>
+                  <Crown className="w-4 h-4 text-teal-300" />
+                  <span className="text-teal-200 font-bold text-[11px] uppercase tracking-[0.18em]">{t.golden_badge}</span>
                 </div>
                 <h3 className="text-2xl md:text-4xl font-extrabold text-white leading-tight tracking-tight">
                   {t.golden_h3_1}<br />
-                  <span className="bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{t.golden_h3_2}</span>
+                  <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_h3_2}</span>
                 </h3>
               </div>
 
@@ -1484,23 +1484,23 @@ export default function Home() {
                 <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/10">
                   <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                      <ChartColumn className="w-4 h-4 text-sky-300" />
+                      <ChartColumn className="w-4 h-4 text-teal-300" />
                     </div>
                     <h4 className="font-bold text-white text-base">{t.golden_fakta}</h4>
                   </div>
                   <p className="text-slate-300/90 text-sm leading-relaxed">
-                    {t.golden_fakta_p_pre} <strong className="text-sky-300">{t.golden_fakta_p_bold1}</strong>{t.golden_fakta_p_mid} <strong className="text-white">{t.golden_fakta_p_bold2}</strong>{t.golden_fakta_p_post}
+                    {t.golden_fakta_p_pre} <strong className="text-teal-300">{t.golden_fakta_p_bold1}</strong>{t.golden_fakta_p_mid} <strong className="text-white">{t.golden_fakta_p_bold2}</strong>{t.golden_fakta_p_post}
                   </p>
                 </div>
                 <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-5 border border-white/10">
                   <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                      <Lightbulb className="w-4 h-4 text-sky-300" />
+                      <Lightbulb className="w-4 h-4 text-teal-300" />
                     </div>
                     <h4 className="font-bold text-white text-base">{t.golden_artinya}</h4>
                   </div>
                   <p className="text-slate-300/90 text-sm leading-relaxed">
-                    {t.golden_artinya_p_pre} <strong className="text-sky-300">{t.golden_artinya_p_bold1}</strong>{t.golden_artinya_p_mid} <strong className="text-white">{t.golden_artinya_p_bold2}</strong>
+                    {t.golden_artinya_p_pre} <strong className="text-teal-300">{t.golden_artinya_p_bold1}</strong>{t.golden_artinya_p_mid} <strong className="text-white">{t.golden_artinya_p_bold2}</strong>
                   </p>
                 </div>
               </div>
@@ -1509,7 +1509,7 @@ export default function Home() {
               <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-5 mb-8">
                 <FadeIn delay={0.4}>
                   <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 text-center min-w-[170px]">
-                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{t.golden_stat1_val}</p>
+                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_stat1_val}</p>
                     <p className="text-slate-400 text-sm mt-1">{t.golden_stat1_label}</p>
                   </div>
                 </FadeIn>
@@ -1517,7 +1517,7 @@ export default function Home() {
                 <ArrowDown className="md:hidden w-5 h-5 text-white/30" />
                 <FadeIn delay={0.5}>
                   <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 text-center min-w-[170px]">
-                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{t.golden_stat2_val}</p>
+                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_stat2_val}</p>
                     <p className="text-slate-400 text-sm mt-1">{t.golden_stat2_label}</p>
                   </div>
                 </FadeIn>
@@ -1525,7 +1525,7 @@ export default function Home() {
                 <ArrowDown className="md:hidden w-5 h-5 text-white/30" />
                 <FadeIn delay={0.6}>
                   <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 text-center min-w-[170px]">
-                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{t.golden_stat3_val}</p>
+                    <p className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.golden_stat3_val}</p>
                     <p className="text-slate-400 text-sm mt-1">{t.golden_stat3_label}</p>
                   </div>
                 </FadeIn>
@@ -1535,7 +1535,7 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-3.5 justify-center mb-7">
                 <Button
                   onClick={() => goToLogin('register')}
-                  className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-blue-500 to-sky-400 hover:from-blue-400 hover:to-sky-300 hover:brightness-105 active:scale-[0.98] text-white text-base font-bold py-6 px-8 shadow-xl shadow-blue-600/30 ring-1 ring-white/20"
+                  className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 hover:brightness-105 active:scale-[0.98] text-white text-base font-bold py-6 px-8 shadow-xl shadow-emerald-600/30 ring-1 ring-white/20"
                 >
                   <Crown className="mr-2 w-5 h-5" /> {t.golden_cta1} <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
@@ -1544,7 +1544,7 @@ export default function Home() {
                   className="ripple-btn rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-6 px-8 transition-all duration-300 active:scale-[0.98]"
                 >
                   <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer">
-                    <MessageCircle className="mr-2 w-5 h-5 text-sky-300" /> {t.golden_cta2}
+                    <MessageCircle className="mr-2 w-5 h-5 text-teal-300" /> {t.golden_cta2}
                   </a>
                 </Button>
               </div>
@@ -1554,7 +1554,7 @@ export default function Home() {
                 <blockquote className="text-slate-200/90 text-base md:text-lg italic font-medium max-w-2xl mx-auto leading-relaxed">
                   &ldquo;{t.golden_quote}&rdquo;
                 </blockquote>
-                <div className="w-16 h-1 bg-gradient-to-r from-sky-400 to-blue-500 mx-auto mt-4 rounded-full" />
+                <div className="w-16 h-1 bg-gradient-to-r from-teal-400 to-emerald-500 mx-auto mt-4 rounded-full" />
               </div>
             </div>
           </div>
@@ -1568,13 +1568,13 @@ export default function Home() {
             <EyebrowBadge label={t.cara_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
               {t.cara_h2_1}{' '}
-              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">1-2-3</span>
+              <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">1-2-3</span>
             </h2>
           </div>
         </FadeIn>
 
         <div className="relative grid md:grid-cols-3 gap-10 md:gap-8 max-w-4xl mx-auto">
-          <div aria-hidden="true" className="hidden md:block absolute top-6 left-[16.666%] right-[16.666%] h-0.5 bg-gradient-to-r from-blue-600/15 via-sky-400/50 to-blue-600/15" />
+          <div aria-hidden="true" className="hidden md:block absolute top-6 left-[16.666%] right-[16.666%] h-0.5 bg-gradient-to-r from-emerald-600/15 via-teal-400/50 to-emerald-600/15" />
           {[
             { step: '1', title: t.cara_step1_title, desc: t.cara_step1_desc, icon: Package },
             { step: '2', title: t.cara_step2_title, desc: t.cara_step2_desc, icon: Calculator },
@@ -1582,12 +1582,12 @@ export default function Home() {
           ].map((item, i) => (
             <FadeIn key={i} delay={i * 0.15}>
               <div className="relative flex flex-col items-center text-center">
-                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white text-lg font-extrabold shadow-lg shadow-blue-600/30 ring-8 ring-white dark:ring-black">
+                <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center text-white text-lg font-extrabold shadow-lg shadow-emerald-600/30 ring-8 ring-white dark:ring-black">
                   {item.step}
                 </div>
-                <div className="mt-5 w-full rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-lg hover:shadow-blue-600/10 hover:-translate-y-1 transition-all duration-300 p-6">
-                  <div className="w-10 h-10 mx-auto rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center mb-3">
-                    <item.icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="mt-5 w-full rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-lg hover:shadow-emerald-600/10 hover:-translate-y-1 transition-all duration-300 p-6">
+                  <div className="w-10 h-10 mx-auto rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center mb-3">
+                    <item.icon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">{item.title}</h3>
                   <p className="text-gray-600 dark:text-gray-400 text-sm mt-2 leading-relaxed">{item.desc}</p>
@@ -1599,13 +1599,13 @@ export default function Home() {
       </Section>
 
       {/* =================== HARGA =================== */}
-      <Section id="harga" className="bg-gradient-to-b from-slate-950 via-blue-950/50 to-slate-950">
+      <Section id="harga" className="bg-gradient-to-b from-slate-950 via-emerald-950/50 to-slate-950">
         <FadeIn>
           <div className="text-center mb-12 md:mb-16">
             <EyebrowBadge label={t.harga_badge} dark />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-white">
               {t.harga_h2_1}{' '}
-              <span className="bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">{t.harga_h2_2}</span>{' '}
+              <span className="bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">{t.harga_h2_2}</span>{' '}
               {t.harga_h2_3}
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-slate-400">
@@ -1678,9 +1678,9 @@ export default function Home() {
         {/* Guarantee */}
         <FadeIn delay={0.3}>
           <div className="mt-10 text-center">
-            <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-6 py-3">
-              <Shield className="w-5 h-5 text-green-400" />
-              <span className="text-sm font-semibold text-green-400">
+            <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-6 py-3">
+              <Shield className="w-5 h-5 text-emerald-400" />
+              <span className="text-sm font-semibold text-emerald-400">
                 {t.price_guarantee}
               </span>
             </div>
@@ -1695,7 +1695,7 @@ export default function Home() {
             <EyebrowBadge label={t.testimoni_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
               {t.testimoni_h2_1}{' '}
-              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.testimoni_h2_2}</span> {t.testimoni_h2_3}
+              <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.testimoni_h2_2}</span> {t.testimoni_h2_3}
             </h2>
           </div>
         </FadeIn>
@@ -1735,11 +1735,11 @@ export default function Home() {
       {/* =================== CTA FINAL (STRONG) =================== */}
       <section className="w-full py-16 md:py-24 px-4 md:px-8 bg-white dark:bg-black">
         <FadeIn>
-          <div className="relative max-w-5xl mx-auto rounded-3xl bg-gradient-to-br from-blue-600 via-blue-700 to-sky-600 shadow-2xl shadow-blue-600/25 overflow-hidden">
+          <div className="relative max-w-5xl mx-auto rounded-3xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-600 shadow-2xl shadow-emerald-600/25 overflow-hidden">
             {/* Background decoration */}
             <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-              <div className="absolute -top-24 -right-16 w-80 h-80 bg-sky-300/20 rounded-full blur-3xl" />
-              <div className="absolute -bottom-28 -left-20 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl" />
+              <div className="absolute -top-24 -right-16 w-80 h-80 bg-teal-300/20 rounded-full blur-3xl" />
+              <div className="absolute -bottom-28 -left-20 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl" />
               <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
             </div>
 
@@ -1747,9 +1747,9 @@ export default function Home() {
               <div className="text-center mb-8">
                 <h2 className="text-3xl md:text-5xl font-extrabold text-white leading-tight tracking-tight">
                   {t.cta_h2_1}<br className="hidden md:block" />{' '}
-                  {t.cta_h2_2} <span className="underline decoration-sky-300/60 decoration-4 underline-offset-8">{t.cta_h2_3}</span> {t.cta_h2_4}
+                  {t.cta_h2_2} <span className="underline decoration-teal-300/60 decoration-4 underline-offset-8">{t.cta_h2_3}</span> {t.cta_h2_4}
                 </h2>
-                <p className="text-blue-50/90 mt-5 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                <p className="text-emerald-50/90 mt-5 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
                   {t.cta_p}
                 </p>
               </div>
@@ -1758,15 +1758,15 @@ export default function Home() {
               <FadeIn delay={0.15}>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
                   <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20 justify-center">
-                    <CircleCheck className="w-4.5 h-4.5 text-green-400 shrink-0" />
+                    <CircleCheck className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
                     <span className="text-white font-semibold text-sm">{t.cta_trust1}</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20 justify-center">
-                    <CircleCheck className="w-4.5 h-4.5 text-green-400 shrink-0" />
+                    <CircleCheck className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
                     <span className="text-white font-semibold text-sm">{t.cta_trust2}</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/20 justify-center">
-                    <CircleCheck className="w-4.5 h-4.5 text-green-400 shrink-0" />
+                    <CircleCheck className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
                     <span className="text-white font-semibold text-sm">{t.cta_trust3}</span>
                   </div>
                 </div>
@@ -1780,26 +1780,26 @@ export default function Home() {
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 text-base leading-relaxed mb-5">
                     {t.cta_card_p_pre} <span className="font-bold text-gray-900 dark:text-gray-100">{t.cta_card_p_bold1}</span>{t.cta_card_p_mid}
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{t.cta_card_p_bold2}</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{t.cta_card_p_bold2}</span>
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2.5 justify-center mb-2">
                     <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 justify-center">
-                      <CircleCheck className="w-4 h-4 text-green-500 shrink-0" />
+                      <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span><strong className="font-semibold">{t.cta_card_check1_bold}</strong>{t.cta_card_check1_post}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 justify-center">
-                      <CircleCheck className="w-4 h-4 text-green-500 shrink-0" />
+                      <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span><strong className="font-semibold">{t.cta_card_check2_bold}</strong>{t.cta_card_check2_post}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 justify-center">
-                      <CircleCheck className="w-4 h-4 text-green-500 shrink-0" />
+                      <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                       <span><strong className="font-semibold">{t.cta_card_check3_bold}</strong>{t.cta_card_check3_post}</span>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3.5 justify-center mt-6">
                     <Button
                       onClick={() => goToLogin('register')}
-                      className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-blue-600 to-sky-400 hover:from-blue-500 hover:to-sky-300 hover:brightness-105 active:scale-[0.98] text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all duration-300 text-base font-bold py-6 px-8"
+                      className="ripple-btn cta-glow rounded-xl bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-500 hover:to-teal-300 hover:brightness-105 active:scale-[0.98] text-white shadow-lg shadow-emerald-600/25 hover:shadow-xl hover:shadow-emerald-600/30 transition-all duration-300 text-base font-bold py-6 px-8"
                     >
                       {t.cta_card_btn1} <ArrowRight className="ml-2 w-5 h-5" />
                     </Button>
@@ -1813,7 +1813,7 @@ export default function Home() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-5 flex items-center justify-center gap-1.5">
-                    <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
+                    <BadgeCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                     {t.cta_card_p_bottom}
                   </p>
                 </div>
@@ -1821,7 +1821,7 @@ export default function Home() {
 
               {/* Reassure */}
               <FadeIn delay={0.45}>
-                <p className="text-center text-blue-50/80 text-sm mt-6 max-w-xl mx-auto leading-relaxed">
+                <p className="text-center text-emerald-50/80 text-sm mt-6 max-w-xl mx-auto leading-relaxed">
                   {t.cta_reassure}
                 </p>
               </FadeIn>
@@ -1837,7 +1837,7 @@ export default function Home() {
             <EyebrowBadge label={t.faq_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
               {t.faq_h2_1}{' '}
-              <span className="bg-gradient-to-r from-blue-600 to-sky-400 bg-clip-text text-transparent">{t.faq_h2_2}</span>
+              <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.faq_h2_2}</span>
             </h2>
           </div>
         </FadeIn>
@@ -1866,8 +1866,8 @@ export default function Home() {
               <FadeIn key={i} delay={i * 0.1}>
                 <div className={`rounded-2xl bg-white dark:bg-[#111] transition-all duration-300 ${
                   open
-                    ? 'border border-blue-100 dark:border-blue-900/60 shadow-lg shadow-blue-600/5'
-                    : 'border border-gray-100 dark:border-white/10 shadow-sm hover:border-blue-100 dark:hover:border-white/20'
+                    ? 'border border-emerald-100 dark:border-emerald-900/60 shadow-lg shadow-emerald-600/5'
+                    : 'border border-gray-100 dark:border-white/10 shadow-sm hover:border-emerald-100 dark:hover:border-white/20'
                 }`}>
                   <button
                     type="button"
@@ -1877,8 +1877,8 @@ export default function Home() {
                     className="w-full flex items-center justify-between gap-4 px-5 md:px-6 py-4 min-h-[56px] text-left cursor-pointer"
                   >
                     <span className="text-sm md:text-base font-bold text-gray-900 dark:text-gray-100">{faq.q}</span>
-                    <span className={`w-8 h-8 shrink-0 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>
-                      <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className={`w-8 h-8 shrink-0 rounded-full bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     </span>
                   </button>
                   {open && (
@@ -1902,7 +1902,7 @@ export default function Home() {
               <div className="flex items-center gap-2.5 mb-4">
                 <img src="/logo-ds.png" alt="Logo" className="w-9 h-9 rounded-xl object-contain shadow-none" />
                 <span className="text-xl font-extrabold tracking-tight">
-                  <span className="bg-gradient-to-r from-blue-400 to-sky-300 bg-clip-text text-transparent">Darrell</span>
+                  <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">Darrell</span>
                   <span className="text-white"> Soft</span>
                 </span>
               </div>
@@ -1915,10 +1915,10 @@ export default function Home() {
             <div>
               <h4 className="text-white font-bold text-xs uppercase tracking-[0.18em] mb-4">{t.footer_nav_title}</h4>
               <div className="flex flex-col gap-2.5">
-                <a href="#fitur" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_fitur}</a>
-                <a href="#harga" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_harga}</a>
-                <a href="#testimoni" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_testimoni}</a>
-                <a href="#faq" className="text-gray-400 hover:text-sky-300 text-sm transition-colors">{t.footer_nav_faq}</a>
+                <a href="#fitur" className="text-gray-400 hover:text-teal-300 text-sm transition-colors">{t.footer_nav_fitur}</a>
+                <a href="#harga" className="text-gray-400 hover:text-teal-300 text-sm transition-colors">{t.footer_nav_harga}</a>
+                <a href="#testimoni" className="text-gray-400 hover:text-teal-300 text-sm transition-colors">{t.footer_nav_testimoni}</a>
+                <a href="#faq" className="text-gray-400 hover:text-teal-300 text-sm transition-colors">{t.footer_nav_faq}</a>
               </div>
             </div>
 
@@ -1926,7 +1926,7 @@ export default function Home() {
             <div>
               <h4 className="text-white font-bold text-xs uppercase tracking-[0.18em] mb-4">{t.footer_contact_title}</h4>
               <div className="flex flex-col gap-2.5">
-                <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer" className="text-gray-400 hover:text-sky-300 text-sm transition-colors flex items-center gap-2">
+                <a href={WHATSAPP_URL} target="whatsapp" rel="noopener noreferrer" className="text-gray-400 hover:text-teal-300 text-sm transition-colors flex items-center gap-2">
                   <MessageCircle className="w-4 h-4" /> WhatsApp
                 </a>
               </div>
@@ -1943,12 +1943,12 @@ export default function Home() {
               </p>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <Shield className="w-3 h-3 text-green-500" />
+                  <Shield className="w-3 h-3 text-emerald-500" />
                   <span>{t.footer_encrypted}</span>
                 </div>
                 <span className="text-gray-700">•</span>
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <Shield className="w-3 h-3 text-green-500" />
+                  <Shield className="w-3 h-3 text-emerald-500" />
                   <span>{t.footer_secure}</span>
                 </div>
               </div>
