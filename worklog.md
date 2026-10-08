@@ -13041,3 +13041,15 @@ Work Log:
 
 Stage Summary:
 - Section Fitur Unggulan kini lebih rapat (header, gap antar & dalam kartu), tombol kanan atas menjadi "Login Masuk" (EN: "Login"). Bilingual, light+dark, mobile rapi, 0 error.
+---
+Task ID: deploy-prod-fitur-login
+Agent: Main (Z.ai Code)
+Task: Deploy produksi www.darrellsoft.com (user: "fix. deploy")
+
+Work Log:
+- bunx vercel --prod --token <token> --yes dari /home/z/my-project → sukses: "Aliased https://www.darrellsoft.com, Ready in 3m" (deployment darrellsoft-c4rlkjj3c).
+- Verifikasi live https://www.darrellsoft.com (agent-browser 1440×900): nav "Login Masuk" ✓, heading "12 Fitur Akuntansi dalam Satu Aplikasi" ✓, grid #fitur gap 20px (rapat) ✓, 12 kartu ✓, console --clear + errors → 0 error. Popup changelog "Versi Baru v148" tampil sekali (fitur normal aplikasi).
+- Bukti: .verify/prod-fitur-loginmasuk.png.
+
+Stage Summary:
+- Produksi www.darrellsoft.com kini menjalankan SEMUA fitur terbaru sekaligus: 12 fitur akuntansi (termasuk Hitung Potong Kertas/Cetakan/Finishing), banner Kesempatan Emas gold, section Harga burgundy, section Fitur Unggulan rapat, tombol "Login Masuk" — sebelumnya produksi masih konten lama (sejak v150).
