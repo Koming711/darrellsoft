@@ -12715,3 +12715,25 @@ Work Log:
 
 Stage Summary:
 - Sekarang SETIAP riwayat Hitung Cetakan yang dibuat lewat tombol "Hitung Cetakan Lengkap" PASTI ter-link dgn riwayat Potong Kertas sumbernya (kolom No. PK selalu terisi): edit-mode (a), data sama (b), maupun hitungan baru (c — riwayat PK disimpan dulu secara blocking utk dapatkan id). Deterministic continue mencegah duplikasi di kedua sisi (PK & HC).
+---
+Task ID: hc-editor-pk-reference
+Agent: Main (Z.ai Code)
+Task: "di halaman hitung cetakan tambahkan No. potong kertas untuk referensi data informasi cetakan dan harga bahan. fix"
+
+Work Log:
+- Editor Hitung Cetakan kini menampilkan kotak "No. Potong Kertas (Referensi)" di bawah "No. Hitung Cetakan" (kolom 1, teal mono + tooltip "Referensi data informasi cetakan & harga bahan dari halaman Potong Kertas") — menunjukkan riwayat Potong Kertas sumber data form.
+- hitung-cetakan/page.tsx:
+  - State pkNomorDisplay + helper resolvePkNomor(pkId) → GET /api/riwayat-potong-kertas?id= (API sudah mendukung; ambil nomorUrut; gagal → kosong, tidak mengganggu).
+  - 3 jalur pengisian: (a) URL param pkRiwayatId dari "Hitung Cetakan Lengkap" → resolvePkNomor; (b) applyLinkedRiwayatCetakan (lanjut riwayat HC terhubung deterministik) → pakai r.pkNomor dari API list, fallback resolve; (c) handleRestoreRiwayat (Edit dari tab Riwayat/preview) → sama; tanpa pkRiwayatId → kotak disembunyikan.
+  - Kotak tersembunyi bila tidak terhubung; Reset & hapus-riwayat-yang-diedit membersihkan tampilan.
+- changelog.ts: +1 item entri v148 (Editor menampilkan No. Potong Kertas sbg referensi).
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Flow A: potong kertas baru TESTREFPK → "Hitung Cetakan Lengkap" → PK/10/26/0025 tersimpan dulu → editor: "NO. HITUNG CETAKAN: HC/10/26/0021" + "NO. POTONG KERTAS (REFERENSI): PK/10/26/0025" ✓ (bukti .verify/pkref-editor-flowA.png).
+  - Flow C: tab Riwayat → baris HC/10/26/0012 → Preview → Edit → editor HC/10/26/0012 + kotak "PK/10/26/0016" ✓.
+  - Tanpa link: HC/10/26/0017 (tanpa pkId) → Edit → kotak TIDAK tampil ✓.
+  - Reset: kotak tampil → klik Reset → kotak hilang ✓.
+  - Cleanup: record test PK/10/26/0025 dihapus (HC tidak tersimpan — 6 riil utuh). 0 error console/dev.log; lint 0 masalah.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Editor halaman Hitung Cetakan kini menampilkan No. Potong Kertas (Referensi) — asal data informasi cetakan & harga bahan — untuk semua jalur masuk (Hitung Cetakan Lengkap / lanjut riwayat terhubung / Edit riwayat), tersembunyi bila tidak ada hubungan, terbersihkan saat Reset.
