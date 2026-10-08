@@ -28,9 +28,11 @@ import {
   Printer,
   Quote,
   Receipt,
+  Scissors,
   Shield,
   ShoppingCart,
   Smartphone,
+  Sparkles,
   Star,
   Store,
   TrendingUp,
@@ -416,7 +418,7 @@ const LANDING_T = {
     urg_p_below: 'Cuma 3 detik daftar, langsung bisa pakai.',
 
     fitur_badge: 'Fitur Unggulan',
-    fitur_h2_1: '9 Fitur Akuntansi',
+    fitur_h2_1: '12 Fitur Akuntansi',
     fitur_h2_2: 'dalam Satu Aplikasi',
     fitur_p: 'Dari buat invoice sampai laporan keuangan — semua yang dibutuhkan bisnis percetakan, dalam satu aplikasi yang powerful.',
     fitur_card1_title: 'Buat Invoice',
@@ -437,6 +439,12 @@ const LANDING_T = {
     fitur_card8_desc: 'Laba rugi dihitung otomatis dari semua transaksi. Tahu untung atau rugi tanpa rekap manual di Excel.',
     fitur_card9_title: 'Laporan Penjualan POS',
     fitur_card9_desc: 'Terhubung dengan kasir POS. Penjualan harian, produk terlaris, dan omzet langsung tersaji lengkap.',
+    fitur_card10_title: 'Hitung Potong Kertas',
+    fitur_card10_desc: 'Masukkan ukuran potong & jumlah pesanan, kebutuhan lembar kertas beserta biayanya langsung jadi. Nggak ada lagi salah hitung potongan.',
+    fitur_card11_title: 'Hitung Cetakan',
+    fitur_card11_desc: 'Hitung biaya cetak tiap pesanan dengan rincian lengkap. Oplah besar atau kecil, harga per pcs langsung keluar otomatis.',
+    fitur_card12_title: 'Hitung Finishing',
+    fitur_card12_desc: 'Laminasi, jilid, lipat, dan lainnya tinggal pilih. Biaya finishing tiap pesanan terhitung otomatis, rapi dan akurat.',
 
     keunggulan_badge: 'Kenapa Darrell Soft?',
     keunggulan_h2_1: 'Cepat, Akurat,',
@@ -701,7 +709,7 @@ const LANDING_T = {
     urg_p_below: 'Just 3 seconds to register, ready to use right away.',
 
     fitur_badge: 'Key Features',
-    fitur_h2_1: '9 Accounting Features',
+    fitur_h2_1: '12 Accounting Features',
     fitur_h2_2: 'in One App',
     fitur_p: 'From creating invoices to financial reports — everything a printing business needs, in one powerful app.',
     fitur_card1_title: 'Create Invoices',
@@ -722,6 +730,12 @@ const LANDING_T = {
     fitur_card8_desc: "Profit & loss is calculated automatically from all transactions. Know if you're profitable without manual spreadsheets.",
     fitur_card9_title: 'POS Sales Report',
     fitur_card9_desc: 'Connected with the POS cashier. Daily sales, best-selling products, and revenue presented completely.',
+    fitur_card10_title: 'Paper Cutting Calculation',
+    fitur_card10_desc: "Enter the cut size & order quantity, sheet requirements and costs appear instantly. No more miscalculated cuts.",
+    fitur_card11_title: 'Printing Cost Calculation',
+    fitur_card11_desc: 'Calculate printing costs per order with complete details. Large or small quantities, the price per piece comes out automatically.',
+    fitur_card12_title: 'Finishing Calculation',
+    fitur_card12_desc: 'Lamination, binding, folding and more — just pick what you need. Finishing costs per order are calculated automatically and accurately.',
 
     keunggulan_badge: 'Why Darrell Soft?',
     keunggulan_h2_1: 'Fast, Accurate,',
@@ -1387,6 +1401,24 @@ export default function Home() {
             icon={Store}
             title={t.fitur_card9_title}
             desc={t.fitur_card9_desc}
+            delay={0.3}
+          />
+          <FeatureCard
+            icon={Scissors}
+            title={t.fitur_card10_title}
+            desc={t.fitur_card10_desc}
+            delay={0}
+          />
+          <FeatureCard
+            icon={Printer}
+            title={t.fitur_card11_title}
+            desc={t.fitur_card11_desc}
+            delay={0.15}
+          />
+          <FeatureCard
+            icon={Sparkles}
+            title={t.fitur_card12_title}
+            desc={t.fitur_card12_desc}
             delay={0.3}
           />
         </div>

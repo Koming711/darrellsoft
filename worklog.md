@@ -12987,3 +12987,22 @@ Work Log:
 
 Stage Summary:
 - Landing page kini bertema APLIKASI AKUNTANSI bisnis cetak: hero + mock invoice interaktif-look, 9 kartu fitur (invoice, surat jalan, PO, stock bahan baku, piutang, hutang, hitung harga kertas, laba rugi, laporan POS), cara kerja 1-2-3 akuntansi, paket harga & testimoni & FAQ & footer senada. Bilingual id/en lengkap, light+dark, mobile rapi, 0 error.
+---
+Task ID: landing-12-fitur
+Agent: Main (Z.ai Code)
+Task: "9 fitur akuntansi diganti jadi 12 fitur akuntansi. tambahkan hitung potong kertas, hitung cetakan dan hitung finishing."
+
+Work Log:
+- src/app/page.tsx: LANDING_T id + fitur_h2_1 "9 Fitur Akuntansi" → "12 Fitur Akuntansi"; en + "9 Accounting Features" → "12 Accounting Features".
+- 3 fitur baru ditambahkan setelah Laporan Penjualan POS (id+en, key fitur_card10/11/12_title+desc):
+  - card10 Hitung Potong Kertas / Paper Cutting Calculation (desc: ukuran potong & jumlah pesanan → kebutuhan lembar kertas + biaya, anti salah hitung potongan).
+  - card11 Hitung Cetakan / Printing Cost Calculation (desc: biaya cetak per pesanan rincian lengkap, harga per pcs otomatis).
+  - card12 Hitung Finishing / Finishing Calculation (desc: laminasi/jilid/lipat pilih → biaya finishing otomatis, rapi, akurat).
+- JSX section #fitur: +3 FeatureCard (grid tetap 3 kolom, kini 3×4=12 kartu) dengan ikon Scissors (card10), Printer (card11 — sudah diimport), Sparkles (card12); delay pattern 0/0.15/0.3 dipertahankan.
+- Import lucide-react: +Scissors, +Sparkles (urutan alfabetis).
+- eslint src/app/page.tsx BERSIH (0 error/warning).
+- Verifikasi E2E (agent-browser, :3000): desktop 1440×900 — H2 "12 Fitur Akuntansi dalam Satu Aplikasi", 12 kartu terhitung, 3 kartu baru tampil dgn ikon benar (.verify/fitur12-desktop.png, fitur12-desktop-new3.png); mobile 390×844 — 1 kolom rapi (fitur12-mobile.png, fitur12-mobile-new3.png); EN toggle via dropdown bahasa — "12 Accounting Features in One App", last3 = Paper Cutting/Printing Cost/Finishing Calculation (fitur12-en-new3.png); dark mode — kartu gelap kontras baik (fitur12-dark.png); bahasa dikembalikan ke ID; reload fresh → title benar, 12 kartu, console --clear + errors → 0 error console/page.
+- TIDAK deploy (user belum menyebut "deploy" di pesan ini) — produksi masih 9 fitur sampai deploy berikutnya.
+
+Stage Summary:
+- Landing page kini menampilkan 12 FITUR AKUNTANSI (3×4 grid): 9 fitur lama + Hitung Potong Kertas, Hitung Cetakan, Hitung Finishing — bilingual id/en, light+dark, mobile rapi, 0 error. Semua fitur tersedia nyata di aplikasi (/potong-kertas, /hitung-cetakan, /hitung-finishing).
