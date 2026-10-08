@@ -2021,6 +2021,7 @@ function BahanFormDialog({
   const [stokMin, setStokMin] = useState('0')
   const [hargaSatuan, setHargaSatuan] = useState('0')
   const [pemasok, setPemasok] = useState('')
+  const [supplierListOpen, setSupplierListOpen] = useState(false)
   const [lokasi, setLokasi] = useState('')
   const [poRef, setPoRef] = useState('')
   const [catatan, setCatatan] = useState('')
@@ -2037,6 +2038,16 @@ function BahanFormDialog({
     for (const b of bahan) {
       const k = (b.kategori || '').trim()
       if (k) set.add(k)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [bahan])
+
+  // Opsi dropdown Nama Supplier — dikumpulkan dari bahan yang sudah ada (unik + urut abjad).
+  const supplierOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const b of bahan) {
+      const s = (b.pemasok || '').trim()
+      if (s) set.add(s)
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [bahan])
@@ -2070,6 +2081,7 @@ function BahanFormDialog({
       setAktif(true)
     }
     setPoListOpen(false)
+    setSupplierListOpen(false)
   }, [open, editing])
 
   const loadPoList = async () => {
@@ -2179,8 +2191,53 @@ function BahanFormDialog({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Supplier</Label>
-              <Input value={pemasok} onChange={(e) => setPemasok(e.target.value)} placeholder="mis. Toko Kertas Maju Jaya" />
+              <Label>Nama Supplier</Label>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <Input
+                    value={pemasok}
+                    onChange={(e) => {
+                      setPemasok(e.target.value)
+                      setSupplierListOpen(false)
+                    }}
+                    placeholder="mis. Toko Kertas Maju Jaya"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSupplierListOpen((v) => !v)}
+                    aria-label="Tampilkan daftar supplier"
+                    aria-expanded={supplierListOpen}
+                  >
+                    <ChevronsUpDown className="h-4 w-4" />
+                  </Button>
+                </div>
+                {supplierListOpen && (
+                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-md">
+                    {supplierOptions.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Belum ada supplier tersimpan.</div>
+                    ) : (
+                      supplierOptions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted',
+                            pemasok === s && 'bg-muted font-medium'
+                          )}
+                          onClick={() => {
+                            setPemasok(s)
+                            setSupplierListOpen(false)
+                          }}
+                        >
+                          <span className="truncate">{s}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Lokasi penyimpanan</Label>

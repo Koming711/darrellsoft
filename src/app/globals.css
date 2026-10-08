@@ -820,7 +820,7 @@ html:not(.dark) .dark-surface .text-muted-foreground { color: #a1a1aa !important
    Bucket ukuran popup: judul text-lg (13,5pt), teks/label/tombol text-sm (10,5pt),
    input/textarea text-base (12pt), teks kecil text-xs (9pt). */
 @media (max-width: 767px) {
-  .bahan-popup-compact [data-slot='dialog-title'] { font-size: 12.5pt; }
+  .bahan-popup-compact [data-slot='dialog-title'] { font-size: 14.5pt; font-weight: 700; } /* 12,5pt +2pt permintaan user + bold */
   .bahan-popup-compact .text-sm,
   .bahan-popup-compact [data-slot='select-trigger'],
   .bahan-popup-compact [data-slot='select-item'],
