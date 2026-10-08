@@ -12693,3 +12693,25 @@ Work Log:
 
 Stage Summary:
 - Tab "Riwayat" di halaman Hitung Cetakan kini menampilkan kolom No. PK (nomor Potong Kertas terhubung via pkRiwayatId) di tabel desktop + kartu mobile + bisa dicari. Kedua lokasi riwayat HC (tab Riwayat & halaman /riwayat-hitung-cetakan) kini konsisten menampilkan No. PK.
+---
+Task ID: pk-hc-link-always
+Agent: Main (Z.ai Code)
+Task: "no pk isinya tidak muncul. di no hc/10/26/0020 harusnya no pk/10/26/0023. fix"
+
+Work Log:
+- Diagnosa: HC/10/26/0020 & PK/10/26/0023 belum ada di DB lokal saat user melapor — pola riwayat menunjukkan HC/10/26/0019 tersimpan 13 dtk setelah PK/10/26/0022 dgn pkId=NULL. Akar masalah di tombol "Hitung Cetakan Lengkap" (potong-kertas/page.tsx): pkRiwayatId HANYA dikirim saat MENGEDIT riwayat (restoredRiwayatId). Untuk hitungan BARU, router.push jalan dulu, riwayat PK disimpan di BACKGROUND — id-nya tidak pernah sampai ke halaman Hitung Cetakan → HC tersimpan tanpa link → kolom No. PK "-".
+- potong-kertas/page.tsx (tombol "Hitung Cetakan Lengkap", sekarang async):
+  a) sedang edit riwayat → pakai restoredRiwayatId (perilaku lama);
+  b) data form identik dgn riwayat yang ada (mis. baru disimpan) → pakai id tsb via helper findSameRiwayat() (diekstrak dari isDataSameAsAnyRiwayat/handlePO, keduanya kini refactor pakai helper ini — tanpa duplikasi logika);
+  c) hitungan baru → simpan riwayat PK DULU (blocking await POST, tombol spinner "Menyiapkan riwayat…"), ambil saved.id, kirim sbg pkRiwayatId; gagal simpan → tetap lanjut tanpa link (tidak memblokir). Background-save lama dihapus (diganti blocking) supaya tidak dobel.
+- hitung-cetakan side tidak berubah: pkRiwayatId → deterministic match riwayat HC terhubung (lanjut/update) atau buat baru DENGAN link.
+- Verifikasi E2E penuh (agent-browser, admin, :3000) — alur persis seperti kasus user:
+  1) Form potong kertas baru (TESTNOPK/Budi Susanto/ivory 210/65×100/potong 20×30/100 lbr/2 mata) → Hitung Potongan → "Hitung Cetakan Lengkap" → PK/10/26/0023 TERSIMBUN DULU (id cmuywefa8…) → navigasi dgn pkRiwayatId ✓.
+  2) Pilih mesin sm52 → "Simpan Riwayat" → HC/10/26/0020 TERSIMPAN DENGAN pkNomor PK/10/26/0023 ✓ (persis angka yg diminta user!).
+  3) Tab Riwayat: baris HC/10/26/0020 → "PK/10/26/0023" (teal mono) ✓; HC lama tetap "-" ✓ (bukti .verify/nopk-link-flow-verified.png).
+  4) Ulangi "Hitung Cetakan Lengkap" dgn data sama → TIDAK bikin PK duplikat (masih 9 riwayat PK) → deterministic match → editor menampilkan HC/10/26/0020 + tombol jadi "Update Riwayat" ✓.
+  5) Cleanup: record test HC/10/26/0020 + PK/10/26/0023 dihapus (success ×2); 6 HC riil tersisa (max 0019, tanpa TESTNOPK). 0 error console/dev.log; lint 0 masalah.
+- TIDAK deploy (user belum menyebut "deploy"). Catatan: record LAMA yang sudah lepas link (mis. HC/10/26/0019↔PK/10/26/0022, dan HC/10/26/0020 versi produksi setelah deploy) bisa diperbaiki via alur edit: buka riwayat Potong Kertas terkait → Edit → Hitung Cetakan Lengkap → Update/Simpan → link terbentuk (auto-link by identity).
+
+Stage Summary:
+- Sekarang SETIAP riwayat Hitung Cetakan yang dibuat lewat tombol "Hitung Cetakan Lengkap" PASTI ter-link dgn riwayat Potong Kertas sumbernya (kolom No. PK selalu terisi): edit-mode (a), data sama (b), maupun hitungan baru (c — riwayat PK disimpan dulu secara blocking utk dapatkan id). Deterministic continue mencegah duplikasi di kedua sisi (PK & HC).
