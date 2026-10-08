@@ -12866,3 +12866,19 @@ Work Log:
 
 Stage Summary:
 - Popup Tambah Bahan mobile: judul kini 14,5pt bold; label jadi "Nama Supplier"; kotak supplier jadi dropdown pilihan supplier tersimpan (tetap bisa isi manual). Desktop tidak berubah.
+---
+Task ID: bahan-popup-supplier-typable-kode-otomatis
+Agent: Main (Z.ai Code)
+Task: "buat nama suplier dihalaman tambah bahan tidak bisa di ketik manual. tulisan 'Kode bahan dibuat otomatis (BHN-001, …)' dihapus. diganti dengan Kode bahan : (otomatis). fix"
+
+Work Log:
+- Diagnosa ketik-manual: input supplier sudah typable (dibuktikan test CDP keyboard: value terisi). Namun perilaku lama MENUTUP daftar saat mengetik — di HP terasa seperti "tidak bisa ngetik" (daftar hilang, tak ada feedback filter). Diperbaiki jadi combobox type-to-search: mengetik/fokus → daftar TERBUKA & MENYELEKSI mengikuti teks; tanpa cocok → pesan "Tidak ada yang cocok — ketik manual lanjut."; nilai ketikan TIDAK pernah ditimpa; Escape menutup daftar; placeholder diganti "Ketik manual atau pilih dari daftar…".
+- Teks deskripsi popup (mode Tambah): "Kode bahan dibuat otomatis (BHN-001, …)." → "Kode bahan : (otomatis)" persis sesuai permintaan. Mode Edit tetap "Kode {kode} — ubah data bahan.".
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Mobile 390×844: deskripsi = "Kode bahan : (otomatis)" ✓; fokus input → daftar terbuka ✓; ketik "bin" → nilai "bin" + daftar menyeleksi (bintang timur) ✓; ketik lanjut "ang xyz" (tanpa cocok) → nilai "binang xyz" utuh + pesan no-match ✓; bersihkan → pilih opsi → terisi & tertutup ✓ (bukti .verify/bahan-popup-kode-otomatis-supplier-filter.png).
+  - Desktop 1440×900: deskripsi & combobox sama, input typable ✓.
+  - 0 error console (screenshot pertama sempat tampil dropdown Satuan ikut terbuka karena klik ref basi — hanya artefak sesi verifikasi, ditutup & screenshot diulang); lint bersih.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Nama Supplier di popup Tambah Bahan kini jelas bisa diketik manual: mengetik menyeleksi daftar (type-to-search) dan ketikan selalu dipertahankan. Teks kode otomatis diganti "Kode bahan : (otomatis)".
