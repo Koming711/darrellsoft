@@ -12896,3 +12896,33 @@ Work Log:
 
 Stage Summary:
 - Popup Tambah Bahan kini menampilkan kode bahan berikutnya (mis. "Kode bahan : BHN-010 (otomatis)") — dihitung dgn logika yang sama seperti generator kode server.
+---
+Task ID: stok-masuk-keluar-row-edit
+Agent: Main (Z.ai Code)
+Task: "nama suplier di popup stock masuk tidak bisa diedit. dihalaman stok masuk. apabila diklik baris di tabel, maka muncul edit. dihalaman stok keluar. apabila diklik baris di tabel, maka muncul edit."
+
+Work Log:
+- Diagnosa: selama ini TIDAK ada cara edit transaksi stok masuk/keluar yang sudah tercatat (baris tabel tak bisa diklik; dialog Masuk/Keluar hanya mode Tambah) — itulah kenapa "nama supplier tidak bisa diedit". Popup Tambah sendiri field supplier-nya Input biasa yang memang typable; yang tidak bisa diedit adalah data transaksi lama.
+- API (src/app/api/stock-bahan/mutasi/route.ts): tambah PUT (body { id, bahanId?, qty?, tanggal?, hargaBeli?, pemasok?, nomorNota?, keterangan?, tujuan? }):
+  - Efek stok lama DIREVERT lalu efek baru DITERAPKAN: masuk same-bahan stok -= (qtyLama-qtyBaru)... umum: stok = stok - qtyLama + qtyBaru (masuk) / + qtyLama - qtyBaru (keluar); ganti bahan → bahan lama & baru sama-sama disesuaikan.
+  - Ditolak 400 bila hasil edit membuat stok minus KECUALI setting "Izinkan stok minus" aktif (isIzinkanMinus).
+  - Snapshot namaBahan/satuanBahan/stokSetelah di-update; totalHarga = hargaBeli × qty; nomor transaksi (SM-/SK-) TIDAK berubah.
+  - Harga modal bahan (hargaSatuan) mengikuti harga beli HANYA bila transaksi yg diedit = pembelian terakhir bahan tsb (meniru aturan POST).
+  - Penyesuaian (SP-…) memang tidak dapat diedit via PUT (guard).
+  - Insiden: insert pertama salah menaruh `export async function PUT` DI DALAM body POST (menggantikan komentar penyesuaian) → parse error "export cannot be used outside of module code" & dev server sempat 500 menyeluruh (cache state rusak). Diperbaiki dengan memindahkan PUT ke level modul (akhir file) + restore komentar penyesuaian dalam POST, lalu restart dev server (daemon /tmp/devd.js).
+- View (src/components/views/stock-bahan-view.tsx):
+  - MasukTab & KeluarTab: state editRow; setiap TableRow kini onClick=setEditRow(m) + cursor-pointer + title "Klik untuk edit transaksi". Dialog dirender dgn open={dialogOpen || !!editRow} & edit={editRow}; onOpenChange(false) membersihkan editRow.
+  - MasukDialog/KeluarDialog: prop baru edit?: Mutasi | null; useEffect [open, edit] → prefill semua field dari record (masuk: tanggal/bahan/qty/hargaBeli/PEMASOK/nomorNota/keterangan; keluar: tanggal/bahan/qty/tujuan/keterangan) atau reset utk mode Tambah; submit → PUT /api/stock-bahan/mutasi saat edit, POST saat tambah; judul "Edit Stok Masuk"/"Edit Stok Keluar", deskripsi "Nomor SM-/SK-XXX — ubah data transaksi. Stok bahan disesuaikan otomatis.", tombol "Simpan Perubahan". Bahan nonaktif tetap tampil di picker saat edit (fallback snapshot dari mutasi). Nama supplier di popup (termasuk mode edit) = Input biasa FULL TYPO MANUAL (dibuktikan test ketik).
+- Verifikasi E2E (agent-browser, admin, :3000, mobile 390×844 + desktop 1440×900):
+  - Mobile: klik baris SM-003 → dialog "Edit Stok Masuk" prefill lengkap; ketik manual supplier "bintang timur jaya (edit)" → simpan → toast "Transaksi SM-003 diperbarui (stok ikut disesuaikan)" + baris ikut berubah ✓ (bukti .verify/stok-masuk-edit-mobile.png).
+  - Delta stok: qty SM-003 5400→5500 → stok cupstock 400→500 ✓; kembali 5400 → 400 ✓. Keluar: qty SK-001 5000→5100 → stok 300 ✓; kembali → 400 ✓.
+  - Tujuan SK-001 diganti Produksi→Sampel→Produksi via dropdown ✓.
+  - Guard minus: qty keluar dinaikkan agar hasil minus → ditolak dgn toast "Edit ditolak — stok cupstock akan menjadi minus (-600)…", dialog tetap terbuka ✓.
+  - Mode Tambah tidak berubah (judul "Stok Masuk", field kosong, tombol "Catat Stok Masuk") ✓.
+  - Desktop 1440×900: klik baris kedua tab → dialog edit prefill ✓ (.verify/stok-keluar-edit-desktop.png).
+  - Console dibersihkan → reload + klik baris kedua tab: 0 error console/page. eslint 2 file yang disentuh: bersih (error project yg 40 itu pre-existing di scripts/seed).
+  - Semua data uji dikembalikan ke nilai awal (supplier "bintang timur", qty & tujuan asli, stok 400).
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Transaksi Stok Masuk & Stok Keluar kini BISA DIEDIT: klik baris di tabel → popup edit terisi data lama; Nama supplier (dan field lain) bisa diubah manual; stok bahan otomatis menyesuaikan selisih; edit yang membuat stok minus ditolak (kecuali "Izinkan stok minus" aktif). Nomor transaksi tetap.
