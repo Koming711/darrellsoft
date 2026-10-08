@@ -459,7 +459,7 @@ function HitungCetakanPage() {
       if (eff.dateTo && t && t > eff.dateTo) return false
       if (customerFilter && String(r?.customerName || '').trim() !== customerFilter) return false
       if (q) {
-        const hay = `${r?.nomorUrut || ''} ${r?.customerName || ''} ${r?.printName || ''} ${r?.finishingNames || ''}`.toLowerCase()
+        const hay = `${r?.nomorUrut || ''} ${r?.pkNomor || ''} ${r?.customerName || ''} ${r?.printName || ''} ${r?.finishingNames || ''}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
@@ -3180,7 +3180,7 @@ function HitungCetakanPage() {
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari no. HC / customer / barang…"
+                  placeholder="Cari no. HC / PK / customer / barang…"
                   aria-label="Cari riwayat hitung cetakan"
                   className="pl-9 min-h-[44px] bg-white w-full"
                 />
@@ -3235,6 +3235,7 @@ function HitungCetakanPage() {
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
                       <TableHead className="w-10">No.</TableHead>
                       <TableHead className="w-0 min-w-0">No. HC</TableHead>
+                      <TableHead className="w-0 min-w-0">No. PK</TableHead>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Nama Barang</TableHead>
@@ -3257,6 +3258,11 @@ function HitungCetakanPage() {
                         >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="whitespace-nowrap w-px"><span className="font-mono text-xs">{r.nomorUrut || '-'}</span></TableCell>
+                          <TableCell className="whitespace-nowrap w-px">
+                            {r.pkNomor
+                              ? <span className="font-semibold text-xs font-mono text-teal-700" title="Nomor Potong Kertas yang terhubung">{r.pkNomor}</span>
+                              : <span className="text-muted-foreground/50">-</span>}
+                          </TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap">{r.createdAt ? new Date(r.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</TableCell>
                           <TableCell className="max-w-36 truncate">{r.customerName && r.customerName !== '' ? r.customerName : '-'}</TableCell>
                           <TableCell className="max-w-36 text-muted-foreground" title={r.printName || '-'}>
@@ -3300,9 +3306,14 @@ function HitungCetakanPage() {
                     onClick={() => handlePreviewRiwayat(r)}
                   >
                     <CardContent className="p-2.5 space-y-1.5">
-                      {/* Baris 1: nomor + tanggal (kompak) */}
+                      {/* Baris 1: nomor + PK terhubung + tanggal (kompak) */}
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-mono text-[10px] font-semibold truncate">{r.nomorUrut || '-'}</p>
+                        <p className="font-mono text-[10px] font-semibold truncate">
+                          {r.nomorUrut || '-'}
+                          {r.pkNomor && (
+                            <span className="text-[10px] font-mono font-semibold text-teal-700" title="Nomor Potong Kertas yang terhubung"> · {r.pkNomor}</span>
+                          )}
+                        </p>
                         <p className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTanggalPendek(r.createdAt)}</p>
                       </div>
                       {/* Baris 2: customer + nama barang */}
