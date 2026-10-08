@@ -2122,7 +2122,7 @@ function BahanFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="bahan-popup-compact max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Bahan' : 'Tambah Bahan'}</DialogTitle>
           <DialogDescription>
@@ -2141,7 +2141,7 @@ function BahanFormDialog({
                 <SelectTrigger aria-label="Kategori">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bahan-popup-compact">
                   <SelectItem value="Tanpa kategori">Tanpa kategori</SelectItem>
                   {kategoriOptions.map((k) => (
                     <SelectItem key={k} value={k}>{k}</SelectItem>
@@ -2155,7 +2155,7 @@ function BahanFormDialog({
                 <SelectTrigger aria-label="Satuan">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bahan-popup-compact">
                   {SATUAN_OPTIONS.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
