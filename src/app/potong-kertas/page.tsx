@@ -317,6 +317,8 @@ function CalculatorPage() {
   // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
   const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
+  // Tombol "Hitung Cetakan Lengkap" sedang menyiapkan riwayat (simpan dulu utk dapatkan id)
+  const [preparingHc, setPreparingHc] = useState(false)
   const [needsRecalc, setNeedsRecalc] = useState(false)
   const justCalculatedRef = useRef(false)
   const [riwayatList, setRiwayatList] = useState<any[]>([])
@@ -873,9 +875,11 @@ function CalculatorPage() {
     photoUrl,
   })
 
-  const isDataSameAsAnyRiwayat = () => {
-    if (riwayatList.length === 0) return false
-    return riwayatList.some(r =>
+  // Cari riwayat potong kertas yang datanya identik dengan form saat ini
+  // (dipakai isDataSameAsAnyRiwayat, handlePO, dan tombol "Hitung Cetakan Lengkap"
+  // untuk mengirim pkRiwayatId tanpa membuat riwayat duplikat).
+  const findSameRiwayat = () => {
+    return riwayatList.find(r =>
       (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
       (r.namaCetakan || '-') === (printName || '-') &&
       (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
@@ -888,6 +892,11 @@ function CalculatorPage() {
       (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
       (r.berapaMata || '') === (berapaMata || '')
     )
+  }
+
+  const isDataSameAsAnyRiwayat = () => {
+    if (riwayatList.length === 0) return false
+    return !!findSameRiwayat()
   }
 
   const handleSaveRiwayat = async () => {
@@ -932,19 +941,7 @@ function CalculatorPage() {
     }
     if (isDataSameAsAnyRiwayat()) {
       // Cari riwayat yang sama untuk mendapatkan ID-nya
-      const existing = riwayatList.find(r =>
-        (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
-        (r.namaCetakan || '-') === (printName || '-') &&
-        (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
-        r.paperWidth === (paperWidth || '0') &&
-        r.paperHeight === (paperHeight || '0') &&
-        r.cutWidth === (cutWidth || '0') &&
-        r.cutHeight === (cutHeight || '0') &&
-        r.quantity === (quantity || '0') &&
-        r.totalPrice === (results?.totalPrice || 0) &&
-        (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
-        (r.berapaMata || '') === (berapaMata || '')
-      )
+      const existing = findSameRiwayat()
       if (existing) {
         toast('Data sudah ada di riwayat, langsung ke Purchase Order.', { description: 'Data yang sama tidak disimpan ulang.' })
         router.push(`/purchase-order?riwayatId=${existing.id}`)
@@ -1864,11 +1861,12 @@ function CalculatorPage() {
 
           {/* Link to Hitung Cetakan */}
           <button
-            onClick={() => {
+            onClick={async () => {
               if (!results) {
                 toast.error('Hitung potongan terlebih dahulu!')
                 return
               }
+              if (preparingHc) return
               // Navigasi langsung ke hitung cetakan
               const params = new URLSearchParams()
               if (selectedCustomer?.name) params.set('customerName', selectedCustomer.name)
@@ -1893,31 +1891,55 @@ function CalculatorPage() {
               if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
               params.set('fromPotongKertas', '1')
               params.set('reset', '1')
-              // Saat MENGEDIT riwayat potong kertas: kirim id riwayatnya agar
+
+              // === Tentukan id riwayat Potong Kertas yang terhubung, agar riwayat
+              // Hitung Cetakan yang disimpan dari sini SELALU ter-link (kolom "No. PK"
+              // di Riwayat Hitung Cetakan terisi nomor Potong Kertas-nya):
+              // a) sedang mengedit riwayat potong kertas → pakai id-nya;
+              // b) data form identik dengan riwayat yang sudah ada (mis. baru disimpan) → pakai id tsb;
+              // c) data baru → simpan riwayatnya DULU (tunggu sebentar) supaya id-nya jelas;
+              //    bila gagal simpan, tetap lanjut tanpa link (tidak memblokir pekerjaan).
+              let pkIdToLink: string | null = restoredRiwayatId
+              if (!pkIdToLink) {
+                const same = findSameRiwayat()
+                if (same) pkIdToLink = same.id
+              }
+              if (!pkIdToLink && !isDataSameAsAnyRiwayat()) {
+                setPreparingHc(true)
+                try {
+                  const res = await fetcher('/api/riwayat-potong-kertas', {
+                    method: 'POST',
+                    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(buildPayload())
+                  })
+                  if (res.ok) {
+                    const saved = await res.json().catch(() => null)
+                    if (saved?.id) pkIdToLink = saved.id
+                    notifyDataChange('riwayat-potong-kertas')
+                    fetchRiwayat()
+                  }
+                } catch {}
+                setPreparingHc(false)
+              }
+
+              // Saat mengedit / terhubung riwayat potong kertas: kirim id-nya agar
               // Hitung Cetakan melanjutkan riwayat hitung cetakan yang pernah
-              // dibuat dari data ini (simpan = update), bukan membuat baru lagi.
-              if (restoredRiwayatId) params.set('pkRiwayatId', restoredRiwayatId)
+              // dibuat dari data ini (simpan = update / simpan baru dgn link), bukan
+              // membuat riwayat yang lepas hubungan.
+              if (pkIdToLink) params.set('pkRiwayatId', pkIdToLink)
               // Foto lampiran ikut dibawa ke editor Hitung Cetakan.
               // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
               if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)
               else sessionStorage.removeItem('pk-to-hc-photoUrl')
               router.push(`/hitung-cetakan?${params.toString()}`)
-              // Simpan riwayat di background (non-blocking)
-              if (results && !isDataSameAsAnyRiwayat()) {
-                fetcher('/api/riwayat-potong-kertas', {
-                  method: 'POST',
-                  headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                  body: JSON.stringify(buildPayload())
-                }).then(res => { if (res.ok) fetchRiwayat() }).catch(() => {})
-              }
             }}
-            disabled={!results || needsRecalc}
+            disabled={!results || needsRecalc || preparingHc}
             style={{
               background: (results && !needsRecalc) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
             }}
             className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-blue-500 cursor-pointer transition-colors">
-            <Calculator className="w-3.5 h-3.5" />
-            Hitung Cetakan Lengkap
+            {preparingHc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />}
+            {preparingHc ? 'Menyiapkan riwayat…' : 'Hitung Cetakan Lengkap'}
             <ArrowRight className="w-3 h-3" />
           </button>
         </div>
