@@ -43,6 +43,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         id: 'Hubungan keduanya tersimpan permanen di database — riwayat lama pun otomatis terhubung saat pertama kali disimpan ulang',
         en: 'The link between them is stored permanently in the database — older entries get linked automatically the first time they are re-saved',
       },
+      {
+        id: 'Halaman Harga per Customer kini menampilkan kolom Tanggal (tanggal dibuat) di tabel versi desktop & kartu di HP',
+        en: 'The Price per Customer page now shows a Date column (creation date) in the desktop table & on phone cards',
+      },
     ],
   },
   {

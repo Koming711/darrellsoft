@@ -107,6 +107,18 @@ function StatCard({ label, value, tone = 'default' }: { label: string; value: nu
   )
 }
 
+/** Tanggal dibuat (createdAt ISO dari API) → "8 Okt 2026". Gagal parse → "-". */
+function formatTanggalDibuat(iso?: string | null): string {
+  if (!iso) return '-'
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return '-'
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+  } catch {
+    return '-'
+  }
+}
+
 interface ItemsViewProps {
   user: SessionUser
   /** Izin granular Matriks Hak Akses (master-barang-tambah/edit/hapus); undefined = fallback role lama */
@@ -470,6 +482,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 <TableRow className="bg-stone-50 hover:bg-stone-50">
                   <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
+                  <TableHead>Tanggal</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
@@ -494,6 +507,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                         <CustomerChips customers={it.customers} />
                       </div>
                     </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground" title="Tanggal dibuat">{formatTanggalDibuat(it.createdAt)}</TableCell>
                     <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{formatIDR(it.standardPrice)}</TableCell>
                     {showHpp && (
@@ -629,6 +643,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   <p className="text-muted-foreground">Qty: <span className="font-semibold text-stone-700">{formatNum(it.qty)}</span></p>
                   <p className="text-muted-foreground">Harga Jual: <span className="font-semibold text-stone-700">{formatIDR(it.standardPrice)}</span></p>
+                  <p className="text-muted-foreground">Tanggal: <span className="font-semibold text-stone-700">{formatTanggalDibuat(it.createdAt)}</span></p>
                 </div>
                 {showHpp && (
                   <p className="text-sm text-muted-foreground">

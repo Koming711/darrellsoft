@@ -12611,3 +12611,25 @@ Work Log:
 
 Stage Summary:
 - Semua konten versi user-facing = v148 dengan isi fitur TERBARU (pk→hc terhubung, nomor HC terhubung): popup What's New + badge + footer seragam v148. Popup muncul lagi walau nomor versi tetap v148 (trik: ganti tanggal prefix CURRENT_VERSION). SW v150 / APP v85 siap deploy; produksi masih konten lama sampai user menyuruh deploy.
+---
+Task ID: hcpc-tanggal-column
+Agent: Main (Z.ai Code)
+Task: "dihalaman harga per customer. tambahkan kolom tanggal di tabel. fix"
+
+Work Log:
+- Halaman "Harga per Customer" = /master-barang (src/app/master-barang/page.tsx → komponen src/components/views/items-view.tsx; tabel: Kode/Nama/Qty/Harga Jual/HPP/Keterangan/Status/Aksi).
+- Data tanggal SUDAH tersedia tanpa perubahan backend: model Barang punya createdAt, GET /api/items sudah mengembalikan createdAt (ISO), tipe Item sudah punya createdAt — tidak ada perubahan schema/API/migrasi.
+- items-view.tsx:
+  - Helper formatTanggalDibuat(iso) → "8 Okt 2026" (toLocaleDateString id-ID, day/month-short/year; guard invalid/NaN → "-"; pola sama dgn komponen lain mis. stock-bahan-view).
+  - Tabel desktop: kolom "Tanggal" disisipkan tepat setelah "Nama" (header + cell text-sm muted, title "Tanggal dibuat").
+  - Kartu mobile: baris "Tanggal: …" ditambahkan setelah Harga Jual agar setara dengan tabel.
+- changelog.ts: 1 item tambahan di entri v148 (popup What's New tetap akurat utk deploy berikutnya): "Halaman Harga per Customer kini menampilkan kolom Tanggal…".
+- Verifikasi (agent-browser, admin, :3000):
+  - Header tabel: Kode | Nama | Tanggal | Qty | Harga Jual | HPP | Keterangan | Status ✓.
+  - Isi cocok dgn API: ongkir → 30 Sep 2026 (2026-09-30), ongkos packing → 1 Okt 2026 (2026-10-01), paperbowl → 28 Sep 2026 (2026-09-28), paperbowl + tutup → 1 Okt 2026 (2026-10-01) ✓.
+  - Mobile 390px: kartu menampilkan "Tanggal: 30 Sep 2026" ✓ (bukti .verify/tanggal-kolom-mobile.png, .verify/tanggal-kolom-desktop.png).
+  - 0 error console/page; dev.log bersih; lint 0 masalah.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Kolom Tanggal (tanggal dibuat, format "8 Okt 2026") tampil di tabel Harga per Customer setelah kolom Nama, plus di kartu HP. Murni frontend (data createdAt sudah ada di API) — tanpa migrasi DB. Ikut paket rilis v148 berikutnya bersama fix pk→hc.
