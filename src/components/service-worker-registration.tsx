@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { scheduleOfflineWarmup } from '@/lib/offline-warmup'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-10-03-v84'
+const APP_VERSION = '2026-10-08-v85'
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {

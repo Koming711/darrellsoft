@@ -3,8 +3,12 @@
 // Catatan versi: mulai rilis ini, nomor versi changelog mengikuti nomor rilis
 // aplikasi (SW) — mis. "2026-10-03-v145" = rilis v145 — supaya versi yang
 // dilihat user (popup What's New & footer) sama dengan versi deploy.
+// Khusus v148: label user-facing TETAP "v148" sesuai permintaan user walau ada
+// fitur baru (pk→hc); yang berubah hanya tanggal prefix CURRENT_VERSION
+// ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
+// SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-10-03-v148'
+export const CURRENT_VERSION = '2026-10-08-v148'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -20,7 +24,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '2026-10-03-v148',
+    version: '2026-10-08-v148',
+    date: { id: '8 Oktober 2026', en: '8 October 2026' },
+    title: {
+      id: 'Riwayat Hitung Cetakan Terhubung dengan Potong Kertas',
+      en: 'Print Calculation History Linked to Paper Cutting',
+    },
+    items: [
+      {
+        id: 'Edit riwayat Potong Kertas lalu klik "Hitung Cetakan Lengkap" → data hitung cetakan yang sudah tersimpan otomatis terbuka kembali untuk diedit (tombol berubah jadi "Update Riwayat") — tidak dibuat duplikat baru lagi',
+        en: 'Edit a Paper Cutting history entry, then click "Hitung Cetakan Lengkap" → its saved print calculation automatically reopens for editing (the button becomes "Update Riwayat") — no more duplicate entries',
+      },
+      {
+        id: 'Nomor Hitung Cetakan yang tampil saat lanjut edit adalah nomor riwayat yang terhubung dengan potong kertas tersebut (mis. HC/10/26/0013) — bukan nomor baru',
+        en: 'When continuing an edit, the Print Calculation number shown is the connected history number (e.g. HC/10/26/0013) — not a new number',
+      },
+      {
+        id: 'Hubungan keduanya tersimpan permanen di database — riwayat lama pun otomatis terhubung saat pertama kali disimpan ulang',
+        en: 'The link between them is stored permanently in the database — older entries get linked automatically the first time they are re-saved',
+      },
+    ],
+  },
+  {
+    version: '2026-10-03-v147',
     date: { id: '7 Oktober 2026', en: '7 October 2026' },
     title: {
       id: 'Nama Suplier Tersinkron Antar Halaman + Profit Bisa Lebih dari 100%',
