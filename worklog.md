@@ -12847,3 +12847,22 @@ Work Log:
 
 Stage Summary:
 - Popup Tambah/Edit Bahan di tampilan mobile kini seluruh fontnya −1pt (judul 12,5pt, label/deskripsi/tombol 9,5pt, input 11pt, teks kecil 8pt); desktop tetap seperti semula.
+---
+Task ID: bahan-popup-title-supplier-dropdown
+Agent: Main (Z.ai Code)
+Task: "di tampilan mobile, di popup tambah bahan. tulisan tambah bahan ditambah 2 pt dan di bold. tulisan suplier diganti jadi nama suplier. kotak nama suplier dibuat dropdown. fix"
+
+Work Log:
+- Lokasi: popup Tambah/Edit Bahan (stock-bahan-view.tsx) + blok CSS mobile .bahan-popup-compact (globals.css).
+- 1) Judul "Tambah Bahan" mobile: 12,5pt → 14,5pt (+2pt) & font-weight 700 (bold) via rule [data-slot='dialog-title'] di media query ≤767px. Desktop tetap 18px/semibold.
+- 2) Label "Supplier" → "Nama Supplier" (desktop & mobile, teks konsisten).
+- 3) Kotak supplier kini COMBOBOX dgn dropdown (pola sama dgn field Referensi PO di dialog itu): input tetap bisa ketik manual (supplier baru), + tombol ChevronsUpDown membuka daftar opsi supplier unik (useMemo supplierOptions dari bahan.pemasok yang sudah ada, urut abjad, max-h-56 scroll, state aktif di-highlight via cn). Pilih opsi → isi input + tutup list; mengetik menutup list; list ikut tertutup saat dialog dibuka/diedit. State supplierListOpen + reset di effect open/editing.
+- Insiden teknis: (a) MultiEdit "atomik" ternyata meloloskan 1 edit saat validasi edit lain gagal → const supplierOptions terdeklarasi 2x; terdeteksi dari output edit & langsung didedup (lint + runtime bersih setelahnya). (b) Dev server mati mendadak ~12:38 (diduga OOM oleh chrome+next) dan proses background dari shell tool selalu dibunuh antar-call — solusi: spawn daemon ala agent-browser (bun child_process detached+unref) sehingga server hidup lintas call; dev.sh bawaan tak dipakai karena resolusi PROJECT_DIR-nya salah utk posisi di root.
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Mobile 390×844: judul 19,3333px (=14,5pt) weight 700 ✓; label "Nama Supplier" ✓; dropdown terbuka, opsi ["bintang timur"], pilih → input terisi + list tertutup ✓ (bukti .verify/bahan-popup-supplier-dropdown-mobile.png).
+  - Desktop 1440×900: judul 18px/600 (tidak berubah) ✓; label & dropdown ada ✓.
+  - Console dibersihkan → reload + buka dialog: 0 error (entri error lama hanyalah history HMR dari duplikat const yang sudah didedup). Lint bersih.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Popup Tambah Bahan mobile: judul kini 14,5pt bold; label jadi "Nama Supplier"; kotak supplier jadi dropdown pilihan supplier tersimpan (tetap bisa isi manual). Desktop tidak berubah.
