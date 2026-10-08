@@ -12633,3 +12633,16 @@ Work Log:
 
 Stage Summary:
 - Kolom Tanggal (tanggal dibuat, format "8 Okt 2026") tampil di tabel Harga per Customer setelah kolom Nama, plus di kartu HP. Murni frontend (data createdAt sudah ada di API) — tanpa migrasi DB. Ikut paket rilis v148 berikutnya bersama fix pk→hc.
+---
+Task ID: hcpc-tanggal-ddmmyy
+Agent: Main (Z.ai Code)
+Task: "tanggal dibuat dd/mm/yy"
+
+Work Log:
+- Permintaan lanjutan: format tanggal di kolom Tanggal halaman Harga per Customer diganti ke dd/mm/yy (sebelumnya "30 Sep 2026").
+- items-view.tsx: helper formatTanggalDibuat kini memformat manual dd/mm/yy zero-padded (getDate/getMonth+1/getFullYear + padStart 2, yy = 2 digit terakhir) — mis. 2026-09-30 → "30/09/26". Tetap guard invalid → "-". Berlaku untuk tabel desktop & kartu mobile (helper sama).
+- Verifikasi (agent-browser, admin, :3000): ongkir → 30/09/26, ongkos packing → 01/10/26, paperbowl → 28/09/26, paperbowl + tutup → 01/10/26 — semua cocok dgn createdAt API ✓. Popup What's New v148 terbukti muncul lagi di sesi browser baru ✓ (lalu ditutup normal). 0 error console; lint 0 masalah; bukti .verify/tanggal-ddmmyy.png.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Kolom Tanggal (Harga per Customer) kini berformat dd/mm/yy (contoh 30/09/26) di tabel desktop & kartu HP. Masih pakai data createdAt tanpa perubahan backend.
