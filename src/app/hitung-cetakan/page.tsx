@@ -2415,43 +2415,48 @@ function HitungCetakanPage() {
 
           {/* ========== COLUMN 1: INFO & HARGA ========== */}
           <div className="flex-1 min-w-0">
-            {/* No. Hitung Cetakan + referensi No. Potong Kertas (asal data cetakan & harga bahan) */}
-            {(nextHitungCetakanNumber || pkNomorDisplay) && (
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
-                {nextHitungCetakanNumber && (
+            {/* Kotak No. Hitung Cetakan + referensi No. Potong Kertas (asal data cetakan & harga bahan).
+                SELALU tampil di editor agar referensi mudah ditemukan: bila belum terhubung riwayat
+                Potong Kertas, tampil "—" + petunjuk cara menghubungkan. */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
+              {nextHitungCetakanNumber && (
+                <>
+                  <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
+                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
+                </>
+              )}
+              <div className={nextHitungCetakanNumber ? 'mt-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-800' : ''}>
+                <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider" title="Referensi data informasi cetakan & harga bahan dari halaman Potong Kertas">No. Potong Kertas (Referensi)</p>
+                {pkNomorDisplay ? (
+                  <p className="text-sm font-bold font-mono text-teal-700 dark:text-teal-300">{pkNomorDisplay}</p>
+                ) : (
                   <>
-                    <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
-                    <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
+                    <p className="text-sm font-bold font-mono text-slate-300 dark:text-zinc-600">—</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-snug">Belum terhubung riwayat Potong Kertas — buka halaman Potong Kertas lalu klik &quot;Hitung Cetakan Lengkap&quot; agar form ini terisi &amp; terhubung otomatis</p>
                   </>
                 )}
-                {pkNomorDisplay && (
-                  <div className={nextHitungCetakanNumber ? 'mt-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-800' : ''}>
-                    <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider" title="Referensi data informasi cetakan & harga bahan dari halaman Potong Kertas">No. Potong Kertas (Referensi)</p>
-                    <p className="text-sm font-bold font-mono text-teal-700 dark:text-teal-300">{pkNomorDisplay}</p>
-                    {/* Snapshot data sumber dari riwayat Potong Kertas (read-only) */}
-                    {pkRefData && (
-                      <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-zinc-800">
-                        <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">Informasi Cetakan</p>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                          <PkRefRow label="Customer" value={pkRefData.namaCustomer} />
-                          <PkRefRow label="Cetakan" value={pkRefData.namaCetakan} />
-                          <PkRefRow label="Uk. Kertas" value={pkRefData.paperWidth && pkRefData.paperHeight ? `${pkRefData.paperWidth} × ${pkRefData.paperHeight} cm` : ''} />
-                          <PkRefRow label="Uk. Potong" value={pkRefData.cutWidth && pkRefData.cutHeight ? `${pkRefData.cutWidth} × ${pkRefData.cutHeight} cm` : ''} />
-                          <PkRefRow label="Jml Kertas" value={pkRefData.quantity ? `${pkRefData.quantity} lbr` : ''} />
-                          <PkRefRow label="Jml Pesanan" value={pkRefData.jumlahPesanan ? `${pkRefData.jumlahPesanan} pcs` : ''} />
-                          <PkRefRow label="Cetak / Mata" value={pkRefData.berapaMata || ''} />
-                        </div>
-                        <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mt-1.5 mb-1">Harga Bahan</p>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                          <PkRefRow label="Bahan" value={pkRefData.paperName} />
-                          <PkRefRow label="Total Harga" value={pkRefData.totalPrice != null && Number(pkRefData.totalPrice) > 0 ? `Rp ${Number(pkRefData.totalPrice).toLocaleString('id-ID')}` : ''} />
-                        </div>
-                      </div>
-                    )}
+                {/* Snapshot data sumber dari riwayat Potong Kertas (read-only) */}
+                {pkRefData && (
+                  <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">Informasi Cetakan</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                      <PkRefRow label="Customer" value={pkRefData.namaCustomer} />
+                      <PkRefRow label="Cetakan" value={pkRefData.namaCetakan} />
+                      <PkRefRow label="Uk. Kertas" value={pkRefData.paperWidth && pkRefData.paperHeight ? `${pkRefData.paperWidth} × ${pkRefData.paperHeight} cm` : ''} />
+                      <PkRefRow label="Uk. Potong" value={pkRefData.cutWidth && pkRefData.cutHeight ? `${pkRefData.cutWidth} × ${pkRefData.cutHeight} cm` : ''} />
+                      <PkRefRow label="Jml Kertas" value={pkRefData.quantity ? `${pkRefData.quantity} lbr` : ''} />
+                      <PkRefRow label="Jml Pesanan" value={pkRefData.jumlahPesanan ? `${pkRefData.jumlahPesanan} pcs` : ''} />
+                      <PkRefRow label="Cetak / Mata" value={pkRefData.berapaMata || ''} />
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mt-1.5 mb-1">Harga Bahan</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                      <PkRefRow label="Bahan" value={pkRefData.paperName} />
+                      <PkRefRow label="Total Harga" value={pkRefData.totalPrice != null && Number(pkRefData.totalPrice) > 0 ? `Rp ${Number(pkRefData.totalPrice).toLocaleString('id-ID')}` : ''} />
+                    </div>
                   </div>
                 )}
               </div>
-            )}
+            </div>
             <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
               {/* Section 1: Informasi Cetakan */}
