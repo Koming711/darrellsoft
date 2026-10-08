@@ -34,7 +34,25 @@ export async function GET(request: NextRequest) {
       where: dataFilter,
       orderBy: { createdAt: 'desc' }
     })
-    return NextResponse.json(riwayat)
+    // Lampirkan nomor Potong Kertas yang terhubung (kolom "No PK" di halaman
+    // riwayat hitung cetakan): pkRiwayatId → RiwayatPotongKertas.nomorUrut.
+    const pkIds = Array.from(
+      new Set(riwayat.map((r) => r.pkRiwayatId).filter((v): v is string => !!v))
+    )
+    const pkNomorById = new Map<string, string>()
+    if (pkIds.length > 0) {
+      const pks = await db.riwayatPotongKertas.findMany({
+        where: { id: { in: pkIds } },
+        select: { id: true, nomorUrut: true },
+      })
+      for (const p of pks) pkNomorById.set(p.id, p.nomorUrut)
+    }
+    return NextResponse.json(
+      riwayat.map((r) => ({
+        ...r,
+        pkNomor: r.pkRiwayatId ? pkNomorById.get(r.pkRiwayatId) ?? null : null,
+      }))
+    )
   } catch (error) {
     console.error('Error fetching riwayat cetakan:', error)
     return NextResponse.json({ error: 'Failed to fetch riwayat' }, { status: 500 })

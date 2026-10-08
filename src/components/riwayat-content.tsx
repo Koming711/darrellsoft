@@ -49,6 +49,10 @@ import type { RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 interface RiwayatCetakanRow {
   id: string
   nomorUrut: string
+  /** id RiwayatPotongKertas sumber (hubungan Potong Kertas ↔ Hitung Cetakan). */
+  pkRiwayatId?: string | null
+  /** Nomor Potong Kertas yang terhubung (dilengkapi oleh API GET, mis. PK/10/26/0017). */
+  pkNomor?: string | null
   type: string
   printName: string
   customerName: string
@@ -130,6 +134,8 @@ interface RiwayatPotongKertasRow {
 interface UnifiedRiwayat {
   id: string
   nomorUrut: string
+  /** Hitung Cetakan: nomor Potong Kertas yang terhubung (pkRiwayatId); null = tidak terhubung. */
+  pkNomor: string | null
   customerName: string
   printName: string
   paperName: string
@@ -172,6 +178,7 @@ function normalizeCetakan(r: RiwayatCetakanRow): UnifiedRiwayat {
   return {
     id: r.id,
     nomorUrut: r.nomorUrut || '',
+    pkNomor: r.pkNomor ?? null,
     customerName: r.customerName || '',
     printName: r.printName || '',
     paperName: r.paperName || '',
@@ -208,6 +215,7 @@ function normalizePotong(r: RiwayatPotongKertasRow): UnifiedRiwayat {
   return {
     id: r.id,
     nomorUrut: r.nomorUrut || '',
+    pkNomor: null,
     customerName: r.namaCustomer || '',
     printName: r.namaCetakan || '',
     paperName: r.paperName || '',
@@ -472,6 +480,7 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
       || h.printName?.toLowerCase().includes(term)
       || h.customerName?.toLowerCase().includes(term)
       || h.paperName?.toLowerCase().includes(term)
+      || h.pkNomor?.toLowerCase().includes(term)
     const matchesCustomer = !customerFilter || h.customerName === customerFilter
     return matchesSearch && matchesCustomer
   }), [periodItems, searchTerm, customerFilter])
@@ -670,6 +679,11 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                         {item.nomorUrut}
                       </span>
                     )}
+                    {!isPotong && item.pkNomor && (
+                      <span className="text-[10px] font-mono font-semibold text-teal-700 truncate" title="Nomor Potong Kertas yang terhubung">
+                        · {item.pkNomor}
+                      </span>
+                    )}
                   </div>
                   <span className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0">
                     <CalendarDays className="w-3 h-3" />
@@ -768,11 +782,13 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
           {/* ==== Desktop: tabel — tanpa kotak/bingkai (permintaan owner) ==== */}
           <div className="hidden sm:block">
             <div className="overflow-x-auto">
-              <table className={cn('w-full', isPotong ? 'min-w-[1240px]' : 'min-w-[960px]')}>
+              <table className={cn('w-full', isPotong ? 'min-w-[1240px]' : 'min-w-[1060px]')}>
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     {([
-                      'Nomor', 'Nama Pelanggan', 'Nama Cetakan', 'Kertas / Bahan',
+                      'Nomor',
+                      ...(!isPotong ? ['No PK'] : []),
+                      'Nama Pelanggan', 'Nama Cetakan', 'Kertas / Bahan',
                       ...(isPotong ? ['Ukuran Potong', 'Potongan/Lbr', 'Lembar Kertas'] : []),
                       'Jumlah',
                       ...(isPotong ? ['Harga/Lembar'] : ['Modal/pcs', 'Jual/pcs']),
@@ -797,6 +813,13 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                           ? <span className={cn('font-semibold text-xs font-mono', isPotong ? 'text-teal-700' : 'text-blue-700')}>{item.nomorUrut}</span>
                           : <span className="text-slate-400">-</span>}
                       </td>
+                      {!isPotong && (
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          {item.pkNomor
+                            ? <span className="font-semibold text-xs font-mono text-teal-700" title="Nomor Potong Kertas yang terhubung">{item.pkNomor}</span>
+                            : <span className="text-slate-300">-</span>}
+                        </td>
+                      )}
                       <td className="px-4 py-2.5">
                         <span className="font-medium text-slate-800">{item.customerName || '-'}</span>
                       </td>
