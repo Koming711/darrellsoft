@@ -179,7 +179,7 @@ function FeatureCard({
     <FadeIn delay={delay}>
       <Card className="card-tap group relative overflow-hidden rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] shadow-sm hover:shadow-xl hover:shadow-emerald-600/10 hover:-translate-y-1 transition-all duration-300 h-full">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-600 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <CardContent className="relative p-6 pt-8 flex flex-col items-center text-center gap-4">
+        <CardContent className="relative p-6 pt-8 flex flex-col items-center text-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-110 transition-transform duration-300">
             <Icon className="w-6 h-6 text-white" />
           </div>
@@ -354,7 +354,7 @@ const LANDING_T = {
     nav_kenapa: 'Kenapa Langganan',
     nav_harga: 'Harga',
     nav_testimoni: 'Testimoni',
-    nav_login: 'Login',
+    nav_login: 'Login Masuk',
 
     hero_badge: 'Aplikasi Akuntansi untuk Bisnis Cetak',
     hero_h1_1: 'Buat Invoice, Surat Jalan,',
@@ -1120,7 +1120,7 @@ export default function Home() {
               <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
             </div>
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-700 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all duration-300">
-              Login <ChevronRight className="ml-1 w-4 h-4" />
+              {t.nav_login} <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
 
@@ -1131,7 +1131,7 @@ export default function Home() {
               <ThemeToggle className="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10" />
             </div>
             <Button onClick={() => goToLogin()} className="ripple-btn bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-700 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all duration-300 text-xs px-2.5 py-1.5 h-8 whitespace-nowrap">
-              Login <ChevronRight className="ml-1 w-3 h-3" />
+              {t.nav_login} <ChevronRight className="ml-1 w-3 h-3" />
             </Button>
           </div>
         </div>
@@ -1336,7 +1336,7 @@ export default function Home() {
       {/* =================== FITUR =================== */}
       <Section id="fitur" className="bg-white dark:bg-black">
         <FadeIn>
-          <div className="text-center mb-12 md:mb-16">
+          <div className="text-center mb-8 md:mb-10">
             <EyebrowBadge label={t.fitur_badge} />
             <h2 className="text-3xl md:text-[42px] leading-[1.15] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
               {t.fitur_h2_1}{' '}
@@ -1348,7 +1348,7 @@ export default function Home() {
           </div>
         </FadeIn>
 
-        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-5">
           <FeatureCard
             icon={FileText}
             title={t.fitur_card1_title}

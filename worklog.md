@@ -13027,3 +13027,17 @@ Work Log:
 
 Stage Summary:
 - Banner Kesempatan Emas kini berlatar GOLD (gradasi amber-300→yellow-400→amber-500) dengan teks gelap amber kontras; section Harga "Pilih Paket Terbaik Kamu" kini berlatar BURGUNDY (#800020, tepi gelap #3f0d14). Light mode, mobile & desktop rapi, 0 error; konten & semua elemen lain tidak berubah.
+---
+Task ID: landing-fitur-rapat-login-masuk
+Agent: Main (Z.ai Code)
+Task: "di fitur unggulan, buat jaraknya agak rapat. tulisan login di kanan atas diganti jadi Login Masuk. fix. deploy"
+
+Work Log:
+- Section FITUR UNGGULAN dibuat lebih rapat: header mb-12 md:mb-16 → mb-8 md:mb-10; grid antar kartu gap-6 md:gap-8 → gap-4 md:gap-5 (desktop 32px → 20px); FeatureCard internal gap-4 → gap-3. Padding kartu & ukuran font dipertahankan.
+- Tombol nav kanan atas (desktop + mobile): teks hardcode "Login" → {t.nav_login}; key nav_login ID = "Login Masuk" (EN tetap "Login"). Catatan: MultiEdit attempt pertama ternyata sebagian ter-apply (2 tombol) meski dilaporkan gagal — diverifikasi via rg lalu edit tersisa (3 spacing) dipisah.
+- eslint src/app/page.tsx BERSIH; dev 200.
+- Verifikasi E2E (agent-browser, :3000): desktop 1440×900 — nav btn "Login Masuk", grid gap 20px, 12 kartu utuh (.verify/fitur-rapat-desktop.png); mobile 390×844 — tombol "Login Masuk" muat di nav compact, tanpa overflow (.verify/login-masuk-mobile.png); console --clear + errors → 0 error.
+- DEPLOY diminta user ("fix. deploy") → dieksekusi setelah commit (lihat commit deploy berikutnya bila ada).
+
+Stage Summary:
+- Section Fitur Unggulan kini lebih rapat (header, gap antar & dalam kartu), tombol kanan atas menjadi "Login Masuk" (EN: "Login"). Bilingual, light+dark, mobile rapi, 0 error.
