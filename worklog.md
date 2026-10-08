@@ -12828,3 +12828,22 @@ Work Log:
 
 Stage Summary:
 - Nama barang pada kartu mobile halaman Harga per Customer kini 14pt (≈18,7px), lebih besar & mudah dibaca di HP; tampilan desktop tidak berubah.
+---
+Task ID: bahan-popup-mobile-minus1pt
+Agent: Main (Z.ai Code)
+Task: "di tampilan mobile, popup tambah bahan. fontnya dikecilin 1pt. fix"
+
+Work Log:
+- Lokasi: popup "Tambah Bahan / Edit Bahan" di halaman Stock Bahan (/stock-bahan) — src/components/views/stock-bahan-view.tsx L2125 (dibuka via FAB mobile / tombol header).
+- Implementasi (mobile only, ≤767px = breakpoint md, desktop tak tersentuh):
+  - stock-bahan-view.tsx: class marker `bahan-popup-compact` pada DialogContent popup tsb + 2 SelectContent di dalamnya (Kategori & Satuan) — Select dirender via portal ke body sehingga butuh marker sendiri agar dropdown ikut. Dialog lain (Stok Masuk/Keluar/Penyesuaian) TIDAK diubah.
+  - src/app/globals.css: blok @media (max-width:767px) yang menurunkan SETIAP bucket font popup tepat −1pt: judul text-lg 13,5pt→12,5pt; teks/label/tombol text-sm 10,5pt→9,5pt; input/textarea text-base 12pt→11pt; teks kecil text-xs 9pt→8pt (selector data-slot shadcn + .text-sm/.text-xs).
+- Kendala dev: perubahan globals.css awalnya tak ikut recompile oleh dev server (chunk CSS lama tersaji; touch tidak memicu) — solusi: edit konten file memicu rebuild, lalu rule tersaji & diverifikasi. Komentar pemicu dikembalikan ke teks asli.
+- Verifikasi E2E (agent-browser, admin, :3000, viewport 390×844):
+  - getComputedStyle popup mobile: judul 18→16,6667px; deskripsi/label/tombol 14→12,6667px; input 16→14,6667px; helper text-xs 12→10,6667px; item dropdown Kategori 14→12,6667px — SEMUA tepat −1pt ✓ (bukti .verify/bahan-popup-minus1pt-mobile.png).
+  - Desktop 1440×900: judul 18px, label/input/tombol 14px — TIDAK berubah ✓.
+  - 0 error console/page; lint bersih.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Popup Tambah/Edit Bahan di tampilan mobile kini seluruh fontnya −1pt (judul 12,5pt, label/deskripsi/tombol 9,5pt, input 11pt, teks kecil 8pt); desktop tetap seperti semula.

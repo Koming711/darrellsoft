@@ -815,3 +815,17 @@ html:not(.dark) .dark-surface .text-stone-500 { color: #78716c !important; }
 html:not(.dark) .dark-surface .text-stone-600 { color: #57534e !important; }
 html:not(.dark) .dark-surface .text-stone-700 { color: #44403c !important; }
 html:not(.dark) .dark-surface .text-muted-foreground { color: #a1a1aa !important; }
+
+/* Popup Tambah/Edit Bahan (Stock Bahan) — TAMPILAN MOBILE: semua font dikecilkan 1pt.
+   Bucket ukuran popup: judul text-lg (13,5pt), teks/label/tombol text-sm (10,5pt),
+   input/textarea text-base (12pt), teks kecil text-xs (9pt). */
+@media (max-width: 767px) {
+  .bahan-popup-compact [data-slot='dialog-title'] { font-size: 12.5pt; }
+  .bahan-popup-compact .text-sm,
+  .bahan-popup-compact [data-slot='select-trigger'],
+  .bahan-popup-compact [data-slot='select-item'],
+  .bahan-popup-compact [data-slot='select-label'] { font-size: 9.5pt; }
+  .bahan-popup-compact [data-slot='input'],
+  .bahan-popup-compact [data-slot='textarea'] { font-size: 11pt; }
+  .bahan-popup-compact .text-xs { font-size: 8pt; }
+}
