@@ -12792,3 +12792,20 @@ Work Log:
 
 Stage Summary:
 - Kotak "No. Potong Kertas (Referensi)" kini SELALU terlihat di editor Hitung Cetakan dalam semua kondisi (terhubung → nomor + data; tidak terhubung → "—" + petunjuk). Jika user masih tidak melihatnya, hampir pasti karena melihat produksi (belum deploy) atau cache SW lama di browser — perlu refresh preview atau perintah "deploy".
+---
+Task ID: hc-editor-pk-ref-minimal
+Agent: Main (Z.ai Code)
+Task: "dihalaman hitung cetakan, keterangan dibawah no pk dihilangkan. fix"
+
+Work Log:
+- Diagnosa: user kini MELIHAT kotaknya (bukti: HC/10/26/0021 ↔ PK/10/26/0024 dibuat user sendiri via Hitung Cetakan Lengkap jam 11:29 UTC, tercatat di DB lokal) — yang dimaksud "keterangan dibawah no pk" adalah panel data referensi (sub-seksi Informasi Cetakan & Harga Bahan snapshot) yang saya tambahkan sebelumnya di bawah nomor PK. Permintaan awal user sebenarnya cukup NOMOR sebagai penunjuk referensi; panel duplikat data form = kelebihan.
+- src/app/hitung-cetakan/page.tsx: panel data referensi DIHILANGKAN seluruhnya beserta mesinnya — state pkRefData, interface PkRefSnapshot, komponen PkRefRow, setPkRefData di resolvePkNomor/resetForm/handleRestoreRiwayat/delete-handler; resolvePkNomor kembali number-only. Kotak kini minimal & SELALU tampil: "No. Hitung Cetakan" + "No. Potong Kertas (Referensi)" berisi nomor PK (teal mono) atau "—" bila belum terhubung (tanpa teks petunjuk). Tooltip label dipertahankan.
+- src/lib/changelog.ts: entri v148 diperbarui ke wording ringkas (kotak selalu tampil, cukup nomornya).
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Editor kosong → kotak: HC/10/26/0022 + "—" tanpa konten lain ✓.
+  - Edit HC/10/26/0021 (record user, terhubung PK/10/26/0024) → kotak: PK/10/26/0024 SAJA, tidak ada panel/keterangan di bawahnya ✓ (bukti .verify/pkref-minimal-linked.png).
+  - 0 error console/page; lint bersih.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Kotak "No. Potong Kertas (Referensi)" kini minimal: hanya label + nomor PK (atau "—"). Semua keterangan/panel data di bawah nomor dihilangkan sesuai permintaan. Data informasi cetakan & harga bahan tetap terbaca lewat form editor itu sendiri; nomor PK berfungsi sbg penunjuk asal data.

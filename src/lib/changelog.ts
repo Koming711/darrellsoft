@@ -52,8 +52,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         en: 'The Print Calculation history table now shows a No PK column — the linked Paper Cutting number (e.g. PK/10/26/0017), also searchable via the search box',
       },
       {
-        id: 'Editor Hitung Cetakan kini menampilkan No. Potong Kertas beserta data referensinya (customer, ukuran kertas & potong, jumlah, bahan, total harga bahan) — asal data informasi cetakan & harga bahan saat diisi lewat "Hitung Cetakan Lengkap" maupun saat mengedit riwayat terhubung',
-        en: 'The Print Calculation editor now shows the Paper Cutting number along with its reference data (customer, paper & cut sizes, quantities, material, total material price) — where the print info & paper prices came from when filled via "Hitung Cetakan Lengkap" or when editing a linked entry',
+        id: 'Editor Hitung Cetakan kini selalu menampilkan kotak No. Potong Kertas (Referensi) — nomor Potong Kertas asal data informasi cetakan & harga bahan (tampil "—" bila belum terhubung)',
+        en: 'The Print Calculation editor now always shows a Paper Cutting No. (Reference) box — the Paper Cutting number the print info & paper prices came from (shows "—" when not linked)',
       },
     ],
   },
