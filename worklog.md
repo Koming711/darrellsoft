@@ -12754,3 +12754,25 @@ Work Log:
 
 Stage Summary:
 - Fitur "No. Potong Kertas (Referensi)" di editor Hitung Cetakan terkonfirmasi berfungsi penuh (jalur Edit riwayat + hidden bila tanpa link; jalur Hitung Cetakan Lengkap dari sesi sebelumnya). Repo bersih: HEAD = origin/main = d046a19; db/custom.db lokal tidak di-commit.
+---
+Task ID: hc-editor-pk-ref-data
+Agent: Main (Z.ai Code)
+Task: "di halaman hitung cetakan tambahkan No. potong kertas untuk referensi data informasi cetakan dan harga bahan. fix" (pengulangan → diperdalam: bukan cuma nomor, tapi DATA referensinya)
+
+Work Log:
+- User mengulang permintaan yang sama setelah fitur nomor referensi (d046a19) selesai → interpretasi: yang dimaksud adalah No. Potong Kertas BESERTA data referensinya (informasi cetakan & harga bahan dari riwayat PK sumber), bukan sekadar nomornya.
+- src/app/hitung-cetakan/page.tsx:
+  - Interface PkRefSnapshot (module-level) + komponen kecil PkRefRow (baris "label: nilai", auto-hide bila kosong/'0', truncate + title).
+  - State baru pkRefData (snapshot record PK lengkap); resolvePkNomor kini menyimpan seluruh record dari GET /api/riwayat-potong-kertas?id= (API return record penuh — tidak perlu ubah backend).
+  - Semua jalur kini selalu fetch record lengkap: URL param pkRiwayatId (Hitung Cetakan Lengkap); applyLinkedRiwayatCetakan (tampil instan dari pkNomor + fetch snapshot); handleRestoreRiwayat (sama); tanpa link → keduanya dikosongkan. resetForm & hapus-riwayat-yang-diedit juga membersihkan pkRefData.
+  - UI kotak referensi diperluas: di bawah nomor PK tampil 2 sub-seksi read-only — "Informasi Cetakan" (Customer, Cetakan, Uk. Kertas W×H cm, Uk. Potong W×H cm, Jml Kertas lbr, Jml Pesanan pcs, Cetak/Mata) dan "Harga Bahan" (Bahan, Total Harga Rp, format id-ID) — dipisah border dashed, gaya teal konsisten.
+- src/lib/changelog.ts: entri v148 diperbarui menyebut data referensi (customer, ukuran kertas & potong, jumlah, bahan, total harga bahan).
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Edit riwayat terhubung HC/10/26/0012 → kotak "NO. POTONG KERTAS (REFERENSI): PK/10/26/0016" + panel data: Jaya Wijaya / brosur / 79×109 cm / 30×40 cm / 1250 lbr / 5000 pcs / 4 mata / art karton / Rp 779.230 ✓ (bukti .verify/pkref-panel-edit0012.png; angka konsisten dgn ringkasan Kertas di sidebar kanan).
+  - Jalur URL param ?pkRiwayatId=… (simulasi "Hitung Cetakan Lengkap") → kotak + panel data sama, deterministic match auto-load HC/10/26/0012 ✓ (tanpa menulis data).
+  - HC/10/26/0017 (tanpa link) → kotak tidak tampil ✓; Reset Form → kotak + panel hilang ✓.
+  - 0 error console/page; dev.log bersih (GET /api/riwayat-potong-kertas?id= 200); lint 0 masalah.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Kotak "No. Potong Kertas (Referensi)" di editor Hitung Cetakan kini menampilkan nomor PK sumber PLUS snapshot data informasi cetakan & harga bahan (read-only) dari riwayat Potong Kertas terhubung — di semua jalur masuk (Hitung Cetakan Lengkap / lanjut riwayat terhubung / Edit riwayat), tersembunyi bila tanpa link, terbersihkan saat Reset/hapus.
