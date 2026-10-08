@@ -265,6 +265,34 @@ function setSharedSuplier(v: string) {
 interface SimRowSnap { sheets: number; modal: number; modalPcs: number; jual: number; jualPcs: number }
 interface SimRow { id: number; jumlah: number; profit: number; snap: SimRowSnap }
 
+// Snapshot ringkas riwayat Potong Kertas sumber — referensi data informasi cetakan
+// & harga bahan yang ditampilkan di kotak "No. Potong Kertas (Referensi)" editor HC.
+interface PkRefSnapshot {
+  nomorUrut?: string
+  namaCustomer?: string | null
+  namaCetakan?: string | null
+  paperName?: string | null
+  paperWidth?: string | null
+  paperHeight?: string | null
+  cutWidth?: string | null
+  cutHeight?: string | null
+  quantity?: string | null
+  jumlahPesanan?: string | null
+  berapaMata?: string | null
+  totalPrice?: number | null
+}
+
+// Baris "label: nilai" kecil utk kotak referensi Potong Kertas — disembunyikan bila kosong/0.
+const PkRefRow = ({ label, value }: { label: string; value?: string | number | null }) => {
+  if (value === undefined || value === null || value === '' || value === '0' || value === 0) return null
+  return (
+    <div className="flex items-baseline justify-between gap-2 min-w-0">
+      <span className="text-[10px] text-slate-400 dark:text-zinc-500 shrink-0">{label}</span>
+      <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-200 truncate text-right" title={String(value)}>{value}</span>
+    </div>
+  )
+}
+
 function HitungCetakanPage() {
   const { t } = useLanguage()
   const router = useRouter()
@@ -411,6 +439,9 @@ function HitungCetakanPage() {
   // harga bahan saat editor diisi lewat tombol "Hitung Cetakan Lengkap" / lanjut
   // riwayat HC yang terhubung (tampil di kotak "No. Hitung Cetakan").
   const [pkNomorDisplay, setPkNomorDisplay] = useState('')
+  // Snapshot data lengkap riwayat PK sumber (informasi cetakan & harga bahan)
+  // yang ditampilkan read-only di bawah nomor referensi tersebut.
+  const [pkRefData, setPkRefData] = useState<PkRefSnapshot | null>(null)
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'gabung'>('editor')
   const [searchQuery, setSearchQuery] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
@@ -489,14 +520,18 @@ function HitungCetakanPage() {
       .catch(() => {})
   }
 
-  // Ambil nomor riwayat Potong Kertas (utk referensi "No. Potong Kertas" di editor).
-  // id kosong → bersihkan tampilan; gagal fetch → tampilan dikosongkan (tidak mengganggu).
+  // Ambil riwayat Potong Kertas sumber (utk referensi "No. Potong Kertas" di editor):
+  // nomor + snapshot data informasi cetakan & harga bahan. id kosong → bersihkan;
+  // gagal fetch → tampilan dikosongkan (tidak mengganggu alur utama).
   const resolvePkNomor = (pkId: string) => {
-    if (!pkId) { setPkNomorDisplay(''); return }
+    if (!pkId) { setPkNomorDisplay(''); setPkRefData(null); return }
     fetcher(`/api/riwayat-potong-kertas?id=${encodeURIComponent(pkId)}`, { headers: getAuthHeaders() })
       .then(res => { if (!res.ok) return null; return res.json() })
-      .then(data => { setPkNomorDisplay(data?.nomorUrut || '') })
-      .catch(() => { setPkNomorDisplay('') })
+      .then(data => {
+        setPkNomorDisplay(data?.nomorUrut || '')
+        setPkRefData(data?.nomorUrut ? (data as PkRefSnapshot) : null)
+      })
+      .catch(() => { setPkNomorDisplay(''); setPkRefData(null) })
   }
 
   const handleBackup = async () => {
@@ -875,9 +910,10 @@ function HitungCetakanPage() {
     if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
     if (r.pkRiwayatId) {
       pkLinkRiwayatIdRef.current = r.pkRiwayatId
-      // Nomor Potong Kertas sumber: langsung dari pkNomor bila ada, jika tidak fetch by id
+      // Nomor Potong Kertas sumber: tampil instan dari pkNomor (bila ada), lalu fetch
+      // record lengkap utk snapshot referensi data informasi cetakan & harga bahan
       if (r.pkNomor) setPkNomorDisplay(r.pkNomor)
-      else resolvePkNomor(r.pkRiwayatId)
+      resolvePkNomor(r.pkRiwayatId)
     }
     // Data CETAKAN diambil dari riwayat (data kertas/lembar tetap dari form hasil edit Potong Kertas)
     const rQty = parseInt(r.quantity) || 0
@@ -1383,6 +1419,7 @@ function HitungCetakanPage() {
     clearStorage()
     pkLinkRiwayatIdRef.current = ''
     setPkNomorDisplay('')
+    setPkRefData(null)
     setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
@@ -1624,12 +1661,14 @@ function HitungCetakanPage() {
     // Saat mengedit riwayat dari tab Riwayat: tampilkan nomor riwayat tsb (bukan nomor baru)
     if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
     pkLinkRiwayatIdRef.current = r.pkRiwayatId || ''
-    // Referensi No. Potong Kertas di editor (dari riwayat yang dibuka untuk diedit)
+    // Referensi No. Potong Kertas di editor (dari riwayat yang dibuka untuk diedit):
+    // tampil instan dari pkNomor bila ada + fetch record lengkap utk snapshot data
     if (r.pkRiwayatId) {
       if (r.pkNomor) setPkNomorDisplay(r.pkNomor)
-      else resolvePkNomor(r.pkRiwayatId)
+      resolvePkNomor(r.pkRiwayatId)
     } else {
       setPkNomorDisplay('')
+      setPkRefData(null)
     }
     setPhotoUrl(r.photoUrl || '')
     setActiveTab('editor')
@@ -1726,6 +1765,7 @@ function HitungCetakanPage() {
           setRestoredRiwayatId(null)
           pkLinkRiwayatIdRef.current = ''
           setPkNomorDisplay('')
+          setPkRefData(null)
           fetchNextNumber()
         }
         fetchRiwayatCetakan()
@@ -2388,6 +2428,26 @@ function HitungCetakanPage() {
                   <div className={nextHitungCetakanNumber ? 'mt-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-800' : ''}>
                     <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider" title="Referensi data informasi cetakan & harga bahan dari halaman Potong Kertas">No. Potong Kertas (Referensi)</p>
                     <p className="text-sm font-bold font-mono text-teal-700 dark:text-teal-300">{pkNomorDisplay}</p>
+                    {/* Snapshot data sumber dari riwayat Potong Kertas (read-only) */}
+                    {pkRefData && (
+                      <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                        <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">Informasi Cetakan</p>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                          <PkRefRow label="Customer" value={pkRefData.namaCustomer} />
+                          <PkRefRow label="Cetakan" value={pkRefData.namaCetakan} />
+                          <PkRefRow label="Uk. Kertas" value={pkRefData.paperWidth && pkRefData.paperHeight ? `${pkRefData.paperWidth} × ${pkRefData.paperHeight} cm` : ''} />
+                          <PkRefRow label="Uk. Potong" value={pkRefData.cutWidth && pkRefData.cutHeight ? `${pkRefData.cutWidth} × ${pkRefData.cutHeight} cm` : ''} />
+                          <PkRefRow label="Jml Kertas" value={pkRefData.quantity ? `${pkRefData.quantity} lbr` : ''} />
+                          <PkRefRow label="Jml Pesanan" value={pkRefData.jumlahPesanan ? `${pkRefData.jumlahPesanan} pcs` : ''} />
+                          <PkRefRow label="Cetak / Mata" value={pkRefData.berapaMata || ''} />
+                        </div>
+                        <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mt-1.5 mb-1">Harga Bahan</p>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                          <PkRefRow label="Bahan" value={pkRefData.paperName} />
+                          <PkRefRow label="Total Harga" value={pkRefData.totalPrice != null && Number(pkRefData.totalPrice) > 0 ? `Rp ${Number(pkRefData.totalPrice).toLocaleString('id-ID')}` : ''} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
