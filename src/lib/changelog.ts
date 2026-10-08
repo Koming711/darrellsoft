@@ -47,6 +47,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         id: 'Halaman Harga per Customer kini menampilkan kolom Tanggal (tanggal dibuat) di tabel versi desktop & kartu di HP',
         en: 'The Price per Customer page now shows a Date column (creation date) in the desktop table & on phone cards',
       },
+      {
+        id: 'Tabel Riwayat Hitung Cetakan kini menampilkan kolom No PK — nomor Potong Kertas yang terhubung (mis. PK/10/26/0017), juga bisa dicari lewat kotak pencarian',
+        en: 'The Print Calculation history table now shows a No PK column — the linked Paper Cutting number (e.g. PK/10/26/0017), also searchable via the search box',
+      },
     ],
   },
   {

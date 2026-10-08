@@ -12646,3 +12646,28 @@ Work Log:
 
 Stage Summary:
 - Kolom Tanggal (Harga per Customer) kini berformat dd/mm/yy (contoh 30/09/26) di tabel desktop & kartu HP. Masih pakai data createdAt tanpa perubahan backend.
+---
+Task ID: riwayat-hc-nopk-column
+Agent: Main (Z.ai Code)
+Task: "dihalaman riwayat hitung cetakan, ditabel riwayat, tambahkan kolom tabel no pk."
+
+Work Log:
+- Halaman Riwayat Hitung Cetakan = /riwayat-hitung-cetakan → komponen bersama src/components/riwayat-content.tsx (source="hitung-cetakan"); tabel desktop: Nomor/Nama Pelanggan/Nama Cetakan/Kertas/Jumlah/Modal/pcs/Jual/pcs/Total/Tanggal/Aksi.
+- Backend (src/app/api/riwayat-cetakan/route.ts GET list): setelah findMany, kumpulkan pkRiwayatId unik → 1 query riwayatPotongKertas ({id in ids}, select id+nomorUrut) → setiap baris dilengkapi field pkNomor (null bila tidak terhubung/PK sudah dihapus). Respons bersifat additive (aman utk konsumen lain + cache offline). Tidak ada perubahan schema (pkRiwayatId sudah ada sejak 4b4811d).
+- riwayat-content.tsx:
+  - RiwayatCetakanRow + pkRiwayatId?/pkNomor?; UnifiedRiwayat + pkNomor (normalizeCetakan dari raw, normalizePotong = null).
+  - Tabel desktop: kolom "NO PK" disisipkan tepat setelah "NOMOR" (hanya utk sumber hitung-cetakan); isi font-mono teal + tooltip "Nomor Potong Kertas yang terhubung"; "-" abu saat tidak terhubung; min-width tabel HC 960→1060px.
+  - Kartu mobile: "· PK/10/26/0021" kecil (mono teal) di samping nomor HC, hanya bila terhubung.
+  - Kotak pencarian kini juga mencocokkan nomor PK.
+  - Halaman riwayat Potong Kertas tidak berubah (kolom tidak relevan di sana).
+- changelog.ts: +1 item di entri v148 (kolom No PK + bisa dicari).
+- Verifikasi E2E (admin, :3000):
+  - Buat pasangan test via API: PK/10/26/0021 (cmuyvc89q…) + HC/10/26/0018 (cmuyvc8da…) dengan pkRiwayatId terisi.
+  - GET /api/riwayat-cetakan: HC/10/26/0018 → pkNomor PK/10/26/0021 ✓; HC/10/26/0012 (data lama ter-link) → PK/10/26/0016 ✓; HC/10/26/0017 & 0013 (tanpa link) → null ✓.
+  - Tabel: header "NOMOR | NO PK | NAMA PELANGGAN | …" ✓; baris HC/10/26/0018 → PK/10/26/0021; HC/10/26/0017 → "-" ✓.
+  - Cari "0021" → 1 baris (HC/10/26/0018) ✓. Mobile 390px: kartu "Hitung Cetakan | HC/10/26/0018 | · PK/10/26/0021" ✓.
+  - Cleanup: kedua record test dihapus (success ×2); 5 HC tersisa, pkNomor test tidak ada lagi. 0 error console; lint 0 masalah; bukti .verify/nopk-kolom-desktop.png + .verify/nopk-kartu-mobile.png.
+- TIDAK deploy (user belum menyebut "deploy"). Catatan: di produksi kolom No PK baru terisi setelah kolom pkRiwayatId ter-migrasi (deploy:push-db) dan riwayat lama ter-link kembali saat pertama kali di-edit + Update.
+
+Stage Summary:
+- Tabel Riwayat Hitung Cetakan kini menampilkan kolom NO PK (nomor Potong Kertas yang terhubung via pkRiwayatId), lengkap di kartu mobile & bisa dicari. Backend GET /api/riwayat-cetakan mengirim pkNomor (1 query tambahan). Data lama yang belum ter-link tampil "-" dan otomatis terisi setelah di-edit + Update (fitur auto-link sebelumnya).
