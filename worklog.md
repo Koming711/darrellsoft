@@ -12926,3 +12926,22 @@ Work Log:
 
 Stage Summary:
 - Transaksi Stok Masuk & Stok Keluar kini BISA DIEDIT: klik baris di tabel → popup edit terisi data lama; Nama supplier (dan field lain) bisa diubah manual; stok bahan otomatis menyesuaikan selisih; edit yang membuat stok minus ditolak (kecuali "Izinkan stok minus" aktif). Nomor transaksi tetap.
+---
+Task ID: deploy-v150-stok-edit
+Agent: Main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com. token vcp_3VxM…"
+
+Work Log:
+- INSIDEN KRITIS: saat mulai sesi deploy, filesystem sandbox TIBA-TIBA ter-restore ke snapshot lama (~2026-10-07 09:24) di tengah perintah — HEAD kembali ke 696880f (era margin-3mm, amend auto-backup), worklog menyusut 12928→11555 baris, KODE FITUR stok-edit HILANG dari working tree, .vercel & origin/main ref basi. Untung GitHub masih menyimpan semua commit (origin/main = 0d34f71) — pulihkan dgn `git fetch` + `git reset --hard origin/main`; semua kode + worklog kembali utuh. PELAJARAN: selalu fetch+verifikasi origin/main sebelum deploy; rollback FS bisa terjadi kapan saja.
+- Migrasi DB produksi Supabase SEBELUM deploy (wajib — pkRiwayatId dari 4b4811d belum ada di produksi): vercel link --yes --project darrellsoft (project.json: prj_ZoKYf7…) + vercel env pull → DATABASE_URL Supabase; swap schema:to-pg; `prisma migrate diff` dari URL produksi → hanya `ALTER TABLE "RiwayatCetakan" ADD COLUMN "pkRiwayatId" TEXT` (additive, nol data loss) → `prisma db push` via pooler SESSION aws-1-ap-southeast-1:5432 → "database is now in sync" (1.68s) → diff ulang bersih → schema:to-sqlite + prisma generate (lokal kembali SQLite). Catatan: prisma db push butuh env var bernama DATABASE_URL (bukan DB); pooler session dipakai krn host db.*.supabase.co rawan IPv6-only.
+- Deploy: `bunx vercel --prod --yes --token <token>` → deployment darrellsoft-hlvro1bc7-koming711s-projects.vercel.app, status ● Ready, target production (build remote via vercel.json: bun install → prepare-build.js → prisma generate → next build; region sin1). Warning "Deployment Protection" muncul seperti biasa — akses publik tetap 200.
+- Verifikasi produksi (agent-browser + curl, www.darrellsoft.com):
+  - sw.js produksi = darrell-soft-v150 ✓ (bundle baru pasti terambil perangkat lama).
+  - Landing footer = v148 ✓; login admin → popup "Versi Baru! v148" (Riwayat HC Terhubung PK) muncul ✓ (CURRENT_VERSION '2026-10-08-v148' berjalan).
+  - /stock-bahan → tab Stok Masuk: 6 transaksi produksi (STK-0001…); KLIK BARIS STK-0001 → dialog "Edit Stok Masuk" prefill data asli (Art Paper BT 260gsm 70×100 BHN-001, stok 10 rim) ✓ (bukti .verify/prod-stok-masuk-edit.png). Ditutup TANPA menyimpan (read-only, data produksi tak diubah).
+  - Tab Stok Keluar produksi: 0 transaksi (belum ada data — normal). Console 0 error.
+  - Seluruh commit tertunda kini live: pk→hc link fix + kolom pkRiwayatId, kotak referensi selalu tampak, nama barang harga-per-customer 14pt mobile, popup bahan (font mobile −1pt, judul 14.5pt bold, Nama Supplier combobox typable, kode BHN-XXX tampil), edit transaksi Stok Masuk/Keluar klik-baris (PUT /api/stock-bahan/mutasi + stok delta), margin 3mm.
+- Wrap-up: .env.vercel-prod/.env.local di-gitignore (tak ter-commit); dev server lokal di-restart (prisma client sempat di-swap pg→sqlite saat migrasi).
+
+Stage Summary:
+- DEPLOY v150 SUKSES ke www.darrellsoft.com: seluruh fitur tertunda live (termasuk edit transaksi Stok Masuk/Keluar via klik baris), DB Supabase ter-migrasi (pkRiwayatId) tanpa kehilangan data, SW v150 / label v148 + popup What's New aktif. Insiden rollback FS terdeteksi & dipulihkan dari GitHub tanpa kehilangan commit.
