@@ -12776,3 +12776,19 @@ Work Log:
 
 Stage Summary:
 - Kotak "No. Potong Kertas (Referensi)" di editor Hitung Cetakan kini menampilkan nomor PK sumber PLUS snapshot data informasi cetakan & harga bahan (read-only) dari riwayat Potong Kertas terhubung — di semua jalur masuk (Hitung Cetakan Lengkap / lanjut riwayat terhubung / Edit riwayat), tersembunyi bila tanpa link, terbersihkan saat Reset/hapus.
+---
+Task ID: hc-editor-pk-ref-always
+Agent: Main (Z.ai Code)
+Task: "tidak muncul juga" (kotak No. Potong Kertas referensi tidak terlihat user)
+
+Work Log:
+- Diagnosa: kotak referensi sebelumnya DISEMBUNYIKAN bila editor tidak terhubung riwayat Potong Kertas (pkNomorDisplay kosong) — sehingga di form kosong / alur manual kotak "tidak muncul". Kemungkinan lain: user melihat www.darrellsoft.com (produksi) yang masih kode lama — seluruh fitur ini BELUM di-deploy (user belum pernah menyebut "deploy").
+- src/app/hitung-cetakan/page.tsx: kotak No. HC + No. Potong Kertas (Referensi) kini SELALU dirender di editor: bila terhubung → nomor PK teal mono + panel data; bila tidak → "—" redup + petunjuk "Belum terhubung riwayat Potong Kertas — buka halaman Potong Kertas lalu klik 'Hitung Cetakan Lengkap' agar form ini terisi & terhubung otomatis". Struktur JSX dirapikan (wrapper kondisional lama dihapus).
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Editor kosong/baru → kotak tampil: HC/10/26/0021 (nomor berikutnya) + "—" + petunjuk ✓ (bukti .verify/pkref-always-fresh.png).
+  - Edit HC/10/26/0012 (terhubung) → PK/10/26/0016 + panel 9 baris data lengkap ✓ (bukti .verify/pkref-always-linked.png).
+  - 0 error console/page; lint bersih. Catatan: verify-session 500 sementara di dev.log hanyalah efek recompile — kini 200.
+- TIDAK deploy (user belum menyebut "deploy") — bila user melihat www.darrellsoft.com, fitur baru tidak akan pernah tampil di sana sebelum deploy dijalankan.
+
+Stage Summary:
+- Kotak "No. Potong Kertas (Referensi)" kini SELALU terlihat di editor Hitung Cetakan dalam semua kondisi (terhubung → nomor + data; tidak terhubung → "—" + petunjuk). Jika user masih tidak melihatnya, hampir pasti karena melihat produksi (belum deploy) atau cache SW lama di browser — perlu refresh preview atau perintah "deploy".
