@@ -107,13 +107,16 @@ function StatCard({ label, value, tone = 'default' }: { label: string; value: nu
   )
 }
 
-/** Tanggal dibuat (createdAt ISO dari API) → "8 Okt 2026". Gagal parse → "-". */
+/** Tanggal dibuat (createdAt ISO dari API) → format dd/mm/yy, mis. "30/09/26". Gagal parse → "-". */
 function formatTanggalDibuat(iso?: string | null): string {
   if (!iso) return '-'
   try {
     const d = new Date(iso)
     if (isNaN(d.getTime())) return '-'
-    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear()).slice(-2)
+    return `${dd}/${mm}/${yy}`
   } catch {
     return '-'
   }
