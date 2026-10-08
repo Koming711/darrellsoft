@@ -12737,3 +12737,20 @@ Work Log:
 
 Stage Summary:
 - Editor halaman Hitung Cetakan kini menampilkan No. Potong Kertas (Referensi) — asal data informasi cetakan & harga bahan — untuk semua jalur masuk (Hitung Cetakan Lengkap / lanjut riwayat terhubung / Edit riwayat), tersembunyi bila tidak ada hubungan, terbersihkan saat Reset.
+---
+Task ID: hc-editor-pk-reference (re-verify)
+Agent: Main (Z.ai Code)
+Task: Re-verifikasi "No. Potong Kertas (Referensi)" di halaman Hitung Cetakan + bersihkan git state
+
+Work Log:
+- Session lanjutan (context sebelumnya habis). Commit implementasi d046a19 sudah ada & sudah ter-push ke origin/main; tidak ada perubahan kode tambahan yang diperlukan.
+- Git cleanup: commit lokal d2c29da (pesan UUID, hanya berisi db/custom.db — melanggar konvensi "db lokal jangan di-commit", belum di-push) di-reset via `git reset HEAD~1`; db/custom.db kembali menjadi perubahan lokal yang TIDAK di-commit. HEAD = origin/main = d046a19.
+- Verifikasi E2E ulang (agent-browser, admin, :3000):
+  - Flow C (Edit riwayat terhubung): tab Riwayat → cari "0012" (periode Semua) → baris HC/10/26/0012 kolom No. PK = PK/10/26/0016 → Preview → Edit → editor menampilkan "NO. HITUNG CETAKAN: HC/10/26/0012" + "NO. POTONG KERTAS (REFERENSI): PK/10/26/0016" (teal mono + tooltip "Referensi data informasi cetakan & harga bahan dari halaman Potong Kertas") ✓; data form terisi dari PK (Jaya Wijaya/brosur, art karton 260gsm·Indojaya, uk bahan 79×109, potong 30×40) ✓. Bukti .verify/pkref-verify-edit0012.png.
+  - Kasus negatif: HC/10/26/0017 (tanpa pkId) → Edit → kotak referensi TIDAK tampil (pkBoxPresent=false) ✓.
+  - Flow A (Hitung Cetakan Lengkap) sudah terverifikasi session sebelumnya (bukti .verify/pkref-editor-flowA.png).
+  - 0 error console/page; dev.log bersih (prisma:error di awal log hanyalah seed startup "duplicate column name: kategoriId" yang benign).
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Fitur "No. Potong Kertas (Referensi)" di editor Hitung Cetakan terkonfirmasi berfungsi penuh (jalur Edit riwayat + hidden bila tanpa link; jalur Hitung Cetakan Lengkap dari sesi sebelumnya). Repo bersih: HEAD = origin/main = d046a19; db/custom.db lokal tidak di-commit.
