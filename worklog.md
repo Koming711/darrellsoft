@@ -12589,3 +12589,25 @@ Work Log:
 Stage Summary:
 - Edit riwayat Potong Kertas → Hitung Cetakan Lengkap kini menampilkan nomor riwayat HC yang TERHUBUNG (mis. HC/10/26/0013), toast menyebut nomor tsb, dan simpan = Update riwayat yang sama. Hubungan kini DETERMINISTIK (pkRiwayatId tersimpan di DB) — tahan terhadap perubahan nama/customer & data duplikat; data lama masih dicocokkan via heuristik nama+customer lalu otomatis ter-link saat Update pertama.
 - File: prisma/schema.prisma, schema.prisma (kolom pkRiwayatId), api/riwayat-cetakan (POST/PUT), hitung-cetakan/page.tsx. Perlu migrasi DB di produksi saat deploy (bun run deploy:push-db sudah menjalankan db push ke Supabase).
+---
+Task ID: version-content-v148
+Agent: Main (Z.ai Code)
+Task: "rubah semua conten dengan versi v148"
+
+Work Log:
+- Interpretasi: semua konten versi user-facing tetap/seragam v148, tetapi ISI-nya diganti menjadi fitur terbaru yang belum rilis (fix pk→hc: riwayat hitung cetakan terhubung dengan potong kertas + nomor HC terhubung, commit 0f9dcf7 + 4b4811d).
+- changelog.ts:
+  - CURRENT_VERSION '2026-10-03-v148' → '2026-10-08-v148' — label yang tampil tetap "v148" (releaseVersionLabel = segmen terakhir), tetapi string berubah sehingga popup What's New PASTI muncul lagi di perangkat yang sudah pernah menutup popup v148 lama.
+  - CHANGELOG[0] diganti: judul "Riwayat Hitung Cetakan Terhubung dengan Potong Kertas" — 3 item id/en: (1) edit riwayat Potong Kertas → Hitung Cetakan Lengkap membuka data HC lama untuk diedit, tombol "Update Riwayat", tanpa duplikat baru; (2) nomor HC yang tampil saat lanjut edit = nomor riwayat yang terhubung (mis. HC/10/26/0013), bukan nomor baru; (3) hubungan tersimpan permanen di database, riwayat lama auto-link saat pertama kali disimpan ulang. Tanggal 8 Oktober 2026.
+  - Entri lama "Nama Suplier Tersinkron…" di-renumber '2026-10-03-v148' → '2026-10-03-v147' (sesuai label rilis aslinya 094e5aa) supaya tidak ada dua entri v148.
+- public/sw.js: CACHE_NAME 'darrell-soft-v149' → 'darrell-soft-v150' (wajib tiap rilis agar perangkat ber-cache menerima bundle baru; pola konsisten rilis sebelumnya).
+- service-worker-registration.tsx: APP_VERSION '2026-10-03-v84' → '2026-10-08-v85'.
+- Verifikasi (agent-browser, :3000, admin):
+  - Popup What's New muncul otomatis: badge "v148", tanggal 8 Oktober 2026, judul + 3 item baru tampil lengkap ✓ (bukti .verify/v148b-whatsnew-popup.png).
+  - Klik "Oke, Mengerti" → localStorage whats_new_version = '2026-10-08-v148' ✓; reload → popup TIDAK muncul lagi ✓.
+  - Footer landing: "© 2026 Darrell Soft … • v148" ✓ (.verify/v148b-footer.png).
+  - 0 error console/page; dev.log bersih (semua 200). Lint 0 masalah.
+- TIDAK deploy (user belum menyebut "deploy"). Catatan deploy nanti: jalankan migrasi DB Supabase (bun run deploy:push-db) karena kolom pkRiwayatId dari 4b4811d belum ada di produksi.
+
+Stage Summary:
+- Semua konten versi user-facing = v148 dengan isi fitur TERBARU (pk→hc terhubung, nomor HC terhubung): popup What's New + badge + footer seragam v148. Popup muncul lagi walau nomor versi tetap v148 (trik: ganti tanggal prefix CURRENT_VERSION). SW v150 / APP v85 siap deploy; produksi masih konten lama sampai user menyuruh deploy.
