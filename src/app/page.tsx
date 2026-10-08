@@ -8,27 +8,34 @@ import {
   ArrowRight,
   BadgeCheck,
   Banknote,
+  Boxes,
   Calculator,
   ChartColumn,
   ChevronDown,
   ChevronRight,
   CircleCheck,
+  ClipboardList,
   Cloud,
+  CreditCard,
   Crown,
-  DollarSign,
   Download,
+  FileText,
   Globe,
+  HandCoins,
   Lightbulb,
   MessageCircle,
   Monitor,
-  MousePointerClick,
-  Package,
   Printer,
   Quote,
+  Receipt,
   Shield,
+  ShoppingCart,
   Smartphone,
   Star,
+  Store,
   TrendingUp,
+  Truck,
+  Wallet,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -347,16 +354,16 @@ const LANDING_T = {
     nav_testimoni: 'Testimoni',
     nav_login: 'Login',
 
-    hero_badge: 'Akuntansi Khusus untuk Cetakan',
-    hero_h1_1: 'Jangan jadi penonton saja!!!.',
-    hero_h1_2: 'Sekarang sudah bisa mulai bisnis cetak',
-    hero_h1_3: 'Dus Makanan, Dus Kue, Hampers, dll',
-    hero_p1_bold1: 'Tidak ada alasan lagi gak bisa hitung modal cetakan...!!',
+    hero_badge: 'Aplikasi Akuntansi untuk Bisnis Cetak',
+    hero_h1_1: 'Buat Invoice, Surat Jalan,',
+    hero_h1_2: 'Purchase Order & Stock Bahan,',
+    hero_h1_3: 'Laba Rugi — Semua Satu Aplikasi!',
+    hero_p1_bold1: 'Akuntansi bisnis cetak kini semudah mengetik...!!',
     hero_p1_bold2: 'Pakai Darrell Soft aja!',
-    hero_p1_text: 'Dulu cuma yang ahli yang bisa hitung modal cetak.',
-    hero_p1_emphasis: 'siapapun bisa',
-    hero_p1_end: 'jadi pengusaha percetakan yang sukses!',
-    hero_p2: 'Lupakan kalkulator manual yang bikin pusing. Dengan Darrell Soft, hitung modal jadi semudah mengetik.',
+    hero_p1_text: 'Dulu order, stok, dan keuangan dicatat pakai buku tulis dan kalkulator.',
+    hero_p1_emphasis: 'sekarang siapapun bisa',
+    hero_p1_end: 'mengelola bisnis percetakan dengan sistem akuntansi yang rapi!',
+    hero_p2: 'Invoice & surat jalan otomatis, purchase order, stock bahan baku, piutang & hutang dagang, hitung harga kertas, laporan laba rugi, sampai laporan penjualan POS — semua tercatat rapi dalam satu aplikasi.',
     hero_trust1: 'Tanpa ikatan kontrak',
     hero_trust2: 'Bisa batal kapan saja tanpa syarat',
     hero_trust3: 'Bisa langganan 1 bulan saja',
@@ -365,62 +372,82 @@ const LANDING_T = {
     hero_cta2: 'Lihat Paket Harga',
     hero_p3: 'Mulai gratis, tanpa kartu kredit. Berhenti kapan saja, tanpa denda.',
 
-    hero_label_dus_kue: 'Dus Kue',
-    hero_label_hampers: 'Hampers',
-    hero_label_kantong_kebab: 'Kantong Kebab',
-    hero_label_dus_donut: 'Dus Donut',
-    hero_label_dus_ayam_geprek: 'Dus Ayam Geprek',
-    hero_label_lunchbox_paper: 'Lunchbox Paper',
-    hero_label_paperbowl: 'Paperbowl',
-    hero_label_paperbag: 'Paperbag',
-    hero_label_hampers_lebaran: 'Hampers Lebaran',
+    hero_inv_title: 'INVOICE',
+    hero_inv_no: '#INV-2026-0042',
+    hero_inv_status: 'LUNAS',
+    hero_inv_item1: 'Dus Kue 12×16',
+    hero_inv_qty1: '500 pcs',
+    hero_inv_price1: 'Rp 3.500.000',
+    hero_inv_item2: 'Paperbowl 750ml',
+    hero_inv_qty2: '1.000 pcs',
+    hero_inv_price2: 'Rp 2.800.000',
+    hero_inv_item3: 'Stiker Label',
+    hero_inv_qty3: '200 pcs',
+    hero_inv_price3: 'Rp 450.000',
+    hero_inv_total: 'Total',
+    hero_inv_total_val: 'Rp 6.750.000',
+    hero_inv_chip1: 'Surat Jalan',
+    hero_inv_chip2: 'Stock Bahan',
+    hero_inv_chip3: 'Piutang',
     hero_alt_printing: 'Mesin Cetak Kemasan',
-    hero_badge_hitung_cepat: 'Hitung Cepat',
-    hero_badge_hitung_cepat_val: '< 5 detik',
-    hero_badge_profit_naik: 'Profit Naik',
-    hero_badge_profit_naik_val: '+40%',
+    hero_badge_hitung_cepat: 'Invoice Jadi',
+    hero_badge_hitung_cepat_val: '< 1 Menit',
+    hero_badge_profit_naik: 'Laba Rugi',
+    hero_badge_profit_naik_val: 'Real-Time',
 
     stats_1_label: 'Pengguna Aktif',
     stats_2_label: 'Tingkat Kepuasan',
-    stats_3_label: 'Transaksi Sukses',
+    stats_3_label: 'Transaksi Tercatat',
     stats_4_label: 'Support Online',
 
     urg_badge: 'Penawaran Terbatas',
     urg_h2_1: 'Jangan Biarkan Bisnis Cetakmu',
-    urg_h2_2: 'Terus Rugi',
-    urg_h2_3: 'Karena Salah Hitung!',
-    urg_p: 'Berlangganan Darrell Soft lebih murah daripada rugi satu kali salah hitung!',
-    urg_card1_title: 'Hitung Akurat',
-    urg_card1_desc: 'Perhitungan 100% akurat, tidak ada lagi kesalahan hitung yang bikin rugi jutaan rupiah.',
-    urg_card2_title: 'Profit Maksimal',
-    urg_card2_desc: 'Tentukan margin sendiri, setiap order pasti menguntungkan. Profit naik sampai 40%!',
-    urg_card3_title: 'Hemat Waktu 90%',
-    urg_card3_desc: 'Yang biasa 30 menit, sekarang cuma 3 detik. Waktumu lebih produktif untuk yang lain!',
+    urg_h2_2: 'Berantakan',
+    urg_h2_3: 'Karena Pencatatan Manual!',
+    urg_p: 'Berlangganan Darrell Soft lebih murah daripada satu piutang lupa tertagih atau stok bahan salah catat!',
+    urg_card1_title: 'Pencatatan Rapi',
+    urg_card1_desc: 'Invoice, surat jalan, dan purchase order tersusun otomatis dengan nomor urut. Tidak ada lagi nota hilang atau dobel catat.',
+    urg_card2_title: 'Arus Kas Terpantau',
+    urg_card2_desc: 'Piutang & hutang dagang terlihat jelas setiap hari. Tahu siapa yang harus ditagih dan kapan tagihan supplier jatuh tempo.',
+    urg_card3_title: 'Laporan Instan',
+    urg_card3_desc: 'Laba rugi dan laporan penjualan POS tampil dalam hitungan detik. Keputusan bisnis jauh lebih cepat!',
     urg_cta1: 'Ya, Saya Mau Coba Gratis!',
     urg_cta2: 'Tanya Admin Dulu',
     urg_p_below: 'Cuma 3 detik daftar, langsung bisa pakai.',
 
     fitur_badge: 'Fitur Unggulan',
-    fitur_h2_1: 'Hitung Modal Jadi',
-    fitur_h2_2: 'Semudah Mengetik',
-    fitur_p: 'Semua yang kamu butuhkan untuk mengelola bisnis percetakan, dalam satu aplikasi yang powerful.',
-    fitur_card1_title: 'Update Harga Sekali Klik',
-    fitur_card1_desc: 'Update harga kertas dan ongkos cetak sekali klik. Tidak perlu edit satu-satu, semua otomatis tersinkronisasi.',
-    fitur_card2_title: 'Ketik Ukuran → Langsung Harga',
-    fitur_card2_desc: 'Ketik ukuran bahan, aplikasi langsung kasih harga modal. Otomatis dan akurat, tanpa kalkulator manual.',
-    fitur_card3_title: 'Tentukan Profit, Harga Jual Muncul',
-    fitur_card3_desc: 'Tentukan profit yang kamu mau, harga jual langsung muncul. Kontrol penuh atas margin keuntunganmu.',
+    fitur_h2_1: '9 Fitur Akuntansi',
+    fitur_h2_2: 'dalam Satu Aplikasi',
+    fitur_p: 'Dari buat invoice sampai laporan keuangan — semua yang dibutuhkan bisnis percetakan, dalam satu aplikasi yang powerful.',
+    fitur_card1_title: 'Buat Invoice',
+    fitur_card1_desc: 'Buat invoice profesional dalam hitungan detik. Nomor otomatis, data customer tersimpan, siap cetak dan kirim.',
+    fitur_card2_title: 'Surat Jalan',
+    fitur_card2_desc: 'Surat jalan otomatis mengikuti invoice. Barang berangkat, pengiriman tercatat rapi tanpa perlu catat manual.',
+    fitur_card3_title: 'Purchase Order',
+    fitur_card3_desc: 'Catat pesanan pembelian ke supplier dengan rapi. Qty, harga, dan barang datang selalu terkontrol.',
+    fitur_card4_title: 'Stock Bahan Baku',
+    fitur_card4_desc: 'Stok kertas & bahan masuk-keluar menyesuaikan otomatis di tiap transaksi. Anti stok kosong mendadak.',
+    fitur_card5_title: 'Piutang Dagang',
+    fitur_card5_desc: 'Pantau tagihan customer yang belum dibayar. Tahu siapa yang belum lunas — tidak ada piutang terlupa.',
+    fitur_card6_title: 'Hutang Dagang',
+    fitur_card6_desc: 'Catat hutang ke supplier beserta jatuh temponya. Bayar tepat waktu, langganan supplier tetap aman.',
+    fitur_card7_title: 'Hitung Harga Kertas',
+    fitur_card7_desc: 'Ketik ukuran & jenis kertas, harga modal langsung jadi. Dasar harga jual yang akurat dan menguntungkan.',
+    fitur_card8_title: 'Laporan Laba Rugi',
+    fitur_card8_desc: 'Laba rugi dihitung otomatis dari semua transaksi. Tahu untung atau rugi tanpa rekap manual di Excel.',
+    fitur_card9_title: 'Laporan Penjualan POS',
+    fitur_card9_desc: 'Terhubung dengan kasir POS. Penjualan harian, produk terlaris, dan omzet langsung tersaji lengkap.',
 
     keunggulan_badge: 'Kenapa Darrell Soft?',
     keunggulan_h2_1: 'Cepat, Akurat,',
     keunggulan_h2_2: 'dan Fleksibel!',
     keunggulan_p: 'Bisa diakses via Desktop maupun HP, kapan saja dan di mana saja.',
     adv1_title: 'Akses via Desktop',
-    adv1_desc: 'Tampilan penuh yang nyaman untuk penggunaan di kantor atau toko. Semua fitur lengkap tersedia.',
+    adv1_desc: 'Tampilan penuh yang nyaman untuk penggunaan di kantor atau toko. Semua fitur akuntansi tersedia.',
     adv2_title: 'Akses via HP',
-    adv2_desc: 'Mobile-friendly! Kelola bisnis percetakanmu langsung dari smartphone, di mana saja kamu berada.',
+    adv2_desc: 'Mobile-friendly! Cek invoice, stock, dan laba rugi langsung dari smartphone, di mana saja kamu berada.',
     adv3_title: 'Kecepatan Tinggi',
-    adv3_desc: 'Proses kalkulasi instan. Tidak perlu menunggu lama, semua perhitungan selesai dalam hitungan detik.',
+    adv3_desc: 'Semua perhitungan instan. Buat invoice sampai laporan laba rugi selesai dalam hitungan detik.',
     adv4_title: 'Data Aman',
     adv4_desc: 'Data bisnismu tersimpan dengan aman. Backup otomatis dan enkripsi untuk keamanan maksimal.',
     adv5_title: 'Install di Windows & Mac',
@@ -475,7 +502,7 @@ const LANDING_T = {
     golden_artinya: 'Artinya',
     golden_artinya_p_pre: 'Peluang bos percetakan masih',
     golden_artinya_p_bold1: 'sangat besar',
-    golden_artinya_p_mid: '. Orang takut karena tidak bisa hitung modal —',
+    golden_artinya_p_mid: '. Orang takut karena tidak bisa atur keuangan —',
     golden_artinya_p_bold2: 'Darrell Soft hilangkan rintangan itu!',
     golden_stat1_val: '64 Juta+',
     golden_stat1_label: 'UMKM di Indonesia',
@@ -489,12 +516,12 @@ const LANDING_T = {
 
     cara_badge: 'Cara Kerja',
     cara_h2_1: 'Semudah',
-    cara_step1_title: 'Masukkan Spesifikasi',
-    cara_step1_desc: 'Ketik ukuran bahan, jenis kertas, dan jumlah cetak yang diinginkan.',
-    cara_step2_title: 'Sistem Hitung Otomatis',
-    cara_step2_desc: 'Aplikasi langsung menghitung modal berdasarkan spesifikasi yang dimasukkan.',
-    cara_step3_title: 'Tentukan & Jual',
-    cara_step3_desc: 'Atur profit yang diinginkan, harga jual otomatis muncul. Siap cetak!',
+    cara_step1_title: 'Buat Invoice & Surat Jalan',
+    cara_step1_desc: 'Order masuk? Buat invoice dalam hitungan detik — surat jalan otomatis siap mengantar barang.',
+    cara_step2_title: 'Transaksi Tercatat Otomatis',
+    cara_step2_desc: 'Stock bahan baku, piutang, dan hutang dagang menyesuaikan sendiri dari setiap transaksi.',
+    cara_step3_title: 'Lihat Laporan & Untung',
+    cara_step3_desc: 'Laba rugi dan laporan penjualan POS tampil real-time. Keputusan bisnis makin tepat.',
 
     harga_badge: 'Harga',
     harga_h2_1: 'Pilih Paket',
@@ -508,9 +535,9 @@ const LANDING_T = {
     price_economis_desc: '1 akun, hemat untuk pemula',
     price_economis_period: 'per bulan',
     price_economis_f1: '1 akun pengguna',
-    price_economis_f2: 'Semua fitur kalkulasi cetak',
-    price_economis_f3: 'Update harga kertas & ongkos',
-    price_economis_f4: 'Hitung otomatis harga modal',
+    price_economis_f2: 'Buat invoice & surat jalan',
+    price_economis_f3: 'Hitung harga kertas otomatis',
+    price_economis_f4: 'Stock bahan baku',
     price_economis_f5: 'Akses Desktop & Mobile',
     price_economis_f6_bold: 'Boleh langganan 1 bulan saja',
     price_economis_f7: 'Tidak ada biaya denda sama sekali',
@@ -519,9 +546,9 @@ const LANDING_T = {
     price_bulanan_desc: 'Langganan bulanan, sangat fleksibel',
     price_bulanan_period: 'per bulan',
     price_bulanan_f1: '2 akun untuk team',
-    price_bulanan_f2: 'Semua fitur kalkulasi cetak',
-    price_bulanan_f3: 'Update harga kertas & ongkos',
-    price_bulanan_f4: 'Hitung otomatis harga modal',
+    price_bulanan_f2: 'Semua fitur akuntansi lengkap',
+    price_bulanan_f3: 'Piutang & hutang dagang',
+    price_bulanan_f4: 'Laporan laba rugi',
     price_bulanan_f5: 'Akses Desktop & Mobile',
     price_bulanan_f6_bold: 'Boleh langganan 1 bulan saja',
     price_bulanan_f7: 'Tidak ada biaya denda sama sekali',
@@ -531,12 +558,12 @@ const LANDING_T = {
     price_tahunan_desc_extra: '— hemat 37%!',
     price_tahunan_period: 'per tahun',
     price_tahunan_f1: '3 akun untuk group',
-    price_tahunan_f2: 'Semua fitur kalkulasi cetak',
-    price_tahunan_f3: 'Update harga kertas & ongkos',
-    price_tahunan_f4: 'Hitung otomatis harga modal',
+    price_tahunan_f2: 'Semua fitur akuntansi lengkap',
+    price_tahunan_f3: 'Laporan penjualan POS',
+    price_tahunan_f4: 'Purchase order & stock bahan',
     price_tahunan_f5: 'Akses Desktop & Mobile',
     price_tahunan_f6: 'Priority Support 24/7',
-    price_tahunan_f7: 'Laporan bulanan lengkap',
+    price_tahunan_f7: 'Laporan laba rugi lengkap',
     price_tahunan_f8: 'Backup data otomatis',
 
     price_guarantee: 'Tanpa Ikatan Apapun! Bisa batal kapan saja tanpa denda.',
@@ -547,10 +574,10 @@ const LANDING_T = {
     testimoni_h2_3: 'Percetakan',
     testi1_name: 'Maman',
     testi1_role: 'Pemilik Tunas Makmur',
-    testi1_quote: 'Dulu hitung modal cetak pakai kalkulator, sering salah dan rugi. Sekarang pakai Darrell Soft, semua otomatis dan akurat. Profit naik 40%!',
+    testi1_quote: 'Dulu buat invoice dan tagih piutang manual, sering ada yang lupa. Sekarang semua otomatis dan rapi. Laba rugi tinggal buka aplikasi!',
     testi2_name: 'Jimmy',
     testi2_role: 'Owner SiPrint',
-    testi2_quote: 'Aplikasinya super mudah dipakai. Saya yang nggak paham komputer pun bisa langsung pakai. Harga paketnya juga sangat terjangkau.',
+    testi2_quote: 'Aplikasinya super mudah dipakai. Saya yang nggak paham akuntansi pun bisa langsung pakai. Harga paketnya juga sangat terjangkau.',
     testi3_name: 'Lina Listiawati',
     testi3_role: 'Owner Rajabowl',
     testi3_quote: 'Support-nya responsif banget! Setiap ada pertanyaan langsung dijawab. Darrell Soft memang solusi tepat untuk percetakan.',
@@ -562,14 +589,14 @@ const LANDING_T = {
     cta_h2_2: 'Mulai',
     cta_h2_3: 'Langganan',
     cta_h2_4: 'Sekarang',
-    cta_p: 'Kompetitormu sudah pakai Darrell Soft. Mereka hitung modal dalam hitungan detik, sementara kamu masih pakai kalkulator?',
+    cta_p: 'Kompetitormu sudah pakai Darrell Soft. Mereka buat invoice dalam hitungan detik dan tahu laba ruginya tiap hari — sementara kamu masih catat manual?',
     cta_trust1: 'Gratis 3 hari trial',
     cta_trust2: 'Tanpa kartu kredit',
     cta_trust3: 'Bisa batal kapan saja',
-    cta_card_h3: 'Cuma Rp 128.000/bulan — Lebih Murah dari Gaji Karyawan 1 Hari!',
+    cta_card_h3: 'Cuma Rp 128.000/bulan — Lebih Murah dari Satu Piutang Lupa Tertagih!',
     cta_card_p_pre: 'Bayangkan:',
-    cta_card_p_bold1: '1 kali salah hitung saja bisa rugi ratusan ribu hingga jutaan rupiah',
-    cta_card_p_mid: '. Dengan Darrell Soft, kamu bayar cuma Rp 128.000/bulan tapi hemat jutaan dari kesalahan hitung. ',
+    cta_card_p_bold1: 'satu piutang lupa tertagih atau stok salah catat saja bisa rugi ratusan ribu hingga jutaan rupiah',
+    cta_card_p_mid: '. Dengan Darrell Soft, semua transaksi tercatat rapi cuma Rp 128.000/bulan. ',
     cta_card_p_bold2: 'Investasi kecil, untung besar!',
     cta_card_check1_bold: 'Tanpa kontrak',
     cta_card_check1_post: ' — bebas berhenti kapan saja',
@@ -586,7 +613,7 @@ const LANDING_T = {
     faq_h2_1: 'Pertanyaan yang',
     faq_h2_2: 'Sering Ditanyakan',
     faq1_q: 'Apakah bisa dicoba dulu sebelum berlangganan?',
-    faq1_a: 'Tentu! Kami menyediakan masa trial gratis agar kamu bisa merasakan semua fitur Darrell Soft sebelum memutuskan berlangganan.',
+    faq1_a: 'Tentu! Kami menyediakan masa trial gratis agar kamu bisa merasakan semua fitur Darrell Soft — invoice, stock bahan, laba rugi, dan lainnya — sebelum memutuskan berlangganan.',
     faq2_q: 'Bagaimana cara berlangganan?',
     faq2_a: 'Sangat mudah! Cukup DM kami, pilih paket yang sesuai, dan lakukan pembayaran. Akun kamu akan langsung aktif.',
     faq3_q: 'Apakah data saya aman?',
@@ -594,7 +621,7 @@ const LANDING_T = {
     faq4_q: 'Bisa berhenti berlangganan kapan saja?',
     faq4_a: 'Tentu! Tidak ada ikatan kontrak. Kamu bisa berhenti kapan saja tanpa denda atau biaya tambahan.',
 
-    footer_brand_desc: 'Sistem kasir percetakan yang membantu menghitung modal, mengelola harga, dan meningkatkan profit bisnis cetakmu.',
+    footer_brand_desc: 'Aplikasi akuntansi untuk bisnis cetakan: buat invoice & surat jalan, kelola purchase order dan stock bahan baku, pantau piutang & hutang dagang, sampai laporan laba rugi dan penjualan POS.',
     footer_nav_title: 'Navigasi',
     footer_nav_fitur: 'Fitur',
     footer_nav_harga: 'Harga',
@@ -612,16 +639,16 @@ const LANDING_T = {
     nav_testimoni: 'Testimonials',
     nav_login: 'Login',
 
-    hero_badge: 'Accounting Made for Printing',
-    hero_h1_1: "Don't just be a spectator!!!.",
-    hero_h1_2: 'Now you can start a printing business for',
-    hero_h1_3: 'Food Boxes, Cake Boxes, Hampers, etc.',
-    hero_p1_bold1: 'No more excuses for not being able to calculate printing costs...!!',
+    hero_badge: 'Accounting App for Printing Businesses',
+    hero_h1_1: 'Create Invoices, Delivery Notes,',
+    hero_h1_2: 'Purchase Orders & Material Stock,',
+    hero_h1_3: 'P&L Reports — All in One App!',
+    hero_p1_bold1: 'Printing business accounting is now as easy as typing...!!',
     hero_p1_bold2: 'Just use Darrell Soft!',
-    hero_p1_text: 'In the past, only experts could calculate printing costs.',
-    hero_p1_emphasis: 'anyone can',
-    hero_p1_end: 'become a successful printing entrepreneur!',
-    hero_p2: 'Forget manual calculators that give you headaches. With Darrell Soft, calculating costs is as easy as typing.',
+    hero_p1_text: 'In the past, orders, stock, and finances were recorded in notebooks and calculators.',
+    hero_p1_emphasis: 'now anyone can',
+    hero_p1_end: 'run a printing business with a tidy accounting system!',
+    hero_p2: 'Automatic invoices & delivery notes, purchase orders, raw material stock, receivables & payables, paper price calculation, profit & loss reports, down to POS sales reports — all neatly recorded in one app.',
     hero_trust1: 'No contract binding',
     hero_trust2: 'Cancel anytime, no conditions',
     hero_trust3: 'Subscribe for just 1 month',
@@ -630,62 +657,82 @@ const LANDING_T = {
     hero_cta2: 'View Pricing Plans',
     hero_p3: 'Start free, no credit card. Stop anytime, no penalty.',
 
-    hero_label_dus_kue: 'Cake Box',
-    hero_label_hampers: 'Hampers',
-    hero_label_kantong_kebab: 'Kebab Bag',
-    hero_label_dus_donut: 'Donut Box',
-    hero_label_dus_ayam_geprek: 'Fried Chicken Box',
-    hero_label_lunchbox_paper: 'Paper Lunchbox',
-    hero_label_paperbowl: 'Paperbowl',
-    hero_label_paperbag: 'Paperbag',
-    hero_label_hampers_lebaran: 'Eid Hampers',
+    hero_inv_title: 'INVOICE',
+    hero_inv_no: '#INV-2026-0042',
+    hero_inv_status: 'PAID',
+    hero_inv_item1: 'Cake Box 12×16',
+    hero_inv_qty1: '500 pcs',
+    hero_inv_price1: 'Rp 3,500,000',
+    hero_inv_item2: 'Paperbowl 750ml',
+    hero_inv_qty2: '1,000 pcs',
+    hero_inv_price2: 'Rp 2,800,000',
+    hero_inv_item3: 'Sticker Label',
+    hero_inv_qty3: '200 pcs',
+    hero_inv_price3: 'Rp 450,000',
+    hero_inv_total: 'Total',
+    hero_inv_total_val: 'Rp 6,750,000',
+    hero_inv_chip1: 'Delivery Note',
+    hero_inv_chip2: 'Stock',
+    hero_inv_chip3: 'Receivables',
     hero_alt_printing: 'Packaging Printing Machine',
-    hero_badge_hitung_cepat: 'Fast Calculation',
-    hero_badge_hitung_cepat_val: '< 5 seconds',
-    hero_badge_profit_naik: 'Profit Up',
-    hero_badge_profit_naik_val: '+40%',
+    hero_badge_hitung_cepat: 'Invoice Ready',
+    hero_badge_hitung_cepat_val: '< 1 Minute',
+    hero_badge_profit_naik: 'Profit & Loss',
+    hero_badge_profit_naik_val: 'Real-Time',
 
     stats_1_label: 'Active Users',
     stats_2_label: 'Satisfaction Rate',
-    stats_3_label: 'Successful Transactions',
+    stats_3_label: 'Recorded Transactions',
     stats_4_label: 'Online Support',
 
     urg_badge: 'Limited Offer',
     urg_h2_1: "Don't Let Your Printing Business",
-    urg_h2_2: 'Keep Losing',
-    urg_h2_3: 'Due to Wrong Calculations!',
-    urg_p: 'Subscribing to Darrell Soft is cheaper than losing money from one wrong calculation!',
-    urg_card1_title: 'Accurate Calculation',
-    urg_card1_desc: '100% accurate calculations, no more calculation mistakes that cost you millions of rupiah.',
-    urg_card2_title: 'Maximum Profit',
-    urg_card2_desc: 'Set your own margin, every order is profitable. Profit up by 40%!',
-    urg_card3_title: 'Save 90% of Time',
-    urg_card3_desc: 'What used to take 30 minutes, now only 3 seconds. Your time is more productive for other things!',
+    urg_h2_2: 'Fall Apart',
+    urg_h2_3: 'Due to Manual Bookkeeping!',
+    urg_p: 'Subscribing to Darrell Soft is cheaper than one forgotten receivable or misrecorded stock!',
+    urg_card1_title: 'Neat Records',
+    urg_card1_desc: 'Invoices, delivery notes, and purchase orders are arranged automatically with sequential numbers. No more lost notes or double entries.',
+    urg_card2_title: 'Cash Flow Visible',
+    urg_card2_desc: 'Receivables & payables are clear every day. Know who to collect from and when supplier bills are due.',
+    urg_card3_title: 'Instant Reports',
+    urg_card3_desc: 'Profit & loss and POS sales reports appear in seconds. Make business decisions much faster!',
     urg_cta1: 'Yes, I Want to Try Free!',
     urg_cta2: 'Ask Admin First',
     urg_p_below: 'Just 3 seconds to register, ready to use right away.',
 
     fitur_badge: 'Key Features',
-    fitur_h2_1: 'Calculating Costs Is As',
-    fitur_h2_2: 'Easy As Typing',
-    fitur_p: 'Everything you need to manage your printing business, in one powerful application.',
-    fitur_card1_title: 'Update Prices with One Click',
-    fitur_card1_desc: 'Update paper prices and printing costs with one click. No need to edit one by one, everything syncs automatically.',
-    fitur_card2_title: 'Type Size → Instant Price',
-    fitur_card2_desc: 'Type the material size, the app instantly gives you the base cost. Automatic and accurate, no manual calculator.',
-    fitur_card3_title: 'Set Profit, Selling Price Appears',
-    fitur_card3_desc: 'Set your desired profit, the selling price appears instantly. Full control over your profit margin.',
+    fitur_h2_1: '9 Accounting Features',
+    fitur_h2_2: 'in One App',
+    fitur_p: 'From creating invoices to financial reports — everything a printing business needs, in one powerful app.',
+    fitur_card1_title: 'Create Invoices',
+    fitur_card1_desc: 'Create professional invoices in seconds. Automatic numbering, customer data saved, ready to print and send.',
+    fitur_card2_title: 'Delivery Notes',
+    fitur_card2_desc: 'Delivery notes automatically follow the invoice. Goods leave, shipments are neatly recorded without manual notes.',
+    fitur_card3_title: 'Purchase Order',
+    fitur_card3_desc: 'Record purchase orders to suppliers neatly. Qty, price, and incoming goods are always under control.',
+    fitur_card4_title: 'Raw Material Stock',
+    fitur_card4_desc: 'Paper & material stock adjusts automatically with every transaction. No more sudden stock-outs.',
+    fitur_card5_title: 'Accounts Receivable',
+    fitur_card5_desc: "Track customer invoices that haven't been paid. Know who hasn't settled — no more forgotten receivables.",
+    fitur_card6_title: 'Accounts Payable',
+    fitur_card6_desc: 'Record supplier debts with their due dates. Pay on time and keep supplier relationships safe.',
+    fitur_card7_title: 'Paper Price Calculation',
+    fitur_card7_desc: 'Type the size & paper type, the base cost appears instantly. The foundation of accurate, profitable selling prices.',
+    fitur_card8_title: 'Profit & Loss Report',
+    fitur_card8_desc: "Profit & loss is calculated automatically from all transactions. Know if you're profitable without manual spreadsheets.",
+    fitur_card9_title: 'POS Sales Report',
+    fitur_card9_desc: 'Connected with the POS cashier. Daily sales, best-selling products, and revenue presented completely.',
 
     keunggulan_badge: 'Why Darrell Soft?',
     keunggulan_h2_1: 'Fast, Accurate,',
     keunggulan_h2_2: 'and Flexible!',
     keunggulan_p: 'Accessible via Desktop or Mobile, anytime and anywhere.',
     adv1_title: 'Desktop Access',
-    adv1_desc: 'Full view comfortable for office or shop use. All complete features available.',
+    adv1_desc: 'Full view comfortable for office or shop use. All accounting features available.',
     adv2_title: 'Mobile Access',
-    adv2_desc: 'Mobile-friendly! Manage your printing business directly from your smartphone, wherever you are.',
+    adv2_desc: 'Mobile-friendly! Check invoices, stock, and profit & loss directly from your smartphone, wherever you are.',
     adv3_title: 'High Speed',
-    adv3_desc: 'Instant calculation process. No need to wait long, all calculations done in seconds.',
+    adv3_desc: 'All calculations are instant. From creating invoices to profit & loss reports, done in seconds.',
     adv4_title: 'Secure Data',
     adv4_desc: 'Your business data is stored safely. Automatic backup and encryption for maximum security.',
     adv5_title: 'Install on Windows & Mac',
@@ -740,7 +787,7 @@ const LANDING_T = {
     golden_artinya: 'Meaning',
     golden_artinya_p_pre: 'The opportunity for printing bosses is still',
     golden_artinya_p_bold1: 'very huge',
-    golden_artinya_p_mid: '. People are afraid because they cannot calculate costs —',
+    golden_artinya_p_mid: ". People are afraid because they can't manage finances —",
     golden_artinya_p_bold2: 'Darrell Soft removes that barrier!',
     golden_stat1_val: '64 Million+',
     golden_stat1_label: 'SMEs in Indonesia',
@@ -754,12 +801,12 @@ const LANDING_T = {
 
     cara_badge: 'How It Works',
     cara_h2_1: 'As Easy as',
-    cara_step1_title: 'Enter Specifications',
-    cara_step1_desc: 'Type the material size, paper type, and desired print quantity.',
-    cara_step2_title: 'Auto Calculation System',
-    cara_step2_desc: 'The app instantly calculates the cost based on the entered specifications.',
-    cara_step3_title: 'Set & Sell',
-    cara_step3_desc: 'Set your desired profit, the selling price appears automatically. Ready to print!',
+    cara_step1_title: 'Create Invoice & Delivery Note',
+    cara_step1_desc: 'Order came in? Create an invoice in seconds — the delivery note is automatically ready.',
+    cara_step2_title: 'Transactions Auto-Recorded',
+    cara_step2_desc: 'Raw material stock, receivables, and payables adjust themselves with every transaction.',
+    cara_step3_title: 'See Reports & Profit',
+    cara_step3_desc: 'Profit & loss and POS sales reports appear in real-time. Sharper business decisions.',
 
     harga_badge: 'Pricing',
     harga_h2_1: 'Choose Your',
@@ -773,9 +820,9 @@ const LANDING_T = {
     price_economis_desc: '1 account, economical for beginners',
     price_economis_period: 'per month',
     price_economis_f1: '1 user account',
-    price_economis_f2: 'All printing calculation features',
-    price_economis_f3: 'Update paper prices & costs',
-    price_economis_f4: 'Auto calculate base cost',
+    price_economis_f2: 'Create invoices & delivery notes',
+    price_economis_f3: 'Automatic paper price calculation',
+    price_economis_f4: 'Raw material stock',
     price_economis_f5: 'Desktop & Mobile Access',
     price_economis_f6_bold: 'Can subscribe for just 1 month',
     price_economis_f7: 'No penalty fees whatsoever',
@@ -784,9 +831,9 @@ const LANDING_T = {
     price_bulanan_desc: 'Monthly subscription, very flexible',
     price_bulanan_period: 'per month',
     price_bulanan_f1: '2 accounts for a team',
-    price_bulanan_f2: 'All printing calculation features',
-    price_bulanan_f3: 'Update paper prices & costs',
-    price_bulanan_f4: 'Auto calculate base cost',
+    price_bulanan_f2: 'All complete accounting features',
+    price_bulanan_f3: 'Receivables & payables',
+    price_bulanan_f4: 'Profit & loss report',
     price_bulanan_f5: 'Desktop & Mobile Access',
     price_bulanan_f6_bold: 'Can subscribe for just 1 month',
     price_bulanan_f7: 'No penalty fees whatsoever',
@@ -796,12 +843,12 @@ const LANDING_T = {
     price_tahunan_desc_extra: '— save 37%!',
     price_tahunan_period: 'per year',
     price_tahunan_f1: '3 accounts for a group',
-    price_tahunan_f2: 'All printing calculation features',
-    price_tahunan_f3: 'Update paper prices & costs',
-    price_tahunan_f4: 'Auto calculate base cost',
+    price_tahunan_f2: 'All complete accounting features',
+    price_tahunan_f3: 'POS sales reports',
+    price_tahunan_f4: 'Purchase orders & material stock',
     price_tahunan_f5: 'Desktop & Mobile Access',
     price_tahunan_f6: 'Priority 24/7 Support',
-    price_tahunan_f7: 'Complete monthly reports',
+    price_tahunan_f7: 'Complete profit & loss reports',
     price_tahunan_f8: 'Automatic data backup',
 
     price_guarantee: 'No Binding Commitment! Cancel anytime without penalty.',
@@ -812,10 +859,10 @@ const LANDING_T = {
     testimoni_h2_3: 'Printing Entrepreneurs',
     testi1_name: 'Maman',
     testi1_role: 'Owner of Tunas Makmur',
-    testi1_quote: 'Used to calculate printing costs with a calculator, often wrong and losing money. Now using Darrell Soft, everything is automatic and accurate. Profit up 40%!',
+    testi1_quote: 'I used to create invoices and collect receivables manually, some were forgotten. Now everything is automatic and neat. Profit & loss is just one tap away!',
     testi2_name: 'Jimmy',
     testi2_role: 'Owner of SiPrint',
-    testi2_quote: "The app is super easy to use. Even I, who don't understand computers, can use it right away. The package price is also very affordable.",
+    testi2_quote: "The app is super easy to use. Even I, who don't understand accounting, can use it right away. The package price is also very affordable.",
     testi3_name: 'Lina Listiawati',
     testi3_role: 'Owner of Rajabowl',
     testi3_quote: 'The support is very responsive! Every question is answered immediately. Darrell Soft is indeed the right solution for printing.',
@@ -827,14 +874,14 @@ const LANDING_T = {
     cta_h2_2: 'Start',
     cta_h2_3: 'Subscribing',
     cta_h2_4: 'Now',
-    cta_p: 'Your competitors are already using Darrell Soft. They calculate costs in seconds, while you still use a calculator?',
+    cta_p: 'Your competitors are already using Darrell Soft. They create invoices in seconds and know their profit & loss every day — while you still write everything manually?',
     cta_trust1: 'Free 3-day trial',
     cta_trust2: 'No credit card',
     cta_trust3: 'Cancel anytime',
-    cta_card_h3: 'Only Rp 128,000/month — Cheaper Than 1 Day of Employee Wage!',
+    cta_card_h3: 'Only Rp 128,000/month — Cheaper Than One Forgotten Receivable!',
     cta_card_p_pre: 'Imagine:',
-    cta_card_p_bold1: 'one wrong calculation can cost you hundreds of thousands to millions of rupiah',
-    cta_card_p_mid: '. With Darrell Soft, you pay only Rp 128,000/month but save millions from calculation mistakes. ',
+    cta_card_p_bold1: 'one forgotten receivable or misrecorded stock can cost you hundreds of thousands to millions of rupiah',
+    cta_card_p_mid: '. With Darrell Soft, all transactions are neatly recorded for only Rp 128,000/month. ',
     cta_card_p_bold2: 'Small investment, big profit!',
     cta_card_check1_bold: 'No contract',
     cta_card_check1_post: ' — free to stop anytime',
@@ -851,7 +898,7 @@ const LANDING_T = {
     faq_h2_1: 'Frequently',
     faq_h2_2: 'Asked Questions',
     faq1_q: 'Can I try it first before subscribing?',
-    faq1_a: 'Of course! We provide a free trial period so you can experience all Darrell Soft features before deciding to subscribe.',
+    faq1_a: 'Of course! We provide a free trial period so you can experience all Darrell Soft features — invoices, material stock, profit & loss, and more — before deciding to subscribe.',
     faq2_q: 'How do I subscribe?',
     faq2_a: 'Very easy! Just DM us, choose the suitable plan, and make the payment. Your account will be activated immediately.',
     faq3_q: 'Is my data safe?',
@@ -859,7 +906,7 @@ const LANDING_T = {
     faq4_q: 'Can I stop subscribing anytime?',
     faq4_a: 'Of course! No contract binding. You can stop anytime without penalty or additional fees.',
 
-    footer_brand_desc: 'Printing cashier system that helps calculate costs, manage prices, and increase your printing business profit.',
+    footer_brand_desc: 'Accounting app for printing businesses: create invoices & delivery notes, manage purchase orders and raw material stock, track receivables & payables, down to profit & loss and POS sales reports.',
     footer_nav_title: 'Navigation',
     footer_nav_fitur: 'Features',
     footer_nav_harga: 'Pricing',
@@ -916,46 +963,71 @@ export default function Home() {
     router.push(`/checkout?plan=${pkgType}`);
   };
 
-  // Hero image panel (food box grid + printing machine with overlay badges).
-  // On mobile it renders inline right after the H1; on desktop it's in the right column.
+  // Hero visual panel: mock invoice akuntansi + mesin cetak dengan badge
+  // mengambang. Di mobile tampil inline setelah H1; di desktop di kolom kanan.
   const heroImagePanel = (
     <div className="relative">
       <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-emerald-600/10 border border-emerald-50 dark:border-white/10 p-3 sm:p-4 -ml-3 sm:-ml-4 md:ml-0 bg-gradient-to-br from-emerald-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-          {[
-            { src: '/dus-kue.jpg', label: t.hero_label_dus_kue },
-            { src: '/hampers.jpg', label: t.hero_label_hampers },
-            { src: '/kantong-kebab.jpg', label: t.hero_label_kantong_kebab },
-            { src: '/dus-donut.jpg', label: t.hero_label_dus_donut },
-            { src: '/dus-ayam-geprek.jpg', label: t.hero_label_dus_ayam_geprek },
-            { src: '/lunchbox-paper.jpg', label: t.hero_label_lunchbox_paper },
-            { src: '/paperbowl.png', label: t.hero_label_paperbowl },
-            { src: '/paperbag.jpg', label: t.hero_label_paperbag },
-            { src: '/hampers-lebaran.jpg', label: t.hero_label_hampers_lebaran },
-          ].map((item, i) => (
-            <motion.div
-              key={item.src}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 + i * 0.07, duration: 0.4 }}
-              className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-md border border-gray-100 dark:border-white/10 aspect-square"
-            >
-              <img
-                src={item.src}
-                alt={item.label}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1.5 sm:py-2">
-                <p className="text-[10px] sm:text-xs font-bold text-white text-center leading-tight">{item.label}</p>
+        {/* Mock Invoice */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.5 }}
+          className="relative rounded-xl bg-white dark:bg-slate-900 shadow-md border border-gray-100 dark:border-white/10 p-4 sm:p-5"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-400 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 text-white" />
               </div>
-            </motion.div>
-          ))}
-        </div>
-        {/* Printing machine image — below the food box grid */}
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-gray-100 tracking-tight leading-none">{t.hero_inv_title}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{t.hero_inv_no}</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 dark:bg-emerald-950/60 dark:border-emerald-900/60 px-2 py-1 text-[9px] sm:text-[10px] font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
+              <CircleCheck className="w-3 h-3" /> {t.hero_inv_status}
+            </span>
+          </div>
+
+          <div className="my-3 h-px bg-gray-100 dark:bg-white/10" />
+
+          <ul className="space-y-2">
+            {[
+              { name: t.hero_inv_item1, qty: t.hero_inv_qty1, price: t.hero_inv_price1 },
+              { name: t.hero_inv_item2, qty: t.hero_inv_qty2, price: t.hero_inv_price2 },
+              { name: t.hero_inv_item3, qty: t.hero_inv_qty3, price: t.hero_inv_price3 },
+            ].map((row, i) => (
+              <li key={i} className="flex items-center justify-between gap-2 text-[11px] sm:text-xs">
+                <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">{row.name}</span>
+                <span className="text-gray-400 shrink-0">{row.qty}</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100 shrink-0">{row.price}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="my-3 h-px bg-gray-100 dark:bg-white/10" />
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-gray-500">{t.hero_inv_total}</span>
+            <span className="text-sm sm:text-base font-extrabold bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent">{t.hero_inv_total_val}</span>
+          </div>
+
+          {/* Chips fitur terkait invoice */}
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
+            {[t.hero_inv_chip1, t.hero_inv_chip2, t.hero_inv_chip3].map((chip, i) => (
+              <span key={i} className="flex items-center justify-center gap-1 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100/70 dark:border-emerald-900/50 px-1 py-1.5 text-[9px] sm:text-[10px] font-bold text-emerald-700 dark:text-emerald-300 text-center leading-tight">
+                <CircleCheck className="w-3 h-3 shrink-0" /> {chip}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Mesin cetak — di bawah mock invoice */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 + 9 * 0.07, duration: 0.5 }}
+          transition={{ delay: 0.45, duration: 0.5 }}
           className="mt-2.5 sm:mt-3 relative rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800"
         >
           <img
@@ -964,7 +1036,7 @@ export default function Home() {
             className="w-full h-32 sm:h-44 md:h-48 object-cover transition-transform duration-500 hover:scale-105"
           />
           <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-          {/* Hitung Cepat badge — overlaid on the printing machine image (top-right) */}
+          {/* Badge Invoice Jadi — di kanan atas gambar mesin cetak */}
           <motion.div
             animate={{ y: [0, 4, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
@@ -972,7 +1044,7 @@ export default function Home() {
           >
             <div className="flex items-center gap-1.5 md:gap-2">
               <div className="w-7 h-7 md:w-9 md:h-9 rounded-md bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center">
-                <Calculator className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-emerald-700 dark:text-emerald-400" />
+                <FileText className="w-3.5 h-3.5 md:w-4.5 md:h-4.5 text-emerald-700 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-[9px] md:text-[11px] text-gray-600 dark:text-gray-300 leading-none">{t.hero_badge_hitung_cepat}</p>
@@ -980,7 +1052,7 @@ export default function Home() {
               </div>
             </div>
           </motion.div>
-          {/* Profit Naik badge — overlaid on the printing machine image (bottom-left) */}
+          {/* Badge Laba Rugi — di kiri bawah gambar mesin cetak */}
           <motion.div
             animate={{ y: [0, -4, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
@@ -1150,7 +1222,7 @@ export default function Home() {
             {[
               { value: 7168, suffix: '+', label: t.stats_1_label, icon: Printer },
               { value: 98, suffix: '%', label: t.stats_2_label, icon: Star },
-              { value: 168800, suffix: '+', label: t.stats_3_label, icon: Package },
+              { value: 168800, suffix: '+', label: t.stats_3_label, icon: Receipt },
               { value: 24, suffix: '/7', label: t.stats_4_label, icon: Shield },
             ].map((stat, i) => (
               <FadeIn key={i} delay={i * 0.1}>
@@ -1198,7 +1270,7 @@ export default function Home() {
             <FadeIn delay={0}>
               <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/[0.09] hover:-translate-y-1 transition-all duration-300 h-full">
                 <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-950/50 mb-4">
-                  <CircleCheck className="w-6 h-6 text-white" />
+                  <ClipboardList className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">{t.urg_card1_title}</h3>
                 <p className="text-slate-300/90 text-sm leading-relaxed">{t.urg_card1_desc}</p>
@@ -1207,7 +1279,7 @@ export default function Home() {
             <FadeIn delay={0.15}>
               <div className="bg-white/[0.06] backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center hover:bg-white/[0.09] hover:-translate-y-1 transition-all duration-300 h-full">
                 <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-950/50 mb-4">
-                  <TrendingUp className="w-6 h-6 text-white" />
+                  <Wallet className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1.5 tracking-tight">{t.urg_card2_title}</h3>
                 <p className="text-slate-300/90 text-sm leading-relaxed">{t.urg_card2_desc}</p>
@@ -1264,21 +1336,57 @@ export default function Home() {
 
         <div className="grid md:grid-cols-3 gap-6 md:gap-8">
           <FeatureCard
-            icon={MousePointerClick}
+            icon={FileText}
             title={t.fitur_card1_title}
             desc={t.fitur_card1_desc}
             delay={0}
           />
           <FeatureCard
-            icon={Calculator}
+            icon={Truck}
             title={t.fitur_card2_title}
             desc={t.fitur_card2_desc}
             delay={0.15}
           />
           <FeatureCard
-            icon={DollarSign}
+            icon={ShoppingCart}
             title={t.fitur_card3_title}
             desc={t.fitur_card3_desc}
+            delay={0.3}
+          />
+          <FeatureCard
+            icon={Boxes}
+            title={t.fitur_card4_title}
+            desc={t.fitur_card4_desc}
+            delay={0}
+          />
+          <FeatureCard
+            icon={HandCoins}
+            title={t.fitur_card5_title}
+            desc={t.fitur_card5_desc}
+            delay={0.15}
+          />
+          <FeatureCard
+            icon={CreditCard}
+            title={t.fitur_card6_title}
+            desc={t.fitur_card6_desc}
+            delay={0.3}
+          />
+          <FeatureCard
+            icon={Calculator}
+            title={t.fitur_card7_title}
+            desc={t.fitur_card7_desc}
+            delay={0}
+          />
+          <FeatureCard
+            icon={ChartColumn}
+            title={t.fitur_card8_title}
+            desc={t.fitur_card8_desc}
+            delay={0.15}
+          />
+          <FeatureCard
+            icon={Store}
+            title={t.fitur_card9_title}
+            desc={t.fitur_card9_desc}
             delay={0.3}
           />
         </div>
@@ -1576,9 +1684,9 @@ export default function Home() {
         <div className="relative grid md:grid-cols-3 gap-10 md:gap-8 max-w-4xl mx-auto">
           <div aria-hidden="true" className="hidden md:block absolute top-6 left-[16.666%] right-[16.666%] h-0.5 bg-gradient-to-r from-emerald-600/15 via-teal-400/50 to-emerald-600/15" />
           {[
-            { step: '1', title: t.cara_step1_title, desc: t.cara_step1_desc, icon: Package },
-            { step: '2', title: t.cara_step2_title, desc: t.cara_step2_desc, icon: Calculator },
-            { step: '3', title: t.cara_step3_title, desc: t.cara_step3_desc, icon: DollarSign },
+            { step: '1', title: t.cara_step1_title, desc: t.cara_step1_desc, icon: FileText },
+            { step: '2', title: t.cara_step2_title, desc: t.cara_step2_desc, icon: Boxes },
+            { step: '3', title: t.cara_step3_title, desc: t.cara_step3_desc, icon: ChartColumn },
           ].map((item, i) => (
             <FadeIn key={i} delay={i * 0.15}>
               <div className="relative flex flex-col items-center text-center">
