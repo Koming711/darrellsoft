@@ -12671,3 +12671,25 @@ Work Log:
 
 Stage Summary:
 - Tabel Riwayat Hitung Cetakan kini menampilkan kolom NO PK (nomor Potong Kertas yang terhubung via pkRiwayatId), lengkap di kartu mobile & bisa dicari. Backend GET /api/riwayat-cetakan mengirim pkNomor (1 query tambahan). Data lama yang belum ter-link tampil "-" dan otomatis terisi setelah di-edit + Update (fitur auto-link sebelumnya).
+---
+Task ID: hc-riwayat-tab-nopk-fix
+Agent: Main (Z.ai Code)
+Task: "kolom no pk belum muncul. fix" (lanjutan riwayat-hc-nopk-column)
+
+Work Log:
+- Akar masalah: kolom NO PK sebelumnya hanya ditambahkan di halaman /riwayat-hitung-cetakan (src/components/riwayat-content.tsx), sedangkan user melihat tab "Riwayat" DI DALAM halaman /hitung-cetakan (activeTab='riwayat', tabel sendiri di src/app/hitung-cetakan/page.tsx) yang belum punya kolom tsb.
+- Backend tidak perlu diubah: GET /api/riwayat-cetakan sudah mengirim pkNomor per baris (ditambahkan pada a13d98c).
+- src/app/hitung-cetakan/page.tsx (tab Riwayat):
+  - Tabel desktop: kolom "No. PK" disisipkan tepat setelah "No. HC" — isi font-mono teal + tooltip "Nomor Potong Kertas yang terhubung", "-" redup bila tidak terhubung (gaya konsisten dgn riwayat-content.tsx).
+  - Kartu mobile: "· PK/10/26/0016" (mono teal kecil) di samping nomor HC, hanya bila terhubung.
+  - Kotak pencarian kini ikut mencocokkan nomor PK; placeholder → "Cari no. HC / PK / customer / barang…".
+- Verifikasi E2E (agent-browser, admin, :3000):
+  - Header tabel: No. | No. HC | No. PK | Tanggal | Customer | … ✓
+  - Periode "Semua": HC/10/26/0012 → PK/10/26/0016 (teal) ✓; 0017/0013/0010/0001 → "-" ✓.
+  - Cari "0016" → 1 baris (HC/10/26/0012) ✓.
+  - Mobile 390px: kartu "HC/10/26/0012 · PK/10/26/0016" ✓.
+  - 0 error console/page; dev.log bersih. Bukti .verify/nopk-tab-desktop.png, .verify/nopk-tab-desktop-linked.png, .verify/nopk-tab-mobile.png.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Tab "Riwayat" di halaman Hitung Cetakan kini menampilkan kolom No. PK (nomor Potong Kertas terhubung via pkRiwayatId) di tabel desktop + kartu mobile + bisa dicari. Kedua lokasi riwayat HC (tab Riwayat & halaman /riwayat-hitung-cetakan) kini konsisten menampilkan No. PK.
