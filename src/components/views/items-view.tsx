@@ -619,7 +619,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     onClick={() => setViewPhoto(it)}
                     title="Ketuk untuk melihat foto barang"
                   >
-                    <p className="font-medium truncate" title={it.name}>{it.name}</p>
+                    <p className="font-medium text-[14pt] truncate" title={it.name}>{it.name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{it.code}</p>
                     <CustomerChips customers={it.customers} />
                     {it.photoUrl && (

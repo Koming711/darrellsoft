@@ -12809,3 +12809,22 @@ Work Log:
 
 Stage Summary:
 - Kotak "No. Potong Kertas (Referensi)" kini minimal: hanya label + nomor PK (atau "—"). Semua keterangan/panel data di bawah nomor dihilangkan sesuai permintaan. Data informasi cetakan & harga bahan tetap terbaca lewat form editor itu sendiri; nomor PK berfungsi sbg penunjuk asal data.
+---
+Task ID: items-nama-14pt
+Agent: Main (Z.ai Code)
+Task: "di tampilan mobile. halaman harga per customer. nama barang dibesarin jadi 14pt."
+
+Work Log:
+- Lokasi: halaman Harga per Customer (/master-barang) → komponen ItemsView (src/components/views/items-view.tsx), blok kartu mobile (md:hidden).
+- Analisa ukuran lama: nama barang di kartu mobile tanpa class ukuran eksplisit (font-medium truncate) → mewarisi 16px dari root (--app-font-size). "Dibesarin jadi 14pt" konsisten artinya 14pt (≈18,67px) > 16px; 14px justru mengecil — jadi dipakai nilai literal 14pt.
+- Edit 1 baris (L622): <p className="font-medium text-[14pt] truncate"> — hanya kartu mobile; tabel desktop tidak tersentuh (nama tetap text-sm 14px).
+- Verifikasi E2E (agent-browser, admin, :3000, viewport 390×844):
+  - getComputedStyle nama barang kartu mobile = 18.6667px (= 14pt) ✓ (bukti .verify/items-nama-14pt-mobile.png — nama Radio/ongkir/paperbowl dll terlihat lebih besar).
+  - Desktop 1440×900: sel nama tabel = 14px (tidak berubah) ✓.
+  - 0 error console/page; lint bersih.
+- Catatan: ItemsView juga dipakai dialog "Tambah Barang" di Buat Invoice (komponen bersama) — kartu mobile di sana ikut membesar secara konsisten.
+- TIDAK deploy (user belum menyebut "deploy").
+- Bersih-bersih: commit liar 7e05df1 (hanya db/custom.db, pesan UUID) di-reset (git reset HEAD~1) sebelum push — db tetap perubahan lokal.
+
+Stage Summary:
+- Nama barang pada kartu mobile halaman Harga per Customer kini 14pt (≈18,7px), lebih besar & mudah dibaca di HP; tampilan desktop tidak berubah.
