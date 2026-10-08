@@ -375,7 +375,7 @@ textarea::placeholder {
   left: 50%;
   width: 0;
   height: 2px;
-  background: linear-gradient(to right, #f97316, #f59e0b);
+  background: linear-gradient(to right, #059669, #34d399);
   transition: width 0.3s ease, left 0.3s ease;
   border-radius: 1px;
 }
@@ -391,8 +391,8 @@ textarea::placeholder {
 }
 .faq-tap:active {
   transform: scale(0.985);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
-  border-color: #fb923c;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  border-color: #34d399;
 }
 
 /* Advantage card slide effect */
@@ -408,7 +408,7 @@ textarea::placeholder {
   transition: transform 0.2s ease, box-shadow 0.3s ease;
 }
 .cta-glow:hover {
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.4), 0 0 60px rgba(249, 115, 22, 0.15);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4), 0 0 60px rgba(16, 185, 129, 0.15);
 }
 .cta-glow:active {
   transform: scale(0.94);
@@ -462,7 +462,7 @@ textarea::placeholder {
   left: 50%;
   width: 0;
   height: 2px;
-  background: linear-gradient(to right, #f97316, #f59e0b);
+  background: linear-gradient(to right, #059669, #34d399);
   transition: width 0.3s ease, left 0.3s ease;
   border-radius: 1px;
 }
@@ -478,8 +478,8 @@ textarea::placeholder {
 }
 .faq-tap:active {
   transform: scale(0.985);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
-  border-color: #fb923c;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  border-color: #34d399;
 }
 
 /* Advantage card slide effect */
@@ -495,7 +495,7 @@ textarea::placeholder {
   transition: transform 0.2s ease, box-shadow 0.3s ease;
 }
 .cta-glow:hover {
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.4), 0 0 60px rgba(249, 115, 22, 0.15);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4), 0 0 60px rgba(16, 185, 129, 0.15);
 }
 .cta-glow:active {
   transform: scale(0.94);

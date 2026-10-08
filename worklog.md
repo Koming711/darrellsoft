@@ -12945,3 +12945,24 @@ Work Log:
 
 Stage Summary:
 - DEPLOY v150 SUKSES ke www.darrellsoft.com: seluruh fitur tertunda live (termasuk edit transaksi Stok Masuk/Keluar via klik baris), DB Supabase ter-migrasi (pkRiwayatId) tanpa kehilangan data, SW v150 / label v148 + popup What's New aktif. Insiden rollback FS terdeteksi & dipulihkan dari GitHub tanpa kehilangan commit.
+---
+Task ID: landing-tema-emerald
+Agent: Main (Z.ai Code)
+Task: "dihalaman landing. ganti tema sesuai dengan isi dari conten aplikasinya. check and fix"
+
+Work Log:
+- Diagnosa: landing page (src/app/page.tsx) memakai tema BIRU generic-SaaS (gradient blue-600→sky-400 di headline/badge/CTA/kartu; ~170 kelas blue-*/sky-*), padahal identitas aplikasi (isi konten: kalkulator cetakan, potong kertas, stock bahan, invoice) seluruhnya EMERALD HIJAU (semua tombol & aksi bg-emerald-600/700 di hitung-cetakan, potong-kertas, stock-bahan, dll). Tema landing tidak mencerminkan aplikasi.
+- Perubahan (swap warna mekanis, struktur & copy tidak disentuh):
+  - src/app/page.tsx: regex kelas Tailwind blue-*→emerald-* (incl. shadow/border/fill/via), sky-*→teal-* (pasangan gradient), green-*→emerald-* (disatukan; ikon check dsb). Hasil: 0 kelas blue/sky/green tersisa; emerald-600 ×73, teal-400 ×37, dst.
+  - src/app/globals.css: aksen animasi khusus landing yang masih ORANGE (#f97316/#f59e0b/#fb923c/rgba(249,115,22,…)) diganti EMERALD (#059669→#34d399, rgba(16,185,129,…)): underline nav-link, ring fokus faq-tap, glow cta-glow (masing2 2 blok light/dark). --chart-* TIDAK disentuh. Logo DS biru (brand asset, dipakai juga di sidebar aplikasi) & bg gelap #0a1122 dipertahankan.
+- Verifikasi E2E (agent-browser, :3000, landing publik):
+  - Desktop 1440×900 light: headline "Semudah Mengetik" gradient emerald→teal, badge FITUR UNGGULAN, ikon fitur, Login button — semua emerald ✓ (.verify/landing-after-desktop.png).
+  - Section Kenapa Langganan / Harga (dark): angka harga, ceklis, badge HEMAT BANGET!, CTA Pilih Paket emerald ✓ (.verify/landing-after-dark-section.png, landing-after-harga.png).
+  - FAQ + footer: ikon & aksen emerald, footer gelap + teks emerald ✓ (.verify/landing-after-footer.png).
+  - Dark mode (toggle): hero hitam + headline gradient emerald/teal ✓ (.verify/landing-after-darkmode.png).
+  - Mobile 390×844: layout utuh, tema emerald konsisten ✓ (.verify/landing-after-mobile.png).
+  - Before: .verify/landing-before-desktop.png. Console dibersihkan → reload + scroll: 0 error console/page. eslint page.tsx bersih.
+- TIDAK deploy (user belum menyebut "deploy") — produksi masih tema biru sampai deploy berikutnya.
+
+Stage Summary:
+- Landing page kini bertema EMERALD/TEAL senada dengan isi & tampilan aplikasi (tombol/aksi hijau emerald), bukan biru generic lagi; mode gelap, mobile, dan seluruh section (hero, fitur, kenapa langganan, harga, testimoni, FAQ, footer) konsisten. Logo DS & permukaan gelap dipertahankan.
