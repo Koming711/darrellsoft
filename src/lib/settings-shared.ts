@@ -27,6 +27,9 @@ export const SYSTEM_SETTING_KEYS: ReadonlySet<string> = new Set([
   'branding_default_v3',
   'appName',
   'currency',
+  // WhatsApp API (Fonnte) — global: dibaca server-side oleh src/lib/whatsapp.ts
+  'wa_api_key',
+  'wa_api_url',
 ])
 
 /**

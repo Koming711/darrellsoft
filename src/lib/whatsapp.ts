@@ -5,6 +5,104 @@ interface WhatsAppMessageResult {
   error?: string
 }
 
+interface WhatsAppApiConfig {
+  apiKey: string
+  apiUrl: string
+}
+
+export const WHATSAPP_NOT_CONFIGURED_ERROR =
+  'WhatsApp API key belum dikonfigurasi. Hubungi administrator.'
+
+/**
+ * Read the global WhatsApp API configuration (Fonnte-compatible).
+ *
+ * Keys `wa_api_key` / `wa_api_url` are SYSTEM settings stored in the global
+ * `Setting` table (see SYSTEM_SETTING_KEYS in settings-shared.ts).
+ *
+ * Self-healing: older builds accidentally saved these keys into the per-user
+ * `UserSetting` table, so if the global value is empty we look for the first
+ * non-empty value in `UserSetting`, promote (copy) it to the global `Setting`
+ * table, and use it — one-time migration, no re-save needed by the admin.
+ */
+export async function getWhatsAppApiConfig(): Promise<WhatsAppApiConfig | null> {
+  const [apiKeySetting, apiUrlSetting] = await Promise.all([
+    db.setting.findUnique({ where: { key: 'wa_api_key' } }),
+    db.setting.findUnique({ where: { key: 'wa_api_url' } }),
+  ])
+
+  let apiKey = apiKeySetting?.value?.trim() || ''
+  const apiUrl = apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send'
+
+  if (!apiKey) {
+    // Self-heal: promote a per-user value (saved by older builds) to global.
+    const orphan = await db.userSetting.findFirst({
+      where: { key: 'wa_api_key', value: { not: '' } },
+      orderBy: { updatedAt: 'asc' },
+    })
+    const orphanKey = orphan?.value?.trim() || ''
+    if (orphanKey) {
+      await db.setting.upsert({
+        where: { key: 'wa_api_key' },
+        update: { value: orphanKey },
+        create: { key: 'wa_api_key', value: orphanKey },
+      })
+      apiKey = orphanKey
+    }
+  }
+
+  if (!apiKey) return null
+  return { apiKey, apiUrl }
+}
+
+/** Normalize an Indonesian phone number to the 62… international format. */
+export function normalizeWaPhone(targetPhone: string): string {
+  let normalizedPhone = targetPhone.replace(/[\s\-()+]/g, '')
+  if (normalizedPhone.startsWith('0')) {
+    normalizedPhone = '62' + normalizedPhone.substring(1)
+  }
+  return normalizedPhone
+}
+
+/**
+ * Interpret a Fonnte (or compatible) API response.
+ *
+ * Fonnte returns HTTP 200 even on failures — the body decides:
+ *   success: { status: true }  |  failure: { status: false, reason: "unknown token" }
+ * So `response.ok` alone is NOT success; the body `status` field wins.
+ * Only when the body carries no `status` field (other compatible providers)
+ * do we fall back to the HTTP status code.
+ */
+async function interpretWaResponse(
+  response: Response,
+  fallbackError: string
+): Promise<WhatsAppMessageResult> {
+  let data: any = null
+  try {
+    data = await response.json()
+  } catch {
+    // Non-JSON body — fall back to HTTP status only.
+    if (response.ok) return { success: true }
+    return { success: false, error: `${fallbackError} (HTTP ${response.status})` }
+  }
+
+  const bodyStatus = data?.status
+  if (bodyStatus === false || bodyStatus === 'false') {
+    return {
+      success: false,
+      error: data?.message || data?.reason || data?.error || fallbackError,
+    }
+  }
+  if (bodyStatus === true || bodyStatus === 'true') {
+    return { success: true }
+  }
+  // Body without a status field — treat HTTP 2xx as success.
+  if (response.ok) return { success: true }
+  return {
+    success: false,
+    error: data?.message || data?.reason || data?.error || `${fallbackError} (HTTP ${response.status})`,
+  }
+}
+
 /**
  * Send a WhatsApp message using Fonnte API (or compatible service)
  * Requires wa_api_key and wa_api_url to be configured in settings
@@ -14,47 +112,26 @@ export async function sendWhatsAppMessage(
   message: string
 ): Promise<WhatsAppMessageResult> {
   try {
-    // Get WhatsApp API settings from database
-    const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
-    const apiUrlSetting = await db.setting.findUnique({ where: { key: 'wa_api_url' } })
+    const config = await getWhatsAppApiConfig()
 
-    const apiKey = apiKeySetting?.value?.trim()
-    const apiUrl = apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send'
-
-    if (!apiKey) {
-      return { success: false, error: 'WhatsApp API key belum dikonfigurasi. Hubungi administrator.' }
-    }
-
-    // Normalize target phone number
-    let normalizedPhone = targetPhone.replace(/[\s\-()+]/g, '')
-    if (normalizedPhone.startsWith('0')) {
-      normalizedPhone = '62' + normalizedPhone.substring(1)
+    if (!config) {
+      return { success: false, error: WHATSAPP_NOT_CONFIGURED_ERROR }
     }
 
     // Send via Fonnte API
-    const response = await fetch(apiUrl, {
+    const response = await fetch(config.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': apiKey,
+        'Authorization': config.apiKey,
       },
       body: JSON.stringify({
-        target: normalizedPhone,
+        target: normalizeWaPhone(targetPhone),
         message: message,
       }),
     })
 
-    const data = await response.json()
-
-    // Fonnte returns { status: true, ... } on success
-    if (data.status === true || data.status === 'true' || response.ok) {
-      return { success: true }
-    }
-
-    return {
-      success: false,
-      error: data.message || data.reason || data.error || 'Gagal mengirim pesan WhatsApp',
-    }
+    return interpretWaResponse(response, 'Gagal mengirim pesan WhatsApp')
   } catch (error: any) {
     console.error('WhatsApp send error:', error?.message || error)
     return {
@@ -75,49 +152,28 @@ export async function sendWhatsAppDocument(
   fileName: string
 ): Promise<WhatsAppMessageResult> {
   try {
-    // Get WhatsApp API settings from database
-    const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
-    const apiUrlSetting = await db.setting.findUnique({ where: { key: 'wa_api_url' } })
+    const config = await getWhatsAppApiConfig()
 
-    const apiKey = apiKeySetting?.value?.trim()
-    const apiUrl = apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send'
-
-    if (!apiKey) {
-      return { success: false, error: 'WhatsApp API key belum dikonfigurasi. Hubungi administrator.' }
-    }
-
-    // Normalize target phone number
-    let normalizedPhone = targetPhone.replace(/[\s\-()+]/g, '')
-    if (normalizedPhone.startsWith('0')) {
-      normalizedPhone = '62' + normalizedPhone.substring(1)
+    if (!config) {
+      return { success: false, error: WHATSAPP_NOT_CONFIGURED_ERROR }
     }
 
     // Send document via Fonnte API
-    const response = await fetch(apiUrl, {
+    const response = await fetch(config.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': apiKey,
+        'Authorization': config.apiKey,
       },
       body: JSON.stringify({
-        target: normalizedPhone,
+        target: normalizeWaPhone(targetPhone),
         message: message,
         document: pdfBase64,
         filename: fileName,
       }),
     })
 
-    const data = await response.json()
-
-    // Fonnte returns { status: true, ... } on success
-    if (data.status === true || data.status === 'true' || response.ok) {
-      return { success: true }
-    }
-
-    return {
-      success: false,
-      error: data.message || data.reason || data.error || 'Gagal mengirim dokumen WhatsApp',
-    }
+    return interpretWaResponse(response, 'Gagal mengirim dokumen WhatsApp')
   } catch (error: any) {
     console.error('WhatsApp send document error:', error?.message || error)
     return {
@@ -141,21 +197,10 @@ export async function sendWhatsAppImage(
   fileName: string
 ): Promise<WhatsAppMessageResult> {
   try {
-    // Get WhatsApp API settings from database
-    const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
-    const apiUrlSetting = await db.setting.findUnique({ where: { key: 'wa_api_url' } })
+    const config = await getWhatsAppApiConfig()
 
-    const apiKey = apiKeySetting?.value?.trim()
-    const apiUrl = apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send'
-
-    if (!apiKey) {
-      return { success: false, error: 'WhatsApp API key belum dikonfigurasi. Hubungi administrator.' }
-    }
-
-    // Normalize target phone number
-    let normalizedPhone = targetPhone.replace(/[\s\-()+]/g, '')
-    if (normalizedPhone.startsWith('0')) {
-      normalizedPhone = '62' + normalizedPhone.substring(1)
+    if (!config) {
+      return { success: false, error: WHATSAPP_NOT_CONFIGURED_ERROR }
     }
 
     // Ensure the base64 string has the correct data URL prefix for an image.
@@ -166,31 +211,21 @@ export async function sendWhatsAppImage(
 
     // Send image via Fonnte API.
     // `message` acts as the caption for the image.
-    const response = await fetch(apiUrl, {
+    const response = await fetch(config.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': apiKey,
+        'Authorization': config.apiKey,
       },
       body: JSON.stringify({
-        target: normalizedPhone,
+        target: normalizeWaPhone(targetPhone),
         message: message,
         image: imageDataUrl,
         filename: fileName,
       }),
     })
 
-    const data = await response.json()
-
-    // Fonnte returns { status: true, ... } on success
-    if (data.status === true || data.status === 'true' || response.ok) {
-      return { success: true }
-    }
-
-    return {
-      success: false,
-      error: data.message || data.reason || data.error || 'Gagal mengirim gambar WhatsApp',
-    }
+    return interpretWaResponse(response, 'Gagal mengirim gambar WhatsApp')
   } catch (error: any) {
     console.error('WhatsApp send image error:', error?.message || error)
     return {

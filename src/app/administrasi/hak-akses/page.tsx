@@ -2,7 +2,7 @@
 
 import {
   Plus, Save, Trash2, MessageCircle, Loader2, CheckCheck, Ban, RotateCcw,
-  ShieldCheck, Pencil, Lock, X, Minus, MoreVertical, Check,
+  ShieldCheck, Pencil, Lock, X, Minus, MoreVertical, Check, Send,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -200,6 +200,9 @@ export default function HakAksesPage() {
   const [waApiKey, setWaApiKey] = useState('')
   const [waApiUrl, setWaApiUrl] = useState('https://api.fonnte.com/send')
   const [waSaving, setWaSaving] = useState(false)
+  const [waTestPhone, setWaTestPhone] = useState('')
+  const [waTesting, setWaTesting] = useState(false)
+  const [waConfigured, setWaConfigured] = useState<boolean | null>(null)
 
   // === LOAD SETTINGS & CUSTOM PERMISSIONS (non-blocking) ===
   useEffect(() => {
@@ -309,6 +312,22 @@ export default function HakAksesPage() {
       console.error(`Failed to save setting ${key}:`, err)
     }
   }
+
+  // === WHATSAPP API: cek status konfigurasi global ===
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await authFetch('/api/whatsapp/test-send')
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (!cancelled) setWaConfigured(Boolean(data.configured))
+      } catch {
+        // diam — indikator bersifat informatif
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // === DIALOG: buka tambah / rename ===
   const openCreate = useCallback(() => {
@@ -528,6 +547,7 @@ export default function HakAksesPage() {
         saveSetting('wa_api_key', waApiKey),
         saveSetting('wa_api_url', waApiUrl),
       ])
+      setWaConfigured(Boolean(waApiKey.trim()))
       toast.success('Pengaturan WhatsApp API berhasil disimpan!')
     } catch {
       toast.error('Gagal menyimpan pengaturan WhatsApp API')
@@ -535,6 +555,37 @@ export default function HakAksesPage() {
       setWaSaving(false)
     }
   }, [waApiKey, waApiUrl])
+
+  // === WHATSAPP API: tes kirim (simpan dulu lalu kirim pesan tes) ===
+  const handleTestWhatsApp = useCallback(async () => {
+    const phone = waTestPhone.trim()
+    if (!phone) { toast.error('Masukkan nomor WhatsApp tujuan untuk tes'); return }
+    if (!waApiKey.trim()) { toast.error('Isi API Key Fonnte terlebih dahulu'); return }
+    setWaTesting(true)
+    try {
+      // Pastikan nilai pada form tersimpan sebelum dites
+      await Promise.all([
+        saveSetting('wa_api_key', waApiKey),
+        saveSetting('wa_api_url', waApiUrl),
+      ])
+      const res = await authFetch('/api/whatsapp/test-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        setWaConfigured(true)
+        toast.success(data.message || 'Pesan tes WhatsApp berhasil dikirim!')
+      } else {
+        toast.error(data.error || 'Gagal mengirim pesan tes WhatsApp')
+      }
+    } catch {
+      toast.error('Gagal menguji WhatsApp API')
+    } finally {
+      setWaTesting(false)
+    }
+  }, [waApiKey, waApiUrl, waTestPhone])
 
   // === KEAMANAN HANDLER ===
   const handleSaveKeamanan = useCallback(async () => {
@@ -928,13 +979,18 @@ export default function HakAksesPage() {
       {/* ==================== SECTION 3: WHATSAPP API ==================== */}
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="p-4 lg:p-6 border-b border-slate-200">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <MessageCircle className="w-5 h-5 text-emerald-600" />
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-slate-800">WhatsApp API</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Untuk mengirim password otomatis ke WhatsApp user saat lupa password</p>
+              <p className="text-sm text-slate-500 mt-0.5">Untuk mengirim OTP pendaftaran, password akun, dan dokumen (invoice/surat) via WhatsApp</p>
             </div>
             <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full ml-2">Fonnte</span>
+            {waConfigured !== null && (
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${waConfigured ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                {waConfigured ? '✓ Terkonfigurasi' : 'Belum dikonfigurasi'}
+              </span>
+            )}
           </div>
         </div>
         <div className="p-4 lg:p-6 space-y-5">
@@ -963,6 +1019,35 @@ export default function HakAksesPage() {
           <Button onClick={handleSaveWhatsApp} disabled={waSaving} className="w-full gap-2">
             {waSaving ? <><Loader2 className="w-4 h-4 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4" />Simpan</>}
           </Button>
+
+          {/* Tes kirim pesan */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-slate-700">Tes Kirim Pesan</p>
+              <p className="text-xs text-slate-400">Nomor akan menerima pesan verifikasi dari sistem</p>
+            </div>
+            <p className="text-xs text-slate-500">Setelah menyimpan API key, kirim pesan tes ke nomor WhatsApp Anda untuk memastikan koneksi Fonnte berfungsi.</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                type="tel"
+                inputMode="tel"
+                placeholder="Contoh: 081234567890"
+                value={waTestPhone}
+                onChange={(e) => setWaTestPhone(e.target.value)}
+                className="flex-1"
+                aria-label="Nomor WhatsApp tujuan tes"
+              />
+              <Button
+                variant="outline"
+                onClick={() => void handleTestWhatsApp()}
+                disabled={waTesting}
+                className="gap-2 min-h-[44px] shrink-0"
+              >
+                {waTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Test Kirim
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
