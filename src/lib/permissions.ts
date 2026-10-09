@@ -125,8 +125,11 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/biaya' || pathname === '/biaya-operasional') return 'biaya'
   if (pathname === '/administrasi/hak-akses') return 'hak-akses'
   if (pathname === '/administrasi/pengguna') return 'pengguna'
-  if (pathname === '/administrasi/pengaturan') return 'pengaturan'
+  if (pathname === '/administrasi/pembayaran-manual') return 'pembayaran-manual'
+  if (pathname === '/administrasi/paket') return 'paket-berlangganan'
+  if (pathname === '/administrasi/pengaturan-pembayaran') return 'pengaturan-pembayaran'
   if (pathname === '/administrasi') return 'pengguna' // default to first accessible admin feature
+  if (pathname === '/riwayat-langganan') return 'riwayat-langganan'
   return null
 }
 
@@ -157,6 +160,10 @@ export function getPathForFeatureId(featureId: string): string | null {
     'biaya': '/biaya-operasional',
     'hak-akses': '/administrasi/hak-akses',
     'pengguna': '/administrasi/pengguna',
+    'pembayaran-manual': '/administrasi/pembayaran-manual',
+    'paket-berlangganan': '/administrasi/paket',
+    'pengaturan-pembayaran': '/administrasi/pengaturan-pembayaran',
+    'riwayat-langganan': '/riwayat-langganan',
     'pengaturan': '/administrasi/pengaturan',
   }
   return map[featureId] || null

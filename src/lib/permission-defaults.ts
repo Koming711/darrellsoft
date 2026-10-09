@@ -15,6 +15,10 @@ export const SIMPLE_FEATURES = [
   { id: 'riwayat', name: 'Riwayat' },
   { id: 'hak-akses', name: 'Hak Akses' },
   { id: 'pengguna', name: 'Pengguna & Pembeli' },
+  { id: 'pembayaran-manual', name: 'Pembayaran Manual' },
+  { id: 'paket-berlangganan', name: 'Pengaturan Paket' },
+  { id: 'pengaturan-pembayaran', name: 'Pengaturan Pembayaran' },
+  { id: 'riwayat-langganan', name: 'Riwayat Langganan' },
   { id: 'pengaturan', name: 'Pengaturan' },
   { id: 'invoice', name: 'Invoice' },
   { id: 'surat-jalan', name: 'Surat Jalan' },
@@ -144,7 +148,8 @@ export function buildDefaultPermissions(roleId: string): Record<string, boolean>
   // PRO features require explicit activation via Hak Akses page
   const PRO_FEATURE_IDS = ['invoice', 'surat-jalan', 'purchase-order', 'hutang-dagang', 'piutang-dagang']
   // Laporan aktif untuk semua role (ringkasan transaksi, bukan PRO feature)
-  const ALL_ROLE_FEATURES = ['laporan']
+  // Riwayat Langganan juga untuk semua role (halaman akun pelanggan)
+  const ALL_ROLE_FEATURES = ['laporan', 'riwayat-langganan']
 
   for (const f of SIMPLE_FEATURES) {
     let allowed = false
@@ -152,7 +157,8 @@ export function buildDefaultPermissions(roleId: string): Record<string, boolean>
     else if (roleId === 'admin') allowed = !PRO_FEATURE_IDS.includes(f.id)
     else if (roleId === 'manager') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order', 'hutang-dagang', 'piutang-dagang'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
     else if (roleId === 'demo') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
-    else if (roleId === 'user') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
+    else if (roleId === 'user' || roleId === 'owner') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
+    // role 'owner' = akun hasil pembayaran (Midtrans / pembayaran manual) — default sama dengan 'user'
     perms[f.id] = allowed
   }
 

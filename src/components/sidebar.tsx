@@ -41,6 +41,7 @@ import {
   HandCoins,
   Coins,
   PiggyBank,
+  CreditCard,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess } from '@/lib/permissions'
@@ -220,6 +221,34 @@ const menuItems = [
     icon: UserCog,
     featureId: 'pengguna',
     section: 'administrasi',
+  },
+  {
+    titleKey: 'pembayaran_manual' as TranslationKey,
+    href: '/administrasi/pembayaran-manual',
+    icon: Wallet,
+    featureId: 'pembayaran-manual',
+    section: 'administrasi',
+  },
+  {
+    titleKey: 'riwayat_langganan' as TranslationKey,
+    href: '/riwayat-langganan',
+    icon: Receipt,
+    featureId: 'riwayat-langganan',
+    section: 'administrasi',
+  },
+  {
+    titleKey: 'pengaturan_paket' as TranslationKey,
+    href: '/administrasi/paket',
+    icon: Package,
+    featureId: 'paket-berlangganan',
+    section: 'setting',
+  },
+  {
+    titleKey: 'pengaturan_pembayaran' as TranslationKey,
+    href: '/administrasi/pengaturan-pembayaran',
+    icon: CreditCard,
+    featureId: 'pengaturan-pembayaran',
+    section: 'setting',
   },
   {
     titleKey: 'pengaturan' as TranslationKey,

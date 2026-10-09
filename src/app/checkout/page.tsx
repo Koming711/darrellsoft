@@ -26,51 +26,38 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import PaymentDialog from '@/components/payment-dialog';
+import { ManualPaymentPanel } from '@/components/payment-manual/manual-payment-panel';
+import { getAuthUser } from '@/lib/auth';
 
-const PLANS: Record<string, {
+interface DbPlan {
   id: string;
-  name: string;
-  subtitle: string;
+  planName: string;
   price: number;
-  priceFormatted: string;
-  period: string;
-  features: string[];
-}> = {
-  'bulanan-ekonomis': {
-    id: 'bulanan-ekonomis',
-    name: 'Ekonomis',
-    subtitle: 'Bulanan Ekonomis',
-    price: 78000,
-    priceFormatted: 'Rp 78.000',
-    period: '/bulan (1 akun)',
-    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Maksimal 1 akun pengguna'],
-  },
-  bulanan: {
-    id: 'bulanan',
-    name: 'Basic',
-    subtitle: 'Langganan Bulanan',
-    price: 128000,
-    priceFormatted: 'Rp 128.000',
-    period: '/bulan',
-    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Riwayat cetakan'],
-  },
-  tahunan: {
-    id: 'tahunan',
-    name: 'Premium',
-    subtitle: 'Langganan Tahunan',
-    price: 888000,
-    priceFormatted: 'Rp 888.000',
-    period: '/tahun (hemat 42%)',
-    features: ['Semua fitur Basic', 'Multi perangkat', 'Master customer', 'Export laporan', 'Priority support'],
-  },
-};
+  discountPercent: number;
+  durationMonths: number;
+  maxAccounts: number;
+  features: string; // JSON array string
+  isActive: boolean;
+  sortOrder: number;
+}
 
-// Hanya plan yang dikenal yang boleh dipreselect (dari URL ?plan= maupun
-// localStorage resume). Nilai lain/tak dikenal diabaikan —
-// user harus memilih paket secara manual.
-function normalizePlan(value: string | null | undefined): string {
-  return value && PLANS[value] ? value : '';
+interface ManualTx {
+  id: string;
+  transactionNumber: string;
+  customerName: string;
+  customerEmail: string;
+  planName: string;
+  durationMonths: number;
+  amount: number;
+  discountAmount: number;
+  totalAmount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  expiresAt: string;
+}
+
+function formatRupiah(value: number): string {
+  return 'Rp ' + Math.round(value).toLocaleString('id-ID');
 }
 
 const STEPS = ['Pilih Paket', 'Info Pembayaran', 'Konfirmasi & Bayar'];
@@ -81,7 +68,8 @@ function CheckoutContent() {
   const router = useRouter();
 
   const [step, setStep] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<string>(() => normalizePlan(searchParams.get('plan')));
+  const [plans, setPlans] = useState<DbPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<string>(searchParams.get('plan') || '');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -94,28 +82,45 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [isResume, setIsResume] = useState(false);
-  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [manualTx, setManualTx] = useState<ManualTx | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Username-already-exists popup state
   const [usernameExistsOpen, setUsernameExistsOpen] = useState(false);
   const usernameRef = useRef<HTMLInputElement>(null);
 
-  const plan = PLANS[selectedPlan];
+  const plan = plans.find((p) => p.id === selectedPlan) || null;
 
-  // Resume dari WhatsApp link + auto-fill dari auth
+  // Muat paket dari database (dikelola admin via Pengaturan Paket) + resume dari WhatsApp link
   useEffect(() => {
+    fetch('/api/payment-manual/plans')
+      .then((r) => r.json())
+      .then((data) => {
+        const list: DbPlan[] = data.plans || [];
+        setPlans(list);
+        // Validasi preselect dari URL: hanya plan yang benar-benar ada yang dipakai
+        const urlPlan = searchParams.get('plan') || '';
+        if (urlPlan && !list.some((p) => p.id === urlPlan)) setSelectedPlan('');
+      })
+      .catch(() => {})
+      .finally(() => {});
+
+    // Deteksi pengguna login (perpanjangan paket — tanpa registrasi akun baru)
+    try { setIsLoggedIn(!!getAuthUser()); } catch {}
+
     const resume = searchParams.get('resume');
     if (resume === '1') {
       try {
         const saved = localStorage.getItem('checkout_pending');
         if (saved) {
           const data = JSON.parse(saved);
-          setSelectedPlan(normalizePlan(data.plan || ''));
+          setSelectedPlan(data.plan || '');
           setCustomerName(data.name || '');
           setCustomerEmail(data.email || '');
           setCustomerPhone(data.phone || '');
           setUsername(data.username || '');
           setPassword(data.password || '');
+          setConfirmPassword(data.password || '');
           setStep(2);
           setIsResume(true);
           setReady(true);
@@ -144,28 +149,34 @@ function CheckoutContent() {
       if (!customerName.trim()) { setError('Nama harus diisi'); return; }
       if (!customerEmail.trim()) { setError('Email harus diisi'); return; }
       if (!customerPhone.trim()) { setError('Nomor HP harus diisi'); return; }
-      if (!username.trim()) { setError('Username harus diisi'); return; }
-      if (username.trim().length < 3) { setError('Username minimal 3 karakter'); return; }
-      if (!password) { setError('Password harus diisi'); return; }
-      if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
-      if (password !== confirmPassword) { setError('Konfirmasi password tidak cocok'); return; }
-
-      // Cek ketersediaan username ke backend sebelum lanjut ke pembayaran.
-      // Jika sudah dipakai → tampilkan popup (sama seperti halaman daftar akun).
-      setLoading(true);
-      try {
-        const checkRes = await fetch(`/api/check-username?username=${encodeURIComponent(username.trim())}`);
-        const checkData = await checkRes.json();
-        if (!checkData.available) {
-          setLoading(false);
-          setUsernameExistsOpen(true);
-          return;
-        }
-      } catch {
-        // Jika cek gagal (mis. network error), jangan blok — biarkan backend
-        // create-transaction yang menangani saat pembayaran (defense in depth).
+      // Pelanggan yang sudah login (perpanjangan) tidak perlu buat username/password
+      if (!isLoggedIn) {
+        if (!username.trim()) { setError('Username harus diisi'); return; }
+        if (username.trim().length < 3) { setError('Username minimal 3 karakter'); return; }
+        if (!password) { setError('Password harus diisi'); return; }
+        if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
+        if (password !== confirmPassword) { setError('Konfirmasi password tidak cocok'); return; }
       }
-      setLoading(false);
+
+      // Cek ketersediaan username ke backend sebelum lanjut ke pembayaran
+      // (hanya untuk registrasi baru — pengguna login tidak perlu).
+      // Jika sudah dipakai → tampilkan popup (sama seperti halaman daftar akun).
+      if (!isLoggedIn) {
+        setLoading(true);
+        try {
+          const checkRes = await fetch(`/api/check-username?username=${encodeURIComponent(username.trim())}`);
+          const checkData = await checkRes.json();
+          if (!checkData.available) {
+            setLoading(false);
+            setUsernameExistsOpen(true);
+            return;
+          }
+        } catch {
+          // Jika cek gagal (mis. network error), jangan blok — biarkan backend
+          // create-transaction yang menangani saat pembayaran (defense in depth).
+        }
+        setLoading(false);
+      }
 
       // Simpan data ke localStorage untuk resume nanti
       const checkoutData = {
@@ -186,12 +197,41 @@ function CheckoutContent() {
     setStep(s => Math.max(s - 1, 0));
   };
 
-  const handlePay = useCallback(() => {
+  // Buat transaksi pembayaran manual (status awal UNPAID). Akun baru diaktifkan
+  // SETELAH admin menyetujui pembayaran — bukan saat tombol ini ditekan.
+  const handlePay = useCallback(async () => {
     if (!plan) return;
-    // PaymentDialog akan memanggil API create-transaction sendiri dengan data lengkap
-    // (menghindari double transaction creation)
-    setShowPaymentPopup(true);
-  }, [plan]);
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/payment-manual/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: plan.id,
+          customerName: customerName.trim(),
+          customerEmail: customerEmail.trim(),
+          customerPhone: customerPhone.trim(),
+          ...(isLoggedIn ? {} : { username: username.trim(), password: password }),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) {
+          setUsernameExistsOpen(true);
+          setStep(1);
+          return;
+        }
+        setError(data.error || 'Gagal membuat transaksi');
+        return;
+      }
+      setManualTx(data.transaction);
+    } catch {
+      setError('Terjadi kesalahan jaringan. Coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  }, [plan, customerName, customerEmail, customerPhone, username, password]);
 
   return (
     <div className="dark-surface min-h-screen bg-[#141414] text-white flex flex-col">
@@ -265,35 +305,40 @@ function CheckoutContent() {
                 </p>
 
                 <div className="space-y-4">
-                  {Object.entries(PLANS).map(([key, p]) => (
+                  {plans.map((p) => (
                     <motion.button
-                      key={key}
+                      key={p.id}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedPlan(key)}
+                      onClick={() => setSelectedPlan(p.id)}
                       className={`w-full flex items-center justify-between p-5 rounded-xl border transition-all duration-200 text-left ${
-                        selectedPlan === key
+                        selectedPlan === p.id
                           ? 'bg-[#e50914]/10 border-[#e50914]/50 shadow-lg shadow-red-900/10'
                           : 'bg-[#1f1f1f] border-white/5 hover:border-white/15'
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          selectedPlan === key ? 'border-[#e50914] bg-[#e50914]' : 'border-gray-600'
+                          selectedPlan === p.id ? 'border-[#e50914] bg-[#e50914]' : 'border-gray-600'
                         }`}>
-                          {selectedPlan === key && <Check className="w-3 h-3 text-white" />}
+                          {selectedPlan === p.id && <Check className="w-3 h-3 text-white" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-base">{p.name}</span>
-                            {key === 'tahunan' && (
-                              <span className="text-[10px] bg-[#e50914] text-white px-1.5 py-0.5 rounded font-bold">HEMAT 42%</span>
+                            <span className="font-bold text-base">{p.planName}</span>
+                            {p.discountPercent > 0 && (
+                              <span className="text-[10px] bg-[#e50914] text-white px-1.5 py-0.5 rounded font-bold">HEMAT {p.discountPercent}%</span>
                             )}
                           </div>
-                          <p className="text-gray-500 text-xs mt-0.5">{p.subtitle} — {p.period}</p>
+                          <p className="text-gray-500 text-xs mt-0.5">Langganan {p.durationMonths} bulan — {p.maxAccounts} akun</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-extrabold text-lg">{p.priceFormatted}</span>
+                        <span className="font-extrabold text-lg">
+                          {formatRupiah(p.price - Math.round(p.price * (p.discountPercent || 0) / 100))}
+                        </span>
+                        {p.discountPercent > 0 && (
+                          <p className="text-gray-600 text-[11px] line-through">{formatRupiah(p.price)}</p>
+                        )}
                       </div>
                     </motion.button>
                   ))}
@@ -340,18 +385,19 @@ function CheckoutContent() {
                           <CreditCard className="w-5 h-5 text-[#e50914]" />
                         </div>
                         <div>
-                          <p className="font-bold text-sm">{plan.name} — {plan.subtitle}</p>
-                          <p className="text-gray-500 text-xs">{plan.period}</p>
+                          <p className="font-bold text-sm">{plan.planName} — Langganan {plan.durationMonths} bulan</p>
+                          <p className="text-gray-500 text-xs">{plan.maxAccounts} akun pengguna</p>
                         </div>
                       </div>
-                      <span className="font-extrabold text-lg">{plan.priceFormatted}</span>
+                      <span className="font-extrabold text-lg">{formatRupiah(plan.price)}</span>
                     </div>
                   </div>
                 )}
 
                 {/* Form */}
                 <div className="space-y-4">
-                  {/* Akun Login Section */}
+                  {/* Akun Login Section — hanya untuk registrasi baru (belum login) */}
+                  {!isLoggedIn && (
                   <div className="bg-[#1f1f1f] border border-white/5 rounded-xl p-4 mb-2">
                     <div className="flex items-center gap-2 mb-3">
                       <KeyRound className="w-4 h-4 text-[#e50914]" />
@@ -427,6 +473,7 @@ function CheckoutContent() {
                       </div>
                     </div>
                   </div>
+                  )}
 
                   {/* Data Pembayaran Section */}
                   <div className="bg-[#1f1f1f] border border-white/5 rounded-xl p-4">
@@ -515,6 +562,18 @@ function CheckoutContent() {
                 exit={{ opacity: 0, x: -50 }}
                 transition={{ duration: 0.3 }}
               >
+                {manualTx ? (
+                  <>
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-center mb-2">
+                      Selesaikan Pembayaran
+                    </h2>
+                    <p className="text-gray-500 text-center text-sm mb-8">
+                      Transfer ke rekening di bawah, lalu unggah bukti pembayaran
+                    </p>
+                    <ManualPaymentPanel transaction={manualTx} customerName={customerName.trim()} />
+                  </>
+                ) : (
+                <>
                 <h2 className="text-2xl md:text-3xl font-extrabold text-center mb-2">
                   Konfirmasi & Bayar
                 </h2>
@@ -535,11 +594,11 @@ function CheckoutContent() {
                           <Zap className="w-5 h-5 text-[#e50914]" />
                         </div>
                         <div>
-                          <p className="font-bold text-sm">{plan.name} — {plan.subtitle}</p>
-                          <p className="text-gray-500 text-xs">{plan.period}</p>
+                          <p className="font-bold text-sm">{plan.planName} — Langganan {plan.durationMonths} bulan</p>
+                          <p className="text-gray-500 text-xs">{plan.maxAccounts} akun pengguna</p>
                         </div>
                       </div>
-                      <span className="font-extrabold text-lg">{plan.priceFormatted}</span>
+                      <span className="font-extrabold text-lg">{formatRupiah(plan.price)}</span>
                     </div>
                   </div>
                 )}
@@ -551,8 +610,12 @@ function CheckoutContent() {
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Detail Akun</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-gray-500">Username</span>
-                    <span className="text-right font-medium">{username}</span>
+                    {!isLoggedIn && (
+                      <>
+                        <span className="text-gray-500">Username</span>
+                        <span className="text-right font-medium">{username}</span>
+                      </>
+                    )}
                     <span className="text-gray-500">Nama</span>
                     <span className="text-right font-medium">{customerName}</span>
                     <span className="text-gray-500">Email</span>
@@ -597,39 +660,14 @@ function CheckoutContent() {
                   <Shield className="w-3.5 h-3.5" />
                   <span>Pembayaran aman & terenkripsi. Berbagai metode pembayaran tersedia.</span>
                 </div>
+                </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
         )}
       </div>
-      {/* Payment Dialog */}
-      {plan && showPaymentPopup && (
-        <PaymentDialog
-          open={showPaymentPopup}
-          onClose={() => setShowPaymentPopup(false)}
-          onSuccess={() => { setShowPaymentPopup(false); router.push('/pembukaan?fill_company=1'); }}
-          onUsernameExists={() => {
-            setShowPaymentPopup(false);
-            setStep(1);
-            setUsernameExistsOpen(true);
-          }}
-          pkg={{
-            type: plan.id,
-            name: plan.name,
-            price: plan.price,
-            priceFormatted: plan.priceFormatted,
-            period: plan.period,
-          }}
-          customerData={{
-            name: customerName.trim(),
-            email: customerEmail.trim(),
-            phone: customerPhone.trim(),
-            username: username.trim(),
-            password: password,
-          }}
-        />
-      )}
 
       {/* ===== USERNAME ALREADY EXISTS POPUP DIALOG ===== */}
       {usernameExistsOpen && (

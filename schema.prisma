@@ -566,3 +566,146 @@ model BahanMutasi {
   @@index([bahanId])
   @@index([userId])
 }
+
+// ==================== PEMBAYARAN MANUAL (Manual Payment System) ====================
+// Status pembayaran: UNPAID | WAITING_VERIFICATION | PAID | REJECTED | EXPIRED | CANCELLED
+// Status langganan : ACTIVE | EXPIRED | CANCELLED | SUSPENDED
+// Aktivasi langganan HANYA setelah admin menyetujui pembayaran (verify approve).
+
+// Paket berlangganan — harga & durasi diatur admin (tidak permanen di kode)
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  planName        String
+  price           Float
+  discountPercent Float    @default(0) // diskon % jika ada
+  durationMonths  Int
+  maxAccounts     Int      @default(2)
+  features        String   @default("[]") // JSON array string daftar fitur
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transactions  PaymentTransaction[]
+  subscriptions UserSubscription[]
+}
+
+// Transaksi pembayaran manual (transfer bank / QRIS)
+model PaymentTransaction {
+  id                 String    @id @default(cuid())
+  transactionNumber  String    @unique // TRX-YYYYMMDD-XXXXXX
+  userId             String? // Pengguna.id jika login; null untuk checkout tamu
+  customerName       String
+  customerEmail      String
+  customerPhone      String    @default("")
+  subscriptionPlanId String
+  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+  planName           String // snapshot nama paket
+  durationMonths     Int // snapshot durasi
+  amount             Float // snapshot harga paket saat transaksi dibuat
+  discountAmount     Float     @default(0)
+  totalAmount        Float // amount - discountAmount
+  paymentMethod      String    @default("bank_transfer") // bank_transfer | qris_manual
+  paymentStatus      String    @default("UNPAID")
+  expiresAt          DateTime // batas waktu pembayaran
+  metadata           String    @default("{}") // {username, password?} utk aktivasi akun baru
+  verifiedBy         String? // Pengguna.id admin
+  verifiedByName     String?
+  verifiedAt         DateTime?
+  activatedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  confirmations PaymentConfirmation[]
+  subscriptions UserSubscription[]
+  auditLogs     PaymentAuditLog[]
+
+  @@index([paymentStatus])
+  @@index([userId])
+  @@index([customerEmail])
+}
+
+// Bukti pembayaran (bisa lebih dari 1 jika diunggah ulang setelah ditolak)
+model PaymentConfirmation {
+  id                   String   @id @default(cuid())
+  paymentTransactionId String
+  paymentTransaction   PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Cascade)
+  senderName           String
+  senderBank           String
+  transferAmount       Float
+  transferDate         DateTime
+  proofFileUrl         String // data URL base64 (dilayani via API ber-otorisasi)
+  proofFileName        String   @default("")
+  customerNote         String   @default("")
+  verificationStatus   String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  rejectionReason      String   @default("")
+  verifiedBy           String?
+  verifiedByName       String?
+  verifiedAt           DateTime?
+  createdAt            DateTime @default(now())
+
+  @@index([paymentTransactionId])
+}
+
+// Langganan pelanggan — terpisah dari status pembayaran
+model UserSubscription {
+  id                   String   @id @default(cuid())
+  userId               String // Pengguna.id
+  subscriptionPlanId   String
+  subscriptionPlan     SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+  paymentTransactionId String?
+  paymentTransaction   PaymentTransaction? @relation(fields: [paymentTransactionId], references: [id])
+  planName             String
+  startDate            DateTime
+  endDate              DateTime
+  subscriptionStatus   String   @default("ACTIVE") // ACTIVE | EXPIRED | CANCELLED | SUSPENDED
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+  @@index([subscriptionStatus])
+}
+
+// Pengaturan rekening pembayaran — diisi admin, ditampilkan di checkout
+model PaymentSetting {
+  id                   String   @id @default(cuid())
+  bankName             String   @default("")
+  accountName          String   @default("")
+  accountNumber        String   @default("")
+  qrisProviderName     String   @default("")
+  qrisImageUrl         String   @default("") // data URL base64
+  paymentInstructions  String   @default("")
+  paymentDeadlineHours Int      @default(24)
+  bankTransferEnabled  Boolean  @default(true)
+  qrisEnabled          Boolean  @default(true)
+  isActive             Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
+}
+
+// Audit log seluruh tindakan admin pada pembayaran manual
+model PaymentAuditLog {
+  id                   String   @id @default(cuid())
+  paymentTransactionId String
+  paymentTransaction   PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Cascade)
+  action               String // CREATED | PROOF_SUBMITTED | APPROVED | REJECTED | ACTIVATED
+  actorId              String   @default("")
+  actorName            String   @default("")
+  details              String   @default("")
+  createdAt            DateTime @default(now())
+
+  @@index([paymentTransactionId])
+}
+
+// Notifikasi in-app (bell dashboard) — userId "" = untuk admin
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @default("")
+  title     String
+  message   String   @default("")
+  type      String   @default("info") // info | success | warning | error
+  link      String   @default("")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
