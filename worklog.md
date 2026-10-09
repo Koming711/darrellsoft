@@ -13053,3 +13053,22 @@ Work Log:
 
 Stage Summary:
 - Produksi www.darrellsoft.com kini menjalankan SEMUA fitur terbaru sekaligus: 12 fitur akuntansi (termasuk Hitung Potong Kertas/Cetakan/Finishing), banner Kesempatan Emas gold, section Harga burgundy, section Fitur Unggulan rapat, tombol "Login Masuk" — sebelumnya produksi masih konten lama (sejak v150).
+---
+Task ID: landing-harga-nonclick
+Agent: Main (Z.ai Code)
+Task: "di halaman landing. buat pilih paket terbaik kamu tidak bisa di klik. fix"
+
+Work Log:
+- PricingCard (section HARGA "Pilih Paket Terbaik Kamu", src/app/page.tsx) dibuat non-interaktif:
+  - Card onClick={onSelect} dihapus → klik kartu tidak lagi router.push('/checkout?plan=...').
+  - Prop onSelect dihapus dari signature & type; 3 pemakaian onSelect={() => openPayment('bulanan-ekonomis'|'bulanan'|'tahunan')} dihapus.
+  - Fungsi openPayment dihapus (jadi unused; satu-satunya pemakai adalah kartu harga).
+  - Class kartu (popular & regular): cursor-pointer, hover:-translate-y-1, hover:border-white/20, hover:bg-white/[0.07] dihapus.
+  - motion.div whileTap (animasi tekan scale 0.97) diganti div biasa — tidak ada feedback klik.
+  - Tombol "Pilih Paket" di footer kartu: class ripple-btn dihapus + cursor-default select-none — tampak sama tapi iner, tanpa efek ripple, tanpa aksi.
+- eslint src/app/page.tsx BERSIH; import motion tetap valid (dipakai FadeIn).
+- Verifikasi E2E (agent-browser 1440×900, :3000): computed cursor kartu=auto, tombol=default; klik tombol → url tetap "/", klik kartu regular → "/", klik kartu popular → "/" (tidak ada navigasi ke /checkout); layout section burgundy + 3 kartu + badge HEMAT BANGET tetap utuh (.verify/harga-nonclick.png); console --clear + errors → 0 error.
+- TIDAK deploy (user tidak menyebut "deploy" di pesan ini) — produksi masih bisa diklik sampai deploy berikutnya.
+
+Stage Summary:
+- Kartu & tombol di section "Pilih Paket Terbaik Kamu" kini tidak bisa diklik: tanpa onClick, tanpa animasi tap/hover, tanpa efek ripple, cursor default. Tampilan visual tidak berubah. Klik tidak lagi mengarahkan ke /checkout.

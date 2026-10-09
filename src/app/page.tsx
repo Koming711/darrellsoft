@@ -203,7 +203,6 @@ function PricingCard({
   features,
   popular = false,
   delay = 0,
-  onSelect,
   popularLabel,
   buttonLabel,
 }: {
@@ -215,17 +214,15 @@ function PricingCard({
   features: React.ReactNode[];
   popular?: boolean;
   delay?: number;
-  onSelect: () => void;
   popularLabel?: string;
   buttonLabel?: string;
 }) {
   const card = (
     <Card
-      onClick={onSelect}
       className={
         popular
-          ? 'shadow-sm dark-surface relative overflow-hidden h-full flex flex-col cursor-pointer transition-all duration-300 hover:-translate-y-1 rounded-[14px] border-0 bg-[#0a1122]'
-          : 'dark-surface relative overflow-hidden h-full flex flex-col cursor-pointer transition-all duration-300 hover:-translate-y-1 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/[0.07] shadow-lg shadow-black/20'
+          ? 'shadow-sm dark-surface relative overflow-hidden h-full flex flex-col transition-all duration-300 rounded-[14px] border-0 bg-[#0a1122]'
+          : 'dark-surface relative overflow-hidden h-full flex flex-col transition-all duration-300 rounded-2xl bg-white/5 border border-white/10 shadow-lg shadow-black/20'
       }
     >
       {popular && (
@@ -261,7 +258,7 @@ function PricingCard({
       </CardContent>
       <CardFooter className="relative p-5 pt-0">
         <Button
-          className={`ripple-btn w-full py-2.5 text-xs font-semibold rounded-xl transition-all duration-300 ${
+          className={`w-full py-2.5 text-xs font-semibold rounded-xl cursor-default select-none ${
             popular
               ? 'cta-glow bg-gradient-to-r from-emerald-600 to-teal-400 hover:from-emerald-500 hover:to-teal-300 text-white shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-500/40'
               : 'bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-white/20'
@@ -275,19 +272,13 @@ function PricingCard({
 
   return (
     <FadeIn delay={delay}>
-      <motion.div
-        whileTap={{ scale: 0.97 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-        className="h-full"
-      >
-        {popular ? (
-          <div className="relative h-full rounded-2xl p-[1.5px] bg-gradient-to-b from-emerald-500 via-teal-400 to-emerald-600 shadow-2xl shadow-emerald-600/30">
-            {card}
-          </div>
-        ) : (
-          card
-        )}
-      </motion.div>
+      <div className="h-full">{popular ? (
+        <div className="relative h-full rounded-2xl p-[1.5px] bg-gradient-to-b from-emerald-500 via-teal-400 to-emerald-600 shadow-2xl shadow-emerald-600/30">
+          {card}
+        </div>
+      ) : (
+        card
+      )}</div>
     </FadeIn>
   );
 }
@@ -971,10 +962,6 @@ export default function Home() {
 
   const goToLogin = (tab?: string) => {
     router.push(tab ? `/login?tab=${tab}` : '/login');
-  };
-
-  const openPayment = (pkgType: string) => {
-    router.push(`/checkout?plan=${pkgType}`);
   };
 
   // Hero visual panel: mock invoice akuntansi + mesin cetak dengan badge
@@ -1771,7 +1758,6 @@ export default function Home() {
               t.price_economis_f7,
             ]}
             delay={0}
-            onSelect={() => openPayment('bulanan-ekonomis')}
           />
           <PricingCard
             title={t.price_bulanan_title}
@@ -1789,7 +1775,6 @@ export default function Home() {
               t.price_bulanan_f7,
             ]}
             delay={0}
-            onSelect={() => openPayment('bulanan')}
           />
           <PricingCard
             title={t.price_tahunan_title}
@@ -1811,7 +1796,6 @@ export default function Home() {
               t.price_tahunan_f8,
             ]}
             delay={0.15}
-            onSelect={() => openPayment('tahunan')}
           />
         </div>
 
