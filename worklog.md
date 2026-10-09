@@ -13053,3 +13053,19 @@ Work Log:
 
 Stage Summary:
 - Produksi www.darrellsoft.com kini menjalankan SEMUA fitur terbaru sekaligus: 12 fitur akuntansi (termasuk Hitung Potong Kertas/Cetakan/Finishing), banner Kesempatan Emas gold, section Harga burgundy, section Fitur Unggulan rapat, tombol "Login Masuk" — sebelumnya produksi masih konten lama (sejak v150).
+---
+Task ID: restore-workspace-archive-4part
+Agent: Main (Z.ai Code)
+Task: "extract file ini. ganti semua konten dengan file ini." (workspace-7ffcedf3...(6).tar.001-004, 4-part split gzip tar, 220MB extracted)
+
+Work Log:
+- Inspeksi arsip: tar.001 = gzip head, tar.002/004 = kelanjutan byte; gabung via cat 4 part | tar -xzf ke /home/z/restore-staging (220MB). Isi = snapshot project lengkap (.git, .env, src, db/custom.db, worklog.md, backups, tanpa node_modules/upload), tree BERSIH di commit 0d9fea4 (2026-10-08 16:04 UTC).
+- PENTING (diinformasikan ke user): arsip LEBIH LAMA dari state workspace sebelum replace. 9 commit yang HILANG dari working tree (dipulihkan penuh dari backup): f2ccd7a (landing pilih paket non-klik), c9c0e71 (pembayaran manual lengkap), cc34807 (perbaikan WhatsApp), c572a0a (OTP offline), ec38add (changelog v148 konten baru), + 4 daemon commit db. Saat replace, workspace sebelumnya berada di HEAD ec38add.
+- Safety: backup PENUH state lama → /home/z/backup-before-restore-20261009/project-full.tar.gz (246MB, .git+db+.env+worklog+semua kode, tanpa node_modules/.next/upload). Dev server distop dulu.
+- Replace: rsync -a --delete staging → /home/z/my-project/ dengan exclude /upload/ (arsip user tetap) & /node_modules/. bun install: "no changes" (994 installs, cocok dgn bun.lock arsip).
+- Restart dev: proses setsid pertama mati (direap sistem) → pakai daemon proyek `node daemon.cjs start` (PID 7057, auto-restart) → Ready, GET / 200. dev.log diarahkan = copy .daemon.log (symlink tidak diizinkan sandbox).
+- Verifikasi agent-browser: landing render ✓; popup What's New tampil lagi (localStorage 2026-10-09-v148 ≠ CURRENT_VERSION arsip 2026-10-08-v148) dgn konten arsip "Riwayat Hitung Cetakan Terhubung dengan Potong Kertas / 8 Oktober 2026" ✓; footer v148 ✓; login superadmin → /pembukaan: data DB arsip (Daftar 25 Sep 2026, Expired 25 Sep 2036, widget dashboard) ✓; /invoice: "3 invoice" dari DB arsip ✓; console 0 error; dev.log hanya noise benign (duplicate column kategoriId). Negative check: src/components/payment-manual TIDAK ada (konsisten arsip), CURRENT_VERSION = 2026-10-08-v148. Staging dihapus.
+- Status git pasca-replace: HEAD = 0d9fea4, tree bersih (hanya M .daemon.pid, M db/custom.db runtime).
+
+Stage Summary:
+- Seluruh isi /home/z/my-project kini = persis isi arsip user (4-part, commit 0d9fea4 / 8 Okt 2026 16:04). upload/ & node_modules dipertahankan; dev server jalan normal via daemon. Pemulihan state lebih baru (pembayaran manual, WA fix, OTP offline, changelog v148) tersedia dari /home/z/backup-before-restore-20261009/project-full.tar.gz — tinggal ekstrak .git/db/src bila diminta user.
