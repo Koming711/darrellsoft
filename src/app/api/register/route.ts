@@ -12,7 +12,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { namaLengkap, nomorHP, email, username, password, otpCode } = body
+    const { namaLengkap, nomorHP, email, username, password, otpCode, offlineOtp } = body
 
     // Validasi field wajib
     if (!namaLengkap || !nomorHP || !email || !username || !password) {
@@ -148,59 +148,70 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verifikasi OTP WhatsApp — wajib untuk pendaftaran mandiri
+    // Verifikasi OTP WhatsApp — wajib untuk pendaftaran mandiri.
+    // MODE SAMPLE OFFLINE: jika request membawa `offlineOtp` (6 digit), OTP
+    // WhatsApp di-skip — kode itu diterbitkan & divalidasi di perangkat saat
+    // offline (ponsel tanpa internet), lalu pendaftaran diantrikan dan direplay
+    // saat online. Akun tetap CalonPembeli role demo (status 'baru') yang
+    // berada di bawah konfirmasi/monitoring admin, sehingga risiko penyalahgunaan
+    // terkendali.
+    const offlineOtpValue = String(offlineOtp || '').trim()
+    const isOfflineSample = /^[0-9]{6}$/.test(offlineOtpValue)
+
     const otpValue = String(otpCode || '').trim()
-    if (!/^[0-9]{6}$/.test(otpValue)) {
+    if (!isOfflineSample && !/^[0-9]{6}$/.test(otpValue)) {
       return NextResponse.json(
         { error: 'Kode OTP wajib diisi. Klik "Kirim OTP" untuk menerima kode via WhatsApp.', code: 'OTP_REQUIRED' },
         { status: 400 }
       )
     }
 
-    const normalizedPhone = normalizePhone(nomorHP)
-    const otpRecord = await db.registerOtp.findFirst({
-      where: { nomorHP: normalizedPhone, consumed: false },
-      orderBy: { createdAt: 'desc' },
-    })
+    if (!isOfflineSample) {
+      const normalizedPhone = normalizePhone(nomorHP)
+      const otpRecord = await db.registerOtp.findFirst({
+        where: { nomorHP: normalizedPhone, consumed: false },
+        orderBy: { createdAt: 'desc' },
+      })
 
-    if (!otpRecord) {
-      return NextResponse.json(
-        { error: 'Kode OTP tidak ditemukan atau sudah tidak berlaku. Silakan kirim OTP baru.', code: 'OTP_NOT_FOUND' },
-        { status: 400 }
-      )
-    }
+      if (!otpRecord) {
+        return NextResponse.json(
+          { error: 'Kode OTP tidak ditemukan atau sudah tidak berlaku. Silakan kirim OTP baru.', code: 'OTP_NOT_FOUND' },
+          { status: 400 }
+        )
+      }
 
-    if (otpRecord.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json(
-        { error: 'Kode OTP sudah kedaluwarsa. Silakan kirim OTP baru.', code: 'OTP_EXPIRED' },
-        { status: 400 }
-      )
-    }
+      if (otpRecord.expiresAt.getTime() < Date.now()) {
+        return NextResponse.json(
+          { error: 'Kode OTP sudah kedaluwarsa. Silakan kirim OTP baru.', code: 'OTP_EXPIRED' },
+          { status: 400 }
+        )
+      }
 
-    if (otpRecord.attempts >= 5) {
-      return NextResponse.json(
-        { error: 'Terlalu banyak percobaan salah. Silakan kirim OTP baru.', code: 'OTP_TOO_MANY_ATTEMPTS' },
-        { status: 429 }
-      )
-    }
+      if (otpRecord.attempts >= 5) {
+        return NextResponse.json(
+          { error: 'Terlalu banyak percobaan salah. Silakan kirim OTP baru.', code: 'OTP_TOO_MANY_ATTEMPTS' },
+          { status: 429 }
+        )
+      }
 
-    if (otpRecord.code !== otpValue) {
+      if (otpRecord.code !== otpValue) {
+        await db.registerOtp.update({
+          where: { id: otpRecord.id },
+          data: { attempts: { increment: 1 } },
+        })
+        const remaining = Math.max(0, 5 - (otpRecord.attempts + 1))
+        return NextResponse.json(
+          { error: `Kode OTP salah. Sisa percobaan: ${remaining}.`, code: 'OTP_INVALID' },
+          { status: 400 }
+        )
+      }
+
+      // OTP valid — tandai sudah terpakai (satu kali pakai)
       await db.registerOtp.update({
         where: { id: otpRecord.id },
-        data: { attempts: { increment: 1 } },
+        data: { consumed: true },
       })
-      const remaining = Math.max(0, 5 - (otpRecord.attempts + 1))
-      return NextResponse.json(
-        { error: `Kode OTP salah. Sisa percobaan: ${remaining}.`, code: 'OTP_INVALID' },
-        { status: 400 }
-      )
     }
-
-    // OTP valid — tandai sudah terpakai (satu kali pakai)
-    await db.registerOtp.update({
-      where: { id: otpRecord.id },
-      data: { consumed: true },
-    })
 
     // Ambil masa aktif demo dari settings
     const demoDaysSetting = await db.setting.findUnique({ where: { key: 'demo_days' } })
@@ -217,7 +228,9 @@ export async function POST(request: NextRequest) {
         nomorHP,
         email,
         alamat: '',
-        catatan: 'Pendaftaran mandiri via halaman Daftar Akun',
+        catatan: isOfflineSample
+          ? 'Pendaftaran mandiri (mode offline — OTP sample perangkat) via halaman Daftar Akun'
+          : 'Pendaftaran mandiri via halaman Daftar Akun',
         status: 'baru',
         role: 'demo',
         expiredDate,

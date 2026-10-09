@@ -17,6 +17,26 @@ function localNormalizePhone(raw: string): string {
 export type Availability = 'idle' | 'invalid' | 'checking' | 'available' | 'taken'
 
 /**
+ * Lacak status online/offline perangkat secara reaktif.
+ * Dipakai untuk: skip pemeriksaan nomor saat offline (SW menyajikan 503
+ * sintetis yang tidak bisa dipercaya) & mode OTP sample offline.
+ */
+export function useIsOffline(): boolean {
+  const [isOffline, setIsOffline] = useState(false)
+  useEffect(() => {
+    const update = () => setIsOffline(!navigator.onLine)
+    update()
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
+  return isOffline
+}
+
+/**
  * Nomor Handphone field with:
  *  - real-time availability check (/api/check-phone, debounced)
  *  - "Kirim OTP" button → sends WhatsApp OTP via /api/register/send-otp
@@ -31,14 +51,18 @@ export function PhoneOtpField({
   otpCode,
   onOtpCodeChange,
   onBlockedChange,
+  onOfflineOtpIssued,
 }: {
   value: string
   onChange: (v: string) => void
   otpCode: string
   onOtpCodeChange: (v: string) => void
   onBlockedChange?: (blocked: boolean) => void
+  /** Dipanggil saat OTP sample offline diterbitkan (kode) atau diganti OTP asli (null) */
+  onOfflineOtpIssued?: (code: string | null) => void
 }) {
   const { t } = useLanguage()
+  const isOffline = useIsOffline()
   const [availability, setAvailability] = useState<Availability>('idle')
   const [otpSent, setOtpSent] = useState(false)
   const [otpSending, setOtpSending] = useState(false)
@@ -46,6 +70,7 @@ export function PhoneOtpField({
   const [otpInfo, setOtpInfo] = useState('')
   const [cooldown, setCooldown] = useState(0)
   const [devCode, setDevCode] = useState('')
+  const [isSampleOtp, setIsSampleOtp] = useState(false)
   const otpInputRef = useRef<HTMLInputElement>(null)
   const sentForRef = useRef('')
 
@@ -53,6 +78,10 @@ export function PhoneOtpField({
   const isFormatValid = PHONE_REGEX.test(value.trim().replace(/[\s\-]/g, ''))
 
   // Real-time phone availability (debounced 600ms)
+  // CATATAN OFFLINE: saat offline, SW menyajikan respons sintetis 503 untuk
+  // GET /api/* — respons itu TIDAK mengandung `available`, dulu salah dibaca
+  // sebagai "taken" sehingga tombol Kirim OTP mati & form diblokir. Sekarang
+  // pemeriksaan di-skip saat offline (idle) dan diulang otomatis saat online.
   useEffect(() => {
     const raw = value.trim()
     setOtpError('')
@@ -65,11 +94,20 @@ export function PhoneOtpField({
       setAvailability('invalid')
       return
     }
+    if (isOffline) {
+      setAvailability('idle')
+      return
+    }
     setAvailability('checking')
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/check-phone?phone=${encodeURIComponent(raw)}`)
-        const data = await res.json()
+        const data = await res.json().catch(() => null)
+        if (!res.ok || !data || typeof data.available !== 'boolean') {
+          // Respons tidak sah (mis. 503 sintetis SW) → tidak memblokir
+          setAvailability('idle')
+          return
+        }
         setAvailability(data.available ? 'available' : 'taken')
       } catch {
         // Network error → don't block here; server re-validates on submit
@@ -77,7 +115,7 @@ export function PhoneOtpField({
       }
     }, 600)
     return () => clearTimeout(timer)
-  }, [normalized])
+  }, [normalized, isOffline])
 
   // Notify parent whether phone blocks registration
   useEffect(() => {
@@ -98,7 +136,9 @@ export function PhoneOtpField({
       setOtpInfo('')
       setOtpError('')
       setDevCode('')
+      setIsSampleOtp(false)
       onOtpCodeChange('')
+      onOfflineOtpIssued?.(null)
     }
   }, [normalized])
 
@@ -113,6 +153,24 @@ export function PhoneOtpField({
       setOtpError(t('nomor_hp_sudah_digunakan'))
       return
     }
+
+    // ---- MODE OFFLINE: OTP sample langsung ditampilkan di bawah ----
+    // Tidak ada panggilan server — kode hanya sample agar alur pendaftaran
+    // bisa dilanjutkan saat offline. Pendaftaran masuk antrian offline dan
+    // diproses otomatis begitu internet tersambung.
+    if (isOffline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+      const sampleCode = String(Math.floor(100000 + Math.random() * 900000))
+      sentForRef.current = normalized
+      setOtpSent(true)
+      setIsSampleOtp(true)
+      setDevCode(sampleCode)
+      onOtpCodeChange('')
+      onOfflineOtpIssued?.(sampleCode)
+      setOtpInfo(t('otp_offline_info'))
+      setTimeout(() => otpInputRef.current?.focus(), 100)
+      return
+    }
+
     setOtpSending(true)
     try {
       const res = await fetch('/api/register/send-otp', {
@@ -129,6 +187,8 @@ export function PhoneOtpField({
       }
       sentForRef.current = normalized
       setOtpSent(true)
+      setIsSampleOtp(false)
+      onOfflineOtpIssued?.(null)
       onOtpCodeChange('')
       setCooldown(60)
       setDevCode(data.devCode || '')
@@ -228,7 +288,7 @@ export function PhoneOtpField({
 
           {devCode && (
             <div className="rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
-              {t('otp_dev_code')} <span className="tracking-widest">{devCode}</span>
+              {isSampleOtp ? t('otp_offline_banner') : t('otp_dev_code')} <span className="tracking-widest">{devCode}</span>
             </div>
           )}
 
@@ -271,9 +331,11 @@ export type UsernameStatus = 'idle' | 'short' | 'checking' | 'available' | 'take
 
 /**
  * Debounced username availability check against /api/check-username.
+ * Aman offline: respons sintetis SW (503) / jaringan gagal → 'idle' (tidak memblokir).
  */
 export function useUsernameCheck(username: string): UsernameStatus {
   const [status, setStatus] = useState<UsernameStatus>('idle')
+  const isOffline = useIsOffline()
 
   useEffect(() => {
     const u = username.trim()
@@ -285,11 +347,19 @@ export function useUsernameCheck(username: string): UsernameStatus {
       setStatus('short')
       return
     }
+    if (isOffline) {
+      setStatus('idle')
+      return
+    }
     setStatus('checking')
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/check-username?username=${encodeURIComponent(u)}`)
-        const data = await res.json()
+        const data = await res.json().catch(() => null)
+        if (!res.ok || !data || typeof data.available !== 'boolean') {
+          setStatus('idle')
+          return
+        }
         setStatus(data.available ? 'available' : 'taken')
       } catch {
         // Network error → don't block; server re-validates on submit
@@ -297,7 +367,7 @@ export function useUsernameCheck(username: string): UsernameStatus {
       }
     }, 600)
     return () => clearTimeout(timer)
-  }, [username])
+  }, [username, isOffline])
 
   return status
 }

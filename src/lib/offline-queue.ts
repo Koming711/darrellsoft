@@ -32,7 +32,7 @@ const STORE = 'requests'
 // Route yang TIDAK boleh masuk antrian (auth/session/backup/upload/file besar)
 const NEVER_QUEUE_PREFIXES = [
   '/api/auth',
-  '/api/register',
+  '/api/register/send-otp', // OTP WhatsApp realtime — tidak boleh diantrikan
   '/api/check-username',
   '/api/seed-admin',
   '/api/notifications',

@@ -51,6 +51,8 @@ function LoginContent() {
   // OTP WhatsApp + ketersediaan nomor/username
   const [regOtpCode, setRegOtpCode] = useState('')
   const [regPhoneBlocked, setRegPhoneBlocked] = useState(false)
+  // Kode OTP sample yang diterbitkan saat OFFLINE (kosong = pakai OTP WhatsApp asli)
+  const [regOfflineOtp, setRegOfflineOtp] = useState('')
   const regUsernameStatus = useUsernameCheck(regUsername)
 
   // Forgot password state
@@ -307,6 +309,13 @@ function LoginContent() {
       return
     }
 
+    // OTP sample offline: kode yang diketik harus sama dengan yang ditampilkan
+    if (regOfflineOtp && regOtpCode.trim() !== regOfflineOtp) {
+      setRegError(t('otp_offline_salah'))
+      setRegLoading(false)
+      return
+    }
+
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -318,6 +327,9 @@ function LoginContent() {
           username: regUsername.trim(),
           password: regPassword,
           otpCode: regOtpCode.trim(),
+          // Mode sample offline — server melewati verifikasi OTP WhatsApp;
+          // pendaftaran tetap menjadi akun demo yang menunggu admin.
+          ...(regOfflineOtp ? { offlineOtp: regOfflineOtp } : {}),
         })
       })
 
@@ -375,6 +387,11 @@ function LoginContent() {
           applyThemeAfterLogin()
           setTimeout(() => { window.location.href = '/pembukaan' }, 1500)
         }
+      } else if (data.offlineQueued) {
+        // Pendaftaran offline — tersimpan di antrian perangkat, direplay
+        // otomatis ke server begitu internet tersambung.
+        toast.info(t('register_queued_toast'), { duration: 6000 })
+        setRegSuccess(true)
       } else {
         // Notify other tabs about the new calon pembeli
         notifyDataChange('calon-pembeli')
@@ -571,6 +588,7 @@ function LoginContent() {
                     setRegConfirmPassword('')
                     setRegOtpCode('')
                     setRegPhoneBlocked(false)
+                    setRegOfflineOtp('')
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 >
@@ -612,6 +630,7 @@ function LoginContent() {
                   otpCode={regOtpCode}
                   onOtpCodeChange={setRegOtpCode}
                   onBlockedChange={setRegPhoneBlocked}
+                  onOfflineOtpIssued={setRegOfflineOtp}
                 />
 
                 {/* Email */}

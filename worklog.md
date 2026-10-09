@@ -13111,3 +13111,23 @@ Work Log:
 
 Stage Summary:
 - Root cause "WhatsApp API key belum dikonfigurasi" DIPERBAIKI: key WA kini tersimpan global (SYSTEM_SETTING_KEYS), dibaca server dengan benar, ada self-heal migrasi dari UserSetting lama, dan bug "HTTP 200 dianggap sukses" diperbaiki (alasan asli Fonnte kini tampil). Admin punya badge status + tombol Tes Kirim untuk verifikasi langsung. Fonnte tetap penyedia default (wa_api_url bisa diarahkan ke layanan kompatibel lain).
+---
+Task ID: otp-offline-sample
+Agent: Main (Z.ai Code)
+Task: "masih tidak bisa kirim otp. di offline tidak bisa kirim otp. tapi di online bisa" + klarifikasi "biasanya kalo offline langsung otp dimunculkan dibawahnya saja. hanya untuk sample saja. fix"
+
+Work Log:
+- ROOT CAUSE 1 (tombol mati saat offline): SW menyajikan respons sintetis 503 {error:'Anda sedang offline...'} utk GET /api/* saat offline → PhoneOtpField membaca `data.available` = undefined → salah set status nomor 'taken' → "Nomor handphone sudah digunakan" + tombol Kirim OTP DISABLED + regPhoneBlocked memblokir submit. Hal sama di useUsernameCheck (username dianggap taken).
+- ROOT CAUSE 2 (OTP butuh server): kirim OTP WhatsApp membutuhkan internet; offline request gagal dgn pesan generik "Terjadi kesalahan jaringan".
+- FIX (sesuai permintaan: offline → OTP sample langsung tampil di bawah):
+  - phone-otp-field.tsx: hook useIsOffline() baru; availability & username check di-skip saat offline (idle) + auto re-check saat online kembali + guard `res.ok` & `typeof data.available === 'boolean'` (respons sintetis SW tidak lagi dianggap 'taken'); klik "Kirim OTP" saat offline → generate kode 6 digit di perangkat → banner amber "Mode Offline — Kode OTP (sample): XXXXXX" langsung muncul di bawah + input OTP terbuka (prop baru onOfflineOtpIssued melaporkan kode ke parent; null saat OTP asli dikirim/nomor diubah).
+  - login/page.tsx: state regOfflineOtp; validasi client kode ketik = kode sample; payload register menyertakan offlineOtp saat mode sample; respons synthetic {offlineQueued:true} → toast "Pendaftaran disimpan di perangkat..." + layar sukses; reset form membersihkan regOfflineOtp.
+  - offline-queue.ts: NEVER_QUEUE_PREFIXES '/api/register' → '/api/register/send-otp' (OTP realtime tetap tak diantrikan; POST pendaftaran KINI bisa masuk antrian offline dan direplay otomatis saat online).
+  - api/register/route.ts: terima offlineOtp (6 digit) → skip verifikasi OTP WhatsApp DB (komentar risiko: akun tetap CalonPembeli demo status 'baru' di bawah konfirmasi admin); catatan admin menandai "mode offline — OTP sample perangkat"; alur normal (tanpa offlineOtp) tidak berubah.
+  - i18n.ts: 4 key baru id+en (otp_offline_banner, otp_offline_info, otp_offline_salah, register_queued_toast).
+- E2E (agent-browser, :3000): OFFLINE — form tanpa error palsu, tombol aktif; klik Kirim OTP → banner "Mode Offline — Kode OTP (sample): 863600" + info; submit → toast "Pendaftaran disimpan di perangkat..." + layar "Pendaftaran Berhasil!"; IndexedDB queue berisi POST /api/register dgn offlineOtp; online kembali → replay otomatis → CalonPembeli 'offlineuser1' TERBENTUK (status baru, role demo, catatan offline) & RegisterOtp 0 (tak konsumsi OTP server) ✓. ONLINE (otp_dev_mode=true lokal) — nomor tersedia (hijau), Kirim OTP → banner "Mode Dev — Kode OTP: 766392", submit → OTP consumed=0 attempts, auto-login, popup Akun Demo 7 hari → "Masuk ke Halaman Utama" → /pembukaan ✓. Antrian kosong setelah replay ✓. Console/page 0 error ✓. Screenshot: .verify/otp-offline-sample.png, otp-offline-queued.png, otp-online-success.png, otp-online-demo-popup.png.
+- Beres-beres: 2 CalonPembeli uji + OTP uji + setting otp_dev_mode dihapus dari DB lokal; skrip bantu dihapus.
+- TIDAK deploy (user tidak menyebut "deploy"). Catatan produksi: SW hanya menangani GET — perubahan JS aman; OTP offline tidak mengirim WhatsApp nyata (sample) dan akun tetap menunggu konfirmasi admin.
+
+Stage Summary:
+- Pendaftaran kini JALAN saat offline: klik Kirim OTP → kode OTP sample langsung tampil di bawah nomor HP (tanpa server), user lanjut isi form, submit → pendaftaran masuk antrian offline → otomatis diproses jadi CalonPembeli (demo, menunggu admin) begitu internet kembali. Bug tombol Kirim OTP mati + "nomor sudah digunakan" palsu saat offline diperbaiki; pemeriksaan nomor/username auto-ulang saat online. Alur online (OTP WhatsApp asli) tidak berubah.
