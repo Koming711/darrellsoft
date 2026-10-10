@@ -617,15 +617,25 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
               <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{sessionWarning}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
-              autoFocus
-            >
-              <span className="flex items-center justify-center gap-2">
-                <LogOut className="w-4 h-4" /> {t('ok_mengerti')}
-              </span>
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => router.push('/pilih-paket')}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <Crown className="w-4 h-4" /> {t('perpanjang_langganan')}
+                </span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+                autoFocus
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <LogOut className="w-4 h-4" /> {t('ok_mengerti')}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}

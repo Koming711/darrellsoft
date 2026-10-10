@@ -24,6 +24,14 @@ export default function LoginPage() {
 
 function LoginContent() {
   const searchParams = useSearchParams()
+  const nextUrl = (() => {
+    const n = searchParams.get('next') ?? ''
+    // hanya izinkan path internal relatif (hindari open redirect)
+    return n.startsWith('/') && !n.startsWith('//') ? n : ''
+  })()
+  const goAfterAuth = () => {
+    window.location.href = nextUrl || '/pembukaan'
+  }
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(searchParams.get('tab') === 'register' ? 'register' : 'login')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -87,7 +95,7 @@ function LoginContent() {
     if (authUser) {
       setIsRedirecting(true)
       // Use hard navigation to ensure DashboardLayout reads fresh auth state
-      window.location.href = '/pembukaan'
+      goAfterAuth()
       return
     }
 
@@ -155,7 +163,7 @@ function LoginContent() {
         applyThemeAfterLogin()
         // Use hard navigation to ensure DashboardLayout reads fresh auth state
         // (router.push can fail in iframe contexts)
-        window.location.href = '/pembukaan'
+        goAfterAuth()
       }
     } catch (err: any) {
       console.error('Login network error:', err)
@@ -373,7 +381,7 @@ function LoginContent() {
           setDemoPopupOpen(true)
         } else {
           applyThemeAfterLogin()
-          setTimeout(() => { window.location.href = '/pembukaan' }, 1500)
+          setTimeout(() => { goAfterAuth() }, 1500)
         }
       } else {
         // Notify other tabs about the new calon pembeli

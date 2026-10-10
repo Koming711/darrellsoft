@@ -16,6 +16,7 @@ export const SIMPLE_FEATURES = [
   { id: 'hak-akses', name: 'Hak Akses' },
   { id: 'pengguna', name: 'Pengguna & Pembeli' },
   { id: 'pengaturan', name: 'Pengaturan' },
+  { id: 'panel-admin', name: 'Panel Admin Langganan' },
   { id: 'invoice', name: 'Invoice' },
   { id: 'surat-jalan', name: 'Surat Jalan' },
   { id: 'purchase-order', name: 'Purchase Order' },

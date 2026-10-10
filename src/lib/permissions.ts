@@ -65,6 +65,8 @@ export function hasFeatureAccess(roleId: string, featureId: string): boolean {
   // 'daftar-kategori' TIDAK terdaftar di matriks Hak Akses (pola produksi v123):
   // menu & halaman selalu tampil/bisa diakses untuk semua user yang login.
   if (featureId === 'daftar-kategori') return true
+  // Halaman langganan bersifat akun-level — selalu tersedia untuk semua user login.
+  if (featureId === 'pilih-paket' || featureId === 'langganan-saya') return true
   return getFeaturePermissions(roleId)[featureId] || false
 }
 
@@ -127,6 +129,8 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/administrasi/pengguna') return 'pengguna'
   if (pathname === '/administrasi/pengaturan') return 'pengaturan'
   if (pathname === '/administrasi') return 'pengguna' // default to first accessible admin feature
+  if (pathname === '/pilih-paket') return 'pilih-paket'
+  if (pathname === '/langganan-saya') return 'langganan-saya'
   return null
 }
 
@@ -158,6 +162,8 @@ export function getPathForFeatureId(featureId: string): string | null {
     'hak-akses': '/administrasi/hak-akses',
     'pengguna': '/administrasi/pengguna',
     'pengaturan': '/administrasi/pengaturan',
+    'pilih-paket': '/pilih-paket',
+    'langganan-saya': '/langganan-saya',
   }
   return map[featureId] || null
 }

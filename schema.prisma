@@ -566,3 +566,152 @@ model BahanMutasi {
   @@index([bahanId])
   @@index([userId])
 }
+
+// ====================================================================
+// SISTEM LANGGANAN (SaaS Subscription Management)
+// Satu akun pelanggan (Pengguna) = satu langganan.
+// Pembayaran manual (QRIS / transfer bank) + verifikasi Admin.
+// Nominal tagihan BEKU saat dibuat — perubahan harga paket tidak
+// mempengaruhi tagihan lama.
+// ====================================================================
+
+// Paket langganan bulanan — dikelola Admin dari /panel-admin (Kelola Paket).
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  slug            String   @unique // basic | pro | premium
+  name            String
+  description     String   @default("")
+  monthlyPrice    Float // harga per bulan (Rp) — harga aktif
+  originalPrice   Float? // harga sebelum diskon — tampil dicoret bila > monthlyPrice
+  features        String   @default("[]") // JSON array string perincian fitur
+  maxAccounts     Int      @default(1) // batas akun pengguna
+  maxTransactions Int? // batas transaksi/bulan (null = tak terbatas)
+  maxStorageMb    Int? // batas penyimpanan MB (null = tak terbatas)
+  durationDays    Int      @default(30) // masa berlaku per pembayaran (hari)
+  isActive        Boolean  @default(true) // paket bisa dipilih pelanggan
+  isPopular       Boolean  @default(false) // badge "Terpopuler"
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  invoices  SubscriptionInvoice[]
+  subscriptions CustomerSubscription[]
+}
+
+// Langganan milik satu pelanggan (get-or-create on demand).
+model CustomerSubscription {
+  id             String    @id @default(cuid())
+  userId         String    @unique // Pengguna.id — satu akun = satu langganan
+  planId         String?
+  plan           SubscriptionPlan? @relation(fields: [planId], references: [id])
+  status         String    @default("belum_aktif") // belum_aktif | aktif | akan_berakhir | kedaluwarsa | ditangguhkan | dibatalkan
+  startDate      DateTime?
+  endDate        DateTime?
+  gracePeriodEnd DateTime? // akhir masa tenggang (diatur Admin)
+  suspendReason  String    @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  invoices SubscriptionInvoice[]
+
+  @@index([status])
+  @@index([planId])
+}
+
+// Tagihan langganan — nominal dibekukan saat dibuat.
+model SubscriptionInvoice {
+  id                 String    @id @default(cuid())
+  invoiceNumber      String    @unique // SUB-YYMMDD-XXXX
+  userId             String // Pengguna.id pemilik
+  planId             String
+  plan               SubscriptionPlan @relation(fields: [planId], references: [id])
+  subscriptionId     String? // langganan yang terkait tagihan ini
+  subscription       CustomerSubscription? @relation(fields: [subscriptionId], references: [id])
+  planName           String // snapshot nama paket saat tagihan dibuat
+  amount             Float // nominal tagihan (BEKU — tidak ikut perubahan harga)
+  originalPrice      Float? // snapshot harga sebelum diskon (tampilan coret)
+  planSnapshot       String    @default("{}") // JSON snapshot paket (fitur, durasi) saat tagihan dibuat
+  billingPeriodStart DateTime?
+  billingPeriodEnd   DateTime?
+  status             String    @default("menunggu_pembayaran") // menunggu_pembayaran | menunggu_verifikasi | disetujui | ditolak | kedaluwarsa | dibatalkan
+  dueDate            DateTime // batas waktu pembayaran
+  isPlanChange       Boolean   @default(false) // tagihan untuk ganti paket
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  payments SubscriptionPayment[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// Bukti pembayaran manual (QRIS / transfer bank) per tagihan.
+// Bukti disimpan sebagai data URL (base64) — pola sama dengan foto aplikasi.
+model SubscriptionPayment {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  invoice         SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  userId          String // Pengguna.id pembayar
+  paymentMethod   String // qris | transfer_bank
+  amount          Float // nominal dibayar (harus = invoice.amount, divalidasi server)
+  senderName      String    @default("") // nama pengirim (transfer bank)
+  transferDate    String    @default("") // tanggal transfer (YYYY-MM-DD)
+  proofFileUrl    String    @default("") // data URL bukti (JPG/PNG/PDF)
+  proofFileName   String    @default("")
+  status          String    @default("menunggu_verifikasi") // menunggu_verifikasi | disetujui | ditolak
+  reviewedBy      String?   @default("") // username admin penyetuju
+  reviewedAt      DateTime?
+  rejectionReason String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([invoiceId])
+  @@index([status])
+}
+
+// Pengaturan pembayaran (singleton row key="default") — dikelola Admin.
+model PaymentSettings {
+  id                  String   @id @default(cuid())
+  key                 String   @unique @default("default")
+  qrisImageUrl        String   @default("") // data URL gambar QRIS resmi
+  qrisReceiverName    String   @default("") // nama penerima QRIS
+  bankName            String   @default("")
+  bankAccountNumber   String   @default("")
+  bankAccountName     String   @default("")
+  paymentInstructions String   @default("")
+  paymentDueHours     Int      @default(24) // batas waktu pembayaran tagihan (jam)
+  gracePeriodDays     Int      @default(7) // masa tenggang setelah kedaluwarsa (hari)
+  updatedAt           DateTime @updatedAt
+}
+
+// Jejak audit langganan — semua aksi Admin & sistem terkait langganan.
+model SubscriptionAuditLog {
+  id             String   @id @default(cuid())
+  userId         String?  // pelanggan terkait aksi
+  subscriptionId String?
+  invoiceId      String?
+  action         String // plan_created | plan_updated | payment_submitted | payment_approved | payment_rejected | subscription_activated | subscription_suspended | subscription_unsuspended | settings_updated
+  oldStatus      String   @default("")
+  newStatus      String   @default("")
+  performedBy    String   @default("system") // username admin / "system"
+  notes          String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Notifikasi in-app (pelanggan & admin). Admin melihat semua (where {}).
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @default("") // penerima; "" = broadcast admin
+  title     String
+  body      String   @default("")
+  type      String   @default("info") // payment | subscription | system | info
+  link      String   @default("") // href tujuan saat diklik
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

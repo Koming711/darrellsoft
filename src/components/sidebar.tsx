@@ -36,6 +36,9 @@ import {
   ListTree,
   UserCog,
   Package,
+  PackageOpen,
+  CreditCard,
+  LayoutDashboard,
   TrendingUp,
   PieChart,
   HandCoins,
@@ -135,6 +138,27 @@ const menuItems = [
     icon: Coins,
     featureId: 'piutang-dagang',
     section: 'laporan',
+  },
+  {
+    titleKey: 'pilih_paket' as TranslationKey,
+    href: '/pilih-paket',
+    icon: PackageOpen,
+    featureId: 'pilih-paket',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'langganan_saya' as TranslationKey,
+    href: '/langganan-saya',
+    icon: CreditCard,
+    featureId: 'langganan-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'panel_admin' as TranslationKey,
+    href: '/panel-admin',
+    icon: LayoutDashboard,
+    featureId: 'panel-admin',
+    section: 'langganan',
   },
   {
     titleKey: 'biaya_operasional' as TranslationKey,
@@ -298,7 +322,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
   // Determine which menu items are accessible:
   // - hak-akses & pengguna: HIDDEN if not allowed (not shown at all)
   // - other features: show with PRO badge if not allowed (visible but locked)
-  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']
+  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
   const menuWithAccess = menuItems
     .map(item => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }
@@ -449,7 +473,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // All menu items for the "Lainnya" popup — mirror desktop sidebar behavior:
   // - hak-akses & pengguna: HIDDEN if not allowed
   // - other features: show with PRO badge if not allowed (visible but locked)
-  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']
+  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
   const allMenuItems = menuItems
     .map(item => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }

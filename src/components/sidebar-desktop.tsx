@@ -26,6 +26,9 @@ import {
   ListTree,
   UserCog,
   Package,
+  PackageOpen,
+  CreditCard,
+  LayoutDashboard,
   TrendingUp,
   PieChart,
   HandCoins,
@@ -134,6 +137,27 @@ const menuItems = [
     section: 'laporan',
   },
   {
+    titleKey: 'pilih_paket' as TranslationKey,
+    href: '/pilih-paket',
+    icon: PackageOpen,
+    featureId: 'pilih-paket',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'langganan_saya' as TranslationKey,
+    href: '/langganan-saya',
+    icon: CreditCard,
+    featureId: 'langganan-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'panel_admin' as TranslationKey,
+    href: '/panel-admin',
+    icon: LayoutDashboard,
+    featureId: 'panel-admin',
+    section: 'langganan',
+  },
+  {
     titleKey: 'biaya_operasional' as TranslationKey,
     href: '/biaya-operasional',
     icon: Wallet,
@@ -230,6 +254,7 @@ const menuItems = [
 // proper ID/EN translations of the UPPERCASE sidebar section headers).
 const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
   { key: undefined, labelKey: 'section_beranda' as TranslationKey },
+  { key: 'langganan', labelKey: 'section_langganan' as TranslationKey },
   { key: 'hitung_biaya_produksi', labelKey: 'section_total_cost_calc' as TranslationKey },
   { key: 'dokumen', labelKey: 'section_documents' as TranslationKey },
   { key: 'laporan', labelKey: 'section_laporan' as TranslationKey },
@@ -346,7 +371,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
   // Determine which menu items are accessible:
   // - hak-akses & pengguna: HIDDEN if not allowed (not shown at all)
   // - other features: show with PRO badge if not allowed (visible but locked)
-  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna']
+  const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
   const menuWithAccess = menuItems
     .map((item) => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }

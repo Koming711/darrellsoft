@@ -25,6 +25,9 @@ export const translations = {
     dashboard: 'Halaman Utama',
     pembukaan: 'Beranda',
     hitung_biaya_produksi: 'Hitung Total Biaya',
+    pilih_paket: 'Pilih Paket',
+    langganan_saya: 'Langganan Saya',
+    panel_admin: 'Panel Admin',
     potong_kertas: 'Potong Kertas',
     hitung_cetakan: 'Hitung Cetakan',
     biaya_produksi: 'Biaya Produksi',
@@ -452,6 +455,7 @@ export const translations = {
     reclaim_session_failed: 'Gagal mengklaim sesi. Silakan coba lagi.',
     akun_sudah_expired: 'Akun sudah expired.',
     akun_expired_perpanjang: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.',
+    perpanjang_langganan: 'Perpanjang Langganan',
     terjadi_kesalahan_jaringan: 'Terjadi kesalahan jaringan',
     peringatan_keamanan: 'Peringatan Keamanan',
     akun_digunakan_di_perangkat_lain: 'Akun digunakan di perangkat lain',
@@ -613,6 +617,7 @@ export const translations = {
 
     // Sidebar sections (UPPERCASE labels)
     section_beranda: 'BERANDA',
+    section_langganan: 'LANGGANAN',
     section_total_cost_calc: 'HITUNG TOTAL BIAYA',
     section_documents: 'DOKUMEN',
     section_expenses: 'OPERASIONAL',
@@ -667,6 +672,9 @@ export const translations = {
     dashboard: 'Home Page',
     pembukaan: 'Home',
     hitung_biaya_produksi: 'Total Cost Calc',
+    pilih_paket: 'Choose Plan',
+    langganan_saya: 'My Subscription',
+    panel_admin: 'Admin Panel',
     potong_kertas: 'Paper Cutting',
     hitung_cetakan: 'Print Calculator',
     biaya_produksi: 'Production Cost',
@@ -1097,6 +1105,7 @@ export const translations = {
     reclaim_session_failed: 'Failed to reclaim session. Please try again.',
     akun_sudah_expired: 'Account has expired.',
     akun_expired_perpanjang: 'Account has expired. Please renew your account.',
+    perpanjang_langganan: 'Renew Subscription',
     terjadi_kesalahan_jaringan: 'Network error occurred',
     peringatan_keamanan: 'Security Warning',
     akun_digunakan_di_perangkat_lain: 'Account is being used on another device',
@@ -1258,6 +1267,7 @@ export const translations = {
 
     // Sidebar sections (UPPERCASE labels)
     section_beranda: 'HOME',
+    section_langganan: 'SUBSCRIPTION',
     section_total_cost_calc: 'TOTAL COST CALC',
     section_documents: 'DOCUMENTS',
     section_expenses: 'OPERATIONAL',

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-10-08-v148'
+export const CURRENT_VERSION = '2026-10-10-v151'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,40 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-10-10-v151',
+    date: { id: '10 Oktober 2026', en: '10 October 2026' },
+    title: {
+      id: 'Sistem Langganan SaaS — Pilih Paket, Bayar Manual, Verifikasi Admin',
+      en: 'SaaS Subscription System — Choose Plan, Manual Payment, Admin Verification',
+    },
+    items: [
+      {
+        id: 'Sistem langganan bulanan lengkap: 3 paket (Basic/Pro/Premium) yang bisa diatur Admin — harga, perincian fitur, harga coret/diskon, batas akun/transaksi/penyimpanan, masa berlaku, dan status aktif',
+        en: 'Complete monthly subscription system: 3 plans (Basic/Pro/Premium) fully managed by Admin — price, feature details, strike-through discount price, account/transaction/storage limits, validity period, and active status',
+      },
+      {
+        id: 'Menu baru LANGGANAN: Pilih Paket (halaman pemilihan paket), Langganan Saya (status, tanggal, sisa hari, tagihan, riwayat pembayaran, kuitansi digital), dan Panel Admin khusus admin',
+        en: 'New SUBSCRIPTION menu: Choose Plan, My Subscription (status, dates, days left, invoices, payment history, digital receipt), and Admin-only Admin Panel',
+      },
+      {
+        id: 'Pembayaran manual QRIS & Transfer Bank: tagihan bernomor unik dengan nominal beku, unggah bukti (JPG/PNG/PDF maks 500KB), status Menunggu Verifikasi — langganan TIDAK aktif sebelum Admin menyetujui',
+        en: 'Manual QRIS & Bank Transfer payment: unique invoice number with frozen amount, upload proof (JPG/PNG/PDF max 500KB), Waiting Verification status — subscription NOT active until Admin approves',
+      },
+      {
+        id: 'Panel Admin Langganan: Ringkasan pendapatan, Verifikasi Pembayaran (lihat bukti, Setujui/Tolak dengan alasan — idempoten anti klik ganda), Kelola Pelanggan (cari, tangguhkan/aktifkan dengan catatan audit), Riwayat Transaksi (filter + ekspor CSV), Pengaturan Pembayaran (QRIS, rekening, instruksi, masa tenggang)',
+        en: 'Subscription Admin Panel: revenue summary, Payment Verification (view proof, Approve/Reject with reason — idempotent), Customer Management (search, suspend/unsuspend with audit notes), Transaction History (filters + CSV export), Payment Settings (QRIS, bank account, instructions, grace period)',
+      },
+      {
+        id: 'Aktivasi & perpanjangan otomatis setelah persetujuan: perpanjang sebelum berakhir ditambah dari tanggal tercatat; ganti paket mulai dari tanggal persetujuan; akun kedaluwarsa dibatasi aksesnya tapi data tetap aman',
+        en: 'Automatic activation & renewal after approval: renewal before expiry extends from the recorded end date; plan change starts from approval date; expired accounts have restricted access but data stays safe',
+      },
+      {
+        id: 'Notifikasi in-app langganan (tagihan baru, bukti terkirim, disetujui, ditolak) + harga landing kini LIVE dari database mengikuti paket yang diatur Admin',
+        en: 'In-app subscription notifications (new invoice, proof sent, approved, rejected) + landing page prices now LIVE from the database following Admin-managed plans',
+      },
+    ],
+  },
   {
     version: '2026-10-08-v148',
     date: { id: '8 Oktober 2026', en: '8 October 2026' },

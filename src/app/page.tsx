@@ -43,6 +43,23 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageToggle } from '@/components/language-toggle';
+
+// Paket langganan langsung dari database (Panel Admin → Kelola Paket)
+interface LivePlan {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  originalPrice: number | null;
+  features: string[];
+  maxAccounts: number;
+  maxTransactions: number | null;
+  maxStorageMb: number | null;
+  durationDays: number;
+  isPopular: boolean;
+  isActive: boolean;
+}
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -197,6 +214,7 @@ function FeatureCard({
 function PricingCard({
   title,
   price,
+  originalPrice,
   period,
   description,
   descriptionExtra,
@@ -209,6 +227,7 @@ function PricingCard({
 }: {
   title: string;
   price: string;
+  originalPrice?: string | null;
   period: string;
   description: string;
   descriptionExtra?: string;
@@ -245,6 +264,9 @@ function PricingCard({
           <span className="text-2xl md:text-[32px] font-extrabold tracking-tight bg-gradient-to-r from-teal-300 to-emerald-400 bg-clip-text text-transparent">
             {price}
           </span>
+          {originalPrice && (
+            <span className="ml-2 text-sm text-gray-500 line-through">{originalPrice}</span>
+          )}
           <p className="text-gray-400 text-xs mt-1">{period}</p>
         </div>
       </CardHeader>
@@ -537,6 +559,8 @@ const LANDING_T = {
     harga_h2_3: 'Kamu',
     harga_p: 'Mulai dari gratis, atau berlangganan untuk fitur lengkap.',
     price_popular_badge: 'Hemat Banget!',
+    price_live_period: 'per bulan',
+    price_live_desc: 'Paket langganan Darrellsoft',
     price_btn: 'Pilih Paket',
 
     price_economis_title: 'Bulanan Ekonomis',
@@ -828,6 +852,8 @@ const LANDING_T = {
     harga_h2_3: 'Plan',
     harga_p: 'Start for free, or subscribe for full features.',
     price_popular_badge: 'Best Value!',
+    price_live_period: 'per month',
+    price_live_desc: 'Darrellsoft subscription plan',
     price_btn: 'Choose Plan',
 
     price_economis_title: 'Monthly Economy',
@@ -976,6 +1002,22 @@ export default function Home() {
   const openPayment = (pkgType: string) => {
     router.push(`/checkout?plan=${pkgType}`);
   };
+
+  // Paket langganan LANGSUNG dari database (diatur Admin via Panel Admin).
+  // Fallback: kartu harga hardcoded di bawah bila API gagal / DB kosong.
+  const [livePlans, setLivePlans] = useState<LivePlan[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/subscription/plans', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!cancelled && Array.isArray(json.plans)) setLivePlans(json.plans);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Hero visual panel: mock invoice akuntansi + mesin cetak dengan badge
   // mengambang. Di mobile tampil inline setelah H1; di desktop di kolom kanan.
@@ -1755,6 +1797,29 @@ export default function Home() {
         </FadeIn>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 max-w-6xl mx-auto">
+          {livePlans.length > 0
+            ? livePlans.map((p, idx) => (
+                <PricingCard
+                  key={p.id}
+                  title={p.name}
+                  price={`Rp ${Math.round(p.monthlyPrice).toLocaleString('id-ID')}`}
+                  originalPrice={
+                    p.originalPrice && p.originalPrice > p.monthlyPrice
+                      ? `Rp ${Math.round(p.originalPrice).toLocaleString('id-ID')}`
+                      : null
+                  }
+                  period={t.price_live_period}
+                  description={p.description || t.price_live_desc}
+                  popular={p.isPopular}
+                  popularLabel={t.price_popular_badge}
+                  buttonLabel={t.price_btn}
+                  features={p.features.slice(0, 8)}
+                  delay={idx * 0.1}
+                  onSelect={() => router.push('/pilih-paket')}
+                />
+              ))
+            : (
+          <>
           <PricingCard
             title={t.price_economis_title}
             price="Rp 78.000"
@@ -1813,6 +1878,8 @@ export default function Home() {
             delay={0.15}
             onSelect={() => openPayment('tahunan')}
           />
+            </>
+            )}
         </div>
 
         {/* Guarantee */}
