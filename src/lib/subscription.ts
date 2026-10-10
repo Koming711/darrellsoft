@@ -4,6 +4,8 @@
 // Pembayaran manual (QRIS / transfer bank) — aktivasi HANYA setelah Admin
 // menyetujui pembayaran (idempoten, tidak pernah dari sisi browser).
 
+import { Prisma } from '@prisma/client'
+
 import { db } from '@/lib/db'
 
 // ===== STATUS CONSTANTS =====
@@ -213,6 +215,72 @@ export async function ensureSubscriptionSeeded(): Promise<void> {
     await addAuditLog({ action: 'plan_created', performedBy: 'system', notes: 'Seed 3 paket default (Basic/Pro/Premium)' })
   }
   await getPaymentSettings()
+}
+
+// ===== CUSTOMER RESOLUTION (Pengguna ATAU CalonPembeli) =====
+/**
+ * PENTING: pendaftaran mandiri (halaman Daftar) membuat akun di tabel
+ * CalonPembeli (role demo) — BUKAN Pengguna. Seluruh modul langganan wajib
+ * menemukan pelanggan di KEDUA tabel agar pelanggan bisa melihat status
+ * verifikasi pembayarannya & admin bisa melihat data pelanggannya.
+ */
+export interface CustomerInfo {
+  id: string
+  username: string
+  namaLengkap: string
+  email: string
+  nomorHP: string
+  role: string
+  source: 'pengguna' | 'calon'
+}
+
+/** Cari pelanggan berdasarkan userId — cek Pengguna dulu, lalu CalonPembeli. */
+export async function findCustomerById(userId: string): Promise<CustomerInfo | null> {
+  if (!userId) return null
+  const p = await db.pengguna.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, namaLengkap: true, email: true, nomorHP: true, role: true },
+  })
+  if (p) return { ...p, source: 'pengguna' }
+  const c = await db.calonPembeli.findUnique({
+    where: { id: userId },
+    select: { id: true, username: true, nama: true, email: true, nomorHP: true, role: true },
+  })
+  if (c) {
+    return {
+      id: c.id,
+      username: c.username ?? '',
+      namaLengkap: c.nama,
+      email: c.email,
+      nomorHP: c.nomorHP,
+      role: c.role ?? 'demo',
+      source: 'calon',
+    }
+  }
+  return null
+}
+
+/**
+ * Set masa berlaku AKSES akun pelanggan:
+ * - Pengguna → kolom validUntil
+ * - CalonPembeli → kolom expiredDate (mekanisme penguncian existing utk akun daftar mandiri)
+ * Aman dipanggil utk tabel mana pun — record tidak ada dibiarkan (tidak gagalkan proses utama).
+ * `client` = db atau tx transaksi.
+ */
+export async function setAccessValidUntil(
+  client: Prisma.TransactionClient,
+  userId: string,
+  until: Date | null,
+): Promise<void> {
+  if (!userId) return
+  try {
+    const updated = await client.pengguna.updateMany({ where: { id: userId }, data: { validUntil: until } })
+    if (updated.count === 0) {
+      await client.calonPembeli.updateMany({ where: { id: userId }, data: { expiredDate: until } })
+    }
+  } catch (e) {
+    console.error('setAccessValidUntil error:', e)
+  }
 }
 
 // ===== SUBSCRIPTION HELPERS =====
@@ -444,11 +512,16 @@ export async function reviewPayment(
       },
     })
 
-    // validUntil = endDate + masa tenggang → mekanisme penguncian akses existing tetap bekerja
-    await tx.pengguna.update({
-      where: { id: payment.userId },
-      data: { validUntil: graceEnd },
-    }).catch(() => { /* pengguna mungkin sudah dihapus — jangan gagalkan approval */ })
+    // Akses akun diperpanjang = endDate + masa tenggang → mekanisme penguncian existing tetap bekerja
+    // (Pengguna.validUntil ATAU CalonPembeli.expiredDate — tergantung asal akun)
+    await setAccessValidUntil(tx, payment.userId, graceEnd)
+
+    // Akun pendaftaran mandiri (CalonPembeli): setelah pembayaran disetujui,
+    // aktifkan status & lepas batasan demo (role demo → user) sesuai langganan yang dibayar.
+    await tx.calonPembeli.updateMany({
+      where: { id: payment.userId, role: 'demo' },
+      data: { role: 'user', status: 'aktif' },
+    }).catch(() => { /* bukan CalonPembeli — abaikan */ })
 
     await tx.notification.create({
       data: {

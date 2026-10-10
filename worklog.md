@@ -13093,3 +13093,22 @@ Work Log:
 
 Stage Summary:
 - Darrellsoft kini punya SISTEM LANGGANAN SaaS lengkap & teruji: 3 paket bulanan full diatur Admin (harga/perincian/harga coret diskon/masa berlaku/batas/status), halaman Pilih Paket publik, pembayaran manual QRIS & transfer bank dgn bukti ≤500KB, verifikasi Admin idempoten, aktivasi/perpanjangan/ganti paket otomatis sesuai ketentuan, akses dikunci saat kedaluwarsa (masa tenggang diatur Admin) dgn tombol Perpanjang, dashboard Langganan Saya (kuitansi digital), Panel Admin 6 halaman + notifikasi in-app + audit log + CSV. Isolasi data per-akun ketat (server-side). Menu LANGGANAN baru di sidebar; harga landing LIVE dari DB. v151 (SW v151). DB pulih utuh setelah insiden force-reset.
+---
+Task ID: fix-verifikasi-calon-pembeli
+Agent: Main (Z.ai Code)
+Task: "sudah dicoba daftar dan bayar, tapi tidak masuk ke halaman verifikasi. check and fix"
+
+Work Log:
+- ROOT CAUSE: pendaftaran mandiri (halaman Daftar) membuat akun di tabel CalonPembeli (role demo), BUKAN Pengguna. Seluruh sistem langganan v151 dibangun dengan asumsi semua pelanggan = Pengguna, sehingga untuk pelanggan daftar mandiri: /api/subscription/my → 404 "Akun tidak ditemukan" (halaman Langganan Saya kosong tanpa pesan), /api/panel-admin/payments → customer:null (admin hanya melihat userId mentah), /api/panel-admin/subscriptions → pelanggan tidak muncul sama sekali, reviewPayment approve → pengguna.update gagal diam (catch kosong) sehingga masa akses tidak diperpanjang & role tetap demo.
+- Reproduksi dari dev.log + DB: user JONI2 (calon cmv2gsgxr0002kb3qrjiey79h) daftar → pilih Pro → bayar QRIS 199rb → bukti terkirim (payment menunggu_verifikasi ADA di DB) → /langganan-saya kosong (my 404) → user berkali-kali bolak-balik pilih-paket/langganan-saya (409 tagihan ganda) karena tidak melihat status verifikasi.
+- src/lib/subscription.ts: +findCustomerById(userId) — resolve pelanggan dari Pengguna LALU CalonPembeli (shape dinormalisasi: username/namaLengkap/email/nomorHP/role + source); +setAccessValidUntil(client: Prisma.TransactionClient, userId, until) — tulis Pengguna.validUntil ATAU CalonPembeli.expiredDate via updateMany kondisional (aman utk db & tx); reviewPayment approve kini pakai setAccessValidUntil(tx, …, graceEnd) + calonPembeli.updateMany(role 'demo'→'user', status 'baru'→'aktif') setelah persetujuan.
+- /api/subscription/my: lookup pelanggan via findCustomerById (bukan pengguna.findUnique) → pelanggan CalonPembeli kini dapat subscription+invoices+payments+notifications.
+- /api/panel-admin/payments: ambil data pelanggan dari KEDUA tabel (merge map, pengguna menang bila duplikat) → verifikasi admin menampilkan nama/username/email/HP pelanggan daftar mandiri.
+- /api/panel-admin/subscriptions: rows = Pengguna + CalonPembeli (dedupe by id, calon validUntil=expiredDate) → Kelola Pelanggan menampilkan semua akun.
+- /api/panel-admin/subscriptions/action: target via findCustomerById; suspend/unsuspend pakai setAccessValidUntil (expiredDate utk calon).
+- /api/panel-admin/subscription-stats: totalAkun = pengguna.count + calonPembeli.count.
+- E2E browser (agent-browser, akun ASLI user JONI2/268899): login → /langganan-saya tampil (Belum Aktif) → tab Tagihan tampil SUB-2610-2II4 Pro Rp199.000 coret Rp249.000 badge "Menunggu Verifikasi" → Detail → halaman /langganan/pembayaran menampilkan kartu "Menunggu Verifikasi Admin" (QRIS · Rp199.000) — screenshots .verify/fix-joni2-halaman-verifikasi.png; superadmin → /panel-admin/verifikasi-pembayaran menampilkan "JONI (@JONI2) email HP" di kartu & dialog → Setujui → toast "Berlaku hingga 9/11/2026"; DB pasca-approve: calon JONI2 role=user status=aktif expiredDate=16 Nov (end+7hr tenggang), subscription aktif 10 Okt→9 Nov, invoice disetujui+periode, notif "Pembayaran Disetujui" & "Bukti Pembayaran Terkirim"; login ulang JONI2 → TANPA popup demo (role user) → /langganan-saya "Pro — Aktif, 10 Okt→09 Nov, sisa 30 hari" (.verify/fix-joni2-langganan-aktif.png). eslint 6 file BERSIH; dev.log 0 error; console 0 error.
+- TIDAK deploy (user belum menyebut "deploy").
+
+Stage Summary:
+- Alur daftar→bayar→verifikasi kini berfungsi utuh untuk pelanggan pendaftaran mandiri (CalonPembeli): status "Menunggu Verifikasi" terlihat di Langganan Saya & halaman pembayaran, admin melihat identitas pelanggan lengkap, persetujuan mengaktifkan langganan + memperpanjang akses (expiredDate=endDate+masa tenggang) + melepas batasan demo. Sistem langganan kini tahan terhadap pelanggan dari KEDUA tabel (Pengguna & CalonPembeli).

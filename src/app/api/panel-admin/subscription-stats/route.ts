@@ -21,12 +21,13 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const [subs, totalUsers, pendingPayments, approvedPayments, planCounts, recentPayments, pendingInvoices] =
+    const [subs, totalPengguna, totalCalon, pendingPayments, approvedPayments, planCounts, recentPayments, pendingInvoices] =
       await Promise.all([
         db.customerSubscription.findMany({
           select: { id: true, userId: true, status: true, endDate: true, planId: true },
         }),
         db.pengguna.count(),
+        db.calonPembeli.count(),
         db.subscriptionPayment.findMany({
           where: { status: PAYMENT_STATUS.MENUNGGU_VERIFIKASI },
           include: { invoice: true },
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
     }).length
 
     return NextResponse.json({
-      totalAkun: totalUsers,
+      totalAkun: totalPengguna + totalCalon,
       pelangganAktif: statusCounts[SUB_STATUS.AKTIF],
       pelangganAkanBerakhir: statusCounts[SUB_STATUS.AKAN_BERAKHIR],
       pelangganKedaluwarsa: statusCounts[SUB_STATUS.KEDALUWARSA],

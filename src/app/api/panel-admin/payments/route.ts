@@ -29,13 +29,27 @@ export async function GET(request: NextRequest) {
       take: limit,
     })
 
-    // Ambil data pelanggan
+    // Ambil data pelanggan — bisa dari Pengguna ATAU CalonPembeli (pendaftaran mandiri)
     const userIds = [...new Set(payments.map((p) => p.userId))]
-    const users = await db.pengguna.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true, namaLengkap: true, email: true, nomorHP: true },
-    })
-    const userMap = new Map(users.map((u) => [u.id, u]))
+    const [users, calons] = await Promise.all([
+      db.pengguna.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, username: true, namaLengkap: true, email: true, nomorHP: true },
+      }),
+      db.calonPembeli.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, username: true, nama: true, email: true, nomorHP: true },
+      }),
+    ])
+    const userMap = new Map<string, { id: string; username: string; namaLengkap: string; email: string; nomorHP: string }>()
+    for (const u of users) {
+      userMap.set(u.id, { id: u.id, username: u.username, namaLengkap: u.namaLengkap, email: u.email, nomorHP: u.nomorHP })
+    }
+    for (const c of calons) {
+      if (!userMap.has(c.id)) {
+        userMap.set(c.id, { id: c.id, username: c.username ?? '', namaLengkap: c.nama, email: c.email, nomorHP: c.nomorHP })
+      }
+    }
 
     return NextResponse.json({
       payments: payments.map((p) => ({

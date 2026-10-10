@@ -8,9 +8,11 @@ import { getServerUser, requireAdmin } from '@/lib/server-auth'
 import {
   addAuditLog,
   addNotification,
+  findCustomerById,
   formatDate,
   getOrCreateSubscription,
   getPaymentSettings,
+  setAccessValidUntil,
   SUB_STATUS,
   derivedSubscriptionStatus,
 } from '@/lib/subscription'
@@ -41,7 +43,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tidak bisa menangguhkan akun sendiri' }, { status: 400 })
     }
 
-    const target = await db.pengguna.findUnique({ where: { id: userId } })
+    // Target bisa Pengguna ATAU CalonPembeli (pendaftaran mandiri)
+    const target = await findCustomerById(userId)
     if (!target) return NextResponse.json({ error: 'Akun tidak ditemukan' }, { status: 404 })
 
     const settings = await getPaymentSettings()
@@ -55,8 +58,8 @@ export async function POST(request: NextRequest) {
         where: { id: sub.id },
         data: { status: SUB_STATUS.DITANGGUHKAN, suspendReason: notes },
       })
-      // Kunci akses segera
-      await db.pengguna.update({ where: { id: userId }, data: { validUntil: new Date(Date.now() - DAY_MS) } })
+      // Kunci akses segera (Pengguna.validUntil / CalonPembeli.expiredDate)
+      await setAccessValidUntil(db, userId, new Date(Date.now() - DAY_MS))
       await addAuditLog({
         userId,
         subscriptionId: sub.id,
@@ -90,7 +93,7 @@ export async function POST(request: NextRequest) {
       data: { status: restoredStatus, suspendReason: '' },
     })
     if (validUntil) {
-      await db.pengguna.update({ where: { id: userId }, data: { validUntil } })
+      await setAccessValidUntil(db, userId, validUntil)
     }
     await addAuditLog({
       userId,

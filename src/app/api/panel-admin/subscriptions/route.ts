@@ -24,11 +24,15 @@ export async function GET(request: NextRequest) {
     const search = (searchParams.get('search') ?? '').trim().toLowerCase()
     const statusFilter = searchParams.get('status') ?? 'semua'
 
-    // Semua pengguna (pelanggan). Isolasi tidak berlaku untuk admin panel.
-    const [penggunas, subs] = await Promise.all([
+    // Semua pelanggan — Pengguna + CalonPembeli (pendaftaran mandiri). Isolasi tidak berlaku utk admin panel.
+    const [penggunas, calons, subs] = await Promise.all([
       db.pengguna.findMany({
         orderBy: { createdAt: 'desc' },
         select: { id: true, username: true, namaLengkap: true, email: true, nomorHP: true, role: true, validUntil: true, createdAt: true },
+      }),
+      db.calonPembeli.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, username: true, nama: true, email: true, nomorHP: true, role: true, expiredDate: true, createdAt: true },
       }),
       db.customerSubscription.findMany({ include: { plan: true } }),
     ])
@@ -45,14 +49,47 @@ export async function GET(request: NextRequest) {
       db.subscriptionPayment.findMany({ where: { status: 'menunggu_verifikasi' }, orderBy: { createdAt: 'desc' } }),
     ])
 
-    let rows = penggunas.map((u) => {
+    interface SubsRow {
+      userId: string
+      username: string
+      namaLengkap: string
+      email: string
+      nomorHP: string
+      role: string
+      companyName: string
+      registeredAt: Date
+      subscription: {
+        id: string
+        planId: string | null
+        planName: string
+        status: string
+        rawStatus: string
+        startDate: Date | null
+        endDate: Date | null
+        suspendReason: string
+      } | null
+      openInvoices: {
+        id: string
+        invoiceNumber: string
+        planName: string
+        amount: number
+        status: string
+        dueDate: Date
+        createdAt: Date
+      }[]
+      hasPendingPayment: boolean
+    }
+
+    const buildRow = (
+      u: { id: string; username: string | null; namaLengkap: string; email: string; nomorHP: string; role: string; createdAt: Date },
+    ): SubsRow => {
       const sub = subMap.get(u.id) ?? null
       const derived = sub ? derivedSubscriptionStatus(sub) : SUB_STATUS.BELUM_AKTIF
       const userOpenInvoices = openInvoices.filter((i) => i.userId === u.id)
       const hasPendingPayment = pendingPayments.some((p) => p.userId === u.id)
       return {
         userId: u.id,
-        username: u.username,
+        username: u.username ?? '',
         namaLengkap: u.namaLengkap,
         email: u.email,
         nomorHP: u.nomorHP,
@@ -82,7 +119,25 @@ export async function GET(request: NextRequest) {
         })),
         hasPendingPayment,
       }
-    })
+    }
+
+    // Gabungkan: Pengguna dulu, lalu CalonPembeli yang ID-nya belum ada (hindari duplikat)
+    const penggunaIds = new Set(penggunas.map((u) => u.id))
+    const calonRows = calons
+      .filter((c) => !penggunaIds.has(c.id))
+      .map((c) =>
+        buildRow({
+          id: c.id,
+          username: c.username,
+          namaLengkap: c.nama,
+          email: c.email,
+          nomorHP: c.nomorHP,
+          role: c.role,
+          createdAt: c.createdAt,
+        }),
+      )
+
+    let rows: SubsRow[] = [...penggunas.map(buildRow), ...calonRows]
 
     if (search) {
       rows = rows.filter(

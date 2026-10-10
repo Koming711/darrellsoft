@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser } from '@/lib/server-auth'
 import {
+  findCustomerById,
   getOrCreateSubscription,
   derivedSubscriptionStatus,
   derivedInvoiceStatus,
@@ -19,11 +20,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Anda harus login terlebih dahulu' }, { status: 401 })
     }
 
-    const pengguna = await db.pengguna.findUnique({
-      where: { id: user.id },
-      select: { id: true, username: true, namaLengkap: true, email: true, nomorHP: true, role: true },
-    })
-    if (!pengguna) {
+    // Pelanggan bisa berasal dari tabel Pengguna ATAU CalonPembeli (pendaftaran mandiri)
+    const customer = await findCustomerById(user.id)
+    if (!customer) {
       return NextResponse.json({ error: 'Akun tidak ditemukan' }, { status: 404 })
     }
 
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json({
-      user: pengguna,
+      user: customer,
       subscription: {
         ...sub,
         planName: sub.plan?.name ?? null,
