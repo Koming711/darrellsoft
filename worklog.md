@@ -13132,3 +13132,23 @@ Stage Summary:
 - Panel admin kini memakai sidebar menu penuh (bukan tab) — desktop sidebar tetap + collapsible, mobile drawer Sheet.
 - Semua 16 halaman panel-admin kini terjangkau dari navigasi (sebelumnya hanya 6 yang ter-link).
 - Tidak ada perubahan API/schema; hanya src/app/panel-admin/layout.tsx + bump versi PWA.
+
+---
+Task ID: fix-export-pengguna-hakakses
+Agent: Main (Z.ai Code)
+Task: Fix build error "Export PenggunaContent doesn't exist in target module" di ./src/app/panel-admin/pengguna/page.tsx (dan potensi yang sama di panel-admin/hak-akses).
+
+Work Log:
+- Diagnosis: panel-admin/pengguna & panel-admin/hak-akses mengimpor named export { PenggunaContent } / { HakAksesContent } dari @/app/administrasi/*/page, padahal kedua file sumber hanya punya default export DAN membungkus konten dalam <DashboardLayout> (frame aplikasi utama) — jadi tidak bisa asal ganti ke default import (akan double-frame).
+- Refactor src/app/administrasi/pengguna/page.tsx: body utama → export function PenggunaContent() (JSX wrapper DashboardLayout diganti fragment <>); tambah export default function PenggunaPage() yang membungkus <PenggunaContent /> dalam DashboardLayout (perilaku /administrasi/pengguna tidak berubah).
+- Refactor src/app/administrasi/hak-akses/page.tsx: pola sama → HakAksesContent (named) + HakAksesPage (default, DashboardLayout).
+- Wrapper panel-admin tidak diubah (import named kini valid).
+- Verifikasi useLanguage/getAuthUser aman di luar DashboardLayout: LanguageProvider & AuthProvider dipasang di root layout.
+- Lint 4 file: bersih. Bump PWA v152→v153 (sw.js + service-worker-registration.tsx).
+- E2E (agent-browser): /panel-admin/pengguna ✅ render tabel Admin/Pengguna/Calon Pembeli/Pembeli dalam frame sidebar; /panel-admin/hak-akses ✅ render Matrix Hak Akses; regresi /administrasi/pengguna ✅ dan /administrasi/hak-akses ✅ tetap utuh dengan DashboardLayout. 0 page error.
+- INSIDEN INFRA: dev server mati 3x — pertama karena OOM killer (RAM 4GB; next-server 3GB RSS + chrome agent-browser), kedua/ketiga terkonfirmasi bukan OOM: proses yang di-spawn dari sesi Bash tool dimatikan platform pada batas sesi (setsid/nohup tidak membantu). Solusi verifikasi: seluruh siklus (start server → curl login API → inject localStorage auth + cookies userId/userRole → buka halaman → screenshot) dijalankan dalam SATU tool call. Server perlu di-start ulang untuk Preview.
+
+Stage Summary:
+- Root cause: mismatch nama ekspor + konten terikat DashboardLayout. Solusi: named export konten tanpa frame, default export tetap ber-frame — kedua rute (/panel-admin/* dan /administrasi/*) bekerja.
+- Tidak ada perubahan API/DB/schema. File berubah: administrasi/pengguna/page.tsx, administrasi/hak-akses/page.tsx, public/sw.js, src/components/service-worker-registration.tsx.
+- Catatan lingkungan: jangan jalankan agent-browser & kompilasi turbopack berat bersamaan (OOM 4GB); server dev yang di-spawn dari tool shell tidak persisten antar tool call.

@@ -163,7 +163,7 @@ function matrixCellIcon(state: MatrixCellState): React.ReactNode {
   return <X className="h-4 w-4" aria-hidden="true" />
 }
 
-export default function HakAksesPage() {
+export function HakAksesContent() {
   const { t } = useLanguage()
   const currentUser = getAuthUser()
   const isSuperAdmin = currentUser?.role === 'superadmin'
@@ -558,7 +558,7 @@ export default function HakAksesPage() {
   }
 
   return (
-    <DashboardLayout title={t('hak_akses')} subtitle={t('subtitle_hak_akses')}>
+    <>
       {/* Super Admin Notice */}
       {isSuperAdmin && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
@@ -1017,6 +1017,16 @@ export default function HakAksesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  )
+}
+
+// Halaman /administrasi/hak-akses — konten sama, dibungkus DashboardLayout (frame aplikasi).
+export default function HakAksesPage() {
+  const { t } = useLanguage()
+  return (
+    <DashboardLayout title={t('hak_akses')} subtitle={t('subtitle_hak_akses')}>
+      <HakAksesContent />
     </DashboardLayout>
   )
 }

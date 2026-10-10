@@ -133,7 +133,7 @@ const getUserStatusColor = (validUntil: string | null) => {
 
 // ==================== MAIN COMPONENT ====================
 
-export default function PenggunaPage() {
+export function PenggunaContent() {
   // Permission checks
   const currentUser = getAuthUser()
   const { t } = useLanguage()
@@ -1008,10 +1008,7 @@ export default function PenggunaPage() {
   // ==================== RENDER ====================
 
   return (
-    <DashboardLayout
-      title={t('pengguna_pembeli')}
-      subtitle={t('subtitle_pengguna')}
-    >
+    <>
       <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <Tabs defaultValue="admin" className="flex flex-col">
           {/* Tab Header */}
@@ -1523,7 +1520,16 @@ export default function PenggunaPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </>
+  )
+}
 
+// Halaman /administrasi/pengguna — konten sama, dibungkus DashboardLayout (frame aplikasi).
+export default function PenggunaPage() {
+  const { t } = useLanguage()
+  return (
+    <DashboardLayout title={t('pengguna_pembeli')} subtitle={t('subtitle_pengguna')}>
+      <PenggunaContent />
     </DashboardLayout>
   )
 }
