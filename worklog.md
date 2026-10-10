@@ -13112,3 +13112,23 @@ Work Log:
 
 Stage Summary:
 - Alur daftar→bayar→verifikasi kini berfungsi utuh untuk pelanggan pendaftaran mandiri (CalonPembeli): status "Menunggu Verifikasi" terlihat di Langganan Saya & halaman pembayaran, admin melihat identitas pelanggan lengkap, persetujuan mengaktifkan langganan + memperpanjang akses (expiredDate=endDate+masa tenggang) + melepas batasan demo. Sistem langganan kini tahan terhadap pelanggan dari KEDUA tabel (Pengguna & CalonPembeli).
+
+---
+Task ID: sidebar-panel-admin
+Agent: Main (Z.ai Code)
+Task: "dihalaman panel admin, rubah tab menjadi sidebar menu" — ganti sub-navigasi tab horizontal panel-admin menjadi sidebar menu.
+
+Work Log:
+- Baca seluruh 16 halaman panel-admin untuk memetakan judul/ikon menu (Ringkasan, kelola-paket, verifikasi-pembayaran, kelola-pelanggan, riwayat-transaksi, pengaturan-pembayaran, akun-baru/aktif/expired/ditolak, pengaturan, laporan-bulanan, riwayat-penjualan, laporan-audit, paket-premium, pengguna, hak-akses).
+- Rewrite src/app/panel-admin/layout.tsx: tab horizontal → SIDEBAR kiri (desktop ≥lg, sticky top-14, w-64, overflow-y-auto) dengan 5 grup menu: Utama · Langganan · Daftar Akun · Laporan · Sistem (17 item total — menu yang sebelumnya orphan seperti Akun Baru/Expired/Ditolak, Laporan Bulanan, Riwayat Penjualan, Laporan dan Audit, Paket Premium, Pengguna, Hak Akses kini ter-link).
+- Toggle ciutkan (PanelLeftClose/PanelLeftOpen) di header: w-64 ↔ w-16 icon-only (title tooltip + divider antar grup saat collapsed).
+- Mobile/tablet (<lg): drawer Sheet (shadcn) sisi kiri w-72 via hamburger di header; klik menu otomatis menutup drawer; SheetTitle untuk a11y.
+- Header dipertahankan: Kembali ke Aplikasi, brand, badge role; footer mt-auto tetap sticky bottom; guard auth (admin/superadmin) & blok "Akses ditolak" tidak berubah; active state emerald + aria-current.
+- Bump PWA: public/sw.js v151→v152, service-worker-registration.tsx v151→v152.
+- Lint: `bunx eslint src/app/panel-admin/layout.tsx` — bersih.
+- E2E agent-browser: login superadmin → sidebar 17 item render; navigasi Akun Baru, Laporan Bulanan, Kelola Pelanggan OK + highlight aktif benar; collapse/expand OK (screenshot .verify/sidebar-*.png); mobile 375px drawer buka/tutup/navigasi OK (screenshot .verify/mobile-*.png); 0 error console/page; dev.log semua 200.
+
+Stage Summary:
+- Panel admin kini memakai sidebar menu penuh (bukan tab) — desktop sidebar tetap + collapsible, mobile drawer Sheet.
+- Semua 16 halaman panel-admin kini terjangkau dari navigasi (sebelumnya hanya 6 yang ter-link).
+- Tidak ada perubahan API/schema; hanya src/app/panel-admin/layout.tsx + bump versi PWA.
