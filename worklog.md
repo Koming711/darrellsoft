@@ -13152,3 +13152,22 @@ Stage Summary:
 - Root cause: mismatch nama ekspor + konten terikat DashboardLayout. Solusi: named export konten tanpa frame, default export tetap ber-frame — kedua rute (/panel-admin/* dan /administrasi/*) bekerja.
 - Tidak ada perubahan API/DB/schema. File berubah: administrasi/pengguna/page.tsx, administrasi/hak-akses/page.tsx, public/sw.js, src/components/service-worker-registration.tsx.
 - Catatan lingkungan: jangan jalankan agent-browser & kompilasi turbopack berat bersamaan (OOM 4GB); server dev yang di-spawn dari tool shell tidak persisten antar tool call.
+
+---
+Task ID: preview-fix
+Agent: Z.ai Code (main)
+Task: Fix "preview tidak muncul" — dev server dead + stale Turbopack cache causing reported Build Error (PenggunaContent export)
+
+Work Log:
+- Diagnosed: no Next.js/bun process running at all → preview blank; old .next cache held stale Turbopack module graph (root cause of reported "Export PenggunaContent doesn't exist" error)
+- Verified source: `PenggunaContent` export EXISTS in administrasi/pengguna/page.tsx:136 and `HakAksesContent` in administrasi/hak-akses/page.tsx:166 — imports in panel-admin wrappers were correct; error was stale-cache only
+- Fix: `rm -rf .next` + restart `bun run dev` (background, logs to dev.log)
+- Verified compile: / 200, /panel-admin 200, /panel-admin/pengguna 200, /panel-admin/hak-akses 200
+- E2E via agent-browser: guest → AdminGuard shows "Akses ditolak" (correct); login superadmin/268899 → Pengguna page renders sidebar + user table (Admin 2/Pengguna 2/Calon Pembeli 2/Pembeli 2); Hak Akses renders role matrix (Super Admin 29/29 etc.); Beranda renders dashboard stats with NO "Anda harus login terlebih dahulu" message
+- 0 browser page errors, 0 console errors, all API 200 in dev.log
+- Screenshots: .verify/preview-fix-beranda.png, preview-fix-pengguna-admin.png, preview-fix-hakakses.png, preview-fix-beranda-final.png
+
+Stage Summary:
+- Preview restored: dead dev process + corrupt .next cache were the causes; no code changes needed (imports were valid)
+- Lesson: when Turbopack reports missing-export errors that contradict source, clear .next and restart before editing code
+- Panel-admin sidebar (17 items, 5 sections) confirmed fully working post-restart
