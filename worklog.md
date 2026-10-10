@@ -13171,3 +13171,22 @@ Stage Summary:
 - Preview restored: dead dev process + corrupt .next cache were the causes; no code changes needed (imports were valid)
 - Lesson: when Turbopack reports missing-export errors that contradict source, clear .next and restart before editing code
 - Panel-admin sidebar (17 items, 5 sections) confirmed fully working post-restart
+
+---
+Task ID: paket-sinkron-landing
+Agent: Z.ai Code (main)
+Task: "paket darrellsoft dirubah seperti paket di halaman landing" — samakan katalog paket checkout/server dengan paket landing (SubscriptionPlan DB)
+
+Work Log:
+- Diagnosis: ada 2 katalog paralel — (A) tabel SubscriptionPlan (landing/pilih-paket/paket: Basic 119rb, Pro 199rb, Premium 299rb, dikelola "Kelola Paket") vs (B) katalog lama premium_plans_v1 Setting + PLANS hardcoded di checkout (Ekonomis 78rb, Basic 128rb, Premium 888rb /tahun, dikelola "Paket Premium"). Checkout juga mengabaikan UUID ?plan= dari /paket dan harga dikirim client ke create-transaction
+- checkout/page.tsx: hapus PLANS hardcoded; fetch /api/subscription/plans (sumber sama dgn landing); selectedPlan berbasis slug; resolusi ?plan= slug→id→alias lama (bulanan-ekonomis/bulanan→basic, tahunan/lifetime→premium); Step 0 dinamis (harga, harga coret, badge TERLARIS, jumlah akun); loading/error/retry state; summary step 1&2 + PaymentDialog pkg dari data DB; localStorage resume simpan slug + mapping alias
+- api/midtrans/activate: PLAN_CONFIG + basic{1 bln,1 akun}/pro{1,3}/premium{1,10}; entri lama dipertahankan utk pembayaran legacy
+- lib/plans.ts: DEFAULT_PLANS diganti Basic/Pro/Premium (119/199/299rb, coret 149/249/399rb, 1 bulan, 1/3/10 akun, fitur = seed DB); LEGACY_PLAN_CONFIG utk id lama
+- page.tsx (landing): fallback kartu harga (API gagal) diganti Basic/Pro/Premium dgn harga DB — tidak ada lagi 78/128/888rb; openPayment (tak terpakai) dihapus
+- E2E agent-browser: /checkout render 3 paket sama dgn landing; ?plan=pro preselect OK; register tespaketpro → summary Rp 199.000 → PaymentDialog "Pro — /bulan (3 akun) Rp 199.000" → mock bayar BCA sukses → redirect /pembukaan; DB payment: packageType=pro, grossAmount=199000, status success
+- Cleanup data tes (CalonPembeli tespaketpro + master data seed-nya, Payment, session); lint 4 file bersih; 0 browser errors; landing & checkout screenshot .verify/paket-*.png
+
+Stage Summary:
+- Single source of truth harga = tabel SubscriptionPlan (Panel Admin → Kelola Paket); checkout, landing (live+fallback), aktivasi kini konsisten
+- Katalog lama (Paket Premium page) kini default-nya identik dgn landing; entri legacy tetap didukung
+- Catatan: harga tetap client-sent ke create-transaction (desain lama) — verifikasi server-side amount bisa jadi tugas lanjutan

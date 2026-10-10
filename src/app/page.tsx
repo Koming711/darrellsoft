@@ -999,10 +999,6 @@ export default function Home() {
     router.push(tab ? `/login?tab=${tab}` : '/login');
   };
 
-  const openPayment = (pkgType: string) => {
-    router.push(`/checkout?plan=${pkgType}`);
-  };
-
   // Paket langganan LANGSUNG dari database (diatur Admin via Panel Admin).
   // Fallback: kartu harga hardcoded di bawah bila API gagal / DB kosong.
   const [livePlans, setLivePlans] = useState<LivePlan[]>([]);
@@ -1820,63 +1816,65 @@ export default function Home() {
               ))
             : (
           <>
+          {/* Fallback (API gagal / DB kosong): paket default yang SAMA dengan
+              seed SubscriptionPlan — Basic 119rb / Pro 199rb / Premium 299rb.
+              Jangan pakai harga lama (78rb/128rb/888rb) agar konsisten. */}
           <PricingCard
-            title={t.price_economis_title}
-            price="Rp 78.000"
-            period={t.price_economis_period}
-            description={t.price_economis_desc}
+            title="Basic"
+            price="Rp 119.000"
+            originalPrice="Rp 149.000"
+            period={t.price_live_period}
+            description="Untuk pengguna usaha kecil yang baru memulai."
             buttonLabel={t.price_btn}
             features={[
-              t.price_economis_f1,
-              t.price_economis_f2,
-              t.price_economis_f3,
-              t.price_economis_f4,
-              t.price_economis_f5,
-              <span key="bold" className="font-bold">{t.price_economis_f6_bold}</span>,
-              t.price_economis_f7,
+              'Semua fitur dasar Darrellsoft',
+              'Buat Invoice & Surat Jalan',
+              'Hitung Potong Kertas, Cetakan & Finishing',
+              'Stock Bahan Baku',
+              'Maksimal 1 akun pengguna',
+              'Batas 200 transaksi / bulan',
+              'Dukungan email',
             ]}
             delay={0}
-            onSelect={() => openPayment('bulanan-ekonomis')}
+            onSelect={() => router.push('/pilih-paket')}
           />
           <PricingCard
-            title={t.price_bulanan_title}
-            price="Rp 128.000"
-            period={t.price_bulanan_period}
-            description={t.price_bulanan_desc}
-            buttonLabel={t.price_btn}
-            features={[
-              t.price_bulanan_f1,
-              t.price_bulanan_f2,
-              t.price_bulanan_f3,
-              t.price_bulanan_f4,
-              t.price_bulanan_f5,
-              <span key="bold" className="font-bold">{t.price_bulanan_f6_bold}</span>,
-              t.price_bulanan_f7,
-            ]}
-            delay={0}
-            onSelect={() => openPayment('bulanan')}
-          />
-          <PricingCard
-            title={t.price_tahunan_title}
-            price="Rp 888.000"
-            period={t.price_tahunan_period}
-            description={t.price_tahunan_desc}
-            descriptionExtra={t.price_tahunan_desc_extra}
+            title="Pro"
+            price="Rp 199.000"
+            originalPrice="Rp 249.000"
+            period={t.price_live_period}
+            description="Untuk usaha yang berkembang — laporan lengkap."
             popular
             popularLabel={t.price_popular_badge}
             buttonLabel={t.price_btn}
             features={[
-              t.price_tahunan_f1,
-              t.price_tahunan_f2,
-              t.price_tahunan_f3,
-              t.price_tahunan_f4,
-              t.price_tahunan_f5,
-              t.price_tahunan_f6,
-              t.price_tahunan_f7,
-              t.price_tahunan_f8,
+              'Seluruh fitur paket Basic',
+              'Purchase Order & Master Data lengkap',
+              'Laporan Laba Rugi & Penjualan POS',
+              'Piutang & Hutang Dagang',
+              'Maksimal 3 akun pengguna',
+              'Batas 1.000 transaksi / bulan',
+              'Penyimpanan 5 GB',
+            ]}
+            delay={0}
+            onSelect={() => router.push('/pilih-paket')}
+          />
+          <PricingCard
+            title="Premium"
+            price="Rp 299.000"
+            originalPrice="Rp 399.000"
+            period={t.price_live_period}
+            description="Untuk usaha yang membutuhkan fitur lengkap."
+            buttonLabel={t.price_btn}
+            features={[
+              'Seluruh fitur paket Pro',
+              'Maksimal 10 akun pengguna',
+              'Transaksi tanpa batas',
+              'Penyimpanan 20 GB',
+              'Prioritas dukungan pelanggan',
             ]}
             delay={0.15}
-            onSelect={() => openPayment('tahunan')}
+            onSelect={() => router.push('/pilih-paket')}
           />
             </>
             )}

@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { sanitizeError } from '@/lib/api-error';
 
-// Plan config: maps packageType to duration and account count
+// Plan config: maps packageType to duration and account count.
+// Slug baru mengikuti katalog SubscriptionPlan (sama dengan landing page):
+// Basic 1 akun, Pro 3 akun, Premium 10 akun — semua langganan bulanan.
+// Entri lama dipertahankan untuk pembayaran legacy yang sudah ada.
 const PLAN_CONFIG: Record<string, { durationMonths: number; maxAccounts: number }> = {
+  'basic': { durationMonths: 1, maxAccounts: 1 },
+  'pro': { durationMonths: 1, maxAccounts: 3 },
+  'premium': { durationMonths: 1, maxAccounts: 10 },
   'bulanan-ekonomis': { durationMonths: 1, maxAccounts: 1 },
   'bulanan': { durationMonths: 1, maxAccounts: 2 },
   'tahunan': { durationMonths: 12, maxAccounts: 2 },

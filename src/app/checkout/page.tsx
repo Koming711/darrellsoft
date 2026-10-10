@@ -28,60 +28,47 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PaymentDialog from '@/components/payment-dialog';
 
-const PLANS: Record<string, {
+/**
+ * Paket checkout = SUMBER YANG SAMA dengan halaman landing & /pilih-paket:
+ * tabel SubscriptionPlan via API publik /api/subscription/plans (dikelola
+ * Admin di Panel Admin → Kelola Paket). Tidak ada lagi harga hardcoded.
+ */
+interface CheckoutPlan {
   id: string;
+  slug: string;
   name: string;
-  subtitle: string;
-  price: number;
-  priceFormatted: string;
-  period: string;
+  description: string;
+  monthlyPrice: number;
+  originalPrice: number | null;
   features: string[];
-}> = {
-  'bulanan-ekonomis': {
-    id: 'bulanan-ekonomis',
-    name: 'Ekonomis',
-    subtitle: 'Bulanan Ekonomis',
-    price: 78000,
-    priceFormatted: 'Rp 78.000',
-    period: '/bulan (1 akun)',
-    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Maksimal 1 akun pengguna'],
-  },
-  bulanan: {
-    id: 'bulanan',
-    name: 'Basic',
-    subtitle: 'Langganan Bulanan',
-    price: 128000,
-    priceFormatted: 'Rp 128.000',
-    period: '/bulan',
-    features: ['Hitung ongkos cetak', 'Master harga kertas', 'Hitung finishing', 'Potong kertas', 'Riwayat cetakan'],
-  },
-  tahunan: {
-    id: 'tahunan',
-    name: 'Premium',
-    subtitle: 'Langganan Tahunan',
-    price: 888000,
-    priceFormatted: 'Rp 888.000',
-    period: '/tahun (hemat 42%)',
-    features: ['Semua fitur Basic', 'Multi perangkat', 'Master customer', 'Export laporan', 'Priority support'],
-  },
-};
-
-// Hanya plan yang dikenal yang boleh dipreselect (dari URL ?plan= maupun
-// localStorage resume). Nilai lain/tak dikenal diabaikan —
-// user harus memilih paket secara manual.
-function normalizePlan(value: string | null | undefined): string {
-  return value && PLANS[value] ? value : '';
+  maxAccounts: number;
+  isPopular: boolean;
 }
 
+// Nilai ?plan= / localStorage lama (katalog lama) dipetakan ke slug baru
+// agar link lama & resume tetap berfungsi.
+const LEGACY_PLAN_ALIAS: Record<string, string> = {
+  'bulanan-ekonomis': 'basic',
+  'bulanan': 'basic',
+  'tahunan': 'premium',
+  'lifetime': 'premium',
+};
+
+const formatRupiah = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+
 const STEPS = ['Pilih Paket', 'Info Pembayaran', 'Konfirmasi & Bayar'];
-const ADMIN_WHATSAPP = '6285888082208';
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<string>(() => normalizePlan(searchParams.get('plan')));
+  // selectedPlan menyimpan SLUG paket (basic/pro/premium). Resolusi terhadap
+  // URL ?plan= dilakukan setelah daftar paket termuat (slug / id / alias lama).
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [plans, setPlans] = useState<CheckoutPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -100,7 +87,43 @@ function CheckoutContent() {
   const [usernameExistsOpen, setUsernameExistsOpen] = useState(false);
   const usernameRef = useRef<HTMLInputElement>(null);
 
-  const plan = PLANS[selectedPlan];
+  const plan = plans.find((p) => p.slug === selectedPlan) || null;
+
+  // Muat paket dari API yang sama dengan landing page (/api/subscription/plans)
+  const loadPlans = useCallback(() => {
+    setPlansLoading(true);
+    setPlansError('');
+    fetch('/api/subscription/plans', { cache: 'no-store' })
+      .then((r) => {
+        if (!r.ok) throw new Error('Gagal memuat paket');
+        return r.json();
+      })
+      .then((json) => {
+        setPlans(Array.isArray(json.plans) ? json.plans : []);
+        setPlansLoading(false);
+      })
+      .catch(() => {
+        setPlansError('Gagal memuat daftar paket. Periksa koneksi Anda.');
+        setPlansLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
+
+  // Resolusi ?plan= dari URL terhadap paket yang sudah termuat:
+  // prioritas slug → id → alias katalog lama.
+  useEffect(() => {
+    if (plansLoading || plans.length === 0) return;
+    const urlPlan = searchParams.get('plan');
+    if (!urlPlan) return;
+    const found =
+      plans.find((p) => p.slug === urlPlan) ||
+      plans.find((p) => p.id === urlPlan) ||
+      plans.find((p) => p.slug === LEGACY_PLAN_ALIAS[urlPlan]);
+    if (found) setSelectedPlan(found.slug);
+  }, [plans, plansLoading, searchParams]);
 
   // Resume dari WhatsApp link + auto-fill dari auth
   useEffect(() => {
@@ -110,7 +133,8 @@ function CheckoutContent() {
         const saved = localStorage.getItem('checkout_pending');
         if (saved) {
           const data = JSON.parse(saved);
-          setSelectedPlan(normalizePlan(data.plan || ''));
+          const rawPlan = data.plan || '';
+          setSelectedPlan(LEGACY_PLAN_ALIAS[rawPlan] || rawPlan);
           setCustomerName(data.name || '');
           setCustomerEmail(data.email || '');
           setCustomerPhone(data.phone || '');
@@ -167,7 +191,7 @@ function CheckoutContent() {
       }
       setLoading(false);
 
-      // Simpan data ke localStorage untuk resume nanti
+      // Simpan data ke localStorage untuk resume nanti (slug paket)
       const checkoutData = {
         plan: selectedPlan,
         name: customerName.trim(),
@@ -261,43 +285,73 @@ function CheckoutContent() {
                   Pilih Paket yang Tepat
                 </h2>
                 <p className="text-gray-500 text-center text-sm mb-8">
-                  Bisa upgrade atau downgrade kapan saja
+                  Sama dengan paket di halaman utama — bisa upgrade kapan saja
                 </p>
 
+                {plansLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-8 h-8 text-[#e50914] animate-spin" />
+                  </div>
+                ) : plansError ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm mb-4">{plansError}</p>
+                    <Button
+                      onClick={loadPlans}
+                      variant="outline"
+                      className="bg-[#2a2a2a] border-white/10 text-gray-300 hover:bg-[#3a3a3a] hover:text-white"
+                    >
+                      Coba Lagi
+                    </Button>
+                  </div>
+                ) : plans.length === 0 ? (
+                  <div className="text-center text-gray-500 text-sm py-16">
+                    Belum ada paket tersedia. Silakan hubungi admin.
+                  </div>
+                ) : (
                 <div className="space-y-4">
-                  {Object.entries(PLANS).map(([key, p]) => (
+                  {plans.map((p) => {
+                    const active = selectedPlan === p.slug;
+                    return (
                     <motion.button
-                      key={key}
+                      key={p.id}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedPlan(key)}
+                      onClick={() => setSelectedPlan(p.slug)}
                       className={`w-full flex items-center justify-between p-5 rounded-xl border transition-all duration-200 text-left ${
-                        selectedPlan === key
+                        active
                           ? 'bg-[#e50914]/10 border-[#e50914]/50 shadow-lg shadow-red-900/10'
                           : 'bg-[#1f1f1f] border-white/5 hover:border-white/15'
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          selectedPlan === key ? 'border-[#e50914] bg-[#e50914]' : 'border-gray-600'
+                          active ? 'border-[#e50914] bg-[#e50914]' : 'border-gray-600'
                         }`}>
-                          {selectedPlan === key && <Check className="w-3 h-3 text-white" />}
+                          {active && <Check className="w-3 h-3 text-white" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-base">{p.name}</span>
-                            {key === 'tahunan' && (
-                              <span className="text-[10px] bg-[#e50914] text-white px-1.5 py-0.5 rounded font-bold">HEMAT 42%</span>
+                            {p.isPopular && (
+                              <span className="text-[10px] bg-[#e50914] text-white px-1.5 py-0.5 rounded font-bold">TERLARIS</span>
                             )}
                           </div>
-                          <p className="text-gray-500 text-xs mt-0.5">{p.subtitle} — {p.period}</p>
+                          <p className="text-gray-500 text-xs mt-0.5">
+                            {p.description || 'Langganan bulanan'} — /bulan{p.maxAccounts > 1 ? ` (${p.maxAccounts} akun)` : ' (1 akun)'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-extrabold text-lg">{p.priceFormatted}</span>
+                        <span className="font-extrabold text-lg">{formatRupiah(p.monthlyPrice)}</span>
+                        {p.originalPrice && p.originalPrice > p.monthlyPrice && (
+                          <span className="block text-gray-500 text-xs line-through">{formatRupiah(p.originalPrice)}</span>
+                        )}
                       </div>
                     </motion.button>
-                  ))}
+                    );
+                  })}
                 </div>
+                )}
 
                 {error && (
                   <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3 mt-4">
@@ -340,11 +394,11 @@ function CheckoutContent() {
                           <CreditCard className="w-5 h-5 text-[#e50914]" />
                         </div>
                         <div>
-                          <p className="font-bold text-sm">{plan.name} — {plan.subtitle}</p>
-                          <p className="text-gray-500 text-xs">{plan.period}</p>
+                          <p className="font-bold text-sm">{plan.name} — Langganan Bulanan</p>
+                          <p className="text-gray-500 text-xs">/bulan{plan.maxAccounts > 1 ? ` (${plan.maxAccounts} akun)` : ''}</p>
                         </div>
                       </div>
-                      <span className="font-extrabold text-lg">{plan.priceFormatted}</span>
+                      <span className="font-extrabold text-lg">{formatRupiah(plan.monthlyPrice)}</span>
                     </div>
                   </div>
                 )}
@@ -535,11 +589,11 @@ function CheckoutContent() {
                           <Zap className="w-5 h-5 text-[#e50914]" />
                         </div>
                         <div>
-                          <p className="font-bold text-sm">{plan.name} — {plan.subtitle}</p>
-                          <p className="text-gray-500 text-xs">{plan.period}</p>
+                          <p className="font-bold text-sm">{plan.name} — Langganan Bulanan</p>
+                          <p className="text-gray-500 text-xs">/bulan{plan.maxAccounts > 1 ? ` (${plan.maxAccounts} akun)` : ''}</p>
                         </div>
                       </div>
-                      <span className="font-extrabold text-lg">{plan.priceFormatted}</span>
+                      <span className="font-extrabold text-lg">{formatRupiah(plan.monthlyPrice)}</span>
                     </div>
                   </div>
                 )}
@@ -614,13 +668,13 @@ function CheckoutContent() {
             setStep(1);
             setUsernameExistsOpen(true);
           }}
-          pkg={{
-            type: plan.id,
+          pkg={plan ? {
+            type: plan.slug,
             name: plan.name,
-            price: plan.price,
-            priceFormatted: plan.priceFormatted,
-            period: plan.period,
-          }}
+            price: plan.monthlyPrice,
+            priceFormatted: formatRupiah(plan.monthlyPrice),
+            period: `/bulan${plan.maxAccounts > 1 ? ` (${plan.maxAccounts} akun)` : ''}`,
+          } : { type: '', name: '', price: 0, priceFormatted: '', period: '' }}
           customerData={{
             name: customerName.trim(),
             email: customerEmail.trim(),
