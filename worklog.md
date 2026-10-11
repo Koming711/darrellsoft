@@ -13212,3 +13212,23 @@ Stage Summary:
 - Panel admin kini 7 menu (dari 17); CRUD tetap lengkap via tab; semua URL lama tetap hidup lewat redirect
 - Pola arsitektur baru: content.tsx (komponen konten reusable) terpisah dari page.tsx (route) — WAJIB jika suatu konten dipakai lintas rute
 - Screenshot: .verify/menu-simple-desktop.png, menu-simple-mobile-drawer.png, menu-simple-pelanggan-baru.png, menu-simple-sistem-hakakses.png, menu-simple-mobile-paket.png
+
+---
+Task ID: perpanjang-bukti-transfer
+Agent: Z.ai Code (main)
+Task: "di halaman panel admin. menu pelanggan, apabila di klik perpanjang maka muncul perpanjangan masa berlaku. tampilkan juga bukti transfer untuk perpanjangan. fix" — tampilkan bukti transfer perpanjangan di dialog Perpanjang Masa Berlaku
+
+Work Log:
+- Akar masalah: dialog "Perpanjang Masa Berlaku" (akun-list.tsx, tab Aktif/Expired) hanya berisi input bulan — Admin tidak bisa melihat bukti transfer/QRIS yang dikirim pelanggan saat mengajukan perpanjangan (SubscriptionInvoice + SubscriptionPayment.proofFileUrl base64)
+- API baru GET /api/panel-admin/akun/renewal-payments?id={calonId} (admin-only): resolve pemilik tagihan via [calon.id, calon.userId] (sesi self-register = CalonPembeli.id; akun terkonversi = Pengguna.id — pola sama dgn /api/panel-admin/payments); return 8 invoice terakhir + payments (hasProof dihitung dari proofFileUrl, base64 TIDAK dikirim); bukti diambil on-demand via /api/subscription/proof/[paymentId]
+- akun-list.tsx: openExtendDialog() dipanggil tombol Perpanjang (aktif) & Aktifkan (expired) → fetch renewal-payments; dialog + seksi "Bukti Transfer Perpanjangan" (max-h-64 scroll): per invoice — nomor, badge status (Belum Bayar/Nunggu Verifikasi/Disetujui/Ditolak), paket, nominal, waktu; per payment — badge QRIS/Transfer Bank, status, nominal, pengirim+tgl transfer, alasan tolak, tombol "Lihat Bukti"; dialog bukti terpisah (img base64 / unduh PDF); empty state "Belum ada bukti transfer… perpanjangan manual tetap bisa dilanjutkan"; loading & error state; lebar dialog sm:max-w-sm → sm:max-w-md; state direset saat tutup
+- BUG saat E2E (ditemukan & diperbaiki): hasProof selalu false karena select Prisma lupa proofFileUrl → tombol "Lihat Bukti" tidak muncul; fix tambah proofFileUrl di select (hanya utk hitung hasProof)
+- PWA bump v154 → v155 (public/sw.js CACHE_NAME + service-worker-registration APP_VERSION)
+- E2E agent-browser (superadmin): /panel-admin/pelanggan?tab=aktif → Perpanjang JONI → dialog tampil "Bukti Transfer Perpanjangan" dgn SUB-2610-2II4 Pro Rp 199.000 QRIS Disetujui → "Lihat Bukti" → gambar bukti (172KB base64) tampil; angel (tanpa tagihan) → empty state benar; submit perpanjang 2 bln OK (expiredDate 2026-11-16 → 2027-01-16, DIREVERT ke semula); mobile 390px dialog 358px tanpa overflow; 0 error browser baru; API renewal-payments & proof 200; lint bersih
+- Catatan: RSC "Failed to fetch" 1x = artefak dev server restart lama (fallback navigasi sukses), bukan regresi
+- Screenshot: .verify/perpanjang-dialog-bukti.png, perpanjang-bukti-proof.png, perpanjang-mobile.png, perpanjang-desktop-final.png
+
+Stage Summary:
+- Dialog Perpanjang/Aktifkan masa berlaku kini menampilkan bukti transfer perpanjangan pelanggan — Admin bisa cek keaslian bukti sebelum memperpanjang manual
+- Identitas dua tabel (CalonPembeli.id / Pengguna.id via calon.userId) sudah tertangani; bukti base64 tidak pernah dikirim massal (on-demand)
+- Data uji dikembalikan ke semula (JONI expiredDate revert); tidak ada data sisa

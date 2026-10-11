@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import {
   Loader2, Search, UserPlus, UserCheck, UserX, Clock, CalendarClock,
-  ShieldCheck, ShieldX, RefreshCw, Inbox,
+  ShieldCheck, ShieldX, RefreshCw, Inbox, Eye, Landmark, QrCode, Receipt,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +62,47 @@ const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1)
 const fmtTanggal = (iso: string) =>
   new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 
+const rupiah = (n: number) => `Rp ${Math.round(n ?? 0).toLocaleString('id-ID')}`
+const fmtDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+/** Tagihan langganan + bukti transfer milik akun pelanggan (perpanjangan). */
+interface RenewalPayment {
+  id: string
+  paymentMethod: string
+  amount: number
+  senderName: string
+  transferDate: string
+  proofFileName: string
+  hasProof: boolean
+  status: string
+  rejectionReason: string
+  createdAt: string
+}
+
+interface RenewalInvoice {
+  id: string
+  invoiceNumber: string
+  planName: string
+  amount: number
+  status: string
+  createdAt: string
+  payments: RenewalPayment[]
+}
+
+const PAY_META: Record<string, { label: string; className: string }> = {
+  menunggu_verifikasi: { label: 'Nunggu Verifikasi', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300' },
+  disetujui: { label: 'Disetujui', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  ditolak: { label: 'Ditolak', className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+}
+
+const INV_META: Record<string, { label: string; className: string }> = {
+  menunggu_pembayaran: { label: 'Belum Bayar', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
+  menunggu_verifikasi: { label: 'Nunggu Verifikasi', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300' },
+  disetujui: { label: 'Disetujui', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  ditolak: { label: 'Ditolak', className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
+}
+
 /**
  * Halaman DAFTAR AKUN Panel Admin — dipakai 4 menu:
  * Akun Baru (perlu verifikasi), Akun Aktif, Akun Expired, Akun Ditolak.
@@ -75,6 +117,10 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
   const [extendTarget, setExtendTarget] = useState<AkunItem | null>(null)
   const [extendMonths, setExtendMonths] = useState('1')
   const [extendBusy, setExtendBusy] = useState(false)
+  const [renewalInvoices, setRenewalInvoices] = useState<RenewalInvoice[] | null>(null)
+  const [renewalError, setRenewalError] = useState('')
+  const [proofBusyId, setProofBusyId] = useState<string | null>(null)
+  const [proofView, setProofView] = useState<{ url: string; name: string; title: string } | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -125,6 +171,42 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
     toast.success(data?.message || 'Berhasil.')
     setExtendTarget(null)
     load()
+  }
+
+  /** Buka dialog perpanjang + muat bukti transfer perpanjangan akun ini. */
+  const openExtendDialog = (it: AkunItem) => {
+    setExtendTarget(it)
+    setExtendMonths('1')
+    setRenewalInvoices(null)
+    setRenewalError('')
+    setProofView(null)
+    panelFetch<{ invoices: RenewalInvoice[] }>(`/api/panel-admin/akun/renewal-payments?id=${it.id}`)
+      .then(({ data, error, authError }) => {
+        if (authError) return
+        if (error) { setRenewalError(error); setRenewalInvoices([]); return }
+        setRenewalInvoices(data?.invoices ?? [])
+      })
+      .catch(() => {
+        setRenewalError('Gagal memuat bukti transfer.')
+        setRenewalInvoices([])
+      })
+  }
+
+  /** Lihat bukti transfer (gambar/PDF data URL) — diambil on-demand. */
+  const openProof = async (paymentId: string, invoiceNumber: string) => {
+    setProofBusyId(paymentId)
+    try {
+      const { data, error, authError } = await panelFetch<{ proofFileUrl: string; proofFileName: string }>(
+        `/api/subscription/proof/${paymentId}`
+      )
+      if (authError) return
+      if (error || !data?.proofFileUrl) { toast.error(error || 'Bukti tidak tersedia.'); return }
+      setProofView({ url: data.proofFileUrl, name: data.proofFileName || 'bukti', title: invoiceNumber })
+    } catch {
+      toast.error('Gagal memuat bukti transfer.')
+    } finally {
+      setProofBusyId(null)
+    }
   }
 
   const items = (data?.items || []).filter(it => {
@@ -272,12 +354,12 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
                               </>
                             )}
                             {kategori === 'aktif' && (
-                              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => { setExtendTarget(it); setExtendMonths('1') }}>
+                              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openExtendDialog(it)}>
                                 <CalendarClock className="w-3.5 h-3.5" /> Perpanjang
                               </Button>
                             )}
                             {kategori === 'expired' && (
-                              <Button size="sm" className="h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setExtendTarget(it); setExtendMonths('1') }}>
+                              <Button size="sm" className="h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => openExtendDialog(it)}>
                                 <CalendarClock className="w-3.5 h-3.5" /> Aktifkan
                               </Button>
                             )}
@@ -305,9 +387,14 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
         )
       )}
 
-      {/* Dialog perpanjang / aktifkan */}
-      <Dialog open={!!extendTarget} onOpenChange={open => !open && setExtendTarget(null)}>
-        <DialogContent className="sm:max-w-sm">
+      {/* Dialog perpanjang / aktifkan — menampilkan bukti transfer perpanjangan */}
+      <Dialog
+        open={!!extendTarget}
+        onOpenChange={open => {
+          if (!open) { setExtendTarget(null); setRenewalInvoices(null); setRenewalError(''); setProofView(null) }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {extendTarget?.status === 'ditolak' ? 'Aktifkan Akun' : kategori === 'expired' ? 'Aktifkan Kembali Akun' : 'Perpanjang Masa Berlaku'}
@@ -327,6 +414,89 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
               onChange={e => setExtendMonths(e.target.value)}
             />
           </div>
+
+          {/* Bukti transfer perpanjangan dari pelanggan */}
+          <div className="space-y-2 rounded-xl border bg-muted/40 p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold">
+              <Receipt className="w-3.5 h-3.5" /> Bukti Transfer Perpanjangan
+            </p>
+            {renewalInvoices === null ? (
+              <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memuat bukti transfer…
+              </div>
+            ) : renewalError ? (
+              <p className="py-1.5 text-xs text-red-600">{renewalError}</p>
+            ) : renewalInvoices.length === 0 ? (
+              <p className="py-1.5 text-xs text-muted-foreground">
+                Belum ada bukti transfer untuk perpanjangan — tagihan langganan akun ini belum dibayar via aplikasi.
+                Perpanjangan manual tetap bisa dilanjutkan bila transfer diterima di luar aplikasi.
+              </p>
+            ) : (
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-0.5">
+                {renewalInvoices.map(inv => {
+                  const invMeta = INV_META[inv.status] ?? INV_META.menunggu_pembayaran
+                  return (
+                    <div key={inv.id} className="space-y-1.5 rounded-lg border bg-card p-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-xs font-bold">{inv.invoiceNumber}</span>
+                        <Badge className={`px-1.5 py-0 text-[9px] ${invMeta.className}`}>{invMeta.label}</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Paket <b className="text-foreground">{inv.planName}</b> · Tagihan{' '}
+                        <b className="text-foreground">{rupiah(inv.amount)}</b> · {fmtDateTime(inv.createdAt)}
+                      </p>
+                      {inv.payments.length === 0 ? (
+                        <p className="text-[11px] italic text-muted-foreground">
+                          Belum ada pembayaran / bukti transfer untuk tagihan ini.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {inv.payments.map(p => {
+                            const meta = PAY_META[p.status] ?? PAY_META.menunggu_verifikasi
+                            return (
+                              <div key={p.id} className="flex flex-wrap items-center justify-between gap-1.5 rounded-md bg-muted/60 px-2 py-1.5">
+                                <div className="min-w-0 space-y-0.5">
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                    <Badge variant="outline" className="gap-1 px-1.5 py-0 text-[9px]">
+                                      {p.paymentMethod === 'qris' ? <QrCode className="h-2.5 w-2.5" /> : <Landmark className="h-2.5 w-2.5" />}
+                                      {p.paymentMethod === 'qris' ? 'QRIS' : 'Transfer Bank'}
+                                    </Badge>
+                                    <Badge className={`px-1.5 py-0 text-[9px] ${meta.className}`}>{meta.label}</Badge>
+                                    <span className="font-medium">{rupiah(p.amount)}</span>
+                                  </div>
+                                  {p.paymentMethod === 'transfer_bank' && (p.senderName || p.transferDate) && (
+                                    <p className="text-[10px] text-muted-foreground">
+                                      Pengirim: <b className="text-foreground">{p.senderName || '-'}</b> · Tgl: {p.transferDate || '-'}
+                                    </p>
+                                  )}
+                                  {p.status === 'ditolak' && p.rejectionReason && (
+                                    <p className="text-[10px] text-red-600">Ditolak: {p.rejectionReason}</p>
+                                  )}
+                                </div>
+                                {p.hasProof && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 gap-1 text-[11px]"
+                                    disabled={proofBusyId === p.id}
+                                    onClick={() => openProof(p.id, inv.invoiceNumber)}
+                                  >
+                                    {proofBusyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                                    Lihat Bukti
+                                  </Button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setExtendTarget(null)}>Batal</Button>
             <Button onClick={submitExtend} disabled={extendBusy} className="gap-1.5">
@@ -334,6 +504,25 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
               Simpan
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog lihat bukti transfer */}
+      <Dialog open={!!proofView} onOpenChange={open => !open && setProofView(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Bukti Transfer — {proofView?.title}</DialogTitle>
+            <DialogDescription>
+              {extendTarget?.nama} — periksa keaslian bukti sebelum memperpanjang masa berlaku.
+            </DialogDescription>
+          </DialogHeader>
+          {proofView && (proofView.url.startsWith('data:application/pdf') ? (
+            <a href={proofView.url} download={proofView.name} className="flex items-center gap-2 rounded-lg border p-4 text-sm hover:bg-muted">
+              <Receipt className="w-5 h-5" /> Unduh file PDF: {proofView.name}
+            </a>
+          ) : (
+            <img src={proofView.url} alt={`Bukti transfer ${proofView.title}`} className="max-h-[60vh] w-full rounded-lg border object-contain" />
+          ))}
         </DialogContent>
       </Dialog>
     </div>
