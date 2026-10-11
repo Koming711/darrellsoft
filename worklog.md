@@ -13299,3 +13299,20 @@ Work Log:
 
 Stage Summary:
 - Sistem langganan berbayar terkonfirmasi lengkap memenuhi 15 aturan; tidak ditemukan regresi. Bukti tersimpan di .verify/final-*.png
+---
+Task ID: daftar-akun-pilih-paket
+Agent: Main (Z.ai Code)
+Task: "dihalaman daftar akun, apabila data sudah berhasil diisi dan diklik daftar akun, maka muncul daftar paket untuk dipilih. fix"
+
+Work Log:
+- Audit flow: halaman Daftar Akun = /login?tab=register (src/app/login/page.tsx). handleRegister sukses → auto-login → tampilkan POPUP DEMO lalu goAfterAuth() ke /pembukaan — daftar paket TIDAK pernah muncul. InlineLogin (src/components/inline-login.tsx) juga punya register flow tapi DEAD CODE (tidak pernah diimport) → tidak diubah.
+- Fix minimal di handleRegister (login/page.tsx): blok `if (data.demoPopupMessage) {...} else { goAfterAuth() }` diganti — applyThemeAfterLogin() + setIsRedirecting(true) + setTimeout 1.2s → window.location.href = nextUrl || '/pilih-paket'. Tujuan: /pilih-paket = halaman daftar paket existing yang live dari tabel SubscriptionPlan (sumber sama dengan landing), teruji E2E sejak v151, dan sudah mendukung pelanggan CalonPembeli (fix-verifikasi-calon-pembeli). Popup demo dilewati di alur registrasi karena user sedang memilih paket berbayar (popup demo tetap tampil di alur LOGIN akun demo).
+- Alasan memilih redirect ke /pilih-paket (bukan /checkout): checkout step 1 memaksa buat username/password lagi → konflik "username exists" dengan akun yang baru dibuat; /pilih-paket memakai alur invoice terautentikasi (POST /api/subscription/invoice, nominal beku dari server) → /langganan/pembayaran/[invoiceId] (QRIS/Transfer + upload bukti) — sesuai 15 aturan langganan.
+- Verifikasi kompatibilitas: /api/subscription/my pakai getOrCreateSubscription (auto-create belum_aktif utk user baru), findCustomerById resolve CalonPembeli; authFetch kirim x-user-id dari localStorage (diset saat register); /langganan/pembayaran TIDAK memakai DashboardLayout → companyDataRequired popup tidak mengganggu alur pembayaran.
+- E2E agent-browser (http://localhost:81): buka /login?tab=register → isi nama/HP/email/username/password → Kirim OTP (otp_dev_mode=true; kode diambil dari DB RegisterOtp karena response devCode tidak tertangkap UI) → isi OTP 998379 → klik "Daftar Akun" → URL berubah ke /pilih-paket, heading "Pilih Paket Darrellsoft", kartu Basic Rp119rb (Hemat 20%) / Pro TERPOPULER Rp199rb / Premium Rp299rb (Hemat 25%) + alert "Anda belum memiliki langganan aktif" ✓ → klik Pilih Paket pada Pro → toast "Tagihan SUB-2610-E70V dibuat" → redirect /langganan/pembayaran/[invoiceId] dgn tab QRIS/Transfer Bank + upload bukti ✓ → 0 console error, 0 page error → mobile 390x844 /pilih-paket OK.
+- dev.log: POST /api/register 201 → GET /pilih-paket 200; /login & /pilih-paket curl 200. eslint src/app/login/page.tsx BERSIH (1284 problems lain = pre-existing project-wide).
+- Cleanup data uji: CalonPembeli pkgflow01 + CustomerSubscription + SubscriptionInvoice + RegisterOtp + session_pkgflow01 + 7 paper seed (userId) dihapus. Screenshot: .verify/daftar-to-pilih-paket.png, daftar-invoice-qris.png, daftar-pilih-paket-mobile.png.
+- PWA bump v156 → v157 (public/sw.js CACHE_NAME + service-worker-registration.tsx APP_VERSION). Dev server di-restart di awal sesi (sempat mati).
+
+Stage Summary:
+- Alur pendaftaran kini: isi form Daftar Akun → klik "Daftar Akun" → layar transisi → HALAMAN DAFTAR PAKET (Basic/Pro/Premium live dari DB) → pilih paket → tagihan beku nominal → pembayaran QRIS/Transfer + upload bukti → verifikasi admin. Akun demo tetap bisa lewat ke beranda via link "Beranda" di /pilih-paket. Satu file diubah (src/app/login/page.tsx); tanpa perubahan DB/API.

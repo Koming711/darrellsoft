@@ -375,14 +375,16 @@ function LoginContent() {
           localStorage.setItem('permissions', JSON.stringify(allPerms))
         }
 
-        if (data.demoPopupMessage) {
-          setDemoPopupMsg(data.demoPopupMessage)
-          setDemoRemaining(data.demoRemainingDays ?? null)
-          setDemoPopupOpen(true)
-        } else {
-          applyThemeAfterLogin()
-          setTimeout(() => { goAfterAuth() }, 1500)
-        }
+        // Daftar Akun berhasil → langsung tampilkan daftar paket untuk dipilih.
+        // Halaman Pilih Paket memuat katalog paket live dari DB (sumber sama
+        // dengan landing page); setelah paket dipilih, tagihan dibuat dan user
+        // masuk ke alur pembayaran QRIS/Transfer Bank. Popup info demo tidak
+        // perlu di alur ini karena user jelas sedang memilih paket berbayar.
+        applyThemeAfterLogin()
+        setIsRedirecting(true)
+        setTimeout(() => {
+          window.location.href = nextUrl || '/pilih-paket'
+        }, 1200)
       } else {
         // Notify other tabs about the new calon pembeli
         notifyDataChange('calon-pembeli')
