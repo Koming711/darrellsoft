@@ -7,6 +7,7 @@
 import { Prisma } from '@prisma/client'
 
 import { db } from '@/lib/db'
+import { emitRealtime } from '@/lib/realtime-notify'
 
 // ===== STATUS CONSTANTS =====
 export const INVOICE_STATUS = {
@@ -374,7 +375,11 @@ export async function reviewPayment(
   adminUsername: string,
   reason = '',
 ): Promise<ReviewResult> {
-  return db.$transaction(async (tx) => {
+  // Notifikasi realtime dikirim SETELAH transaksi commit (fire-and-forget).
+  // Holder object agar TypeScript tidak menyempitkan tipe dari assignment di dalam callback.
+  const realtimeRef: { current: { userId: string; title: string; body: string } | null } = { current: null }
+
+  const result = await db.$transaction(async (tx) => {
     const payment = await tx.subscriptionPayment.findUnique({
       where: { id: paymentId },
       include: { invoice: true },
@@ -429,6 +434,11 @@ export async function reviewPayment(
           link: '/langganan-saya',
         },
       })
+      realtimeRef.current = {
+        userId: payment.userId,
+        title: 'Pembayaran Ditolak',
+        body: `Pembayaran untuk tagihan ${payment.invoice.invoiceNumber} ditolak oleh admin. Alasan: ${reason || 'Tidak memenuhi ketentuan'}.`,
+      }
       return { ok: true, httpStatus: 200, message: 'Pembayaran ditolak.' }
     }
 
@@ -533,6 +543,12 @@ export async function reviewPayment(
       },
     })
 
+    realtimeRef.current = {
+      userId: payment.userId,
+      title: 'Pembayaran Disetujui',
+      body: `Pembayaran ${rupiah(payment.amount)} untuk tagihan ${invoice.invoiceNumber} disetujui. Langganan ${invoice.planName} aktif hingga ${formatDate(newEnd)}.`,
+    }
+
     return {
       ok: true,
       httpStatus: 200,
@@ -542,6 +558,20 @@ export async function reviewPayment(
       isPlanChange,
     }
   })
+
+  // Flush notifikasi realtime (di luar transaksi — tidak mempengaruhi hasil)
+  const rt = realtimeRef.current
+  if (result.ok && rt) {
+    emitRealtime({
+      type: 'payment',
+      title: rt.title,
+      body: rt.body,
+      link: '/langganan-saya',
+      userId: rt.userId,
+    })
+  }
+
+  return result
 }
 
 // ===== CSV EXPORT =====

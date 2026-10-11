@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { getAuthUser } from '@/lib/auth'
+import { subscribeRealtime, type RealtimeNotification } from '@/lib/realtime-client'
 import { authFetch } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
 import {
@@ -161,6 +162,25 @@ export default function LanggananSayaPage() {
 
   useEffect(() => {
     load()
+  }, [load])
+
+  // REALTIME — notifikasi targeted (pembayaran disetujui/ditolak, dll.) langsung muncul
+  useEffect(() => {
+    const user = getAuthUser()
+    if (!user?.id) return
+    const unsubscribe = subscribeRealtime(
+      (notif: RealtimeNotification) => {
+        if (notif.userId && notif.userId !== user.id) return
+        load()
+        toast(notif.title, {
+          id: notif.id,
+          description: notif.body || undefined,
+          duration: 6000,
+        })
+      },
+      { userId: user.id, role: user.role },
+    )
+    return unsubscribe
   }, [load])
 
   const openProof = async (paymentId: string) => {

@@ -1,0 +1,12 @@
+{
+  "name": "notif-service",
+  "version": "1.0.0",
+  "description": "Realtime notification service (socket.io) — broadcast notifikasi ke admin & pelanggan",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.4"
+  }
+}

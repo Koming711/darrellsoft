@@ -13232,3 +13232,29 @@ Stage Summary:
 - Dialog Perpanjang/Aktifkan masa berlaku kini menampilkan bukti transfer perpanjangan pelanggan — Admin bisa cek keaslian bukti sebelum memperpanjang manual
 - Identitas dua tabel (CalonPembeli.id / Pengguna.id via calon.userId) sudah tertangani; bukti base64 tidak pernah dikirim massal (on-demand)
 - Data uji dikembalikan ke semula (JONI expiredDate revert); tidak ada data sisa
+
+---
+Task ID: realtime-notif-biaya-kategori
+Agent: Z.ai Code (main)
+Task: "buat notifikasi secara realtime. di halaman biaya tambahkan tombol tambah kategori."
+
+Work Log:
+- ARSITEKTUR REALTIME: mini-service baru mini-services/notif-service (socket.io, port 3003 untuk browser via Caddy XTransformPort; port internal 127.0.0.1:3004 untuk POST /emit dari Next.js server). PELAJARAN PENTING: engine.io path '/' menangkap SEMUA request di port 3003 ("Transport unknown" untuk /health & /emit) → endpoint internal WAJIB di port terpisah; /emit dilindungi header x-notif-secret (default ds-notif-internal-v1, bisa dioverride NOTIF_WS_SECRET di kedua sisi)
+- Room socket: 'admins' (auth role admin/superadmin) & 'user:<id>'; event broadcast 'notif:new' { id, type, title, body, link, userId, createdAt }
+- Server helper src/lib/realtime-notify.ts: emitRealtime() fire-and-forget (fetch POST + AbortController 2s, TIDAK PERNAH throw — alur API utama aman walau service mati; polling 20s existing jadi fallback)
+- Emit points: api/register (pendaftaran mandiri → admins), api/calon-pembeli POST status baru (→ admins), api/subscription/payment (bukti dikirim → admins), lib/subscription.ts reviewPayment (approve/reject → user:<id> pelanggan; emitter di-flush SETELAH transaksi commit via holder object realtimeRef agar TS narrowing tidak error)
+- Client src/lib/realtime-client.ts: singleton io('/?XTransformPort=3003') + subscribeRealtime(handler, {userId, role}); auth room di-emit ulang tiap connect (reconnect aman)
+- notification-bell.tsx: subscribe realtime → fetchData() segera + sonner toast (id: notif.id → dedupe antara bell desktop & mobile yang sama-sama subscribe) + suara utk tipe non-registration (registration via baseline count existing, anti dobel); polling 20s tetap jalan sebagai fallback
+- langganan-saya/page.tsx: subscribe realtime filter userId sendiri → load() + toast (pembayaran disetujui/ditolak muncul seketika)
+- BIAYA KATEGORI: API baru /api/biaya/kategori (GET defaults+custom, POST {nama} dedupe case-insensitive, max 30 char, max 50 entri, 409 utk duplikat) — disimpan per-user di UserSetting key=biaya_custom_kategori (JSON array)
+- biaya/page.tsx: tombol "Kategori" (FolderPlus) di samping select pada dialog Tambah/Edit Biaya → dialog kecil "Tambah Kategori Biaya" (input + hint duplikat inline) → simpan → select langsung terisi kategori baru; allKategori = defaults + custom (tanpa duplikat); fallback option editingItem tetap ada
+- PWA bump v155 → v156
+- E2E agent-browser via gateway http://localhost:81 (bukan :3000 — penting agar XTransformPort jalan): health clients:1 setelah halaman dibuka; curl POST /emit → toast realtime tampil <1s; alur NYATA: POST /api/calon-pembeli (superadmin) → 201 → toast "Calon Pembeli Baru" seketika (dedupe 1 toast); biaya: tambah kategori "Marketing Digital" → muncul di select (15 opsi) & auto-selected → simpan biaya Rp 50.000 dgn kategori itu → baris tampil; duplikat "marketing digital" → inline warning + toast 409 "sudah ada"; 0 error browser
+- Data uji dibersihkan (CalonPembeli E2E, Biaya tes, UserSetting biaya_custom_kategori); lint 10 file bersih
+- Screenshot: .verify/realtime-notif-toast.png
+
+Stage Summary:
+- Notifikasi kini REALTIME (socket.io): pendaftaran baru & bukti pembayaran masuk → admin lihat toast+badge+suara seketika; approval admin → pelanggan menerima notifikasi seketika di Langganan Saya. Fallback polling tetap ada.
+- Layanan: mini-services/notif-service (port 3003 socket + 3004 internal emit, secret-protected). Jika service mati → API utama tetap aman, notif turun ke polling 20s.
+- Halaman Biaya: tombol Tambah Kategori (per-tenant, tersimpan UserSetting) — kategori kustom langsung dipakai di form.
+- Untuk testing manual via browser lokal: akses harus lewat gateway (port :81), bukan :3000 langsung.

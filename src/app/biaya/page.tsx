@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Banknote, Plus, Search, Printer, Pencil, Trash2, Loader2, Wallet, CalendarDays, TrendingDown, Receipt, Store } from 'lucide-react'
+import { Banknote, Plus, Search, Printer, Pencil, Trash2, Loader2, Wallet, CalendarDays, TrendingDown, Receipt, Store, FolderPlus } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -102,8 +102,21 @@ export default function BiayaPage() {
     supplier: '',
   })
 
+  // Kategori kustom (per-tenant) + dialog tambah kategori
+  const [customKategori, setCustomKategori] = useState<string[]>([])
+  const [kategoriDialogOpen, setKategoriDialogOpen] = useState(false)
+  const [newKategori, setNewKategori] = useState('')
+  const [savingKategori, setSavingKategori] = useState(false)
+
   useEffect(() => {
     fetchData()
+    // Muat kategori kustom (defaults + custom per user)
+    authFetch('/api/biaya/kategori')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.custom)) setCustomKategori(json.custom)
+      })
+      .catch(() => { /* fallback: pakai default saja */ })
   }, [])
 
   useDataChange(['biaya'], () => {
@@ -149,6 +162,41 @@ export default function BiayaPage() {
     }
     return { totalBulanIni, totalTahunIni, totalKeseluruhan, count: data.length }
   }, [data])
+
+  // Semua pilihan kategori = default + kustom (tanpa duplikat)
+  const allKategori = useMemo(() => {
+    const extra = customKategori.filter((k) => !KATEGORI_OPTIONS.some((d) => d.toLowerCase() === k.toLowerCase()))
+    return [...KATEGORI_OPTIONS, ...extra]
+  }, [customKategori])
+
+  const handleAddKategori = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const nama = newKategori.trim()
+    if (!nama) { toast.error('Nama kategori wajib diisi'); return }
+    if (savingKategori) return
+    setSavingKategori(true)
+    try {
+      const res = await authFetch('/api/biaya/kategori', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nama }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(json?.error || 'Gagal menambah kategori')
+        return
+      }
+      setCustomKategori(json.custom || [])
+      setForm((prev) => ({ ...prev, kategori: json.added || nama }))
+      toast.success(`Kategori "${json.added || nama}" ditambahkan`)
+      setKategoriDialogOpen(false)
+      setNewKategori('')
+    } catch {
+      toast.error('Gagal menambah kategori')
+    } finally {
+      setSavingKategori(false)
+    }
+  }
 
   const handleAdd = () => {
     setEditingItem(null)
@@ -574,19 +622,33 @@ export default function BiayaPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
                 <Label htmlFor="kategori" className="sm:text-right">Kategori <span className="text-red-500">*</span></Label>
-                <select
-                  id="kategori"
-                  required
-                  value={form.kategori}
-                  onChange={(e) => setForm({ ...form, kategori: e.target.value })}
-                  className="sm:col-span-3 h-9 w-full rounded-md border border-slate-300 bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isSaving}
-                >
-                  {KATEGORI_OPTIONS.map(k => <option key={k} value={k}>{k}</option>)}
-                  {editingItem && !KATEGORI_OPTIONS.includes(editingItem.kategori) && (
-                    <option value={editingItem.kategori}>{editingItem.kategori}</option>
-                  )}
-                </select>
+                <div className="sm:col-span-3 flex items-center gap-2">
+                  <select
+                    id="kategori"
+                    required
+                    value={form.kategori}
+                    onChange={(e) => setForm({ ...form, kategori: e.target.value })}
+                    className="h-9 min-w-0 flex-1 rounded-md border border-slate-300 bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isSaving}
+                  >
+                    {allKategori.map(k => <option key={k} value={k}>{k}</option>)}
+                    {editingItem && !allKategori.includes(editingItem.kategori) && (
+                      <option value={editingItem.kategori}>{editingItem.kategori}</option>
+                    )}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0 gap-1.5"
+                    onClick={() => { setNewKategori(''); setKategoriDialogOpen(true) }}
+                    disabled={isSaving}
+                    title="Tambah kategori baru"
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Kategori</span>
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-1.5 sm:gap-4">
@@ -650,6 +712,48 @@ export default function BiayaPage() {
               </Button>
               <Button type="submit" disabled={isSaving}>
                 {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : 'Simpan'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tambah Kategori Dialog */}
+      <Dialog open={kategoriDialogOpen} onOpenChange={setKategoriDialogOpen}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderPlus className="w-5 h-5 text-blue-600" />
+              Tambah Kategori Biaya
+            </DialogTitle>
+            <DialogDescription>
+              Kategori baru akan tersimpan untuk akun Anda dan langsung bisa dipakai.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddKategori}>
+            <div className="grid gap-2 py-2">
+              <Label htmlFor="new-kategori">Nama kategori <span className="text-red-500">*</span></Label>
+              <Input
+                id="new-kategori"
+                type="text"
+                required
+                maxLength={30}
+                placeholder="Contoh: Marketing, Listrik Genset…"
+                value={newKategori}
+                onChange={(e) => setNewKategori(e.target.value)}
+                autoFocus
+                disabled={savingKategori}
+              />
+              {newKategori.trim() && allKategori.some(k => k.toLowerCase() === newKategori.trim().toLowerCase()) && (
+                <p className="text-xs text-amber-600">Kategori ini sudah ada.</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setKategoriDialogOpen(false)} disabled={savingKategori}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={savingKategori || !newKategori.trim()}>
+                {savingKategori ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : 'Tambah'}
               </Button>
             </DialogFooter>
           </form>

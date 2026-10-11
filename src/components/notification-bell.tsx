@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, Volume2, VolumeX } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
+import { getAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
 import { startNavigation } from '@/components/navigation-progress'
 import { playNotifSound, unlockAudioOnInteraction } from '@/lib/notif-sound'
+import { subscribeRealtime, type RealtimeNotification } from '@/lib/realtime-client'
 import {
   Popover,
   PopoverTrigger,
@@ -135,6 +138,32 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     const timer = setInterval(fetchData, POLL_INTERVAL)
     return () => clearInterval(timer)
   }, [isAdmin, lastSeen, fetchData])
+
+  // REALTIME — socket.io push (mini-services/notif-service).
+  // Event baru (pendaftaran/pembayaran) → langsung muat ulang + toast + suara.
+  // Polling 20s tetap jalan sebagai fallback kalau socket terputus.
+  useEffect(() => {
+    if (!isAdmin || lastSeen === undefined || muted === undefined) return
+    const user = getAuthUser()
+    const unsubscribe = subscribeRealtime(
+      (notif: RealtimeNotification) => {
+        // Muat ulang data segera (badge + daftar)
+        fetchData()
+        // Suara: tipe selain registration langsung berbunyi (registrasi sudah
+        // ditangani deteksi baseline di fetchData agar tidak dobel)
+        if (!muted && notif.type !== 'registration') {
+          playNotifSound()
+        }
+        toast(notif.title, {
+          id: notif.id, // dedupe — bell desktop & mobile sama-sama subscribe
+          description: notif.body || undefined,
+          duration: 6000,
+        })
+      },
+      { userId: user?.id || '', role: role || user?.role || '' },
+    )
+    return unsubscribe
+  }, [isAdmin, lastSeen, muted, role, fetchData])
 
   // Mark all as read when popover CLOSES — this lets the admin actually see the
   // items first, then once they close the popover (or click an item / "View All"),

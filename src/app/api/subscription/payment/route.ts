@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser } from '@/lib/server-auth'
+import { emitRealtime } from '@/lib/realtime-notify'
 import {
   addAuditLog,
   addNotification,
@@ -137,6 +138,13 @@ export async function POST(request: NextRequest) {
       title: 'Pembayaran Menunggu Verifikasi',
       body: `Tagihan ${invoice.invoiceNumber} (${rupiah(invoice.amount)}) menunggu verifikasi.`,
       type: 'payment',
+      link: '/panel-admin/pembayaran?tab=verifikasi',
+    })
+    // Realtime → semua admin: bukti pembayaran baru masuk
+    emitRealtime({
+      type: 'payment',
+      title: 'Pembayaran Menunggu Verifikasi',
+      body: `Tagihan ${invoice.invoiceNumber} (${rupiah(invoice.amount)}) menunggu verifikasi.`,
       link: '/panel-admin/pembayaran?tab=verifikasi',
     })
 

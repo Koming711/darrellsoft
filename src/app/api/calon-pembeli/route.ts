@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUser, getDataFilter, isAdmin, requireAuth } from '@/lib/server-auth'
+import { emitRealtime } from '@/lib/realtime-notify'
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,6 +68,16 @@ export async function POST(request: NextRequest) {
         userId: user?.id || null,
       }
     })
+
+    // Notifikasi realtime → admin (hanya bila masuk sebagai "baru" / perlu verifikasi)
+    if ((status || 'baru') === 'baru') {
+      emitRealtime({
+        type: 'registration',
+        title: 'Calon Pembeli Baru',
+        body: `${nama} ditambahkan sebagai calon pembeli baru.`,
+        link: '/administrasi/pengguna',
+      })
+    }
 
     return NextResponse.json(calon, { status: 201 })
   } catch (error) {

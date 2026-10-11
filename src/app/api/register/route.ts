@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { seedUserData } from '@/lib/auto-seed'
 import { sanitizeError } from '@/lib/api-error'
 import { normalizePhone, phoneVariants } from '@/lib/phone'
+import { emitRealtime } from '@/lib/realtime-notify'
 import {
   buildDefaultPermissions,
   buildDefaultSubPermissions,
@@ -232,6 +233,14 @@ export async function POST(request: NextRequest) {
     } catch (seedErr) {
       console.warn('⚠️ Seed data error for new user (non-fatal):', seedErr)
     }
+
+    // Notifikasi realtime → semua admin: pendaftaran akun baru masuk
+    emitRealtime({
+      type: 'registration',
+      title: 'Pendaftaran Akun Baru',
+      body: `${namaLengkap} (${username}) baru saja mendaftar via halaman Daftar Akun.`,
+      link: '/administrasi/pengguna',
+    })
 
     // Generate session untuk langsung login
     const sessionId = randomUUID()
