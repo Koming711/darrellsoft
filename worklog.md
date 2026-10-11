@@ -13285,3 +13285,17 @@ Stage Summary:
 - Aturan #9 (kunci fitur) sudah melekat: verify-session/auth/me menolak sesi validUntil lewat; validUntil=endDate+grace (admin bisa set grace=0 untuk kunci ketat)
 - Tombol Tambah Kategori di halaman biaya terverifikasi E2E (fitur sudah ada, kini lolos verifikasi penuh)
 - File baru: src/lib/subscription-reminders.ts, src/components/customer-notification-bell.tsx; diubah: notifications route, subscription/my, subscription-stats, subscription.ts, sidebar.tsx, sw.js, service-worker-registration.tsx
+
+---
+Task ID: verifikasi-akhir-15-aturan
+Agent: Z.ai Code (main)
+Task: Verifikasi ulang seluruh sistem langganan berbayar (permintaan 15 aturan dikirim ulang) — pastikan state sehat & semua permukaan aturan berfungsi.
+
+Work Log:
+- Kesehatan: dev server 200, notif-service ok (socket client aktif), PWA v156 terpasang
+- DB audit: 3 paket aktif 30 hari — Basic Rp 119.000 (SUDAH DIEDIT ADMIN dari seed 99rb → bukti aturan #12 terpakai), Pro Rp 199.000 (populer), Premium Rp 299.000; 6 pembayaran disetujui riil; QRIS + BCA terisi; grace 7 hari
+- Browser E2E (via Caddy :81): landing menampilkan Basic/Pro/Premium (harga terbaru live); /panel-admin kartu Pelanggan Aktif/Kedaluwarsa/Menunggu Verifikasi/Total Pendapatan/Pelanggan per Paket semua ada; /panel-admin/kelola-paket CRUD penuh (Tambah Paket / Edit / Nonaktifkan / Hapus); dialog Edit memuat field Harga Bulanan, Harga Sebelum Diskon, Perincian Fitur (per baris), Maks Akun, Batas Transaksi, Penyimpanan, Masa Berlaku (hari)
+- Console bersih tanpa error; browser ditutup; tidak ada perubahan kode pada putaran ini (murni verifikasi)
+
+Stage Summary:
+- Sistem langganan berbayar terkonfirmasi lengkap memenuhi 15 aturan; tidak ditemukan regresi. Bukti tersimpan di .verify/final-*.png
