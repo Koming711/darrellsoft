@@ -13258,3 +13258,30 @@ Stage Summary:
 - Layanan: mini-services/notif-service (port 3003 socket + 3004 internal emit, secret-protected). Jika service mati → API utama tetap aman, notif turun ke polling 20s.
 - Halaman Biaya: tombol Tambah Kategori (per-tenant, tersimpan UserSetting) — kategori kustom langsung dipakai di form.
 - Untuk testing manual via browser lokal: akses harus lewat gateway (port :81), bukan :3000 langsung.
+
+---
+Task ID: notifikasi-realtime-biaya-kategori-saas-audit
+Agent: Z.ai Code (main)
+Task: 1) Buat notifikasi realtime  2) Tambah tombol "Tambah Kategori" di halaman biaya  3) Audit integrasi 15 aturan sistem langganan berbayar (Basic/Pro/Premium)
+
+Work Log:
+- Audit 15 aturan vs sistem existing: sebagian besar SUDAH terpenuhi (SubscriptionPlan 3 paket seed 30 hari, pembayaran QRIS/transfer + bukti base64, reviewPayment idempoten + CAS guard, validUntil=endDate+grace sebagai kunci akses via /api/auth/verify-session & /api/auth/me, dashboard /panel-admin dengan statistik aktif/kedaluwarsa/menunggu verifikasi, isolasi data per-user, langganan-saya kuitansi & perpanjangan)
+- Buat src/lib/subscription-reminders.ts: pengingat H-7 / H-3 / "Telah Berakhir" (aturan #8), IDEMPOTEN via marker [ref:plan:endDate] di body + findFirst dedupe; sweep global throttled 3 menit (runExpiryReminderSweep) + per-user (ensureExpiryRemindersForUser); emitRealtime socket push per notifikasi baru
+- Trigger: GET /api/subscription/my (per-user, sebelum ambil notifications) + GET /api/panel-admin/subscription-stats (global fire-and-forget)
+- Buat src/components/customer-notification-bell.tsx: lonceng PELANGGAN global di MobileHeader (sidebar.tsx) — badge unread, popover daftar notifikasi (ikon per tipe), klik item → markRead + navigasi link, tutup popover → markAll, polling 30s fallback, socket realtime via subscribeRealtime (room user:<id>), suara + toast, sync antar-instance (mobile/desktop) via window event
+- sidebar.tsx: render CustomerNotificationBell di samping NotificationBell (masing-masing self-hide by role)
+- FIX BUG #1: /api/notifications memakai getAuthUser() dari '@/lib/auth' (helper CLIENT, baca localStorage) → selalu 401 di server. Ganti ke getServerUser/requireAuth berbasis cookie untuk GET/POST/DELETE
+- FIX BUG #2: DAY_MS tidak di-export dari subscription.ts → 500 di /api/subscription/my. Export.
+- FIX BUG #3: lucide-react tidak punya SystemUpdate → ganti Settings
+- FIX UX: body notifikasi pengingat dibersihkan dari marker [ref:...] via stripReminderRef() di /api/notifications & /api/subscription/my
+- Export DAY_MS dari src/lib/subscription.ts
+- E2E agent-browser (via Caddy :81 agar socket.io gateway jalan): JONI2 endDate di-set +3 hari → sweep buat 2 pengingat (H7+H3) di DB & muncul di bell badge=2; reload ulang TIDAK duplikasi (dedupe OK); emit socket internal → toast realtime muncul instan di /pembukaan; markAll badge hilang; viewport 390px bell terlihat; superadmin: /panel-admin stats 200 + sweep jalan; /biaya → Tambah → tombol Kategori → dialog "Tambah Kategori Biaya" → "Marketing Digital" tersimpan (UserSetting biaya_custom_kategori) & muncul di dropdown; 0 console error; lint bersih
+- Cleanup: revert endDate JONI2 (2026-11-09), hapus notif tes & kategori tes "Marketing Digital"
+- PWA bump v155 → v156 (public/sw.js + service-worker-registration.tsx)
+
+Stage Summary:
+- Notifikasi realtime KOMPLIT dua arah: admin (existing, registrations + payment broadcast) & pelanggan (BARU — lonceng global + pengingat langganan + status pembayaran)
+- Aturan #8 (pengingat 7 & 3 hari + peringatan berakhir) terpenuhi, idempoten, tanpa cron (digerakkan akses my/stats)
+- Aturan #9 (kunci fitur) sudah melekat: verify-session/auth/me menolak sesi validUntil lewat; validUntil=endDate+grace (admin bisa set grace=0 untuk kunci ketat)
+- Tombol Tambah Kategori di halaman biaya terverifikasi E2E (fitur sudah ada, kini lolos verifikasi penuh)
+- File baru: src/lib/subscription-reminders.ts, src/components/customer-notification-bell.tsx; diubah: notifications route, subscription/my, subscription-stats, subscription.ts, sidebar.tsx, sw.js, service-worker-registration.tsx

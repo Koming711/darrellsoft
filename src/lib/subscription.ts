@@ -70,7 +70,7 @@ export const PAYMENT_STATUS_LABEL: Record<string, string> = {
 
 // Tanggal berakhir ≤ 7 hari lagi → status "Akan Berakhir"
 export const EXPIRY_WARNING_DAYS = 7
-const DAY_MS = 86_400_000
+export const DAY_MS = 86_400_000
 
 // ===== FORMATTERS =====
 export function rupiah(n: number | null | undefined): string {

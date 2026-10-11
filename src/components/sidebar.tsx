@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { ThemeToggle } from './theme-toggle'
 import { LanguageToggle } from './language-toggle'
 import { NotificationBell } from './notification-bell'
+import { CustomerNotificationBell } from './customer-notification-bell'
 import { toast } from 'sonner'
 import {
   Calculator,
@@ -679,6 +680,7 @@ export function MobileHeader({ username, role, title, subtitle, userProfile }: {
             {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
           </span>
           <NotificationBell role={role} />
+          <CustomerNotificationBell role={role} />
           <LanguageToggle compact />
           <ThemeToggle className="h-8 w-8" />
         </div>
@@ -686,6 +688,7 @@ export function MobileHeader({ username, role, title, subtitle, userProfile }: {
         <div className="hidden md:flex flex-col items-end justify-center gap-1 flex-shrink-0">
           <div className="flex items-center gap-2">
             <NotificationBell role={role} />
+            <CustomerNotificationBell role={role} />
             <LanguageToggle compact />
             <ThemeToggle className="h-8 w-8" />
             <span className="text-[13px] font-semibold" style={{ color: 'var(--app-banner-text)' }}>

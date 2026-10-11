@@ -9,6 +9,7 @@ import {
   PAYMENT_STATUS,
   SUB_STATUS,
 } from '@/lib/subscription'
+import { runExpiryReminderSweep } from '@/lib/subscription-reminders'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,11 @@ export async function GET(request: NextRequest) {
   if (err) return err
   try {
     await ensureSubscriptionSeeded()
+
+    // Aturan #8 — sweep pengingat kedaluwarsa (7 hari / 3 hari / berakhir) untuk
+    // semua langganan. Throttle in-memory 3 menit — admin buka dashboard = memicu.
+    // Fire-and-forget agar dashboard tidak menunggu.
+    void runExpiryReminderSweep().catch(() => {})
 
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)

@@ -10,6 +10,7 @@ import {
   derivedInvoiceStatus,
   subscriptionDaysLeft,
 } from '@/lib/subscription'
+import { ensureExpiryRemindersForUser, stripReminderRef } from '@/lib/subscription-reminders'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,10 @@ export async function GET(request: NextRequest) {
 
     const sub = await getOrCreateSubscription(user.id)
     const status = derivedSubscriptionStatus(sub)
+
+    // Aturan #8 — pastikan pengingat 7 hari / 3 hari / berakhir sudah dibuat
+    // untuk periode langganan ini (idempoten) SEBELUM daftar notifikasi diambil.
+    await ensureExpiryRemindersForUser(user.id)
 
     const [invoices, payments, notifications] = await Promise.all([
       db.subscriptionInvoice.findMany({
@@ -67,7 +72,7 @@ export async function GET(request: NextRequest) {
         daysLeft: subscriptionDaysLeft(sub.endDate),
       },
       invoices: invoicesSafe,
-      notifications,
+      notifications: notifications.map((n) => ({ ...n, body: stripReminderRef(n.body) })),
     })
   } catch (error) {
     console.error('GET /api/subscription/my error:', error)
