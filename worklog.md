@@ -13190,3 +13190,25 @@ Stage Summary:
 - Single source of truth harga = tabel SubscriptionPlan (Panel Admin → Kelola Paket); checkout, landing (live+fallback), aktivasi kini konsisten
 - Katalog lama (Paket Premium page) kini default-nya identik dgn landing; entri legacy tetap didukung
 - Catatan: harga tetap client-sent ke create-transaction (desain lama) — verifikasi server-side amount bisa jadi tugas lanjutan
+
+---
+Task ID: panel-admin-menu-simple
+Agent: Z.ai Code (main)
+Task: "dihalaman panel admin langganan terlalu banyak menu. buat simple, crud, ui/ux" — sederhanakan menu 17 → 7 dengan halaman hub bertab
+
+Work Log:
+- Mapping: 17 halaman panel-admin teridentifikasi; akun-baru/aktif/expired/ditolak = wrapper AkunListPage(kategori); kelola-pelanggan = kelola langganan (API subscriptions); dua katalog paket (kelola-paket vs paket-premium) sudah disinkronkan di task sebelumnya
+- Desain baru: 7 menu — Ringkasan · Pelanggan · Paket · Pembayaran · Transaksi · Laporan · Sistem; fitur detail jadi TAB di halaman hub; paket-premium (katalog redundan) dikeluarkan dari menu
+- Komponen baru hub-tabs.tsx: HubTabs (tab ?tab= shareable, badge count, aria tablist) + useHubTab
+- Halaman hub baru: /pelanggan (Langganan·Baru·Aktif·Expired·Ditolak), /pembayaran (Verifikasi·Pengaturan), /laporan (Bulanan·Penjualan·Audit), /sistem (Pengguna·Hak Akses·Pengaturan Akun)
+- Refactor: 7 konten diekstrak ke content.tsx (kelola-pelanggan, verifikasi-pembayaran, pengaturan-pembayaran, laporan-bulanan, riwayat-penjualan, laporan-audit, pengaturan); kelola-paket & riwayat-transaksi tetap halaman mandiri (menu Paket & Transaksi)
+- 14 rute lama → redirect() permanen ke hub?tab= (akun-*, paket-premium, verifikasi-pembayaran, pengaturan-pembayaran, laporan-*, pengguna, hak-akses, pengaturan, kelola-pelanggan)
+- Referensi silang diupdate: Ringkasan 2 link, notifikasi API (subscription/payment+invoice link), akun-list count-chip nav → pelanggan?tab=
+- layout.tsx: MENU_SECTIONS ditulis ulang (Menu 6 item + Sistem 1 item), import ikon dirapikan; PWA bump v154
+- INCIDENT: script redirect sempat menimpa 7 page.tsx yang baru direfactor → export Content hilang → 500 massal (module graph Turbopack). Pulihkan via git show HEAD + ekstraksi content.tsx; dev server sempat mati (OOM dugaan) saat kompilasi batch → restart
+- E2E: sidebar 7 item (desktop+mobile drawer), tab Pelanggan ganti URL ?tab= & konten berganti, hub Pembayaran/Laporan/Sistem OK, redirect akun-expired → pelanggan?tab=expired OK, navigasi drawer OK, 0 error browser aktif, lint 17 file bersih
+
+Stage Summary:
+- Panel admin kini 7 menu (dari 17); CRUD tetap lengkap via tab; semua URL lama tetap hidup lewat redirect
+- Pola arsitektur baru: content.tsx (komponen konten reusable) terpisah dari page.tsx (route) — WAJIB jika suatu konten dipakai lintas rute
+- Screenshot: .verify/menu-simple-desktop.png, menu-simple-mobile-drawer.png, menu-simple-pelanggan-baru.png, menu-simple-sistem-hakakses.png, menu-simple-mobile-paket.png

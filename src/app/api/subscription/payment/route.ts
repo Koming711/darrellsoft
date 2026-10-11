@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       title: 'Pembayaran Menunggu Verifikasi',
       body: `Tagihan ${invoice.invoiceNumber} (${rupiah(invoice.amount)}) menunggu verifikasi.`,
       type: 'payment',
-      link: '/panel-admin/verifikasi-pembayaran',
+      link: '/panel-admin/pembayaran?tab=verifikasi',
     })
 
     return NextResponse.json({

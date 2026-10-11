@@ -41,7 +41,7 @@ const PAY_STATUS_LABEL: Record<string, string> = {
   ditolak: 'Ditolak',
 }
 
-export default function RiwayatTransaksiPage() {
+export function RiwayatTransaksiContent() {
   const [rows, setRows] = useState<TxRow[] | null>(null)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -247,4 +247,12 @@ export default function RiwayatTransaksiPage() {
       )}
     </div>
   )
+}
+
+/**
+ * Halaman lama (rute direct) — kini diarahkan ke hub.
+ * Konten dipakai ulang di hub terkait (mis. /panel-admin/pelanggan).
+ */
+export default function RiwayatTransaksiPage() {
+  return <RiwayatTransaksiContent />
 }

@@ -100,7 +100,7 @@ const EMPTY_FORM: FormState = {
   sortOrder: '10',
 }
 
-export default function KelolaPaketPage() {
+export function KelolaPaketContent() {
   const [plans, setPlans] = useState<Plan[] | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -450,4 +450,12 @@ export default function KelolaPaketPage() {
       </AlertDialog>
     </div>
   )
+}
+
+/**
+ * Halaman lama (rute direct) — kini diarahkan ke hub.
+ * Konten dipakai ulang di hub terkait (mis. /panel-admin/pelanggan).
+ */
+export default function KelolaPaketPage() {
+  return <KelolaPaketContent />
 }

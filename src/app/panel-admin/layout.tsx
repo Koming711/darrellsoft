@@ -1,9 +1,10 @@
 'use client'
 
 // Layout Panel Admin Langganan — hanya admin & superadmin.
-// Navigasi: SIDEBAR menu (desktop, bisa diciutkan) + drawer Sheet (mobile).
-// Semua sub-halaman panel-admin terkelompok: Utama · Langganan · Daftar Akun ·
-// Laporan · Sistem. Server-side tetap dilindungi requireAdmin() di /api/panel-admin/*.
+// Navigasi: SIDEBAR menu sederhana (desktop, bisa diciutkan) + drawer Sheet (mobile).
+// 7 menu inti: Ringkasan · Pelanggan · Paket · Pembayaran · Transaksi · Laporan · Sistem.
+// Fitur detail (status akun, verifikasi, dsb.) dikelompokkan sebagai TAB di halaman hub.
+// Server-side tetap dilindungi requireAdmin() di /api/panel-admin/*.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -22,20 +23,11 @@ import {
 import {
   LayoutDashboard,
   PackageOpen,
-  Crown,
   ShieldCheck,
   Users,
-  UserPlus,
-  UserCheck,
-  UserX,
-  Clock,
-  History,
   Wallet,
-  Settings,
+  History,
   BarChart3,
-  Receipt,
-  ScrollText,
-  Users2,
   KeyRound,
   Menu,
   PanelLeftClose,
@@ -53,43 +45,20 @@ type NavItem = {
 
 const MENU_SECTIONS: { label: string; items: NavItem[] }[] = [
   {
-    label: 'Utama',
-    items: [{ href: '/panel-admin', label: 'Ringkasan', icon: LayoutDashboard, exact: true }],
-  },
-  {
-    label: 'Langganan',
+    label: 'Menu',
     items: [
-      { href: '/panel-admin/kelola-paket', label: 'Kelola Paket', icon: PackageOpen },
-      { href: '/panel-admin/paket-premium', label: 'Paket Premium', icon: Crown },
-      { href: '/panel-admin/verifikasi-pembayaran', label: 'Verifikasi Pembayaran', icon: ShieldCheck },
-      { href: '/panel-admin/riwayat-transaksi', label: 'Riwayat Transaksi', icon: History },
-      { href: '/panel-admin/pengaturan-pembayaran', label: 'Pengaturan Pembayaran', icon: Wallet },
-    ],
-  },
-  {
-    label: 'Daftar Akun',
-    items: [
-      { href: '/panel-admin/kelola-pelanggan', label: 'Kelola Pelanggan', icon: Users },
-      { href: '/panel-admin/akun-baru', label: 'Akun Baru', icon: UserPlus },
-      { href: '/panel-admin/akun-aktif', label: 'Akun Aktif', icon: UserCheck },
-      { href: '/panel-admin/akun-expired', label: 'Akun Expired', icon: Clock },
-      { href: '/panel-admin/akun-ditolak', label: 'Akun Ditolak', icon: UserX },
-      { href: '/panel-admin/pengaturan', label: 'Pengaturan Akun', icon: Settings },
-    ],
-  },
-  {
-    label: 'Laporan',
-    items: [
-      { href: '/panel-admin/laporan-bulanan', label: 'Laporan Bulanan', icon: BarChart3 },
-      { href: '/panel-admin/riwayat-penjualan', label: 'Riwayat Penjualan', icon: Receipt },
-      { href: '/panel-admin/laporan-audit', label: 'Laporan dan Audit', icon: ScrollText },
+      { href: '/panel-admin', label: 'Ringkasan', icon: LayoutDashboard, exact: true },
+      { href: '/panel-admin/pelanggan', label: 'Pelanggan', icon: Users },
+      { href: '/panel-admin/kelola-paket', label: 'Paket', icon: PackageOpen },
+      { href: '/panel-admin/pembayaran', label: 'Pembayaran', icon: Wallet },
+      { href: '/panel-admin/riwayat-transaksi', label: 'Transaksi', icon: History },
+      { href: '/panel-admin/laporan', label: 'Laporan', icon: BarChart3 },
     ],
   },
   {
     label: 'Sistem',
     items: [
-      { href: '/panel-admin/pengguna', label: 'Pengguna', icon: Users2 },
-      { href: '/panel-admin/hak-akses', label: 'Hak Akses', icon: KeyRound },
+      { href: '/panel-admin/sistem', label: 'Sistem', icon: KeyRound },
     ],
   },
 ]

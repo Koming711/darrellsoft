@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       title: 'Tagihan Baru Dibuat',
       body: `Tagihan ${invoiceNumber} — paket ${plan.name}. Menunggu pembayaran pelanggan.`,
       type: 'payment',
-      link: '/panel-admin/verifikasi-pembayaran',
+      link: '/panel-admin/pembayaran?tab=verifikasi',
     })
 
     return NextResponse.json({

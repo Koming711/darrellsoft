@@ -96,7 +96,7 @@ export default function PanelAdminPage() {
           </AlertTitle>
           <AlertDescription className="flex flex-wrap items-center gap-2">
             <span>Pembayaran tidak mengaktifkan langganan sebelum Anda menyetujuinya.</span>
-            <Link href="/panel-admin/verifikasi-pembayaran" className="inline-flex items-center gap-1 font-semibold text-amber-800 underline dark:text-amber-300">
+            <Link href="/panel-admin/pembayaran?tab=verifikasi" className="inline-flex items-center gap-1 font-semibold text-amber-800 underline dark:text-amber-300">
               Verifikasi sekarang <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </AlertDescription>
@@ -147,7 +147,7 @@ export default function PanelAdminPage() {
         <Card className="rounded-2xl">
           <CardHeader className="flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">Pembayaran Menunggu Verifikasi</CardTitle>
-            <Link href="/panel-admin/verifikasi-pembayaran" className="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+            <Link href="/panel-admin/pembayaran?tab=verifikasi" className="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400">
               Lihat semua
             </Link>
           </CardHeader>

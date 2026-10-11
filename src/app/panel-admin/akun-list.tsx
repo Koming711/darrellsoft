@@ -148,7 +148,7 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
           <button
             key={c.key}
             type="button"
-            onClick={() => router.push(c.key === 'baru' ? '/panel-admin/akun-baru' : `/panel-admin/akun-${c.key}`)}
+            onClick={() => router.push(`/panel-admin/pelanggan?tab=${c.key}`)}
             className={`text-left bg-card rounded-xl border p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${
               c.key === kategori ? 'border-primary ring-1 ring-primary' : 'border-slate-200 dark:border-slate-800'
             }`}
