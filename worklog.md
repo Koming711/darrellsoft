@@ -13368,3 +13368,25 @@ Stage Summary:
 - Tombol "Kirim Bukti Pembayaran" NONAKTIF sampai bukti diunggah (dengan helper text penjelas)
 - Bukti pembayaran otomatis dikompres ≤350KB (gambar canvas JPEG), PDF hard-limit 350KB, server memvalidasi 350KB — spec konsisten client+server
 - PWA v159; foto barang (photo-upload/items-view) tetap 300KB (tidak terpengaruh)
+---
+Task ID: hitung-cetakan-hapus-referensi-pk
+Agent: Z.ai Code (main)
+Task: "dihalaman hitung cetakan. delete no potong kertas (referensi)"
+
+Work Log:
+- TARGET: kotak "No. Potong Kertas (Referensi)" di editor /hitung-cetakan (label + nomor PK sumber / "—") — fitur dari changelog lama yang kini diminta dihapus
+- src/app/hitung-cetakan/page.tsx 6 perubahan: (1) state pkNomorDisplay dihapus; (2) fungsi resolvePkNomor (fetch /api/riwayat-potong-kertas?id= utk nomor referensi) dihapus; (3-5) 3 pemanggil resolvePkNomor/setPkNomorDisplay dihapus (URL param pkRiwayatId, applyLinkedRiwayatCetakan, handleRestoreRiwayat) — pkLinkRiwayatIdRef.current = r.pkRiwayatId TETAP (hubungan data PK⇄HC utk kolom No PK riwayat & simpan-update tidak diubah); (6) kotak editor kini hanya "No. Hitung Cetakan" (render cond nextHitungCetakanNumber)
+- TIDAK diubah: kolom "No PK" + pkNomor di tab Riwayat (fitur terpisah, label beda), data pkRiwayatId/pkNomor di DB & API
+- PWA bump v159 → v160 (public/sw.js + service-worker-registration.tsx)
+- eslint hitung-cetakan/page.tsx exit 0; rg pkNomorDisplay|resolvePkNomor = NONE
+- E2E agent-browser (login superadmin — CATATAN: akun angel TIDAK ADA lagi di Pengguna, "Username atau password salah"; superadmin/268899 OK):
+  - Editor: "No. Potong Kertas (Referensi)" HILANG (case-insensitive false), kotak "NO. HITUNG CETAKAN / HC/10/26/0001" tetap tampil ✓; mobile 390px juga bebas referensi ✓
+  - Tab Riwayat: render normal (superadmin 0 riwayat → empty state "Tidak ditemukan", bukan crash) ✓
+  - 0 console error, 0 page error, dev.log bersih; server tetap 200
+- Screenshot: .verify/hc-editor-no-referensi.png, hc-riwayat-nopk-column.png, hc-editor-mobile.png
+- Tidak ada data uji dibuat (verifikasi read-only)
+
+Stage Summary:
+- Kotak "No. Potong Kertas (Referensi)" dihapus total dari editor Hitung Cetakan (desktop+mobile); editor kini hanya menampilkan kotak "No. Hitung Cetakan"
+- Hubungan Potong Kertas ⇄ Hitung Cetakan (pkRiwayatId) utk simpan-update & kolom "No PK" di tab Riwayat TETAP utuh — hanya tampilan referensi di editor yang dihapus
+- PWA v160; lint bersih; tanpa perubahan DB/API

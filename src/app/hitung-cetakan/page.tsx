@@ -407,10 +407,6 @@ function HitungCetakanPage() {
   const [riwayatLoading, setRiwayatLoading] = useState(true)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
   const [nextHitungCetakanNumber, setNextHitungCetakanNumber] = useState('')
-  // Nomor riwayat Potong Kertas sumber — referensi asal data informasi cetakan &
-  // harga bahan saat editor diisi lewat tombol "Hitung Cetakan Lengkap" / lanjut
-  // riwayat HC yang terhubung (tampil di kotak "No. Hitung Cetakan").
-  const [pkNomorDisplay, setPkNomorDisplay] = useState('')
   const [activeTab, setActiveTab] = useState<'editor' | 'riwayat' | 'gabung'>('editor')
   const [searchQuery, setSearchQuery] = useState('')
   const [customerFilter, setCustomerFilter] = useState('')
@@ -487,16 +483,6 @@ function HitungCetakanPage() {
       .then(res => { if (!res.ok) return null; return res.json() })
       .then(data => { if (data?.nextNumber) setNextHitungCetakanNumber(data.nextNumber) })
       .catch(() => {})
-  }
-
-  // Ambil nomor riwayat Potong Kertas (utk referensi "No. Potong Kertas" di editor).
-  // id kosong → bersihkan tampilan; gagal fetch → tampilan dikosongkan (tidak mengganggu).
-  const resolvePkNomor = (pkId: string) => {
-    if (!pkId) { setPkNomorDisplay(''); return }
-    fetcher(`/api/riwayat-potong-kertas?id=${encodeURIComponent(pkId)}`, { headers: getAuthHeaders() })
-      .then(res => { if (!res.ok) return null; return res.json() })
-      .then(data => { setPkNomorDisplay(data?.nomorUrut || '') })
-      .catch(() => { setPkNomorDisplay('') })
   }
 
   const handleBackup = async () => {
@@ -802,8 +788,6 @@ function HitungCetakanPage() {
     const pkRiwayatId = searchParams.get('pkRiwayatId')
     if (pkRiwayatId) {
       pkLinkRiwayatIdRef.current = pkRiwayatId
-      // Tampilkan nomor Potong Kertas sumber di editor (referensi data cetakan & harga bahan)
-      resolvePkNomor(pkRiwayatId)
       window.__pkLinkMatch = {
         pkRiwayatId,
         printName: printName || '',
@@ -875,10 +859,6 @@ function HitungCetakanPage() {
     if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
     if (r.pkRiwayatId) {
       pkLinkRiwayatIdRef.current = r.pkRiwayatId
-      // Nomor Potong Kertas sumber: tampil instan dari pkNomor (bila ada), lalu fetch
-      // record lengkap utk snapshot referensi data informasi cetakan & harga bahan
-      if (r.pkNomor) setPkNomorDisplay(r.pkNomor)
-      resolvePkNomor(r.pkRiwayatId)
     }
     // Data CETAKAN diambil dari riwayat (data kertas/lembar tetap dari form hasil edit Potong Kertas)
     const rQty = parseInt(r.quantity) || 0
@@ -1625,14 +1605,6 @@ function HitungCetakanPage() {
     // Saat mengedit riwayat dari tab Riwayat: tampilkan nomor riwayat tsb (bukan nomor baru)
     if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
     pkLinkRiwayatIdRef.current = r.pkRiwayatId || ''
-    // Referensi No. Potong Kertas di editor (dari riwayat yang dibuka untuk diedit):
-    // tampil instan dari pkNomor bila ada, jika tidak fetch by id
-    if (r.pkRiwayatId) {
-      if (r.pkNomor) setPkNomorDisplay(r.pkNomor)
-      else resolvePkNomor(r.pkRiwayatId)
-    } else {
-      setPkNomorDisplay('')
-    }
     setPhotoUrl(r.photoUrl || '')
     setActiveTab('editor')
     const rQty = parseInt(r.quantity) || 0
@@ -2377,24 +2349,13 @@ function HitungCetakanPage() {
 
           {/* ========== COLUMN 1: INFO & HARGA ========== */}
           <div className="flex-1 min-w-0">
-            {/* Kotak No. Hitung Cetakan + referensi No. Potong Kertas (asal data cetakan & harga bahan).
-                SELALU tampil di editor: cukup nomornya saja — bila belum terhubung tampil "—". */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
-              {nextHitungCetakanNumber && (
-                <>
-                  <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
-                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
-                </>
-              )}
-              <div className={nextHitungCetakanNumber ? 'mt-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-800' : ''}>
-                <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider" title="Referensi data informasi cetakan & harga bahan dari halaman Potong Kertas">No. Potong Kertas (Referensi)</p>
-                {pkNomorDisplay ? (
-                  <p className="text-sm font-bold font-mono text-teal-700 dark:text-teal-300">{pkNomorDisplay}</p>
-                ) : (
-                  <p className="text-sm font-bold font-mono text-slate-300 dark:text-zinc-600">—</p>
-                )}
+            {/* Kotak No. Hitung Cetakan */}
+            {nextHitungCetakanNumber && (
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
+                <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
+                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
               </div>
-            </div>
+            )}
             <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
               {/* Section 1: Informasi Cetakan */}

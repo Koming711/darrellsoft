@@ -1,12 +1,12 @@
 {
   "version": "2.0",
   "type": "auto-backup",
-  "timestamp": "2026-10-09T12:49:26.551Z",
-  "userId": "cmv0ypflc0002mguzg4p2giqg",
+  "timestamp": "2026-10-11T04:52:02.997Z",
+  "userId": "cmv3cie0v0009naxncvhk3w1q",
   "database": {
     "Customer": [
       {
-        "id": "cmv0ypfln000emguz81cq0v4y",
+        "id": "cmv3cie18000onaxn5fp2tql9",
         "code": null,
         "name": "Budi Susanto",
         "companyName": "PT. Maju berkah",
@@ -15,12 +15,12 @@
         "email": "",
         "notes": null,
         "isActive": true,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.091Z",
-        "updatedAt": "2026-10-09T12:49:16.091Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.444Z",
+        "updatedAt": "2026-10-11T04:51:14.444Z"
       },
       {
-        "id": "cmv0ypflo000gmguz9mtmgy74",
+        "id": "cmv3cie1a000pnaxn6laesyea",
         "code": null,
         "name": "Siti Rohana",
         "companyName": "CV. Berkah jaya",
@@ -29,12 +29,12 @@
         "email": "siti@berkahabadi.com",
         "notes": null,
         "isActive": true,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.092Z",
-        "updatedAt": "2026-10-09T12:49:16.092Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.446Z",
+        "updatedAt": "2026-10-11T04:51:14.446Z"
       },
       {
-        "id": "cmv0ypflo000imguznqukkn2p",
+        "id": "cmv3cie1c000snaxn9a0pcebf",
         "code": null,
         "name": "Jaya Wijaya",
         "companyName": "UD. Sumber Berkat",
@@ -43,12 +43,12 @@
         "email": "ahmad@sumberrejeki.co.id",
         "notes": null,
         "isActive": true,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.092Z",
-        "updatedAt": "2026-10-09T12:49:16.092Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.448Z",
+        "updatedAt": "2026-10-11T04:51:14.448Z"
       },
       {
-        "id": "cmv0ypflp000kmguz17wn45ju",
+        "id": "cmv3cie1c000tnaxnorqr0mkd",
         "code": null,
         "name": "jaya",
         "companyName": "mobiletech",
@@ -57,12 +57,12 @@
         "email": "",
         "notes": null,
         "isActive": true,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.093Z",
-        "updatedAt": "2026-10-09T12:49:16.093Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.449Z",
+        "updatedAt": "2026-10-11T04:51:14.449Z"
       },
       {
-        "id": "cmv0ypflp000mmguzy4exhirj",
+        "id": "cmv3cie1a000qnaxnsfd1uciz",
         "code": null,
         "name": "Lunggan",
         "companyName": "skewer",
@@ -71,14 +71,14 @@
         "email": "",
         "notes": null,
         "isActive": true,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.093Z",
-        "updatedAt": "2026-10-09T12:49:16.093Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.446Z",
+        "updatedAt": "2026-10-11T04:51:14.446Z"
       }
     ],
     "Paper": [
       {
-        "id": "cmv0ypflj0003mguz03lzx6v8",
+        "id": "cmv3cie11000anaxn1cfu3jur",
         "name": "ivory",
         "grammage": 210,
         "width": 79,
@@ -86,25 +86,12 @@
         "pricePerRim": 1356233,
         "kategoriId": null,
         "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.088Z",
-        "updatedAt": "2026-10-09T12:49:16.088Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.438Z",
+        "updatedAt": "2026-10-11T04:51:14.438Z"
       },
       {
-        "id": "cmv0ypflk0005mguz10atbk47",
-        "name": "duplex",
-        "grammage": 270,
-        "width": 79,
-        "height": 109,
-        "pricePerRim": 1765000,
-        "kategoriId": null,
-        "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.088Z",
-        "updatedAt": "2026-10-09T12:49:16.088Z"
-      },
-      {
-        "id": "cmv0ypfll0007mguzcwaxrn8h",
+        "id": "cmv3cie12000cnaxnrtm8gqee",
         "name": "duplek",
         "grammage": 270,
         "width": 90,
@@ -112,12 +99,12 @@
         "pricePerRim": 2210000,
         "kategoriId": null,
         "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.089Z",
-        "updatedAt": "2026-10-09T12:49:16.089Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.439Z",
+        "updatedAt": "2026-10-11T04:51:14.439Z"
       },
       {
-        "id": "cmv0ypfll0009mguzn9hzxtf1",
+        "id": "cmv3cie12000dnaxnxrccc7uu",
         "name": "ivory",
         "grammage": 210,
         "width": 65,
@@ -125,12 +112,12 @@
         "pricePerRim": 1078350,
         "kategoriId": null,
         "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.090Z",
-        "updatedAt": "2026-10-09T12:49:16.090Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.439Z",
+        "updatedAt": "2026-10-11T04:51:14.439Z"
       },
       {
-        "id": "cmv0ypflm000bmguz9sb1oubd",
+        "id": "cmv3cie14000fnaxnnpco0cl5",
         "name": "art karton",
         "grammage": 260,
         "width": 65,
@@ -138,12 +125,12 @@
         "pricePerRim": 1394250,
         "kategoriId": null,
         "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.090Z",
-        "updatedAt": "2026-10-09T12:49:16.090Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.441Z",
+        "updatedAt": "2026-10-11T04:51:14.441Z"
       },
       {
-        "id": "cmv0ypfln000dmguzty5oxqk9",
+        "id": "cmv3cie15000hnaxnfggqhu71",
         "name": "art karton",
         "grammage": 260,
         "width": 79,
@@ -151,12 +138,12 @@
         "pricePerRim": 1903031,
         "kategoriId": null,
         "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.091Z",
-        "updatedAt": "2026-10-09T12:49:16.091Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.441Z",
+        "updatedAt": "2026-10-11T04:51:14.441Z"
       },
       {
-        "id": "cmv0ypflj0004mguz4tvnlv2b",
+        "id": "cmv3cie11000bnaxnl0lrlriw",
         "name": "ivory",
         "grammage": 300,
         "width": 79,
@@ -164,14 +151,27 @@
         "pricePerRim": 1937475,
         "kategoriId": null,
         "suplier": null,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.088Z",
-        "updatedAt": "2026-10-09T12:49:16.088Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.438Z",
+        "updatedAt": "2026-10-11T04:51:14.438Z"
+      },
+      {
+        "id": "cmv3cie1c000rnaxnnk10dioj",
+        "name": "duplex",
+        "grammage": 270,
+        "width": 79,
+        "height": 109,
+        "pricePerRim": 1765000,
+        "kategoriId": null,
+        "suplier": null,
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.448Z",
+        "updatedAt": "2026-10-11T04:51:14.448Z"
       }
     ],
     "PrintingCost": [
       {
-        "id": "cmv0ypfln000fmguz6ig3lp6f",
+        "id": "cmv3cie16000jnaxnaz3jzvxs",
         "machineName": "sm52",
         "grammage": 0,
         "printAreaWidth": 52,
@@ -181,12 +181,12 @@
         "minimumPrintQuantity": 1000,
         "priceAboveMinimumPerSheet": 60,
         "platePricePerSheet": 18000,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.092Z",
-        "updatedAt": "2026-10-09T12:49:16.092Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.443Z",
+        "updatedAt": "2026-10-11T04:51:14.443Z"
       },
       {
-        "id": "cmv0ypflo000hmguzibkjrq0q",
+        "id": "cmv3cie17000lnaxnk344wezn",
         "machineName": "sm74",
         "grammage": 0,
         "printAreaWidth": 74,
@@ -196,12 +196,12 @@
         "minimumPrintQuantity": 1000,
         "priceAboveMinimumPerSheet": 120,
         "platePricePerSheet": 36000,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.092Z",
-        "updatedAt": "2026-10-09T12:49:16.092Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.443Z",
+        "updatedAt": "2026-10-11T04:51:14.443Z"
       },
       {
-        "id": "cmv0ypflo000jmguz6vd4dsul",
+        "id": "cmv3cie17000nnaxnpgdqzq8w",
         "machineName": "oliver 58",
         "grammage": 150,
         "printAreaWidth": 58,
@@ -211,66 +211,66 @@
         "minimumPrintQuantity": 1000,
         "priceAboveMinimumPerSheet": 70,
         "platePricePerSheet": 20000,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.093Z",
-        "updatedAt": "2026-10-09T12:49:16.093Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.444Z",
+        "updatedAt": "2026-10-11T04:51:14.444Z"
       }
     ],
     "Finishing": [
       {
-        "id": "cmv0ypflk0006mguz8qp3uhm9",
-        "name": "pond",
-        "minimumSheets": 1000,
-        "minimumPrice": 75000,
-        "additionalPrice": 40,
-        "pricePerCm": 0,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.089Z",
-        "updatedAt": "2026-10-09T12:49:16.089Z"
-      },
-      {
-        "id": "cmv0ypfll0008mguzw869zwme",
-        "name": "laminating glossy",
-        "minimumSheets": 0,
-        "minimumPrice": 150000,
-        "additionalPrice": 0,
-        "pricePerCm": 0.16,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.090Z",
-        "updatedAt": "2026-10-09T12:49:16.090Z"
-      },
-      {
-        "id": "cmv0ypflm000amguz9b3bm3ug",
-        "name": "spot uv",
-        "minimumSheets": 0,
-        "minimumPrice": 400000,
-        "additionalPrice": 0,
-        "pricePerCm": 0.25,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.090Z",
-        "updatedAt": "2026-10-09T12:49:16.090Z"
-      },
-      {
-        "id": "cmv0ypflm000cmguz5444wvty",
-        "name": "jahit kawat 2 mata",
-        "minimumSheets": 0,
-        "minimumPrice": 100000,
-        "additionalPrice": 120,
-        "pricePerCm": 0,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.091Z",
-        "updatedAt": "2026-10-09T12:49:16.091Z"
-      },
-      {
-        "id": "cmv0ypflp000lmguzdxz0qaqx",
+        "id": "cmv3cie13000enaxnviht4zh7",
         "name": "laminating doff",
         "minimumSheets": 0,
         "minimumPrice": 180000,
         "additionalPrice": 0,
         "pricePerCm": 0.18,
-        "userId": "cmv0ypflc0002mguzg4p2giqg",
-        "createdAt": "2026-10-09T12:49:16.093Z",
-        "updatedAt": "2026-10-09T12:49:16.093Z"
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.439Z",
+        "updatedAt": "2026-10-11T04:51:14.439Z"
+      },
+      {
+        "id": "cmv3cie14000gnaxnz8oiw5le",
+        "name": "pond",
+        "minimumSheets": 1000,
+        "minimumPrice": 75000,
+        "additionalPrice": 40,
+        "pricePerCm": 0,
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.441Z",
+        "updatedAt": "2026-10-11T04:51:14.441Z"
+      },
+      {
+        "id": "cmv3cie15000inaxnd22wm84z",
+        "name": "laminating glossy",
+        "minimumSheets": 0,
+        "minimumPrice": 150000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.16,
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.441Z",
+        "updatedAt": "2026-10-11T04:51:14.441Z"
+      },
+      {
+        "id": "cmv3cie17000knaxn9kg55g02",
+        "name": "spot uv",
+        "minimumSheets": 0,
+        "minimumPrice": 400000,
+        "additionalPrice": 0,
+        "pricePerCm": 0.25,
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.443Z",
+        "updatedAt": "2026-10-11T04:51:14.443Z"
+      },
+      {
+        "id": "cmv3cie17000mnaxnmspra4mx",
+        "name": "jahit kawat 2 mata",
+        "minimumSheets": 0,
+        "minimumPrice": 100000,
+        "additionalPrice": 120,
+        "pricePerCm": 0,
+        "userId": "cmv3cie0v0009naxncvhk3w1q",
+        "createdAt": "2026-10-11T04:51:14.444Z",
+        "updatedAt": "2026-10-11T04:51:14.444Z"
       }
     ],
     "TokoPemasok": [],
