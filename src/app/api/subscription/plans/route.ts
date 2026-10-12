@@ -23,8 +23,6 @@ export async function GET() {
         originalPrice: p.originalPrice,
         features: JSON.parse(p.features || '[]'),
         maxAccounts: p.maxAccounts,
-        maxTransactions: p.maxTransactions,
-        maxStorageMb: p.maxStorageMb,
         durationDays: p.durationDays,
         isPopular: p.isPopular,
         isActive: p.isActive,

@@ -74,8 +74,6 @@ export async function POST(request: NextRequest) {
         originalPrice,
         features: JSON.stringify(parseFeatures(body?.features)),
         maxAccounts,
-        maxTransactions: body?.maxTransactions === null || body?.maxTransactions === '' || body?.maxTransactions === undefined ? null : Math.max(0, Number(body.maxTransactions) || 0),
-        maxStorageMb: body?.maxStorageMb === null || body?.maxStorageMb === '' || body?.maxStorageMb === undefined ? null : Math.max(0, Number(body.maxStorageMb) || 0),
         durationDays,
         isActive: body?.isActive !== false,
         isPopular: body?.isPopular === true,
@@ -116,8 +114,6 @@ export async function PUT(request: NextRequest) {
     }
     if (body?.features !== undefined) data.features = JSON.stringify(parseFeatures(body.features))
     if (body?.maxAccounts !== undefined) data.maxAccounts = Math.max(1, Number(body.maxAccounts) || 1)
-    if (body?.maxTransactions !== undefined) data.maxTransactions = body.maxTransactions === null || body.maxTransactions === '' ? null : Math.max(0, Number(body.maxTransactions) || 0)
-    if (body?.maxStorageMb !== undefined) data.maxStorageMb = body.maxStorageMb === null || body.maxStorageMb === '' ? null : Math.max(0, Number(body.maxStorageMb) || 0)
     if (body?.durationDays !== undefined) data.durationDays = Math.max(1, Math.min(3650, Number(body.durationDays) || 30))
     if (body?.isActive !== undefined) data.isActive = !!body.isActive
     if (body?.isPopular !== undefined) {

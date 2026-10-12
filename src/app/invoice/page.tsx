@@ -35,6 +35,7 @@ import {
   FileSpreadsheet,
   ReceiptText,
   Maximize2,
+  Undo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -308,6 +309,7 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
 
   // Dialog konfirmasi
   const [lunasOpen, setLunasOpen] = useState(false)
+  const [batalLunasOpen, setBatalLunasOpen] = useState(false)
   const [batalOpen, setBatalOpen] = useState(false)
   const [hapusOpen, setHapusOpen] = useState(false)
 
@@ -510,6 +512,81 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     }
   }
 
+  // Batal Lunas — batalkan status lunas invoice (kembalikan ke belum lunas).
+  // Dokumen tertaut (Invoice DP ⇄ Invoice Pelunasan) ikut disinkronkan agar
+  // status konsisten — pola sama dengan sinkronisasi di Editor Invoice Pelunasan.
+  const handleBatalLunas = async () => {
+    if (!entry || !data) return
+    setUpdating(true)
+    try {
+      const parsed = JSON.parse(entry.dataJson)
+      parsed.lunas = false
+      parsed.tanggalPelunasan = ''
+      const res = await fetcher(`/api/history/${entry.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ dataJson: JSON.stringify(parsed) }),
+      })
+      if (res.ok) {
+        const isPel = parsed.type === 'invoice-pelunasan' || info?.isPelunasan
+        const hasDp = (parsed.dp || 0) > 0
+        if (!isPel && hasDp) {
+          // Invoice DP → cari Invoice Pelunasan tertaut & batalkan lunas-nya juga
+          try {
+            const pelRes = await fetch('/api/history?docType=invoice-pelunasan', { headers: getAuthHeaders() })
+            const pelJson = pelRes.ok ? await pelRes.json() : { data: [] }
+            const linked = ((pelJson.data || []) as Array<{ id: string; dataJson: string }>).find((e) => {
+              try {
+                const p = JSON.parse(e.dataJson)
+                return String(p.referensiInvoiceId) === String(entry.id) || p.referensiInvoiceNomor === (parsed.nomor || entry.nomor)
+              } catch { return false }
+            })
+            if (linked) {
+              const lp = JSON.parse(linked.dataJson)
+              lp.lunas = false
+              lp.tanggalPelunasan = ''
+              await fetch(`/api/history/${linked.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                body: JSON.stringify({ dataJson: JSON.stringify(lp) }),
+              })
+            }
+          } catch { /* sinkron non-kritikal */ }
+        } else if (isPel && parsed.referensiInvoiceId) {
+          // Invoice Pelunasan → batalkan lunas juga di invoice DP pemiliknya
+          try {
+            const invRes = await fetch(`/api/history/${parsed.referensiInvoiceId}`, { headers: getAuthHeaders() })
+            if (invRes.ok) {
+              const invJson = await invRes.json()
+              const invEntry = invJson.data
+              if (invEntry?.dataJson) {
+                const ip = JSON.parse(invEntry.dataJson)
+                ip.lunas = false
+                ip.tanggalPelunasan = ''
+                await fetch(`/api/history/${invEntry.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                  body: JSON.stringify({ dataJson: JSON.stringify(ip) }),
+                })
+              }
+            }
+          } catch { /* sinkron non-kritikal */ }
+        }
+        toast.success('Status lunas invoice dibatalkan')
+        setBatalLunasOpen(false)
+        window.dispatchEvent(new CustomEvent('dokupro:history-updated'))
+        notifyDataChange('invoice')
+        loadEntry()
+      } else {
+        toast.error('Gagal membatalkan status lunas')
+      }
+    } catch {
+      toast.error('Gagal membatalkan status lunas')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   // Batal — invoice dibatalkan (status Batal di riwayat & detail)
   const handleBatal = async () => {
     if (!entry) return
@@ -668,6 +745,17 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                 </div>
               </div>
             )}
+            {status === 'lunas' && (
+              <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-xs font-medium text-emerald-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  Invoice ini sudah dibayar penuh{info.tanggalPelunasan ? ` pada ${formatTanggalShort(info.tanggalPelunasan)}` : ''}.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setBatalLunasOpen(true)} disabled={updating} className="border-amber-200 text-amber-700 hover:bg-amber-50 min-h-[36px]">
+                  <Undo2 className="mr-1.5 h-3.5 w-3.5" /> Batal Lunas
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Tombol aksi — DI ATAS pratinjau */}
@@ -746,6 +834,24 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                 <AlertDialogCancel disabled={updating}>Batal</AlertDialogCancel>
                 <AlertDialogAction className="bg-violet-600 hover:bg-violet-700" onClick={(e) => { e.preventDefault(); void handleTandaiLunas() }}>
                   {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Tandai Lunas'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Konfirmasi Batal Lunas */}
+          <AlertDialog open={batalLunasOpen} onOpenChange={setBatalLunasOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Batalkan status lunas invoice ini?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Invoice {entry.nomor} akan dikembalikan menjadi &quot;Belum Lunas&quot; — tanggal pelunasan dihapus dan invoice dapat ditandai lunas kembali setelah pembayaran diterima.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={updating}>Tidak</AlertDialogCancel>
+                <AlertDialogAction className="bg-amber-600 hover:bg-amber-700 text-white" onClick={(e) => { e.preventDefault(); void handleBatalLunas() }}>
+                  {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Batal Lunas'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

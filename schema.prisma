@@ -585,8 +585,6 @@ model SubscriptionPlan {
   originalPrice   Float? // harga sebelum diskon — tampil dicoret bila > monthlyPrice
   features        String   @default("[]") // JSON array string perincian fitur
   maxAccounts     Int      @default(1) // batas akun pengguna
-  maxTransactions Int? // batas transaksi/bulan (null = tak terbatas)
-  maxStorageMb    Int? // batas penyimpanan MB (null = tak terbatas)
   durationDays    Int      @default(30) // masa berlaku per pembayaran (hari)
   isActive        Boolean  @default(true) // paket bisa dipilih pelanggan
   isPopular       Boolean  @default(false) // badge "Terpopuler"

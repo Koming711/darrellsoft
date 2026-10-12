@@ -159,8 +159,15 @@ const DEFAULT_FEATURES_BASIC = [
   'Hitung Potong Kertas, Cetakan & Finishing',
   'Stock Bahan Baku',
   'Maksimal 1 akun pengguna',
-  'Batas 200 transaksi / bulan',
-  'Penyimpanan 1 GB',
+]
+
+const DEFAULT_FEATURES_TRIAL = [
+  'Semua fitur dasar Darrellsoft',
+  'Buat Invoice & Surat Jalan',
+  'Hitung Potong Kertas, Cetakan & Finishing',
+  'Stock Bahan Baku',
+  'Maksimal 1 akun pengguna',
+  'Dukungan email',
 ]
 
 const DEFAULT_FEATURES_PRO = [
@@ -169,30 +176,34 @@ const DEFAULT_FEATURES_PRO = [
   'Laporan Laba Rugi & Penjualan POS',
   'Piutang & Hutang Dagang',
   'Maksimal 3 akun pengguna',
-  'Batas 1.000 transaksi / bulan',
-  'Penyimpanan 5 GB',
 ]
 
 const DEFAULT_FEATURES_PREMIUM = [
   'Seluruh fitur paket Pro',
   'Maksimal 10 akun pengguna',
-  'Transaksi tanpa batas',
-  'Penyimpanan 20 GB',
   'Prioritas dukungan pelanggan',
 ]
 
-/** Buat 3 paket default + pengaturan pembayaran bila DB masih kosong. */
+/** Buat 4 paket default (Trial/Basic/Pro/Premium) + pengaturan pembayaran bila DB masih kosong. */
 export async function ensureSubscriptionSeeded(): Promise<void> {
   const planCount = await db.subscriptionPlan.count()
   if (planCount === 0) {
     await db.subscriptionPlan.createMany({
       data: [
         {
+          slug: 'trial', name: 'Trial', sortOrder: 0,
+          description: 'Paket awal harga terjangkau untuk mencoba sistem.',
+          monthlyPrice: 50000, originalPrice: null,
+          features: JSON.stringify(DEFAULT_FEATURES_TRIAL),
+          maxAccounts: 1,
+          durationDays: 30, isActive: true, isPopular: false,
+        },
+        {
           slug: 'basic', name: 'Basic', sortOrder: 1,
           description: 'Untuk pengguna usaha kecil yang baru memulai.',
           monthlyPrice: 99000, originalPrice: null,
           features: JSON.stringify(DEFAULT_FEATURES_BASIC),
-          maxAccounts: 1, maxTransactions: 200, maxStorageMb: 1024,
+          maxAccounts: 1,
           durationDays: 30, isActive: true, isPopular: false,
         },
         {
@@ -200,7 +211,7 @@ export async function ensureSubscriptionSeeded(): Promise<void> {
           description: 'Untuk usaha yang berkembang — laporan lengkap.',
           monthlyPrice: 199000, originalPrice: 249000,
           features: JSON.stringify(DEFAULT_FEATURES_PRO),
-          maxAccounts: 3, maxTransactions: 1000, maxStorageMb: 5120,
+          maxAccounts: 3,
           durationDays: 30, isActive: true, isPopular: true,
         },
         {
@@ -208,12 +219,12 @@ export async function ensureSubscriptionSeeded(): Promise<void> {
           description: 'Untuk usaha yang membutuhkan fitur lengkap.',
           monthlyPrice: 299000, originalPrice: 399000,
           features: JSON.stringify(DEFAULT_FEATURES_PREMIUM),
-          maxAccounts: 10, maxTransactions: null, maxStorageMb: 20480,
+          maxAccounts: 10,
           durationDays: 30, isActive: true, isPopular: false,
         },
       ],
     })
-    await addAuditLog({ action: 'plan_created', performedBy: 'system', notes: 'Seed 3 paket default (Basic/Pro/Premium)' })
+    await addAuditLog({ action: 'plan_created', performedBy: 'system', notes: 'Seed 4 paket default (Trial/Basic/Pro/Premium)' })
   }
   await getPaymentSettings()
 }

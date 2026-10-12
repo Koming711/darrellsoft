@@ -20,8 +20,6 @@ import {
   Check,
   ChevronLeft,
   Users,
-  Zap,
-  Database,
   CalendarClock,
   Crown,
   Info,
@@ -38,8 +36,6 @@ interface Plan {
   originalPrice: number | null
   features: string[]
   maxAccounts: number
-  maxTransactions: number | null
-  maxStorageMb: number | null
   durationDays: number
   isPopular: boolean
   isActive: boolean
@@ -243,14 +239,6 @@ export default function PilihPaketPage() {
                     <div className="mt-5 space-y-1.5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Users className="h-3.5 w-3.5" /> Maks {plan.maxAccounts} akun pengguna
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-3.5 w-3.5" />
-                        {plan.maxTransactions === null ? 'Transaksi tanpa batas' : `Batas ${plan.maxTransactions.toLocaleString('id-ID')} transaksi/bulan`}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Database className="h-3.5 w-3.5" />
-                        {plan.maxStorageMb === null ? 'Penyimpanan tanpa batas' : `Penyimpanan ${plan.maxStorageMb >= 1024 ? `${plan.maxStorageMb / 1024} GB` : `${plan.maxStorageMb} MB`}`}
                       </div>
                       <div className="flex items-center gap-2">
                         <CalendarClock className="h-3.5 w-3.5" /> Masa berlaku {plan.durationDays} hari per pembayaran

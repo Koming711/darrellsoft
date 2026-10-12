@@ -2,7 +2,7 @@
 
 // /panel-admin/kelola-paket — CRUD paket langganan:
 // nama, deskripsi, perincian fitur (editable), harga bulanan, harga coret (diskon),
-// batas akun/transaksi/penyimpanan, masa berlaku (hari), status aktif, populer.
+// batas akun, masa berlaku (hari), status aktif, populer.
 
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -42,8 +42,6 @@ import {
   Plus,
   Trash2,
   Users,
-  Zap,
-  Database,
   CalendarClock,
   Eye,
   EyeOff,
@@ -60,8 +58,6 @@ interface Plan {
   originalPrice: number | null
   features: string[]
   maxAccounts: number
-  maxTransactions: number | null
-  maxStorageMb: number | null
   durationDays: number
   isActive: boolean
   isPopular: boolean
@@ -77,8 +73,6 @@ interface FormState {
   originalPrice: string
   featuresText: string
   maxAccounts: string
-  maxTransactions: string
-  maxStorageMb: string
   durationDays: string
   isActive: boolean
   isPopular: boolean
@@ -92,8 +86,6 @@ const EMPTY_FORM: FormState = {
   originalPrice: '',
   featuresText: '',
   maxAccounts: '1',
-  maxTransactions: '',
-  maxStorageMb: '',
   durationDays: '30',
   isActive: true,
   isPopular: false,
@@ -140,8 +132,6 @@ export function KelolaPaketContent() {
       originalPrice: p.originalPrice ? String(p.originalPrice) : '',
       featuresText: (p.features ?? []).join('\n'),
       maxAccounts: String(p.maxAccounts),
-      maxTransactions: p.maxTransactions === null ? '' : String(p.maxTransactions),
-      maxStorageMb: p.maxStorageMb === null ? '' : String(p.maxStorageMb),
       durationDays: String(p.durationDays),
       isActive: p.isActive,
       isPopular: p.isPopular,
@@ -170,8 +160,6 @@ export function KelolaPaketContent() {
         originalPrice: form.originalPrice === '' ? null : Number(form.originalPrice),
         features: form.featuresText.split('\n').map((s) => s.trim()).filter(Boolean),
         maxAccounts: Number(form.maxAccounts) || 1,
-        maxTransactions: form.maxTransactions === '' ? null : Number(form.maxTransactions),
-        maxStorageMb: form.maxStorageMb === '' ? null : Number(form.maxStorageMb),
         durationDays: Number(form.durationDays) || 30,
         isActive: form.isActive,
         isPopular: form.isPopular,
@@ -332,8 +320,6 @@ export function KelolaPaketContent() {
 
                 <div className="mt-3 grid grid-cols-2 gap-1.5 rounded-lg bg-muted/60 p-2.5 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {p.maxAccounts} akun</span>
-                  <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> {p.maxTransactions === null ? 'Txn tanpa batas' : `${p.maxTransactions.toLocaleString('id-ID')} txn/bln`}</span>
-                  <span className="flex items-center gap-1"><Database className="h-3 w-3" /> {p.maxStorageMb === null ? 'Tanpa batas' : p.maxStorageMb >= 1024 ? `${p.maxStorageMb / 1024} GB` : `${p.maxStorageMb} MB`}</span>
                   <span className="flex items-center gap-1"><CalendarClock className="h-3 w-3" /> {p.durationDays} hari</span>
                 </div>
 
@@ -387,14 +373,6 @@ export function KelolaPaketContent() {
             <div className="space-y-1.5">
               <Label htmlFor="plan-accounts">Maks Akun Pengguna</Label>
               <Input id="plan-accounts" type="number" min="1" value={form.maxAccounts} onChange={(e) => setForm({ ...form, maxAccounts: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="plan-txn">Batas Transaksi/Bulan</Label>
-              <Input id="plan-txn" type="number" min="0" value={form.maxTransactions} onChange={(e) => setForm({ ...form, maxTransactions: e.target.value })} placeholder="Kosongkan = tanpa batas" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="plan-storage">Penyimpanan (MB)</Label>
-              <Input id="plan-storage" type="number" min="0" value={form.maxStorageMb} onChange={(e) => setForm({ ...form, maxStorageMb: e.target.value })} placeholder="Kosongkan = tanpa batas" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="plan-duration">Masa Berlaku (hari)</Label>

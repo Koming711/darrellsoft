@@ -54,8 +54,6 @@ interface LivePlan {
   originalPrice: number | null;
   features: string[];
   maxAccounts: number;
-  maxTransactions: number | null;
-  maxStorageMb: number | null;
   durationDays: number;
   isPopular: boolean;
   isActive: boolean;
@@ -1832,7 +1830,6 @@ export default function Home() {
               'Hitung Potong Kertas, Cetakan & Finishing',
               'Stock Bahan Baku',
               'Maksimal 1 akun pengguna',
-              'Batas 200 transaksi / bulan',
               'Dukungan email',
             ]}
             delay={0}
@@ -1853,8 +1850,6 @@ export default function Home() {
               'Laporan Laba Rugi & Penjualan POS',
               'Piutang & Hutang Dagang',
               'Maksimal 3 akun pengguna',
-              'Batas 1.000 transaksi / bulan',
-              'Penyimpanan 5 GB',
             ]}
             delay={0}
             onSelect={() => router.push('/pilih-paket')}
@@ -1869,8 +1864,6 @@ export default function Home() {
             features={[
               'Seluruh fitur paket Pro',
               'Maksimal 10 akun pengguna',
-              'Transaksi tanpa batas',
-              'Penyimpanan 20 GB',
               'Prioritas dukungan pelanggan',
             ]}
             delay={0.15}
