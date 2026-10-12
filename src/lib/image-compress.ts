@@ -1,6 +1,9 @@
 /** Target ukuran maksimal foto setelah kompresi (≤300KB). */
 export const PHOTO_MAX_BYTES = 300 * 1024
 
+/** Batas ukuran bukti pembayaran langganan (≤350KB, otomatis dikompres). */
+export const PAYMENT_PROOF_MAX_BYTES = 350 * 1024
+
 /** Hitung jumlah byte dari data URL (base64). */
 export function dataUrlBytes(dataUrl: string): number {
   const b64 = dataUrl.split(',')[1] ?? ''
@@ -14,12 +17,16 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Kompres gambar apa pun (JPG/PNG/WebP) menjadi data URL JPEG ≤300KB:
+ * Kompres gambar apa pun (JPG/PNG/WebP) menjadi data URL JPEG ≤ maxBytes
+ * (default 300KB, bukti pembayaran 350KB):
  * mulai dari sisi terpanjang 1600px + quality 0.85, turunkan quality,
  * lalu perkecil dimensi sampai target tercapai. Latar putih untuk PNG transparan.
  * Hanya untuk sisi client (browser) — memakai canvas.
  */
-export async function compressImageToJpegDataUrl(file: File): Promise<string> {
+export async function compressImageToJpegDataUrl(
+  file: File,
+  maxBytes: number = PHOTO_MAX_BYTES,
+): Promise<string> {
   if (!file.type.startsWith('image/')) {
     throw new Error('File harus berupa gambar (JPG/PNG/WebP)')
   }
@@ -41,7 +48,7 @@ export async function compressImageToJpegDataUrl(file: File): Promise<string> {
       ctx.fillRect(0, 0, w, h)
       ctx.drawImage(bitmap, 0, 0, w, h)
       out = canvas.toDataURL('image/jpeg', quality)
-      if (dataUrlBytes(out) <= PHOTO_MAX_BYTES) return out
+      if (dataUrlBytes(out) <= maxBytes) return out
       if (quality > 0.45) {
         quality = Math.max(0.45, quality - 0.1)
       } else {

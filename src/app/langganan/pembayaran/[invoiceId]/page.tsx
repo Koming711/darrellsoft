@@ -2,7 +2,8 @@
 
 // /langganan/pembayaran/[invoiceId] — Pembayaran Manual (QRIS / Transfer Bank)
 // Alur: ringkasan pesanan → pilih metode → instruksi pembayaran (QRIS/REK) →
-// unggah bukti (JPG/PNG/PDF ≤500KB) → status "Menunggu Verifikasi" → admin setujui.
+// unggah bukti (JPG/PNG/PDF ≤350KB, gambar otomatis dikompres) →
+// status "Menunggu Verifikasi" → admin setujui.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -16,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { compressImageToJpegDataUrl, dataUrlBytes, formatBytes } from '@/lib/image-compress'
+import { compressImageToJpegDataUrl, dataUrlBytes, formatBytes, PAYMENT_PROOF_MAX_BYTES } from '@/lib/image-compress'
 import { authFetch, getAuthHeaders } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
 import {
@@ -146,8 +147,8 @@ export default function PembayaranPage() {
     if (!file) return
     try {
       if (file.type === 'application/pdf') {
-        if (file.size > 500 * 1024) {
-          toast.error(`Ukuran PDF maksimal 500KB (file Anda ${formatBytes(file.size)})`)
+        if (file.size > PAYMENT_PROOF_MAX_BYTES) {
+          toast.error(`Ukuran PDF maksimal 350KB (file Anda ${formatBytes(file.size)})`)
           return
         }
         const reader = new FileReader()
@@ -162,8 +163,9 @@ export default function PembayaranPage() {
         toast.error('File bukti harus JPG, PNG, atau PDF')
         return
       }
-      const dataUrl = await compressImageToJpegDataUrl(file)
-      if (dataUrlBytes(dataUrl) > 500 * 1024) {
+      // Gambar otomatis dikompres ke JPEG ≤350KB
+      const dataUrl = await compressImageToJpegDataUrl(file, PAYMENT_PROOF_MAX_BYTES)
+      if (dataUrlBytes(dataUrl) > PAYMENT_PROOF_MAX_BYTES) {
         toast.error('Gagal mengompres gambar — coba gambar lebih kecil')
         return
       }
@@ -461,7 +463,7 @@ export default function PembayaranPage() {
                   )}
 
                   <div className="space-y-2">
-                    <Label>Unggah Bukti Pembayaran (JPG, PNG, atau PDF — maks 500KB) *</Label>
+                    <Label>Unggah Bukti Pembayaran (JPG, PNG, atau PDF — maks 350KB) *</Label>
                     <input
                       ref={fileRef}
                       type="file"
@@ -492,7 +494,7 @@ export default function PembayaranPage() {
                           <Upload className="h-8 w-8" />
                           <span>Klik untuk memilih file bukti transfer / bukti QRIS</span>
                           <span className="inline-flex items-center gap-1 text-xs">
-                            <ImageIcon className="h-3 w-3" /> Gambar otomatis dikompres · PDF maks 500KB
+                            <ImageIcon className="h-3 w-3" /> Gambar otomatis dikompres maks 350KB · PDF maks 350KB
                           </span>
                         </>
                       )}
@@ -504,7 +506,11 @@ export default function PembayaranPage() {
                     <Textarea id="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Contoh: transfer via m-banking jam 20.15" />
                   </div>
 
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={submitProof} disabled={submitting}>
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    onClick={submitProof}
+                    disabled={submitting || !proofDataUrl}
+                  >
                     {submitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengirim…
@@ -515,6 +521,11 @@ export default function PembayaranPage() {
                       </>
                     )}
                   </Button>
+                  {!proofDataUrl && !submitting && (
+                    <p className="text-center text-xs text-amber-600 dark:text-amber-400">
+                      Unggah bukti pembayaran terlebih dahulu untuk mengaktifkan tombol kirim.
+                    </p>
+                  )}
                   <p className="text-center text-xs text-muted-foreground">
                     Status tagihan berubah menjadi <b>Menunggu Verifikasi</b>. Langganan diaktifkan otomatis
                     hanya setelah admin menyetujui pembayaran.

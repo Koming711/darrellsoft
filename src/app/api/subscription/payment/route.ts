@@ -20,7 +20,7 @@ import {
 export const dynamic = 'force-dynamic'
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'application/pdf']
-const MAX_PROOF_BYTES = 500 * 1024 // 500 KB
+const MAX_PROOF_BYTES = 350 * 1024 // 350 KB — sinkron dgn kompresi otomatis di client
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const bytes = Math.floor((b64.length * 3) / 4)
     if (bytes > MAX_PROOF_BYTES) {
       return NextResponse.json(
-        { error: `Ukuran file bukti maksimal 500KB (file Anda ±${Math.round(bytes / 1024)}KB)` },
+        { error: `Ukuran file bukti maksimal 350KB (file Anda ±${Math.round(bytes / 1024)}KB)` },
         { status: 400 },
       )
     }

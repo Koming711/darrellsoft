@@ -13343,3 +13343,28 @@ Stage Summary:
 - 6/6 permintaan selesai & terverifikasi E2E: tombol Batal Lunas (dengan sinkron DP⇄PEL dua arah), notifikasi realtime (sudah ada, lolos verifikasi socket→toast), tombol Tambah Kategori di Biaya (sudah ada, lolos verifikasi), dialog Perpanjang Masa Berlaku menampilkan bukti transfer perpanjangan (sudah ada, lolos verifikasi), batas transaksi & penyimpanan HAPUS total dari schema+DB+semua UI/form/API, paket Trial Rp 50.000/bulan tampil pertama di landing & Pilih Paket
 - TEMUAN TEKNIS PENTING: (1) prisma CLI memakai schema.prisma ROOT sebagai default saat file duplikat ada — selalu generate dengan --schema prisma/schema.prisma atau sinkronkan root; (2) prisma db push tidak men-drop kolom nullable yang dihapus dari schema (klaim "already in sync") — pakai ALTER TABLE DROP COLUMN manual
 - PWA sekarang v158; eslint bersih; tidak ada data uji tersisa
+---
+Task ID: bukti-pembayaran-350kb-tombol-nonaktif
+Agent: Z.ai Code (main)
+Task: "di halaman pilih paket. apabila bukti pembayaran belum di upload, maka tombol kirim bukti pembayaran nonaktif. upload bukti pembayaran otomatis di compress max 350kb. fix"
+
+Work Log:
+- AUDIT alur pilih-paket: /pilih-paket → klik "Pilih Paket" → redirect /langganan/pembayaran/[invoiceId] (form QRIS/Transfer + upload bukti). Tombol "Kirim Bukti Pembayaran" di page itu hanya disabled={submitting} — masih bisa diklik tanpa bukti (hanya guard toast). Kompresi otomatis SUDAH ada (shared lib image-compress target 300KB utk foto barang) tapi bukti pembayaran pakai label/checks/PDF limit/server limit 500KB — tidak konsisten dgn spesifikasi 350KB
+- src/lib/image-compress.ts: compressImageToJpegDataUrl(file, maxBytes = PHOTO_MAX_BYTES) — param maxBytes baru (default 300KB utk foto barang TIDAK berubah) + export const PAYMENT_PROOF_MAX_BYTES = 350*1024
+- src/app/langganan/pembayaran/[invoiceId]/page.tsx: (1) tombol kirim kini disabled={submitting || !proofDataUrl} + helper text amber "Unggah bukti pembayaran terlebih dahulu untuk mengaktifkan tombol kirim." saat belum upload; (2) gambar dikompres dgn target PAYMENT_PROOF_MAX_BYTES (350KB); (3) PDF limit 350KB + toast error 350KB; (4) label & hint "maks 350KB"; (5) fallback check post-kompres 350KB
+- src/app/api/subscription/payment/route.ts: MAX_PROOF_BYTES 500KB → 350KB + pesan error 350KB (server menolak >350KB)
+- PWA bump v158 → v159 (public/sw.js + service-worker-registration.tsx)
+- eslint 4 file diubah → exit 0
+- E2E agent-browser via gateway :81: register user uji (OTP dari DB) → auto-redirect /pilih-paket → klik Pilih Paket (Trial Rp 50.000) → /langganan/pembayaran/SUB-2610-K2BS:
+  - Tombol "Kirim Bukti Pembayaran" [disabled] saat belum upload + helper text tampil ✓
+  - Upload PDF 409KB → toast "Ukuran PDF maksimal 350KB", tombol tetap disabled, tanpa preview ✓
+  - Upload JPG noise 3.07MB → otomatis terkompres jadi 313KB (320.951 bytes ≤ 358.400) → preview tampil → tombol ENABLED ✓
+  - Klik kirim → toast "Bukti pembayaran terkirim — menunggu verifikasi admin" → invoice status menunggu_verifikasi + kartu "Menunggu Verifikasi Admin" (QRIS · Rp 50.000) ✓
+  - DB: SubscriptionPayment.proofFileUrl = 313KB (diterima server) ✓; viewport 390px OK; 0 browser error; dev.log bersih
+- Cleanup: CalonPembeli + SubscriptionPayment + SubscriptionInvoice + CustomerSubscription + Paper(7) + Notification + RegisterOtp user uji dihapus (REMAIN semua 0); file uji /tmp dihapus; gen-pdf.ts dihapus
+- Screenshot: .verify/proof-btn-disabled.png, proof-btn-enabled.png, proof-mobile-enabled.png, proof-submitted.png
+
+Stage Summary:
+- Tombol "Kirim Bukti Pembayaran" NONAKTIF sampai bukti diunggah (dengan helper text penjelas)
+- Bukti pembayaran otomatis dikompres ≤350KB (gambar canvas JPEG), PDF hard-limit 350KB, server memvalidasi 350KB — spec konsisten client+server
+- PWA v159; foto barang (photo-upload/items-view) tetap 300KB (tidak terpengaruh)
