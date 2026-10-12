@@ -7,22 +7,6 @@ declare global {
     __restoreMachineName2?: string
     __restoreFinishingNames?: string
     __restorePricePerSheet?: string
-    __pkLinkMatch?: {
-      pkRiwayatId: string
-      printName: string
-      customerName: string
-      paperName: string
-      paperLength: string
-      paperWidth: string
-      cutWidth: string
-      cutHeight: string
-      quantity: string
-      jumlahPesanan: string
-      berapaMata: string
-      setelanKertas: string
-      pricePerSheet: string
-      totalPaperPrice: string
-    }
   }
 }
 
@@ -389,7 +373,6 @@ function HitungCetakanPage() {
   }, [simRows, simRowsLoaded])
   const [biayaLain1Label, setBiayaLain1Label] = useState('Biaya Bikin Piso')
   const [biayaLain2Label, setBiayaLain2Label] = useState('Biaya')
-
 
 
   // Riwayat hitung cetakan (full list)
@@ -782,163 +765,23 @@ function HitungCetakanPage() {
 
     setPrefilled(true)
 
-    // Dari Potong Kertas saat MENGEDIT riwayat potong kertas (pkRiwayatId terkirim):
-    // tandai agar riwayat hitung cetakan yang PERNAH dibuat dari data potong
-    // kertas ini dicari & dilanjutkan (simpan = update), bukan membuat baru lagi.
+    // Dari Potong Kertas (pkRiwayatId terkirim): simpan id riwayat Potong Kertas sumber
+    // agar riwayat hitung cetakan yang DISIMPAN dari sini tetap ter-link (kolom "No. PK").
+    // PERMINTAAN USER: klik "Hitung Cetakan Lengkap" → form otomatis RESET —
+    // riwayat hitung cetakan lama TIDAK dilanjutkan lagi (mulai dari awal).
     const pkRiwayatId = searchParams.get('pkRiwayatId')
     if (pkRiwayatId) {
       pkLinkRiwayatIdRef.current = pkRiwayatId
-      window.__pkLinkMatch = {
-        pkRiwayatId,
-        printName: printName || '',
-        customerName: customerNameParam || '',
-        paperName: paperNameParam || '',
-        paperLength: paperLength || '',
-        paperWidth: paperWidthParam || '',
-        cutWidth: cutWidthParam || '',
-        cutHeight: cutHeightParam || '',
-        quantity: quantityParam || '',
-        jumlahPesanan: searchParams.get('jumlahPesanan') || '',
-        berapaMata: searchParams.get('berapaMata') || '',
-        setelanKertas: setelanKertasParam || '',
-        pricePerSheet: pricePerSheetParam || '',
-        totalPaperPrice: totalPaperPriceParam || '',
-      }
     }
 
     // Bersihkan URL params setelah dibaca
     window.history.replaceState({}, '', '/hitung-cetakan')
-    if (!pkRiwayatId) toast.success('Data berhasil di-restore dari riwayat!')
+    if (pkRiwayatId) {
+      toast('Form Hitung Cetakan direset otomatis — hanya data Potong Kertas yang terisi.')
+    } else {
+      toast.success('Data berhasil di-restore dari riwayat!')
+    }
   }, [searchParams])
-
-  // === Lanjutkan riwayat hitung cetakan yang pernah dibuat dari Potong Kertas ===
-  // Dipicu saat datang dari tombol "Hitung Cetakan Lengkap" di Potong Kertas
-  // ketika user sedang MENGEDIT riwayat potong kertas (pkRiwayatId terkirim).
-  // Riwayat hitung cetakan dicari dengan identitas pekerjaan yang sama
-  // (nama cetakan + customer, dipilih yang skornya paling mirip & terbaru):
-  //  - data kertas/lembar tetap dari form (hasil edit terbaru di Potong Kertas),
-  //  - data cetakan (mesin, warna, plat, lem, biaya lain, finishing, profit,
-  //    simulasi cepat) diambil dari riwayat tsb,
-  //  - restoredRiwayatId diisi → tombol Simpan jadi UPDATE (tidak bikin baru).
-  const findLinkedRiwayatCetakan = (list: any[], idt: NonNullable<Window['__pkLinkMatch']>) => {
-    const norm = (v: unknown) => (v === undefined || v === null ? '' : String(v).trim())
-    const num = (v: unknown) => { const n = parseFloat(String(v ?? '')); return isNaN(n) ? null : n }
-    const sameNum = (a: unknown, b: unknown) => { const na = num(a); const nb = num(b); return na !== null && nb !== null && na === nb }
-    const candidates = list.filter((r: any) =>
-      norm(r.printName) !== '' && norm(r.printName) === norm(idt.printName) &&
-      norm(r.customerName) === norm(idt.customerName)
-    )
-    if (candidates.length === 0) return null
-    const score = (r: any) => {
-      let s = 0
-      if (norm(r.paperName) === norm(idt.paperName)) s += 2
-      if (sameNum(r.paperLength, idt.paperLength)) s += 1
-      if (sameNum(r.paperWidth, idt.paperWidth)) s += 1
-      if (sameNum(r.cutWidth, idt.cutWidth)) s += 1
-      if (sameNum(r.cutHeight, idt.cutHeight)) s += 1
-      if (sameNum(r.quantity, idt.quantity)) s += 2
-      if (norm(r.jumlahPesanan) === norm(idt.jumlahPesanan)) s += 1
-      if (norm(r.berapaMata) === norm(idt.berapaMata)) s += 1
-      if (norm(r.setelanKertas) === norm(idt.setelanKertas)) s += 1
-      if (sameNum(r.pricePerSheet, idt.pricePerSheet)) s += 1
-      if (sameNum(r.totalPaperPrice, idt.totalPaperPrice)) s += 2
-      return s
-    }
-    let best = candidates[0]
-    for (const c of candidates) {
-      const cs = score(c)
-      const bs = score(best)
-      if (cs > bs || (cs === bs && new Date(c.createdAt).getTime() > new Date(best.createdAt).getTime())) best = c
-    }
-    return best
-  }
-
-  const applyLinkedRiwayatCetakan = (r: any) => {
-    setRestoredRiwayatId(r.id)
-    // Tampilkan No. Hitung Cetakan MILIK riwayat yang tersambung (bukan nomor baru)
-    if (r.nomorUrut) setNextHitungCetakanNumber(r.nomorUrut)
-    if (r.pkRiwayatId) {
-      pkLinkRiwayatIdRef.current = r.pkRiwayatId
-    }
-    // Data CETAKAN diambil dari riwayat (data kertas/lembar tetap dari form hasil edit Potong Kertas)
-    const rQty = parseInt(r.quantity) || 0
-    const rJumlahPesanan = parseInt(r.jumlahPesanan) || rQty
-    setFormData(prev => ({
-      ...prev,
-      warna: r.warna || '',
-      warnaKhusus: r.warnaKhusus || '',
-      hargaPlat: r.hargaPlat?.toString() || '',
-      warna2: r.warna2 || '',
-      warnaKhusus2: r.warnaKhusus2 || '',
-      hargaPlat2: r.hargaPlat2?.toString() || '',
-      packingCost: r.packingCost?.toString() || '',
-      shippingCost: r.shippingCost?.toString() || '',
-      biayaLain1: r.otherCost?.toString() || '',
-      biayaLain2: r.otherCost2?.toString() || '',
-      glueLengthCm: r.glueLengthCm || (r.glueCost ? '1' : ''),
-      glueCostPerCm: r.glueCostPerCm || (r.glueCost && rJumlahPesanan > 0 ? (r.glueCost / rJumlahPesanan).toString() : ''),
-      glueBoronganPerSheet: r.glueBorongan && rJumlahPesanan > 0 ? Math.round(r.glueBorongan / rJumlahPesanan).toString() : '',
-    }))
-    if (r.otherCostLabel) setBiayaLain1Label(r.otherCostLabel)
-    if (r.otherCostLabel2) setBiayaLain2Label(r.otherCostLabel2)
-    if (r.profitPercent !== undefined && r.profitPercent !== null) {
-      setProfitPercent(r.profitPercent)
-      setProfitInput(r.profitPercent === 0 ? '' : r.profitPercent.toString())
-    }
-    if (r.glueCost) setCalculatedGlueCost(r.glueCost)
-    if (r.glueBorongan) setCalculatedGlueBoronganSheet(r.glueBorongan)
-    if (r.ongkosCetak) setCalculatedPrintingCost(r.ongkosCetak)
-    if (r.ongkosCetak2) setCalculatedPrintingCost2(r.ongkosCetak2)
-    if (r.finishingCost) setCalculatedFinishingCost(r.finishingCost)
-    // Tabel Simulasi Cepat yang tersimpan bersama record
-    const restoredSims = parseSimulasiCepat(r.simulasiCepat)
-    if (restoredSims.length > 0) {
-      setSimRows(restoredSims.map((s, i) => ({
-        id: Date.now() + i,
-        jumlah: s.jumlah,
-        profit: s.profit,
-        snap: { sheets: s.sheets, modal: s.modal, modalPcs: s.modalPcs, jual: s.jual, jualPcs: s.jualPcs },
-      })))
-    }
-    // Match mesin & finishing setelah data master selesai di-fetch (kertas tetap dari params Potong Kertas)
-    setIsRestoring(true)
-    if (r.machineName) window.__restoreMachineName = r.machineName
-    if (r.machineName2) window.__restoreMachineName2 = r.machineName2
-    if (r.finishingNames && r.finishingNames !== '-') window.__restoreFinishingNames = r.finishingNames
-  }
-
-  useEffect(() => {
-    const identity = window.__pkLinkMatch
-    if (!identity) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetcher('/api/riwayat-cetakan', { headers: getAuthHeaders() })
-        const data = res.ok ? await res.json() : []
-        if (cancelled) return
-        delete window.__pkLinkMatch
-        const list = (Array.isArray(data) ? data : []).filter((r: any) => r.type === 'hitung_cetakan')
-        // 1) Hubungan DETERMINISTIK: riwayat HC yang tersimpan dengan pkRiwayatId ini
-        //    (pernah dibuat/diupdate dari riwayat Potong Kertas yang sama) — ambil terbaru.
-        // 2) Fallback: kecocokan identitas pekerjaan (nama cetakan + customer) utk data lama.
-        const linked = identity.pkRiwayatId
-          ? list.filter((r: any) => r.pkRiwayatId === identity.pkRiwayatId)
-              .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] || null
-          : null
-        const matched = linked || findLinkedRiwayatCetakan(list, identity)
-        if (matched) {
-          applyLinkedRiwayatCetakan(matched)
-          toast.success(`Melanjutkan riwayat ${matched.nomorUrut || 'hitung cetakan'} yang sudah ada — simpan akan memperbarui riwayat tsb, bukan membuat baru.`)
-        } else {
-          fetchNextNumber()
-          toast('Tidak ada riwayat hitung cetakan yang tersambung dengan data ini — lanjutkan & simpan untuk membuat riwayat baru.')
-        }
-      } catch {
-        delete window.__pkLinkMatch
-      }
-    })()
-    return () => { cancelled = true }
-  }, [])
 
   const fetchCustomers = async () => {
     try {
@@ -1081,9 +924,9 @@ function HitungCetakanPage() {
     fetchFinishings()
     fetchSupliersData()
     fetchRiwayatCetakan()
-    // Saat datang dari Potong Kertas mode EDIT (pkRiwayatId): jangan tampilkan nomor BARU dulu —
-    // nomor riwayat HC yang tersambung akan dipakai bila match ditemukan.
-    if (!searchParams.get('pkRiwayatId')) fetchNextNumber()
+    // Nomor riwayat berikutnya selalu di-fetch (form dari Potong Kertas kini RESET —
+    // tidak ada lagi pelanjutan riwayat HC lama yang menimpa nomor).
+    fetchNextNumber()
     // Jangan override profitPercent saat restore
     fetchProfitSetting()
   }, [])

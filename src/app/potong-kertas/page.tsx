@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, RotateCcw, Printer, FileImage, Loader2, ArrowRight, Share2, History, RefreshCw, Trash2, Plus, FileText, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus } from 'lucide-react'
+import { Calculator, Save, Printer, FileImage, Loader2, History, RefreshCw, Trash2, Plus, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -1826,7 +1826,6 @@ function CalculatorPage() {
               </button>
               <button onClick={handlePO} disabled={!results || savingRiwayat || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
-                <FileText className="w-3.5 h-3.5" />
                 PO
               </button>
             </div>
@@ -1837,19 +1836,17 @@ function CalculatorPage() {
               </button>
               <button onClick={handlePrint} disabled={isPrinting || !results || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('cetak')}>
-                {isPrinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                {isPrinting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('cetak')}
               </button>
               <button onClick={handleShareWhatsApp} disabled={!results || needsRecalc}
                 className="flex items-center justify-center gap-1 min-w-0 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="WhatsApp">
-                <Share2 className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden xl:inline">WhatsApp</span>
                 <span className="xl:hidden">WA</span>
               </button>
               <button onClick={handleReset} disabled={!paperWidth && !paperHeight && !cutWidth && !cutHeight && !computedQuantity && !quantity && !grammage && !pricePerSheet && !printName && !jumlahPesanan && !berapaMata && !selectedCustomerId}
                 className="flex items-center justify-center gap-1.5 bg-slate-200 hover:bg-slate-300 disabled:bg-slate-100 disabled:text-slate-300 text-slate-700 text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('reset')}>
-                <RotateCcw className="w-3 h-3" />
-                <span className="hidden xl:inline">{t('reset')}</span>
+                <span>{t('reset')}</span>
               </button>
             </div>
           </div>
@@ -1938,9 +1935,8 @@ function CalculatorPage() {
               background: (results && !needsRecalc) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
             }}
             className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-blue-500 cursor-pointer transition-colors">
-            {preparingHc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />}
+            {preparingHc && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             {preparingHc ? 'Menyiapkan riwayat…' : 'Hitung Cetakan Lengkap'}
-            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
 

@@ -13407,3 +13407,23 @@ Stage Summary:
 - ReferenceError setPkNomorDisplay tuntas — 2 call site terakhir dihapus; tombol Reset Form terverifikasi E2E tanpa error
 - PELAJARAN: saat menghapus state/ fungsi, verifikasi sisa referensi HARUS case-insensitive (rg -i) karena setter "setXxx" mengubah kapitalisasi
 - PWA sekarang v161
+---
+Task ID: potong-kertas-hc-lengkap-reset-button-icons
+Agent: Z.ai Code (main)
+Task: "di halaman potong kertas, apabila diklik hitung cetakan lengkap maka otomatis data di reset. icon reset di tombol dihilangin dan diganti tulisan reset. icon di tombol wa dihapus, icon di tombol cetak dihapus, icon di tombol po dihapus. icon di tombol hitung cetakan lengkap dihilangin"
+
+Work Log:
+- AUDIT: tombol "Hitung Cetakan Lengkap" (potong-kertas) mengirim pkRiwayatId + reset=1 ke /hitung-cetakan; di HC, effect window.__pkLinkMatch mencari riwayat HC lama ter-link → applyLinkedRiwayatCetakan MENIMPA form dgn data cetakan LAMA + toast "Melanjutkan riwayat HC/xxx" — inilah "data tidak direset" yang dikeluhkan user
+- RESET (hitung-cetakan/page.tsx): hapus total mekanisme pelanjutan — effect __pkLinkMatch, findLinkedRiwayatCetakan (scoring), applyLinkedRiwayatCetakan, tipe Window.__pkLinkMatch, assignment __pkLinkMatch (spliced ~128 baris via anchor-script). pkLinkRiwayatIdRef.current = pkRiwayatId TETAP (riwayat HC baru yang disimpan tetap ter-link ke PK → kolom "No PK" riwayat tetap jalan). fetchNextNumber kini TANPA syarat (nomor selalu baru). Toast baru saat datang dari Potong Kertas: "Form Hitung Cetakan direset otomatis — hanya data Potong Kertas yang terisi."
+- TOMBON ICON (potong-kertas/page.tsx): Reset → icon RotateCcw dihapus, teks "Reset" (t('reset')) kini SELALU tampil (sebelumnya hidden di <xl, tampil icon saja); WA → Share2 dihapus (teks WhatsApp/WA responsif tetap); Cetak → Printer dihapus (Loader2 spinner dipertahankan sbg indikator proses); PO → FileText dihapus; Hitung Cetakan Lengkap → Calculator + ArrowRight dihapus (Loader2 spinner saat "Menyiapkan riwayat…" tetap). Import lucide dipangkas (RotateCcw/Share2/FileText/ArrowRight)
+- PWA bump v161 → v162
+- eslint 2 file exit 0; rg sisa icon/identitas = NONE
+- E2E agent-browser (superadmin): 5 tombol diverifikasi TANPA svg (PO/Cetak/WhatsApp/Reset/HC Lengkap, Reset tampil teks penuh); alur NYATA: isi form PK (Budi Susanto, "E2E Reset Test", kertas 100×70, potong 25×35, jumlah pesanan 100, brp mata 8) → Hitung Potongan (quantity auto 13) → klik "Hitung Cetakan Lengkap" → redirect /hitung-cetakan + toast "Form Hitung Cetakan direset otomatis…" TANPA toast "Melanjutkan riwayat"/"Tidak ada riwayat tersambung" → form terisi data PK (barang/100/8/13) + nomor BARU HC/10/26/0001 + 0 page error
+- Catatan debugging: tombol Hitung Potongan disable = butuh berapaMata terisi (quantity = jumlahPesanan ÷ berapaMata) — bukan bug
+- Cleanup: riwayat PK uji "E2E Reset Test" (PK/10/26/0001 otomatis tersimpan saat klik) dihapus (remaining 0); screenshot .verify/hc-lengkap-reset.png
+- dev.log bersih; server 200
+
+Stage Summary:
+- Klik "Hitung Cetakan Lengkap" → form Hitung Cetakan selalu FRESH (reset otomatis): hanya data Potong Kertas yang terisi, nomor HC baru, tanpa pelanjutan riwayat lama. Link PK⇄HC (kolom No PK) tetap tersimpan saat user menyimpan
+- 5 tombol Potong Kertas kini teks polos tanpa icon (Reset teks selalu tampil; spinner proses dipertahankan sebagai feedback)
+- PWA v162; lint bersih; data uji bersih
