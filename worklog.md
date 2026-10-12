@@ -13427,3 +13427,22 @@ Stage Summary:
 - Klik "Hitung Cetakan Lengkap" → form Hitung Cetakan selalu FRESH (reset otomatis): hanya data Potong Kertas yang terisi, nomor HC baru, tanpa pelanjutan riwayat lama. Link PK⇄HC (kolom No PK) tetap tersimpan saat user menyimpan
 - 5 tombol Potong Kertas kini teks polos tanpa icon (Reset teks selalu tampil; spinner proses dipertahankan sebagai feedback)
 - PWA v162; lint bersih; data uji bersih
+
+---
+Task ID: 1
+Agent: Main
+Task: "di tampilan mobile. dihalaman potong kertas, pindahin kotak simulasi cepat kebawah tombol hitung cetakan lengkap. tombol tulisan simpan riwayat di buat 2 baris."
+
+Work Log:
+- WORKLOG AUDIT: task sebelumnya (auto-reset saat klik Hitung Cetakan Lengkap + hapus icon 5 tombol Reset/WA/Cetak/PO/HC Lengkap) ternyata SUDAH selesai di entri v162 (bukan pending seperti ringkasan sesi lama) — tidak diulang
+- src/app/potong-kertas/page.tsx (1) PINDAH posisi kartu Simulasi Cepat mobile: blok <div className="lg:hidden">{simulasiCard}</div> dipindah dari SEBELUM tombol "Hitung Cetakan Lengkap" ke SESUDAHNYA (jadi urutan mobile: tombol aksi → Hitung Cetakan Lengkap → Simulasi Cepat). Desktop tidak berubah (blok desktop "hidden lg:block" full-width di bawah tetap di tempatnya)
+- src/app/potong-kertas/page.tsx (2) tombol Simpan Riwayat: label jadi 2 baris di mobile via "Simpan<br className='sm:hidden' /> Riwayat" (sama utk state "Update Riwayat"); ≥sm br display:none → 1 baris lagi; span leading-tight text-center agar rapi; state loading (Menyimpan.../Updating...) tetap 1 baris
+- PWA bump v162 → v163 (public/sw.js + service-worker-registration.tsx)
+- eslint potong-kertas/page.tsx exit 0
+- E2E agent-browser superadmin: MOBILE 390×844 — cardTop 1146 > btnTop 1083 (Simulasi Cepat di bawah tombol HC Lengkap); span Simpan Riwayat tinggi 35px = 2 baris, br.display=inline, tombol tetap segaris-grid (55px); screenshot .verify/pk-mobile-buttons-2line.png (terlihat "Simpan/Riwayat" 2 baris + urutan tombol→HC Lengkap→Simulasi Cepat). DESKTOP 1366×900 — hanya 1 kartu simulasi terlihat (blok desktop), Simpan Riwayat 1 baris (span 18px, br display:none), kartu simulasi full-width 1287px di bawah; screenshot .verify/pk-desktop-simulasi.png. 0 page error, console bersih
+- Tidak ada data uji (hanya navigasi, tanpa POST)
+
+Stage Summary:
+- Mobile potong kertas: kotak Simulasi Cepat kini di BAWAH tombol Hitung Cetakan Lengkap; desktop tetap full-width di bawah halaman (tidak berubah)
+- Tombol "Simpan Riwayat" (dan "Update Riwayat") tampil 2 baris di mobile, 1 baris di tablet/desktop
+- PWA v163; lint bersih; server 200; 0 error

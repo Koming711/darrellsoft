@@ -1822,7 +1822,7 @@ function CalculatorPage() {
               <button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!results || savingRiwayat || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
                 {restoredRiwayatId && <RefreshCw className={`w-3 h-3 ${savingRiwayat ? 'animate-spin' : ''}`} />}
-                {restoredRiwayatId ? (savingRiwayat ? 'Updating...' : 'Update Riwayat') : (savingRiwayat ? 'Menyimpan...' : 'Simpan Riwayat')}
+                {restoredRiwayatId ? (savingRiwayat ? 'Updating...' : <span className="leading-tight text-center">Update<br className="sm:hidden" /> Riwayat</span>) : (savingRiwayat ? 'Menyimpan...' : <span className="leading-tight text-center">Simpan<br className="sm:hidden" /> Riwayat</span>)}
               </button>
               <button onClick={handlePO} disabled={!results || savingRiwayat || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title="Purchase Order">
@@ -1849,11 +1849,6 @@ function CalculatorPage() {
                 <span>{t('reset')}</span>
               </button>
             </div>
-          </div>
-
-          {/* Simulasi Cepat (mobile): mengikuti alur form di kolom kiri */}
-          <div className="lg:hidden">
-            {simulasiCard}
           </div>
 
           {/* Link to Hitung Cetakan */}
@@ -1938,6 +1933,11 @@ function CalculatorPage() {
             {preparingHc && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             {preparingHc ? 'Menyiapkan riwayat…' : 'Hitung Cetakan Lengkap'}
           </button>
+
+          {/* Simulasi Cepat (mobile): dipindah ke bawah tombol Hitung Cetakan Lengkap */}
+          <div className="lg:hidden">
+            {simulasiCard}
+          </div>
         </div>
 
         {/* ===== RIGHT: RESULTS ===== */}
