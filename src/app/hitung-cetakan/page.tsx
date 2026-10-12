@@ -1363,7 +1363,6 @@ function HitungCetakanPage() {
   const resetForm = () => {
     clearStorage()
     pkLinkRiwayatIdRef.current = ''
-    setPkNomorDisplay('')
     setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
@@ -1699,7 +1698,6 @@ function HitungCetakanPage() {
         if (restoredRiwayatId === id) {
           setRestoredRiwayatId(null)
           pkLinkRiwayatIdRef.current = ''
-          setPkNomorDisplay('')
           fetchNextNumber()
         }
         fetchRiwayatCetakan()

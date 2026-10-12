@@ -13390,3 +13390,20 @@ Stage Summary:
 - Kotak "No. Potong Kertas (Referensi)" dihapus total dari editor Hitung Cetakan (desktop+mobile); editor kini hanya menampilkan kotak "No. Hitung Cetakan"
 - Hubungan Potong Kertas ⇄ Hitung Cetakan (pkRiwayatId) utk simpan-update & kolom "No PK" di tab Riwayat TETAP utuh — hanya tampilan referensi di editor yang dihapus
 - PWA v160; lint bersih; tanpa perubahan DB/API
+---
+Task ID: hitung-cetakan-hapus-referensi-pk-hotfix
+Agent: Z.ai Code (main)
+Task: Fix runtime "ReferenceError: setPkNomorDisplay is not defined" di resetForm (laporan user)
+
+Work Log:
+- ROOT CAUSE: grep verifikasi sebelumnya case-sensitive ("pkNomorDisplay|resolvePkNomor") sehingga 2 pemanggil setPkNomorDisplay (P besar) terlewat — rg -ni menemukan sisa di baris 1366 (resetForm) & 1702 (hapus riwayat saat restoredRiwayatId cocok). Laporan user: klik tombol Reset Form → crash
+- FIX: kedua baris setPkNomorDisplay('') dihapus (resetForm & handler delete riwayat); sisa logika reset/delete tidak diubah
+- Verifikasi menyeluruh: rg -ni "pknomordisplay|resolvepknomor" src/ = NONE; eslint hitung-cetakan/page.tsx exit 0
+- PWA bump v160 → v161 (agar browser user memuat chunk yang sudah diperbaiki)
+- E2E reproduksi akses yang sama: login superadmin → /hitung-cetakan → klik "Reset Form" → 0 page error, form ter-reset (customerName kosong), editor tetap render, kotak No. Hitung Cetakan tetap ada; console bersih; dev.log bersih
+- Screenshot: .verify/hc-reset-form-ok.png
+
+Stage Summary:
+- ReferenceError setPkNomorDisplay tuntas — 2 call site terakhir dihapus; tombol Reset Form terverifikasi E2E tanpa error
+- PELAJARAN: saat menghapus state/ fungsi, verifikasi sisa referensi HARUS case-insensitive (rg -i) karena setter "setXxx" mengubah kapitalisasi
+- PWA sekarang v161
