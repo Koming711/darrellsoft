@@ -13592,3 +13592,17 @@ Work Log:
 Stage Summary:
 - Tulisan gambar strategi PK: 3× lipat lalu dikurangi 2pt (hasil: 43/21.9/24.6/25 unit); arah tulisan kini bisa dibedakan lewat warna — horizontal navy/hijau, vertikal ungu. Perubahan ukuran ter-floor ke textScale 1 (halaman lain aman).
 - File diubah: src/components/cutting-results.tsx (satu file; potong-kertas/page.tsx tidak tersentuh).
+
+---
+Task ID: hc-dropdown-bahan-tambah-ukuran
+Agent: Z.ai Code (main)
+Task: Halaman Hitung Cetakan — kotak/dropdown "Nama Bahan" ditambah ukuran bahannya.
+
+Work Log:
+- Lokasi: src/app/hitung-cetakan/page.tsx baris ~2579 (satu-satunya dropdown Nama Bahan di halaman; interface Paper sudah punya width/height number).
+- Perubahan teks opsi: `"{name} ({grammage} gsm{ · suplier})"` → `"{name} ({width}×{height}, {grammage}gsm{ · suplier})"` — format identik dgn dropdown bahan halaman Potong Kertas (baris 2062) demi konsistensi. Contoh: "art karton (65×100, 260gsm)".
+- Manfaat: varian nama sama dgn ukuran beda (mis. 2× "art karton" 65×100 vs 79×109) kini terbedakan langsung di dropdown.
+- Verifikasi: eslint exit 0; browser E2E (login superadmin → /hitung-cetakan): opsi terbaca "art karton (65×100, 260gsm)", "art karton (79×109, 260gsm)", "duplek (90×120, 270gsm)", dst.; pilih bahan → harga/lembar & harga/kg otomatis terisi (Rp 2.789 / Rp 16.503) = logika konversi tetap utuh; nilai option value tidak berubah (hanya label) → tidak ada dampak ke simpan/restore/sinkronisasi PK; tanpa error console/server.
+
+Stage Summary:
+- Dropdown "Nama Bahan" di Hitung Cetakan kini menampilkan ukuran bahan (P×L) + gramatur + suplier, format sama dgn Potong Kertas. File diubah: src/app/hitung-cetakan/page.tsx (1 baris).
