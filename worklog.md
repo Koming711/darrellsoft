@@ -13521,3 +13521,21 @@ Stage Summary:
 - RINCIAN SISA GEOMETRIS LENGKAP: tiap area sisa berlabel (Sisa A/B/C), ukuran aktual lebar×tinggi, luas, posisi, status pemanfaatan (pakai-ulang/kecil/limbah), sinkron highlight gambar↔tabel; neraca luas konsisten (bahan = potongan + sisa + kerf 0); efisiensi & waste dihitung dari pola aktual
 - File baru: src/lib/cutting-optimizer.ts; src/app/api/potong-kertas/optimize/route.ts. File diubah: src/lib/cutting-engine.ts (interface +opsional, additif), src/components/cutting-results.tsx (rewrite diagram), src/app/potong-kertas/page.tsx (mode otomatis+panel+tabel+preview), src/app/hitung-cetakan/page.tsx (kartu info PK + deteksi sumber berubah + fix duplikat key)
 - Kompatibilitas: mode Manual & seluruh alur lama (custom paper, simulasi cepat, PO, backup/restore, JPG/print, hitung-cetakan link) tidak diubah; data lama tampil normal; skema DB TIDAK berubah (wasteAreas tersimpan di resultData JSON yang sudah ada)
+
+---
+Task ID: delete-pk-box
+Agent: Z.ai Code (main)
+Task: Hapus kotak "Data Potong Kertas" di halaman Hitung Cetakan (src/app/hitung-cetakan/page.tsx)
+
+Work Log:
+- Audit: kotak "Data Potong Kertas" terletak di kolom 1 tab Editor (JSX lama baris ~2255-2321), dirender bila pkCutInfo terisi (dari sessionStorage "pk-to-hc-cutInfo" saat datang dari Potong Kertas, atau dari fetch riwayat PK saat restore riwayat HC).
+- Hapus JSX kotak (header teal/amber, tombol close, grid Potongan/Lembar + Biaya + Efisiensi, tabel rincian sisa kertas).
+- Hapus state menganggur: pkCutInfo, pkSourceChanged, showPkSisa + setter-nya.
+- Hapus pembacaan sessionStorage 'pk-to-hc-cutInfo' (satu-satunya konsumen data tsb; sisi Potong Kertas masih menulisnya tapi tak lagi dibaca — tidak berbahaya).
+- Sederhanakan logika sinkronisasi sumber PK: setPkCutInfo dihapus; fetch riwayat PK + perbandingan parameter + toast warning "Data sumber Potong Kertas telah berubah" DIPERTAHANKAN (hanya memberi tahu, tidak menimpa).
+- Hapus ikon Scissors & AlertTriangle dari import lucide (hanya dipakai kotak tsb). Link pkRiwayatId → kolom "No. PK" di daftar riwayat TETAP utuh.
+
+Stage Summary:
+- File diubah: src/app/hitung-cetakan/page.tsx saja (net -90 baris).
+- Fitur yang dipertahankan: link riwayat HC ↔ riwayat PK (kolom "No. PK"), deteksi perubahan sumber via toast, restore foto lampiran dari Potong Kertas.
+- Verifikasi: eslint file bersih (exit 0); browser E2E login superadmin → /hitung-cetakan: "DATA POTONG KERTAS" tidak ada, form editor utuh (No. Hitung Cetakan → Informasi Cetakan → Harga Bahan), tab Riwayat & Gabung normal, tanpa error console/server.
