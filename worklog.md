@@ -13578,3 +13578,17 @@ Work Log:
 Stage Summary:
 - Tulisan di gambar strategi Potong Kertas kini 3× lipat (maks; menyusut otomatis bila area sempit) di kalkulator, preview, cetak A5, dan ekspor JPG. Mekanisme prop `textScale` — halaman lain bisa ikut diperbesar cukup dengan menambah prop yang sama.
 - File diubah: src/components/cutting-results.tsx, src/app/potong-kertas/page.tsx.
+
+---
+Task ID: perkecil-teks-gambar-strategi-2pt-warna-arah
+Agent: Z.ai Code (main)
+Task: Lanjutan gambar strategi PK — tulisan dikecilkan lagi 2pt, dan warna tulisan horizontal vs vertikal dibedakan.
+
+Work Log:
+- `src/components/cutting-results.tsx`: tambah `PT_SHRINK = 2` + helper `shrinkFont(fs, floor)` — SEMUA font dalam gambar (nomor potongan, ukuran, label sisa, kode, ⟳, tag 90°) dikurangi 2 unit dgn batas bawah = ukuran textScale 1, sehingga halaman lain (riwayat-pembelian, rincian-cetakan-preview) TIDAK ikut mengecil.
+- Warna dibedakan arah: label sisa yang DIGAMBAR HORIZONTAL tetap navy `#1e3a5f`; label sisa yang DIPUTAR VERTIKAL (strip sempit) kini UNGU `#7e22ce` — konsisten di semua halaman yang memakai komponen ini. Teks potongan tetap hijau (horizontal), ⟳ amber.
+- Verifikasi browser (superadmin → /potong-kertas → art karton 260gsm, 21.5×28.5, pesanan 500 / mata 2): DOM terukur — nomor 45→43, ukuran 23.9→21.9, label vertikal 26.6→24.6 fill #7e22ce, ⟳ 27→25; diagram kalkulator & Preview (Cetak/JPG) rapi tanpa tumpang tindih; label vertikal terlihat jelas ungu (screenshot); tanpa error console/server; eslint exit 0.
+
+Stage Summary:
+- Tulisan gambar strategi PK: 3× lipat lalu dikurangi 2pt (hasil: 43/21.9/24.6/25 unit); arah tulisan kini bisa dibedakan lewat warna — horizontal navy/hijau, vertikal ungu. Perubahan ukuran ter-floor ke textScale 1 (halaman lain aman).
+- File diubah: src/components/cutting-results.tsx (satu file; potong-kertas/page.tsx tidak tersentuh).

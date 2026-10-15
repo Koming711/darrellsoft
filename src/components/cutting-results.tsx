@@ -26,6 +26,10 @@ import { computeWasteAreas, type WasteArea } from '@/lib/cutting-optimizer'
 //   • textScale: pembesaran tulisan di dalam gambar (default 1). Font naik
 //     maksimal textScale× lipat dan menyusut otomatis (shrink-to-fit) bila
 //     ruang area tidak cukup, sehingga teks tidak perlu tumpang tindih.
+//   • Ukuran teks akhir dikurangi 2pt (permintaan) dengan batas bawah = ukuran
+//     pada textScale 1, sehingga halaman lain tidak ikut berubah.
+//   • Warna tulisan dibedakan arah: label sisa horizontal = navy,
+//     label sisa vertikal (diputar 90°) = ungu.
 // ============================================================================
 
 const SCALE = 5.94
@@ -57,6 +61,9 @@ function CuttingDiagram({
   const TS = textScale
   // Perkiraan lebar teks SVG (rata2 glyph ±0.62em) utk cek "muat" tanpa overflow
   const estW = (s: string, fs: number) => s.length * fs * 0.62
+  // Teks −2pt dari ukuran hasil textScale, batas bawah = ukuran textScale 1 (floor)
+  const PT_SHRINK = 2
+  const shrinkFont = (fs: number, floor: number) => Math.max(Math.min(fs, floor), fs - PT_SHRINK)
   const pw = results.paperWidth
   const ph = results.paperHeight
   const wasteAreas = useMemo(() => normalizeWasteAreas(results), [results])
@@ -114,14 +121,14 @@ function CuttingDiagram({
           const label = `${code} · ${sizeText}`
           // Label lengkap: font maks textScale× lipat, menyusut otomatis agar muat
           const baseFull = Math.max(rw, rh) > 150 ? 11 : 9
-          const fsFull = Math.min(baseFull * TS, Math.max(baseFull, (rw - 8) / (label.length * 0.62)))
-          const fsVert = Math.min(baseFull * TS, Math.max(baseFull, (rh - 8) / (label.length * 0.62)))
+          const fsFull = shrinkFont(Math.min(baseFull * TS, Math.max(baseFull, (rw - 8) / (label.length * 0.62))), baseFull)
+          const fsVert = shrinkFont(Math.min(baseFull * TS, Math.max(baseFull, (rh - 8) / (label.length * 0.62))), baseFull)
           // label muat bila area cukup besar; sisa sempit → label diputar
           const horizontalLabel = estW(label, fsFull) <= rw - 8 && fsFull * 1.25 + 4 <= rh
           const verticalLabel = !horizontalLabel && estW(label, fsVert) <= rh - 8 && fsVert * 1.25 + 4 <= rw
           const showFull = horizontalLabel || verticalLabel
           // Kode pendek (mis. "A") bila label lengkap tidak muat
-          const fsCode = Math.min(10 * TS, Math.max(10, (rw - 6) / (Math.max(code.length, 1) * 0.62)))
+          const fsCode = shrinkFont(Math.min(10 * TS, Math.max(10, (rw - 6) / (Math.max(code.length, 1) * 0.62))), 10)
           const showCode = !showFull && fsCode >= 10 && fsCode + 4 <= rh && rw >= 13
           return (
             <g
@@ -146,7 +153,7 @@ function CuttingDiagram({
               )}
               {showFull && verticalLabel && (
                 <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
-                  fontSize={fsVert} fontWeight="600" fill="#1e3a5f"
+                  fontSize={fsVert} fontWeight="600" fill="#7e22ce"
                   transform={`rotate(-90 ${rx + rw / 2} ${ry + rh / 2})`} style={{ pointerEvents: 'none' }}>
                   {label}
                 </text>
@@ -197,10 +204,11 @@ function CuttingDiagram({
                 const numStr = String(num)
                 const maxNumFs = Math.min(15, Math.max(8, Math.min(pieceW, pieceH) / 3.4)) * TS
                 const fitNumFs = Math.min((pieceW - 5) / (numStr.length * 0.66), (pieceH - 5) / 1.15)
-                const numFs = Math.min(maxNumFs, Math.max(8, fitNumFs))
+                const numFs = shrinkFont(Math.min(maxNumFs, Math.max(8, fitNumFs)), maxNumFs / TS)
                 // Ukuran potongan: maks textScale× lipat, menyesuaikan lebar potongan
                 const sizeStr = `${block.pieceWidth} × ${block.pieceHeight}`
-                const sizeFs = Math.min(8.5 * TS, Math.max(8.5, (pieceW - 6) / (sizeStr.length * 0.62)))
+                const sizeFs = shrinkFont(Math.min(8.5 * TS, Math.max(8.5, (pieceW - 6) / (sizeStr.length * 0.62))), 8.5)
+                const rotFs = shrinkFont(9 * TS, 9)
                 elements.push(
                   <g key={`p-${blockIdx}-${i}-${j}`}>
                     <rect
@@ -223,8 +231,8 @@ function CuttingDiagram({
                       </text>
                     )}
                     {canShowRot && (
-                      <text x={px + pieceW - 9 * TS} y={py + 9 * TS} textAnchor="middle" dominantBaseline="middle"
-                        fontSize={9 * TS} fontWeight="700" fill="#b45309">
+                      <text x={px + pieceW - rotFs} y={py + rotFs} textAnchor="middle" dominantBaseline="middle"
+                        fontSize={rotFs} fontWeight="700" fill="#b45309">
                         ⟳
                       </text>
                     )}
@@ -236,7 +244,7 @@ function CuttingDiagram({
             // Tag rotasi di sudut blok (untuk blok dgn potongan kecil)
             if (block.rotated && pieceW < 40) {
               // Ukuran tag menyesuaikan lebar potongan agar tidak meluber
-              const tagFs = Math.min(9 * TS, (pieceW - 4) / 2.2)
+              const tagFs = shrinkFont(Math.min(9 * TS, (pieceW - 4) / 2.2), 9)
               if (tagFs >= 8) {
                 const tagW = Math.min(tagFs * 3.4, pieceW - 4)
                 const tagH = tagFs * 1.6
