@@ -13638,3 +13638,21 @@ Work Log:
 Stage Summary:
 - Kedua halaman kini sesuai arsip upload; fix C (ukuran di dropdown Nama Bahan) & D (ganti bahan → Uk. Bahan otomatis) tetap terjaga karena arsip ternyata snapshot lebih lama. Tidak ada regressi; aplikasi sehat.
 - File: src/app/potong-kertas/page.tsx (identik, diganti), src/app/hitung-cetakan/page.tsx (diganti + reapply fix C&D), src/components/cutting-results.tsx (identik). Backup di .backups/.
+
+---
+Task ID: rincian-cetakan-pisah-plat-plus-info-suplier
+Agent: Z.ai Code (main)
+Task: (1) Detail Rincian Cetakan — pisahkan biaya ongkos cetak & biaya plat di tabel Rincian Biaya. (2) Lanjutan user — kotak Informasi Pesanan ditambah "Harga Kertas /Lembar" dan "Nama Suplier".
+
+Work Log:
+- Target = komponen tunggal `src/components/rincian-cetakan-preview.tsx` (dipakai preview editor HC, dialog "Detail Rincian Cetakan" di riwayat, dan dokumen Gabungan — satu sumber kebenaran).
+- Pemisahan plat: ongkosCetak tersimpan = warna + di-atas-minimum + plat(hargaPlat × (warna+warnaKhusus)). Kini pvPlatCost = hargaPlat × jumlah plat (rumus sama dgn kalkulator, di-clamp ≤ ongkos tersimpan utk proteksi data lama); baris "Ongkos Cetak" tampil TANPA plat (pvPrintOnly), baris baru "Biaya Plat" (detail "N plat × Rp X") muncul hanya bila > 0; sama utk Cetak 2 → "Biaya Plat 2". Detail teks lama "· plat Rp X/lbr" dihapus dari baris ongkos. Sub Total/Grand Total tidak berubah (tetap dari ongkosCetak utuh).
+- Field Informasi Pesanan: tambah "Nama Suplier" (d.namaSuplier || '-') setelah Ukuran Kertas, dan "Harga Kertas /Lembar" (Rp dari pricePerSheet) sebelum "Harga Kertas /kg".
+- Plumbing namaSuplier: RincianCetakanData + RiwayatCetakanRow + mapRiwayatToRincianData (dari field DB yang memang ada); PrintCalculation interface + previewData editor (formData.namaSuplier). Simpan/restore riwayat sudah menyimpan namaSuplier sejak awal.
+- Verifikasi: eslint exit 0 (kedua file). Browser E2E superadmin: form HC diisi (art karton 65×100 → Uk. Bahan 65/100 + harga 2.789 otomatis; sm52, 4 warna, plat 18.000, jumlah 500, mata 1 → jumlah cetakan auto 500) → ongkos Rp 322.000. Preview: "Ongkos Cetak — sm52 | 4 warna | Rp 250.000" + "Biaya Plat | 4 plat × Rp 18.000 | Rp 72.000"; NAMA SUPLIER "-", HARGA KERTAS /LEMBAR "Rp 2.789"; Sub Total 461.450 = kertas 139.450 + cetak 250.000 + plat 72.000 ✓.
+- Simpan riwayat (HC/10/26/0007) → buka dialog "Detail Rincian Cetakan" dari kartu riwayat: semua baris sama (persistensi plat split + 2 field baru via mapRiwayatToRincianData terbukti). Data uji dihapus setelahnya (count DB 0, konfirmasi dialog "Beneran mau dihapus" di-accept). Tanpa error console/server.
+- Catatan: master Toko Pemasok kosong di env ini ("Belum ada suplier") sehingga nilai suplier terverifikasi tampil "-" — nama suplier akan tampil otomatis dari field yang sudah tersimpan di record riwayat.
+
+Stage Summary:
+- Rincian Biaya di Detail Rincian Cetakan kini memisahkan Ongkos Cetak (tanpa plat) dan Biaya Plat (baris sendiri, termasuk Cetak 2), jumlah baris tetap konsisten dgn Sub Total. Kotak Informasi Pesanan bertambah Harga Kertas /Lembar & Nama Suplier. Satu file komponen → semua tempat (preview editor, detail riwayat, gabungan, JPG/cetak) ikut berubah.
+- File diubah: src/components/rincian-cetakan-preview.tsx, src/app/hitung-cetakan/page.tsx (interface + previewData saja).

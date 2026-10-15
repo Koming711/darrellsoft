@@ -120,6 +120,7 @@ interface PrintCalculation {
   pricePerSheet: string
   pricePerKg?: string
   hargaPlat: string
+  namaSuplier?: string
   totalPrice: number
   customerName: string
   machineId2: string
@@ -1283,7 +1284,7 @@ function HitungCetakanPage() {
       printName: formData.printName, paperLength: formData.paperLength, paperWidth: formData.paperWidth,
       cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
       quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
-      hargaPlat: formData.hargaPlat, paperId: formData.paperId, paperName: selectedPaper?.name || 'Custom', paperGrammage: selectedPaper?.grammage || 0,
+      hargaPlat: formData.hargaPlat, namaSuplier: formData.namaSuplier, paperId: formData.paperId, paperName: selectedPaper?.name || 'Custom', paperGrammage: selectedPaper?.grammage || 0,
       recordNumber: '', recordDate: new Date().toISOString(),
       machineId: formData.machineId, machineName: selectedMachine?.machineName || '-',
       printingCost: calculatedCost, finishingId: selectedFinishings.join(','),

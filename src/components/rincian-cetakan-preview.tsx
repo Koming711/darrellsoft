@@ -65,6 +65,7 @@ export interface RincianCetakanData {
   jumlahPesanan: string
   berapaMata: string
   setelanKertas?: string
+  namaSuplier?: string
   warna: string
   warnaKhusus: string
   warna2?: string
@@ -115,6 +116,7 @@ export interface RiwayatCetakanRow {
   jumlahPesanan?: string | null
   berapaMata?: string | null
   setelanKertas?: string | null
+  namaSuplier?: string | null
   warna?: string | null
   warnaKhusus?: string | null
   warna2?: string | null
@@ -167,6 +169,7 @@ export function mapRiwayatToRincianData(r: RiwayatCetakanRow): RincianCetakanDat
     jumlahPesanan: r.jumlahPesanan || '',
     berapaMata: r.berapaMata || '',
     setelanKertas: r.setelanKertas || '',
+    namaSuplier: r.namaSuplier || '',
     warna: r.warna || '',
     warnaKhusus: r.warnaKhusus || '',
     warna2: r.warna2 || '',
@@ -397,6 +400,8 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               <PvField label="Lembar Kertas" value={pvSheetsNeeded > 0 ? `${fmtNum(pvSheetsNeeded)} lbr` : '-'} accent="text-teal-800" />
               {pvBerapaMata !== '' && pvBerapaMata !== '0' && <PvField label="Berapa Mata" value={pvBerapaMata} />}
               <PvField label="Ukuran Kertas" value={pvUkuranKertas} accent="text-teal-800" />
+              <PvField label="Nama Suplier" value={d.namaSuplier || '-'} />
+              <PvField label="Harga Kertas /Lembar" value={pvHargaPerLembar > 0 ? `Rp ${pvHargaPerLembar.toLocaleString('id-ID')}` : '-'} accent="text-teal-800" />
               <PvField label="Harga Kertas /kg" value={pvHargaPerKg > 0 ? `Rp ${pvHargaPerKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })}` : '-'} accent="text-teal-800" />
               <PvField label="Ukuran Potongan" value={pvUkuranPotongan} />
               <PvField label="Warna Cetak" value={`${d.warna || 0} warna${d.warnaKhusus && parseInt(d.warnaKhusus) > 0 ? ` + ${d.warnaKhusus} khusus` : ''}`} />
