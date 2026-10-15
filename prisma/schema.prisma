@@ -282,6 +282,11 @@ model RiwayatCetakan {
   grandTotal         Float
   simulasiCepat      String   @default("")
   pkRiwayatId        String? // id RiwayatPotongKertas sumber — hubungan deterministik Potong Kertas ↔ Hitung Cetakan
+  // === SINKRONISASI PERMANEN PK ↔ HC (satu pekerjaan cetak = satu relasi tetap) ===
+  pkSyncStatus       String    @default("") // "" | "synced" — status sinkronisasi tersimpan; "stale" dihitung on-demand (snapshot vs PK terkini)
+  pkLastSyncedAt     DateTime? // waktu sinkronisasi terakhir yang BERHASIL
+  pkSourceSnapshot   String    @default("") // JSON nilai field sumber PK saat sinkron terakhir (deteksi perubahan sumber)
+  pkSyncHistory      String    @default("") // JSON array event sinkronisasi (maks 20 terbaru): {at, changed:[{field,before,after}], result}
   photoUrl           String?
   userId             String?
   createdAt          DateTime @default(now())

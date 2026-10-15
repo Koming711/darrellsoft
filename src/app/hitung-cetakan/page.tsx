@@ -10,7 +10,8 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus, Scissors, AlertTriangle } from 'lucide-react'
+import type { SourceFieldChange } from '@/lib/potong-sync'
 import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -249,6 +250,22 @@ function setSharedSuplier(v: string) {
 interface SimRowSnap { sheets: number; modal: number; modalPcs: number; jual: number; jualPcs: number }
 interface SimRow { id: number; jumlah: number; profit: number; snap: SimRowSnap }
 
+// ===== STATUS SINKRONISASI PERMANEN POTONG KERTAS ↔ HITUNG CETAKAN =====
+// Satu pekerjaan cetak = satu relasi tetap (pkRiwayatId). Status:
+//   unlinked  → belum ada HC terhubung
+//   synced    → data HC sesuai sumber PK terkini
+//   stale     → sumber PK telah berubah, field sumber & turunan perlu diperbarui
+//   syncing   → POST sinkronisasi sedang berjalan
+//   failed    → sinkronisasi gagal (belum diterapkan — Coba Lagi)
+interface PkSyncState {
+  pkId: string
+  status: 'unlinked' | 'synced' | 'stale' | 'syncing' | 'failed'
+  pk: { nomor: string; bahan: string; grammage: string; ukuranKertas: string; ukuranPotongan: string; quantity: string; jumlahPesanan: string; efficiency: number; totalBiayaKertas: number; sheetsNeeded: number } | null
+  linkedHc: { id: string; nomor: string } | null
+  lastSyncedAt: string | null
+  willUpdate: SourceFieldChange[]
+}
+
 function HitungCetakanPage() {
   const { t } = useLanguage()
   const router = useRouter()
@@ -386,6 +403,114 @@ function HitungCetakanPage() {
   // id RiwayatPotongKertas sumber saat datang dari tombol "Hitung Cetakan Lengkap"
   // (mode edit Potong Kertas) — disimpan di riwayat HC agar hubungan deterministik.
   const pkLinkRiwayatIdRef = useRef<string>('')
+  // Flag sekali-pakai: auto-terapkan sinkronisasi saat membuka HC dari halaman PK
+  // (pengguna baru saja mengedit sumber — datanya memang diharapkan terbaru).
+  const pkAutoSyncRef = useRef(false)
+  // ===== State status sinkronisasi PK ↔ HC (panel editor) =====
+  const [pkSync, setPkSync] = useState<PkSyncState | null>(null)
+
+  // Periksa status sinkronisasi sumber PK utk riwayat HC aktif.
+  // autoApply=true → bila stale, langsung terapkan (dipakai saat datang dari PK).
+  const refreshPkSync = useCallback(async (pkId: string, autoApply: boolean) => {
+    if (!pkId) return
+    try {
+      const res = await fetcher(`/api/potong-cetakan-sync?pkId=${encodeURIComponent(pkId)}`, { headers: getAuthHeaders() })
+      if (!res.ok) {
+        setPkSync(prev => (prev && prev.pkId === pkId ? { ...prev, status: 'failed' } : prev))
+        return
+      }
+      const d = await res.json()
+      setPkSync({
+        pkId,
+        status: d.status,
+        pk: d.pk || null,
+        linkedHc: d.linkedHc ? { id: d.linkedHc.id, nomor: d.linkedHc.nomor } : null,
+        lastSyncedAt: d.linkedHc?.pkLastSyncedAt || null,
+        willUpdate: d.willUpdate || [],
+      })
+      if (d.status === 'stale') {
+        if (autoApply) {
+          await runPkSyncNow(pkId)
+        } else {
+          const labels = (d.willUpdate || []).map((c: SourceFieldChange) => c.label).slice(0, 4).join(', ')
+          toast.warning('Data sumber Potong Kertas telah berubah — perlu diperbarui.', {
+            description: labels ? `Berubah: ${labels}. Tekan "Sinkronkan Sekarang" untuk memperbarui.` : 'Tekan "Sinkronkan Sekarang" untuk memperbarui.',
+          })
+        }
+      }
+    } catch {
+      setPkSync(prev => (prev && prev.pkId === pkId ? { ...prev, status: 'failed' } : prev))
+    }
+     
+  }, [])
+
+  // Terapkan sinkronisasi PK → HC: POST ke API (transaksi DB) lalu samakan form
+  // dgn data tersimpan. Field sumber diperbarui; input manual TIDAK disentuh —
+  // ongkos cetak/finishing/kertas dihitung ulang otomatis oleh effect editor.
+  const runPkSyncNow = async (pkId: string) => {
+    if (!pkId) return
+    setPkSync(prev => (prev ? { ...prev, status: 'syncing' } : prev))
+    try {
+      const res = await fetcher('/api/potong-cetakan-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ pkId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        setPkSync(prev => (prev ? { ...prev, status: 'failed' } : prev))
+        toast.error(err?.error || 'Sinkronisasi gagal — perubahan belum diterapkan.', { description: 'Tekan "Coba Lagi" untuk mengulang.' })
+        return
+      }
+      const d = await res.json()
+      const hc = d.hc || {}
+      // Cocokkan master paper dari nama bahan hasil sinkron (pola restore existing)
+      const matchedPaper = papers.find(p => (p.name || '').toLowerCase() === (hc.paperName || '').toLowerCase())
+      setFormData(prev => ({
+        ...prev,
+        customerName: hc.customerName || '',
+        printName: hc.printName || '',
+        paperLength: hc.paperLength || '',
+        paperWidth: hc.paperWidth || '',
+        cutWidth: hc.cutWidth || '',
+        cutHeight: hc.cutHeight || '',
+        quantity: hc.quantity || '',
+        jumlahPesanan: hc.jumlahPesanan || '',
+        berapaMata: hc.berapaMata || '',
+        setelanKertas: hc.setelanKertas || '',
+        namaSuplier: hc.namaSuplier || '',
+        pricePerSheet: hc.pricePerSheet ? String(hc.pricePerSheet) : '',
+        pricePerKg: sheetToKgPrice(Number(hc.pricePerSheet) || 0, Number(hc.paperLength) || 0, Number(hc.paperWidth) || 0, Number(hc.paperGrammage) || 0),
+        paperId: matchedPaper?.id || '',
+      }))
+      if (!matchedPaper && hc.paperName) {
+        // Master belum termuat/tak cocok → serahkan ke effect matching restore
+        try { delete window.__restorePricePerSheet } catch {}
+        window.__restorePaperName = hc.paperName
+        setIsRestoring(true)
+      }
+      setPkSync(prev => (prev ? {
+        ...prev,
+        status: 'synced',
+        willUpdate: [],
+        lastSyncedAt: hc.pkLastSyncedAt || new Date().toISOString(),
+      } : prev))
+      notifyDataChange('riwayat-cetakan')
+      fetchRiwayatCetakan()
+      const changed = (d.changed || []) as SourceFieldChange[]
+      if (changed.length > 0) {
+        const labels = changed.map(c => c.label)
+        toast.success(`Sinkronisasi berhasil — diperbarui: ${labels.slice(0, 4).join(', ')}${labels.length > 4 ? `, +${labels.length - 4} lainnya` : ''}.`, {
+          description: 'Kertas, ongkos cetak, dan total dihitung ulang dari data terbaru. Mesin, plat, finishing, packing, kirim, biaya lain & profit tetap dipertahankan.',
+        })
+      } else {
+        toast.success('Sinkronisasi berhasil — data sudah sesuai sumber Potong Kertas.')
+      }
+    } catch {
+      setPkSync(prev => (prev ? { ...prev, status: 'failed' } : prev))
+      toast.error('Sinkronisasi gagal — periksa koneksi lalu coba lagi.')
+    }
+  }
   const [riwayatCetakanList, setRiwayatCetakanList] = useState<any[]>([])
   const [riwayatLoading, setRiwayatLoading] = useState(true)
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
@@ -930,7 +1055,9 @@ function HitungCetakanPage() {
     fetchRiwayatCetakan()
     // Nomor riwayat berikutnya selalu di-fetch (form dari Potong Kertas kini RESET —
     // tidak ada lagi pelanjutan riwayat HC lama yang menimpa nomor).
-    fetchNextNumber()
+    // KECUALI: dibuka via loadRiwayat (Buka Hitung Cetakan) — nomor riwayat tsb
+    // yang harus tampil, bukan nomor berikutnya (hindari race dgn restore).
+    if (!searchParams.get('loadRiwayat')) fetchNextNumber()
     // Jangan override profitPercent saat restore
     fetchProfitSetting()
   }, [])
@@ -1210,6 +1337,7 @@ function HitungCetakanPage() {
   const resetForm = () => {
     clearStorage()
     pkLinkRiwayatIdRef.current = ''
+    setPkSync(null)
     setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
@@ -1267,6 +1395,7 @@ function HitungCetakanPage() {
   const resetFormForRiwayat = () => {
     setRestoredRiwayatId(null)
     setPhotoUrl('')
+    setPkSync(null)
     clearStorage()
     setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
@@ -1316,6 +1445,8 @@ function HitungCetakanPage() {
         fetchNextNumber()
         // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan & profit).
         setRestoredRiwayatId(null)
+        // Relasi PK ↔ HC kini tersimpan + snapshot dibuat di server → muat status panel
+        if (pkLinkRiwayatIdRef.current) refreshPkSync(pkLinkRiwayatIdRef.current, false)
       } else { toast.error('Gagal menyimpan riwayat') }
     } catch { toast.error('Gagal menyimpan riwayat') }
     setSavingRiwayat(false)
@@ -1441,6 +1572,9 @@ function HitungCetakanPage() {
         fetchNextNumber()
         // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan & profit).
         setRestoredRiwayatId(null)
+        // Bila HC ter-link ke PK: bila field sumber diubah manual di HC, status akan
+        // menunjukkan "Perlu diperbarui" (sumber PK tak lagi identik) — konsisten §6.
+        if (pkLinkRiwayatIdRef.current) refreshPkSync(pkLinkRiwayatIdRef.current, false)
       } else { toast.error('Gagal mengupdate riwayat') }
     } catch { toast.error('Gagal mengupdate riwayat') }
     setSavingRiwayat(false)
@@ -1524,33 +1658,77 @@ function HitungCetakanPage() {
     if (r.machineName2) window.__restoreMachineName2 = r.machineName2
     if (r.finishingNames && r.finishingNames !== '-') window.__restoreFinishingNames = r.finishingNames
 
-    // === Sinkronisasi sumber Potong Kertas (K): bila riwayat HC ter-link ke riwayat PK,
-    // ambil data PK terkini & deteksi apakah sumber telah berubah sejak HC disimpan.
-    // Hanya MEMBERI TAHU — data HC tidak pernah ditimpa otomatis.
+    // === SINKRONISASI PERMANEN PK ↔ HC: bila riwayat HC ter-link ke riwayat PK,
+    // periksa status sumber (synced/stale). Bila dibuka DARI halaman Potong Kertas
+    // (pkAutoSyncRef), perubahan sumber langsung diterapkan + notifikasi; kalau
+    // tidak, hanya memberi tahu — pengguna memutuskan lewat tombol Sinkronkan.
     if (r.pkRiwayatId) {
-      fetcher(`/api/riwayat-potong-kertas?id=${encodeURIComponent(r.pkRiwayatId)}`, { headers: getAuthHeaders() })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((pk) => {
-          if (!pk) return
-          // Bandingkan parameter kunci HC tersimpan vs PK sumber saat ini
-          const same = (a: any, b: any) => String(a ?? '').trim() === String(b ?? '').trim()
-          const changed =
-            !same(r.paperLength, pk.paperWidth) ||
-            !same(r.paperWidth, pk.paperHeight) ||
-            !same(r.cutWidth, pk.cutWidth) ||
-            !same(r.cutHeight, pk.cutHeight) ||
-            !same(r.quantity, pk.quantity) ||
-            Math.abs((Number(pk.totalPrice) || 0) - (Number(r.totalPaperPrice) || 0)) > 0.5
-          if (changed) {
-            toast.warning('Data sumber Potong Kertas telah berubah — periksa sebelum menyimpan.', { description: 'Perhitungan lama TIDAK diubah otomatis.' })
-          }
-        })
-        .catch(() => {})
+      const autoApply = pkAutoSyncRef.current
+      pkAutoSyncRef.current = false
+      refreshPkSync(r.pkRiwayatId, autoApply)
+    } else {
+      setPkSync(null)
     }
 
     toast.success('Data berhasil di-restore dari riwayat!')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  // ===== Buka riwayat HC tertentu via URL (dari tombol "Buka Hitung Cetakan"
+  // di halaman Potong Kertas): /hitung-cetakan?loadRiwayat=<id>&fromPotongKertas=1
+  // Satu pekerjaan cetak = satu relasi tetap — TIDAK membuat data baru.
+  useEffect(() => {
+    const loadId = searchParams.get('loadRiwayat')
+    if (!loadId) return
+    const fromPk = searchParams.get('fromPotongKertas') === '1'
+    window.history.replaceState({}, '', '/hitung-cetakan')
+    ;(async () => {
+      try {
+        const res = await fetcher(`/api/riwayat-cetakan?id=${encodeURIComponent(loadId)}`, { headers: getAuthHeaders() })
+        if (!res.ok) {
+          toast.error('Riwayat Hitung Cetakan tidak ditemukan atau bukan milik akun ini.')
+          return
+        }
+        const r = await res.json()
+        pkAutoSyncRef.current = fromPk
+        handleRestoreRiwayat(r)
+      } catch {
+        toast.error('Gagal memuat riwayat Hitung Cetakan.')
+      }
+    })()
+     
+  }, [searchParams])
+
+  // ===== Polling perubahan sumber (§7): saat HC ter-link & editor terbuka,
+  // periksa sumber PK tiap 30 detik — bila berubah tampilkan notifikasi + badge
+  // "Perlu diperbarui". TIDAK pernah menimpa form secara diam-diam.
+  const pkSyncId = pkSync?.pkId
+  const pkSyncStatus = pkSync?.status
+  useEffect(() => {
+    if (!pkSyncId || pkSyncStatus === 'unlinked' || pkSyncStatus === 'failed') return
+    const interval = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return
+      try {
+        const res = await fetcher(`/api/potong-cetakan-sync?pkId=${encodeURIComponent(pkSyncId)}`, { headers: getAuthHeaders() })
+        if (!res.ok) return
+        const d = await res.json()
+        setPkSync(prev => (prev && prev.pkId === pkSyncId && prev.status !== 'syncing' ? {
+          ...prev,
+          status: d.status,
+          pk: d.pk || prev.pk,
+          linkedHc: d.linkedHc ? { id: d.linkedHc.id, nomor: d.linkedHc.nomor } : prev.linkedHc,
+          lastSyncedAt: d.linkedHc?.pkLastSyncedAt ?? prev.lastSyncedAt,
+          willUpdate: d.willUpdate || [],
+        } : prev))
+        if (d.status === 'stale' && pkSyncStatus !== 'stale') {
+          toast.info('Data Potong Kertas telah berubah di sumbernya.', {
+            description: 'Tekan "Sinkronkan Sekarang" untuk memperbarui perhitungan tanpa mengisi ulang form.',
+          })
+        }
+      } catch {}
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [pkSyncId, pkSyncStatus])
 
   const handleDeleteRiwayat = async (id: string): Promise<boolean> => {
     if (!confirm('Beneran mau dihapus nih?')) return false
@@ -1571,6 +1749,8 @@ function HitungCetakanPage() {
           pkLinkRiwayatIdRef.current = ''
           fetchNextNumber()
         }
+        // Bila HC terhubung yang dihapus → panel status sinkron tidak relevan lagi
+        if (pkSync?.linkedHc?.id === id) setPkSync(null)
         fetchRiwayatCetakan()
         return true
       }
@@ -2221,6 +2401,84 @@ function HitungCetakanPage() {
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
                 <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
                 <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
+              </div>
+            )}
+
+            {/* ===== STATUS SINKRONISASI PERMANEN Potong Kertas ↔ Hitung Cetakan ===== */}
+            {pkSync && pkSync.status !== 'unlinked' && (
+              <div className={`rounded-2xl border mb-3 overflow-hidden ${pkSync.status === 'stale' ? 'border-amber-300 dark:border-amber-800' : pkSync.status === 'failed' ? 'border-red-300 dark:border-red-800' : 'border-teal-200 dark:border-teal-900'}`}>
+                <div className={`flex items-center gap-2 px-4 py-2 ${pkSync.status === 'stale' ? 'bg-amber-50 dark:bg-amber-950/30' : pkSync.status === 'failed' ? 'bg-red-50 dark:bg-red-950/30' : 'bg-teal-50/70 dark:bg-teal-950/30'}`}>
+                  <div className="w-6 h-6 rounded-md bg-teal-100 flex items-center justify-center shrink-0"><Scissors className="w-3.5 h-3.5 text-teal-700" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-bold text-slate-700 dark:text-slate-200 leading-tight">
+                      Sumber Potong Kertas {pkSync.pk?.nomor ? <span className="font-mono">({pkSync.pk.nomor})</span> : null}
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight truncate">
+                      {pkSync.pk ? `${pkSync.pk.bahan}${pkSync.pk.grammage && pkSync.pk.grammage !== '0' ? ` ${pkSync.pk.grammage} gsm` : ''} · ${pkSync.pk.ukuranKertas} → ${pkSync.pk.ukuranPotongan} · ${Number(pkSync.pk.quantity || 0).toLocaleString('id-ID')} pcs` : ''}
+                    </p>
+                  </div>
+                  {pkSync.status === 'synced' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0"><CheckCircle2 className="w-3 h-3" /> Tersinkronisasi</span>
+                  )}
+                  {pkSync.status === 'stale' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 shrink-0"><AlertTriangle className="w-3 h-3" /> Perlu diperbarui</span>
+                  )}
+                  {pkSync.status === 'syncing' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 shrink-0"><Loader2 className="w-3 h-3 animate-spin" /> Menyinkronkan…</span>
+                  )}
+                  {pkSync.status === 'failed' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 shrink-0"><AlertTriangle className="w-3 h-3" /> Gagal</span>
+                  )}
+                </div>
+                <div className="px-4 py-2 bg-card">
+                  {pkSync.status === 'stale' && pkSync.willUpdate.length > 0 && (
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2 py-1.5 mb-2">
+                      <p className="text-[10.5px] font-semibold text-amber-800 dark:text-amber-300 mb-0.5">Data Potong Kertas telah berubah. Field berikut akan diperbarui beserta nilai turunannya:</p>
+                      <ul className="text-[10.5px] text-amber-800 dark:text-amber-300 space-y-0.5 max-h-24 overflow-y-auto">
+                        {pkSync.willUpdate.map((c) => (
+                          <li key={c.field}>• <b>{c.label}</b>: {c.before} → {c.after}</li>
+                        ))}
+                      </ul>
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">Pengaturan mesin, plat, daftar finishing, packing, kirim, biaya lain &amp; profit tetap dipertahankan.</p>
+                    </div>
+                  )}
+                  {pkSync.status === 'failed' && (
+                    <p className="text-[10.5px] text-red-700 dark:text-red-400 mb-2">Sinkronisasi gagal — perubahan belum diterapkan. Periksa koneksi lalu coba lagi.</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {pkSync.status === 'stale' || pkSync.status === 'failed' || pkSync.status === 'syncing' ? (
+                      <button
+                        type="button"
+                        onClick={() => runPkSyncNow(pkSync.pkId)}
+                        disabled={pkSync.status === 'syncing'}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white text-[11px] font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        {pkSync.status === 'syncing' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        {pkSync.status === 'failed' ? 'Coba Lagi' : 'Sinkronkan Sekarang'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => refreshPkSync(pkSync.pkId, false)}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-teal-200 hover:bg-teal-50 dark:border-teal-900 dark:hover:bg-teal-950/30 text-teal-700 dark:text-teal-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Periksa Ulang
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/potong-kertas?restore=${pkSync.pkId}`)}
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-slate-200 hover:bg-slate-50 dark:border-zinc-700 dark:hover:bg-zinc-800 text-slate-600 dark:text-slate-300 text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Buka Potong Kertas
+                    </button>
+                    {pkSync.lastSyncedAt && (
+                      <span className="text-[10px] text-slate-400 ml-auto">
+                        Disinkronkan: {new Date(pkSync.lastSyncedAt).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, Printer, FileImage, Loader2, History, RefreshCw, Trash2, Plus, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus, Wand2, AlertTriangle, Sparkles } from 'lucide-react'
+import { Calculator, Save, Printer, FileImage, Loader2, History, RefreshCw, Trash2, Plus, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus, Wand2, AlertTriangle, Sparkles, Scissors } from 'lucide-react'
 import { computeWasteAreas, type CandidateResult, type WasteArea, type CuttingResultPlus } from '@/lib/cutting-optimizer'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
@@ -332,6 +332,10 @@ function CalculatorPage() {
   // Foto lampiran perhitungan (data URL JPEG ≤300KB; ikut tersimpan di riwayat)
   const [photoUrl, setPhotoUrl] = useState('')
   const [restoredRiwayatId, setRestoredRiwayatId] = useState<string | null>(null)
+  // ===== SINKRONISASI PERMANEN PK ↔ HC: status relasi riwayat aktif =====
+  const [pkHcLink, setPkHcLink] = useState<{ hcId: string; hcNomor: string; status: string; lastSyncedAt: string | null } | null>(null)
+  // Key pemicu refetch status (dibump setelah simpan/update riwayat PK)
+  const [pkLinkKey, setPkLinkKey] = useState(0)
   // Tombol "Hitung Cetakan Lengkap" sedang menyiapkan riwayat (simpan dulu utk dapatkan id)
   const [preparingHc, setPreparingHc] = useState(false)
   const [needsRecalc, setNeedsRecalc] = useState(false)
@@ -1097,6 +1101,7 @@ function CalculatorPage() {
         fetchNextNumber()
         // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan / profit di Simulasi Cepat).
         setRestoredRiwayatId(null)
+        setPkLinkKey(k => k + 1) // data sumber berubah → status relasi HC ikut dicek ulang
       } else {
         const errData = await res.json().catch(() => null)
         console.error('Save riwayat error:', res.status, errData)
@@ -1189,6 +1194,7 @@ function CalculatorPage() {
         fetchRiwayat()
         // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan / profit di Simulasi Cepat).
         setRestoredRiwayatId(null)
+        setPkLinkKey(k => k + 1) // sumber berubah → HC terhubung jadi "Perlu diperbarui"
       } else {
         toast.error('Gagal mengupdate riwayat')
       }
@@ -1393,6 +1399,38 @@ function CalculatorPage() {
     toast.success('Data berhasil di-restore dari riwayat!')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  // ===== SINKRONISASI PERMANEN PK ↔ HC =====
+  // Id riwayat PK yang "aktif" di editor: riwayat yang di-restore, ATAU riwayat
+  // yang identik dgn data form (mis. baru disimpan / baru diteruskan ke HC).
+  const currentPkId = useMemo<string | null>(() => {
+    if (restoredRiwayatId) return restoredRiwayatId
+    return findSameRiwayat()?.id || null
+     
+  }, [restoredRiwayatId, riwayatList, selectedCustomer, printName, selectedPaper, restoredPaperName, paperWidth, paperHeight, cutWidth, cutHeight, quantity, results, jumlahPesanan, berapaMata])
+
+  // Muat status relasi HC utk riwayat aktif (terhubung? synced/stale? kapan?)
+  useEffect(() => {
+    if (!currentPkId) { setPkHcLink(null); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetcher(`/api/potong-cetakan-sync?pkId=${encodeURIComponent(currentPkId)}`, { headers: getAuthHeaders() })
+        if (cancelled) return
+        if (!res.ok) { setPkHcLink(null); return }
+        const d = await res.json()
+        setPkHcLink(d.linkedHc ? {
+          hcId: d.linkedHc.id,
+          hcNomor: d.linkedHc.nomor,
+          status: d.status,
+          lastSyncedAt: d.linkedHc.pkLastSyncedAt || null,
+        } : null)
+      } catch {
+        if (!cancelled) setPkHcLink(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [currentPkId, pkLinkKey])
 
   // ===== Restore via deep-link dari halaman Riwayat: /potong-kertas?restore=<id> =====
   const restoreParamAppliedRef = useRef(false)
@@ -2185,9 +2223,39 @@ function CalculatorPage() {
             </div>
           </div>
 
+          {/* ===== STATUS SINKRONISASI PERMANEN: pekerjaan terhubung ke Hitung Cetakan? ===== */}
+          {pkHcLink && (
+            <div className={`rounded-2xl border mb-3 overflow-hidden ${pkHcLink.status === 'stale' ? 'border-amber-300 dark:border-amber-800' : 'border-teal-200 dark:border-teal-900'}`}>
+              <div className={`flex items-center gap-2 px-4 py-2 ${pkHcLink.status === 'stale' ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-teal-50/70 dark:bg-teal-950/30'}`}>
+                <div className="w-6 h-6 rounded-md bg-teal-100 flex items-center justify-center shrink-0"><Scissors className="w-3.5 h-3.5 text-teal-700" /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wider leading-tight">Terhubung: Hitung Cetakan</p>
+                  <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200 font-mono leading-tight">{pkHcLink.hcNomor}</p>
+                  {pkHcLink.lastSyncedAt && (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                      Disinkronkan: {new Date(pkHcLink.lastSyncedAt).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+                {pkHcLink.status === 'synced' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0"><CheckCircle2 className="w-3 h-3" /> Tersinkronisasi</span>
+                ) : pkHcLink.status === 'stale' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 shrink-0"><AlertTriangle className="w-3 h-3" /> Perlu diperbarui</span>
+                ) : null}
+              </div>
+            </div>
+          )}
+
           {/* Link to Hitung Cetakan */}
           <button
             onClick={async () => {
+              // === SINKRONISASI PERMANEN: bila riwayat aktif sudah terhubung ke
+              // Hitung Cetakan, BUKA data tersebut (jangan buat baru / reset).
+              // fromPotongKertas=1 → HC auto-terapkan perubahan sumber bila ada.
+              if (pkHcLink?.hcId) {
+                router.push(`/hitung-cetakan?loadRiwayat=${pkHcLink.hcId}&fromPotongKertas=1`)
+                return
+              }
               if (!results) {
                 toast.error('Hitung potongan terlebih dahulu!')
                 return
@@ -2229,6 +2297,20 @@ function CalculatorPage() {
               if (!pkIdToLink) {
                 const same = findSameRiwayat()
                 if (same) pkIdToLink = same.id
+              }
+              // === ANTI-DUPLIKAT (§10): bila riwayat PK ini sudah punya Hitung
+              // Cetakan terhubung → BUKA data itu (jangan buat pekerjaan baru).
+              if (pkIdToLink) {
+                try {
+                  const linkRes = await fetcher(`/api/potong-cetakan-sync?pkId=${encodeURIComponent(pkIdToLink)}`, { headers: getAuthHeaders() })
+                  if (linkRes.ok) {
+                    const linkData = await linkRes.json()
+                    if (linkData.linkedHc?.id) {
+                      router.push(`/hitung-cetakan?loadRiwayat=${linkData.linkedHc.id}&fromPotongKertas=1`)
+                      return
+                    }
+                  }
+                } catch {}
               }
               if (!pkIdToLink && !isDataSameAsAnyRiwayat()) {
                 setPreparingHc(true)
@@ -2282,13 +2364,13 @@ function CalculatorPage() {
               else sessionStorage.removeItem('pk-to-hc-photoUrl')
               router.push(`/hitung-cetakan?${params.toString()}`)
             }}
-            disabled={!results || needsRecalc || preparingHc}
+            disabled={!results || preparingHc || (!pkHcLink?.hcId && needsRecalc)}
             style={{
-              background: (results && !needsRecalc) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
+              background: ((results && !needsRecalc) || pkHcLink?.hcId) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
             }}
             className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-blue-500 cursor-pointer transition-colors">
             {preparingHc && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {preparingHc ? 'Menyiapkan riwayat…' : 'Hitung Cetakan Lengkap'}
+            {preparingHc ? 'Menyiapkan riwayat…' : pkHcLink?.hcId ? 'Buka Hitung Cetakan' : 'Hitung Cetakan Lengkap'}
           </button>
 
           {/* Simulasi Cepat (mobile): dipindah ke bawah tombol Hitung Cetakan Lengkap */}

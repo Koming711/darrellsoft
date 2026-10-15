@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 import { generateHitungCetakanNumber, previewHitungCetakanNumber } from '@/lib/doc-number'
 import { validatePhotoDataUrl } from '@/lib/image-compress'
+import { extractPkSource } from '@/lib/potong-sync'
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,6 +71,26 @@ export async function POST(request: NextRequest) {
     const dataFilter = await getDataFilter(user)
     const nomorUrut = await generateHitungCetakanNumber(dataFilter)
 
+    // === SINKRONISASI PERMANEN PK ↔ HC: saat HC pertama kali disimpan dengan
+    // link riwayat Potong Kertas, catat snapshot sumber + status 'synced'
+    // agar perubahan PK berikutnya terdeteksi (satu pekerjaan = satu relasi).
+    const pkId: string | null = typeof body.pkRiwayatId === 'string' && body.pkRiwayatId ? body.pkRiwayatId : null
+    let pkSyncFields: {
+      pkSyncStatus: string
+      pkLastSyncedAt: Date
+      pkSourceSnapshot: string
+    } | null = null
+    if (pkId) {
+      const pk = await db.riwayatPotongKertas.findFirst({ where: { id: pkId, ...dataFilter } })
+      if (pk) {
+        pkSyncFields = {
+          pkSyncStatus: 'synced',
+          pkLastSyncedAt: new Date(),
+          pkSourceSnapshot: JSON.stringify(extractPkSource(pk)),
+        }
+      }
+    }
+
     const riwayat = await db.riwayatCetakan.create({
       data: {
         nomorUrut,
@@ -120,7 +141,8 @@ export async function POST(request: NextRequest) {
         grandTotal: body.grandTotal || 0,
         // Tabel Simulasi Cepat: JSON array [{jumlah,profit,sheets,modal,modalPcs,jual,jualPcs}]
         simulasiCepat: typeof body.simulasiCepat === 'string' ? body.simulasiCepat.slice(0, 50000) : '',
-        pkRiwayatId: typeof body.pkRiwayatId === 'string' && body.pkRiwayatId ? body.pkRiwayatId : null,
+        pkRiwayatId: pkId,
+        ...(pkSyncFields || {}),
         photoUrl: validatePhotoDataUrl(body.photoUrl),
         userId: user?.id || null,
       }
