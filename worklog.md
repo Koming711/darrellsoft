@@ -13563,3 +13563,18 @@ Stage Summary:
 - Edit PK → HC "Perlu diperbarui" (panel di kedua halaman + polling 30 dtk + toast) → Sinkronkan Sekarang/Coba Lagi (auto saat datang dari PK): 14 field sumber ditimpa dari PK terbaru, kertas dihitung ulang cutting-engine yang sama, ongkos mesin & finishing dihitung ulang formula master yang sama (aturan bisnis quantity), mesin/plat/warna/daftar-finishing/packing/kirim/biaya lain/lem/profit/foto DIPERTAHANKAN, subTotal/profit/grand recalc, semua dalam SATU transaksi DB + snapshot + riwayat audit (field, before, after, waktu).
 - File baru: src/lib/potong-sync.ts; src/app/api/potong-cetakan-sync/route.ts. File diubah: prisma/schema.prisma (+4 field RiwayatCetakan), src/app/api/riwayat-cetakan/route.ts (snapshot saat first-save), src/app/hitung-cetakan/page.tsx (panel+auto-sync+poll+loadRiwayat+guard nomor), src/app/potong-kertas/page.tsx (panel terhubung+tombol pintar+anti-duplikat).
 - PERBAIKAN LINGKUNGAN: schema.prisma root stale diarsipkan (schema.prisma.stale-bak) — Prisma CLI kini konsisten pakai prisma/schema.prisma; tabel GabunganHitungCetakan kembali ada di DB; fitur Gabungan yang sebelumnya rusak diam-diam ikut pulih.
+
+---
+Task ID: perbesar-teks-gambar-strategi-pk
+Agent: Z.ai Code (main)
+Task: Halaman Potong Kertas — perbesar tulisan di dalam gambar strategi (diagram pola potong) 3x lipat.
+
+Work Log:
+- Audit: gambar strategi = komponen bersama `src/components/cutting-results.tsx` (CuttingDiagram, SVG viewBox SCALE=5.94), dipakai di PK page 2x (kalkulator baris ~2487 + preview FixedDocScaler baris ~3005 → ikut tercetak & ekspor JPG), juga di riwayat-pembelian & rincian-cetakan-preview. Teks dalam gambar: label sisa ("A · 7.5 × 43 cm" 9–11px), nomor potongan (maks 15), ukuran potongan (8.5), penanda ⟳ & tag 90° (9) — semua kecil.
+- `cutting-results.tsx`: tambah prop `textScale` (default 1, perilaku lama hampir identik) → SEMUA font SVG dikali textScale dgn shrink-to-fit otomatis (estimasi lebar glyph 0.62em) agar teks TIDAK pernah meluber dari area: label sisa maks 33 (cek muat horizontal/vertikal via estW, fallback kode pendek maks 30), nomor potongan maks 45 (fit per jumlah digit), ukuran potongan maks 25.5, ⟳ 27, tag 90° menyesuaikan lebar potongan (memperbaiki overflow lama pada potongan <22px). Offset posisi nomor/ukuran ikut font aktual (0.4×/0.73×) agar tetap center.
+- `potong-kertas/page.tsx`: kedua pemakaian CuttingDiagram diberi `textScale={3}` (kalkulator + preview dokumen Cetak/JPG). Halaman lain (riwayat-pembelian, rincian-cetakan-preview) TIDAK diubah (default 1).
+- Verifikasi: eslint kedua file exit 0; browser E2E (login superadmin → /potong-kertas → art karton 260gsm, potong 21.5×28.5, pesanan 500 / mata 2): font DOM terukur — nomor 45 (dari 15), label sisa 26.6 (dari 9–11), ukuran 23.9 (dari 8.5), ⟳ 27 (dari 9) = ±3× lipat; diagram kalkulator & Preview (data-pk=diagram) tampak besar & rapi tanpa tumpang tindih (screenshot); tanpa error console/server; teks legenda & keterangan di luar gambar tidak diubah.
+
+Stage Summary:
+- Tulisan di gambar strategi Potong Kertas kini 3× lipat (maks; menyusut otomatis bila area sempit) di kalkulator, preview, cetak A5, dan ekspor JPG. Mekanisme prop `textScale` — halaman lain bisa ikut diperbesar cukup dengan menambah prop yang sama.
+- File diubah: src/components/cutting-results.tsx, src/app/potong-kertas/page.tsx.

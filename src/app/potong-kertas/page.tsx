@@ -2484,7 +2484,7 @@ function CalculatorPage() {
               <div className="flex-1 flex flex-col lg:flex-row gap-3 lg:min-h-0 lg:overflow-auto">
                 {/* Diagram */}
                 <div className="flex-1 flex items-center justify-center min-w-0 min-h-0 p-1" style={{ transform: 'scale(0.917)', transformOrigin: 'center center' }}>
-                  <CuttingDiagram results={results} selectedWasteId={selectedWasteId} onSelectWaste={setSelectedWasteId} />
+                  <CuttingDiagram results={results} selectedWasteId={selectedWasteId} onSelectWaste={setSelectedWasteId} textScale={3} />
                 </div>
 
                 {/* Steps + Block Details */}
@@ -3002,7 +3002,7 @@ function CalculatorPage() {
                 {/* Diagram */}
                 <div data-pk="diagram" className="mb-3 w-full">
                   <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
-                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="320px" selectedWasteId={selectedWasteId} onSelectWaste={setSelectedWasteId} />
+                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="320px" selectedWasteId={selectedWasteId} onSelectWaste={setSelectedWasteId} textScale={3} />
                   </div>
                 </div>
 

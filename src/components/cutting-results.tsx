@@ -23,6 +23,9 @@ import { computeWasteAreas, type WasteArea } from '@/lib/cutting-optimizer'
 //   • Highlight dua arah dgn tabel sisa (selectedWasteId / onSelectWaste)
 //   • Kompatibel data lama: bila results.wasteAreas tidak ada, sisa dihitung
 //     ulang secara geometri dari blok.
+//   • textScale: pembesaran tulisan di dalam gambar (default 1). Font naik
+//     maksimal textScale× lipat dan menyusut otomatis (shrink-to-fit) bila
+//     ruang area tidak cukup, sehingga teks tidak perlu tumpang tindih.
 // ============================================================================
 
 const SCALE = 5.94
@@ -42,13 +45,18 @@ function CuttingDiagram({
   selectedWasteId,
   onSelectWaste,
   showLegend = true,
+  textScale = 1,
 }: {
   results: CuttingResult
   maxHeight?: string
   selectedWasteId?: string | null
   onSelectWaste?: (id: string | null) => void
   showLegend?: boolean
+  textScale?: number
 }) {
+  const TS = textScale
+  // Perkiraan lebar teks SVG (rata2 glyph ±0.62em) utk cek "muat" tanpa overflow
+  const estW = (s: string, fs: number) => s.length * fs * 0.62
   const pw = results.paperWidth
   const ph = results.paperHeight
   const wasteAreas = useMemo(() => normalizeWasteAreas(results), [results])
@@ -102,12 +110,19 @@ function CuttingDiagram({
           const isSelected = !!selectedWasteId && selectedWasteId === w.id
           const dimmed = !!selectedWasteId && !isSelected
           const code = w.label.replace('Sisa ', '')
-          // label muat bila area cukup besar; sisa sempit → label diputar
-          const horizontalLabel = rw >= 66 && rh >= 22
-          const verticalLabel = !horizontalLabel && rh >= 66 && rw >= 22
-          const showFull = horizontalLabel || verticalLabel
           const sizeText = `${w.width} × ${w.height} cm`
           const label = `${code} · ${sizeText}`
+          // Label lengkap: font maks textScale× lipat, menyusut otomatis agar muat
+          const baseFull = Math.max(rw, rh) > 150 ? 11 : 9
+          const fsFull = Math.min(baseFull * TS, Math.max(baseFull, (rw - 8) / (label.length * 0.62)))
+          const fsVert = Math.min(baseFull * TS, Math.max(baseFull, (rh - 8) / (label.length * 0.62)))
+          // label muat bila area cukup besar; sisa sempit → label diputar
+          const horizontalLabel = estW(label, fsFull) <= rw - 8 && fsFull * 1.25 + 4 <= rh
+          const verticalLabel = !horizontalLabel && estW(label, fsVert) <= rh - 8 && fsVert * 1.25 + 4 <= rw
+          const showFull = horizontalLabel || verticalLabel
+          // Kode pendek (mis. "A") bila label lengkap tidak muat
+          const fsCode = Math.min(10 * TS, Math.max(10, (rw - 6) / (Math.max(code.length, 1) * 0.62)))
+          const showCode = !showFull && fsCode >= 10 && fsCode + 4 <= rh && rw >= 13
           return (
             <g
               key={w.id}
@@ -125,20 +140,20 @@ function CuttingDiagram({
               />
               {showFull && horizontalLabel && (
                 <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
-                  fontSize={rw > 150 ? 11 : 9} fontWeight="600" fill="#1e3a5f" style={{ pointerEvents: 'none' }}>
+                  fontSize={fsFull} fontWeight="600" fill="#1e3a5f" style={{ pointerEvents: 'none' }}>
                   {label}
                 </text>
               )}
               {showFull && verticalLabel && (
                 <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
-                  fontSize={rh > 150 ? 11 : 9} fontWeight="600" fill="#1e3a5f"
+                  fontSize={fsVert} fontWeight="600" fill="#1e3a5f"
                   transform={`rotate(-90 ${rx + rw / 2} ${ry + rh / 2})`} style={{ pointerEvents: 'none' }}>
                   {label}
                 </text>
               )}
-              {!showFull && rw >= 13 && rh >= 13 && (
+              {showCode && (
                 <text x={rx + rw / 2} y={ry + rh / 2} textAnchor="middle" dominantBaseline="middle"
-                  fontSize="10" fontWeight="700" fill={w.status === 'reusable' ? '#1d4ed8' : w.status === 'small' ? '#c2410c' : '#64748b'}
+                  fontSize={fsCode} fontWeight="700" fill={w.status === 'reusable' ? '#1d4ed8' : w.status === 'small' ? '#c2410c' : '#64748b'}
                   style={{ pointerEvents: 'none' }}>
                   {code}
                 </text>
@@ -178,6 +193,14 @@ function CuttingDiagram({
                 const canShowSize = pieceW >= 62 && pieceH >= 36
                 const canShowNum = pieceW >= 16 && pieceH >= 16
                 const canShowRot = block.rotated && pieceW >= 40 && pieceH >= 34
+                // Nomor potongan: maks textScale× lipat, menyusut bila potongan kecil
+                const numStr = String(num)
+                const maxNumFs = Math.min(15, Math.max(8, Math.min(pieceW, pieceH) / 3.4)) * TS
+                const fitNumFs = Math.min((pieceW - 5) / (numStr.length * 0.66), (pieceH - 5) / 1.15)
+                const numFs = Math.min(maxNumFs, Math.max(8, fitNumFs))
+                // Ukuran potongan: maks textScale× lipat, menyesuaikan lebar potongan
+                const sizeStr = `${block.pieceWidth} × ${block.pieceHeight}`
+                const sizeFs = Math.min(8.5 * TS, Math.max(8.5, (pieceW - 6) / (sizeStr.length * 0.62)))
                 elements.push(
                   <g key={`p-${blockIdx}-${i}-${j}`}>
                     <rect
@@ -185,23 +208,23 @@ function CuttingDiagram({
                       fill={`url(#${gId})`} stroke={sColor} strokeWidth="1.4" rx="1"
                     />
                     {canShowNum && (
-                      <text x={px + pieceW / 2} y={py + pieceH / 2 - (canShowSize ? 6 : 0)}
+                      <text x={px + pieceW / 2} y={py + pieceH / 2 - (canShowSize ? 0.4 * numFs : 0)}
                         textAnchor="middle" dominantBaseline="middle"
-                        fontSize={Math.min(15, Math.max(8, Math.min(pieceW, pieceH) / 3.4))}
+                        fontSize={numFs}
                         fontWeight="700" fill="#166534">
                         {num}
                       </text>
                     )}
                     {canShowSize && (
-                      <text x={px + pieceW / 2} y={py + pieceH / 2 + 11}
+                      <text x={px + pieceW / 2} y={py + pieceH / 2 + 0.73 * numFs}
                         textAnchor="middle" dominantBaseline="middle"
-                        fontSize="8.5" fontWeight="500" fill="#15803d">
-                        {block.pieceWidth} × {block.pieceHeight}
+                        fontSize={sizeFs} fontWeight="500" fill="#15803d">
+                        {sizeStr}
                       </text>
                     )}
                     {canShowRot && (
-                      <text x={px + pieceW - 9} y={py + 9} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9" fontWeight="700" fill="#b45309">
+                      <text x={px + pieceW - 9 * TS} y={py + 9 * TS} textAnchor="middle" dominantBaseline="middle"
+                        fontSize={9 * TS} fontWeight="700" fill="#b45309">
                         ⟳
                       </text>
                     )}
@@ -212,13 +235,19 @@ function CuttingDiagram({
 
             // Tag rotasi di sudut blok (untuk blok dgn potongan kecil)
             if (block.rotated && pieceW < 40) {
-              elements.push(
-                <g key={`rot-${blockIdx}`}>
-                  <rect x={blockX + 2} y={blockY + 2} width={30} height={14} rx="3" fill="#f59e0b" opacity="0.92" />
-                  <text x={blockX + 17} y={blockY + 9.5} textAnchor="middle" dominantBaseline="middle"
-                    fontSize="9" fontWeight="700" fill="#fff">90°</text>
-                </g>
-              )
+              // Ukuran tag menyesuaikan lebar potongan agar tidak meluber
+              const tagFs = Math.min(9 * TS, (pieceW - 4) / 2.2)
+              if (tagFs >= 8) {
+                const tagW = Math.min(tagFs * 3.4, pieceW - 4)
+                const tagH = tagFs * 1.6
+                elements.push(
+                  <g key={`rot-${blockIdx}`}>
+                    <rect x={blockX + 2} y={blockY + 2} width={tagW} height={tagH} rx={tagFs * 0.33} fill="#f59e0b" opacity="0.92" />
+                    <text x={blockX + 2 + tagW / 2} y={blockY + 2 + tagH / 2} textAnchor="middle" dominantBaseline="middle"
+                      fontSize={tagFs} fontWeight="700" fill="#fff">90°</text>
+                  </g>
+                )
+              }
             }
           })
           return elements
