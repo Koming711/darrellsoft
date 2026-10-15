@@ -13446,3 +13446,29 @@ Stage Summary:
 - Mobile potong kertas: kotak Simulasi Cepat kini di BAWAH tombol Hitung Cetakan Lengkap; desktop tetap full-width di bawah halaman (tidak berubah)
 - Tombol "Simpan Riwayat" (dan "Update Riwayat") tampil 2 baris di mobile, 1 baris di tablet/desktop
 - PWA v163; lint bersih; server 200; 0 error
+
+---
+Task ID: workspace-restore-extract-and-run
+Agent: Z.ai Code (main)
+Task: "extract file ini. jalankan dengan sempurna" — extract 3-part split tar workspace backup (workspace-7ffcedf3-407d-422f-86e5-302ee85c0164 (9).tar.001/.002/.003) and run the project perfectly
+
+Work Log:
+- GABUNG split archive: cat tar.001 + tar.002 + tar.003 (52428800+52428800+500762 bytes) → /tmp/extract/workspace.tar (105,358,362 bytes), tar -tf OK tanpa error
+- AUDIT pre-extract: .env & Caddyfile identik dengan sandbox (DATABASE_URL=file:/home/z/my-project/db/custom.db, gateway :81) → aman extract penuh
+- STOP dev server lama (PID 1172/1175/1178/1193), bersihkan scaffold (src/prisma/db/public/next.config.ts/package.json dll), KEEP .env, Caddyfile, skills/, examples/, upload/
+- EXTRACT tar penuh ke /home/z/my-project (termasuk .git, db/custom.db 1.4MB dgn data, mini-services/, src/, prisma/, public/)
+- INSTALL: bun install OK (145 packages, postinstall prisma generate sukses)
+- AUDIT realtime: notif-service (port 3003 socket browser + 127.0.0.1:3004 internal emit) = ARSITEKTUR AKTIF (worklog v157+); notif-ws (port 3004) = legacy, realtime-notifications.tsx TIDAK diimport manapun → hanya notif-service yang dijalankan (hindari EADDRINUSE 3004)
+- FIX next.config.ts allowedDevOrigins: ganti domain preview lama (67f99cb9) → *.space-z.ai + preview-chat-11004390-ef1d-45a1-8ea3-8617894ae3d3.space-z.ai (sesuai session sekarang); restart dev server
+- START: bun run dev (next dev -p 3000, Ready 818ms, GET / 200) + mini-services/notif-service (bun --hot, socket 3003 + internal 3004, health {"ok":true})
+- Catatan: log "prisma:error duplicate column name: kategoriId" = NOISE yang diharapkan (auto-seed idempotent ALTER TABLE, sudah di-catch dengan benar di src/lib/auto-seed.ts, "duplicate-column error is expected & ignored") — non-fatal
+- E2E Agent Browser: splash DS → landing "Buat Invoice, Surat Jalan, PO & Stock Bahan" render penuh (changelog v151 + PWA install prompt ditutup) → LOGIN superadmin/268899 SUKSES → /pembukaan dashboard KPI + grafik + badge notif 1 → /invoice 3 riwayat asli (INV/09/26/0001-0003, Budi Susanto) → /hitung-cetakan form HC/10/26/0001, pilih customer "Budi Susanto" + kertas "art karton 260gsm" (17000/kg dari DB), isi 1000 pesanan × 2 mata, uk 35×50 → potong 9×5.5 → kalkulasi LIVE: Harga/Lembar Rp 3806, profit 10% Rp 6.090, Total Rp 66.986, per pcs Rp 67 — 0 page error, console bersih
+- REALTIME terverifikasi: /health notif-service {"ok":true,"clients":1} (browser connect via gateway XTransformPort=3003)
+- MOBILE 390×844: dashboard bottom-nav (Beranda/Potong/Cetakan/Invoice/Hg/Cust/Lainnya) OK; guest landing footer push-down natural (footerTop 9681 pada doc 19291px, tidak overlap)
+- Semua API 200 (verify-session, notifications, riwayat-cetakan, settings, finishings, toko-pemasok); tidak ada EADDR/error runtime
+
+Stage Summary:
+- Workspace backup 3-part tar berhasil di-restore & dijalankan sempurna: Next.js 16 dev server (port 3000) + notif-service (3003/3004) keduanya healthy
+- Login superadmin/268899 aktif; seluruh data asli (customer, kertas, invoice, user) utuh dari db/custom.db
+- Kalkulator Hitung Cetakan terverifikasi E2E menghitung live dgn data asli; realtime notif socket connected; mobile & desktop responsif; footer OK
+- allowedDevOrigins diperbarui ke domain preview session ini (penting agar asset /_next/* tidak diblokir di preview panel)
