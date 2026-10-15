@@ -2574,7 +2574,28 @@ function HitungCetakanPage() {
                   </div>
                   <div>
                     <label className={labelClass}>Nama Bahan <span className="text-red-500">*</span></label>
-                    <select value={formData.paperId} onChange={(e) => setFormData({ ...formData, paperId: e.target.value })} className={selectClass}>
+                    <select value={formData.paperId} onChange={(e) => {
+                      // Ganti bahan → Uk. Bahan (P×L) ikut ukuran master kertas terpilih
+                      // (pola sama dgn alur ganti suplier: paperLength←width, paperWidth←height).
+                      // Harga/lembar & harga/kg juga ikut master SELAMA masih hasil konversi
+                      // otomatis bahan sebelumnya — harga yang sudah diedit manual dipertahankan.
+                      const pid = e.target.value
+                      const pk = papers.find(p => p.id === pid)
+                      setFormData(prev => {
+                        const next: typeof prev = { ...prev, paperId: pid, ...(pk ? { paperLength: String(pk.width), paperWidth: String(pk.height) } : {}) }
+                        if (pk) {
+                          const sheet = Math.round(pk.pricePerRim / 500)
+                          const cur = papers.find(p => p.id === prev.paperId)
+                          const curSheet = cur ? Math.round(cur.pricePerRim / 500) : null
+                          const autoFilled = !prev.pricePerSheet || (curSheet !== null && Number(prev.pricePerSheet) === curSheet)
+                          if (autoFilled) {
+                            next.pricePerSheet = sheet.toString()
+                            next.pricePerKg = sheetToKgPrice(sheet, pk.width, pk.height, pk.grammage)
+                          }
+                        }
+                        return next
+                      })
+                    }} className={selectClass}>
                       <option value="">Pilih bahan kertas</option>
                       {paperOptions.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</option>)}
                     </select>

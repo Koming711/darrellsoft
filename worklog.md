@@ -13606,3 +13606,18 @@ Work Log:
 
 Stage Summary:
 - Dropdown "Nama Bahan" di Hitung Cetakan kini menampilkan ukuran bahan (P×L) + gramatur + suplier, format sama dgn Potong Kertas. File diubah: src/app/hitung-cetakan/page.tsx (1 baris).
+
+---
+Task ID: hc-ganti-bahan-ikut-uk-bahan
+Agent: Z.ai Code (main)
+Task: Halaman Hitung Cetakan — saat Nama Bahan diganti di dropdown, Uk. Bahan (P×L) ikut berubah sesuai ukuran master bahan terpilih.
+
+Work Log:
+- `src/app/hitung-cetakan/page.tsx` (onChange dropdown Nama Bahan, baris ~2577): kini saat user memilih bahan → `paperLength`←master.width (P), `paperWidth`←master.height (L) — pemetaan sama dgn alur ganti suplier (baris 1119). Uk. Potong & field lain tidak disentuh.
+- Bonus konsisten dgn janji halaman "Pilih Nama Bahan → konversi otomatis ke harga/lembar": harga/lembar & harga/kg ikut master BAHAN BARU selama harga saat ini masih hasil konversi otomatis (kosong ATAU == Math.round(pricePerRim/500) bahan lama). Harga yang sudah diedit manual (beda dari master) DIPERTAHANKAN — melindungi harga custom, pola sama dgn filosofi halaman & alur suplier.
+- Alur yang TIDAK terpengaruh (by construction): restore riwayat & sinkronisasi PK↔HC set formData langsung (bukan via onChange select), jadi tidak menimpa ukuran/harga hasil restore/sinkron.
+- Verifikasi browser (superadmin → /hitung-cetakan): pilih "art karton (65×100, 260gsm)" → P65 L100, harga 2789 + kg 16503 (auto); ganti "art karton (79×109, 260gsm)" → P79 L109, harga ikut 3806 + kg 17000; isi harga manual 9999 → ganti "duplek (90×120, 270gsm)" → P90 L120 ikut, harga TETAP 9999 (tidak ditimpa); Uk. Potong tetap kosong/utuh; tanpa error console/server; eslint exit 0.
+- Konteks harga master (dicek via prisma): varian memang beda harga — art karton 65×100=1.394.250/rim (2.789/lbr) vs 79×109=1.903.031/rim (3.806/lbr) — tanpa sinkron harga, ganti bahan akan menyisakan harga lama diam-diam.
+
+Stage Summary:
+- Ganti Nama Bahan di Hitung Cetakan kini otomatis mengisi Uk. Bahan (P×L) dari master; harga ikut master hanya bila belum diedit manual. File diubah: src/app/hitung-cetakan/page.tsx (onChange dropdown saja).
