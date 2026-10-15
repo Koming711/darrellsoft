@@ -13621,3 +13621,20 @@ Work Log:
 
 Stage Summary:
 - Ganti Nama Bahan di Hitung Cetakan kini otomatis mengisi Uk. Bahan (P×L) dari master; harga ikut master hanya bila belum diedit manual. File diubah: src/app/hitung-cetakan/page.tsx (onChange dropdown saja).
+
+---
+Task ID: restore-pk-hc-dari-archive-upload
+Agent: Z.ai Code (main)
+Task: Ekstrak arsip workspace (workspace-11004390... (2).tar.001-.003) dari upload, lalu ganti halaman Potong Kertas & Hitung Cetakan dengan versi dari arsip.
+
+Work Log:
+- Arsip split-tar 3 bagian (121MB) digabung (cat .001 .002 .003 > combined.tar) lalu diekstrak ke /tmp/ws-extract; berisi snapshot workspace penuh (.git, .verify, .zscreens, src).
+- Audit diff rekursif src/ arsip vs project: HANYA src/app/hitung-cetakan/page.tsx yang berbeda. PK page & cutting-results.tsx byte-identik. Snapshot arsip = kondisi setelah Task B (worklog arsip berakhir di "perkecil-teks-gambar-strategi-2pt-warna-arah"); file HC arsip (mtime 10:23) PRA-fix C & D.
+- PK page: diganti dgn versi arsip (identik — no-op nyata). cutting-results.tsx juga identik (tidak berubah efektif).
+- HC page: diganti dgn versi arsip sesuai instruksi, lalu DUA fix yang diminta user hari ini dan sudah terverifikasi di-reapply di atasnya (arsip mendahuluinya): (1) Task C — opsi dropdown Nama Bahan menampilkan ukuran "{name} ({width}×{height}, {grammage}gsm · suplier)"; (2) Task D — onChange ganti bahan: paperLength←master.width, paperWidth←master.height + harga/lembar & harga/kg ikut master selama masih auto-konversi (harga manual dipertahankan). Hasil akhir diverifikasi byte-identik dgn versi terverifikasi sebelumnya.
+- Backup: versi ber-fix disimpan di /home/z/my-project/.backups/hitung-cetakan-page-with-fixCD.tsx; salinan murni versi arsip ada di /tmp/ws-extract/src/app/hitung-cetakan/page.tsx bila user ingin kondisi arsip tanpa fix.
+- Verifikasi: eslint kedua page exit 0; curl HC & PK 200; browser E2E (login superadmin): dropdown terbaca "art karton (65×100, 260gsm)" dsb.; pilih 65×100 → Uk. Bahan P65 L100 + harga 2789; ganti 79×109 → P79 L109 + harga 3806/kg 17000; tanpa error console/server; PK page render normal (PK/10/26/0005).
+
+Stage Summary:
+- Kedua halaman kini sesuai arsip upload; fix C (ukuran di dropdown Nama Bahan) & D (ganti bahan → Uk. Bahan otomatis) tetap terjaga karena arsip ternyata snapshot lebih lama. Tidak ada regressi; aplikasi sehat.
+- File: src/app/potong-kertas/page.tsx (identik, diganti), src/app/hitung-cetakan/page.tsx (diganti + reapply fix C&D), src/components/cutting-results.tsx (identik). Backup di .backups/.
