@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calculator, Save, Printer, FileImage, Loader2, History, RefreshCw, Trash2, Plus, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus } from 'lucide-react'
+import { Calculator, Save, Printer, FileImage, Loader2, History, RefreshCw, Trash2, Plus, DatabaseBackup, Upload, Pencil, Search, X, CheckCircle2, Image as ImageIcon, UserPlus, Wand2, AlertTriangle, Sparkles } from 'lucide-react'
+import { computeWasteAreas, type CandidateResult, type WasteArea, type CuttingResultPlus } from '@/lib/cutting-optimizer'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { useLanguage } from '@/contexts/language-context'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -118,6 +119,9 @@ interface FormData {
   isCustomPaper: boolean
   optimizationMode: string
   namaSuplier: string
+  cutMode: string // 'otomatis' (pilih ukuran kertas otomatis) | 'manual'
+  autoBahan: string // nama bahan mode otomatis (dari Master Kertas)
+  autoGrammage: string // gramatur mode otomatis
 }
 
 function emptyFormData(): FormData {
@@ -126,6 +130,7 @@ function emptyFormData(): FormData {
     selectedCustomerId: '', selectedPaperId: '', grammage: '', pricePerSheet: '', pricePerKg: '',
     quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', printName: '', isCustomPaper: false, optimizationMode: 'maximal',
     namaSuplier: '',
+    cutMode: 'otomatis', autoBahan: '', autoGrammage: '',
   }
 }
 
@@ -272,6 +277,16 @@ function CalculatorPage() {
   const [optimizationMode, setOptimizationMode] = useState<'fast' | 'maximal'>(initialForm.current.optimizationMode as 'fast' | 'maximal')
   const [isCalculating, setIsCalculating] = useState(false)
 
+  // ===== Mode Otomatis: pilih ukuran kertas paling efisien dari Master Kertas =====
+  const [cutMode, setCutMode] = useState<'otomatis' | 'manual'>(initialForm.current.cutMode === 'manual' ? 'manual' : 'otomatis')
+  const [autoBahan, setAutoBahan] = useState(initialForm.current.autoBahan || '')
+  const [autoGrammage, setAutoGrammage] = useState(initialForm.current.autoGrammage || '')
+  const [candidates, setCandidates] = useState<CandidateResult[]>([])
+  const [selectedCandidateIdx, setSelectedCandidateIdx] = useState(0)
+  const [optimizeLoading, setOptimizeLoading] = useState(false)
+  const [optimizeMessage, setOptimizeMessage] = useState('')
+  const [selectedWasteId, setSelectedWasteId] = useState<string | null>(null)
+
   // ===== Simulasi Cepat: ketik jumlah pesanan baru (+ profit) — harga langsung muncul tanpa hitung ulang =====
   const [simJumlahInput, setSimJumlahInput] = useState('')
   const [simProfitInput, setSimProfitInput] = useState('')
@@ -408,6 +423,7 @@ function CalculatorPage() {
     selectedCustomerId, selectedPaperId, grammage, pricePerSheet, pricePerKg,
     quantity, jumlahPesanan, berapaMata, setelanKertas, printName, isCustomPaper, optimizationMode,
     namaSuplier,
+    cutMode, autoBahan, autoGrammage,
   }
 
   useEffect(() => {
@@ -532,6 +548,39 @@ function CalculatorPage() {
     }
   }, [namaSuplier, papers, selectedPaper, isCustomPaper])
 
+  // ===== Mode Otomatis: opsi bahan (nama unik) & gramatur dari Master Kertas =====
+  const bahanOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of paperOptions) {
+      const n = String(p.name || '').trim()
+      if (n) set.add(n)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [paperOptions])
+
+  const gramaturOptions = useMemo(() => {
+    if (!autoBahan) return []
+    const target = autoBahan.trim().toLowerCase()
+    const set = new Set<number>()
+    for (const p of paperOptions) {
+      if (String(p.name || '').trim().toLowerCase() === target && p.grammage > 0) set.add(p.grammage)
+    }
+    return Array.from(set).sort((a, b) => a - b)
+  }, [paperOptions, autoBahan])
+
+  // Bahan tidak lagi tersedia (mis. suplier diganti) → reset pilihan bahan/gramatur
+  useEffect(() => {
+    if (autoBahan && bahanOptions.length > 0 && !bahanOptions.some(n => n.toLowerCase() === autoBahan.toLowerCase())) {
+      setAutoBahan('')
+      setAutoGrammage('')
+    }
+  }, [bahanOptions, autoBahan])
+  useEffect(() => {
+    if (autoGrammage && gramaturOptions.length > 0 && !gramaturOptions.includes(parseInt(autoGrammage))) {
+      setAutoGrammage('')
+    }
+  }, [gramaturOptions, autoGrammage])
+
   // Seed nilai suplier bersama dari form tersimpan (sekali di mount, bila belum ada pilihan bersama)
   useEffect(() => {
     try {
@@ -555,7 +604,7 @@ function CalculatorPage() {
     if (results) {
       setNeedsRecalc(true)
     }
-  }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, selectedCustomerName])
+  }, [paperWidth, paperHeight, cutWidth, cutHeight, grammage, pricePerSheet, quantity, jumlahPesanan, berapaMata, setelanKertas, printName, optimizationMode, selectedCustomerId, selectedPaperId, selectedCustomerName, cutMode, autoBahan, autoGrammage])
 
   const handleCustomerSelect = (customer: any) => {
     setSelectedCustomerId(customer.id)
@@ -644,6 +693,125 @@ function CalculatorPage() {
   }
 
   const handleCalculateCuts = () => runCuttingCalc(parseInt(computedQuantity || quantity) || 0)
+
+  // ===== Mode Otomatis: terapkan kandidat ukuran kertas (best / pilihan alternatif) =====
+  const applyCandidate = useCallback((c: CandidateResult, idx: number) => {
+    justCalculatedRef.current = true // perubahan field dari hasil hitung — tandai agar tidak needsRecalc
+    setSelectedCandidateIdx(idx)
+    setResults(c.result)
+    localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(c.result))
+    // Isi parameter kertas terpilih (readonly di mode otomatis) dari kandidat Master Kertas
+    setPaperWidth(String(c.paperWidth))
+    setPaperHeight(String(c.paperHeight))
+    setGrammage(String(c.grammage))
+    setPricePerSheet(String(c.pricePerSheet))
+    setPricePerKg(sheetToKgPrice(c.pricePerSheet, c.paperWidth, c.paperHeight, c.grammage))
+    setSelectedPaperId(c.paperId)
+    setIsCustomPaper(false)
+    setRestoredPaperName(null)
+    setSelectedWasteId(null)
+    setNeedsRecalc(false)
+  }, [])
+
+  // ===== Mode Otomatis: panggil API optimasi → urutkan kandidat Master Kertas =====
+  const runAutoOptimize = async () => {
+    const cw = parseFloat(cutWidth)
+    const ch = parseFloat(cutHeight)
+    const qty = parseInt(computedQuantity || quantity) || 0
+    if (!autoBahan || !(parseInt(autoGrammage) > 0)) {
+      toast.error('Pilih nama bahan dan gramatur terlebih dahulu')
+      return
+    }
+    if (!(cw > 0) || !(ch > 0)) {
+      toast.error('Isi lebar & tinggi potongan yang diinginkan')
+      return
+    }
+    if (qty <= 0) {
+      toast.error('Isi jumlah potongan yang dibutuhkan')
+      return
+    }
+    setNeedsRecalc(false)
+    justCalculatedRef.current = true
+    setOptimizeLoading(true)
+    setOptimizeMessage('')
+    await new Promise(resolve => setTimeout(resolve, 30))
+    try {
+      const res = await fetcher('/api/potong-kertas/optimize', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bahan: autoBahan,
+          grammage: parseInt(autoGrammage),
+          cutWidth: cw,
+          cutHeight: ch,
+          quantity: qty,
+          setelanKertas: parseInt(setelanKertas) || 0,
+          suplier: namaSuplier || '',
+          optimizationMode,
+          customerName: selectedCustomer?.name || '',
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        toast.error(data?.error || `Gagal menghitung optimasi (${res.status})`)
+        return
+      }
+      if (!data?.ok || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+        setCandidates([])
+        setResults(null)
+        localStorage.removeItem(STORAGE_RESULTS_KEY())
+        setOptimizeMessage(data?.message || 'Tidak ada ukuran kertas yang cocok di Master Kertas.')
+        toast.error(data?.message || 'Tidak ada ukuran kertas yang cocok di Master Kertas.')
+        return
+      }
+      const list: CandidateResult[] = data.candidates
+      setCandidates(list)
+      applyCandidate(list[0], 0)
+      const best = list[0]
+      toast.success(`Ukuran terbaik: ${best.paperWidth} × ${best.paperHeight} cm — ${best.piecesPerSheet.toLocaleString('id-ID')} potongan/lembar`, {
+        description: list.length > 1 ? `${list.length} ukuran ${autoBahan} ${autoGrammage} gsm diuji dari Master Kertas · biaya termurah Rp ${Math.round(best.totalPrice).toLocaleString('id-ID')}` : undefined,
+      })
+    } catch {
+      toast.error('Gagal menghubungi server optimasi')
+    } finally {
+      setOptimizeLoading(false)
+    }
+  }
+
+  // ===== Area sisa aktif: dari hasil optimasi (wasteAreas) atau dihitung geometri dari blok =====
+  const activeWasteAreas: WasteArea[] = useMemo(() => {
+    if (!results) return []
+    if (Array.isArray(results.wasteAreas) && results.wasteAreas.length > 0) return results.wasteAreas
+    try {
+      return computeWasteAreas(results.paperWidth, results.paperHeight, results.blocks || [], results.cutWidth, results.cutHeight)
+    } catch { return [] }
+  }, [results])
+
+  const wasteTotals = useMemo(() => {
+    const reusable = activeWasteAreas.filter(a => a.status === 'reusable').reduce((s, a) => s + a.area, 0)
+    const small = activeWasteAreas.filter(a => a.status === 'small').reduce((s, a) => s + a.area, 0)
+    const waste = activeWasteAreas.filter(a => a.status === 'waste').reduce((s, a) => s + a.area, 0)
+    const piecesArea = results ? (results.piecesArea ?? results.totalPieces * results.cutWidth * results.cutHeight) : 0
+    const paperArea = results ? (results.paperArea ?? results.paperWidth * results.paperHeight) : 0
+    return {
+      reusable: Math.round(reusable * 100) / 100,
+      small: Math.round(small * 100) / 100,
+      waste: Math.round(waste * 100) / 100,
+      piecesArea: Math.round(piecesArea * 100) / 100,
+      paperArea: Math.round(paperArea * 100) / 100,
+      loss: 0, // aplikasi belum punya parameter kerf/margin pisau — kehilangan material 0
+    }
+  }, [activeWasteAreas, results])
+
+  // Area sisa utk dialog PREVIEW (mode riwayat: dari data baris; mode editor: dari form)
+  const previewWasteAreas: WasteArea[] = useMemo(() => {
+    const r = previewRiwayatData || results
+    if (!r) return []
+    if (Array.isArray(r.wasteAreas) && r.wasteAreas.length > 0) return r.wasteAreas
+    try {
+      return computeWasteAreas(r.paperWidth, r.paperHeight, r.blocks || [], r.cutWidth, r.cutHeight)
+    } catch { return [] }
+  }, [previewRiwayatData, results])
 
   // ===== Simulasi Cepat — hitung harga untuk jumlah pesanan lain tanpa mengubah form utama =====
   const simJumlah = parseInt(simJumlahInput) || 0
@@ -771,6 +939,13 @@ function CalculatorPage() {
     setRestoredRiwayatId(null)
     setNeedsRecalc(false)
     restoreDoneRef.current = false
+    setCutMode('otomatis')
+    setAutoBahan('')
+    setAutoGrammage('')
+    setCandidates([])
+    setSelectedCandidateIdx(0)
+    setOptimizeMessage('')
+    setSelectedWasteId(null)
     localStorage.removeItem(STORAGE_KEY())
     localStorage.removeItem(STORAGE_RESULTS_KEY())
     toast.success('Data berhasil direset')
@@ -1109,12 +1284,25 @@ function CalculatorPage() {
     // Foto lampiran ikut di-restore ke editor
     setPhotoUrl(r.photoUrl || '')
 
+    // Riwayat hasil OPTIMASI (format baru dgn wasteAreas): pakai pola tersimpan PERSIS
+    // (layout + rincian sisa saat disimpan) — tidak dihitung ulang agar identik.
+    let savedOptimized: CuttingResultPlus | null = null
+    try {
+      const parsed = r.resultData ? JSON.parse(r.resultData) : null
+      if (parsed && typeof parsed.paperWidth === 'number' && parsed.paperWidth > 0
+        && Array.isArray(parsed.blocks) && parsed.blocks.length > 0
+        && typeof parsed.blocks[0].x === 'number'
+        && Array.isArray(parsed.wasteAreas) && parsed.wasteAreas.length > 0) {
+        savedOptimized = parsed
+      }
+    } catch {}
+
     // Set paper selection
-    let restoredPaper = null
+    let restoredPaper: Paper | null = null
     if (r.paperId && papers.find(p => p.id === r.paperId)) {
       setSelectedPaperId(r.paperId)
       setIsCustomPaper(false)
-      restoredPaper = papers.find(p => p.id === r.paperId)
+      restoredPaper = papers.find(p => p.id === r.paperId) || null
       setRestoredPaperName(null)
     } else {
       setSelectedPaperId('custom')
@@ -1123,7 +1311,7 @@ function CalculatorPage() {
     }
 
     // Match customer by name
-    let restoredCustomer = null
+    let restoredCustomer: Customer | null = null
     if (r.namaCustomer && r.namaCustomer !== '-') {
       const match = customers.find(c => c.name === r.namaCustomer)
       if (match) {
@@ -1139,42 +1327,58 @@ function CalculatorPage() {
     setNamaSuplier(r.namaSuplier || '')
     setSharedSuplier(r.namaSuplier || '')
 
-    // Auto-calculate cuts with restored values
-    const pw = parseFloat(r.paperWidth)
-    const ph = parseFloat(r.paperHeight)
-    const cw = parseFloat(r.cutWidth)
-    const ch = parseFloat(r.cutHeight)
-    const qty = parseInt(r.quantity) || 0
-    const setelan = parseInt(r.setelanKertas) || 0
-    const price = parseFloat(r.pricePerSheet) || 0
-    const totalQty = qty + setelan
-
-    if (pw && ph && cw && ch && cw <= pw && ch <= ph) {
-      try {
-        const { calculateCuts } = await import('@/lib/cutting-engine')
-        const result = calculateCuts({
-          paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
-          quantity: totalQty, pricePerSheet: price, optimizationMode,
-          customerName: restoredCustomer?.name || '',
-          paperMaterial: restoredPaper?.name || '',
-          grammage: parseFloat(r.grammage) || 0,
-        })
-        setResults(result)
-        localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(result))
-      } catch {
-        setResults(null)
-      }
-    } else if (r.resultData) {
-      // Fallback: if can't calculate, use saved resultData
-      try {
-        const parsedResults = JSON.parse(r.resultData)
-        setResults(parsedResults)
-        localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(parsedResults))
-      } catch {
-        setResults(null)
-      }
+    if (savedOptimized) {
+      // === Riwayat mode otomatis (optimasi) ===
+      justCalculatedRef.current = true
+      setResults(savedOptimized)
+      localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(savedOptimized))
+      setCutMode('otomatis')
+      setAutoBahan(savedOptimized.paperMaterial || r.paperName || '')
+      const gsm = parseInt(r.grammage) || parseInt(savedOptimized.grammage as any) || 0
+      setAutoGrammage(gsm > 0 ? String(gsm) : '')
+      setCandidates([]) // alternatif dihitung ulang saat tombol Hitung ditekan lagi
+      setSelectedCandidateIdx(0)
+      setOptimizeMessage('')
+      setSelectedWasteId(null)
+      setNeedsRecalc(false)
     } else {
-      setResults(null)
+      // === Riwayat manual / lama: hitung ulang seperti sebelumnya ===
+      const pw = parseFloat(r.paperWidth)
+      const ph = parseFloat(r.paperHeight)
+      const cw = parseFloat(r.cutWidth)
+      const ch = parseFloat(r.cutHeight)
+      const qty = parseInt(r.quantity) || 0
+      const setelan = parseInt(r.setelanKertas) || 0
+      const price = parseFloat(r.pricePerSheet) || 0
+      const totalQty = qty + setelan
+
+      if (pw && ph && cw && ch && cw <= pw && ch <= ph) {
+        try {
+          const { calculateCuts } = await import('@/lib/cutting-engine')
+          const result = calculateCuts({
+            paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+            quantity: totalQty, pricePerSheet: price, optimizationMode,
+            customerName: restoredCustomer?.name || '',
+            paperMaterial: restoredPaper?.name || '',
+            grammage: parseFloat(r.grammage) || 0,
+          })
+          setResults(result)
+          localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(result))
+        } catch {
+          setResults(null)
+        }
+      } else if (r.resultData) {
+        // Fallback: if can't calculate, use saved resultData
+        try {
+          const parsedResults = JSON.parse(r.resultData)
+          setResults(parsedResults)
+          localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(parsedResults))
+        } catch {
+          setResults(null)
+        }
+      } else {
+        setResults(null)
+      }
     }
 
     // Reset flag after a frame to allow normal useEffect behavior again
@@ -1690,6 +1894,110 @@ function CalculatorPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* ===== Mode pilih kertas: Otomatis (rekomendasi dari Master Kertas) / Manual ===== */}
+              <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-zinc-800 rounded-lg p-1">
+                <button type="button" onClick={() => setCutMode('otomatis')}
+                  className={`flex items-center justify-center gap-1 h-8 rounded-md text-xs font-semibold transition-colors ${cutMode === 'otomatis' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-zinc-700'}`}>
+                  <Wand2 className="w-3.5 h-3.5" /> Otomatis (Rekomendasi)
+                </button>
+                <button type="button" onClick={() => setCutMode('manual')}
+                  className={`flex items-center justify-center gap-1 h-8 rounded-md text-xs font-semibold transition-colors ${cutMode === 'manual' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-zinc-700'}`}>
+                  Manual
+                </button>
+              </div>
+              {cutMode === 'otomatis' ? (
+                <>
+                  {/* ===== PANEL OTOMATIS: bahan → gramatur → ukuran potongan → jumlah kebutuhan ===== */}
+                  <div>
+                    <label className={lbl}>Nama Bahan</label>
+                    <Select value={autoBahan} onValueChange={(v) => { setAutoBahan(v); setAutoGrammage('') }}>
+                      <SelectTrigger className="w-full h-9 text-sm">
+                        <SelectValue placeholder="Pilih bahan">
+                          {autoBahan || 'Pilih bahan'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {bahanOptions.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-slate-400 text-center">{namaSuplier ? `Tidak ada kertas milik ${namaSuplier}` : 'Belum ada bahan — isi Master Harga Kertas'}</div>
+                        )}
+                        {bahanOptions.map((n) => (
+                          <SelectItem key={n} value={n}><span className="text-[14px] capitalize">{n}</span></SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={lbl}>Gramatur</label>
+                      <Select value={autoGrammage} onValueChange={setAutoGrammage}>
+                        <SelectTrigger className="w-full h-9 text-sm">
+                          <SelectValue placeholder="Pilih gramatur">
+                            {autoGrammage ? `${autoGrammage} gsm` : 'Pilih gramatur'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          {gramaturOptions.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-slate-400 text-center">Pilih bahan terlebih dahulu</div>
+                          )}
+                          {gramaturOptions.map((g) => (
+                            <SelectItem key={g} value={String(g)}><span className="text-[14px]">{g} gsm</span></SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className={lbl}>Harga / Lembar (otomatis)</label>
+                      <div className={inpDisabled + " truncate"}>Rp {Math.round(parseFloat(pricePerSheet) || 0).toLocaleString('id-ID') || '0'}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={lbl}>Lebar Potongan (cm)</label>
+                      <input type="number" step="0.1" min="0" placeholder="misal: 21,5" value={cutWidth} onChange={(e) => setCutWidth(e.target.value)} className={inp} />
+                    </div>
+                    <div>
+                      <label className={lbl}>Tinggi Potongan (cm)</label>
+                      <input type="number" step="0.1" min="0" placeholder="misal: 28,5" value={cutHeight} onChange={(e) => setCutHeight(e.target.value)} className={inp} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={lbl}>Jumlah Kebutuhan Potongan</label>
+                    <input type="number" step="1" min="0" placeholder="Auto" value={computedQuantity || quantity} onChange={(e) => setQuantity(e.target.value)} className={computedQuantity ? inpDisabled : inp} readOnly={!!computedQuantity} />
+                    <p className="text-[9.5px] text-slate-400 mt-0.5">Ukuran kertas terbaik dicari otomatis dari Master Kertas — tidak perlu diisi manual.</p>
+                  </div>
+                  {/* ===== Rekomendasi otomatis (terisi dari hasil optimasi / restore) ===== */}
+                  {results && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 dark:bg-emerald-950/20 dark:border-emerald-900 p-2 space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Wand2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">Ukuran Kertas Rekomendasi</p>
+                        {candidates.length > 1 && (
+                          <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">
+                            {selectedCandidateIdx === 0 ? 'Terbaik dari ' + candidates.length + ' ukuran' : `Alternatif ${selectedCandidateIdx + 1}/${candidates.length}`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10.5px] text-slate-700 dark:text-slate-200">
+                        <div>Ukuran: <span className="font-bold">{results.paperWidth} × {results.paperHeight} cm</span></div>
+                        <div>Harga/lembar: <span className="font-bold">Rp {Math.round(parseFloat(pricePerSheet) || results.pricePerSheet || 0).toLocaleString('id-ID')}</span></div>
+                        <div>Potongan/lembar: <span className="font-bold">{results.totalPieces}</span></div>
+                        <div>Lembar dibeli: <span className="font-bold">{results.sheetsNeeded.toLocaleString('id-ID')}</span>{(results.leftoverPieces || 0) > 0 && <span className="text-slate-400"> (+{(results.leftoverPieces || 0)} lebih)</span>}</div>
+                        <div className="col-span-2">Total biaya kertas: <span className="font-bold text-emerald-700 dark:text-emerald-400">Rp {Math.round(results.totalPrice).toLocaleString('id-ID')}</span></div>
+                        <div className="col-span-2 text-[9.5px] text-slate-500 dark:text-slate-400 capitalize">
+                          {results.paperMaterial ? `${results.paperMaterial} ${results.grammage || grammage} gsm` : ''}{namaSuplier ? ` · ${namaSuplier}` : ''} · {results.strategy}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {optimizeMessage && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 px-2.5 py-2 flex items-start gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-[10.5px] leading-snug text-amber-800 dark:text-amber-300">{optimizeMessage}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+              <>
               <div>
                 <label className={lbl}>{t('nama_bahan_kertas')}</label>
                 <Select value={selectedPaperId} onValueChange={handlePaperChange}>
@@ -1744,9 +2052,12 @@ function CalculatorPage() {
                   }} className={inp} />
                 </div>
               </div>
-              {!canConvertKg(paperWidth, paperHeight, grammage) && (
+              </>
+              )}
+              {!canConvertKg(paperWidth, paperHeight, grammage) && cutMode === 'manual' && (
                 <p className="text-[10px] text-slate-400 mt-0.5">Isi ukuran kertas & gramatur untuk konversi otomatis antara harga /kg dan harga /lembar</p>
               )}
+              {cutMode === 'manual' ? (
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className={lbl}>Jumlah Pesanan</label>
@@ -1761,6 +2072,18 @@ function CalculatorPage() {
                   <input type="number" step="1" min="0" placeholder="Auto" value={computedQuantity || quantity} onChange={(e) => setQuantity(e.target.value)} className={computedQuantity ? inpDisabled : inp} readOnly={!!computedQuantity} />
                 </div>
               </div>
+              ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={lbl}>Jumlah Pesanan (opsional)</label>
+                  <input type="number" step="1" min="0" placeholder="0" value={jumlahPesanan} onChange={(e) => setJumlahPesanan(e.target.value)} className={inp} />
+                </div>
+                <div>
+                  <label className={lbl}><span className="md:hidden">Cetak Brp Mata</span><span className="hidden md:inline">Cetak Berapa Mata</span></label>
+                  <input type="number" step="1" min="0" placeholder="0" value={berapaMata} onChange={(e) => setBerapaMata(e.target.value)} className={inp} />
+                </div>
+              </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={lbl}>Insit Kertas</label>
@@ -1780,7 +2103,8 @@ function CalculatorPage() {
             </div>
           </div>
 
-          {/* Ukuran */}
+          {/* Ukuran — mode manual (mode otomatis: ukuran kertas & potongan ada di panel otomatis) */}
+          {cutMode === 'manual' && (
           <div className="bg-card rounded-xl border border-slate-200 p-2.5">
             <p className="text-xs font-semibold text-slate-700 mb-2">Ukuran</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -1805,6 +2129,7 @@ function CalculatorPage() {
             </div>
 
           </div>
+          )}
 
           {/* Foto Lampiran */}
           <div className="bg-card rounded-xl border border-slate-200 p-2.5">
@@ -1814,11 +2139,20 @@ function CalculatorPage() {
           {/* Action Buttons */}
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-3 gap-2">
+              {cutMode === 'otomatis' ? (
+              <button onClick={runAutoOptimize} disabled={optimizeLoading || isCalculating || !autoBahan || !(parseInt(autoGrammage) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
+                className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+                title="Cari ukuran kertas paling efisien dari Master Kertas">
+                {optimizeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                <span className="leading-tight text-center">Hitung &<br className="sm:hidden" /> Pilih Terbaik</span>
+              </button>
+              ) : (
               <button onClick={handleCalculateCuts} disabled={isCalculating || !(parseFloat(paperWidth) > 0) || !(parseFloat(paperHeight) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
                 className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
                 {isCalculating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {t('hitung_potongan')}
               </button>
+              )}
               <button onClick={restoredRiwayatId ? handleUpdateRiwayat : handleSaveRiwayat} disabled={!results || savingRiwayat || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={restoredRiwayatId ? 'Update Riwayat' : 'Simpan Riwayat'}>
                 {restoredRiwayatId && <RefreshCw className={`w-3 h-3 ${savingRiwayat ? 'animate-spin' : ''}`} />}
@@ -1919,6 +2253,29 @@ function CalculatorPage() {
               // dibuat dari data ini (simpan = update / simpan baru dgn link), bukan
               // membuat riwayat yang lepas hubungan.
               if (pkIdToLink) params.set('pkRiwayatId', pkIdToLink)
+              // Kirim RINCIAN POTONG (efisiensi + rincian area sisa) ke Hitung Cetakan
+              // via sessionStorage — data ini berasal dari riwayat Potong Kertas yang
+              // ter-link (pkRiwayatId), bukan dikarang. Data URL terlalu besar utk query.
+              try {
+                const activeRes = results
+                if (activeRes) {
+                  const wasteAreas = activeWasteAreas
+                  sessionStorage.setItem('pk-to-hc-cutInfo', JSON.stringify({
+                    nomorPotong: pkIdToLink ? (riwayatList.find(x => x.id === pkIdToLink)?.nomorUrut || nextPotongKertasNumber || '') : (nextPotongKertasNumber || ''),
+                    bahan: selectedPaper?.name || restoredPaperName || 'Custom',
+                    grammage: grammage || '0',
+                    ukuranKertas: `${activeRes.paperWidth} × ${activeRes.paperHeight} cm`,
+                    ukuranPotongan: `${activeRes.cutWidth} × ${activeRes.cutHeight} cm`,
+                    potonganPerLembar: activeRes.totalPieces,
+                    lembarDibutuhkan: activeRes.sheetsNeeded,
+                    totalBiayaKertas: activeRes.totalPrice,
+                    efisiensi: activeRes.efficiency,
+                    strategy: activeRes.strategy || '',
+                    sisa: wasteAreas.map(w => ({ label: w.label, ukuran: `${w.width} × ${w.height} cm`, luas: w.area, status: w.statusLabel })),
+                    savedAt: new Date().toISOString(),
+                  }))
+                }
+              } catch {}
               // Foto lampiran ikut dibawa ke editor Hitung Cetakan.
               // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
               if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)
@@ -1944,6 +2301,47 @@ function CalculatorPage() {
         <div className="flex-1 bg-card rounded-xl border border-slate-200 p-4 flex flex-col lg:min-h-0 lg:min-h-[calc(100vh-8rem+2cm)]">
           {results ? (
             <div className="flex-1 flex flex-col gap-1.5 lg:min-h-0 lg:overflow-hidden">
+              {/* ===== Perbandingan alternatif ukuran kertas (mode otomatis) ===== */}
+              {cutMode === 'otomatis' && candidates.length > 0 && (
+                <div className="flex-shrink-0">
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    Perbandingan Ukuran Kertas ({candidates.length}) — klik baris untuk memilih
+                  </p>
+                  <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-x-auto">
+                    <Table className="min-w-[560px] lg:min-w-0 text-[10.5px] lg:text-xs">
+                      <TableHeader className="bg-slate-50 dark:bg-zinc-800">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500">Ukuran Master Kertas</TableHead>
+                          <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Potongan/Lbr</TableHead>
+                          <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Lembar</TableHead>
+                          <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Efisiensi</TableHead>
+                          <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Total Biaya</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {candidates.map((c, idx) => (
+                          <TableRow key={`${c.paperId}-${idx}`}
+                            onClick={() => applyCandidate(c, idx)}
+                            className={`cursor-pointer ${selectedCandidateIdx === idx ? 'bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/30' : 'hover:bg-slate-50 dark:hover:bg-zinc-800/60'}`}>
+                            <TableCell className="px-2 py-1">
+                              <span className="font-semibold">{c.paperWidth} × {c.paperHeight} cm</span>
+                              {c.suplier && <span className="text-slate-400"> · {c.suplier}</span>}
+                              {idx === 0 && <span className="ml-1.5 text-[8.5px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 px-1 py-0.5 rounded-full align-middle">TERBAIK</span>}
+                              {selectedCandidateIdx === idx && <span className="ml-1.5 text-[8.5px] font-bold text-white bg-emerald-600 px-1 py-0.5 rounded-full align-middle">DIPILIH</span>}
+                            </TableCell>
+                            <TableCell className="px-2 py-1 text-right tabular-nums">{c.piecesPerSheet.toLocaleString('id-ID')}</TableCell>
+                            <TableCell className="px-2 py-1 text-right tabular-nums">{c.sheetsNeeded.toLocaleString('id-ID')}</TableCell>
+                            <TableCell className="px-2 py-1 text-right tabular-nums">{c.efficiency.toFixed(1)}%</TableCell>
+                            <TableCell className="px-2 py-1 text-right tabular-nums font-bold text-emerald-700 dark:text-emerald-400">Rp {Math.round(c.totalPrice).toLocaleString('id-ID')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
               {/* Stats Grid - mobile 2col, desktop 3col/5col */}
               <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2 flex-shrink-0">
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg p-1.5 lg:p-1.5 text-center">
@@ -2004,7 +2402,7 @@ function CalculatorPage() {
               <div className="flex-1 flex flex-col lg:flex-row gap-3 lg:min-h-0 lg:overflow-auto">
                 {/* Diagram */}
                 <div className="flex-1 flex items-center justify-center min-w-0 min-h-0 p-1" style={{ transform: 'scale(0.917)', transformOrigin: 'center center' }}>
-                  <CuttingDiagram results={results} />
+                  <CuttingDiagram results={results} selectedWasteId={selectedWasteId} onSelectWaste={setSelectedWasteId} />
                 </div>
 
                 {/* Steps + Block Details */}
@@ -2044,6 +2442,93 @@ function CalculatorPage() {
                   </div>
                 </div>
               </div>
+
+                {/* ===== Rincian Sisa Kertas (per lembar) — terhubung dgn gambar ===== */}
+                {activeWasteAreas.length > 0 && (
+                  <div className="flex-shrink-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Detail Sisa Kertas ({activeWasteAreas.length} area / lembar)</p>
+                      {selectedWasteId && (
+                        <button onClick={() => setSelectedWasteId(null)} className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400">Bersihkan pilihan</button>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-slate-200 dark:border-zinc-700 overflow-x-auto">
+                      <Table className="min-w-[440px] lg:min-w-0 text-[10.5px] lg:text-xs">
+                        <TableHeader className="bg-slate-50 dark:bg-zinc-800">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500">Label</TableHead>
+                            <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Lebar</TableHead>
+                            <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Tinggi</TableHead>
+                            <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500 text-right">Luas</TableHead>
+                            <TableHead className="h-7 px-2 text-[9px] font-semibold uppercase tracking-wide text-slate-500">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {activeWasteAreas.map((w) => (
+                            <TableRow key={w.id}
+                              onClick={() => setSelectedWasteId(selectedWasteId === w.id ? null : w.id)}
+                              title={`${w.label} — ${w.width} × ${w.height} cm · ${w.statusLabel} · ${w.note}`}
+                              className={`cursor-pointer ${selectedWasteId === w.id ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-50 dark:hover:bg-blue-950/30' : 'hover:bg-slate-50 dark:hover:bg-zinc-800/60'}`}>
+                              <TableCell className="px-2 py-1 font-semibold">{w.label}</TableCell>
+                              <TableCell className="px-2 py-1 text-right tabular-nums">{w.width} cm</TableCell>
+                              <TableCell className="px-2 py-1 text-right tabular-nums">{w.height} cm</TableCell>
+                              <TableCell className="px-2 py-1 text-right tabular-nums">{w.area.toLocaleString('id-ID')} cm²</TableCell>
+                              <TableCell className="px-2 py-1">
+                                <span className={`inline-block text-[8.5px] font-bold px-1.5 py-0.5 rounded-full ${w.status === 'reusable' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : w.status === 'small' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-slate-400'}`}>
+                                  {w.statusLabel}
+                                </span>
+                                <span className="block text-[8.5px] text-slate-400 leading-tight mt-0.5">{w.note}</span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ===== Efisiensi & Waste (neraca luas per lembar) ===== */}
+                {results && (
+                  <div className="flex-shrink-0 rounded-lg border border-slate-200 dark:border-zinc-700 p-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Efisiensi &amp; Waste (per lembar)</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">Efisiensi {results.efficiency.toFixed(1)}%</span>
+                        <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded-full">Waste {(100 - results.efficiency).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5 mt-1.5">
+                      <div className="rounded-md bg-slate-50 dark:bg-zinc-800/60 px-2 py-1 text-center">
+                        <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100">{wasteTotals.paperArea.toLocaleString('id-ID')}</p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Luas bahan (cm²)</p>
+                      </div>
+                      <div className="rounded-md bg-green-50 dark:bg-green-950/30 px-2 py-1 text-center">
+                        <p className="text-[11px] font-bold text-green-700 dark:text-green-400">{wasteTotals.piecesArea.toLocaleString('id-ID')}</p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Potongan terpakai</p>
+                      </div>
+                      <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 px-2 py-1 text-center">
+                        <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400">{wasteTotals.reusable.toLocaleString('id-ID')}</p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Sisa bisa dipakai</p>
+                      </div>
+                      <div className="rounded-md bg-orange-50 dark:bg-orange-950/30 px-2 py-1 text-center">
+                        <p className="text-[11px] font-bold text-orange-700 dark:text-orange-400">{wasteTotals.small.toLocaleString('id-ID')}</p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Sisa kecil</p>
+                      </div>
+                      <div className="rounded-md bg-slate-100 dark:bg-zinc-800 px-2 py-1 text-center">
+                        <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{wasteTotals.waste.toLocaleString('id-ID')}</p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Limbah</p>
+                      </div>
+                      <div className="rounded-md bg-slate-50 dark:bg-zinc-800/60 px-2 py-1 text-center">
+                        <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100">0</p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Kerf/margin pisau</p>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-slate-400 mt-1.5 leading-snug">
+                      Neraca luas: {wasteTotals.paperArea.toLocaleString('id-ID')} = {wasteTotals.piecesArea.toLocaleString('id-ID')} (potongan) + {wasteTotals.reusable.toLocaleString('id-ID')} (sisa pakai) + {wasteTotals.small.toLocaleString('id-ID')} (sisa kecil) + {wasteTotals.waste.toLocaleString('id-ID')} (limbah) + 0 (kerf) cm²
+                      {(results.sheetsNeeded || 1) > 1 && <> · Total {results.sheetsNeeded.toLocaleString('id-ID')} lembar: bahan {(wasteTotals.paperArea * results.sheetsNeeded).toLocaleString('id-ID')} cm², potongan {((results.totalPieces || 0) * results.sheetsNeeded).toLocaleString('id-ID')} pcs</>}
+                    </p>
+                  </div>
+                )}
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3">
@@ -2419,7 +2904,7 @@ function CalculatorPage() {
               </div>
               <div className="bg-white border border-slate-200 rounded-lg p-2.5">
                 <p className="text-[10px] text-slate-600 font-medium">Harga/Lembar Setelah Dipotong</p>
-                <p className="text-base font-bold text-black">Rp {(previewRiwayatData || results)?.totalPieces > 0 ? Math.round(hargaPerLembarPreview / ((previewRiwayatData || results)?.totalPieces || 1)).toLocaleString('id-ID') : '0'}</p>
+                <p className="text-base font-bold text-black">{(() => { const pr = previewRiwayatData || results; return (pr && pr.totalPieces > 0) ? `Rp ${Math.round(hargaPerLembarPreview / pr.totalPieces).toLocaleString('id-ID')}` : 'Rp 0' })()}</p>
               </div>
             </div>
 
@@ -2435,7 +2920,7 @@ function CalculatorPage() {
                 {/* Diagram */}
                 <div data-pk="diagram" className="mb-3 w-full">
                   <div className="w-full mx-auto" style={{ maxWidth: '100%' }}>
-                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="320px" />
+                    <CuttingDiagram results={previewRiwayatData || results!} maxHeight="320px" selectedWasteId={selectedWasteId} onSelectWaste={setSelectedWasteId} />
                   </div>
                 </div>
 
@@ -2471,6 +2956,66 @@ function CalculatorPage() {
                     </div>
                   </div>
                 </div>
+                {/* Rincian Sisa Kertas + Efisiensi — ikut tercetak/di-JPG (capture = isi preview) */}
+                {previewWasteAreas.length > 0 && (
+                  <div data-pk="waste" className="mb-3">
+                    <h3 className="text-xs font-bold text-slate-700 mb-1.5">Rincian Sisa Kertas (per lembar):</h3>
+                    <table className="w-full border border-slate-200 rounded-lg overflow-hidden text-[10px]">
+                      <thead>
+                        <tr className="bg-slate-50">
+                          <th className="text-left px-2 py-1 font-semibold border-b border-slate-200">Label</th>
+                          <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Lebar</th>
+                          <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Tinggi</th>
+                          <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Luas</th>
+                          <th className="text-left px-2 py-1 font-semibold border-b border-slate-200">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewWasteAreas.map((w) => (
+                          <tr key={w.id} className="border-b border-slate-100 last:border-b-0">
+                            <td className="px-2 py-1 font-semibold">{w.label}</td>
+                            <td className="px-2 py-1 text-right tabular-nums">{w.width} cm</td>
+                            <td className="px-2 py-1 text-right tabular-nums">{w.height} cm</td>
+                            <td className="px-2 py-1 text-right tabular-nums">{w.area.toLocaleString('id-ID')} cm²</td>
+                            <td className="px-2 py-1">{w.statusLabel}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {(() => {
+                      const pr = previewRiwayatData || results
+                      if (!pr) return null
+                      const reuse = previewWasteAreas.filter(a => a.status === 'reusable').reduce((s, a) => s + a.area, 0)
+                      const small = previewWasteAreas.filter(a => a.status === 'small').reduce((s, a) => s + a.area, 0)
+                      const wastePure = previewWasteAreas.filter(a => a.status === 'waste').reduce((s, a) => s + a.area, 0)
+                      const paperArea = pr.paperArea ?? pr.paperWidth * pr.paperHeight
+                      const piecesArea = pr.piecesArea ?? pr.totalPieces * pr.cutWidth * pr.cutHeight
+                      return (
+                        <div className="mt-2 border border-slate-200 rounded-lg p-2">
+                          <div className="flex items-center justify-between flex-wrap gap-1">
+                            <p className="text-[11px] font-bold text-slate-700">Efisiensi &amp; Waste (per lembar)</p>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Efisiensi {pr.efficiency.toFixed(1)}%</span>
+                              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">Waste {(100 - pr.efficiency).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 mt-1.5 text-center">
+                            <div className="bg-slate-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold">{Math.round(paperArea).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Luas bahan</p></div>
+                            <div className="bg-green-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-green-700">{Math.round(piecesArea).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Potongan</p></div>
+                            <div className="bg-blue-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-blue-700">{Math.round(reuse).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Sisa pakai</p></div>
+                            <div className="bg-orange-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-orange-700">{Math.round(small).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Sisa kecil</p></div>
+                            <div className="bg-slate-100 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-slate-600">{Math.round(wastePure).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Limbah</p></div>
+                            <div className="bg-slate-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold">0</p><p className="text-[8px] text-slate-500">Kerf</p></div>
+                          </div>
+                          <p className="text-[8.5px] text-slate-400 mt-1">
+                            Neraca luas: {Math.round(paperArea).toLocaleString('id-ID')} = {Math.round(piecesArea).toLocaleString('id-ID')} + {Math.round(reuse).toLocaleString('id-ID')} + {Math.round(small).toLocaleString('id-ID')} + {Math.round(wastePure).toLocaleString('id-ID')} + 0 cm²
+                            {(pr.sheetsNeeded || 1) > 1 && <> · Total {(pr.sheetsNeeded || 1).toLocaleString('id-ID')} lembar diulang dengan pola yang sama</>}
+                          </p>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
               </>
             )}
 

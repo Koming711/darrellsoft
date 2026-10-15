@@ -70,6 +70,23 @@ export interface CuttingResult {
   efficiency: number
   steps: string[]
   strategy: string
+  // ===== Pelengkap optimasi (opsional — diisi oleh cutting-optimizer; hasil engine lama tidak punya) =====
+  /** Dekomposisi geometri seluruh area sisa (label, posisi, ukuran, status) */
+  wasteAreas?: import('./cutting-optimizer').WasteArea[]
+  /** Luas 1 lembar kertas (cm²) */
+  paperArea?: number
+  /** Luas potongan terpakai per lembar (cm²) */
+  piecesArea?: number
+  /** Kelebihan potongan: total produksi − kebutuhan */
+  leftoverPieces?: number
+  /** Luas sisa yang dapat digunakan kembali per lembar (cm²) */
+  wasteReusableArea?: number
+  /** Luas sisa kecil per lembar (cm²) */
+  wasteSmallArea?: number
+  /** Luas limbah murni per lembar (cm²) */
+  wasteWasteArea?: number
+  /** Kehilangan material terukur (kerf/margin) — 0 karena aplikasi tanpa parameter kerf */
+  wasteLossArea?: number
 }
 
 // Helper: create a Block from calculation results

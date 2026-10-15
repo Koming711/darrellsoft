@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus } from 'lucide-react'
+import { Calculator, Printer, Plus, Users, FileText, Cog, Layers, Package, Truck, Banknote, RotateCcw, Trash2, Palette, X, Percent, Eye, Loader2, FileImage, History, RefreshCw, MessageCircle, FileSpreadsheet, ClipboardCheck, CheckCircle2, XCircle, DatabaseBackup, Upload, Search, Save, Pencil, UserPlus, Scissors, AlertTriangle } from 'lucide-react'
 import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/capture-jpg'
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
@@ -680,6 +680,13 @@ function HitungCetakanPage() {
   // Flag untuk restore dari riwayat atau potong kertas
   const [isRestoring, setIsRestoring] = useState(false)
 
+  // ===== Info Potong Kertas ter-link (dikirim via sessionStorage saat "Hitung Cetakan Lengkap")
+  // atau diambil dari riwayat PK saat restore riwayat HC. Deteksi "sumber berubah" = bandingkan
+  // data riwayat HC dgn riwayat PK sumber — TIDAK pernah menimpa perhitungan lama otomatis.
+  const [pkCutInfo, setPkCutInfo] = useState<any>(null)
+  const [pkSourceChanged, setPkSourceChanged] = useState(false)
+  const [showPkSisa, setShowPkSisa] = useState(false)
+
   // Restore dari URL params (riwayat / potong kertas)
   useEffect(() => {
     const restored = searchParams.get('restoredFromRiwayat')
@@ -761,6 +768,15 @@ function HitungCetakanPage() {
         setPhotoUrl(pkPhoto)
         sessionStorage.removeItem('pk-to-hc-photoUrl')
       }
+      // Rincian potong (efisiensi + area sisa) dari editor Potong Kertas
+      try {
+        const cutInfoRaw = sessionStorage.getItem('pk-to-hc-cutInfo')
+        if (cutInfoRaw) {
+          setPkCutInfo(JSON.parse(cutInfoRaw))
+          sessionStorage.removeItem('pk-to-hc-cutInfo')
+        }
+      } catch {}
+      setPkSourceChanged(false)
     }
 
     setPrefilled(true)
@@ -1520,6 +1536,46 @@ function HitungCetakanPage() {
     if (r.machineName2) window.__restoreMachineName2 = r.machineName2
     if (r.finishingNames && r.finishingNames !== '-') window.__restoreFinishingNames = r.finishingNames
 
+    // === Sinkronisasi sumber Potong Kertas (K): bila riwayat HC ter-link ke riwayat PK,
+    // ambil data PK terkini & deteksi apakah sumber telah berubah sejak HC disimpan.
+    // Hanya MEMBERI TAHU — data HC tidak pernah ditimpa otomatis.
+    if (r.pkRiwayatId) {
+      fetcher(`/api/riwayat-potong-kertas?id=${encodeURIComponent(r.pkRiwayatId)}`, { headers: getAuthHeaders() })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((pk) => {
+          if (!pk) return
+          setPkCutInfo({
+            nomorPotong: pk.nomorUrut || '',
+            bahan: pk.paperName || '',
+            grammage: pk.grammage || '0',
+            ukuranKertas: `${pk.paperWidth} × ${pk.paperHeight} cm`,
+            ukuranPotongan: `${pk.cutWidth} × ${pk.cutHeight} cm`,
+            potonganPerLembar: (() => { try { return JSON.parse(pk.resultData || '{}')?.totalPieces || 0 } catch { return 0 } })(),
+            lembarDibutuhkan: parseInt(pk.sheetsNeeded || '0') || 0,
+            totalBiayaKertas: pk.totalPrice || 0,
+            efisiensi: pk.efficiency || 0,
+            strategy: (() => { try { return JSON.parse(pk.resultData || '{}')?.strategy || '' } catch { return '' } })(),
+            sisa: (() => { try { return (JSON.parse(pk.resultData || '{}')?.wasteAreas || []).map((w: any) => ({ label: w.label, ukuran: `${w.width} × ${w.height} cm`, luas: w.area, status: w.statusLabel })) } catch { return [] } })(),
+          })
+          // Bandingkan parameter kunci HC tersimpan vs PK sumber saat ini
+          const same = (a: any, b: any) => String(a ?? '').trim() === String(b ?? '').trim()
+          const changed =
+            !same(r.paperLength, pk.paperWidth) ||
+            !same(r.paperWidth, pk.paperHeight) ||
+            !same(r.cutWidth, pk.cutWidth) ||
+            !same(r.cutHeight, pk.cutHeight) ||
+            !same(r.quantity, pk.quantity) ||
+            Math.abs((Number(pk.totalPrice) || 0) - (Number(r.totalPaperPrice) || 0)) > 0.5
+          setPkSourceChanged(changed)
+          if (changed) {
+            toast.warning('Data sumber Potong Kertas telah berubah — periksa sebelum menyimpan.', { description: 'Perhitungan lama TIDAK diubah otomatis.' })
+          }
+        })
+        .catch(() => {})
+    } else {
+      setPkSourceChanged(false)
+    }
+
     toast.success('Data berhasil di-restore dari riwayat!')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -1591,8 +1647,6 @@ function HitungCetakanPage() {
       warna2: r.warna2 || '',
       warnaKhusus2: r.warnaKhusus2 || '',
       hargaPlat2: r.hargaPlat2?.toString() || '0',
-      glueLengthCm: '',
-      glueCostPerCm: '',
       glueBoronganPerSheet: r.glueBorongan && (parseInt(r.jumlahPesanan) || qty) > 0 ? Math.round(r.glueBorongan / (parseInt(r.jumlahPesanan) || qty)).toString() : '0',
       biayaLain1: r.otherCost?.toString() || '0',
       biayaLain2: r.otherCost2?.toString() || '0',
@@ -2195,6 +2249,74 @@ function HitungCetakanPage() {
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl px-4 py-2.5 mb-3">
                 <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">No. Hitung Cetakan</p>
                 <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{nextHitungCetakanNumber}</p>
+              </div>
+            )}
+
+            {/* ===== Info Potong Kertas ter-link (efisiensi + rincian area sisa) ===== */}
+            {pkCutInfo && (
+              <div className={`rounded-2xl border mb-3 overflow-hidden ${pkSourceChanged ? 'border-amber-300 dark:border-amber-800' : 'border-teal-200 dark:border-teal-900'}`}>
+                <div className={`flex items-center gap-2 px-4 py-2 ${pkSourceChanged ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-teal-50/70 dark:bg-teal-950/30'}`}>
+                  <div className="w-6 h-6 rounded-md bg-teal-100 flex items-center justify-center shrink-0"><Scissors className="w-3.5 h-3.5 text-teal-700" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-bold text-slate-700 dark:text-slate-200 leading-tight">
+                      Data Potong Kertas {pkCutInfo.nomorPotong ? <span className="font-mono">({pkCutInfo.nomorPotong})</span> : null}
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                      {pkCutInfo.bahan ? `${pkCutInfo.bahan} ${pkCutInfo.grammage && pkCutInfo.grammage !== '0' ? `${pkCutInfo.grammage} gsm · ` : ''}` : ''}
+                      {pkCutInfo.ukuranKertas || '-'} → {pkCutInfo.ukuranPotongan || '-'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => setPkCutInfo(null)} title="Tutup info potong kertas" className="text-slate-400 hover:text-slate-600 p-1 shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="px-4 py-2 bg-card">
+                  {pkSourceChanged && (
+                    <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-2 py-1.5 mb-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-[10.5px] leading-snug text-amber-800 dark:text-amber-300">
+                        <b>Sumber Potong Kertas telah berubah.</b> Perhitungan lama tidak diubah otomatis — sesuaikan bila perlu, lalu simpan.
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-[11px]">
+                    <div><span className="text-slate-500">Potongan/Lembar:</span> <b>{(pkCutInfo.potonganPerLembar || 0).toLocaleString('id-ID')}</b></div>
+                    <div><span className="text-slate-500">Lembar:</span> <b>{(pkCutInfo.lembarDibutuhkan || 0).toLocaleString('id-ID')}</b></div>
+                    <div><span className="text-slate-500">Biaya Kertas:</span> <b>Rp {Math.round(pkCutInfo.totalBiayaKertas || 0).toLocaleString('id-ID')}</b></div>
+                    <div><span className="text-slate-500">Efisiensi:</span> <b className="text-emerald-700 dark:text-emerald-400">{Number(pkCutInfo.efisiensi || 0).toFixed(1)}%</b></div>
+                  </div>
+                  {Array.isArray(pkCutInfo.sisa) && pkCutInfo.sisa.length > 0 && (
+                    <div className="mt-1.5">
+                      <button type="button" onClick={() => setShowPkSisa(!showPkSisa)} className="text-[10.5px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                        {showPkSisa ? '▲ Sembunyikan rincian sisa' : `▼ Rincian sisa kertas (${pkCutInfo.sisa.length} area)`}
+                      </button>
+                      {showPkSisa && (
+                        <div className="mt-1 rounded-lg border border-slate-200 dark:border-zinc-700 overflow-x-auto">
+                          <table className="w-full text-[10px]">
+                            <thead>
+                              <tr className="bg-slate-50 dark:bg-zinc-800">
+                                <th className="text-left px-2 py-1 font-semibold">Label</th>
+                                <th className="text-right px-2 py-1 font-semibold">Ukuran</th>
+                                <th className="text-right px-2 py-1 font-semibold">Luas</th>
+                                <th className="text-left px-2 py-1 font-semibold">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pkCutInfo.sisa.map((w: any, i: number) => (
+                                <tr key={i} className="border-t border-slate-100 dark:border-zinc-800">
+                                  <td className="px-2 py-1 font-semibold">{w.label}</td>
+                                  <td className="px-2 py-1 text-right tabular-nums">{w.ukuran}</td>
+                                  <td className="px-2 py-1 text-right tabular-nums">{Number(w.luas || 0).toLocaleString('id-ID')} cm²</td>
+                                  <td className="px-2 py-1">{w.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <div className="bg-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
