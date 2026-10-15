@@ -296,6 +296,17 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
   const pvHargaPerKg = pvHargaPerKgManual > 0 ? pvHargaPerKgManual : sheetToKgPrice(pvHargaPerLembar, d?.paperLength, d?.paperWidth, pvGrammage)
   const pvHargaPlat1 = parseFloat(d?.hargaPlat || '0') || 0
   const pvHargaPlat2 = parseFloat(d?.hargaPlat2 || '0') || 0
+  // Pemisahan Biaya Plat dari Ongkos Cetak: plat = hargaPlat × (warna + warnaKhusus)
+  // — rumus sama dgn kalkulator editor (ongkos = warna + di-atas-minimum + plat).
+  // Ongkos Cetak kini tampil TANPA plat; plat jadi baris "Biaya Plat" tersendiri.
+  // Clamp dgn ongkos tersimpan agar jumlah kedua baris selalu konsisten dgn Sub Total
+  // (proteksi thd data lama/inkonsisten).
+  const pvPlatCount1 = (parseInt(d?.warna || '0') || 0) + (parseInt(d?.warnaKhusus || '0') || 0)
+  const pvPlatCount2 = (parseInt(d?.warna2 || '0') || 0) + (parseInt(d?.warnaKhusus2 || '0') || 0)
+  const pvPlatCost1 = Math.min(pvHargaPlat1 * pvPlatCount1, pvPrintingCost)
+  const pvPlatCost2 = Math.min(pvHargaPlat2 * pvPlatCount2, pvPrintingCost2)
+  const pvPrintOnly1 = Math.max(0, pvPrintingCost - pvPlatCost1)
+  const pvPrintOnly2 = Math.max(0, pvPrintingCost2 - pvPlatCost2)
   const pvGlueLength = parseFloat(d?.glueLengthCm || '0') || 0
   const pvGluePerCm = parseFloat(d?.glueCostPerCm || '0') || 0
   const pvUkuranKertas = d && (parseFloat(d.paperLength) > 0 || parseFloat(d.paperWidth) > 0) ? `${d.paperLength || '-'} × ${d.paperWidth || '-'} cm` : '-'
@@ -419,14 +430,28 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
                 />
                 <PvCost
                   name={d.machineName && d.machineName !== '-' ? `Ongkos Cetak — ${d.machineName}` : 'Ongkos Cetak'}
-                  detail={`${d.warna || 0} warna${d.warnaKhusus && parseInt(d.warnaKhusus) > 0 ? ` + ${d.warnaKhusus} khusus` : ''}${pvHargaPlat1 > 0 ? ` · plat ${formatRp(pvHargaPlat1)}/lbr` : ''}`}
-                  amount={formatRp(pvPrintingCost)}
+                  detail={`${d.warna || 0} warna${d.warnaKhusus && parseInt(d.warnaKhusus) > 0 ? ` + ${d.warnaKhusus} khusus` : ''}`}
+                  amount={formatRp(pvPrintOnly1)}
                 />
+                {pvPlatCost1 > 0 && (
+                  <PvCost
+                    name="Biaya Plat"
+                    detail={`${pvPlatCount1} plat × ${formatRp(pvHargaPlat1)}`}
+                    amount={formatRp(pvPlatCost1)}
+                  />
+                )}
                 {pvHasCetak2 && (
                   <PvCost
                     name={d.machineName2 && d.machineName2 !== '' ? `Ongkos Cetak 2 — ${d.machineName2}` : 'Ongkos Cetak 2'}
-                    detail={`${d.warna2 || 0} warna${d.warnaKhusus2 && parseInt(d.warnaKhusus2) > 0 ? ` + ${d.warnaKhusus2} khusus` : ''}${pvHargaPlat2 > 0 ? ` · plat ${formatRp(pvHargaPlat2)}/lbr` : ''}`}
-                    amount={formatRp(pvPrintingCost2)}
+                    detail={`${d.warna2 || 0} warna${d.warnaKhusus2 && parseInt(d.warnaKhusus2) > 0 ? ` + ${d.warnaKhusus2} khusus` : ''}`}
+                    amount={formatRp(pvPrintOnly2)}
+                  />
+                )}
+                {pvHasCetak2 && pvPlatCost2 > 0 && (
+                  <PvCost
+                    name="Biaya Plat 2"
+                    detail={`${pvPlatCount2} plat × ${formatRp(pvHargaPlat2)}`}
+                    amount={formatRp(pvPlatCost2)}
                   />
                 )}
                 {pvHasFinishing && d.finishingBreakdown && d.finishingBreakdown.length > 0
