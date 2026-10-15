@@ -791,22 +791,6 @@ function CalculatorPage() {
     } catch { return [] }
   }, [results])
 
-  const wasteTotals = useMemo(() => {
-    const reusable = activeWasteAreas.filter(a => a.status === 'reusable').reduce((s, a) => s + a.area, 0)
-    const small = activeWasteAreas.filter(a => a.status === 'small').reduce((s, a) => s + a.area, 0)
-    const waste = activeWasteAreas.filter(a => a.status === 'waste').reduce((s, a) => s + a.area, 0)
-    const piecesArea = results ? (results.piecesArea ?? results.totalPieces * results.cutWidth * results.cutHeight) : 0
-    const paperArea = results ? (results.paperArea ?? results.paperWidth * results.paperHeight) : 0
-    return {
-      reusable: Math.round(reusable * 100) / 100,
-      small: Math.round(small * 100) / 100,
-      waste: Math.round(waste * 100) / 100,
-      piecesArea: Math.round(piecesArea * 100) / 100,
-      paperArea: Math.round(paperArea * 100) / 100,
-      loss: 0, // aplikasi belum punya parameter kerf/margin pisau — kehilangan material 0
-    }
-  }, [activeWasteAreas, results])
-
   // Area sisa utk dialog PREVIEW (mode riwayat: dari data baris; mode editor: dari form)
   const previewWasteAreas: WasteArea[] = useMemo(() => {
     const r = previewRiwayatData || results
@@ -1945,7 +1929,7 @@ function CalculatorPage() {
               </div>
               {cutMode === 'otomatis' ? (
                 <>
-                  {/* ===== PANEL OTOMATIS: bahan → gramatur → ukuran potongan → jumlah kebutuhan ===== */}
+                  {/* ===== PANEL OTOMATIS: bahan → gramatur → ukuran potongan → jumlah cetakan (otomatis) ===== */}
                   <div>
                     <label className={lbl}>Nama Bahan</label>
                     <Select value={autoBahan} onValueChange={(v) => { setAutoBahan(v); setAutoGrammage('') }}>
@@ -1997,11 +1981,6 @@ function CalculatorPage() {
                       <label className={lbl}>Tinggi Potongan (cm)</label>
                       <input type="number" step="0.1" min="0" placeholder="misal: 28,5" value={cutHeight} onChange={(e) => setCutHeight(e.target.value)} className={inp} />
                     </div>
-                  </div>
-                  <div>
-                    <label className={lbl}>Jumlah Kebutuhan Potongan</label>
-                    <input type="number" step="1" min="0" placeholder="Auto" value={computedQuantity || quantity} onChange={(e) => setQuantity(e.target.value)} className={computedQuantity ? inpDisabled : inp} readOnly={!!computedQuantity} />
-                    <p className="text-[9.5px] text-slate-400 mt-0.5">Ukuran kertas terbaik dicari otomatis dari Master Kertas — tidak perlu diisi manual.</p>
                   </div>
                   {/* ===== Rekomendasi otomatis (terisi dari hasil optimasi / restore) ===== */}
                   {results && (
@@ -2111,15 +2090,22 @@ function CalculatorPage() {
                 </div>
               </div>
               ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={lbl}>Jumlah Pesanan (opsional)</label>
-                  <input type="number" step="1" min="0" placeholder="0" value={jumlahPesanan} onChange={(e) => setJumlahPesanan(e.target.value)} className={inp} />
+              <div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className={lbl}>Jumlah Pesanan</label>
+                    <input type="number" step="1" min="0" placeholder="0" value={jumlahPesanan} onChange={(e) => setJumlahPesanan(e.target.value)} className={inp} />
+                  </div>
+                  <div>
+                    <label className={lbl}><span className="md:hidden">Cetak Brp Mata</span><span className="hidden md:inline">Cetak Berapa Mata</span></label>
+                    <input type="number" step="1" min="0" placeholder="0" value={berapaMata} onChange={(e) => setBerapaMata(e.target.value)} className={inp} />
+                  </div>
+                  <div>
+                    <label className={lbl}>{t('jumlah_cetakan')}</label>
+                    <input type="number" step="1" min="0" placeholder="Auto" value={computedQuantity || quantity} readOnly className={inpDisabled} />
+                  </div>
                 </div>
-                <div>
-                  <label className={lbl}><span className="md:hidden">Cetak Brp Mata</span><span className="hidden md:inline">Cetak Berapa Mata</span></label>
-                  <input type="number" step="1" min="0" placeholder="0" value={berapaMata} onChange={(e) => setBerapaMata(e.target.value)} className={inp} />
-                </div>
+                <p className="text-[9.5px] text-slate-400 mt-0.5">Jumlah cetakan terisi otomatis (Jumlah Pesanan ÷ Cetak Berapa Mata) — tidak bisa diedit.</p>
               </div>
               )}
               <div className="grid grid-cols-2 gap-2">
@@ -2181,7 +2167,7 @@ function CalculatorPage() {
               <button onClick={runAutoOptimize} disabled={optimizeLoading || isCalculating || !autoBahan || !(parseInt(autoGrammage) > 0) || !(parseFloat(cutWidth) > 0) || !(parseFloat(cutHeight) > 0) || !(parseInt(computedQuantity || quantity) > 0)}
                 className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
                 title="Cari ukuran kertas paling efisien dari Master Kertas">
-                {optimizeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                {optimizeLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span className="leading-tight text-center">Hitung &<br className="sm:hidden" /> Pilih Terbaik</span>
               </button>
               ) : (
@@ -2569,48 +2555,7 @@ function CalculatorPage() {
                   </div>
                 )}
 
-                {/* ===== Efisiensi & Waste (neraca luas per lembar) ===== */}
-                {results && (
-                  <div className="flex-shrink-0 rounded-lg border border-slate-200 dark:border-zinc-700 p-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Efisiensi &amp; Waste (per lembar)</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">Efisiensi {results.efficiency.toFixed(1)}%</span>
-                        <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded-full">Waste {(100 - results.efficiency).toFixed(1)}%</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5 mt-1.5">
-                      <div className="rounded-md bg-slate-50 dark:bg-zinc-800/60 px-2 py-1 text-center">
-                        <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100">{wasteTotals.paperArea.toLocaleString('id-ID')}</p>
-                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Luas bahan (cm²)</p>
-                      </div>
-                      <div className="rounded-md bg-green-50 dark:bg-green-950/30 px-2 py-1 text-center">
-                        <p className="text-[11px] font-bold text-green-700 dark:text-green-400">{wasteTotals.piecesArea.toLocaleString('id-ID')}</p>
-                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Potongan terpakai</p>
-                      </div>
-                      <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 px-2 py-1 text-center">
-                        <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400">{wasteTotals.reusable.toLocaleString('id-ID')}</p>
-                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Sisa bisa dipakai</p>
-                      </div>
-                      <div className="rounded-md bg-orange-50 dark:bg-orange-950/30 px-2 py-1 text-center">
-                        <p className="text-[11px] font-bold text-orange-700 dark:text-orange-400">{wasteTotals.small.toLocaleString('id-ID')}</p>
-                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Sisa kecil</p>
-                      </div>
-                      <div className="rounded-md bg-slate-100 dark:bg-zinc-800 px-2 py-1 text-center">
-                        <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{wasteTotals.waste.toLocaleString('id-ID')}</p>
-                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Limbah</p>
-                      </div>
-                      <div className="rounded-md bg-slate-50 dark:bg-zinc-800/60 px-2 py-1 text-center">
-                        <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100">0</p>
-                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400">Kerf/margin pisau</p>
-                      </div>
-                    </div>
-                    <p className="text-[9px] text-slate-400 mt-1.5 leading-snug">
-                      Neraca luas: {wasteTotals.paperArea.toLocaleString('id-ID')} = {wasteTotals.piecesArea.toLocaleString('id-ID')} (potongan) + {wasteTotals.reusable.toLocaleString('id-ID')} (sisa pakai) + {wasteTotals.small.toLocaleString('id-ID')} (sisa kecil) + {wasteTotals.waste.toLocaleString('id-ID')} (limbah) + 0 (kerf) cm²
-                      {(results.sheetsNeeded || 1) > 1 && <> · Total {results.sheetsNeeded.toLocaleString('id-ID')} lembar: bahan {(wasteTotals.paperArea * results.sheetsNeeded).toLocaleString('id-ID')} cm², potongan {((results.totalPieces || 0) * results.sheetsNeeded).toLocaleString('id-ID')} pcs</>}
-                    </p>
-                  </div>
-                )}
+
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center gap-3">
@@ -3038,7 +2983,7 @@ function CalculatorPage() {
                     </div>
                   </div>
                 </div>
-                {/* Rincian Sisa Kertas + Efisiensi — ikut tercetak/di-JPG (capture = isi preview) */}
+                {/* Rincian Sisa Kertas — ikut tercetak/di-JPG (capture = isi preview) */}
                 {previewWasteAreas.length > 0 && (
                   <div data-pk="waste" className="mb-3">
                     <h3 className="text-xs font-bold text-slate-700 mb-1.5">Rincian Sisa Kertas (per lembar):</h3>
@@ -3064,38 +3009,7 @@ function CalculatorPage() {
                         ))}
                       </tbody>
                     </table>
-                    {(() => {
-                      const pr = previewRiwayatData || results
-                      if (!pr) return null
-                      const reuse = previewWasteAreas.filter(a => a.status === 'reusable').reduce((s, a) => s + a.area, 0)
-                      const small = previewWasteAreas.filter(a => a.status === 'small').reduce((s, a) => s + a.area, 0)
-                      const wastePure = previewWasteAreas.filter(a => a.status === 'waste').reduce((s, a) => s + a.area, 0)
-                      const paperArea = pr.paperArea ?? pr.paperWidth * pr.paperHeight
-                      const piecesArea = pr.piecesArea ?? pr.totalPieces * pr.cutWidth * pr.cutHeight
-                      return (
-                        <div className="mt-2 border border-slate-200 rounded-lg p-2">
-                          <div className="flex items-center justify-between flex-wrap gap-1">
-                            <p className="text-[11px] font-bold text-slate-700">Efisiensi &amp; Waste (per lembar)</p>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Efisiensi {pr.efficiency.toFixed(1)}%</span>
-                              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">Waste {(100 - pr.efficiency).toFixed(1)}%</span>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 mt-1.5 text-center">
-                            <div className="bg-slate-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold">{Math.round(paperArea).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Luas bahan</p></div>
-                            <div className="bg-green-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-green-700">{Math.round(piecesArea).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Potongan</p></div>
-                            <div className="bg-blue-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-blue-700">{Math.round(reuse).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Sisa pakai</p></div>
-                            <div className="bg-orange-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-orange-700">{Math.round(small).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Sisa kecil</p></div>
-                            <div className="bg-slate-100 rounded px-1 py-0.5"><p className="text-[10px] font-bold text-slate-600">{Math.round(wastePure).toLocaleString('id-ID')}</p><p className="text-[8px] text-slate-500">Limbah</p></div>
-                            <div className="bg-slate-50 rounded px-1 py-0.5"><p className="text-[10px] font-bold">0</p><p className="text-[8px] text-slate-500">Kerf</p></div>
-                          </div>
-                          <p className="text-[8.5px] text-slate-400 mt-1">
-                            Neraca luas: {Math.round(paperArea).toLocaleString('id-ID')} = {Math.round(piecesArea).toLocaleString('id-ID')} + {Math.round(reuse).toLocaleString('id-ID')} + {Math.round(small).toLocaleString('id-ID')} + {Math.round(wastePure).toLocaleString('id-ID')} + 0 cm²
-                            {(pr.sheetsNeeded || 1) > 1 && <> · Total {(pr.sheetsNeeded || 1).toLocaleString('id-ID')} lembar diulang dengan pola yang sama</>}
-                          </p>
-                        </div>
-                      )
-                    })()}
+
                   </div>
                 )}
               </>

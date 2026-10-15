@@ -13656,3 +13656,18 @@ Work Log:
 Stage Summary:
 - Rincian Biaya di Detail Rincian Cetakan kini memisahkan Ongkos Cetak (tanpa plat) dan Biaya Plat (baris sendiri, termasuk Cetak 2), jumlah baris tetap konsisten dgn Sub Total. Kotak Informasi Pesanan bertambah Harga Kertas /Lembar & Nama Suplier. Satu file komponen → semua tempat (preview editor, detail riwayat, gabungan, JPG/cetak) ikut berubah.
 - File diubah: src/components/rincian-cetakan-preview.tsx, src/app/hitung-cetakan/page.tsx (interface + previewData saja).
+
+---
+Task ID: pk-otomatis-jumlah-cetakan-ro-cleanup
+Agent: Z.ai Code (main)
+Task: Halaman Potong Kertas tab Otomatis — "Jumlah Kebutuhan Potongan" diganti "Jumlah Cetakan" (read-only), 1 baris Jumlah Pesanan + Cetak Berapa Mata + Jumlah Cetakan, ikon tombol "Hitung & Pilih Terbaik" dihapus, kotak "Efisiensi & Waste" dihapus.
+
+Work Log:
+- Form tab Otomatis (src/app/potong-kertas/page.tsx): blok input "Jumlah Kebutuhan Potongan" (dahulu bisa diedit manual bila belum ada jumlahPesanan/berapaMata) DIHAPUS dari panel otomatis; baris 2-kolom "Jumlah Pesanan (opsional) | Cetak Berapa Mata" diganti grid-cols-3: Jumlah Pesanan | Cetak Berapa Mata | Jumlah Cetakan — field ketiga readOnly SELALU (className inpDisabled, tanpa onChange), nilai = computedQuantity || quantity, hint kecil "Jumlah cetakan terisi otomatis (Jumlah Pesanan ÷ Cetak Berapa Mata) — tidak bisa diedit.".
+- Label memakai t('jumlah_cetakan') = "Jumlah Cetakan" — konsisten dgn mode Manual yang tidak diubah sama sekali (Jumlah Cetakan manual tetap readOnly hanya bila computedQuantity terisi, sesuai perilaku lama).
+- Tombol "Hitung & Pilih Terbaik": ikon Wand2 dekoratif dihapus (kini teks saja); spinner Loader2 hanya saat optimizeLoading (feedback proses, bukan ikon statis). Ikon Wand2 pada tombol TAB "Otomatis (Rekomendasi)" dan kotak "Ukuran Kertas Rekomendasi" TIDAK dihapus (bukan bagian permintaan).
+- Kotak "Efisiensi & Waste (per lembar)" DIHAPUS di DUA tempat: (1) panel hasil utama (neraca luas 6 kartu + chip Efisiensi/Waste), (2) area capture PREVIEW/JPG/Cetak di dalam blok data-pk="waste" — tabel "Rincian Sisa Kertas" TETAP ADA di kedua tempat. useMemo wasteTotals ikut dihapus (kini tak dipakai) agar tidak jadi unused var.
+- Verifikasi: bunx eslint exit 0. Browser E2E superadmin (login ulang karena sesi kadaluarsa): tab Otomatis — isi Jumlah Pesanan 20 + Cetak Brp Mata 2 → Jumlah Cetakan otomatis 10, readOnly=true terverifikasi via DOM; pilih art karton 260gsm, potong 21.5×28.5 → tombol aktif, klik "Hitung & Pilih Terbaik" (svgs di tombol = 0) → rekomendasi 65×100 cm, 10 potongan/lembar, 1 lembar, Rp 2.789; panel hasil & body TANPA teks "Efisiensi & Waste"; Preview dialog: info grid benar (Jumlah Cetakan 10 lembar), diakhiri tabel Rincian Sisa Kertas (Sisa A/Sisa B) TANPA kotak efisiensi; mode Manual dicek tak berubah; tanpa error console/server (satu prisma "duplicate column kategoriId" lama, tak terkait).
+
+Stage Summary:
+- Tab Otomatis Potong Kertas kini: 1 baris 3 input (Jumlah Pesanan, Cetak Berapa Mata, Jumlah Cetakan read-only otomatis), tombol Hitung & Pilih Terbaik tanpa ikon, kotak Efisiensi & Waste hilang dari hasil maupun output JPG/cetak (Rincian Sisa Kertas tetap tampil). File diubah: src/app/potong-kertas/page.tsx saja.
