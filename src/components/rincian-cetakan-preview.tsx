@@ -140,6 +140,9 @@ export interface RiwayatCetakanRow {
   glueBorongan?: number | null
   glueLengthCm?: string | null
   glueCostPerCm?: string | null
+  subTotal?: number | null
+  profitAmount?: number | null
+  grandTotal?: number | null
   nomorUrut?: string | null
   createdAt?: string | null
   profitPercent?: number | null

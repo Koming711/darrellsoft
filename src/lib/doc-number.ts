@@ -366,6 +366,96 @@ export async function previewHitungCetakanNumber(
 }
 
 /**
+ * Generate the next sequential number for Gabungan Hitung Cetakan.
+ * Format: GB/MM/YY/NNNN e.g. GB/10/26/0001 — counter kontinu per user
+ * (pola sama dengan HC): nomor tidak pernah dipakai ulang meski dokumen dihapus.
+ */
+export async function generateGabunganCetakanNumber(
+  dataFilter: Record<string, any>,
+  maxRetries = 3
+): Promise<string> {
+  const now = new Date()
+  const year = String(now.getFullYear()).slice(-2)
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const datePrefix = `GB/${month}/${year}`
+  const counterKey = buildCounterKey('gabunganHitungCetakan', 'GB', dataFilter)
+
+  const findCurrentMax = async (): Promise<number> => {
+    const docs = await db.gabunganHitungCetakan.findMany({
+      where: {
+        ...dataFilter,
+        nomorUrut: { startsWith: 'GB/' },
+      },
+      select: { nomorUrut: true },
+    })
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomorUrut.split('/')
+      const lastNum = parseInt(parts[parts.length - 1], 10)
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
+    }
+    const legacy = await legacyCounterMax('gabunganHitungCetakan', 'GB', dataFilter)
+    return Math.max(max, legacy)
+  }
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const nextNum = await nextCounterNumber(counterKey, findCurrentMax)
+    const docNumber = `${datePrefix}/${String(nextNum).padStart(4, '0')}`
+
+    const existing = await db.gabunganHitungCetakan.findUnique({
+      where: { nomorUrut: docNumber },
+    })
+
+    if (!existing) {
+      return docNumber
+    }
+
+    console.warn(`[doc-number] Collision on ${docNumber}, retrying (attempt ${attempt + 1}/${maxRetries})`)
+  }
+
+  const fallbackNum = Date.now().toString().slice(-6)
+  const now2 = new Date()
+  const y2 = String(now2.getFullYear()).slice(-2)
+  const m2 = String(now2.getMonth() + 1).padStart(2, '0')
+  return `GB/${m2}/${y2}/${fallbackNum}`
+}
+
+/**
+ * Preview the next Gabungan Hitung Cetakan number without creating it.
+ * Format: GB/MM/YY/NNNN e.g. GB/10/26/0001
+ */
+export async function previewGabunganCetakanNumber(
+  dataFilter: Record<string, any>
+): Promise<string> {
+  const now = new Date()
+  const year = String(now.getFullYear()).slice(-2)
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const datePrefix = `GB/${month}/${year}`
+  const counterKey = buildCounterKey('gabunganHitungCetakan', 'GB', dataFilter)
+
+  const findCurrentMax = async (): Promise<number> => {
+    const docs = await db.gabunganHitungCetakan.findMany({
+      where: {
+        ...dataFilter,
+        nomorUrut: { startsWith: 'GB/' },
+      },
+      select: { nomorUrut: true },
+    })
+    let max = 0
+    for (const d of docs) {
+      const parts = d.nomorUrut.split('/')
+      const lastNum = parseInt(parts[parts.length - 1], 10)
+      if (!isNaN(lastNum) && lastNum > max) max = lastNum
+    }
+    const legacy = await legacyCounterMax('gabunganHitungCetakan', 'GB', dataFilter)
+    return Math.max(max, legacy)
+  }
+
+  const nextNum = await peekCounterNumber(counterKey, findCurrentMax)
+  return `${datePrefix}/${String(nextNum).padStart(4, '0')}`
+}
+
+/**
  * Generate the next sequential document number for DocumentHistory (Invoice, PO, SJ, SPK).
  * Format: {PREFIX}/MM/YY/NNNN e.g. INV/06/25/0001
  * Sequence KONTINU lintas bulan/tahun (counter tanpa periode) dan tidak

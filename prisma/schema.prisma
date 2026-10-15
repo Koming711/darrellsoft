@@ -377,6 +377,33 @@ model RiwayatPotongKertas {
   updatedAt     DateTime @updatedAt
 }
 
+// Dokumen GABUNGAN 2 Riwayat Hitung Cetakan (mis. tutup atas + tutup bawah kotak).
+// Snapshot (JSON) menyimpan salinan kedua riwayat sumber saat disimpan agar
+// dokumen gabungan tetap utuh walau sumber diedit/dihapus kemudian.
+model GabunganHitungCetakan {
+  id                    String   @id @default(cuid())
+  nomorUrut             String   @unique @default("") // GB/MM/YY/NNNN (counter kontinu per user)
+  namaProyek            String   @default("")
+  customerName          String   @default("")
+  riwayatCetakanId1     String   @default("") // id riwayat sumber ke-1
+  riwayatCetakanId2     String   @default("") // id riwayat sumber ke-2
+  nomorSumber1          String   @default("") // nomorUrut riwayat sumber ke-1 (denormalisasi utk tampilan)
+  nomorSumber2          String   @default("") // nomorUrut riwayat sumber ke-2
+  jumlahPesananGabungan Int      @default(0)
+  metodeProfit          String   @default("masing_masing") // masing_masing | seragam
+  profitPercent         Float    @default(0) // dipakai bila metodeProfit = seragam
+  totalBiayaDasar       Float    @default(0) // subTotal riwayat 1 + subTotal riwayat 2 (TANPA profit)
+  totalProfit           Float    @default(0)
+  grandTotal            Float    @default(0)
+  modalPerPcs           Float    @default(0)
+  hargaJualPerPcs       Float    @default(0)
+  catatan               String   @default("")
+  snapshotData          String   @default("") // JSON { r1, r2, savedAt } — salinan penuh kedua sumber
+  userId                String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 model Invoice {
   id               String   @id @default(cuid())
   invoiceNumber    String   @unique
