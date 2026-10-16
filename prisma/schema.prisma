@@ -562,6 +562,8 @@ model Bahan {
   aktif       Boolean  @default(true) // status aktif bahan
   lokasi      String   @default("") // lokasi penyimpanan (mis. Gudang A — Rak 2)
   pemasok     String   @default("") // supplier utama bahan ini
+  suplierId   String? // FK ke StockSupplier (opsional) — dipakai laporan per supplier
+  suplierNama String   @default("") // nama supplier (dipakai laporan stock bahan)
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -589,6 +591,8 @@ model BahanMutasi {
   namaBahan   String   @default("") // snapshot nama bahan saat transaksi
   tujuan      String   @default("") // tujuan stok keluar: Produksi/Sampel/Rusak/Pemakaian internal/Lainnya
   alasan      String   @default("") // alasan penyesuaian: Stok opname/Stok rusak/dll.
+  masuk       Float    @default(0) // qty masuk (laporan: masuk += m.masuk)
+  keluar      Float    @default(0) // qty keluar (laporan: keluar += m.keluar)
   userId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -745,3 +749,126 @@ model Notification {
 
   @@index([userId])
 }
+// ====================================================================
+// STOCK BAHAN — transaksi terpisah (Stok Masuk / Keluar / Penyesuaian)
+// Setiap transaksi di tabel ini; stok Bahan direplay via recalcBahan().
+// ====================================================================
+
+// Stok Masuk — pembelian/penerimaan bahan.
+model BahanMasuk {
+  id          String   @id @default(cuid())
+  nomor       String   @default("") // nomor transaksi: STK-001 (shared per user)
+  tanggal     String   @default("") // yyyy-mm-dd
+  bahanId     String
+  bahanNama   String   @default("") // snapshot nama bahan
+  satuan      String   @default("") // snapshot satuan bahan
+  qty         Float
+  hargaBeli   Float    @default(0) // harga beli per satuan
+  total       Float    @default(0) // qty × hargaBeli
+  suplierId   String?  // FK ke StockSupplier (opsional)
+  suplierNama String   @default("") // snapshot nama supplier
+  nomorNota   String   @default("")
+  catatan     String   @default("")
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  supplier StockSupplier? @relation(fields: [suplierId], references: [id], onDelete: SetNull)
+
+  @@index([bahanId])
+  @@index([userId])
+}
+
+// Stok Keluar — pemakaian bahan (produksi, sampel, rusak, internal).
+model BahanKeluar {
+  id        String   @id @default(cuid())
+  nomor     String   @default("") // nomor transaksi: STK-001 (shared per user)
+  tanggal   String   @default("") // yyyy-mm-dd
+  bahanId   String
+  bahanNama String   @default("")
+  satuan    String   @default("")
+  qty       Float
+  tujuan    String   @default("") // Produksi/Sampel/Rusak/Pemakaian internal/Lainnya
+  catatan   String   @default("")
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bahanId])
+  @@index([userId])
+}
+
+// Penyesuaian Stok — stok opname: stok sistem vs stok fisik.
+model BahanPenyesuaian {
+  id         String   @id @default(cuid())
+  nomor      String   @default("") // nomor transaksi: STK-001 (shared per user)
+  tanggal    String   @default("") // yyyy-mm-dd
+  bahanId    String
+  bahanNama  String   @default("")
+  satuan     String   @default("")
+  stokSistem Float    @default(0) // stok sistem sebelum penyesuaian
+  stokFisik  Float    @default(0) // stok fisik hasil opname
+  selisih    Float    @default(0) // stokFisik − stokSistem
+  alasan     String   @default("") // wajib: Stok opname/Stok rusak/dll.
+  catatan    String   @default("")
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([bahanId])
+  @@index([userId])
+}
+
+// ====================================================================
+// STOCK MATERIAL — master baru (dashboard/kategori/supplier Stock Bahan)
+// ====================================================================
+
+// Master kategori bahan — dikelola dari menu Kategori Stock Bahan.
+model StockKategori {
+  id        String   @id @default(cuid())
+  nama      String
+  catatan   String   @default("")
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, nama])
+  @@index([userId])
+}
+
+// Master supplier bahan — dipakai Stok Masuk (BahanMasuk.suplierId).
+model StockSupplier {
+  id        String   @id @default(cuid())
+  nama      String
+  kontak    String   @default("")
+  whatsapp  String   @default("")
+  alamat    String   @default("")
+  catatan   String   @default("")
+  aktif     Boolean  @default(true)
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockIns BahanMasuk[]
+
+  @@index([userId])
+}
+
+// Master material (bahan baru) — dipakai dashboard & kategori Stock Bahan.
+model StockMaterial {
+  id         String   @id @default(cuid())
+  kode       String   @default("") // auto: BHN-001, BHN-002, ... per user
+  nama       String
+  kategori   String   @default("") // nama kategori (string, cascade rename via StockKategori)
+  satuan     String   @default("pcs")
+  stok       Float    @default(0)
+  stokMin    Float    @default(0)
+  hargaModal Float    @default(0) // harga modal per satuan (Rupiah)
+  aktif      Boolean  @default(true)
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+

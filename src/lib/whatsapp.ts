@@ -6,6 +6,32 @@ interface WhatsAppMessageResult {
 }
 
 /**
+ * Normalisasi nomor WhatsApp tujuan: buang spasi/tanda baca (spasi, -, (, ), +)
+ * lalu ubah awalan 0 menjadi 62 (format internasional Indonesia).
+ * Konsisten dengan normalisasi internal pada fungsi send* di modul ini.
+ */
+export function normalizeWaPhone(raw: string): string {
+  let normalized = (raw || '').replace(/[\s\-()+]/g, '')
+  if (normalized.startsWith('0')) {
+    normalized = '62' + normalized.substring(1)
+  }
+  return normalized
+}
+
+/**
+ * Baca konfigurasi WhatsApp API (Fonnte) dari tabel Setting (wa_api_key, wa_api_url).
+ * Mengembalikan null bila API key belum diisi — dipakai route test-send
+ * untuk indikator "terkonfigurasi / belum" sebelum mengirim pesan.
+ */
+export async function getWhatsAppApiConfig(): Promise<{ apiUrl: string } | null> {
+  const apiKeySetting = await db.setting.findUnique({ where: { key: 'wa_api_key' } })
+  const apiUrlSetting = await db.setting.findUnique({ where: { key: 'wa_api_url' } })
+  const apiKey = apiKeySetting?.value?.trim()
+  if (!apiKey) return null
+  return { apiUrl: apiUrlSetting?.value?.trim() || 'https://api.fonnte.com/send' }
+}
+
+/**
  * Send a WhatsApp message using Fonnte API (or compatible service)
  * Requires wa_api_key and wa_api_url to be configured in settings
  */

@@ -13713,3 +13713,22 @@ Stage Summary:
 - Git restore: HEAD 0eff5a5 (history arsip), .vercel link ke project darrellsoft tetap ada
 - Backup state lama tersedia di /home/z/backup-pre-restore/ bila perlu rollback
 - Belum dideploy ke www.darrellsoft.com — isi arsip mungkin berbeda dari yang terdeploy; deploy hanya atas permintaan user
+
+---
+Task ID: 11
+Agent: Z.ai Code (main)
+Task: Deploy workspace hasil restore (arsip) ke www.darrellsoft.com
+
+Work Log:
+- Audit pra-deploy: arsip punya route/pages Stock Bahan lengkap + import ke fungsi/model yang TIDAK ada di schema & lib arsip (snapshot tidak konsisten internal — tak akan pernah build). Diff schema: arsip kehilangan 6 model Stock Bahan, Bahan.suplierId/suplierNama, BahanMutasi.masuk/keluar; arsip MENAMBAH pkSyncStatus dkk di RiwayatCetakan + model GabunganHitungCetakan format BARU (nomorUrut, riwayatCetakanId1/2, nomorSumber1/2, modalPerPcs, hargaJualPerPcs)
+- Fix (aditif): schema arsip + suplierId/suplierNama (Bahan) + masuk/keluar (BahanMutasi) + 6 model dari backup; lib stock-bahan-server diganti versi backup (superset: dateOnly/todayStr/nextStkNumber/recalcBahan/getStockPengaturan/setStockPengaturan/migrateStockLedger); whatsapp.ts + normalizeWaPhone + getWhatsAppApiConfig (re-apply Task 9)
+- tsc audit: 51 missing-import TERSISA semua di dead-code (cluster invoice-* lama, examples/, mini-services/, websocket/) — TIDAK dicapai src/app; graph terkompilasi bersih
+- ⚠️ INSIDEN: require('seed-production.js') saat ekstrak URL MENJALANKAN script → re-seed master cetak user-admin di produksi (7 paper, 3 printing cost, 5 finishing dari data lokal arsip; flag anti auto-reseed dipasang). Data transaksi/riwayat TIDAK tersentuh. Pelajaran: parse teks saja, jangan require script
+- DB sync: prisma db push & migrate diff --from-url HANG di pooler pgbouncer (timeout) → solusi: migrate diff OFFLINE (2 datamodel postgres) → 10 DDL presisi → dieksekusi via node pg: RiwayatCetakan +4 kolom pkSync; GabunganHitungCetakan restrukturisasi (tabel terbukti 0 baris — backup JSON 0 baris); Bahan +suplierId. Verifikasi: kolom sesuai, index nomorUrut unique, 165 riwayat utuh
+- Deploy: vercel --prod SUKSES (darrellsoft-576zbkqc5) → revert schema sqlite → prisma generate → dev restart
+
+Stage Summary:
+- www.darrellsoft.com LIVE dgn kode arsip + pelengkap aditif: 200, title benar; smoke: /api/whatsapp/test-send=401, /api/stock-bahan/migrate=401, /stock-bahan=200; lokal :3000 = 200
+- DB produksi kini = schema arsip+lengkap; dokumen gabungan format lama: 0 baris (tidak ada kehilangan data)
+- Master cetak user-admin di produksi = data master lokal arsip (efek insiden seed; script resmi project, hanya 3 tabel master 1 user)
+- Backup: /home/z/backup-pre-restore/ (workspace 319M + prod-gabungan-backup.json)
