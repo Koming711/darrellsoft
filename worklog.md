@@ -13692,3 +13692,24 @@ Work Log:
 Stage Summary:
 - SINKRONISASI PERMANEN PK↔HC TERVERIFIKASI MUTLAK PASCA RESTORE ARSIP: relasi tetap pkRiwayatId (1 pekerjaan = 1 relasi, bebas duplikat bolak-balik/refresh/login), 14 field sumber + turunan (kertas engine sama, ongkos mesin qty-dependent, finishing master) dihitung ulang dalam SATU transaksi saat sumber berubah, input manual (mesin/warna/plat/daftar finishing/packing/kirim/biaya lain/lem/profit/foto) dijaga, status panel kedua halaman + polling 30 dtk + toast, audit riwayat per-field before→after (cap 20). NOL perubahan kode — seluruh 14 bagian prompt sudah terpenuhi implementasi existing; E2E siklus penuh hijau.
 - File terlibat (existing, tidak diubah): prisma/schema.prisma, src/lib/potong-sync.ts, src/app/api/potong-cetakan-sync/route.ts, src/app/api/riwayat-cetakan/route.ts, src/app/hitung-cetakan/page.tsx, src/app/potong-kertas/page.tsx.
+
+---
+Task ID: 10
+Agent: Z.ai Code (main)
+Task: Restore workspace dari arsip split tar (workspace-11004390...tar.001-003) — "extract & replace semua content"
+
+Work Log:
+- Upload: 3 file split (001/002/003, ~130MB gzip total) di upload/ → digabung via cat | tar -xzf
+- Pre-check arsip: full workspace (src 498 file, .git, prisma sqlite, db/custom.db 272K, .env sqlite sama, daemon.cjs identik, TANPA node_modules, TANPA upload/)
+- Backup workspace lama → /home/z/backup-pre-restore/workspace-20261016-063742.tar.gz (319M, tanpa node_modules/upload/.git)
+- Dev server distop → wipe workspace (kecuali upload/ & .vercel/) → copy isi arsip → temp dihapus
+- bun install (969 paket, 5.5s) + prisma generate (sqlite)
+- Start dev (daemon.cjs, PID 4457) → :3000 = 200; API 200 (public-settings, pembukaan, beranda); /api/auth/me 401 normal
+- Verifikasi Playwright (chromium diinstall): /pembukaan render penuh modal "Versi Baru v151" dari DB restore, 0 page error
+- Catatan: 1 pesan "duplicate column name: kategoriId" dari seed idempoten bawaan arsip — benign (kolom sudah ada), proses lanjut sukses
+
+Stage Summary:
+- Workspace SEKARANG = isi arsip persis (91 entri top-level; upload/ & .vercel/ dipertahankan; node_modules diinstall ulang)
+- Git restore: HEAD 0eff5a5 (history arsip), .vercel link ke project darrellsoft tetap ada
+- Backup state lama tersedia di /home/z/backup-pre-restore/ bila perlu rollback
+- Belum dideploy ke www.darrellsoft.com — isi arsip mungkin berbeda dari yang terdeploy; deploy hanya atas permintaan user
