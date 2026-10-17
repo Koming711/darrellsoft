@@ -180,11 +180,6 @@ export async function POST(req: NextRequest) {
     // Generate buffer
     const excelBuffer = Buffer.from(await workbook.xlsx.writeBuffer())
 
-    // Save a copy to the backups directory
-    const backupsDir = path.join(process.cwd(), 'backups')
-    if (!fs.existsSync(backupsDir)) {
-      fs.mkdirSync(backupsDir, { recursive: true })
-    }
     // Nama file seragam: fullbackup-<user>-<dd.mm.yy>.xlsx/.json
     // (username diambil dari tabel Pengguna; tanggal zona Asia/Jakarta)
     const pengguna = await db.pengguna.findUnique({
@@ -193,20 +188,36 @@ export async function POST(req: NextRequest) {
     }).catch(() => null)
     const baseName = buildBackupBaseName(pengguna?.username)
     const fileName = `${baseName}.xlsx`
-    const filePath = path.join(backupsDir, fileName)
-    fs.writeFileSync(filePath, excelBuffer)
 
-    // Also save JSON format for backward compat with restore from server
-    const jsonFileName = `${baseName}.json`
-    const jsonFilePath = path.join(backupsDir, jsonFileName)
-    const jsonBackup = {
-      version: '2.0',
-      type: 'user-backup',
-      timestamp: new Date().toISOString(),
-      userId: user.id,
-      database: tableData,
+    // Simpan salinan ke folder backups HANYA bila filesystem writable (best-effort).
+    // Di Vercel FS-nya read-only → penulisan dilewati; file Excel tetap diunduh
+    // lewat response sehingga Backup Semua tidak gagal 500 lagi.
+    try {
+      const backupsDir = path.join(process.cwd(), 'backups')
+      if (!fs.existsSync(backupsDir)) {
+        fs.mkdirSync(backupsDir, { recursive: true })
+      }
+      fs.writeFileSync(path.join(backupsDir, fileName), excelBuffer)
+
+      // Also save JSON format for backward compat with restore from server
+      const jsonBackup = {
+        version: '2.0',
+        type: 'user-backup',
+        timestamp: new Date().toISOString(),
+        userId: user.id,
+        database: tableData,
+      }
+      fs.writeFileSync(
+        path.join(backupsDir, `${baseName}.json`),
+        JSON.stringify(jsonBackup, null, 2),
+        'utf-8'
+      )
+    } catch (saveError) {
+      console.warn(
+        'Salinan backup server dilewati (filesystem read-only):',
+        saveError instanceof Error ? saveError.name : 'unknown'
+      )
     }
-    fs.writeFileSync(jsonFilePath, JSON.stringify(jsonBackup, null, 2), 'utf-8')
 
     // Return the Excel file
     return new NextResponse(excelBuffer, {

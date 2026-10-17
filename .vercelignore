@@ -12,3 +12,5 @@ mini-services
 .daemon.log
 dev.log
 worklog.md
+.env
+.env.local

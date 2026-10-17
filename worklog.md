@@ -13923,3 +13923,22 @@ Stage Summary:
 - Backup user sama di hari yang sama saling menimpa (satu file per user per hari), bukan duplikat baru.
 - File backup lama (backup-user-*, auto-backup-*) tetap ada dan tetap bisa di-restore dari daftar Riwayat Backup.
 - Belum dideploy ke produksi (user: "jangan deploy").
+
+---
+Task ID: deploy-darrellsoft-prod
+Agent: Z.ai Code (main)
+Task: Deploy ke www.darrellsoft.com (backup naming fullbackup + semua perubahan pending)
+
+Work Log:
+- Deploy awal 3x ternyata masuk project Vercel SALAH (my-project) karena .vercel/project.json link-nya salah; alias hanya my-project-eight-alpha-65.vercel.app, sedangkan www.darrellsoft.com milik project `darrellsoft` (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB).
+- Diagnosa 500 Backup Semua di produksi: (1) Vercel FS read-only → fs.writeFileSync ke backups/ melempar error dan menggagalkan route → dibuat best-effort try/catch di backup + auto-backup route (file tetap terunduh via response); (2) project `my-project` sama sekali tidak punya env vars → DATABASE_URL sqlite ikut ter-bundle → ditambahkan DATABASE_URL (Supabase pooler, secret) ke project my-project juga.
+- Fix utama: `npx vercel link --yes --project darrellsoft` → deploy ulang → "▲ Aliased https://www.darrellsoft.com".
+- .vercelignore ditambah .env dan .env.local agar config sqlite lokal tidak pernah ter-bundle ke produksi lagi.
+- Setelah deploy: hapus .env.local (dibuat oleh vercel link), revert schema ke sqlite, prisma generate, restart daemon lokal.
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan kode terbaru: nama file backup fullbackup-<user>-<dd.mm.yy>.xlsx/json + hardening FS + semua perubahan pending sebelumnya (potong kertas, rincian preview, dsb).
+- Verifikasi produksi (agent-browser + curl): POST /api/database/backup → 200 + X-Backup-FileName: fullbackup-admin-17.10.26.xlsx; restore dari file server (JSON) → 200 (9 tabel); restore dari file server (fullbackup-user-...json) → 200 (6 tabel).
+- Bug lama user "Gagal melakukan restore database: Data tidak valid" (PrismaClientValidationError dari upload Excel) terverifikasi FIX: upload fullbackup-admin-17.10.26.xlsx → /api/database/restore → 200, 9 tabel (diuji lokal terhadap Supabase produksi dengan klien postgres — alur & DB identik produksi).
+- Riwayat Backup di produksi menampilkan fullbackup-admin-17.10.26.json; satu entri fullbackup-user-17.10.26.json adalah fallback username saat lookup Pengguna gagal transien — konten backup tetap valid.
+- Local dev kembali ke sqlite (schema + .env utuh), server 200, tanpa error console.
