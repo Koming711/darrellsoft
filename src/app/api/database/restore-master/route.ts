@@ -2,80 +2,74 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { parseBackupExcel } from '@/lib/backup-excel'
 import { sanitizeError } from '@/lib/api-error'
+import { castRowBySchema } from '@/lib/restore-cast'
 
-// Map of master table keys to Prisma models and their field type definitions
+// Map of master table keys to Prisma models
+// Casting tipe dilakukan castRowBySchema (src/lib/restore-cast.ts) berdasarkan schema Prisma —
+// menangani boolean teks Excel ("true"/"false"), kolom backup yang tidak ada di schema,
+// dan field wajib yang hilang pada backup lama.
 const MASTER_TABLES: Record<string, {
   model: any
   name: string
-  intFields?: string[]
-  floatFields?: string[]
-  dateFields?: string[]
+  modelName: string // nama model Prisma untuk schema-driven casting
   extraFilter?: Record<string, any>
   extraDefaults?: Record<string, any>
 }> = {
   finishing: {
     model: db.finishing,
     name: 'Master Finishing',
-    intFields: ['minimumSheets'],
-    floatFields: ['minimumPrice', 'additionalPrice', 'pricePerCm'],
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'Finishing',
   },
   printing_cost: {
     model: db.printingCost,
     name: 'Master Ongkos Cetak',
-    intFields: ['grammage', 'minimumPrintQuantity'],
-    floatFields: ['printAreaWidth', 'printAreaHeight', 'pricePerColor', 'specialColorPrice', 'priceAboveMinimumPerSheet', 'platePricePerSheet'],
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'PrintingCost',
   },
   paper: {
     model: db.paper,
     name: 'Master Harga Kertas',
-    intFields: ['grammage'],
-    floatFields: ['width', 'height', 'pricePerRim'],
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'Paper',
   },
   customer: {
     model: db.customer,
     name: 'Master Customer',
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'Customer',
   },
   toko_pemasok: {
     model: db.tokoPemasok,
     name: 'Master Toko/Pemasok',
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'TokoPemasok',
   },
   invoice_history: {
     model: db.documentHistory,
     name: 'Riwayat Invoice',
-    dateFields: ['createdAt'],
+    modelName: 'DocumentHistory',
     extraFilter: { docType: 'invoice' },
     extraDefaults: { docType: 'invoice' },
   },
   surat_jalan_history: {
     model: db.documentHistory,
     name: 'Riwayat Surat Jalan',
-    dateFields: ['createdAt'],
+    modelName: 'DocumentHistory',
     extraFilter: { docType: 'surat-jalan' },
     extraDefaults: { docType: 'surat-jalan' },
   },
   purchase_order_history: {
     model: db.documentHistory,
     name: 'Riwayat Purchase Order',
-    dateFields: ['createdAt'],
+    modelName: 'DocumentHistory',
     extraFilter: { docType: 'purchase-order' },
     extraDefaults: { docType: 'purchase-order' },
   },
   riwayat_potong_kertas: {
     model: db.riwayatPotongKertas,
     name: 'Riwayat Potong Kertas',
-    floatFields: ['totalPrice', 'pricePerSheet', 'efficiency'],
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'RiwayatPotongKertas',
   },
   riwayat_cetakan: {
     model: db.riwayatCetakan,
     name: 'Riwayat Hitung Cetakan',
-    floatFields: ['hargaPlat', 'ongkosCetak', 'hargaPlat2', 'ongkosCetak2', 'totalPaperPrice', 'pricePerSheet', 'finishingCost', 'packingCost', 'shippingCost', 'otherCost', 'otherCost2', 'glueCost', 'glueBorongan', 'subTotal', 'profitPercent', 'profitAmount', 'grandTotal'],
-    dateFields: ['createdAt', 'updatedAt'],
+    modelName: 'RiwayatCetakan',
   },
 }
 
@@ -90,51 +84,6 @@ function getUserFromRequest(req: NextRequest) {
 
   if (!userId || !userRole) return null
   return { id: userId, role: userRole }
-}
-
-/** Convert parsed Excel data rows to Prisma-compatible records */
-function castRow(row: Record<string, any>, tableConfig: typeof MASTER_TABLES[string]): Record<string, any> {
-  const result: Record<string, any> = { ...row }
-
-  // Strip id field — let Prisma generate new ones
-  delete result.id
-
-  // Convert integer fields
-  for (const field of (tableConfig.intFields || [])) {
-    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
-      const num = Number(result[field])
-      result[field] = isNaN(num) ? 0 : Math.round(num)
-    } else {
-      delete result[field] // let Prisma use default
-    }
-  }
-
-  // Convert float fields
-  for (const field of (tableConfig.floatFields || [])) {
-    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
-      const num = Number(result[field])
-      result[field] = isNaN(num) ? 0 : num
-    } else {
-      delete result[field] // let Prisma use default
-    }
-  }
-
-  // Convert date fields
-  for (const field of (tableConfig.dateFields || [])) {
-    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
-      const d = new Date(result[field])
-      if (isNaN(d.getTime())) {
-        // Invalid date string — let Prisma use default
-        delete result[field]
-      } else {
-        result[field] = d.toISOString()
-      }
-    } else {
-      delete result[field] // let Prisma use default
-    }
-  }
-
-  return result
 }
 
 // POST: Restore a specific master table from Excel backup
@@ -197,7 +146,7 @@ export async function POST(req: NextRequest) {
 
     if (backupData.length > 0) {
       const castedData = backupData.map((r: any) => {
-        const casted = castRow(r, tableConfig)
+        const casted = castRowBySchema(r, tableConfig.modelName)
         // Ensure userId belongs to current user
         casted.userId = user.id
         // Apply extra defaults (like docType: 'invoice')

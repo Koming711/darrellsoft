@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs'
 import fs from 'fs'
 import path from 'path'
 import { sanitizeError } from '@/lib/api-error'
+import { castRowBySchema } from '@/lib/restore-cast'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -19,76 +20,30 @@ function getUserFromRequest(req: NextRequest) {
 }
 
 // Only user-owned tables (matching backup route)
+// Casting tipe dilakukan castRowBySchema (src/lib/restore-cast.ts) berdasarkan schema Prisma —
+// menangani boolean teks Excel ("true"/"false"), kolom backup yang tidak ada di schema,
+// dan field wajib yang hilang pada backup lama.
 const USER_TABLES: Record<string, {
   model: any
   name: string
-  intFields?: string[]
-  floatFields?: string[]
-  dateFields?: string[]
   mergeMode?: boolean // if true, merge instead of replace
 }> = {
-  Customer: { model: db.customer, name: 'Customer', dateFields: ['createdAt', 'updatedAt'] },
-  Paper: { model: db.paper, name: 'Paper', intFields: ['grammage'], floatFields: ['width', 'height', 'pricePerRim'], dateFields: ['createdAt', 'updatedAt'] },
-  PrintingCost: { model: db.printingCost, name: 'PrintingCost', intFields: ['grammage', 'minimumPrintQuantity'], floatFields: ['printAreaWidth', 'printAreaHeight', 'pricePerColor', 'specialColorPrice', 'priceAboveMinimumPerSheet', 'platePricePerSheet'], dateFields: ['createdAt', 'updatedAt'] },
-  Finishing: { model: db.finishing, name: 'Finishing', intFields: ['minimumSheets'], floatFields: ['minimumPrice', 'additionalPrice', 'pricePerCm'], dateFields: ['createdAt', 'updatedAt'] },
-  TokoPemasok: { model: db.tokoPemasok, name: 'TokoPemasok', dateFields: ['createdAt', 'updatedAt'] },
-  Invoice: { model: db.invoice, name: 'Invoice', floatFields: ['subTotal', 'discount', 'tax', 'grandTotal'], dateFields: ['createdAt', 'updatedAt'] },
-  SuratJalan: { model: db.suratJalan, name: 'SuratJalan', dateFields: ['createdAt', 'updatedAt'] },
-  PurchaseOrder: { model: db.purchaseOrder, name: 'PurchaseOrder', floatFields: ['subtotal', 'tax', 'total'], dateFields: ['createdAt', 'updatedAt'] },
-  DocumentHistory: { model: db.documentHistory, name: 'DocumentHistory', dateFields: ['createdAt'] },
-  RiwayatCetakan: { model: db.riwayatCetakan, name: 'RiwayatCetakan', floatFields: ['hargaPlat', 'ongkosCetak', 'hargaPlat2', 'ongkosCetak2', 'totalPaperPrice', 'pricePerSheet', 'finishingCost', 'packingCost', 'shippingCost', 'otherCost', 'otherCost2', 'glueCost', 'glueBorongan', 'subTotal', 'profitPercent', 'profitAmount', 'grandTotal'], dateFields: ['createdAt', 'updatedAt'] },
-  RiwayatFinishing: { model: db.riwayatFinishing, name: 'RiwayatFinishing', floatFields: ['totalCost', 'hargaPerLembar'], dateFields: ['createdAt', 'updatedAt'] },
-  RiwayatOngkosCetak: { model: db.riwayatOngkosCetak, name: 'RiwayatOngkosCetak', floatFields: ['totalOngkosCetak', 'hargaPerLembar', 'totalOngkosCetak2'], dateFields: ['createdAt', 'updatedAt'] },
-  RiwayatHargaKertas: { model: db.riwayatHargaKertas, name: 'RiwayatHargaKertas', floatFields: ['totalPrice', 'costPerPiece'], dateFields: ['createdAt', 'updatedAt'] },
-  RiwayatPotongKertas: { model: db.riwayatPotongKertas, name: 'RiwayatPotongKertas', floatFields: ['totalPrice', 'pricePerSheet', 'efficiency'], dateFields: ['createdAt', 'updatedAt'] },
-  CalonPembeli: { model: db.calonPembeli, name: 'CalonPembeli', dateFields: ['createdAt', 'updatedAt', 'expiredDate'], mergeMode: true },
-  Pembeli: { model: db.pembeli, name: 'Pembeli', dateFields: ['createdAt', 'updatedAt', 'expiredDate'], mergeMode: true },
-}
-
-/** Cast row types from Excel string values to proper Prisma types */
-function castRow(row: Record<string, any>, tableKey: string): Record<string, any> {
-  const result: Record<string, any> = { ...row }
-  const types = USER_TABLES[tableKey]
-  if (!types) return result
-
-  // Strip id field — let Prisma generate new ones
-  delete result.id
-
-  // Convert integer fields
-  for (const field of (types.intFields || [])) {
-    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
-      const num = Number(result[field])
-      result[field] = isNaN(num) ? 0 : Math.round(num)
-    } else {
-      delete result[field]
-    }
-  }
-
-  // Convert float fields
-  for (const field of (types.floatFields || [])) {
-    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
-      const num = Number(result[field])
-      result[field] = isNaN(num) ? 0 : num
-    } else {
-      delete result[field]
-    }
-  }
-
-  // Convert date fields
-  for (const field of (types.dateFields || [])) {
-    if (result[field] !== undefined && result[field] !== null && result[field] !== '') {
-      const d = new Date(result[field])
-      if (isNaN(d.getTime())) {
-        delete result[field]
-      } else {
-        result[field] = d.toISOString()
-      }
-    } else {
-      delete result[field]
-    }
-  }
-
-  return result
+  Customer: { model: db.customer, name: 'Customer' },
+  Paper: { model: db.paper, name: 'Paper' },
+  PrintingCost: { model: db.printingCost, name: 'PrintingCost' },
+  Finishing: { model: db.finishing, name: 'Finishing' },
+  TokoPemasok: { model: db.tokoPemasok, name: 'TokoPemasok' },
+  Invoice: { model: db.invoice, name: 'Invoice' },
+  SuratJalan: { model: db.suratJalan, name: 'SuratJalan' },
+  PurchaseOrder: { model: db.purchaseOrder, name: 'PurchaseOrder' },
+  DocumentHistory: { model: db.documentHistory, name: 'DocumentHistory' },
+  RiwayatCetakan: { model: db.riwayatCetakan, name: 'RiwayatCetakan' },
+  RiwayatFinishing: { model: db.riwayatFinishing, name: 'RiwayatFinishing' },
+  RiwayatOngkosCetak: { model: db.riwayatOngkosCetak, name: 'RiwayatOngkosCetak' },
+  RiwayatHargaKertas: { model: db.riwayatHargaKertas, name: 'RiwayatHargaKertas' },
+  RiwayatPotongKertas: { model: db.riwayatPotongKertas, name: 'RiwayatPotongKertas' },
+  CalonPembeli: { model: db.calonPembeli, name: 'CalonPembeli', mergeMode: true },
+  Pembeli: { model: db.pembeli, name: 'Pembeli', mergeMode: true },
 }
 
 /** Parse Excel backup file (multi-sheet format) and return data per table */
@@ -146,6 +101,14 @@ async function restoreDatabase(data: Record<string, any[]>, userId: string) {
   const existingCalonPembeli = await db.calonPembeli.findMany({ where: { userId } })
   const existingPembeli = await db.pembeli.findMany({ where: { userId } })
 
+  // Kategori adalah tabel global yang TIDAK ikut backup/restore — kategoriId pada backup
+  // yang tidak ada di DB di-null-kan agar restore Paper tidak gagal FK (P2003)
+  const validKategoriIds = new Set(
+    (await db.kategori.findMany({ select: { id: true } })).map((k) => k.id)
+  )
+  // Suffix unik untuk nomorUrut fallback (backup lama tanpa kolom nomorUrut — kolom unique)
+  const restoreUid = Date.now().toString(36)
+
   // Delete only the current user's data (NOT other users' data)
   const deleteOrder = [
     'RiwayatCetakan', 'RiwayatFinishing', 'RiwayatOngkosCetak',
@@ -187,7 +150,7 @@ async function restoreDatabase(data: Record<string, any[]>, userId: string) {
       const newRecords = rows.filter((r: any) => !existingIds.has(r.id))
       if (newRecords.length > 0) {
         const castedData = newRecords.map((r: any) => {
-          const casted = castRow(r, tableKey)
+          const casted = castRowBySchema(r, tableKey)
           casted.userId = userId // ensure userId belongs to current user
           return casted
         })
@@ -195,9 +158,17 @@ async function restoreDatabase(data: Record<string, any[]>, userId: string) {
       }
     } else {
       // Normal tables: restore all with current userId
-      const castedData = rows.map((r: any) => {
-        const casted = castRow(r, tableKey)
+      const castedData = rows.map((r: any, idx: number) => {
+        const casted = castRowBySchema(r, tableKey)
         casted.userId = userId // ensure userId belongs to current user
+        // Backup lama mungkin tanpa nomorUrut (kolom @unique) — isi fallback unik agar tidak bentrok
+        if ((tableKey === 'RiwayatCetakan' || tableKey === 'RiwayatPotongKertas') && !casted.nomorUrut) {
+          casted.nomorUrut = `RESTORE-${restoreUid}-${idx + 1}`
+        }
+        // Paper: kategoriId yang tidak ada di DB → null (hindari FK P2003; Kategori tidak ikut restore)
+        if (tableKey === 'Paper' && casted.kategoriId && !validKategoriIds.has(String(casted.kategoriId))) {
+          casted.kategoriId = null
+        }
         return casted
       })
       await config.model.createMany({ data: castedData })

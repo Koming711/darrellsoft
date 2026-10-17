@@ -3,14 +3,18 @@ import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/server-auth'
 import { parseBackupExcel } from '@/lib/backup-excel'
 import { sanitizeError } from '@/lib/api-error'
+import { castRowBySchema } from '@/lib/restore-cast'
 
 // Map of riwayat table keys to Prisma models
-const RIWAYAT_TABLES: Record<string, { model: any; name: string }> = {
-  riwayat_cetakan: { model: db.riwayatCetakan, name: 'Riwayat Cetakan' },
-  riwayat_finishing: { model: db.riwayatFinishing, name: 'Riwayat Finishing' },
-  riwayat_ongkos_cetak: { model: db.riwayatOngkosCetak, name: 'Riwayat Ongkos Cetak' },
-  riwayat_harga_kertas: { model: db.riwayatHargaKertas, name: 'Riwayat Harga Kertas' },
-  riwayat_potong_kertas: { model: db.riwayatPotongKertas, name: 'Riwayat Potong Kertas' },
+// Casting tipe dilakukan castRowBySchema (src/lib/restore-cast.ts) berdasarkan schema Prisma —
+// sebelumnya nilai mentah Excel (boolean teks/angka) langsung dikirim ke Prisma sehingga
+// restore gagal "Data tidak valid".
+const RIWAYAT_TABLES: Record<string, { model: any; name: string; modelName: string }> = {
+  riwayat_cetakan: { model: db.riwayatCetakan, name: 'Riwayat Cetakan', modelName: 'RiwayatCetakan' },
+  riwayat_finishing: { model: db.riwayatFinishing, name: 'Riwayat Finishing', modelName: 'RiwayatFinishing' },
+  riwayat_ongkos_cetak: { model: db.riwayatOngkosCetak, name: 'Riwayat Ongkos Cetak', modelName: 'RiwayatOngkosCetak' },
+  riwayat_harga_kertas: { model: db.riwayatHargaKertas, name: 'Riwayat Harga Kertas', modelName: 'RiwayatHargaKertas' },
+  riwayat_potong_kertas: { model: db.riwayatPotongKertas, name: 'Riwayat Potong Kertas', modelName: 'RiwayatPotongKertas' },
 }
 
 // POST: Restore a specific riwayat table from Excel backup
@@ -67,10 +71,7 @@ export async function POST(req: NextRequest) {
 
     if (backupData.length > 0) {
       await tableConfig.model.createMany({
-        data: backupData.map((r: any) => {
-          const { id, ...rest } = r
-          return rest
-        })
+        data: backupData.map((r: any) => castRowBySchema(r, tableConfig.modelName)),
       })
     }
 

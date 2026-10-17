@@ -13868,3 +13868,39 @@ Stage Summary:
 - Dokumen Rincian Harga Cetakan kembali ke layout semula: kolom kanan = Gambar Potong Kertas + Grand Total di bawahnya; namun diagram tetap lebih jelas dari versi pra-F4 (280px + textScale 2).
 - Perubahan otomatis berlaku di semua pemakai komponen: preview editor Hitung Cetakan, dialog Detail Riwayat (halaman detail rincian cetakan), dokumen gabungan, JPG & Cetak.
 - File berubah: src/components/rincian-cetakan-preview.tsx. Belum dideploy ke produksi.
+
+---
+Task ID: db-restore-invalid-data
+Agent: Main
+Task: "di pengaturan database Gagal melakukan restore database: Data tidak valid. Periksa kembali input Anda." — check and fix
+
+Work Log:
+- DIAGNOSA: pesan "Data tidak valid. Periksa kembali input Anda." = sanitizeError() utk PrismaClientValidationError (src/lib/api-error.ts:158). Sumber: POST /api/database/restore (halaman Pengaturan → tab Database).
+- ROOT CAUSE (dibuktikan dgn uji Prisma v7 + ExcelJS):
+  1) ExcelJS mengembalikan sel boolean sebagai TEKS "true"/"false" (cell.type=9, cell.text string) → Customer.isActive Boolean dikirim sebagai string → PrismaClientValidationError. Customer = tabel pertama di urutan restore → gagal di baris pertama.
+  2) Semua kolom backup yang tidak ada di schema (backup lintas versi aplikasi) ikut dikirim → "Unknown argument" → error sama.
+  3) restore-riwayat TIDAK melakukan cast sama sekali (passthrough minus id); restore-master punya bug boolean yang sama (Master Customer).
+  4) Field wajib tanpa default yang hilang di backup lama (mis. ongkosCetakDetail) → "Argument is missing".
+  (Fakta pendukung: Prisma v7 MENERIMA string ISO utk DateTime; type cast int/float lama sudah benar.)
+- FIX — lib baru src/lib/restore-cast.ts: castRowBySchema(row, modelName, opts) berbasis Prisma.dmmf (cache per model): hanya field scalar schema yang dikirim (kolom asing DIBUANG otomatis), cast String/Int/Float/Boolean/DateTime benar ("true"→true), id selalu dibuang, field wajib tanpa default yang hilang diisi netral (''/0/false/now), field opsional kosong → NULL. Fallback pass-through bila model tak dikenal DMMF.
+- FIX — src/app/api/database/restore/route.ts: USER_TABLES disederhanakan (intFields/floatFields/dateFields tidak dipakai lagi); restoreDatabase memakai castRowBySchema; Paper.kategoriId yang tidak ada di DB di-null-kan (Kategori global tidak ikut restore → hindari FK P2003); nomorUrut kosong (backup lama, kolom @unique) diberi fallback unik RESTORE-<ts>-<i>.
+- FIX — src/app/api/database/restore-master/route.ts: +modelName per tabel (Finishing/PrintingCost/Paper/Customer/TokoPemasok/DocumentHistory/RiwayatPotongKertas/RiwayatCetakan), castRow lama diganti castRowBySchema, extraDefaults (docType) tetap.
+- FIX — src/app/api/database/restore-riwayat/route.ts: +modelName mapping, createMany kini cast via castRowBySchema.
+- Lint 4 file: 0 error.
+- E2E API (admin lokal, curl multipart = request identik dgn browser):
+  * POST /api/database/backup → /tmp/backup-test.xlsx (38KB, 8 tabel berisi data).
+  * POST /api/database/restore → {"success":true,"restoredTables":8} (SEBELUMNYA gagal "Data tidak valid").
+  * Fidelitas: jumlah baris identik (6 customer/8 paper/3 ongkos/5 finishing/3 toko/12 docHistory/15 riwayatCetakan/21 riwayatPotongKertas), sum grandTotal 54.282.823 = backup, nomorUrut & createdAt PERSIS (2026-10-05T11:13:37.541Z), isActive boolean utuh.
+  * Edge: backup buatan dgn kolom asing + boolean teks + kolom wajib hilang + nomorUrut kosong → SUCCESS; kolom asing dibuang, isActive "false"→false, ongkosCetakDetail terisi "", nomorUrut → RESTORE-mvc79qzp-1, angka string→number.
+  * Data asli dipulihkan kembali setelah semua uji (verifikasi hitungan sama, 0 baris uji tersisa).
+- E2E UI (agent-browser, /administrasi/pengaturan → tab Database):
+  * Restore dari riwayat backup server (klik Restore → "Ya, Restore") → toast "Restore berhasil! 8 tabel di-restore" ✓
+  * Restore dari FILE (input .xlsx di-set via DataTransfer + event change asli → handler React handleRestoreFromFile) → toast "Restore berhasil! 8 tabel di-restore dari backup-user.xlsx" (<1s) ✓
+  * Console & page errors bersih.
+- DEPLOY PRODUKSI: pipeline standar (daemon stop → pkill next-server → prepare-build postgres → prisma generate → vercel --prod → revert-schema → prisma generate → daemon start). Deployment: my-project-k9n06iyb5 (www.darrellsoft.com) — smoke: / = 200, /login = 200, /api/database/restore tanpa sesi = 401 (route hidup, proteksi auth jalan).
+
+
+Stage Summary:
+- Restore database (file .xlsx/.json & backup server) di Pengaturan TIDAK LAGI gagal "Data tidak valid. Periksa kembali input Anda." — casting tipe kini schema-driven (Prisma.dmmf): boolean teks Excel, kolom backup lintas versi, field wajib hilang, angka-string, semuanya ditangani.
+- Bonus hardening: Paper.kategoriId orphan → NULL (anti FK P2003), nomorUrut kosong → fallback unik (anti P2002), restore-riwayat/restore-master ikut diperbaiki.
+- File: src/lib/restore-cast.ts (baru), src/app/api/database/restore/route.ts, src/app/api/database/restore-master/route.ts, src/app/api/database/restore-riwayat/route.ts.
