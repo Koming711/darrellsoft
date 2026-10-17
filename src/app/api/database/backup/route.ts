@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
 import fs from 'fs'
 import path from 'path'
+import { buildBackupBaseName } from '@/lib/backup-filename'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -184,13 +185,19 @@ export async function POST(req: NextRequest) {
     if (!fs.existsSync(backupsDir)) {
       fs.mkdirSync(backupsDir, { recursive: true })
     }
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const fileName = `backup-user-${dateStr}.xlsx`
+    // Nama file seragam: fullbackup-<user>-<dd.mm.yy>.xlsx/.json
+    // (username diambil dari tabel Pengguna; tanggal zona Asia/Jakarta)
+    const pengguna = await db.pengguna.findUnique({
+      where: { id: user.id },
+      select: { username: true },
+    }).catch(() => null)
+    const baseName = buildBackupBaseName(pengguna?.username)
+    const fileName = `${baseName}.xlsx`
     const filePath = path.join(backupsDir, fileName)
     fs.writeFileSync(filePath, excelBuffer)
 
     // Also save JSON format for backward compat with restore from server
-    const jsonFileName = `backup-user-${dateStr}.json`
+    const jsonFileName = `${baseName}.json`
     const jsonFilePath = path.join(backupsDir, jsonFileName)
     const jsonBackup = {
       version: '2.0',

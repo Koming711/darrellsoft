@@ -13904,3 +13904,22 @@ Stage Summary:
 - Restore database (file .xlsx/.json & backup server) di Pengaturan TIDAK LAGI gagal "Data tidak valid. Periksa kembali input Anda." — casting tipe kini schema-driven (Prisma.dmmf): boolean teks Excel, kolom backup lintas versi, field wajib hilang, angka-string, semuanya ditangani.
 - Bonus hardening: Paper.kategoriId orphan → NULL (anti FK P2003), nomorUrut kosong → fallback unik (anti P2002), restore-riwayat/restore-master ikut diperbaiki.
 - File: src/lib/restore-cast.ts (baru), src/app/api/database/restore/route.ts, src/app/api/database/restore-master/route.ts, src/app/api/database/restore-riwayat/route.ts.
+
+---
+Task ID: backup-naming-fullbackup
+Agent: Z.ai Code (main)
+Task: Halaman pengaturan database — semua nama file backup diganti menjadi fullbackup-(user)-(dd/mm/yy)
+
+Work Log:
+- Investigasi: backup "Backup Semua" (/api/database/backup) bernama backup-user-<ISO-timestamp>.xlsx/json; auto-backup (/api/database/auto-backup) bernama auto-backup-<ISO-timestamp>.xlsx/json. backup-master/backup-riwayat dipakai halaman lain (bukan pengaturan database) → tidak diubah.
+- Karakter '/' tidak boleh dipakai dalam nama file (dianggap folder di semua OS) → format tanggal dipakai titik: dd.mm.yy, zona waktu Asia/Jakarta.
+- Buat src/lib/backup-filename.ts: sanitizeUsernameForFile (buang karakter ilegal, fallback 'user'), backupDateStamp (dd.mm.yy WIB via Intl), buildBackupBaseName → fullbackup-<user>-<dd.mm.yy>.
+- /api/database/backup/route.ts: nama file = fullbackup-<username>-<dd.mm.yy>.xlsx + .json (username diambil dari tabel Pengguna via db.pengguna.findUnique).
+- /api/database/auto-backup/route.ts: nama file sama (seragam); cleanupOldBackups prefix diganti 'auto-backup-' → 'fullbackup-<user>-' (keep 30, hanya file user tersebut).
+- Verifikasi agent-browser: login admin → Pengaturan → tab Database → Backup Semua → toast "Backup berhasil! 73 records — fullbackup-admin-17.10.26.xlsx"; file di disk: fullbackup-admin-17.10.26.xlsx + .json; klik Backup lagi → file sama ter-overwrite (tanpa duplikat); Riwayat Backup list menampilkan fullbackup-admin-17.10.26.json di urutan teratas; Restore dari file baru → POST /api/database/restore 200, data utuh (riwayatCetakan 15 dsb); lint 0 error; dev.log bersih.
+
+Stage Summary:
+- Semua backup dari halaman Pengaturan Database (manual + auto) kini bernama fullbackup-<user>-<dd.mm.yy>.xlsx/.json (dd/mm/yy → dd.mm.yy karena '/' ilegal di nama file).
+- Backup user sama di hari yang sama saling menimpa (satu file per user per hari), bukan duplikat baru.
+- File backup lama (backup-user-*, auto-backup-*) tetap ada dan tetap bisa di-restore dari daftar Riwayat Backup.
+- Belum dideploy ke produksi (user: "jangan deploy").
