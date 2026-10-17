@@ -1,12 +1,12 @@
 {
   "version": "2.0",
   "type": "user-backup",
-  "timestamp": "2026-10-17T13:24:17.435Z",
+  "timestamp": "2026-10-17T13:53:48.366Z",
   "userId": "cmvcfc5zi0001pvammnyb3p77",
   "database": {
     "Customer": [
       {
-        "id": "cmvcfc5zu000dpvam0qnwa7vt",
+        "id": "cmvcgiyzo0000pvrllza22w4q",
         "code": null,
         "name": "Siti Rohana",
         "companyName": "CV. Berkah jaya",
@@ -20,7 +20,7 @@
         "updatedAt": "2026-10-17T13:20:18.523Z"
       },
       {
-        "id": "cmvcfc5zv000fpvammy2s28a6",
+        "id": "cmvcgiyzo0001pvrl4xg44167",
         "code": null,
         "name": "Jaya Wijaya",
         "companyName": "UD. Sumber Berkat",
@@ -34,13 +34,13 @@
         "updatedAt": "2026-10-17T13:20:18.524Z"
       },
       {
-        "id": "cmvcfc5zw000hpvamjkqwu7rr",
+        "id": "cmvcgiyzo0002pvrlt8a54sg2",
         "code": null,
         "name": "jaya",
         "companyName": "mobiletech",
-        "address": "",
-        "phone": "",
-        "email": "",
+        "address": null,
+        "phone": null,
+        "email": null,
         "notes": null,
         "isActive": true,
         "userId": "cmvcfc5zi0001pvammnyb3p77",
@@ -48,13 +48,13 @@
         "updatedAt": "2026-10-17T13:20:18.525Z"
       },
       {
-        "id": "cmvcfc5zx000jpvamydxbbhbv",
+        "id": "cmvcgiyzo0003pvrllepiqcbj",
         "code": null,
         "name": "Lunggan",
         "companyName": "skewer",
-        "address": "",
-        "phone": "",
-        "email": "",
+        "address": null,
+        "phone": null,
+        "email": null,
         "notes": null,
         "isActive": true,
         "userId": "cmvcfc5zi0001pvammnyb3p77",
@@ -62,13 +62,13 @@
         "updatedAt": "2026-10-17T13:20:18.525Z"
       },
       {
-        "id": "cmvcfc5zy000lpvamegleg45e",
+        "id": "cmvcgiyzo0004pvrl3pj5rays",
         "code": null,
         "name": "Budi Susanto",
         "companyName": "PT. Maju berkah",
         "address": "Jl. Raya Industri No. 45, Surabaya",
         "phone": "081234567890",
-        "email": "",
+        "email": null,
         "notes": null,
         "isActive": true,
         "userId": "cmvcfc5zi0001pvammnyb3p77",
@@ -78,20 +78,7 @@
     ],
     "Paper": [
       {
-        "id": "cmvcfc5zn0002pvam0xyu0cli",
-        "name": "ivory",
-        "grammage": 210,
-        "width": 79,
-        "height": 109,
-        "pricePerRim": 1356233,
-        "kategoriId": null,
-        "suplier": null,
-        "userId": "cmvcfc5zi0001pvammnyb3p77",
-        "createdAt": "2026-10-17T13:20:18.515Z",
-        "updatedAt": "2026-10-17T13:20:18.515Z"
-      },
-      {
-        "id": "cmvcfc5zn0003pvam6tx8uw6w",
+        "id": "cmvcgiyzp0005pvrlx4s4pi96",
         "name": "duplex",
         "grammage": 270,
         "width": 79,
@@ -104,7 +91,7 @@
         "updatedAt": "2026-10-17T13:20:18.516Z"
       },
       {
-        "id": "cmvcfc5zn0004pvam00renr8a",
+        "id": "cmvcgiyzp0006pvrl7d09iv5k",
         "name": "ivory",
         "grammage": 300,
         "width": 79,
@@ -117,33 +104,7 @@
         "updatedAt": "2026-10-17T13:20:18.516Z"
       },
       {
-        "id": "cmvcfc5zp0005pvamj8jseuxy",
-        "name": "duplek",
-        "grammage": 270,
-        "width": 90,
-        "height": 120,
-        "pricePerRim": 2210000,
-        "kategoriId": null,
-        "suplier": null,
-        "userId": "cmvcfc5zi0001pvammnyb3p77",
-        "createdAt": "2026-10-17T13:20:18.517Z",
-        "updatedAt": "2026-10-17T13:20:18.517Z"
-      },
-      {
-        "id": "cmvcfc5zq0006pvamo9pw5g6u",
-        "name": "ivory",
-        "grammage": 210,
-        "width": 65,
-        "height": 100,
-        "pricePerRim": 1078350,
-        "kategoriId": null,
-        "suplier": null,
-        "userId": "cmvcfc5zi0001pvammnyb3p77",
-        "createdAt": "2026-10-17T13:20:18.518Z",
-        "updatedAt": "2026-10-17T13:20:18.518Z"
-      },
-      {
-        "id": "cmvcfc5zq0007pvamqzymmgj6",
+        "id": "cmvcgiyzp0007pvrllxzf141j",
         "name": "art karton",
         "grammage": 260,
         "width": 65,
@@ -154,24 +115,11 @@
         "userId": "cmvcfc5zi0001pvammnyb3p77",
         "createdAt": "2026-10-17T13:20:18.518Z",
         "updatedAt": "2026-10-17T13:20:18.518Z"
-      },
-      {
-        "id": "cmvcfc5zr0008pvamstl5gmq0",
-        "name": "art karton",
-        "grammage": 260,
-        "width": 79,
-        "height": 109,
-        "pricePerRim": 1903031,
-        "kategoriId": null,
-        "suplier": null,
-        "userId": "cmvcfc5zi0001pvammnyb3p77",
-        "createdAt": "2026-10-17T13:20:18.520Z",
-        "updatedAt": "2026-10-17T13:20:18.520Z"
       }
     ],
     "PrintingCost": [
       {
-        "id": "cmvcfc5zs000apvam35tp2517",
+        "id": "cmvcgiyzq0008pvrlctmdggqb",
         "machineName": "sm74",
         "grammage": 0,
         "printAreaWidth": 74,
@@ -186,7 +134,7 @@
         "updatedAt": "2026-10-17T13:20:18.520Z"
       },
       {
-        "id": "cmvcfc5zs000bpvamkqfrnzvy",
+        "id": "cmvcgiyzq0009pvrljrrs00e2",
         "machineName": "oliver 58",
         "grammage": 150,
         "printAreaWidth": 58,
@@ -201,7 +149,7 @@
         "updatedAt": "2026-10-17T13:20:18.521Z"
       },
       {
-        "id": "cmvcfc5zs0009pvamwx7vplsw",
+        "id": "cmvcgiyzq000apvrlst84g00o",
         "machineName": "sm52",
         "grammage": 0,
         "printAreaWidth": 52,
@@ -218,7 +166,7 @@
     ],
     "Finishing": [
       {
-        "id": "cmvcfc5zu000cpvam4pcuesyj",
+        "id": "cmvcgiyzr000bpvrlxayuf69a",
         "name": "laminating doff",
         "minimumSheets": 0,
         "minimumPrice": 180000,
@@ -229,7 +177,7 @@
         "updatedAt": "2026-10-17T13:20:18.522Z"
       },
       {
-        "id": "cmvcfc5zv000epvamfjl4s317",
+        "id": "cmvcgiyzr000cpvrlk1ajs7sl",
         "name": "pond",
         "minimumSheets": 1000,
         "minimumPrice": 75000,
@@ -240,7 +188,7 @@
         "updatedAt": "2026-10-17T13:20:18.523Z"
       },
       {
-        "id": "cmvcfc5zw000gpvam923za6y8",
+        "id": "cmvcgiyzr000dpvrl080dhh48",
         "name": "laminating glossy",
         "minimumSheets": 0,
         "minimumPrice": 150000,
@@ -251,7 +199,7 @@
         "updatedAt": "2026-10-17T13:20:18.524Z"
       },
       {
-        "id": "cmvcfc5zx000ipvamh10p3jox",
+        "id": "cmvcgiyzr000epvrlc9vhuq8k",
         "name": "spot uv",
         "minimumSheets": 0,
         "minimumPrice": 400000,
@@ -262,7 +210,7 @@
         "updatedAt": "2026-10-17T13:20:18.525Z"
       },
       {
-        "id": "cmvcfc5zx000kpvamrc0yzcq5",
+        "id": "cmvcgiyzr000fpvrliqb8msol",
         "name": "jahit kawat 2 mata",
         "minimumSheets": 0,
         "minimumPrice": 100000,
@@ -278,100 +226,11 @@
     "SuratJalan": [],
     "PurchaseOrder": [],
     "DocumentHistory": [],
-    "RiwayatCetakan": [
-      {
-        "id": "cmvcffq550019pvamzzx6ge8r",
-        "nomorUrut": "HC/10/26/0002",
-        "type": "hitung_cetakan",
-        "printName": "tes",
-        "customerName": "Jaya Wijaya",
-        "paperName": "art karton",
-        "paperGrammage": "260",
-        "paperLength": "65",
-        "paperWidth": "100",
-        "cutWidth": "30",
-        "cutHeight": "40",
-        "quantity": "1000",
-        "jumlahPesanan": "2000",
-        "berapaMata": "2",
-        "namaSuplier": "",
-        "setelanKertas": "200",
-        "warna": "4",
-        "warnaKhusus": "",
-        "machineName": "sm74",
-        "hargaPlat": 36000,
-        "ongkosCetak": 664000,
-        "ongkosCetakDetail": "(Rp 130.000 × 4 warna) + Rp 36.000 × 4 plat",
-        "machineName2": "",
-        "warna2": "",
-        "warnaKhusus2": "",
-        "hargaPlat2": 0,
-        "ongkosCetak2": 0,
-        "ongkosCetak2Detail": "",
-        "totalPaperPrice": 836700,
-        "pricePerSheet": 2789,
-        "finishingNames": "",
-        "finishingBreakdown": "",
-        "finishingCost": 0,
-        "packingCost": 0,
-        "shippingCost": 0,
-        "otherCost": 0,
-        "otherCost2": 0,
-        "otherCostLabel": "Biaya Bikin Piso",
-        "otherCostLabel2": "Biaya",
-        "glueLengthCm": "",
-        "glueCostPerCm": "",
-        "glueCost": 0,
-        "glueBorongan": 0,
-        "subTotal": 1500700,
-        "profitPercent": 10,
-        "profitAmount": 150070,
-        "grandTotal": 1650770,
-        "simulasiCepat": "",
-        "pkRiwayatId": "cmvcff8v60017pvamxuyi3n18",
-        "pkSyncStatus": "synced",
-        "pkLastSyncedAt": "2026-10-17T13:23:58.360Z",
-        "pkSourceSnapshot": "{\"customerName\":\"Jaya Wijaya\",\"printName\":\"tes\",\"paperName\":\"art karton\",\"paperGrammage\":\"260\",\"paperLength\":\"65\",\"paperWidth\":\"100\",\"cutWidth\":\"30\",\"cutHeight\":\"40\",\"quantity\":\"1000\",\"jumlahPesanan\":\"2000\",\"berapaMata\":\"2\",\"setelanKertas\":\"200\",\"namaSuplier\":\"\",\"pricePerSheet\":\"2789\",\"syncedAt\":\"2026-10-17T13:23:58.360Z\"}",
-        "pkSyncHistory": "[{\"at\":\"2026-10-17T13:23:58.360Z\",\"direction\":\"pk→hc\",\"result\":\"ok\",\"changed\":[{\"field\":\"paperName\",\"label\":\"Nama Bahan\",\"before\":\"duplek\",\"after\":\"art karton\"},{\"field\":\"paperGrammage\",\"label\":\"Gramatur\",\"before\":\"270\",\"after\":\"260\"},{\"field\":\"paperLength\",\"label\":\"Uk. Kertas (P)\",\"before\":\"90\",\"after\":\"65\"},{\"field\":\"paperWidth\",\"label\":\"Uk. Kertas (L)\",\"before\":\"120\",\"after\":\"100\"},{\"field\":\"quantity\",\"label\":\"Jumlah Kebutuhan\",\"before\":\"500\",\"after\":\"1000\"},{\"field\":\"berapaMata\",\"label\":\"Berapa Mata\",\"before\":\"4\",\"after\":\"2\"},{\"field\":\"pricePerSheet\",\"label\":\"Harga/Lembar\",\"before\":\"4420\",\"after\":\"2789\"}],\"totalPaperPrice\":836700,\"subTotal\":1500700,\"grandTotal\":1650770}]",
-        "photoUrl": null,
-        "userId": "cmvcfc5zi0001pvammnyb3p77",
-        "createdAt": "2026-10-17T13:23:04.601Z",
-        "updatedAt": "2026-10-17T13:23:58.365Z"
-      }
-    ],
+    "RiwayatCetakan": [],
     "RiwayatFinishing": [],
     "RiwayatOngkosCetak": [],
     "RiwayatHargaKertas": [],
-    "RiwayatPotongKertas": [
-      {
-        "id": "cmvcff8v60017pvamxuyi3n18",
-        "nomorUrut": "PK/10/26/0001",
-        "namaCustomer": "Jaya Wijaya",
-        "namaCetakan": "tes",
-        "paperName": "art karton",
-        "paperId": "cmvcfc5zq0007pvamqzymmgj6",
-        "grammage": "260",
-        "paperWidth": "65",
-        "paperHeight": "100",
-        "cutWidth": "30",
-        "cutHeight": "40",
-        "quantity": "1000",
-        "setelanKertas": "200",
-        "sheetsNeeded": "300",
-        "totalPrice": 836700,
-        "pricePerSheet": 2789,
-        "efficiency": 73.85,
-        "strategy": "Grid Normal",
-        "jumlahPesanan": "2000",
-        "berapaMata": "2",
-        "namaSuplier": "",
-        "resultData": "{\"totalPieces\":4,\"quantity\":1200,\"sheetsNeeded\":300,\"totalPrice\":836700,\"pricePerSheet\":2789,\"blocks\":[{\"name\":\"Blok A\",\"x\":0,\"y\":0,\"width\":60,\"height\":80,\"horizontal\":2,\"vertical\":2,\"pieces\":4,\"pieceWidth\":30,\"pieceHeight\":40,\"rotated\":false,\"usedWidth\":60,\"usedHeight\":80,\"wasteWidth\":5,\"wasteHeight\":20}],\"paperWidth\":65,\"paperHeight\":100,\"cutWidth\":30,\"cutHeight\":40,\"customerName\":\"Jaya Wijaya\",\"paperMaterial\":\"art karton\",\"grammage\":260,\"scenarioType\":\"normal\",\"totalWasteArea\":1700,\"efficiency\":73.85,\"steps\":[\"Langkah 1: Potong 2×2 grid \"],\"strategy\":\"Grid Normal\",\"wasteAreas\":[{\"id\":\"sisa-a-0\",\"label\":\"Sisa A\",\"x\":0,\"y\":80,\"width\":60,\"height\":20,\"area\":1200,\"status\":\"reusable\",\"statusLabel\":\"Dapat digunakan kembali\",\"note\":\"Cukup besar (sisi terpendek ≥ 10 cm) untuk produk lain\"},{\"id\":\"sisa-b-1\",\"label\":\"Sisa B\",\"x\":60,\"y\":0,\"width\":5,\"height\":100,\"area\":500,\"status\":\"small\",\"statusLabel\":\"Sisa kecil\",\"note\":\"Luas ≥ 100 cm² tapi tidak muat potongan utuh\"}],\"paperArea\":6500,\"piecesArea\":4800,\"wasteReusableArea\":1200,\"wasteSmallArea\":500,\"wasteWasteArea\":0,\"wasteLossArea\":0,\"leftoverPieces\":0}",
-        "photoUrl": null,
-        "userId": "cmvcfc5zi0001pvammnyb3p77",
-        "createdAt": "2026-10-17T13:22:42.211Z",
-        "updatedAt": "2026-10-17T13:23:58.350Z"
-      }
-    ],
+    "RiwayatPotongKertas": [],
     "CalonPembeli": [],
     "Pembeli": []
   }

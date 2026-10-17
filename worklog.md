@@ -13942,3 +13942,21 @@ Stage Summary:
 - Bug lama user "Gagal melakukan restore database: Data tidak valid" (PrismaClientValidationError dari upload Excel) terverifikasi FIX: upload fullbackup-admin-17.10.26.xlsx → /api/database/restore → 200, 9 tabel (diuji lokal terhadap Supabase produksi dengan klien postgres — alur & DB identik produksi).
 - Riwayat Backup di produksi menampilkan fullbackup-admin-17.10.26.json; satu entri fullbackup-user-17.10.26.json adalah fallback username saat lookup Pengguna gagal transien — konten backup tetap valid.
 - Local dev kembali ke sqlite (schema + .env utuh), server 200, tanpa error console.
+
+---
+Task ID: riwayat-backup-semua-user
+Agent: Z.ai Code (main)
+Task: Pengaturan > Database — Riwayat Backup hanya muncul di user admin, akun lain kosong. Fix.
+
+Work Log:
+- Root cause: GET /api/database/backups (daftar Riwayat Backup) memakai requireAdmin → 403 "Akses ditolak" untuk role selain admin/superadmin; frontend menelan error silently (if (res.ok)) sehingga akun non-admin melihat "Belum ada backup tersimpan". Ironisnya route backup/restore/auto-backup di tab yang sama TIDAK di-gate (semua user bisa backup & restore), hanya daftar & delete yang admin-only.
+- Fix src/app/api/database/backups/route.ts: GET (list) dan DELETE diganti requireAuth (semua user yang login) — konsisten dengan backup/restore/auto-backup yang sudah terbuka untuk semua user login.
+- Verifikasi lokal: buat akun uji 'tester' (role user + Pembeli) → login → curl GET /api/database/backups = 200 (daftar penuh); admin tetap 200; anonim 401; DELETE tanpa param = 400 (lolos auth, bukan 403).
+- Verifikasi agent-browser E2E sebagai tester (role User): tab Database > Riwayat Backup menampilkan semua file (fullbackup-tester-17.10.26.json [auto-backup tester sendiri], fullbackup-user, fullbackup-admin, backup-user lama) + tombol Restore/Hapus per baris; console bersih. Akun tester dihapus setelah uji.
+- Deploy ke www.darrellsoft.com (vercel link sudah benar ke project darrellsoft): prepare-build (postgresql) → prisma generate → vercel --prod --yes → Aliased https://www.darrellsoft.com → revert-schema → prisma generate → daemon start. Lint 0 error, dev.log bersih.
+- Verifikasi produksi: homepage 200; anonim GET /api/database/backups = 401 (harus login); session ber-role user = 200 + daftar backup (sebelumnya 403 "Akses ditolak"). Hanya admin yang dapat mengakses tidak lagi muncul.
+
+Stage Summary:
+- Riwayat Backup di Pengaturan > Database kini terlihat oleh SEMUA akun yang login (bukan hanya admin), berisi backup dari semua user (fullbackup-<user>-<dd.mm.yy> + file lama).
+- Restore/Hapus/Backup Semua berlaku sama untuk semua user login (sudah begini untuk backup/restore; delete kini menyatu).
+- Produksi www.darrellsoft.com sudah menjalankan fix ini (deployment darrellsoft-430z10px4).

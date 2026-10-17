@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/server-auth'
+import { requireAuth } from '@/lib/server-auth'
 import fs from 'fs'
 import path from 'path'
 
-// GET /api/database/backups — List saved backup files
+// GET /api/database/backups — List saved backup files (visible to ALL logged-in users, not just admin)
 export async function GET(req: NextRequest) {
-  const err = requireAdmin(req); if (err) return err;
+  const err = requireAuth(req); if (err) return err;
   try {
     const backupsDir = path.join(process.cwd(), 'backups')
     if (!fs.existsSync(backupsDir)) {
@@ -48,9 +48,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// DELETE /api/database/backups?fileName=xxx — Delete a backup file
+// DELETE /api/database/backups?fileName=xxx — Delete a backup file (same access as restore/backup: any logged-in user)
 export async function DELETE(req: NextRequest) {
-  const err = requireAdmin(req); if (err) return err;
+  const err = requireAuth(req); if (err) return err;
   try {
     const { searchParams } = new URL(req.url)
     const fileName = searchParams.get('fileName')
