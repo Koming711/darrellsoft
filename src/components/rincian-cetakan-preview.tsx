@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Calculator, Users, Banknote, Palette, Ruler, Image as ImageIcon, Layers } from 'lucide-react'
+import { Calculator, Users, Banknote, Palette, Ruler, Image as ImageIcon } from 'lucide-react'
 import { calculateCuts } from '@/lib/cutting-engine'
 import { CuttingDiagram } from '@/components/cutting-results'
 import { PhotoLightbox } from '@/components/photo-lightbox'
@@ -339,30 +339,18 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
     } catch { return null }
   }, [d])
   const pvSheetsNeeded = pvCutResult?.sheetsNeeded ?? (pvHargaPerLembar > 0 && pvPaperPrice > 0 ? Math.ceil(pvPaperPrice / pvHargaPerLembar) : 0)
+  // Harga kertas setelah dipotong = harga kertas /lembar ÷ potongan per lembar
+  // (rumus sama dgn "Harga/Lembar Setelah Dipotong" di halaman Potong Kertas)
+  const pvHargaSetelahPotong = pvHargaPerLembar > 0 && pvCutResult && pvCutResult.totalPieces > 0
+    ? pvHargaPerLembar / pvCutResult.totalPieces
+    : 0
   const pvHasCetak2 = (d?.machineName2 && d.machineName2 !== '') || pvPrintingCost2 > 0
   const pvHasFinishing = (d?.finishingName && d.finishingName !== '') || (d?.finishingBreakdown && d.finishingBreakdown.length > 0)
 
   if (!d) return null
 
-  // Tabel Simulasi: pakai baris tersimpan bersama record; bila kosong (record lama
-  // sebelum kolom simulasiCepat ada) → sintesis 1 baris dari data record itu sendiri
-  // agar simulasi cetak SELALU tampil di Rincian Harga Cetakan.
-  const storedSim = d.simulasiCepat ?? []
-  const simJumlahFallback = pvJumlahPesanan > 0 ? pvJumlahPesanan : pvQuantity
-  const pvSimRows: SimulasiCepatItem[] = storedSim.length > 0
-    ? storedSim
-    : simJumlahFallback > 0 && pvGrandTotal > 0
-      ? [{
-          jumlah: simJumlahFallback,
-          profit: pvProfitPercent,
-          sheets: pvSheetsNeeded,
-          modal: Math.round(pvSubTotal),
-          modalPcs: pvHargaModalPcs,
-          jual: Math.round(pvGrandTotal),
-          jualPcs: pvHargaPerPcs,
-        }]
-      : []
-  const pvSimFromRecord = storedSim.length === 0 && pvSimRows.length > 0
+  // Tabel Simulasi DIHAPUS dari dokumen Rincian Harga Cetakan (permintaan owner).
+  // Data simulasiCepat tetap tersimpan di record — hanya tidak dirender di dokumen.
 
   return (
     <>
@@ -374,7 +362,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
         </div>
         <p className="text-xs text-slate-500 mt-1">
           <span className="font-semibold text-slate-600">{pvPrintName}</span>
-          {d.recordNumber ? <span> · No. {d.recordNumber}</span> : null}
+          {/* No Hitung Cetakan pindah ke kotak Informasi Pesanan (permintaan owner) */}
           <span> · {d.recordDate ? new Date(d.recordDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </p>
       </div>
@@ -393,6 +381,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Informasi Pesanan</p>
             </div>
             <div className="grid grid-cols-3 gap-2">
+              <PvField label="No Hitung Cetakan" value={d.recordNumber || '-'} accent="text-blue-800" />
               <PvField label="Nama Customer" value={pvCustomerName} accent="text-blue-800" />
               <PvField label="Nama Barang" value={pvPrintName} accent="text-indigo-800" />
               <PvField label="Jumlah Pesanan" value={pvJumlahPesanan > 0 ? `${pvJumlahPesanan.toLocaleString('id-ID')} lbr` : '-'} accent="text-purple-800" />
@@ -403,6 +392,7 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
               <PvField label="Nama Suplier" value={d.namaSuplier || '-'} />
               <PvField label="Harga Kertas /Lembar" value={pvHargaPerLembar > 0 ? `Rp ${pvHargaPerLembar.toLocaleString('id-ID')}` : '-'} accent="text-teal-800" />
               <PvField label="Harga Kertas /kg" value={pvHargaPerKg > 0 ? `Rp ${pvHargaPerKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })}` : '-'} accent="text-teal-800" />
+              <PvField label="Harga Kertas Setelah Dipotong" value={pvHargaSetelahPotong > 0 ? `Rp ${Math.round(pvHargaSetelahPotong).toLocaleString('id-ID')}` : '-'} accent="text-teal-800" />
               <PvField label="Ukuran Potongan" value={pvUkuranPotongan} />
               <PvField label="Warna Cetak" value={`${d.warna || 0} warna${d.warnaKhusus && parseInt(d.warnaKhusus) > 0 ? ` + ${d.warnaKhusus} khusus` : ''}`} />
               {pvHasCetak2 && (
@@ -535,37 +525,8 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
           )}
         </div>
 
-        {/* ===== KOLOM KANAN: GAMBAR POTONG + TOTAL ===== */}
+        {/* ===== KOLOM KANAN: TOTAL ===== */}
         <div className="col-span-2 space-y-3">
-          {/* Gambar Potong Kertas */}
-          <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center">
-                <Palette className="w-3.5 h-3.5 text-violet-600" />
-              </div>
-              <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Gambar Potong Kertas</p>
-            </div>
-            {pvCutResult ? (
-              <>
-                <div className="bg-white rounded-lg border border-slate-200 p-2">
-                  <CuttingDiagram results={pvCutResult} maxHeight="224px" />
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <PvMiniStat label="Potong / Lembar" value={pvCutResult.totalPieces.toLocaleString('id-ID')} />
-                  <PvMiniStat label="Lembar Dipakai" value={pvCutResult.sheetsNeeded.toLocaleString('id-ID')} />
-                  <PvMiniStat label="Efisiensi Kertas" value={`${pvCutResult.efficiency.toFixed(1)}%`} />
-                  <PvMiniStat label="Skenario" value={pvCutResult.scenarioType.replace(/-/g, ' ')} />
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white/60">
-                <Ruler className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                Lengkapi ukuran kertas &amp; ukuran potongan
-                <br />untuk melihat gambar potong kertas
-              </div>
-            )}
-          </div>
-
           {/* GRAND TOTAL — isinya hanya grand total saja (permintaan owner) */}
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center shadow-lg shadow-orange-500/25">
             <div>
@@ -576,47 +537,35 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
         </div>
       </div>
 
-      {/* ===== TABEL SIMULASI CETAK — tersimpan di record; bila record lama tidak punya,
-          tampilkan 1 baris hasil hitung otomatis dari data record (selalu tampil) ===== */}
-      {pvSimRows.length > 0 && (
-        <div className="mt-3 border border-cyan-200 rounded-xl p-3 bg-cyan-50/40">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 rounded-lg bg-cyan-100 flex items-center justify-center">
-              <Layers className="w-3.5 h-3.5 text-cyan-600" />
-            </div>
-            <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Tabel Simulasi ({pvSimRows.length})</p>
+      {/* ===== GAMBAR POTONG KERTAS — FULL WIDTH, sebesar/jelas di halaman Potong Kertas
+          (CuttingDiagram textScale 3 — tulisan besar, tidak lagi kecil/berantakan) ===== */}
+      <div className="mt-3 border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center">
+            <Palette className="w-3.5 h-3.5 text-violet-600" />
           </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-200">
-                <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Jumlah Pesanan</th>
-                <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2 whitespace-nowrap">Lembar Kertas</th>
-                <th className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pr-2">Profit</th>
-                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Modal</th>
-                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Modal/Pcs</th>
-                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 px-2 whitespace-nowrap">Harga Jual</th>
-                <th className="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400 pb-1.5 pl-2 whitespace-nowrap">Jual/Pcs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pvSimRows.map((s, i) => (
-                <tr key={`sim-${i}`} className="border-b border-slate-100 last:border-b-0">
-                  <td className="py-1 pr-2 text-xs font-semibold text-slate-700 tabular-nums whitespace-nowrap">{s.jumlah.toLocaleString('id-ID')} lbr</td>
-                  <td className="py-1 pr-2 text-xs font-semibold text-teal-700 tabular-nums whitespace-nowrap">{s.sheets > 0 ? s.sheets.toLocaleString('id-ID') : '-'}</td>
-                  <td className="py-1 pr-2 text-xs text-slate-500 tabular-nums whitespace-nowrap">{s.profit > 0 ? `${s.profit}%` : '-'}</td>
-                  <td className="py-1 px-2 text-right text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap">{formatRp(s.modal)}</td>
-                  <td className="py-1 px-2 text-right text-xs text-slate-600 tabular-nums whitespace-nowrap">{s.modalPcs > 0 ? formatHargaPcs(s.modalPcs) : '-'}</td>
-                  <td className="py-1 px-2 text-right text-xs font-bold text-emerald-700 tabular-nums whitespace-nowrap">{formatRp(s.jual)}</td>
-                  <td className="py-1 pl-2 text-right text-xs font-semibold text-emerald-700 tabular-nums whitespace-nowrap">{s.jualPcs > 0 ? formatHargaPcs(s.jualPcs) : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-1.5 text-[9.5px] text-slate-400">{pvSimFromRecord
-            ? '* Simulasi dihitung otomatis dari data yang tersimpan (jumlah pesanan record ini).'
-            : '* Hasil Simulasi Cepat saat data disimpan — perbandingan jumlah pesanan.'}</p>
+          <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Gambar Potong Kertas</p>
         </div>
-      )}
+        {pvCutResult ? (
+          <>
+            <div className="bg-white rounded-lg border border-slate-200 p-2">
+              <CuttingDiagram results={pvCutResult} maxHeight="320px" textScale={3} />
+            </div>
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              <PvMiniStat label="Potong / Lembar" value={pvCutResult.totalPieces.toLocaleString('id-ID')} />
+              <PvMiniStat label="Lembar Dipakai" value={pvCutResult.sheetsNeeded.toLocaleString('id-ID')} />
+              <PvMiniStat label="Efisiensi Kertas" value={`${pvCutResult.efficiency.toFixed(1)}%`} />
+              <PvMiniStat label="Skenario" value={pvCutResult.scenarioType.replace(/-/g, ' ')} />
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white/60">
+            <Ruler className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+            Lengkapi ukuran kertas &amp; ukuran potongan
+            <br />untuk melihat gambar potong kertas
+          </div>
+        )}
+      </div>
     </>
   )
 }

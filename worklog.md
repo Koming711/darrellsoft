@@ -13815,3 +13815,33 @@ Stage Summary:
 - Klik Edit di preview → editor kini menampilkan nomor Potong Kertas yang SAMA dengan yang di-preview (dengan badge "Mode Edit"), bukan lagi nomor berikutnya.
 - Juga berlaku untuk semua jalur restore yang set restoredRiwayatId; kotak otomatis kembali ke nomor berikutnya setelah Reset/Update sukses/Hapus.
 - File berubah: src/app/potong-kertas/page.tsx (editedNomorUrut + kotak No. Potong Kertas). Belum dideploy ke produksi.
+
+---
+Task ID: pk-hcl-simpan-reset-dan-rincian-doc
+Agent: Main
+Task: 5 perubahan — (1) Hitung Cetakan Lengkap: simpan+reset+navigasi; (2) Simpan Riwayat: simpan+reset; (3) No HC pindah ke kotak Informasi Pesanan; (4) gambar potong kertas di Rincian full-width + tulisan besar; (5) tambah Harga Kertas Setelah Dipotong; (6) hapus Tabel Simulasi dari dokumen rincian
+
+Work Log:
+- User request gabungan di halaman potong kertas & rincian harga cetakan.
+- src/app/potong-kertas/page.tsx:
+  1. Extract `resetFormFields()` dari handleReset (kini + setPhotoUrl('') + simRows bersih) — satu sumber untuk Reset, auto-reset setelah simpan, dan auto-reset sebelum navigasi HC. handleReset tetap confirm+toast.
+  2. handleSaveRiwayat: setelah POST sukses → resetFormFields() (sebelumnya "Form TIDAK direset"); toast description "Form direset — siap untuk hitungan berikutnya."; fetchNextNumber tetap.
+  3. handleUpdateRiwayat: sama (reset setelah PUT sukses + fetchNextNumber).
+  4. Tombol Hitung Cetakan Lengkap (3 jalur navigasi): pkHcLink path → resetFormFields() sebelum router.push loadRiwayat; anti-duplikat linkedHc path → resetFormFields(); jalur final push → `if (pkIdToLink) resetFormFields()` (bila POST gagal/pkIdToLink null form TIDAK direset agar data tidak hilang). Auto-save riwayat sudah ada di jalur tersebut (POST baru / PUT via saveRestoredBeforeHc / findSameRiwayat).
+- src/components/rincian-cetakan-preview.tsx (dokumen Rincian Harga Cetakan — 1 sumber untuk editor preview, detail riwayat, gabungan, JPG & cetak):
+  5. No Hitung Cetakan dipindah dari header subtitle ke kotak Informasi Pesanan (field PERTAMA, accent biru). Header kini: nama barang · tanggal saja.
+  6. Field baru "Harga Kertas Setelah Dipotong" di Informasi Pesanan = harga kertas/lembar ÷ potong/lembar (pvHargaPerLembar / pvCutResult.totalPieces; rumus sama dgn halaman Potong Kertas), '-' bila tidak ada diagram.
+  7. Gambar Potong Kertas dipindah dari kolom kanan sempit (maxHeight 224px, textScale default) ke seksi FULL WIDTH di bawah grid (maxHeight 320px + textScale 3 — PERSIS halaman Potong Kertas), stat tiles jadi grid-cols-4. Kolom kanan tinggal Grand Total.
+  8. Tabel Simulasi DIHAPUS dari dokumen (blok render + derived pvSimRows/storedSim/pvSimFromRecord + import Layers). Data simulasiCepat tetap tersimpan di record.
+- Lint kedua file: bersih (0 error 0 warning).
+- Verifikasi agent-browser (admin/268899):
+  - Simpan Riwayat: isi art karton 260 / 21×30 / JP 5000 ÷ mata 2 → Hitung → Simpan → form kosong (5 → 0 input terisi), kotak nomor maju ke PK/10/26/0041, tombol kembali "Simpan Riwayat" ✓
+  - Hitung Cetakan Lengkap: isi ulang (4000 ÷ 2) → Hitung → klik HCL → auto-save (PK/10/26/0041 baru) + navigasi ke /hitung-cetakan ✓; kembali ke /potong-kertas → form KOSONG, nomor PK/10/26/0042 ✓ (localStorage ikut dibersihkan; reload tetap kosong ✓)
+  - Dokumen rincian (Detail Riwayat HC/10/26/0032 brownielab): "No Hitung Cetakan HC/10/26/0032" di dalam INFORMASI PESANAN ✓, header tanpa No ✓, "Harga Kertas Setelah Dipotong Rp 406" (= Rp 2.028 ÷ 5 potong/lembar) ✓, diagram full-width tulisan besar jelas (57×21, 21×57, angka 1-5) + 4 stat tiles ✓, Tabel Simulasi tidak ada ✓ (screenshot /tmp/hc-rincian-detail.png, /tmp/hc-rincian-bottom.png)
+  - Console 0 error; dev.log bersih.
+
+Stage Summary:
+- Hitung Cetakan Lengkap = sekali klik: riwayat PK tersimpan (baru/update) + form auto-reset + langsung ke halaman Hitung Cetakan; simpan gagal → form tidak direset.
+- Simpan/Update Riwayat = tersimpan lalu form auto-reset untuk hitungan berikutnya.
+- Dokumen Rincian Harga Cetakan: No HC pindah ke Informasi Pesanan, +Harga Kertas Setelah Dipotong, gambar potong kertas full-width & tulisan besar (textScale 3, sama seperti halaman Potong Kertas), Tabel Simulasi dihapus. Perubahan otomatis berlaku di preview editor, detail riwayat, dokumen gabungan, JPG & cetak.
+- File berubah: src/app/potong-kertas/page.tsx, src/components/rincian-cetakan-preview.tsx. Belum dideploy ke produksi.

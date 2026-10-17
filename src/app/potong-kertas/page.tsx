@@ -935,8 +935,9 @@ function CalculatorPage() {
     toast.success('Semua baris simulasi dihapus')
   }
 
-  const handleReset = () => {
-    if (!confirm('Reset semua data yang sudah diisi?')) return
+  // Reset SEMUA isian form (satu sumber untuk: tombol Reset, auto-reset setelah
+  // Simpan/Update Riwayat, dan auto-reset sebelum navigasi ke Hitung Cetakan)
+  const resetFormFields = () => {
     setPaperWidth('')
     setPaperHeight('')
     setCutWidth('')
@@ -951,6 +952,7 @@ function CalculatorPage() {
     setBerapaMata('')
     setSetelanKertas('')
     setPrintName('')
+    setPhotoUrl('')
     setIsCustomPaper(false)
     setRestoredPaperName(null)
     setResults(null)
@@ -966,8 +968,15 @@ function CalculatorPage() {
     setSelectedCandidateIdx(0)
     setOptimizeMessage('')
     setSelectedWasteId(null)
+    setSimRows([])
+    cancelEditSimulasi()
     localStorage.removeItem(STORAGE_KEY())
     localStorage.removeItem(STORAGE_RESULTS_KEY())
+  }
+
+  const handleReset = () => {
+    if (!confirm('Reset semua data yang sudah diisi?')) return
+    resetFormFields()
     toast.success('Data berhasil direset')
   }
 
@@ -1142,12 +1151,12 @@ function CalculatorPage() {
         body: JSON.stringify(buildPayload())
       })
       if (res.ok) {
-        toast.success('Riwayat berhasil disimpan!', { description: 'Data form tetap — cukup ketik jumlah pesanan baru untuk hitungan berikutnya.' })
+        toast.success('Riwayat berhasil disimpan!', { description: 'Form direset — siap untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
         fetchNextNumber()
-        // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan / profit di Simulasi Cepat).
-        setRestoredRiwayatId(null)
+        // Auto-reset: data sudah tersimpan, form bersih untuk hitungan baru (permintaan owner)
+        resetFormFields()
         setPkLinkKey(k => k + 1) // data sumber berubah → status relasi HC ikut dicek ulang
       } else {
         const errData = await res.json().catch(() => null)
@@ -1236,11 +1245,12 @@ function CalculatorPage() {
         body: JSON.stringify(buildPayload())
       })
       if (res.ok) {
-        toast.success('Riwayat berhasil diupdate!', { description: 'Data form tetap — cukup ketik jumlah pesanan baru untuk hitungan berikutnya.' })
+        toast.success('Riwayat berhasil diupdate!', { description: 'Form direset — siap untuk hitungan berikutnya.' })
         notifyDataChange('riwayat-potong-kertas')
         fetchRiwayat()
-        // Form TIDAK direset: parameter lama tetap terpakai (cukup ubah jumlah pesanan / profit di Simulasi Cepat).
-        setRestoredRiwayatId(null)
+        fetchNextNumber()
+        // Auto-reset: perubahan tersimpan, form bersih untuk hitungan baru (permintaan owner)
+        resetFormFields()
         setPkLinkKey(k => k + 1) // sumber berubah → HC terhubung jadi "Perlu diperbarui"
       } else {
         toast.error('Gagal mengupdate riwayat')
@@ -2384,6 +2394,8 @@ function CalculatorPage() {
               // Hitung Cetakan, BUKA data tersebut (jangan buat baru / reset).
               // fromPotongKertas=1 → HC auto-terapkan perubahan sumber bila ada.
               if (pkHcLink?.hcId) {
+                // Data sudah tersimpan → auto-reset form sebelum pindah halaman (permintaan owner)
+                resetFormFields()
                 router.push(`/hitung-cetakan?loadRiwayat=${pkHcLink.hcId}&fromPotongKertas=1`)
                 return
               }
@@ -2437,6 +2449,8 @@ function CalculatorPage() {
                   if (linkRes.ok) {
                     const linkData = await linkRes.json()
                     if (linkData.linkedHc?.id) {
+                      // Data riwayat sudah ada & terhubung → auto-reset form sebelum pindah
+                      resetFormFields()
                       router.push(`/hitung-cetakan?loadRiwayat=${linkData.linkedHc.id}&fromPotongKertas=1`)
                       return
                     }
@@ -2493,6 +2507,10 @@ function CalculatorPage() {
               // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
               if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)
               else sessionStorage.removeItem('pk-to-hc-photoUrl')
+              // Data sudah tersimpan di riwayat (id baru / ter-link / identik dgn yang ada)
+              // → auto-reset form sebelum pindah halaman (permintaan owner).
+              // Bila simpan GAGAL (pkIdToLink null), form TIDAK direset agar data tidak hilang.
+              if (pkIdToLink) resetFormFields()
               router.push(`/hitung-cetakan?${params.toString()}`)
             }}
             disabled={!results || preparingHc || (!pkHcLink?.hcId && needsRecalc)}
