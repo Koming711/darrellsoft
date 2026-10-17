@@ -419,9 +419,10 @@ function CalculatorPage() {
     : (parseFloat(pricePerSheet) || 0)
   // No PK utk preview: mode riwayat pakai nomorUrut baris; mode editor pakai nomorUrut
   // riwayat yang sedang diedit (restoredRiwayatId) — kosong bila perhitungan belum disimpan
-  const noPkPreview: string = (previewRiwayatRow?.nomorUrut as string)
-    || (restoredRiwayatId ? (riwayatList.find(x => x.id === restoredRiwayatId)?.nomorUrut || '') : '')
-    || ''
+  const editedNomorUrut: string = restoredRiwayatId
+    ? (riwayatList.find(x => x.id === restoredRiwayatId)?.nomorUrut || '')
+    : ''
+  const noPkPreview: string = (previewRiwayatRow?.nomorUrut as string) || editedNomorUrut || ''
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -1973,13 +1974,21 @@ function CalculatorPage() {
 
         {/* ===== LEFT: FORM ===== */}
         <div className="lg:w-[386px] xl:w-[416px] flex-shrink-0 flex flex-col gap-1.5">
-          {/* No Potong Kertas */}
-          {nextPotongKertasNumber && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">No. Potong Kertas :</span>
-              <span className="text-sm font-bold text-black dark:text-white">{nextPotongKertasNumber}</span>
-            </div>
-          )}
+          {/* No Potong Kertas — saat meng-edit riwayat (dari tombol Edit di preview / Muat di riwayat),
+              tampilkan nomor riwayat YANG DIEDIT (sama dgn di preview) — bukan nomor berikutnya utk simpan baru */}
+          {(() => {
+            const nomorTampil = editedNomorUrut || nextPotongKertasNumber
+            if (!nomorTampil) return null
+            return (
+              <div className={`rounded-xl px-3 py-2 flex items-center gap-1.5 border ${editedNomorUrut ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700'}`}>
+                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">No. Potong Kertas :</span>
+                <span className="text-sm font-bold text-black dark:text-white font-mono">{nomorTampil}</span>
+                {editedNomorUrut && (
+                  <span className="ml-auto text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-full px-2 py-0.5 whitespace-nowrap">Mode Edit</span>
+                )}
+              </div>
+            )
+          })()}
           {/* Info Cetak */}
           <div className="bg-card rounded-xl border border-slate-200 p-2.5">
             <div className="space-y-1.5">

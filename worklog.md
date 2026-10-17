@@ -13790,3 +13790,28 @@ Stage Summary:
 - Preview Potong Kertas kini menampilkan "No PK" sebagai field pertama Info Grid; ikut tercetak di output Cetak (A5) & JPG.
 - Nilai: nomorUrut baris riwayat saat preview riwayat; nomorUrut riwayat yang diedit saat preview dari editor; '-' bila perhitungan belum disimpan.
 - File berubah: src/app/potong-kertas/page.tsx (derived noPkPreview + 1 cell grid). Belum dideploy ke produksi.
+
+---
+Task ID: pk-editor-same-no-pk-on-edit
+Agent: Main
+Task: Editor Potong Kertas harus menampilkan No PK yang SAMA saat masuk lewat tombol Edit di preview
+
+Work Log:
+- User request: "dihalaman preview potong kertas, apabila diklik edit, maka masuk kehalaman editor dengan no potong kertas yang sama yang mau diedit."
+- Root cause: kotak "No. Potong Kertas :" di editor selalu menampilkan nextPotongKertasNumber (nomor BERIKUTNYA utk simpan baru, hasil fetch ?preview=next-number) — jadi saat user klik Edit di preview, editor menampilkan nomor yang salah (mis. 0039 padahal meng-edit 0036).
+- Fix di src/app/potong-kertas/page.tsx:
+  1. Derived `editedNomorUrut` = nomorUrut riwayat yang sedang diedit (restoredRiwayatId → riwayatList.find) ; noPkPreview direfaktor memakainya.
+  2. Kotak No. Potong Kertas di editor kini menampilkan `editedNomorUrut || nextPotongKertasNumber`:
+     - Mode edit: nomor riwayat yang diedit + highlight emerald + badge "Mode Edit" (font-mono).
+     - Mode baru: nomor berikutnya, style putih seperti semula.
+- Perilaku state (diverifikasi di kode): setRestoredRiwayatId(null) hanya di reset form, setelah update sukses (lalu fetchNextNumber), dan setelah hapus riwayat yang diedit — semua transisi kotak nomor konsisten.
+- Verifikasi agent-browser (admin/268899):
+  - Editor baru → kotak "No. Potong Kertas : PK/10/26/0039" style putih (baseline) ✓
+  - Riwayat → klik baris PK/10/26/0036 → preview (No PK = PK/10/26/0036) → klik Edit → editor: "No. Potong Kertas : PK/10/26/0036" + badge "Mode Edit" + kotak emerald ✓ (screenshot /tmp/pk-editor-mode-edit.png)
+  - Reset (terima confirm) → kotak kembali "PK/10/26/0039" putih tanpa badge ✓
+  - Console bersih, dev.log tanpa error, eslint file bersih.
+
+Stage Summary:
+- Klik Edit di preview → editor kini menampilkan nomor Potong Kertas yang SAMA dengan yang di-preview (dengan badge "Mode Edit"), bukan lagi nomor berikutnya.
+- Juga berlaku untuk semua jalur restore yang set restoredRiwayatId; kotak otomatis kembali ke nomor berikutnya setelah Reset/Update sukses/Hapus.
+- File berubah: src/app/potong-kertas/page.tsx (editedNomorUrut + kotak No. Potong Kertas). Belum dideploy ke produksi.
