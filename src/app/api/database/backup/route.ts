@@ -3,7 +3,6 @@ import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
 import fs from 'fs'
 import path from 'path'
-import { buildBackupBaseName } from '@/lib/backup-filename'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -180,14 +179,9 @@ export async function POST(req: NextRequest) {
     // Generate buffer
     const excelBuffer = Buffer.from(await workbook.xlsx.writeBuffer())
 
-    // Nama file seragam: fullbackup-<user>-<dd.mm.yy>.xlsx/.json
-    // (username diambil dari tabel Pengguna; tanggal zona Asia/Jakarta)
-    const pengguna = await db.pengguna.findUnique({
-      where: { id: user.id },
-      select: { username: true },
-    }).catch(() => null)
-    const baseName = buildBackupBaseName(pengguna?.username)
-    const fileName = `${baseName}.xlsx`
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const fileName = `backup-user-${dateStr}.xlsx`
+    const jsonFileName = `backup-user-${dateStr}.json`
 
     // Simpan salinan ke folder backups HANYA bila filesystem writable (best-effort).
     // Di Vercel FS-nya read-only → penulisan dilewati; file Excel tetap diunduh
@@ -208,7 +202,7 @@ export async function POST(req: NextRequest) {
         database: tableData,
       }
       fs.writeFileSync(
-        path.join(backupsDir, `${baseName}.json`),
+        path.join(backupsDir, jsonFileName),
         JSON.stringify(jsonBackup, null, 2),
         'utf-8'
       )

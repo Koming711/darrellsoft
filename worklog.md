@@ -13960,3 +13960,24 @@ Stage Summary:
 - Riwayat Backup di Pengaturan > Database kini terlihat oleh SEMUA akun yang login (bukan hanya admin), berisi backup dari semua user (fullbackup-<user>-<dd.mm.yy> + file lama).
 - Restore/Hapus/Backup Semua berlaku sama untuk semua user login (sudah begini untuk backup/restore; delete kini menyatu).
 - Produksi www.darrellsoft.com sudah menjalankan fix ini (deployment darrellsoft-430z10px4).
+
+---
+Task ID: backup-naming-revert-default
+Agent: Z.ai Code (main)
+Task: Nama file backup dikembalikan ke default (undo fullbackup-<user>-<dd.mm.yy>)
+
+Work Log:
+- Kode penamaan asli diambil dari git history (commit dcdc1c3, sebelum perubahan fullbackup): backup-user-<ISO-timestamp> untuk Backup Semua dan auto-backup-<ISO-timestamp> untuk Auto Backup (dateStr = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)).
+- src/app/api/database/backup/route.ts: kembali ke backup-user-<dateStr>.xlsx/.json; hapus lookup Pengguna + import buildBackupBaseName; hardening best-effort write (Vercel read-only FS) DIPERTAHANKAN.
+- src/app/api/database/auto-backup/route.ts: kembali ke auto-backup-<dateStr>.xlsx/.json; cleanupOldBackups prefix kembali 'auto-backup-' (keep 30); import backup-filename dihapus; hardening DIPERTAHANKAN.
+- src/lib/backup-filename.ts dihapus (tidak ada lagi pemakai).
+- Fix sebelumnya (Riwayat Backup tampil untuk semua user login, requireAuth) TIDAK tersentuh — tetap berlaku.
+- Verifikasi lokal (agent-browser, admin): Backup Semua → Riwayat Backup entri teratas backup-user-2026-10-17T14-13-57.json (73 records); disk muncul pasangan .xlsx+.json dengan nama default; curl POST /api/database/backup → header x-backup-filename: backup-user-2026-10-17T14-14-13.xlsx; lint 0 error; dev.log bersih.
+- Deploy www.darrellsoft.com (project darrellsoft terverifikasi di .vercel/project.json): prepare-build → prisma generate → vercel --prod --yes (deployment darrellsoft-4v7o0p5ix) → revert-schema → prisma generate → daemon start.
+- Verifikasi produksi: homepage 200; POST /api/database/backup (role admin) → 200 + x-backup-filename: backup-user-2026-10-17T14-16-40.xlsx (nama default sudah live).
+
+Stage Summary:
+- Nama file backup kembali persis seperti semula: Backup Semua = backup-user-<timestamp>.xlsx/.json, Auto Backup = auto-backup-<timestamp>.xlsx/.json.
+- File fullbackup-* lama tetap ada di daftar Riwayat Backup dan tetap bisa di-restore/dihapus.
+- Fitur Riwayat Backup untuk semua user login (fix sebelumnya) tetap aktif.
+- Perubahan sudah live di www.darrellsoft.com.
