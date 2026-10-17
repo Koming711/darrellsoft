@@ -13845,3 +13845,26 @@ Stage Summary:
 - Simpan/Update Riwayat = tersimpan lalu form auto-reset untuk hitungan berikutnya.
 - Dokumen Rincian Harga Cetakan: No HC pindah ke Informasi Pesanan, +Harga Kertas Setelah Dipotong, gambar potong kertas full-width & tulisan besar (textScale 3, sama seperti halaman Potong Kertas), Tabel Simulasi dihapus. Perubahan otomatis berlaku di preview editor, detail riwayat, dokumen gabungan, JPG & cetak.
 - File berubah: src/app/potong-kertas/page.tsx, src/components/rincian-cetakan-preview.tsx. Belum dideploy ke produksi.
+
+---
+Task ID: pk-rincian-diagram-kembali-kanan
+Agent: Main
+Task: "halaman detail rincian cetakan gambar potong kertas dibalikin ke semula disamping kanan kotak informasi pesanan dan grand total dibawah kotak gambar potong kertas."
+
+Work Log:
+- User minta posisi Gambar Potong Kertas di dokumen Rincian Harga Cetakan dikembalikan seperti semula (kolom kanan, samping Informasi Pesanan) + Grand Total di bawah kotak gambar — membatalkan sebagian perubahan Task pk-hcl-simpan-reset-dan-rincian-doc #7 yang memindahkan diagram ke seksi full-width.
+- src/components/rincian-cetakan-preview.tsx:
+  * Hapus seksi "GAMBAR POTONG KERTAS — FULL WIDTH" setelah grid (mt-3, textScale 3, stats grid-cols-4).
+  * Kolom kanan (col-span-2) kembali: [Gambar Potong Kertas] lalu [Grand Total orange] di bawahnya — komentar "KOLOM KANAN: GAMBAR POTONG KERTAS + GRAND TOTAL".
+  * Tetap pertahankan perbaikan kejelasan dari keluhan sebelumnya: CuttingDiagram maxHeight 280px (asli 224px) + textScale 2 (asli 1) — tulisan tetap besar tapi muat di kolom sempit; stat tiles kembali grid-cols-2.
+  * Yang DIPERTAHANKAN dari request F: No HC di Informasi Pesanan, Harga Kertas Setelah Dipotong, Tabel Simulasi tetap terhapus.
+- Lint file: 0 error. Verifikasi agent-browser (admin/268899, dialog "Detail Rincian Cetakan" baris HC/10/26/0032 brownielab):
+  * Geometri: diagram x=716 w=268 di KANAN Informasi Pesanan (x=296 w=408, berakhir 704) ✓; Grand Total x=716 y=759 DI BAWAH diagram (berakhir y=747), satu kolom ✓.
+  * Konten: No Hitung Cetakan HC/10/26/0032 di Informasi Pesanan ✓, Harga Kertas Setelah Dipotong Rp 406 ✓, Tabel Simulasi TIDAK ada ✓, 4 stat tiles ada ✓, header tanpa No HC ✓.
+  * Visual (screenshot /tmp/hc-detail-restored.png, hc-detail-diagram.png, hc-detail-grandtotal.png): diagram jelas — angka 1-5, ukuran 57×21/21×57, A: 6.43 cm, legenda terbaca; Grand Total orange Rp 4.526.368 langsung di bawah gambar.
+  * Console & page errors: bersih; dev.log normal.
+
+Stage Summary:
+- Dokumen Rincian Harga Cetakan kembali ke layout semula: kolom kanan = Gambar Potong Kertas + Grand Total di bawahnya; namun diagram tetap lebih jelas dari versi pra-F4 (280px + textScale 2).
+- Perubahan otomatis berlaku di semua pemakai komponen: preview editor Hitung Cetakan, dialog Detail Riwayat (halaman detail rincian cetakan), dokumen gabungan, JPG & Cetak.
+- File berubah: src/components/rincian-cetakan-preview.tsx. Belum dideploy ke produksi.

@@ -525,9 +525,39 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
           )}
         </div>
 
-        {/* ===== KOLOM KANAN: TOTAL ===== */}
+        {/* ===== KOLOM KANAN: GAMBAR POTONG KERTAS + GRAND TOTAL (posisi semula —
+            gambar di samping kanan kotak Informasi Pesanan, Grand Total di bawah kotak gambar) ===== */}
         <div className="col-span-2 space-y-3">
-          {/* GRAND TOTAL — isinya hanya grand total saja (permintaan owner) */}
+          {/* Gambar Potong Kertas */}
+          <div className="border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center">
+                <Palette className="w-3.5 h-3.5 text-violet-600" />
+              </div>
+              <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Gambar Potong Kertas</p>
+            </div>
+            {pvCutResult ? (
+              <>
+                <div className="bg-white rounded-lg border border-slate-200 p-2">
+                  <CuttingDiagram results={pvCutResult} maxHeight="280px" textScale={2} />
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <PvMiniStat label="Potong / Lembar" value={pvCutResult.totalPieces.toLocaleString('id-ID')} />
+                  <PvMiniStat label="Lembar Dipakai" value={pvCutResult.sheetsNeeded.toLocaleString('id-ID')} />
+                  <PvMiniStat label="Efisiensi Kertas" value={`${pvCutResult.efficiency.toFixed(1)}%`} />
+                  <PvMiniStat label="Skenario" value={pvCutResult.scenarioType.replace(/-/g, ' ')} />
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white/60">
+                <Ruler className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                Lengkapi ukuran kertas &amp; ukuran potongan
+                <br />untuk melihat gambar potong kertas
+              </div>
+            )}
+          </div>
+
+          {/* GRAND TOTAL — di bawah kotak gambar potong kertas */}
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-3 flex items-center shadow-lg shadow-orange-500/25">
             <div>
               <p className="text-[11px] text-orange-100 uppercase tracking-wide">Grand Total</p>
@@ -535,36 +565,6 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ===== GAMBAR POTONG KERTAS — FULL WIDTH, sebesar/jelas di halaman Potong Kertas
-          (CuttingDiagram textScale 3 — tulisan besar, tidak lagi kecil/berantakan) ===== */}
-      <div className="mt-3 border border-violet-200 rounded-xl p-3 bg-violet-50/50" data-hc="preview-diagram">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center">
-            <Palette className="w-3.5 h-3.5 text-violet-600" />
-          </div>
-          <p className="text-sm font-bold text-slate-700 uppercase tracking-wide">Gambar Potong Kertas</p>
-        </div>
-        {pvCutResult ? (
-          <>
-            <div className="bg-white rounded-lg border border-slate-200 p-2">
-              <CuttingDiagram results={pvCutResult} maxHeight="320px" textScale={3} />
-            </div>
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              <PvMiniStat label="Potong / Lembar" value={pvCutResult.totalPieces.toLocaleString('id-ID')} />
-              <PvMiniStat label="Lembar Dipakai" value={pvCutResult.sheetsNeeded.toLocaleString('id-ID')} />
-              <PvMiniStat label="Efisiensi Kertas" value={`${pvCutResult.efficiency.toFixed(1)}%`} />
-              <PvMiniStat label="Skenario" value={pvCutResult.scenarioType.replace(/-/g, ' ')} />
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-300 rounded-lg bg-white/60">
-            <Ruler className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-            Lengkapi ukuran kertas &amp; ukuran potongan
-            <br />untuk melihat gambar potong kertas
-          </div>
-        )}
       </div>
     </>
   )
