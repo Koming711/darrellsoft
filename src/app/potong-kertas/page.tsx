@@ -417,6 +417,11 @@ function CalculatorPage() {
   const hargaPerLembarPreview: number = previewRiwayatData
     ? (parseFloat(previewRiwayatRow?.pricePerSheet) || 0)
     : (parseFloat(pricePerSheet) || 0)
+  // No PK utk preview: mode riwayat pakai nomorUrut baris; mode editor pakai nomorUrut
+  // riwayat yang sedang diedit (restoredRiwayatId) — kosong bila perhitungan belum disimpan
+  const noPkPreview: string = (previewRiwayatRow?.nomorUrut as string)
+    || (restoredRiwayatId ? (riwayatList.find(x => x.id === restoredRiwayatId)?.nomorUrut || '') : '')
+    || ''
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -3000,6 +3005,10 @@ function CalculatorPage() {
 
             {/* Info Grid */}
             <div data-pk="grid" className="grid grid-cols-3 gap-2 mb-3">
+              <div className="bg-white border border-slate-200 rounded-lg p-2.5">
+                <p className="text-[10px] text-slate-600 font-medium">No PK</p>
+                <p className="text-base font-bold text-black truncate font-mono">{noPkPreview || '-'}</p>
+              </div>
               <div className="bg-white border border-slate-200 rounded-lg p-2.5">
                 <p className="text-[10px] text-slate-600 font-medium">Nama Customer</p>
                 <p className="text-base font-bold text-black truncate">{previewRiwayatData ? previewRiwayatInfo.customer : (selectedCustomer?.name || '-')}</p>

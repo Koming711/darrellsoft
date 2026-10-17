@@ -13764,3 +13764,29 @@ Stage Summary:
 - SEKARANG: edit riwayat di halaman Potong Kertas → klik "Buka Hitung Cetakan" → perubahan OTOMATIS disimpan (dgn hitung ulang bila perlu) → Hitung Cetakan terhubung IKUT BERUBAH (field sumber + nilai turunan; input manual dipertahankan; snapshot + audit per-field). Alur "Update Riwayat" pun kini men-sync HC secara server-side. Tanpa perubahan editor → perilaku navigasi lama (tanpa simpan).
 - File: src/lib/potong-sync-apply.ts (baru), src/app/api/potong-cetakan-sync/route.ts, src/app/api/riwayat-potong-kertas/[id]/route.ts (+namaSuplier, +autoSync), src/app/potong-kertas/page.tsx.
 - Deploy aktif: my-project-8uxwn52j2 (www.darrellsoft.com).
+
+---
+Task ID: pk-preview-no-pk
+Agent: Main
+Task: Halaman preview Potong Kertas — tambahkan field "No PK" di Info Grid preview
+
+Work Log:
+- User request: "dihalaman preview potong kertas, tambahkan no pk."
+- Lokasi: src/app/potong-kertas/page.tsx — popup Preview (FixedDocScaler, data-pk="grid") yang dipakai juga untuk Cetak & JPG (capture previewRef → No PK otomatis ikut tercetak).
+- Tambah derived value `noPkPreview` (setelah hargaPerLembarPreview):
+  - Mode preview riwayat: previewRiwayatRow?.nomorUrut (PK/MM/YY/NNNN).
+  - Mode preview dari editor: nomorUrut riwayat yang sedang diedit via riwayatList.find(id === restoredRiwayatId).
+  - Perhitungan baru yang belum disimpan: string kosong → tampil '-'.
+- Tambah cell PERTAMA di Info Grid preview: label "No PK", nilai font-mono bold truncate (noPkPreview || '-') — konsisten dengan pola field lain (grid-cols-3, 16 cell sekarang).
+- Lint file: bersih (0 error, 0 warning khusus file ini; error baseline project pre-existing).
+- Verifikasi agent-browser (admin/268899, dev :3000):
+  - Riwayat tab → klik baris PK/10/26/0036 → preview: cell pertama "No PK = PK/10/26/0036" ✓ (screenshot /tmp/pk-preview-nopk.png).
+  - Edit dari preview → editor mode Update Riwayat → Preview: No PK tetap "PK/10/26/0036" (fallback restoredRiwayatId bekerja) ✓.
+  - Reset → hitung otomatis baru (art karton 260, 21×30, JP 5000 ÷ mata 2) → Preview: "No PK = -" ✓ (screenshot /tmp/pk-preview-fresh.png).
+  - Console bersih, dev.log tanpa error.
+- Catatan: preview grid TIDAK PERNAH punya cell "Nama Suplier" (dicek git history -S, tidak pernah ada) — Task 21 lama = dropdown Nama Suplier di form editor (line ~2018), bukan preview; tidak ada regresi.
+
+Stage Summary:
+- Preview Potong Kertas kini menampilkan "No PK" sebagai field pertama Info Grid; ikut tercetak di output Cetak (A5) & JPG.
+- Nilai: nomorUrut baris riwayat saat preview riwayat; nomorUrut riwayat yang diedit saat preview dari editor; '-' bila perhitungan belum disimpan.
+- File berubah: src/app/potong-kertas/page.tsx (derived noPkPreview + 1 cell grid). Belum dideploy ke produksi.
