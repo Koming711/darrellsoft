@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
-import fs from 'fs'
-import path from 'path'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -44,25 +42,7 @@ const USER_TABLES: Record<string, {
   Pembeli: { model: db.pembeli, name: 'Pembeli', label: 'Pembeli', dateFields: ['createdAt', 'updatedAt', 'expiredDate'] },
 }
 
-function cleanupOldBackups(backupsDir: string, prefix: string, keepCount: number) {
-  try {
-    const files = fs.readdirSync(backupsDir)
-      .filter(f => f.startsWith(prefix) && (f.endsWith('.xlsx') || f.endsWith('.json')))
-      .map(f => ({
-        name: f,
-        filePath: path.join(backupsDir, f),
-        mtime: fs.statSync(path.join(backupsDir, f)).mtime.getTime(),
-      }))
-      .sort((a, b) => b.mtime - a.mtime)
-
-    // Delete files beyond the keep count
-    for (let i = keepCount; i < files.length; i++) {
-      try { fs.unlinkSync(files[i].filePath) } catch {}
-    }
-  } catch {
-    // silently fail cleanup
-  }
-}
+// (dihapus) cleanupOldBackups berbasis filesystem — cleanup kini berbasis tabel BackupFile.
 
 // This endpoint is called automatically when auto-backup is due
 export async function POST(req: NextRequest) {
@@ -206,17 +186,10 @@ export async function POST(req: NextRequest) {
     const fileName = `auto-backup-${dateStr}.xlsx`
     const jsonFileName = `auto-backup-${dateStr}.json`
 
-    // Simpan salinan ke folder backups HANYA bila filesystem writable (best-effort).
-    // Di Vercel FS-nya read-only → penulisan dilewati; auto-backup tetap sukses
-    // (timestamp tercatat di DB Setting).
-    const backupsDir = path.join(process.cwd(), 'backups')
+    // Simpan salinan JSON ke DATABASE (tabel BackupFile) — bukan filesystem.
+    // Di Vercel filesystem read-only, sehingga Riwayat Backup & hapus hanya
+    // bisa berfungsi bila salinan backup disimpan di database.
     try {
-      if (!fs.existsSync(backupsDir)) {
-        fs.mkdirSync(backupsDir, { recursive: true })
-      }
-      fs.writeFileSync(path.join(backupsDir, fileName), excelBuffer)
-
-      // Also save JSON for backward compat with restore from server
       const jsonBackup = {
         version: '2.0',
         type: 'auto-backup',
@@ -224,17 +197,29 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         database: tableData,
       }
-      fs.writeFileSync(
-        path.join(backupsDir, jsonFileName),
-        JSON.stringify(jsonBackup, null, 2),
-        'utf-8'
-      )
+      const content = JSON.stringify(jsonBackup)
+      const size = Buffer.byteLength(content, 'utf-8')
+      const tableCount = Object.keys(tableData).length
+      const data = { content, size, tableCount, rowCount: totalRows, userId: user.id }
+      await db.backupFile.upsert({
+        where: { fileName: jsonFileName },
+        update: data,
+        create: { fileName: jsonFileName, ...data },
+      })
 
-      // Clean up old auto backups (keep last 30)
-      cleanupOldBackups(backupsDir, 'auto-backup-', 30)
+      // Cleanup auto backup lama (keep last 30) — berbasis database
+      const olds = await db.backupFile.findMany({
+        where: { fileName: { startsWith: 'auto-backup-' } },
+        orderBy: { createdAt: 'desc' },
+        skip: 30,
+        select: { id: true },
+      })
+      if (olds.length > 0) {
+        await db.backupFile.deleteMany({ where: { id: { in: olds.map(o => o.id) } } })
+      }
     } catch (saveError) {
       console.warn(
-        'Salinan auto backup server dilewati (filesystem read-only):',
+        'Salinan auto backup ke database dilewati:',
         saveError instanceof Error ? saveError.name : 'unknown'
       )
     }

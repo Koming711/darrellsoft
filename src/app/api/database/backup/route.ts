@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
-import fs from 'fs'
-import path from 'path'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -183,17 +181,10 @@ export async function POST(req: NextRequest) {
     const fileName = `backup-user-${dateStr}.xlsx`
     const jsonFileName = `backup-user-${dateStr}.json`
 
-    // Simpan salinan ke folder backups HANYA bila filesystem writable (best-effort).
-    // Di Vercel FS-nya read-only → penulisan dilewati; file Excel tetap diunduh
-    // lewat response sehingga Backup Semua tidak gagal 500 lagi.
+    // Simpan salinan JSON ke DATABASE (tabel BackupFile) — bukan filesystem.
+    // Di Vercel filesystem read-only, sehingga Riwayat Backup & hapus hanya
+    // bisa berfungsi bila salinan backup disimpan di database.
     try {
-      const backupsDir = path.join(process.cwd(), 'backups')
-      if (!fs.existsSync(backupsDir)) {
-        fs.mkdirSync(backupsDir, { recursive: true })
-      }
-      fs.writeFileSync(path.join(backupsDir, fileName), excelBuffer)
-
-      // Also save JSON format for backward compat with restore from server
       const jsonBackup = {
         version: '2.0',
         type: 'user-backup',
@@ -201,14 +192,18 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         database: tableData,
       }
-      fs.writeFileSync(
-        path.join(backupsDir, jsonFileName),
-        JSON.stringify(jsonBackup, null, 2),
-        'utf-8'
-      )
+      const content = JSON.stringify(jsonBackup)
+      const size = Buffer.byteLength(content, 'utf-8')
+      const tableCount = Object.keys(tableData).length
+      const data = { content, size, tableCount, rowCount: totalRows, userId: user.id }
+      await db.backupFile.upsert({
+        where: { fileName: jsonFileName },
+        update: data,
+        create: { fileName: jsonFileName, ...data },
+      })
     } catch (saveError) {
       console.warn(
-        'Salinan backup server dilewati (filesystem read-only):',
+        'Salinan backup ke database dilewati:',
         saveError instanceof Error ? saveError.name : 'unknown'
       )
     }

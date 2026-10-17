@@ -214,6 +214,20 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Salinan backup JSON yang disimpan di DATABASE (bukan filesystem).
+// Alasan: di Vercel filesystem read-only & ephemeral, sehingga riwayat backup
+// tidak muncul / tidak bisa dihapus bila disimpan di folder backups/.
+model BackupFile {
+  id         String   @id @default(cuid())
+  fileName   String   @unique
+  content    String
+  size       Int
+  tableCount Int      @default(0)
+  rowCount   Int      @default(0)
+  userId     String?
+  createdAt  DateTime @default(now())
+}
+
 // Per-user settings for multi-tenant isolation.
 // System/global defaults live in `Setting` (key @unique, no user).
 // User-specific overrides live here. Reads merge: UserSetting > Setting (fallback).

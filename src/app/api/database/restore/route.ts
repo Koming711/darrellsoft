@@ -206,14 +206,23 @@ export async function POST(req: NextRequest) {
       if (backupData && typeof backupData === 'object' && backupData.database) {
         data = backupData.database
       } else if (fileName && typeof fileName === 'string') {
-        const filePath = path.join(process.cwd(), 'backups', fileName)
-        if (!fs.existsSync(filePath)) {
-          return NextResponse.json(
-            { success: false, error: 'File backup tidak ditemukan' },
-            { status: 404 }
-          )
+        // Ambil isi backup dari DATABASE (tabel BackupFile) dulu — berlaku juga
+        // di Vercel yang filesystem-nya read-only; fallback ke folder backups/ (file lama di lokal).
+        let raw: string | null = null
+        try {
+          const rec = await db.backupFile.findUnique({ where: { fileName } })
+          if (rec) raw = rec.content
+        } catch { /* fallback ke filesystem */ }
+        if (raw === null) {
+          const filePath = path.join(process.cwd(), 'backups', fileName)
+          if (!fs.existsSync(filePath)) {
+            return NextResponse.json(
+              { success: false, error: 'File backup tidak ditemukan' },
+              { status: 404 }
+            )
+          }
+          raw = fs.readFileSync(filePath, 'utf-8')
         }
-        const raw = fs.readFileSync(filePath, 'utf-8')
         const parsed = JSON.parse(raw)
         data = parsed.database
       } else {

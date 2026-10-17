@@ -13981,3 +13981,25 @@ Stage Summary:
 - File fullbackup-* lama tetap ada di daftar Riwayat Backup dan tetap bisa di-restore/dihapus.
 - Fitur Riwayat Backup untuk semua user login (fix sebelumnya) tetap aktif.
 - Perubahan sudah live di www.darrellsoft.com.
+
+---
+Task ID: riwayat-backup-db-storage
+Agent: Z.ai Code (main)
+Task: Online (www.darrellsoft.com) — Backup Semua berhasil tapi tidak muncul di Riwayat Backup; Riwayat Backup online tidak bisa dihapus. Offline normal. Check & fix.
+
+Work Log:
+- Root cause (kedua gejala satu akar): salinan backup server ditulis ke FOLDER backups/ via fs.writeFileSync, sedangkan Vercel serverless = filesystem READ-ONLY & ephemeral → (1) tulisan file selalu gagal (best-effort silently skipped) → Riwayat Backup kosong / hanya berisi file ikutan bundle build; (2) DELETE memakai fs.unlinkSync → EROFS gagal → "Gagal menghapus backup". Offline (lokal) normal karena FS writable.
+- Solusi: salinan backup JSON dipindah ke DATABASE (model baru BackupFile: id, fileName @unique, content, size, tableCount, rowCount, userId, createdAt) — konsisten di lokal & produksi.
+- prisma/schema.prisma + model BackupFile; lokal `bun run db:push`; PROD: DDL additive (CREATE TABLE IF NOT EXISTS + unique index fileName) via `prisma db execute` ke Supabase (pooler aws-1-ap-southeast-1:5433/5432 session; direct db.*.supabase.co ENETUNREACH dari sandbox — tidak ada IPv6). `prisma db push` ke pooler transaction (6543) HANG — jangan dipakai untuk DDL; db execute aman & sukses (verifikasi: prisma.backupFile.count() = 0, setting 74 rows).
+- /api/database/backup & /api/database/auto-backup: tulis salinan JSON → db.backupFile.upsert (fileName backup-user-/auto-backup-<ISO-ts>.json, default naming tetap); fs write DIHAPUS; cleanup auto-backup (keep 30) kini query DB (startsWith 'auto-backup-', orderBy createdAt desc, skip 30 → deleteMany).
+- /api/database/backups: GET = daftar dari BackupFile (requireAuth — semua user login, fix sebelumnya tetap) + migrateFsBackupsOnce() (one-time, flag Setting 'backup_fs_migrated_v1'): import semua .json lama di folder backups/ ke DB (fileName dedup, rowCount/tableCount dari isi, createdAt dari parsed.timestamp fallback birthtime) → file lama lokal tetap terlihat & kini bisa dihapus. DELETE = hapus record DB + best-effort unlink file fisik (lokal); 404 bila tidak ada.
+- /api/database/restore (branch fileName): baca isi dari BackupFile dulu, fallback fs (file lokal lama).
+- Verifikasi LOKAL (curl + agent-browser, admin): backup POST 200 → list memuat backup baru di urutan teratas (73 rows, 90.7 KB) TANPA file fisik baru di backups/ (memang tidak lagi menulis fs); restore dari server (DB) 200 (8 tabel); DELETE 200 → hilang dari list + file fisik lamanya ikut terhapus; auto-backup endpoint sehat ("belum waktunya"); UI tab Database render list DB dengan benar. Lint 0 error. (Catatan: daemon perlu restart penuh setelah prisma generate — server lama memegang PrismaClient tanpa model BackupFile → list 500 sesaat; setelah restart bersih normal.)
+- Deploy: prepare-build → vercel --prod (Aliased www.darrellsoft.com) → revert-schema → prisma generate → daemon start.
+- Verifikasi PRODUKSI (role admin): POST backup 200 + x-backup-filename backup-user-2026-10-17T14-51-57.xlsx; GET list → backup baru MUNCUL (53 rows, 49 KB) + file ikutan bundle lama terimpor otomatis; DELETE file lama (yang dulu tidak bisa dihapus) → 200 sukses & hilang dari list; RESTORE dari server → 200 (8 tabel). Semua keluhan user terverifikasi fix.
+
+Stage Summary:
+- Riwayat Backup kini disimpan di DATABASE (tabel BackupFile) → muncul & bisa dihapus sama baik di lokal maupun www.darrellsoft.com.
+- Backup Semua / Auto Backup tidak lagi menulis file ke disk sama sekali; unduhan .xlsx tetap langsung dari response (tidak terpengaruh).
+- File .json lama di folder backups/ diimpor sekali otomatis ke DB (flag 'backup_fs_migrated_v1') supaya riwayat lama tidak hilang dan jadi bisa dihapus.
+- Backup .xlsx/.json yang diunduh ke perangkat user tidak berubah; restore dari file upload tetap jalan.
