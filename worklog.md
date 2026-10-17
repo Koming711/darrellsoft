@@ -13732,3 +13732,35 @@ Stage Summary:
 - DB produksi kini = schema arsip+lengkap; dokumen gabungan format lama: 0 baris (tidak ada kehilangan data)
 - Master cetak user-admin di produksi = data master lokal arsip (efek insiden seed; script resmi project, hanya 3 tabel master 1 user)
 - Backup: /home/z/backup-pre-restore/ (workspace 319M + prod-gabungan-backup.json)
+
+---
+Task ID: 23
+Agent: Z.ai Code (main)
+Task: "di riwayat potong kertas, apabila diklik tabel baris maka muncul di editor dan apabila data di rubah maka setelah diklik buka hitung cetakan dan muncul kehalaman cetakan maka data di hitung cetakan turut berubah, saat ini tidak berubah. check and fix"
+
+Work Log:
+- DIAGNOSA ROOT CAUSE (2 lapis):
+  1) Tombol "Buka Hitung Cetakan" saat editor memuat riwayat PK (restore) LANGSUNG navigasi ke /hitung-cetakan?loadRiwayat=<hcId>&fromPotongKertas=1 TANPA menyimpan perubahan editor → record PK di DB masih lama → status sinkron "synced" → HC memuat data LAMA. Perubahan editor dibuang diam-diam.
+  2) PUT /api/riwayat-potong-kertas/[id] TIDAK punya auto-sync ke HC terhubung (logika sync server-side tidak ada di codebase ini) — bahkan alur "Update Riwayat" dulu pun tidak mengubah HC. Tambahan: PUT juga MENGHILANGKAN field namaSuplier (tidak dipersist).
+- FIX 1 — src/lib/potong-sync-apply.ts (BARU): ekstraksi logika sinkronisasi PK→HC dari POST /api/potong-cetakan-sync menjadi helper bersama: applyPkToHcSync(pk, hc) (14 field sumber + kertas via cutting-engine + ongkos mesin qty-dependent + finishing master + subTotal/profit/grand + snapshot + pkSyncHistory audit, 1 transaksi) + autoSyncLinkedHc(pk, ownerId) (cari semua HC ter-link by pkRiwayatId+userId, sync semua, ringkasan total/updated/failed/changed).
+- FIX 2 — POST /api/potong-cetakan-sync direfaktor memakai applyPkToHcSync (respons tidak berubah; GET tidak disentuh).
+- FIX 3 — PUT /api/riwayat-potong-kertas/[id]: + persist namaSuplier; setelah update sukses PANGGIL autoSyncLinkedHc → HC terhubung langsung diperbarui; respons kini {...record, autoSync} (konsumen lama tetap aman — field record tetap di root).
+- FIX 4 — src/app/potong-kertas/page.tsx:
+  * buildPayload(resOverride?) — hasil hitung segar bisa dilewatkan (state `results` basi pada tick yang sama).
+  * recalcForSave() — hitung ulang potongan dari input form TANPA mengubah pilihan kertas (beda dgn runAutoOptimize yang bisa memilih ukuran lain) untuk konsistensi hasil tersimpan.
+  * isRestoredRiwayatDirty() — bandingkan 15 field form vs record riwayat yang di-restore (customer, cetakan, bahan, grammage, kertas, potongan, quantity, setelan, jp, mata, suplier, harga/lembar, foto).
+  * saveRestoredBeforeHc() — bila dirty: recalc bila needsRecalc → PUT (server auto-sync HC) → toast "Perubahan disimpan — Hitung Cetakan terhubung ikut diperbarui" (+ daftar field berubah) / warning bila sync gagal → notifyDataChange + fetchRiwayat + bump pkLinkKey. Return false (batal navigasi) bila recalc/PUT gagal.
+  * onClick tombol Buka Hitung Cetakan: `await saveRestoredBeforeHc()` PALING AWAL — mencakup SEMUA cabang navigasi (pkHcLink langsung, anti-duplikat linkedHc, params path). Tanpa perubahan → langsung navigasi (perilaku lama utuh).
+- E2E BROWSER (admin lokal, pasang uji PK/10/26/0035 ↔ HC/10/26/0029):
+  1) Klik baris riwayat → preview → Edit → editor (42×30, jp 2000, qty 667) → ubah jp 2500 (qty auto 834, needsRecalc) → klik "Buka Hitung Cetakan" → TOAST "Perubahan disimpan — Hitung Cetakan terhubung ikut diperbarui. Berubah: Jumlah Kebutuhan, Jumlah Pesanan" → HC page terbuka dgn jp 2500 / qty 834; DB: PK {jp 2500, qty 834, totalPrice 525252}, HC {jp 2500, qty 834, totalPaperPrice 525252, grandTotal 1555964.48, status synced}; pkSyncHistory event: quantity 667→834, jumlahPesanan 2000→2500; input manual HC (plat 12000 dkk) utuh; panel HC "Tersinkronisasi".
+  2) Tanpa edit → Buka HC → TANPA toast simpan, langsung navigasi, data utuh.
+  3) Edit jp 3000 → Hitung & Pilih Terbaik → "Update Riwayat" → HC ter-sync saat itu juga (DB jp 3000/qty 1000/totalPaperPrice 608400, status synced) → Buka HC → HC page menampilkan 3000/1000. ✓
+  4) Revert data uji via PUT (2000/667/440076) → autoSync mengembalikan HC (changed: quantity & jumlahPesanan) — bukti tambahan jalur sync.
+  5) Console & page errors: BERSIH. Lint: 0 error di 4 file yang diubah (40 error pra-ada di file lain).
+- DEPLOY PRODUKSI: pipeline standar (daemon stop → pkill next-server → prepare-build postgres → prisma generate → vercel --prod → revert-schema sqlite → prisma generate → daemon start). Deployment: my-project-8uxwn52j2.
+- SMOKE PRODUKSI: / 200, /potong-kertas 200, login 200; verifikasi API dgn pasangan ter-link produksi PK/07/26/221925 ↔ HC/07/26/233837: no-op PUT (nilai sama) → 200 + autoSync {total:1, updated:1, failed:0, changed:[]} — mesin auto-sync hidup di produksi tanpa mengubah data user.
+
+Stage Summary:
+- SEKARANG: edit riwayat di halaman Potong Kertas → klik "Buka Hitung Cetakan" → perubahan OTOMATIS disimpan (dgn hitung ulang bila perlu) → Hitung Cetakan terhubung IKUT BERUBAH (field sumber + nilai turunan; input manual dipertahankan; snapshot + audit per-field). Alur "Update Riwayat" pun kini men-sync HC secara server-side. Tanpa perubahan editor → perilaku navigasi lama (tanpa simpan).
+- File: src/lib/potong-sync-apply.ts (baru), src/app/api/potong-cetakan-sync/route.ts, src/app/api/riwayat-potong-kertas/[id]/route.ts (+namaSuplier, +autoSync), src/app/potong-kertas/page.tsx.
+- Deploy aktif: my-project-8uxwn52j2 (www.darrellsoft.com).

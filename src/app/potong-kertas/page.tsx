@@ -698,6 +698,32 @@ function CalculatorPage() {
 
   const handleCalculateCuts = () => runCuttingCalc(parseInt(computedQuantity || quantity) || 0)
 
+  // Hitung ulang potongan dari input form saat ini TANPA mengubah pilihan kertas
+  // (beda dgn runAutoOptimize yang bisa memilih ukuran kertas lain). Dipakai
+  // sebelum menyimpan perubahan riwayat otomatis (Buka Hitung Cetakan) agar
+  // hasil yang tersimpan konsisten dgn input terbaru.
+  const recalcForSave = async (): Promise<CuttingResult | null> => {
+    const pw = parseFloat(paperWidth)
+    const ph = parseFloat(paperHeight)
+    const cw = parseFloat(cutWidth)
+    const ch = parseFloat(cutHeight)
+    const qty = parseInt(computedQuantity || quantity) || 0
+    const setelan = parseInt(setelanKertas) || 0
+    const price = parseFloat(pricePerSheet) || 0
+    if (!pw || !ph || !cw || !ch) return null
+    if (cw > pw || ch > ph) return null
+    try {
+      const { calculateCuts } = await import('@/lib/cutting-engine')
+      return calculateCuts({
+        paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch,
+        quantity: qty + setelan, pricePerSheet: price, optimizationMode,
+        customerName: selectedCustomer?.name || '',
+        paperMaterial: selectedPaper?.name || restoredPaperName || '',
+        grammage: selectedPaper?.grammage || parseFloat(grammage) || 0,
+      })
+    } catch { return null }
+  }
+
   // ===== Mode Otomatis: terapkan kandidat ukuran kertas (best / pilihan alternatif) =====
   const applyCandidate = useCallback((c: CandidateResult, idx: number) => {
     justCalculatedRef.current = true // perubahan field dari hasil hitung — tandai agar tidak needsRecalc
@@ -1014,29 +1040,34 @@ function CalculatorPage() {
     input.click()
   }
 
-  const buildPayload = () => ({
-    namaCustomer: selectedCustomer?.name || '-',
-    resultData: results ? JSON.stringify(results) : '',
-    namaCetakan: printName || '-',
-    paperName: selectedPaper?.name || restoredPaperName || 'Custom',
-    paperId: selectedPaper?.id || '',
-    grammage: grammage || '0',
-    paperWidth: paperWidth || '0',
-    paperHeight: paperHeight || '0',
-    cutWidth: cutWidth || '0',
-    cutHeight: cutHeight || '0',
-    quantity: quantity || '0',
-    setelanKertas: setelanKertas || '0',
-    sheetsNeeded: results?.sheetsNeeded?.toString() || '0',
-    totalPrice: results?.totalPrice || 0,
-    pricePerSheet: parseFloat(pricePerSheet) || 0,
-    efficiency: results?.efficiency || 0,
-    strategy: results?.strategy || '',
-    jumlahPesanan: jumlahPesanan || '',
-    berapaMata: berapaMata || '',
-    namaSuplier: namaSuplier || '',
-    photoUrl,
-  })
+  const buildPayload = (resOverride?: CuttingResult | null) => {
+    // resOverride: hasil hitung SEGAR saat menyimpan dari alur otomatis
+    // (Buka Hitung Cetakan) — state `results` bisa masih lama pada tick yang sama.
+    const activeRes = resOverride === undefined ? results : resOverride
+    return ({
+      namaCustomer: selectedCustomer?.name || '-',
+      resultData: activeRes ? JSON.stringify(activeRes) : '',
+      namaCetakan: printName || '-',
+      paperName: selectedPaper?.name || restoredPaperName || 'Custom',
+      paperId: selectedPaper?.id || '',
+      grammage: grammage || '0',
+      paperWidth: paperWidth || '0',
+      paperHeight: paperHeight || '0',
+      cutWidth: cutWidth || '0',
+      cutHeight: cutHeight || '0',
+      quantity: quantity || '0',
+      setelanKertas: setelanKertas || '0',
+      sheetsNeeded: activeRes?.sheetsNeeded?.toString() || '0',
+      totalPrice: activeRes?.totalPrice || 0,
+      pricePerSheet: parseFloat(pricePerSheet) || 0,
+      efficiency: activeRes?.efficiency || 0,
+      strategy: activeRes?.strategy || '',
+      jumlahPesanan: jumlahPesanan || '',
+      berapaMata: berapaMata || '',
+      namaSuplier: namaSuplier || '',
+      photoUrl,
+    })
+  }
 
   // Cari riwayat potong kertas yang datanya identik dengan form saat ini
   // (dipakai isDataSameAsAnyRiwayat, handlePO, dan tombol "Hitung Cetakan Lengkap"
@@ -1060,6 +1091,32 @@ function CalculatorPage() {
   const isDataSameAsAnyRiwayat = () => {
     if (riwayatList.length === 0) return false
     return !!findSameRiwayat()
+  }
+
+  // Apakah data riwayat yang sedang di-restore sudah DIUBAH di editor?
+  // (dipakai tombol Buka Hitung Cetakan: perubahan disimpan dulu supaya data
+  //  di Hitung Cetakan yang terhubung ikut berubah — tidak dibuang diam-diam)
+  const isRestoredRiwayatDirty = () => {
+    if (!restoredRiwayatId) return false
+    const r = riwayatList.find(x => x.id === restoredRiwayatId)
+    if (!r) return false
+    const same =
+      (r.namaCustomer || '-') === (selectedCustomer?.name || '-') &&
+      (r.namaCetakan || '-') === (printName || '-') &&
+      (r.paperName || '') === (selectedPaper?.name || restoredPaperName || 'Custom') &&
+      (r.grammage || '0') === (grammage || '0') &&
+      (r.paperWidth || '0') === (paperWidth || '0') &&
+      (r.paperHeight || '0') === (paperHeight || '0') &&
+      (r.cutWidth || '0') === (cutWidth || '0') &&
+      (r.cutHeight || '0') === (cutHeight || '0') &&
+      (r.quantity || '0') === (quantity || '0') &&
+      (r.setelanKertas || '0') === (setelanKertas || '0') &&
+      (r.jumlahPesanan || '') === (jumlahPesanan || '') &&
+      (r.berapaMata || '') === (berapaMata || '') &&
+      (r.namaSuplier || '') === (namaSuplier || '') &&
+      Number(r.pricePerSheet || 0) === (parseFloat(pricePerSheet) || 0) &&
+      (r.photoUrl || '') === (photoUrl || '')
+    return !same
   }
 
   const handleSaveRiwayat = async () => {
@@ -1186,6 +1243,73 @@ function CalculatorPage() {
       toast.error('Gagal mengupdate riwayat')
     }
     setSavingRiwayat(false)
+  }
+
+  // Simpan perubahan riwayat yang sedang diedit SEBELUM membuka Hitung Cetakan
+  // (tombol Buka Hitung Cetakan). Server otomatis mensinkronkan Hitung Cetakan
+  // yang terhubung — sehingga data di halaman Hitung Cetakan "turut berubah".
+  // Return true bila aman lanjut (tidak ada yang perlu disimpan / simpan sukses).
+  const saveRestoredBeforeHc = async (): Promise<boolean> => {
+    if (!restoredRiwayatId || !isRestoredRiwayatDirty()) return true
+    setPreparingHc(true)
+    try {
+      // Hitung ulang dulu bila ada input yang belum dihitung — hasil yang
+      // tersimpan harus konsisten dgn input terbaru (jangan simpan hasil basi).
+      let activeRes = results
+      if (needsRecalc || !activeRes) {
+        const fresh = await recalcForSave()
+        if (!fresh) {
+          setPreparingHc(false)
+          toast.error('Gagal menghitung ulang potongan — periksa ukuran kertas & potongan lalu coba lagi.')
+          return false
+        }
+        activeRes = fresh
+        setResults(fresh)
+        localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(fresh))
+        justCalculatedRef.current = true
+        setNeedsRecalc(false)
+      }
+      const res = await fetcher(`/api/riwayat-potong-kertas/${restoredRiwayatId}`, {
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildPayload(activeRes))
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        toast.error(err?.error || `Gagal menyimpan perubahan (${res.status})`, {
+          description: 'Perubahan di editor belum masuk riwayat — batal atau coba lagi.',
+        })
+        setPreparingHc(false)
+        return false
+      }
+      const saved = await res.json().catch(() => null)
+      const auto = saved?.autoSync
+      if (auto && auto.total > 0) {
+        if (auto.updated > 0) {
+          const labels = (auto.changed || []).map((c: { label: string }) => c.label)
+          toast.success('Perubahan disimpan — Hitung Cetakan terhubung ikut diperbarui.', {
+            description: labels.length > 0
+              ? `Berubah: ${labels.slice(0, 4).join(', ')}${labels.length > 4 ? `, +${labels.length - 4} lainnya` : ''}.`
+              : 'Data sudah sesuai sumber Potong Kertas.',
+          })
+        } else {
+          toast.warning('Perubahan riwayat disimpan, tetapi sinkronisasi ke Hitung Cetakan gagal.', {
+            description: 'Buka Hitung Cetakan lalu tekan "Sinkronkan Sekarang" untuk memperbarui.',
+          })
+        }
+      } else {
+        toast.success('Perubahan riwayat disimpan.')
+      }
+      notifyDataChange('riwayat-potong-kertas')
+      fetchRiwayat()
+      setPkLinkKey(k => k + 1) // status relasi HC ikut dicek ulang
+      setPreparingHc(false)
+      return true
+    } catch {
+      toast.error('Gagal menyimpan perubahan (jaringan terputus)')
+      setPreparingHc(false)
+      return false
+    }
   }
 
   const handlePreviewRiwayat = async (r: any) => {
@@ -2235,6 +2359,13 @@ function CalculatorPage() {
           {/* Link to Hitung Cetakan */}
           <button
             onClick={async () => {
+              // === PERBAIKAN (data HC turut berubah): bila editor mengubah data
+              // riwayat Potong Kertas yang ter-restore, SIMPAN DULU (PUT — server
+              // otomatis mensinkronkan Hitung Cetakan terhubung) sebelum membuka
+              // HC. Sebelumnya perubahan di editor dibuang diam-diam & halaman
+              // Hitung Cetakan masih menampilkan data lama.
+              const okSave = await saveRestoredBeforeHc()
+              if (!okSave) return
               // === SINKRONISASI PERMANEN: bila riwayat aktif sudah terhubung ke
               // Hitung Cetakan, BUKA data tersebut (jangan buat baru / reset).
               // fromPotongKertas=1 → HC auto-terapkan perubahan sumber bila ada.

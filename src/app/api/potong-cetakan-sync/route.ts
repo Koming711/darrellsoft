@@ -22,9 +22,9 @@ import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 import {
   extractPkSource, extractHcSource, diffSources,
-  computeHcPaperFromPk, computeOngkosCetak, computeFinishingTotal, recomputeHcTotals,
-  parseSnapshot, parseSyncHistory, pushSyncEvent, buildPkSummary,
+  parseSnapshot, parseSyncHistory, buildPkSummary,
 } from '@/lib/potong-sync'
+import { applyPkToHcSync } from '@/lib/potong-sync-apply'
 import type { SourceFieldChange } from '@/lib/potong-sync'
 
 // Ambil HC terhubung: by hcId (harus ter-link ke pk ini) atau HC terbaru utk pkId.
@@ -106,118 +106,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // --- 1. Field sumber: before → after
-    const source = extractPkSource(pk)
-    const changed = diffSources(extractHcSource(hc), source)
-
-    // --- 2. Hitung ulang nilai turunan (rumus == editor klien)
-    const paper = computeHcPaperFromPk(pk)
-    const qty = parseInt(source.quantity) || 0
-    const cw = parseFloat(source.cutWidth) || 0
-    const ch = parseFloat(source.cutHeight) || 0
-
-    // Ongkos cetak: input mesin/warna/plat manual DIPERTAHANKAN, hanya nilai
-    // quantity-dependent dihitung ulang bila master mesin ditemukan.
-    const num = (v: unknown) => Number(v || 0)
-    let ongkosCetak = num(hc.ongkosCetak)
-    let ongkosCetak2 = num(hc.ongkosCetak2)
-    const warna1 = parseInt(hc.warna || '0') || 0
-    const warnaKhusus1 = parseInt(hc.warnaKhusus || '0') || 0
-    if (hc.machineName) {
-      const machine = await db.printingCost.findFirst({
-        where: { machineName: hc.machineName, userId: hc.userId },
-      })
-      const recalc = computeOngkosCetak(machine, qty, warna1, warnaKhusus1, num(hc.hargaPlat))
-      if (recalc !== null) ongkosCetak = recalc
-    }
-    if (hc.machineName2) {
-      const machine2 = await db.printingCost.findFirst({
-        where: { machineName: hc.machineName2, userId: hc.userId },
-      })
-      const recalc2 = computeOngkosCetak(machine2, qty, parseInt(hc.warna2 || '0') || 0, parseInt(hc.warnaKhusus2 || '0') || 0, num(hc.hargaPlat2))
-      if (recalc2 !== null) ongkosCetak2 = recalc2
-    }
-
-    // Finishing: daftar finishing manual DIPERTAHANKAN, nilai dihitung ulang
-    // dari master Finishing (bila master ditemukan; bila tidak → nilai lama).
-    const finishingMasters = await db.finishing.findMany({ where: { userId: hc.userId } })
-    const finishingRecalc = computeFinishingTotal(hc.finishingNames, finishingMasters, qty, cw, ch)
-    const finishingCost = finishingRecalc !== null ? finishingRecalc : num(hc.finishingCost)
-
-    const totals = recomputeHcTotals({
-      totalPaperPrice: paper.totalPaperPrice,
-      ongkosCetak, ongkosCetak2, finishingCost,
-      packingCost: num(hc.packingCost),
-      shippingCost: num(hc.shippingCost),
-      otherCost: num(hc.otherCost),
-      otherCost2: num(hc.otherCost2),
-      glueCost: num(hc.glueCost),
-      glueBorongan: num(hc.glueBorongan),
-      profitPercent: num(hc.profitPercent),
-    })
-
-    // --- 3. Snapshot + riwayat sinkronisasi (audit)
-    const now = new Date()
-    const snapshotJson = JSON.stringify({ ...source, syncedAt: now.toISOString() })
-    const event = {
-      at: now.toISOString(),
-      direction: 'pk→hc' as const,
-      result: 'ok' as const,
-      changed,
-      totalPaperPrice: paper.totalPaperPrice,
-      subTotal: totals.subTotal,
-      grandTotal: totals.grandTotal,
-    }
-    const historyJson = JSON.stringify(pushSyncEvent(parseSyncHistory(hc.pkSyncHistory), event))
-
-    // --- 4. SATU transaksi: field sumber + turunan + status sinkron (§9)
-    const updated = await db.$transaction(async (tx) => {
-      return tx.riwayatCetakan.update({
-        where: { id: hc.id },
-        data: {
-          // A. Field sumber (ikut PK terbaru)
-          customerName: source.customerName,
-          printName: source.printName,
-          paperName: source.paperName,
-          paperGrammage: source.paperGrammage || '0',
-          paperLength: source.paperLength,
-          paperWidth: source.paperWidth,
-          cutWidth: source.cutWidth,
-          cutHeight: source.cutHeight,
-          quantity: source.quantity,
-          jumlahPesanan: source.jumlahPesanan,
-          berapaMata: source.berapaMata,
-          setelanKertas: source.setelanKertas,
-          namaSuplier: source.namaSuplier,
-          pricePerSheet: parseFloat(source.pricePerSheet) || 0,
-          // B. Nilai turunan
-          totalPaperPrice: paper.totalPaperPrice,
-          ongkosCetak, ongkosCetak2, finishingCost,
-          subTotal: totals.subTotal,
-          profitAmount: totals.profitAmount,
-          grandTotal: totals.grandTotal,
-          // D. Status sinkronisasi + audit
-          pkSyncStatus: 'synced',
-          pkLastSyncedAt: now,
-          pkSourceSnapshot: snapshotJson,
-          pkSyncHistory: historyJson,
-        },
-      })
-    })
+    // Terapkan sinkronisasi lewat helper bersama (dipakai juga oleh auto-sync
+    // di PUT /api/riwayat-potong-kertas/[id]) — field sumber + turunan + audit
+    // dalam SATU transaksi; input manual dipertahankan.
+    const result = await applyPkToHcSync(pk, hc)
 
     return NextResponse.json({
       status: 'synced',
-      changed,
-      derived: {
-        sheetsNeeded: paper.sheetsNeeded,
-        piecesPerSheet: paper.piecesPerSheet,
-        totalPaperPrice: paper.totalPaperPrice,
-        ongkosCetak, ongkosCetak2, finishingCost,
-        subTotal: totals.subTotal,
-        profitAmount: totals.profitAmount,
-        grandTotal: totals.grandTotal,
-      },
-      hc: updated,
+      changed: result.changed,
+      derived: result.derived,
+      hc: result.hc,
     })
   } catch (error) {
     console.error('Error potong-cetakan-sync POST:', error)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
 import { validatePhotoDataUrl } from '@/lib/image-compress'
+import { autoSyncLinkedHc } from '@/lib/potong-sync-apply'
 
 export async function PUT(
   request: NextRequest,
@@ -44,12 +45,19 @@ export async function PUT(
         strategy: body.strategy ?? item.strategy,
         jumlahPesanan: body.jumlahPesanan ?? item.jumlahPesanan,
         berapaMata: body.berapaMata ?? item.berapaMata,
+        namaSuplier: body.namaSuplier ?? item.namaSuplier,
         resultData: body.resultData ?? item.resultData,
         photoUrl: body.photoUrl === undefined ? item.photoUrl : validatePhotoDataUrl(body.photoUrl),
       }
     })
 
-    return NextResponse.json(updated)
+    // === AUTO-SYNC (permintaan user: "data di hitung cetakan turut berubah"):
+    // begitu riwayat Potong Kertas diupdate, Hitung Cetakan yang terhubung
+    // (pkRiwayatId) langsung diperbarui — field sumber + nilai turunan dihitung
+    // ulang, input manual dipertahankan, snapshot & riwayat audit diperbarui.
+    const autoSync = await autoSyncLinkedHc(updated, user.id)
+
+    return NextResponse.json({ ...updated, autoSync })
   } catch (error) {
     console.error('Error updating riwayat potong kertas:', error)
     return NextResponse.json({ error: 'Gagal mengupdate riwayat' }, { status: 500 })
