@@ -14003,3 +14003,23 @@ Stage Summary:
 - Backup Semua / Auto Backup tidak lagi menulis file ke disk sama sekali; unduhan .xlsx tetap langsung dari response (tidak terpengaruh).
 - File .json lama di folder backups/ diimpor sekali otomatis ke DB (flag 'backup_fs_migrated_v1') supaya riwayat lama tidak hilang dan jadi bisa dihapus.
 - Backup .xlsx/.json yang diunduh ke perangkat user tidak berubah; restore dari file upload tetap jalan.
+
+---
+Task ID: restore-from-backup
+Agent: Z.ai Code (main)
+Task: Extract uploaded split archive (workspace-*.tar.001/002/003) and run the project perfectly
+
+Work Log:
+- Detected .001 as gzip header; concatenated 3 parts (142MB) into /tmp/workspace.tar.gz and verified with tar -tzf (1820 entries, valid git repo + Next.js project "Darrell Soft - Kalkulator Hitung Cetakan")
+- Extracted to /tmp/extracted (159MB); confirmed .env points to file:/home/z/my-project/db/custom.db (project originally lived at same path)
+- Stopped scaffold dev server, moved old scaffold files to /tmp/scaffold-backup, copied extracted project into /home/z/my-project (kept upload/ intact), replaced .git with user's repo (48 commits ahead of origin/main, working tree clean)
+- bun install: 969 packages in ~5s; prisma generate OK via postinstall; DB connects (2 Pengguna preserved, transactional data intentionally wiped in latest custom.db)
+- Started Next.js 16.1.3 (Turbopack) via project's own daemon.cjs (auto-restart supervisor, PID 2055) — first compile ~7s, GET / 200
+- Started mini-services/notif-service (socket.io) on 3003 + internal API on 3004; added .zscripts/notif-keepalive.sh to auto-restart it if sandbox reaps the process
+- notif-ws left stopped: dead code (no imports in src/), and its port 3004 conflicts with notif-service internal API
+
+Stage Summary:
+- App fully restored & verified in browser: landing page + v151 changelog dialog, login (superadmin/268899 seed creds), dashboard with stats, Hitung Cetakan calculator (customer dropdown populated), Invoice list (3 invoices), Master Customer (5 rows), auth-guard redirect works
+- Footer verified flush to viewport bottom on mobile (390x844) and desktop (1366x768); long landing page pushes footer naturally
+- Zero HTTP 4xx/5xx in logs, zero console errors; socket.io polling via gateway (?XTransformPort=3003) returns 200
+- Services: next dev :3000 (daemon.cjs supervised), notif-service :3003/:3004 (keepalive supervised)
