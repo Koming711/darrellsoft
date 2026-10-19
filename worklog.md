@@ -14045,3 +14045,23 @@ Stage Summary:
 - DB verified: CalonPembeli created (catatan includes company name, expired +demo_days), RegisterOtp consumed, sample data seeded (7 paper, 3 printing cost, 5 finishing, 5 customer)
 - Admin verified: superadmin "Pendaftar Baru" badge incremented to 3; /login?tab=register redirects anonymous users to /daftar
 - Footer on /daftar flush at viewport bottom; type-check clean for all new files (remaining tsc errors are pre-existing in legacy register-tenant route); ESLint clean
+
+---
+Task ID: remove-langganan-saya-menu
+Agent: Z.ai Code (main)
+Task: Hapus item menu "Langganan Saya" dari menu (permintaan user: "delete langganan saya di menu")
+
+Work Log:
+- Cari definisi menu: item "langganan_saya" (href /langganan-saya) ada di src/components/sidebar.tsx (sidebar mobile + popup Lainnya) dan src/components/sidebar-desktop.tsx (sidebar desktop)
+- Hapus entry menu { titleKey: 'langganan_saya', href: '/langganan-saya', icon: CreditCard, featureId: 'langganan-saya' } dari kedua file
+- Hapus import CreditCard yang jadi tidak terpakai di kedua file
+- Menu popup mobile (MenuHomeScreen) otomatis ikut bersih karena items di-generate dari menuItems yang sama
+- Halaman /langganan-saya TIDAK dihapus — masih bisa diakses langsung & masih ditautkan dari alur pembayaran/notifikasi langganan
+- Lint kedua file: 0 error 0 warning
+- Verifikasi browser (agent-browser): login superadmin → desktop sidebar (1366x768): section LANGGANAN kini hanya "Pilih Paket" + "Panel Admin"; popup mobile (390x844): tile Langganan Saya hilang; halaman /langganan-saya masih termuat normal saat diakses langsung; dev.log bersih tanpa error
+
+Stage Summary:
+- Item menu "Langganan Saya" dihapus dari sidebar desktop & menu mobile (popup Lainnya + sidebar)
+- Section LANGGANAN tetap ada berisi "Pilih Paket" dan "Panel Admin"
+- Fungsionalitas halaman langganan tetap utuh (kuitansi, tagihan, notifikasi masih menautk ke /langganan-saya)
+- File berubah: src/components/sidebar.tsx, src/components/sidebar-desktop.tsx

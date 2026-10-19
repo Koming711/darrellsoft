@@ -38,7 +38,6 @@ import {
   UserCog,
   Package,
   PackageOpen,
-  CreditCard,
   LayoutDashboard,
   TrendingUp,
   PieChart,
@@ -145,13 +144,6 @@ const menuItems = [
     href: '/pilih-paket',
     icon: PackageOpen,
     featureId: 'pilih-paket',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'langganan_saya' as TranslationKey,
-    href: '/langganan-saya',
-    icon: CreditCard,
-    featureId: 'langganan-saya',
     section: 'langganan',
   },
   {
