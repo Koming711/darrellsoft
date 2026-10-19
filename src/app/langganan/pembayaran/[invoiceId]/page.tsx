@@ -235,13 +235,14 @@ export default function PembayaranPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50/50 via-white to-white dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
       <header className="sticky top-0 z-20 border-b bg-white/80 backdrop-blur dark:bg-slate-950/80">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <Link href="/langganan-saya" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="h-4 w-4" /> Langganan Saya
+        <div className="mx-auto flex max-w-4xl items-center px-4 py-3">
+          <Link
+            href="/pilih-paket"
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Kembali ke halaman pilih paket"
+          >
+            <ChevronLeft className="h-4 w-4" /> Kembali ke Pilih Paket
           </Link>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/pilih-paket">Pilih Paket</Link>
-          </Button>
         </div>
       </header>
 

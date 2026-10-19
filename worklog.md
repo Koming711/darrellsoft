@@ -14095,3 +14095,23 @@ Stage Summary:
 - Alur lengkap: Daftar (OTP WA) → /pilih-paket (DB-driven + konfirmasi) → tagihan berkode unik (server-side, beku) → QRIS/Transfer + unggah bukti → verifikasi admin (idempoten, transaksional) → langganan aktif + akses → /langganan-saya (status, sisa hari, kuitansi)
 - Satu perubahan skema: SubscriptionInvoice.uniqueCode (nullable) — data historis tak tersentuh
 - Semua file yang diedit lolos eslint 0 error; server sehat; fitur lama terjaga
+
+---
+Task ID: pay-header-back-button
+Agent: Z.ai Code (main)
+Task: Tambah tombol back ke halaman pilih-paket di halaman pembayaran; hilangkan tombol "Langganan Saya" dan "Pilih Paket" di header halaman pembayaran (check and fix)
+
+Work Log:
+- Periksa src/app/langganan/pembayaran/[invoiceId]/page.tsx: header (sebelumnya) berisi Link "Langganan Saya" → /langganan-saya (kiri) + Button "Pilih Paket" → /pilih-paket (kanan)
+- Ganti isi header dengan satu tombol back: Link "‹ Kembali ke Pilih Paket" → /pilih-paket (aria-label "Kembali ke halaman pilih paket"), gaya konsisten dgn header /pilih-paket (ChevronLeft + teks muted-foreground)
+- Import Link/Button/router tetap dipakai di bagian lain file (alert status, tombol copy, submit); tidak ada import yatim
+- Link kontekstual dalam alert status (disetujui → "Langganan Saya", kedaluwarsa → "Buat tagihan baru", sukses → "Lihat langganan & kuitansi") dipertahankan — bagian alur status, bukan tombol navigasi header
+- eslint file: 0 error 0 warning
+- Verifikasi browser (agent-browser): buat tagihan nyata via /pilih-paket → Basic → "Ya, Buat Tagihan" → redirect /langganan/pembayaran/cmvemy89p000vpwrlyuc49380; header hanya menampilkan "Kembali ke Pilih Paket"; klik tombol → location.pathname = "/pilih-paket" ✓
+- Screenshot desktop 1366×768 + mobile 390×844: header rapi, tanpa tombol lama
+- Bersih-bersih: hapus tagihan tes SUB-2610-HSY3 (user-superadmin) dari DB via Prisma agar data user tidak tercemar; dev.log bersih
+
+Stage Summary:
+- Header halaman pembayaran kini hanya berisi tombol back "‹ Kembali ke Pilih Paket" (→ /pilih-paket); tombol "Langganan Saya" & "Pilih Paket" dihilangkan
+- Satu file berubah: src/app/langganan/pembayaran/[invoiceId]/page.tsx (blok header saja)
+- Verifikasi end-to-end (alur tagihan nyata, klik back, desktop+mobile) lolos; tidak ada perubahan lain, fitur lama utuh
