@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeApiError, safeErrorLog } from '@/lib/api-error'
+import { hashPassword } from '@/lib/password'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,12 +38,12 @@ export async function POST(request: NextRequest) {
     if (resetToken.userType === 'pengguna') {
       await db.pengguna.update({
         where: { id: resetToken.userId },
-        data: { password: newPassword },
+        data: { password: hashPassword(newPassword) }, // bcrypt
       })
     } else if (resetToken.userType === 'calon_pembeli') {
       await db.calonPembeli.update({
         where: { id: resetToken.userId },
-        data: { password: newPassword },
+        data: { password: hashPassword(newPassword) }, // bcrypt
       })
     }
 

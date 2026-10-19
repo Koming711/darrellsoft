@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import { Sidebar } from './sidebar-desktop'
 import { MobileHeader, MobileBottomNav } from './sidebar'
 import { CompanyDataPopup } from './company-data-popup'
+import { SubscriptionPendingBanner } from './subscription-pending-banner'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
@@ -594,6 +595,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         {/* Main Content — extra bottom padding on mobile for bottom nav + safe area.
             Margin kiri/kanan desktop 3mm untuk SEMUA halaman (permintaan user). Mobile tetap p-4. */}
         <main className="p-4 pb-20 lg:py-8 lg:pb-8 lg:px-[3mm]">
+          {/* Banner "Menunggu Verifikasi Pembayaran" — tampil selama ada tagihan
+              yang sedang diverifikasi admin dan langganan belum aktif. */}
+          <SubscriptionPendingBanner />
           {children}
         </main>
       </div>

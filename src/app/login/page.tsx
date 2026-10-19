@@ -30,9 +30,13 @@ function LoginContent() {
     return n.startsWith('/') && !n.startsWith('//') ? n : ''
   })()
   const goAfterAuth = () => {
-    window.location.href = nextUrl || '/pembukaan'
+    // Prioritas: ?next= eksplisit → arahan status langganan dari server (tagihan terbuka /
+    // belum pilih paket) → beranda aplikasi.
+    window.location.href = nextUrl || postLoginTargetRef.current || '/pembukaan'
   }
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(searchParams.get('tab') === 'register' ? 'register' : 'login')
+  // Arahan lanjut sesuai status langganan (diisi dari respons login server)
+  const postLoginTargetRef = useRef('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -159,6 +163,9 @@ function LoginContent() {
         } catch {}
         localStorage.setItem('permissions', JSON.stringify(allPerms))
       }
+
+      // Arahan lanjut sesuai status langganan (tagihan terbuka / belum pilih paket)
+      postLoginTargetRef.current = typeof data.subscriptionRedirect === 'string' ? data.subscriptionRedirect : ''
 
       // Show demo popup if applicable
       if (data.role === 'demo' && data.demoPopupMessage) {
@@ -994,14 +1001,14 @@ function LoginContent() {
               <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
             </div>
             <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
+              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); goAfterAuth() }}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
               autoFocus
             >
               {t('ok')}
             </button>
             <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); window.location.href = '/pembukaan' }}
+              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); goAfterAuth() }}
               className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
             >
               {t('masuk_ke_halaman_utama')}

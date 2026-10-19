@@ -23,7 +23,7 @@ export async function GET(
     }
     const { invoiceId } = await params
 
-    const invoice = await db.subscriptionInvoice.findUnique({
+    let invoice = await db.subscriptionInvoice.findUnique({
       where: { id: invoiceId },
       include: { plan: true },
     })
@@ -32,6 +32,21 @@ export async function GET(
     }
     if (invoice.userId !== user.id && !isAdmin(user.role)) {
       return NextResponse.json({ error: 'Akses ditolak — tagihan bukan milik Anda' }, { status: 403 })
+    }
+
+    // Tagihan menunggu_pembayaran yang lewat batas waktu → tandai kedaluwarsa (persist)
+    if (
+      invoice.status === 'menunggu_pembayaran' &&
+      invoice.dueDate &&
+      new Date(invoice.dueDate) < new Date()
+    ) {
+      try {
+        await db.subscriptionInvoice.update({
+          where: { id: invoice.id },
+          data: { status: 'kedaluwarsa' },
+        })
+        invoice = { ...invoice, status: 'kedaluwarsa' }
+      } catch { /* non-fatal */ }
     }
 
     const [payments, settings, sub] = await Promise.all([

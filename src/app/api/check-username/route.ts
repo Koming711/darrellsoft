@@ -35,19 +35,8 @@ export async function GET(request: NextRequest) {
     // 2. Pengguna
     const existingUser = await db.pengguna.findUnique({ where: { username } })
     if (existingUser) {
-      // Orphaned Pengguna (no linked Pembeli/CalonPembeli and not admin) → auto cleanup
-      if (existingUser.role !== 'admin' && existingUser.role !== 'superadmin') {
-        const linkedPembeli = await db.pembeli.findFirst({
-          where: { penggunaId: existingUser.id },
-        })
-        const linkedCalon = await db.calonPembeli.findFirst({
-          where: { userId: existingUser.id },
-        })
-        if (!linkedPembeli && !linkedCalon) {
-          await db.pengguna.delete({ where: { id: existingUser.id } })
-          return NextResponse.json({ available: true }, { status: 200 })
-        }
-      }
+      // READ-ONLY: endpoint publik tidak boleh punya efek samping menghapus data.
+      // Pembersihan orphan Pengguna hanya dilakukan saat register (server, tervalidasi).
       return NextResponse.json(
         { available: false, reason: 'pengguna_exists', code: 'USERNAME_EXISTS' },
         { status: 200 }

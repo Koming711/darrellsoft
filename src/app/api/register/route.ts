@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { seedUserData } from '@/lib/auto-seed'
 import { sanitizeError } from '@/lib/api-error'
 import { normalizePhone, phoneVariants } from '@/lib/phone'
+import { hashPassword } from '@/lib/password'
 import { emitRealtime } from '@/lib/realtime-notify'
 import {
   buildDefaultPermissions,
@@ -223,7 +224,7 @@ export async function POST(request: NextRequest) {
         role: 'demo',
         expiredDate,
         username,
-        password,
+        password: hashPassword(password), // bcrypt — jangan simpan plaintext
       }
     })
 

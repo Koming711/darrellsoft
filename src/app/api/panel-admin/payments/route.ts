@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const payments = await db.subscriptionPayment.findMany({
       where,
       include: {
-        invoice: { select: { invoiceNumber: true, planName: true, amount: true, isPlanChange: true } },
+        invoice: { select: { invoiceNumber: true, planName: true, amount: true, uniqueCode: true, isPlanChange: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         invoiceNumber: p.invoice.invoiceNumber,
         planName: p.invoice.planName,
         invoiceAmount: p.invoice.amount,
+        uniqueCode: p.invoice.uniqueCode,
         isPlanChange: p.invoice.isPlanChange,
         userId: p.userId,
         customer: userMap.get(p.userId) ?? null,

@@ -676,7 +676,8 @@ model SubscriptionInvoice {
   subscriptionId     String? // langganan yang terkait tagihan ini
   subscription       CustomerSubscription? @relation(fields: [subscriptionId], references: [id])
   planName           String // snapshot nama paket saat tagihan dibuat
-  amount             Float // nominal tagihan (BEKU — tidak ikut perubahan harga)
+  amount             Float // nominal tagihan FINAL (BEKU — tidak ikut perubahan harga)
+  uniqueCode         Int? // kode unik 3 digit (001–999) yg ditambahkan ke harga agar transfer mudah dibedakan; null = nominal polos
   originalPrice      Float? // snapshot harga sebelum diskon (tampilan coret)
   planSnapshot       String    @default("{}") // JSON snapshot paket (fitur, durasi) saat tagihan dibuat
   billingPeriodStart DateTime?

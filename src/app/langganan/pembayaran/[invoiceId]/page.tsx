@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { StepIndicator } from '@/components/darrellsoft/step-indicator'
 import { compressImageToJpegDataUrl, dataUrlBytes, formatBytes, PAYMENT_PROOF_MAX_BYTES } from '@/lib/image-compress'
 import { authFetch, getAuthHeaders } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
@@ -45,6 +46,7 @@ interface InvoiceDetail {
   invoiceNumber: string
   planName: string
   amount: number
+  uniqueCode: number | null
   originalPrice: number | null
   status: string
   rawStatus: string
@@ -244,6 +246,9 @@ export default function PembayaranPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8">
+        {/* Indikator langkah: Daftar ✓ → Pilih Paket ✓ → Pembayaran (Anda di sini) → Verifikasi → Selesai */}
+        <StepIndicator step={3} className="mx-auto mb-8 max-w-3xl" />
+
         {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-28 rounded-2xl" />
@@ -273,6 +278,11 @@ export default function PembayaranPage() {
                     <div className="text-sm text-muted-foreground">Paket {invoice.planName}</div>
                     <div className="mt-1 flex items-end gap-2">
                       <span className="text-3xl font-extrabold tracking-tight">{rupiah(invoice.amount)}</span>
+                      {typeof invoice.uniqueCode === 'number' && (
+                        <Badge className="mb-1 bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/40 dark:text-violet-300">
+                          termasuk kode {String(invoice.uniqueCode).padStart(3, '0')}
+                        </Badge>
+                      )}
                       {invoice.originalPrice && invoice.originalPrice > invoice.amount && (
                         <span className="pb-1 text-sm text-muted-foreground line-through">{rupiah(invoice.originalPrice)}</span>
                       )}
@@ -435,13 +445,41 @@ export default function PembayaranPage() {
 
                   <div className="rounded-xl border border-dashed p-4">
                     <div className="mb-3 text-sm font-semibold">Nominal Transfer</div>
-                    <div className="flex items-end gap-2">
-                      <span className="text-2xl font-extrabold">{rupiah(invoice.amount)}</span>
-                      {invoice.originalPrice && invoice.originalPrice > invoice.amount && (
-                        <span className="pb-0.5 text-sm text-muted-foreground line-through">{rupiah(invoice.originalPrice)}</span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Transfer PERSIS sesuai nominal tagihan agar mudah diverifikasi.</p>
+                    {typeof invoice.uniqueCode === 'number' ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Harga paket {invoice.planName}</span>
+                          <span className="font-medium">{rupiah(invoice.amount - invoice.uniqueCode)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2 text-muted-foreground">
+                            Kode unik
+                            <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/40 dark:text-violet-300">
+                              {String(invoice.uniqueCode).padStart(3, '0')}
+                            </Badge>
+                          </span>
+                          <span className="font-medium">+{rupiah(invoice.uniqueCode)}</span>
+                        </div>
+                        <div className="flex items-center justify-between border-t pt-2">
+                          <span className="text-sm font-semibold">Total transfer</span>
+                          <span className="text-2xl font-extrabold tracking-tight">{rupiah(invoice.amount)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Transfer <b>PERSIS</b> sesuai TOTAL (harga + kode unik 3 digit) — kode unik membuat
+                          pembayaran Anda mudah dikenali dan tidak tertukar dengan pelanggan lain.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-end gap-2">
+                          <span className="text-2xl font-extrabold">{rupiah(invoice.amount)}</span>
+                          {invoice.originalPrice && invoice.originalPrice > invoice.amount && (
+                            <span className="pb-0.5 text-sm text-muted-foreground line-through">{rupiah(invoice.originalPrice)}</span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">Transfer PERSIS sesuai nominal tagihan agar mudah diverifikasi.</p>
+                      </>
+                    )}
                   </div>
 
                   {method === 'transfer_bank' && (

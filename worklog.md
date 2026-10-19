@@ -14065,3 +14065,33 @@ Stage Summary:
 - Section LANGGANAN tetap ada berisi "Pilih Paket" dan "Panel Admin"
 - Fungsionalitas halaman langganan tetap utuh (kuitansi, tagihan, notifikasi masih menautk ke /langganan-saya)
 - File berubah: src/components/sidebar.tsx, src/components/sidebar-desktop.tsx
+
+---
+Task ID: alur-pendaftaran-paket
+Agent: Z.ai Code (main)
+Task: Sempurnakan alur pendaftaran akun + pemilihan paket + tagihan + pembayaran manual + verifikasi admin (16 bagian requirement)
+
+Work Log:
+- Audit menyeluruh (2 Explore agent): ditemukan sistem live yang solid (SubscriptionPlan → Invoice → bukti manual → reviewPayment transaksional-idempoten) + 4 gap utama: kode unik tidak ada, password plaintext, OTP bocor saat gateway gagal, tidak ada redirect pasca-login sesuai status langganan
+- DB: tambah kolom `uniqueCode Int?` pada SubscriptionInvoice (nullable → data lama aman, tanpa migrasi data); prisma db push
+- src/lib/password.ts BARU: hashPassword bcryptjs + verifyPassword kompatibel hash & plaintext legacy
+- Hashing di semua 10 titik tulis password: auth/register, register (legacy), register-tenant, pembeli/create-account, pengguna/add-to-grup, panel-admin customers/[id] (reset), auth/reset-password, auth/forgot-password, midtrans create-transaction (metadata + mock akun)
+- login: verifyPassword (hash-aware) + `subscriptionRedirect` di response (tagihan terbuka → halaman tagihan; demo tanpa langganan → /pilih-paket; admin/manager/user-aktif → null) + login page pakai redirect tsb (termasuk tombol OK popup demo)
+- api/auth/otp/send: gateway WhatsApp gagal → fail-closed 502 (tidak bocorkan kode); otp_dev_mode tetap return demoCode untuk testing
+- api/check-username: hapus delete destruktif pada GET (kini read-only)
+- POST /api/subscription/invoice ditulis ulang: transaksi DB (anti double-click/race), persist-expire tagihan lewat dueDate → kedaluwarsa, cek kelayakan Trial (1x per akun), alokasi kode unik 001–999 (bebas bentrok dgn tagihan terbuka + disetujui 7 hari; habis → nominal polos), amount = harga DB + kode (server-side), paket harga 0 → aktivasi instan tanpa bayar (status aktif + audit + notifikasi, role tetap demo = beda dari berbayar)
+- GET invoice/[id]: persist-expire + uniqueCode ikut di-response
+- api/panel-admin/payments: sertakan uniqueCode; UI verifikasi tampil badge "Kode Unik 042" + cek nominal tetap ada
+- /pilih-paket: StepIndicator (step 2), Dialog Konfirmasi Paket (nama, harga, durasi, maks akun, fitur, info kode unik; tombol "Ya, Buat Tagihan"), tabel perbandingan fitur antar paket (union fitur + resolusi "Seluruh fitur paket X"), badge Trial, grid responsif 4 kolom desktop
+- Halaman pembayaran: StepIndicator (step 3), rincian nominal = Harga paket + Kode unik (badge 3 digit) = Total transfer; kartu tagihan badge "termasuk kode XXX"
+- DashboardLayout: SubscriptionPendingBanner dipasang di main content (tampil saat ada tagihan menunggu verifikasi & langganan belum aktif)
+- Landing page: copy "Gratis 3 hari" yang menyesatkan → netral (ID+EN)
+- 5 halaman legacy rusak (500: /paket, /riwayat-langganan, /administrasi/paket, /administrasi/pembayaran-manual, /administrasi/pengaturan-pembayaran) → redirect 307 ke halaman live yang setara
+- Fix: duplicate import di dashboard-layout menyebabkan crash build; restart daemon (stale Prisma client)
+- Testing API (curl): register+OTP dev, duplikat HP 409, OTP salah 400 + hitung percobaan, login hash OK/salah 401, kode unik konsisten (199000+588=199588), double-submit 409 + existingInvoiceId, manipulasi harga diabaikan, 2 pelanggan kode beda (588 vs 503), akses silang invoice 403, bukti duplikat 409, bayar tagihan orang lain 403, reject dgn alasan → resubmit → approve → langganan aktif (Pro, 30 hari, periode tercatat), role demo→user, expiredDate=endDate+7grace, trial ke-2 ditolak 403, paket nonaktif 400 & hilang dari katalog, tagihan kedaluwarsa → buat baru (lama persist kedaluwarsa), redirect superadmin/user aktif = null, legacy redirect 307 semua
+- Testing browser (agent-browser): /daftar→/pilih-paket, step indicator, kartu 4 paket dari DB, dialog konfirmasi, halaman pembayaran rincian kode (Rp50.000+kode199=Rp50.199), login user2 → diarahkan ke tagihan terbuka, popup demo OK → tagihan, banner "Menunggu Verifikasi Pembayaran" muncul di dashboard, tabel perbandingan, mobile 390×844 stack vertikal rapi, fitur lama (hitung-cetakan, invoice, superadmin login) aman
+
+Stage Summary:
+- Alur lengkap: Daftar (OTP WA) → /pilih-paket (DB-driven + konfirmasi) → tagihan berkode unik (server-side, beku) → QRIS/Transfer + unggah bukti → verifikasi admin (idempoten, transaksional) → langganan aktif + akses → /langganan-saya (status, sisa hari, kuitansi)
+- Satu perubahan skema: SubscriptionInvoice.uniqueCode (nullable) — data historis tak tersentuh
+- Semua file yang diedit lolos eslint 0 error; server sehat; fitur lama terjaga

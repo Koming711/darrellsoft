@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { hashPassword } from '@/lib/password'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
         nomorHP: nomorHP || '',
         email: email || '',
         username,
-        password,
+        password: hashPassword(password), // bcrypt — jangan simpan plaintext
         role: 'admin',
         perusahaanId: perusahaan.id,
         validUntil,

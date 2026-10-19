@@ -117,15 +117,14 @@ export async function POST(request: NextRequest) {
 
     const result = await sendWhatsAppMessage(whatsapp, message)
     if (!result.success) {
-      // Gateway gagal → fallback mode demo supaya pendaftaran tidak terblokir
-      console.warn('[auth/otp/send] Fonnte gagal, fallback demoCode:', result.error)
-      return NextResponse.json({
-        ok: true,
-        message: successMessage,
-        demoCode: code,
-        expiresInMinutes: OTP_TTL_SECONDS / 60,
-        gatewayError: result.error || null,
-      })
+      // Gateway gagal → GAGALKAN permintaan (jangan pernah bocorkan kode OTP di respons).
+      // Kode hanya dikembalikan saat otp_dev_mode aktif (di atas) untuk keperluan pengujian.
+      console.error('[auth/otp/send] Fonnte gagal:', result.error)
+      return fail(
+        'Gagal mengirim kode OTP via WhatsApp. Silakan coba lagi beberapa saat lagi.',
+        502,
+        'OTP_SEND_FAILED'
+      )
     }
 
     return NextResponse.json({

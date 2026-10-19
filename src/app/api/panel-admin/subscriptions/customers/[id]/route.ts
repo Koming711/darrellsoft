@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAdmin } from '@/lib/server-auth'
+import { hashPassword } from '@/lib/password'
 import {
   addAuditLog,
   derivedInvoiceStatus,
@@ -210,7 +211,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         changed.push(`role (${t.pengguna.role} → ${role})`)
       }
       if (password !== undefined && password !== '') {
-        data.password = password
+        data.password = hashPassword(password) // bcrypt
         changed.push('password (reset)')
       }
       if (Object.keys(data).length > 0) {
@@ -239,7 +240,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         changed.push(`role (${t.calon.role ?? 'demo'} → ${role})`)
       }
       if (password !== undefined && password !== '') {
-        data.password = password
+        data.password = hashPassword(password) // bcrypt
         changed.push('password (reset)')
       }
       if (Object.keys(data).length > 0) {

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
+import { hashPassword } from '@/lib/password'
 
 /**
  * POST /api/pengguna/add-to-grup
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
         nomorHP: ownerPengguna.nomorHP,
         email: `${username.trim()}@grup.${ownerPengguna.username}`,
         username: username.trim(),
-        password: password,
+        password: hashPassword(password), // bcrypt — jangan simpan plaintext
         role: 'user',
         grupId: ownerPengguna.grupId,
         validUntil: ownerPengguna.validUntil, // Same expiry as owner

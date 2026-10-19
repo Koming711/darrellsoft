@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeApiError, safeErrorLog } from '@/lib/api-error'
+import { hashPassword } from '@/lib/password'
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       if (pengguna) {
         await db.pengguna.update({
           where: { id: pengguna.id },
-          data: { password: newPassword },
+          data: { password: hashPassword(newPassword) }, // bcrypt
         })
         return NextResponse.json({ success: true, message: 'Password berhasil diubah. Silakan login dengan password baru Anda.' })
       }
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       if (calon) {
         await db.calonPembeli.update({
           where: { id: calon.id },
-          data: { password: newPassword },
+          data: { password: hashPassword(newPassword) }, // bcrypt
         })
         return NextResponse.json({ success: true, message: 'Password berhasil diubah. Silakan login dengan password baru Anda.' })
       }

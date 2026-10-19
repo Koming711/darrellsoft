@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { ensureSeedData, seedUserData, seedKategoriForUser } from '@/lib/auto-seed'
 import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults'
 import { sanitizeError } from '@/lib/api-error'
+import { verifyPassword } from '@/lib/password'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,7 +26,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (pengguna) {
-      if (pengguna.password !== password) {
+      // Kompatibel hash bcrypt (akun baru) & plaintext legacy (akun lama)
+      if (!verifyPassword(password, pengguna.password)) {
         return NextResponse.json({ error: 'Username atau password salah' }, { status: 401 })
       }
 
@@ -69,7 +71,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (calon) {
-      if (calon.password !== password) {
+      // Kompatibel hash bcrypt (akun baru) & plaintext legacy (akun lama)
+      if (!verifyPassword(password, calon.password)) {
         return NextResponse.json({ error: 'Username atau password salah' }, { status: 401 })
       }
 
@@ -146,6 +149,32 @@ async function buildLoginResponse(
     console.warn('⚠️ Seed kategori error during login (non-fatal):', seedErr)
   })
 
+  // ===== Arah lanjut sesuai status langganan (alur pendaftaran → pilih paket → bayar) =====
+  // - Ada tagihan terbuka (belum dibayar / menunggu verifikasi) → arahkan ke tagihan tsb.
+  // - Belum pernah memilih paket (tanpa langganan aktif) → /pilih-paket.
+  // - Admin/superadmin/manager & akun berbayar aktif → tidak diarahkan (null = default).
+  // - Role 'user' (aktivasi manual admin tanpa record langganan) tidak dipaksa ke
+  //   /pilih-paket agar alur lama tetap berfungsi — cukup tagihan terbuka yang dicek.
+  let subscriptionRedirect: string | null = null
+  if (role !== 'admin' && role !== 'superadmin' && role !== 'manager') {
+    try {
+      const [openInv, sub] = await Promise.all([
+        db.subscriptionInvoice.findFirst({
+          where: { userId, status: { in: ['menunggu_pembayaran', 'menunggu_verifikasi'] } },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        }),
+        db.customerSubscription.findUnique({ where: { userId }, select: { status: true } }),
+      ])
+      if (openInv) {
+        subscriptionRedirect = `/langganan/pembayaran/${openInv.id}`
+      } else if (role === 'demo' && (!sub || ['belum_aktif', 'kedaluwarsa', 'dibatalkan'].includes(sub.status))) {
+        // Pelanggan funnel pendaftaran mandiri yang belum punya langganan aktif
+        subscriptionRedirect = '/pilih-paket'
+      }
+    } catch { /* non-fatal — jangan blokir login */ }
+  }
+
   // Load custom permissions from database
   // Start with defaults so new features are always included
   const defaultFeatures = buildDefaultPermissions(role)
@@ -183,6 +212,7 @@ async function buildLoginResponse(
     sessionId,
     singleDevice,
     permissions: { features, subPermissions },
+    subscriptionRedirect,
     ...(demoPopupMessage ? { demoPopupMessage, demoRemainingDays } : {}),
   })
 

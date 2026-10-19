@@ -6,6 +6,7 @@ import { sanitizeError } from '@/lib/api-error'
 import { phoneVariants } from '@/lib/phone'
 import { emitRealtime } from '@/lib/realtime-notify'
 import { registerSchema, zodFieldErrors, displayPhone } from '@/lib/register-schema'
+import { hashPassword } from '@/lib/password'
 import {
   buildDefaultPermissions,
   buildDefaultSubPermissions,
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
         role: 'demo',
         expiredDate,
         username: d.username,
-        password: d.password,
+        password: hashPassword(d.password), // bcrypt — jangan simpan plaintext
       },
     })
 

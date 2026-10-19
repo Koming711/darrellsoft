@@ -46,6 +46,7 @@ interface PaymentRow {
   invoiceNumber: string
   planName: string
   invoiceAmount: number
+  uniqueCode: number | null
   isPlanChange: boolean
   userId: string
   customer: { username: string; namaLengkap: string; email: string; nomorHP: string } | null
@@ -223,6 +224,11 @@ export function VerifikasiPembayaranContent() {
                     </div>
                     <div className="text-sm">
                       Paket <b>{p.planName}</b> · Tagihan <b>{rupiah(p.invoiceAmount)}</b>
+                      {typeof p.uniqueCode === 'number' && (
+                        <Badge className="ml-2 bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/40 dark:text-violet-300">
+                          Kode Unik {String(p.uniqueCode).padStart(3, '0')}
+                        </Badge>
+                      )}
                       {p.amount !== p.invoiceAmount && <span className="ml-2 text-xs text-red-600">dibayar: {rupiah(p.amount)}!</span>}
                     </div>
                     {p.paymentMethod === 'transfer_bank' && (p.senderName || p.transferDate) && (

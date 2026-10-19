@@ -152,6 +152,51 @@ export async function getPaymentSettings() {
   return db.paymentSettings.create({ data: { key: 'default' } })
 }
 
+// ===== KODE UNIK 3 DIGIT (001–999) =====
+/**
+ * Alokasi kode unik 3 digit untuk membedakan transfer antar pelanggan.
+ * - Rentang 001–999.
+ * - TIDAK boleh bentrok dengan tagihan lain yang masih TERBUKA
+ *   (menunggu_pembayaran / menunggu_verifikasi) maupun tagihan yang baru
+ *   disetujui (7 hari terakhir) — agar nominal transfer tidak tertukar.
+ * - Dipanggil DI DALAM transaksi DB agar aman dari alokasi ganda bersamaan.
+ * - Return null bila semua kode habis → pemanggil memakai nominal polos
+ *   (harga dasar tanpa kode) sebagai mekanisme alternatif yang aman.
+ */
+export async function allocateUniqueCode(tx: Prisma.TransactionClient): Promise<number | null> {
+  const recentApprovedSince = new Date(Date.now() - 7 * 24 * 3600_000)
+  const rows = await tx.subscriptionInvoice.findMany({
+    where: {
+      OR: [
+        { status: { in: [INVOICE_STATUS.MENUNGGU_PEMBAYARAN, INVOICE_STATUS.MENUNGGU_VERIFIKASI] } },
+        { status: INVOICE_STATUS.DISETUJUI, updatedAt: { gte: recentApprovedSince } },
+      ],
+    },
+    select: { uniqueCode: true },
+  })
+  const used = new Set<number>()
+  for (const r of rows) {
+    if (typeof r.uniqueCode === 'number') used.add(r.uniqueCode)
+  }
+  if (used.size >= 999) return null
+  // Coba 60x pilih acak (cepat saat beban rendah), lalu fallback scan urut.
+  for (let i = 0; i < 60; i++) {
+    const candidate = 1 + Math.floor(Math.random() * 999)
+    if (!used.has(candidate)) return candidate
+  }
+  for (let c = 1; c <= 999; c++) {
+    if (!used.has(c)) return c
+  }
+  return null
+}
+
+/** Format kode unik 3 digit: 42 → "042". */
+export function formatUniqueCode(code: number | null | undefined): string {
+  if (typeof code !== 'number') return '-'
+  return String(code).padStart(3, '0')
+}
+
+
 // ===== DEFAULT PLAN SEEDING =====
 const DEFAULT_FEATURES_BASIC = [
   'Semua fitur dasar Darrellsoft',

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
 import { createSnapTransaction, savePaymentRecord } from '@/lib/midtrans';
 import { sanitizeError } from '@/lib/api-error';
+import { hashPassword } from '@/lib/password';
 import { seedUserData } from '@/lib/auto-seed';
 import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults';
 
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Store metadata (username, password, secondUsername) as JSON
     const metadata = JSON.stringify({
       username: username || '',
-      password: password || '',
+      password: password ? hashPassword(password) : '', // bcrypt — metadata bisa saja dibuat akun
       secondUsername: secondUsername || '',
     });
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     // ─── MOCK MODE: daftarkan sebagai CalonPembeli role demo (tanpa Midtrans) ───
     if (isFakeKey) {
       const metaUname = (username || '').trim();
-      const metaPwd = password || '';
+      const metaPwd = password ? hashPassword(password) : ''; // bcrypt — jangan simpan plaintext
 
       // Update payment status to success (record kept for history)
       await db.payment.update({ where: { orderId }, data: { transactionStatus: 'success' } });
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
       customerEmail,
       customerPhone,
       username: username || '',
-      password: password || '',
+      password: password ? hashPassword(password) : '', // bcrypt
       secondUsername: secondUsername || '',
     });
 
