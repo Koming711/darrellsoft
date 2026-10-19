@@ -353,16 +353,16 @@ export default function DaftarPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <main className="flex-1">
-        <div className="mx-auto w-full max-w-5xl px-4 py-8">
-          <StepIndicator step={1} className="mb-6 sm:mb-10" />
+    <div className="flex min-h-screen flex-col bg-background lg:h-screen lg:overflow-hidden">
+      <main className="flex-1 lg:flex lg:min-h-0 lg:flex-col lg:justify-center">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 lg:py-3">
+          <StepIndicator step={1} className="mb-6 sm:mb-8 lg:mb-3" />
 
-          <div className="grid items-stretch gap-6 lg:grid-cols-2">
+          <div className="grid items-stretch gap-6 lg:grid-cols-2 lg:gap-5">
             {/* Panel brand — hanya tampil di desktop */}
             <aside
               aria-hidden="true"
-              className="relative hidden flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 p-8 text-white lg:flex"
+              className="relative hidden flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 p-6 text-white lg:flex"
             >
               <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
               <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-400/10 blur-2xl" />
@@ -371,15 +371,15 @@ export default function DaftarPage() {
                 <DarrellLogo light size="lg" />
               </div>
 
-              <div className="relative my-10">
-                <h2 className="text-2xl font-bold leading-snug">
+              <div className="relative my-6">
+                <h2 className="text-xl font-bold leading-snug">
                   Mulai kelola percetakan Anda hari ini.
                 </h2>
-                <ul className="mt-6 space-y-4">
+                <ul className="mt-4 space-y-2.5">
                   {BENEFITS.map((benefit) => (
-                    <li key={benefit} className="flex items-start gap-3 text-sm text-teal-50">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15">
-                        <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
+                    <li key={benefit} className="flex items-start gap-2.5 text-[13px] leading-snug text-teal-50">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15">
+                        <Check className="size-3" strokeWidth={3} aria-hidden="true" />
                       </span>
                       {benefit}
                     </li>
@@ -390,20 +390,20 @@ export default function DaftarPage() {
             </aside>
 
             {/* Kartu form */}
-            <Card className="w-full py-8">
-              <CardHeader>
+            <Card className="w-full py-6 lg:py-4">
+              <CardHeader className="pb-4 lg:pb-2">
                 <div className="lg:hidden">
                   <Link href="/" aria-label="Beranda Darrellsoft">
                     <DarrellLogo size="sm" />
                   </Link>
                 </div>
-                <CardTitle className="text-xl">Buat Akun Baru</CardTitle>
+                <CardTitle className="text-xl lg:text-lg">Buat Akun Baru</CardTitle>
                 <CardDescription>
-                  Lengkapi data berikut untuk memulai Trial gratis 14 hari.
+                  Lengkapi data berikut untuk membuat akun Anda.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} noValidate className="space-y-5">
+              <CardContent className="lg:px-5">
+                <form onSubmit={handleSubmit} noValidate className="space-y-4 lg:space-y-2.5">
                   {formError && (
                     <Alert variant="destructive">
                       <AlertCircle className="size-4" aria-hidden="true" />
@@ -411,14 +411,17 @@ export default function DaftarPage() {
                     </Alert>
                   )}
 
-                  <div className="space-y-2">
+                  {/* Grid field kompak — 2 kolom di desktop agar seluruh halaman
+                      muat tanpa scroll (fit 1 halaman desktop) */}
+                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-4 lg:gap-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="fullName">Nama Lengkap</Label>
                     <Input
                       id="fullName"
                       name="fullName"
                       autoComplete="name"
                       placeholder="cth: Budi Santoso"
-                      className="h-11"
+                      className="h-11 lg:h-9"
                       value={form.fullName}
                       onChange={(e) => updateField("fullName", e.target.value)}
                       disabled={submitting}
@@ -429,14 +432,14 @@ export default function DaftarPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="companyName">Nama Perusahaan / Usaha</Label>
                     <Input
                       id="companyName"
                       name="companyName"
                       autoComplete="organization"
                       placeholder="cth: Percetakan Maju Jaya"
-                      className="h-11"
+                      className="h-11 lg:h-9"
                       value={form.companyName}
                       onChange={(e) => updateField("companyName", e.target.value)}
                       disabled={submitting}
@@ -447,7 +450,7 @@ export default function DaftarPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
                     <Input
                       id="whatsapp"
@@ -456,13 +459,13 @@ export default function DaftarPage() {
                       inputMode="tel"
                       autoComplete="tel"
                       placeholder="08xxxxxxxxxx"
-                      className="h-11"
+                      className="h-11 lg:h-9"
                       value={form.whatsapp}
                       onChange={(e) => updateField("whatsapp", e.target.value)}
                       disabled={submitting}
                       aria-invalid={!!fieldErrors.whatsapp}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground lg:hidden">
                       Format: 08xxxxxxxxxx — kode OTP akan dikirim ke nomor ini.
                     </p>
                     {fieldErrors.whatsapp && (
@@ -470,7 +473,7 @@ export default function DaftarPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
@@ -478,7 +481,7 @@ export default function DaftarPage() {
                       type="email"
                       autoComplete="email"
                       placeholder="cth: budi@majujaya.id"
-                      className="h-11"
+                      className="h-11 lg:h-9"
                       value={form.email}
                       onChange={(e) => updateField("email", e.target.value)}
                       disabled={submitting}
@@ -489,20 +492,20 @@ export default function DaftarPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="username">Username</Label>
                     <Input
                       id="username"
                       name="username"
                       autoComplete="username"
                       placeholder="cth: budicetak"
-                      className="h-11"
+                      className="h-11 lg:h-9"
                       value={form.username}
                       onChange={(e) => updateField("username", e.target.value)}
                       disabled={submitting}
                       aria-invalid={!!fieldErrors.username}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground lg:hidden">
                       3-20 karakter, huruf/angka/titik/underscore
                     </p>
                     {fieldErrors.username && (
@@ -510,50 +513,60 @@ export default function DaftarPage() {
                     )}
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <PasswordInput
-                        id="password"
-                        name="password"
-                        autoComplete="new-password"
-                        placeholder="Min. 8 karakter"
-                        className="h-11"
-                        value={form.password}
-                        onChange={(e) => updateField("password", e.target.value)}
-                        disabled={submitting}
-                        aria-invalid={!!fieldErrors.password}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Minimal 8 karakter, ada huruf &amp; angka.
-                      </p>
-                      {fieldErrors.password && (
-                        <p className="text-xs text-destructive">{fieldErrors.password}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Konfirmasi Password</Label>
-                      <PasswordInput
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        autoComplete="new-password"
-                        placeholder="Ulangi password"
-                        className="h-11"
-                        value={form.confirmPassword}
-                        onChange={(e) => updateField("confirmPassword", e.target.value)}
-                        disabled={submitting}
-                        aria-invalid={!!fieldErrors.confirmPassword}
-                      />
-                      {fieldErrors.confirmPassword && (
-                        <p className="text-xs text-destructive">
-                          {fieldErrors.confirmPassword}
-                        </p>
-                      )}
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password">Password</Label>
+                    <PasswordInput
+                      id="password"
+                      name="password"
+                      autoComplete="new-password"
+                      placeholder="Min. 8 karakter"
+                      className="h-11 lg:h-9"
+                      value={form.password}
+                      onChange={(e) => updateField("password", e.target.value)}
+                      disabled={submitting}
+                      aria-invalid={!!fieldErrors.password}
+                    />
+                    <p className="text-xs text-muted-foreground lg:hidden">
+                      Minimal 8 karakter, ada huruf &amp; angka.
+                    </p>
+                    {fieldErrors.password && (
+                      <p className="text-xs text-destructive">{fieldErrors.password}</p>
+                    )}
                   </div>
 
-                  {/* OTP */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword">Konfirmasi Password</Label>
+                    <PasswordInput
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      autoComplete="new-password"
+                      placeholder="Ulangi password"
+                      className="h-11 lg:h-9"
+                      value={form.confirmPassword}
+                      onChange={(e) => updateField("confirmPassword", e.target.value)}
+                      disabled={submitting}
+                      aria-invalid={!!fieldErrors.confirmPassword}
+                    />
+                    {fieldErrors.confirmPassword && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Tautan masuk — di desktop diletakkan di samping Konfirmasi
+                      Password agar halaman tetap muat tanpa scroll */}
+                  <div className="hidden items-end pb-1 lg:flex">
+                    <p className="text-sm text-muted-foreground">
+                      Sudah punya akun?{" "}
+                      <Link href="/login" className="font-medium text-primary hover:underline">
+                        Masuk
+                      </Link>
+                    </p>
+                  </div>
+
+                  {/* OTP — lebar penuh di desktop */}
+                  <div className="space-y-1.5 lg:col-span-2">
                     <Label htmlFor="otp">Kode OTP</Label>
                     <div className="flex flex-wrap items-center gap-3">
                       <InputOTP
@@ -611,9 +624,11 @@ export default function DaftarPage() {
                       <p className="text-xs text-destructive">{fieldErrors.otp}</p>
                     )}
                   </div>
+                  </div>
+                  {/* /grid field kompak */}
 
                   {otpSent && demoCode && (
-                    <Alert className="border-teal-600/30 bg-teal-50 text-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
+                    <Alert className="border-teal-600/30 bg-teal-50 py-2 text-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
                       <KeyRound className="size-4" aria-hidden="true" />
                       <AlertTitle>
                         Mode demo: karena gateway WhatsApp belum terhubung, kode OTP
@@ -652,7 +667,7 @@ export default function DaftarPage() {
                   )}
 
                   {!otpSent && (
-                    <p className="flex items-start gap-2 rounded-lg bg-muted/70 p-3 text-xs text-muted-foreground">
+                    <p className="flex items-start gap-2 rounded-lg bg-muted/70 p-3 text-xs text-muted-foreground lg:hidden">
                       <MessageSquareText
                         className="mt-0.5 size-4 shrink-0 text-primary"
                         aria-hidden="true"
@@ -665,7 +680,7 @@ export default function DaftarPage() {
 
                   <Button
                     type="submit"
-                    className="h-11 w-full text-base"
+                    className="h-11 w-full text-base lg:h-10 lg:text-sm"
                     disabled={submitting}
                   >
                     {submitting ? (
@@ -677,20 +692,28 @@ export default function DaftarPage() {
                       "Daftar"
                     )}
                   </Button>
+
+                  <p className="text-center text-sm text-muted-foreground lg:hidden">
+                    Sudah punya akun?{" "}
+                    <Link href="/login" className="font-medium text-primary hover:underline">
+                      Masuk
+                    </Link>
+                  </p>
                 </form>
               </CardContent>
             </Card>
           </div>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Sudah punya akun?{" "}
-            <Link href="/login" className="font-medium text-primary hover:underline">
-              Masuk
-            </Link>
-          </p>
         </div>
       </main>
-      <SiteFooter />
+      {/* Footer ringkas di desktop — bagian dari layout fit-1-halaman tanpa scroll */}
+      <div className="lg:hidden">
+        <SiteFooter />
+      </div>
+      <footer className="mt-auto hidden border-t bg-muted/40 lg:block">
+        <div className="mx-auto w-full max-w-6xl px-4 py-2.5 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Darrell Soft — Aplikasi Bisnis Percetakan
+        </div>
+      </footer>
     </div>
   );
 }

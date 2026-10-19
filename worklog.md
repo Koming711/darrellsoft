@@ -14288,3 +14288,22 @@ Stage Summary:
 - Lupa password kini AMAN & sesuai permintaan: OTP WhatsApp dikirim ke nomor TERDAFTAR akun (tidak bisa dispengaruhi input user), OTP 6 digit 5 menit, cooldown 60s, rate limit, maks 5 percobaan, sekali pakai, password bcrypt
 - Unggah bukti pembayaran kembali di halaman pembayaran dan WAJIB, hanya JPG/PNG (tanpa PDF), otomatis dikompres ≤350KB; admin tetap melihat bukti saat verifikasi
 - File berubah: src/app/daftar/page.tsx, src/app/login/page.tsx, src/app/api/auth/forgot-password/route.ts, src/app/api/subscription/payment/route.ts, src/app/langganan/pembayaran/[invoiceId]/page.tsx, src/app/administrasi/pembayaran/page.tsx, src/app/administrasi/pengaturan-pembayaran/page.tsx, src/lib/i18n.ts, src/lib/subscription.ts, src/lib/payment-manual.ts, src/lib/changelog.ts
+
+---
+Task ID: ui-fix-batch-3
+Agent: Main
+Task: Buat akun baru page fit-1-desktop no scroll + remove trial text; Konfirmasi Pembayaran Terkirim image lightbox (fit to desktop)
+
+Work Log:
+- Audited all pending items from previous batches; confirmed already implemented: splash excluded on /daftar (SPLASH_EXCLUDED_ROUTES), login page tab "Daftar" removed, demo popup removed, forgot-password WhatsApp OTP flow (search → send-otp to registered WA → verify → reset) with /api/auth/forgot-password, unggah bukti pembayaran restored with JPG/PNG-only (client MIME check + API validation "Tipe file bukti harus JPG atau PNG"), "kembali" back buttons (ChevronLeft icon) on konfirmasi-paket & pembayaran headers, SubscriptionGate blocking non-verified subscriptions in DashboardLayout
+- daftar/page.tsx: removed "Trial gratis 14 hari" copy → "Lengkapi data berikut untuk membuat akun Anda."
+- daftar/page.tsx: restructured to fit-1-desktop-page no scroll: root lg:h-screen lg:overflow-hidden, compact 2-col field grid (fullName|companyName, whatsapp|email, username|password, confirm|Masuk link, OTP col-span-2), h-9 inputs on lg, helper texts lg:hidden, compact aside benefits, mini footer on lg (SiteFooter kept on mobile)
+- langganan/pembayaran/[invoiceId]/page.tsx: ProofImage now click-to-zoom lightbox — thumbnail wrapped in cursor-zoom-in button, overlay bg-black/85 with img max-h-[92vh] max-w-[95vw] object-contain (fit to desktop), closes via X button / backdrop click / Escape key, ARIA dialog + labels
+- Verified end-to-end via agent-browser: register API → invoice → proof upload → menunggu_verifikasi → lightbox open/close (click-outside + Esc) with real 1600x1000 proof; overflow=false at 1366x768 and 1280x680; mobile layout intact
+- Verified API rejects PDF proof ("Tipe file bukti harus JPG atau PNG")
+- Cleaned up all test data (testlightbox user, invoices, payments, subscription)
+
+Stage Summary:
+- /daftar fits one desktop screen with no scrolling; trial text removed; mobile keeps scrollable layout
+- Payment proof image on Konfirmasi Pembayaran Terkirim opens a fit-to-desktop lightbox on click
+- All previously requested fixes confirmed present and working

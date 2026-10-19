@@ -60,6 +60,7 @@ import {
   RefreshCw,
   ShieldCheck,
   User,
+  X,
   XCircle,
 } from 'lucide-react'
 
@@ -751,9 +752,15 @@ function PembayaranContent() {
   )
 }
 
-/** Viewer bukti pembayaran via /api/subscription/proof/[paymentId] (pemilik/admin). */
+/**
+ * Viewer bukti pembayaran via /api/subscription/proof/[paymentId] (pemilik/admin).
+ * Klik gambar → mode perbesar (lightbox) memenuhi layar desktop (fit to screen);
+ * klik area gelap / tombol X / tombol Esc untuk menutup.
+ */
 function ProofImage({ paymentId }: { paymentId: string }) {
   const [src, setSrc] = useState<string | null>(null)
+  const [zoomed, setZoomed] = useState(false)
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -769,9 +776,63 @@ function ProofImage({ paymentId }: { paymentId: string }) {
     }
   }, [paymentId])
 
+  // Tombol Esc menutup lightbox
+  useEffect(() => {
+    if (!zoomed) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setZoomed(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomed])
+
   if (!src) return null
 
-  return <img src={src} alt="Bukti pembayaran" className="max-h-64 rounded-lg border object-contain" />
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setZoomed(true)}
+        className="group block cursor-zoom-in rounded-lg border transition-opacity hover:opacity-90"
+        aria-label="Perbesar gambar bukti pembayaran"
+        title="Klik untuk memperbesar"
+      >
+        <img
+          src={src}
+          alt="Bukti pembayaran"
+          className="max-h-64 rounded-lg object-contain transition-transform group-hover:scale-[1.02]"
+        />
+      </button>
+
+      {zoomed && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bukti pembayaran diperbesar"
+          onClick={() => setZoomed(false)}
+        >
+          <button
+            type="button"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/25"
+            aria-label="Tutup gambar diperbesar"
+            onClick={() => setZoomed(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={src}
+            alt="Bukti pembayaran diperbesar"
+            className="max-h-[92vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/70">
+            Klik di luar gambar atau tekan Esc untuk menutup
+          </p>
+        </div>
+      )}
+    </>
+  )
 }
 
 export default function PembayaranPage() {
