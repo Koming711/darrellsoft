@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   AlertCircle,
   Check,
-  CheckCircle,
   Copy,
   KeyRound,
   Loader2,
@@ -33,9 +32,10 @@ import { SiteFooter } from "@/components/darrellsoft/site-footer";
 import { StepIndicator } from "@/components/darrellsoft/step-indicator";
 import { PasswordInput } from "@/components/auth/password-input";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/auth-context";
+import { useSession } from "@/hooks/use-session";
 import { setAuthUser } from "@/lib/auth";
 import { notifyDataChange } from "@/lib/data-sync";
+import { apiFetch, SubscriptionApiError } from "@/lib/subscription-client";
 
 type FormValues = {
   fullName: string;
@@ -54,7 +54,11 @@ type OtpSendResponse = {
   message: string;
   demoCode?: string;
   expiresInMinutes?: number;
-  gatewayError?: string | null;
+};
+
+type RegisterPermissions = {
+  features: Record<string, boolean>;
+  subPermissions: Record<string, Record<string, boolean>>;
 };
 
 type RegisterResponse = {
@@ -66,53 +70,19 @@ type RegisterResponse = {
   name: string;
   role: string;
   sessionId: string;
-  permissions?: {
-    features: Record<string, boolean>;
-    subPermissions: Record<string, Record<string, boolean>>;
-  };
+  permissions?: RegisterPermissions;
 };
-
-/** Helper fetch dengan kontrak respons { ok, message, fieldErrors }. */
-async function apiPost<T>(url: string, body: unknown): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new Error("Tidak dapat terhubung ke server. Periksa koneksi Anda.");
-  }
-
-  let data: Record<string, unknown> = {};
-  try {
-    data = await res.json();
-  } catch {}
-
-  if (!res.ok || data.ok === false) {
-    const err = new Error(
-      (data.message as string) || "Terjadi kesalahan. Silakan coba lagi."
-    ) as Error & { fieldErrors?: Record<string, string> };
-    if (data.fieldErrors && typeof data.fieldErrors === "object") {
-      err.fieldErrors = data.fieldErrors as Record<string, string>;
-    }
-    throw err;
-  }
-
-  return data as T;
-}
 
 const WHATSAPP_PATTERN = /^(\+62|62|0)8\d{7,12}$/;
 
 const BENEFITS = [
-  "Invoice, Surat Jalan, dan Stock Bahan dalam satu aplikasi",
-  "Hitung Cetakan & Potong Kertas cepat dan akurat",
-  "Laporan laba rugi & piutang otomatis setiap hari",
+  "Kasir, invoice, dan stok bahan dalam satu aplikasi",
+  "Laporan penjualan otomatis setiap hari",
+  "Dukungan multi-pengguna untuk tim percetakan Anda",
 ];
 
 export default function DaftarPage() {
-  const { user, isLoading: sessionLoading } = useAuth();
+  const { user, loading: sessionLoading } = useSession();
   const { toast } = useToast();
 
   const [form, setForm] = useState<FormValues>({
@@ -141,7 +111,7 @@ export default function DaftarPage() {
   // mengalahkan redirect ke /pilih-paket.
   const skipAuthRedirectRef = useRef(false);
 
-  // Sudah login? Tidak perlu daftar lagi — arahkan ke dashboard.
+  // Sudah login? Tidak perlu daftar lagi — arahkan ke beranda aplikasi.
   useEffect(() => {
     if (!sessionLoading && user && !skipAuthRedirectRef.current) {
       window.location.assign("/pembukaan");
@@ -180,8 +150,9 @@ export default function DaftarPage() {
 
     setSendingOtp(true);
     try {
-      const res = await apiPost<OtpSendResponse>("/api/auth/otp/send", {
-        whatsapp: form.whatsapp.trim(),
+      const res = await apiFetch<OtpSendResponse>("/api/auth/otp/send", {
+        method: "POST",
+        json: { whatsapp: form.whatsapp.trim() },
       });
       setOtpSent(true);
       setOtpSentTo(res.message);
@@ -199,18 +170,18 @@ export default function DaftarPage() {
         description: res.message,
       });
     } catch (err) {
-      const apiError = err as Error & { fieldErrors?: Record<string, string> };
-      if (apiError.fieldErrors?.whatsapp) {
-        setFieldErrors((prev) => ({
-          ...prev,
-          whatsapp: apiError.fieldErrors!.whatsapp!,
-        }));
+      const apiError = err instanceof SubscriptionApiError ? err : null;
+      const message =
+        apiError?.message ?? "Gagal mengirim kode OTP. Silakan coba lagi.";
+      if (apiError?.fieldErrors?.whatsapp) {
+        const waError = apiError.fieldErrors.whatsapp;
+        setFieldErrors((prev) => ({ ...prev, whatsapp: waError }));
       }
-      setFormError(apiError.message);
+      setFormError(message);
       toast({
         variant: "destructive",
         title: "Gagal mengirim OTP",
-        description: apiError.message,
+        description: message,
       });
     } finally {
       setSendingOtp(false);
@@ -281,15 +252,18 @@ export default function DaftarPage() {
 
     setSubmitting(true);
     try {
-      const res = await apiPost<RegisterResponse>("/api/auth/register", {
-        fullName: form.fullName.trim(),
-        companyName: form.companyName.trim(),
-        whatsapp: form.whatsapp.trim(),
-        email: form.email.trim(),
-        username: form.username.trim(),
-        password: form.password,
-        confirmPassword: form.confirmPassword,
-        otp,
+      const res = await apiFetch<RegisterResponse>("/api/auth/register", {
+        method: "POST",
+        json: {
+          fullName: form.fullName.trim(),
+          companyName: form.companyName.trim(),
+          whatsapp: form.whatsapp.trim(),
+          email: form.email.trim(),
+          username: form.username.trim(),
+          password: form.password,
+          confirmPassword: form.confirmPassword,
+          otp,
+        },
       });
 
       // ===== Pendaftaran berhasil — sesi langsung aktif =====
@@ -316,13 +290,13 @@ export default function DaftarPage() {
       if (res.permissions) {
         const allPerms: Record<
           string,
-          { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }
+          RegisterPermissions
         > = {};
         allPerms[res.role] = res.permissions;
         try {
           const existing = localStorage.getItem("permissions");
           if (existing) {
-            const parsed = JSON.parse(existing);
+            const parsed = JSON.parse(existing) as Record<string, RegisterPermissions>;
             Object.assign(allPerms, parsed);
           }
         } catch {}
@@ -335,18 +309,29 @@ export default function DaftarPage() {
         window.location.assign(res.redirect || "/pilih-paket");
       }, 1200);
     } catch (err) {
-      const apiError = err as Error & { fieldErrors?: Record<string, string> };
-      if (apiError.fieldErrors && Object.keys(apiError.fieldErrors).length > 0) {
-        setFieldErrors((prev) => ({ ...prev, ...apiError.fieldErrors }));
-        setFormError("Periksa kembali data yang ditandai merah.");
+      const apiError = err instanceof SubscriptionApiError ? err : null;
+      if (apiError) {
+        const serverFieldErrors = apiError.fieldErrors;
+        if (serverFieldErrors && Object.keys(serverFieldErrors).length > 0) {
+          setFieldErrors((prev) => ({ ...prev, ...serverFieldErrors }));
+          setFormError("Periksa kembali data yang ditandai merah.");
+        } else {
+          setFormError(apiError.message);
+        }
+        toast({
+          variant: "destructive",
+          title: "Pendaftaran gagal",
+          description: apiError.message,
+        });
       } else {
-        setFormError(apiError.message);
+        const message = "Terjadi kesalahan tak terduga. Silakan coba lagi.";
+        setFormError(message);
+        toast({
+          variant: "destructive",
+          title: "Pendaftaran gagal",
+          description: message,
+        });
       }
-      toast({
-        variant: "destructive",
-        title: "Pendaftaran gagal",
-        description: apiError.message,
-      });
     } finally {
       // Saat pendaftaran sukses, biarkan spinner "Mengarahkan…" yang tampil
       // (jangan reset submitting agar tombol tidak aktif kembali).
@@ -377,7 +362,7 @@ export default function DaftarPage() {
             {/* Panel brand — hanya tampil di desktop */}
             <aside
               aria-hidden="true"
-              className="relative hidden flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900 p-8 text-white lg:flex"
+              className="relative hidden flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 p-8 text-white lg:flex"
             >
               <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
               <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-400/10 blur-2xl" />
@@ -392,7 +377,7 @@ export default function DaftarPage() {
                 </h2>
                 <ul className="mt-6 space-y-4">
                   {BENEFITS.map((benefit) => (
-                    <li key={benefit} className="flex items-start gap-3 text-sm text-emerald-50">
+                    <li key={benefit} className="flex items-start gap-3 text-sm text-teal-50">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15">
                         <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
                       </span>
@@ -402,8 +387,8 @@ export default function DaftarPage() {
                 </ul>
               </div>
 
-              <p className="relative text-sm text-emerald-100/80">
-                Coba gratis sekarang — tanpa kartu kredit. Data usaha Anda aman
+              <p className="relative text-sm text-teal-100/80">
+                Trial gratis 14 hari — tanpa kartu kredit. Data usaha Anda aman
                 dan terpisah per akun.
               </p>
             </aside>
@@ -412,13 +397,13 @@ export default function DaftarPage() {
             <Card className="w-full py-8">
               <CardHeader>
                 <div className="lg:hidden">
-                  <Link href="/" aria-label="Beranda Darrell Soft">
+                  <Link href="/" aria-label="Beranda Darrellsoft">
                     <DarrellLogo size="sm" />
                   </Link>
                 </div>
                 <CardTitle className="text-xl">Buat Akun Baru</CardTitle>
                 <CardDescription>
-                  Lengkapi data berikut untuk memulai masa trial gratis.
+                  Lengkapi data berikut untuk memulai Trial gratis 14 hari.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -516,9 +501,6 @@ export default function DaftarPage() {
                       autoComplete="username"
                       placeholder="cth: budicetak"
                       className="h-11"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
                       value={form.username}
                       onChange={(e) => updateField("username", e.target.value)}
                       disabled={submitting}
@@ -635,22 +617,22 @@ export default function DaftarPage() {
                   </div>
 
                   {otpSent && demoCode && (
-                    <Alert className="border-emerald-600/30 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+                    <Alert className="border-teal-600/30 bg-teal-50 text-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
                       <KeyRound className="size-4" aria-hidden="true" />
                       <AlertTitle>
                         Mode demo: karena gateway WhatsApp belum terhubung, kode OTP
                         Anda:
                       </AlertTitle>
-                      <AlertDescription className="text-emerald-800 dark:text-emerald-200">
+                      <AlertDescription className="text-teal-800 dark:text-teal-200">
                         <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <code className="rounded-md bg-emerald-100 px-2.5 py-1 font-mono text-lg font-bold tracking-[0.35em] text-emerald-900 dark:bg-emerald-900 dark:text-emerald-50">
+                          <code className="rounded-md bg-teal-100 px-2.5 py-1 font-mono text-lg font-bold tracking-[0.35em] text-teal-900 dark:bg-teal-900 dark:text-teal-50">
                             {demoCode}
                           </code>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-9 gap-1.5 border-emerald-600/30 bg-white text-emerald-900 hover:bg-emerald-100 hover:text-emerald-900 dark:bg-transparent dark:text-emerald-100 dark:hover:bg-emerald-900"
+                            className="h-9 gap-1.5 border-teal-600/30 bg-white text-teal-900 hover:bg-teal-100 hover:text-teal-900 dark:bg-transparent dark:text-teal-100 dark:hover:bg-teal-900"
                             onClick={handleCopyCode}
                           >
                             {copied ? (
@@ -666,7 +648,7 @@ export default function DaftarPage() {
                             )}
                           </Button>
                         </div>
-                        <p className="mt-1.5 text-xs text-emerald-700 dark:text-emerald-300">
+                        <p className="mt-1.5 text-xs text-teal-700 dark:text-teal-300">
                           Berlaku 5 menit. Jangan bagikan kode ini kepada siapa pun.
                         </p>
                       </AlertDescription>
@@ -713,14 +695,6 @@ export default function DaftarPage() {
         </div>
       </main>
       <SiteFooter />
-      {submitting && (
-        <div className="fixed inset-x-0 bottom-6 flex justify-center pointer-events-none" aria-hidden="true">
-          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground shadow-lg">
-            <CheckCircle className="size-4" aria-hidden="true" />
-            Mempersiapkan akun Anda…
-          </span>
-        </div>
-      )}
     </div>
   );
 }
