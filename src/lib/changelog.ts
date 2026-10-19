@@ -40,8 +40,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         en: 'New SUBSCRIPTION menu: Choose Plan, My Subscription (status, dates, days left, invoices, payment history, digital receipt), and Admin-only Admin Panel',
       },
       {
-        id: 'Pembayaran manual QRIS & Transfer Bank: tagihan bernomor unik dengan nominal beku, unggah bukti (JPG/PNG/PDF maks 500KB), status Menunggu Verifikasi — langganan TIDAK aktif sebelum Admin menyetujui',
-        en: 'Manual QRIS & Bank Transfer payment: unique invoice number with frozen amount, upload proof (JPG/PNG/PDF max 500KB), Waiting Verification status — subscription NOT active until Admin approves',
+        id: 'Pembayaran manual QRIS & Transfer Bank: tagihan bernomor unik dengan nominal beku, konfirmasi pembayaran (tanpa unggah bukti foto/PDF), status Menunggu Verifikasi — langganan TIDAK aktif sebelum Admin menyetujui',
+        en: 'Manual QRIS & Bank Transfer payment: unique invoice number with frozen amount, payment confirmation (no photo/PDF proof upload), Waiting Verification status — subscription NOT active until Admin approves',
       },
       {
         id: 'Panel Admin Langganan: Ringkasan pendapatan, Verifikasi Pembayaran (lihat bukti, Setujui/Tolak dengan alasan — idempoten anti klik ganda), Kelola Pelanggan (cari, tangguhkan/aktifkan dengan catatan audit), Riwayat Transaksi (filter + ekspor CSV), Pengaturan Pembayaran (QRIS, rekening, instruksi, masa tenggang)',

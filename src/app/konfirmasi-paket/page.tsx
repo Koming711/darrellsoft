@@ -168,10 +168,10 @@ function KonfirmasiPaketContent() {
         <div className="mx-auto flex max-w-4xl items-center px-4 py-3">
           <Link
             href="/pilih-paket"
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            aria-label="Kembali ke halaman pilih paket"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Kembali"
           >
-            <ChevronLeft className="h-4 w-4" /> Kembali ke Pilih Paket
+            <ChevronLeft className="h-5 w-5" />
           </Link>
         </div>
       </header>

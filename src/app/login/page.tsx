@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { Eye, EyeOff, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, XCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
+import { Eye, EyeOff, Mail, User as UserIcon, Loader2, AlertCircle, CheckCircle, XCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser, setAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
@@ -76,11 +76,6 @@ function LoginContent() {
   const [fpShowPassword, setFpShowPassword] = useState(false)
   const [fpShowConfirm, setFpShowConfirm] = useState(false)
   const [fpSuccess, setFpSuccess] = useState(false)
-
-  // Demo popup state
-  const [demoPopupOpen, setDemoPopupOpen] = useState(false)
-  const [demoPopupMsg, setDemoPopupMsg] = useState('')
-  const [demoRemaining, setDemoRemaining] = useState<number | null>(null)
 
   // Username-already-exists popup state
   const [usernameExistsOpen, setUsernameExistsOpen] = useState(false)
@@ -167,19 +162,11 @@ function LoginContent() {
       // Arahan lanjut sesuai status langganan (tagihan terbuka / belum pilih paket)
       postLoginTargetRef.current = typeof data.subscriptionRedirect === 'string' ? data.subscriptionRedirect : ''
 
-      // Show demo popup if applicable
-      if (data.role === 'demo' && data.demoPopupMessage) {
-        setDemoPopupMsg(data.demoPopupMessage)
-        setDemoRemaining(data.demoRemainingDays ?? null)
-        setDemoPopupOpen(true)
-        setLoginLoading(false)
-      } else {
-        // Apply theme in background, don't block redirect
-        applyThemeAfterLogin()
-        // Use hard navigation to ensure DashboardLayout reads fresh auth state
-        // (router.push can fail in iframe contexts)
-        goAfterAuth()
-      }
+      // Popup "Akun Demo" dihapus — login langsung lanjut ke arahan berikutnya
+      applyThemeAfterLogin()
+      // Use hard navigation to ensure DashboardLayout reads fresh auth state
+      // (router.push can fail in iframe contexts)
+      goAfterAuth()
     } catch (err: any) {
       console.error('Login network error:', err)
       // Provide more specific error messages
@@ -976,43 +963,6 @@ function LoginContent() {
                 </button>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ===== DEMO POPUP DIALOG ===== */}
-      {demoPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-card rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Info className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-foreground">{t('akun_demo')}</h3>
-                {demoRemaining !== null && (
-                  <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
-                    {demoRemaining} {t('hari_tersisa')}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5">
-              <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
-            </div>
-            <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); goAfterAuth() }}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
-              autoFocus
-            >
-              {t('ok')}
-            </button>
-            <button
-              onClick={() => { setDemoPopupOpen(false); applyThemeAfterLogin(); goAfterAuth() }}
-              className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors"
-            >
-              {t('masuk_ke_halaman_utama')}
-            </button>
           </div>
         </div>
       )}

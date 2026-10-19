@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Key, Eye, EyeOff, Mail, User as UserIcon, Loader2, AlertCircle, Info, CheckCircle, XCircle } from 'lucide-react'
+import { Key, Eye, EyeOff, Mail, User as UserIcon, Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 import { setAuthUser } from '@/lib/auth'
 import { PhoneOtpField, useUsernameCheck } from '@/components/phone-otp-field'
@@ -34,11 +34,6 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
   const [regOtpCode, setRegOtpCode] = useState('')
   const [regPhoneBlocked, setRegPhoneBlocked] = useState(false)
   const regUsernameStatus = useUsernameCheck(regUsername)
-
-  // Demo popup state
-  const [demoPopupOpen, setDemoPopupOpen] = useState(false)
-  const [demoPopupMsg, setDemoPopupMsg] = useState('')
-  const [demoRemaining, setDemoRemaining] = useState<number | null>(null)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,14 +76,8 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
         localStorage.setItem('permissions', JSON.stringify(allPerms))
       }
 
-      if (data.role === 'demo' && data.demoPopupMessage) {
-        setDemoPopupMsg(data.demoPopupMessage)
-        setDemoRemaining(data.demoRemainingDays ?? null)
-        setDemoPopupOpen(true)
-        setLoginLoading(false)
-      } else {
-        onSuccess(data)
-      }
+      // Popup "Akun Demo" dihapus — login langsung lanjut
+      onSuccess(data)
     } catch (err) {
       setLoginError('Terjadi kesalahan jaringan')
       setLoginLoading(false)
@@ -184,24 +173,13 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
         localStorage.setItem('permissions', JSON.stringify(allPerms))
       }
 
-      if (data.role === 'demo' && data.demoPopupMessage) {
-        setDemoPopupMsg(data.demoPopupMessage)
-        setDemoRemaining(data.demoRemainingDays ?? null)
-        setDemoPopupOpen(true)
-      } else {
-        onSuccess(data)
-      }
+      // Popup "Akun Demo" dihapus — registrasi langsung lanjut
+      onSuccess(data)
     } catch (err) {
       setRegError('Terjadi kesalahan jaringan')
     } finally {
       setRegLoading(false)
     }
-  }
-
-  const handleDemoOk = () => {
-    setDemoPopupOpen(false)
-    // Reload the page to reinitialize with new auth
-    window.location.reload()
   }
 
   return (
@@ -445,33 +423,7 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
         </p>
       </div>
 
-      {/* Demo Popup */}
-      {demoPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-card rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Info className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-foreground">Akun Demo</h3>
-                {demoRemaining !== null && (
-                  <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-0.5">{demoRemaining} {t('hari_tersisa')}</p>
-                )}
-              </div>
-            </div>
-            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5">
-              <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{demoPopupMsg}</p>
-            </div>
-            <button onClick={handleDemoOk} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors" autoFocus>
-              Ok
-            </button>
-            <button onClick={handleDemoOk} className="w-full text-sm text-muted-foreground hover:text-foreground mt-3 py-1 transition-colors">
-              Masuk ke Dashboard
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Demo Popup dihapus sesuai permintaan */}
     </div>
   )
 }

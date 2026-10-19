@@ -110,7 +110,7 @@ export async function ensurePaymentDefaults(): Promise<void> {
           accountNumber: '1234567890',
           qrisProviderName: 'QRIS Darrell Soft',
           paymentInstructions:
-            'Silakan transfer sesuai nominal yang tertera. Setelah transfer, unggah bukti pembayaran untuk diverifikasi oleh admin Darrellsoft.',
+            'Silakan transfer sesuai nominal yang tertera. Setelah transfer, kirim konfirmasi pembayaran untuk diverifikasi oleh admin Darrellsoft.',
           paymentDeadlineHours: 24,
           bankTransferEnabled: true,
           qrisEnabled: true,

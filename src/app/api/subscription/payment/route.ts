@@ -1,8 +1,9 @@
-// POST /api/subscription/payment — pelanggan kirim bukti pembayaran untuk tagihan miliknya.
+// POST /api/subscription/payment — pelanggan kirim konfirmasi pembayaran untuk tagihan miliknya.
 // KEAMANAN:
 // - Tagihan harus milik user (isolasi ketat).
 // - Nominal dibayar = nominal tagihan (validasi server).
-// - Tipe file bukti dibatasi: JPG/PNG/PDF, maks ±500KB.
+// - Bukti foto/PDF TIDAK wajib (dihapus sesuai permintaan — admin verifikasi manual);
+//   bila tetap dikirim, tipe file dibatasi JPG/PNG/PDF, maks ±350KB.
 // - Status langganan TIDAK pernah diaktifkan dari sini — hanya menunggu verifikasi admin.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -44,20 +45,23 @@ export async function POST(request: NextRequest) {
     if (method === PAYMENT_METHODS.TRANSFER_BANK && (!senderName || !transferDate)) {
       return NextResponse.json({ error: 'Nama pengirim dan tanggal transfer wajib diisi' }, { status: 400 })
     }
-    if (!proofDataUrl.startsWith('data:')) {
-      return NextResponse.json({ error: 'Bukti pembayaran wajib diunggah (JPG, PNG, atau PDF)' }, { status: 400 })
-    }
-    const mime = proofDataUrl.slice(5, proofDataUrl.indexOf(';'))
-    if (!ALLOWED_MIME.includes(mime)) {
-      return NextResponse.json({ error: 'Tipe file bukti harus JPG, PNG, atau PDF' }, { status: 400 })
-    }
-    const b64 = proofDataUrl.slice(proofDataUrl.indexOf(',') + 1)
-    const bytes = Math.floor((b64.length * 3) / 4)
-    if (bytes > MAX_PROOF_BYTES) {
-      return NextResponse.json(
-        { error: `Ukuran file bukti maksimal 350KB (file Anda ±${Math.round(bytes / 1024)}KB)` },
-        { status: 400 },
-      )
+    // Bukti TIDAK wajib — bila dikirim, validasi tipe & ukuran
+    if (proofDataUrl) {
+      if (!proofDataUrl.startsWith('data:')) {
+        return NextResponse.json({ error: 'Bukti pembayaran tidak valid (JPG, PNG, atau PDF)' }, { status: 400 })
+      }
+      const mime = proofDataUrl.slice(5, proofDataUrl.indexOf(';'))
+      if (!ALLOWED_MIME.includes(mime)) {
+        return NextResponse.json({ error: 'Tipe file bukti harus JPG, PNG, atau PDF' }, { status: 400 })
+      }
+      const b64 = proofDataUrl.slice(proofDataUrl.indexOf(',') + 1)
+      const bytes = Math.floor((b64.length * 3) / 4)
+      if (bytes > MAX_PROOF_BYTES) {
+        return NextResponse.json(
+          { error: `Ukuran file bukti maksimal 350KB (file Anda ±${Math.round(bytes / 1024)}KB)` },
+          { status: 400 },
+        )
+      }
     }
 
     const invoice = await db.subscriptionInvoice.findUnique({ where: { id: invoiceId } })
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       )
     }
-    if ([INVOICE_STATUS.DISETUJUI].includes(invoice.status as INVOICE_STATUS.DISETUJUI)) {
+    if (invoice.status === INVOICE_STATUS.DISETUJUI) {
       return NextResponse.json({ error: 'Tagihan ini sudah disetujui' }, { status: 409 })
     }
     if (invoice.status === INVOICE_STATUS.KEDALUWARSA) {
@@ -107,8 +111,8 @@ export async function POST(request: NextRequest) {
         amount: invoice.amount, // server-side — selalu sesuai tagihan
         senderName,
         transferDate,
-        proofFileUrl: proofDataUrl,
-        proofFileName: proofFileName || 'bukti-pembayaran',
+        proofFileUrl: proofDataUrl, // boleh kosong — tanpa unggah bukti
+        proofFileName: proofFileName || '',
         status: 'menunggu_verifikasi',
       },
     })
@@ -128,8 +132,8 @@ export async function POST(request: NextRequest) {
     })
     await addNotification({
       userId: user.id,
-      title: 'Bukti Pembayaran Terkirim',
-      body: `Bukti pembayaran untuk tagihan ${invoice.invoiceNumber} berhasil dikirim dan sedang menunggu verifikasi admin.`,
+      title: 'Konfirmasi Pembayaran Terkirim',
+      body: `Konfirmasi pembayaran untuk tagihan ${invoice.invoiceNumber} berhasil dikirim dan sedang menunggu verifikasi admin.`,
       type: 'payment',
       link: '/langganan-saya',
     })
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
       type: 'payment',
       link: '/panel-admin/pembayaran?tab=verifikasi',
     })
-    // Realtime → semua admin: bukti pembayaran baru masuk
+    // Realtime → semua admin: konfirmasi pembayaran baru masuk
     emitRealtime({
       type: 'payment',
       title: 'Pembayaran Menunggu Verifikasi',

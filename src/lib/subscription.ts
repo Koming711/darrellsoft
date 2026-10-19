@@ -739,7 +739,7 @@ export async function evaluateSubscriptionAccess(userId: string): Promise<Subscr
   if (openInvoice?.status === INVOICE_STATUS.MENUNGGU_VERIFIKASI) {
     return blocked(
       'menunggu_verifikasi',
-      `Bukti pembayaran tagihan ${openInvoice.invoiceNumber} sudah diterima dan sedang diverifikasi admin. Aplikasi dapat digunakan setelah pembayaran disetujui.`,
+      `Konfirmasi pembayaran tagihan ${openInvoice.invoiceNumber} sudah diterima dan sedang diverifikasi admin. Aplikasi dapat digunakan setelah pembayaran disetujui.`,
     )
   }
   if (openInvoice?.status === INVOICE_STATUS.MENUNGGU_PEMBAYARAN) {

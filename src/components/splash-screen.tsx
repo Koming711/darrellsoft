@@ -1,6 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+
+/** Rute tanpa splash screen — halaman pendaftaran (alur OTP) tidak memakai splash. */
+const SPLASH_EXCLUDED_ROUTES = ['/daftar']
 
 /**
  * Splash logo DarrellSoft — TAMPIL DI SETIAP REFRESH / pembukaan aplikasi.
@@ -8,11 +12,18 @@ import { useState, useEffect } from 'react'
  * setiap refresh memberi pengalaman loading berlogo www.darrellsoft.com
  * (menggantikan kesan "halaman verifikasi" yang pernah muncul saat Vercel
  * mengaktifkan security challenge sementara).
+ * Halaman pendaftaran (/daftar) TANPA splash sesuai permintaan.
  */
 export function SplashScreen({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(true)
+  const pathname = usePathname()
+  const skipSplash = SPLASH_EXCLUDED_ROUTES.some(
+    (r) => pathname === r || pathname?.startsWith(`${r}/`),
+  )
 
   useEffect(() => {
+    if (skipSplash) return
+
     // Selalu tampil di setiap load halaman penuh (refresh), durasi singkat
     // supaya tidak mengganggu penggunaan rutin.
     const timer = setTimeout(() => {
@@ -20,7 +31,10 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
     }, 1500)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [skipSplash])
+
+  // Halaman pendaftaran: render langsung tanpa splash & tanpa visibility hidden
+  if (skipSplash) return <>{children}</>
 
   return (
     <>

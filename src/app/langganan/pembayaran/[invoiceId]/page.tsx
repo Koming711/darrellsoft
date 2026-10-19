@@ -3,8 +3,9 @@
 // /langganan/pembayaran/[invoiceId] — Pembayaran Manual (QRIS / Transfer Bank)
 // Port dari implementasi standalone (/pembayaran/[id]) ke backend langganan
 // Darrell Soft. Alur: rincian tagihan (harga paket + kode unik + total) →
-// instruksi QRIS/Transfer Bank → unggah bukti (JPG/PNG/WEBP/PDF ≤350KB,
-// gambar otomatis dikompres) → status "Menunggu Verifikasi" → admin setujui.
+// instruksi QRIS/Transfer Bank → konfirmasi pembayaran TANPA unggah bukti
+// foto/PDF (dihapus sesuai permintaan — admin verifikasi manual) → status
+// "Menunggu Verifikasi" → admin setujui.
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -26,12 +27,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StepIndicator } from '@/components/darrellsoft/step-indicator'
 import { SiteFooter } from '@/components/darrellsoft/site-footer'
-import {
-  compressImageToJpegDataUrl,
-  dataUrlBytes,
-  formatBytes,
-  PAYMENT_PROOF_MAX_BYTES,
-} from '@/lib/image-compress'
 import { getAuthHeaders } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
 import { apiFetch } from '@/lib/subscription-client'
@@ -51,8 +46,6 @@ import {
   ChevronLeft,
   Clock,
   Copy,
-  FileText,
-  FileUp,
   Hourglass,
   Info,
   Loader2,
@@ -125,12 +118,10 @@ function PembayaranContent() {
   const [settings, setSettings] = useState<PaymentSettings | null>(null)
   const [customerName, setCustomerName] = useState('')
 
-  // Form bukti pembayaran
+  // Form konfirmasi pembayaran (tanpa unggah bukti foto/PDF)
   const [method, setMethod] = useState<'qris' | 'transfer_bank'>('qris')
   const [senderName, setSenderName] = useState('')
   const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [proofDataUrl, setProofDataUrl] = useState<string | null>(null)
-  const [proofName, setProofName] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const loadInvoice = useCallback(async () => {
@@ -191,47 +182,10 @@ function PembayaranContent() {
       : invoice.amount
     : 0
 
-  const handleFile = async (file: File | null) => {
-    if (!file) return
-    try {
-      if (file.type === 'application/pdf') {
-        if (file.size > PAYMENT_PROOF_MAX_BYTES) {
-          toast.error(`Ukuran PDF maksimal 350KB (file Anda ${formatBytes(file.size)})`)
-          return
-        }
-        const reader = new FileReader()
-        reader.onload = () => {
-          setProofDataUrl(String(reader.result || ''))
-          setProofName(file.name)
-        }
-        reader.readAsDataURL(file)
-        return
-      }
-      if (!file.type.startsWith('image/')) {
-        toast.error('Format harus JPG, PNG, WEBP, atau PDF')
-        return
-      }
-      // Gambar otomatis dikompres ke JPEG ≤350KB
-      const dataUrl = await compressImageToJpegDataUrl(file, PAYMENT_PROOF_MAX_BYTES)
-      if (dataUrlBytes(dataUrl) > PAYMENT_PROOF_MAX_BYTES) {
-        toast.error('Gagal mengompres gambar — coba gambar lebih kecil')
-        return
-      }
-      setProofDataUrl(dataUrl)
-      setProofName(file.name)
-    } catch {
-      toast.error('Gagal membaca file')
-    }
-  }
-
   const handleSubmitProof = async () => {
     if (!invoice) return
-    if (senderName.trim().length < 2) {
+    if (method === 'transfer_bank' && senderName.trim().length < 2) {
       toast.error('Nama pengirim minimal 2 karakter')
-      return
-    }
-    if (!proofDataUrl) {
-      toast.error('Unggah bukti pembayaran terlebih dahulu (JPG/PNG/WEBP/PDF)')
       return
     }
     setSubmitting(true)
@@ -242,16 +196,15 @@ function PembayaranContent() {
           paymentMethod: method,
           senderName: senderName.trim(),
           transferDate, // 'YYYY-MM-DD' — dikirim mentah sesuai kontrak backend
-          proofDataUrl,
-          proofFileName: proofName ?? 'bukti-pembayaran',
+          // Tanpa unggah bukti foto/PDF — admin verifikasi manual
+          proofDataUrl: '',
+          proofFileName: '',
         },
       })
-      toast.success('Bukti pembayaran terkirim — menunggu verifikasi admin')
-      setProofDataUrl(null)
-      setProofName(null)
+      toast.success('Konfirmasi pembayaran terkirim — menunggu verifikasi admin')
       await loadInvoice()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal mengirim bukti, coba lagi')
+      toast.error(e instanceof Error ? e.message : 'Gagal mengirim konfirmasi, coba lagi')
     } finally {
       setSubmitting(false)
     }
@@ -280,10 +233,10 @@ function PembayaranContent() {
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center px-4">
           <Link
             href="/pilih-paket"
-            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            aria-label="Kembali ke halaman pilih paket"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Kembali"
           >
-            <ChevronLeft className="h-4 w-4" /> Kembali ke Pilih Paket
+            <ChevronLeft className="h-5 w-5" />
           </Link>
         </div>
       </header>
@@ -319,7 +272,7 @@ function PembayaranContent() {
                 <Hourglass className="h-4 w-4 text-amber-600" />
                 <AlertTitle>Pembayaran sedang diperiksa admin</AlertTitle>
                 <AlertDescription>
-                  Bukti pembayaran Anda sudah diterima dan menunggu verifikasi. Langganan akan
+                  Konfirmasi pembayaran Anda sudah diterima dan menunggu verifikasi. Langganan akan
                   aktif otomatis setelah admin menyetujui pembayaran Anda.
                 </AlertDescription>
               </Alert>
@@ -580,15 +533,14 @@ function PembayaranContent() {
               </Card>
             )}
 
-            {/* Form bukti — hanya bila masih bisa dibayar */}
+            {/* Form konfirmasi — hanya bila masih bisa dibayar */}
             {canPay && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">
-                    {invoice.status === 'ditolak' ? 'Unggah Ulang Bukti Pembayaran' : 'Unggah Bukti Pembayaran'}
-                  </CardTitle>
+                  <CardTitle className="text-lg">Konfirmasi Pembayaran</CardTitle>
                   <CardDescription>
-                    Format JPG, PNG, WEBP, atau PDF — maksimal 350KB (gambar otomatis dikompres).
+                    Setelah transfer sesuai nominal, kirim konfirmasi di bawah ini. Admin akan
+                    memverifikasi pembayaran Anda.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -638,46 +590,6 @@ function PembayaranContent() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="proofFile">File bukti pembayaran</Label>
-                    <label
-                      htmlFor="proofFile"
-                      className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/50"
-                    >
-                      {proofDataUrl && proofName ? (
-                        proofDataUrl.startsWith('data:application/pdf') ? (
-                          <>
-                            <FileText className="h-6 w-6 text-primary" />
-                            <span className="font-medium text-foreground">{proofName} (PDF siap dikirim)</span>
-                          </>
-                        ) : (
-                          <>
-                            <img
-                              src={proofDataUrl}
-                              alt="Pratinjau bukti pembayaran"
-                              className="max-h-40 rounded-lg border object-contain"
-                            />
-                            <span className="font-medium text-foreground">{proofName} — klik untuk mengganti</span>
-                          </>
-                        )
-                      ) : (
-                        <FileUp className="h-6 w-6 text-primary" />
-                      )}
-                      {!proofDataUrl && <span>Klik untuk memilih file bukti transfer</span>}
-                    </label>
-                    <input
-                      id="proofFile"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      className="sr-only"
-                      onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Gambar otomatis dikompres maks {formatBytes(PAYMENT_PROOF_MAX_BYTES)} · PDF maks{' '}
-                      {formatBytes(PAYMENT_PROOF_MAX_BYTES)}
-                    </p>
-                  </div>
-
                   <Button
                     className="min-h-11 w-full sm:w-auto"
                     size="lg"
@@ -691,7 +603,7 @@ function PembayaranContent() {
                     ) : (
                       <>
                         <ShieldCheck className="mr-2 h-4 w-4" />
-                        Kirim Bukti Pembayaran
+                        Kirim Konfirmasi Pembayaran
                       </>
                     )}
                   </Button>
@@ -703,11 +615,11 @@ function PembayaranContent() {
               </Card>
             )}
 
-            {/* Bukti terkirim — tampilkan ringkasan */}
+            {/* Konfirmasi terkirim — tampilkan ringkasan */}
             {!canPay && latestPayment && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Bukti Pembayaran Terkirim</CardTitle>
+                  <CardTitle className="text-lg">Konfirmasi Pembayaran Terkirim</CardTitle>
                   <CardDescription>
                     Metode: {latestPayment.paymentMethod === 'qris' ? 'QRIS' : 'Transfer Bank'} • Pengirim:{' '}
                     {latestPayment.senderName || '-'} •{' '}
@@ -715,12 +627,16 @@ function PembayaranContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {latestPayment.proofFileName?.toLowerCase().endsWith('.pdf') ? (
+                  {latestPayment.proofFileName && latestPayment.proofFileName.toLowerCase().endsWith('.pdf') ? (
                     <p className="text-sm text-muted-foreground">
                       File bukti: {latestPayment.proofFileName} (PDF)
                     </p>
-                  ) : (
+                  ) : latestPayment.proofFileName ? (
                     <ProofImage paymentId={latestPayment.id} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Tanpa unggah bukti — admin akan memverifikasi pembayaran Anda secara manual.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -752,7 +668,7 @@ function ProofImage({ paymentId }: { paymentId: string }) {
     }
   }, [paymentId])
 
-  if (!src) return <Skeleton className="h-48 w-48 rounded-lg" />
+  if (!src) return null
 
   return <img src={src} alt="Bukti pembayaran" className="max-h-64 rounded-lg border object-contain" />
 }

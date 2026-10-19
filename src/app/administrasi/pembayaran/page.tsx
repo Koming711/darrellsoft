@@ -111,7 +111,7 @@ const STATUS_TABS: { value: StatusFilter; label: string }[] = [
 
 const AUDIT_LABELS: Record<string, string> = {
   invoice_created: "Tagihan dibuat",
-  payment_submitted: "Bukti dikirim",
+  payment_submitted: "Konfirmasi dikirim",
   payment_approved: "Disetujui",
   payment_rejected: "Ditolak",
   subscription_activated: "Langganan aktif",
@@ -658,7 +658,7 @@ function PembayaranContent() {
                   <p className="text-sm font-semibold">Bukti pembayaran</p>
                   {!detail.hasProof ? (
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Pelanggan belum mengunggah bukti pembayaran.
+                      Pelanggan belum mengirim konfirmasi pembayaran.
                     </p>
                   ) : proofState === "loading" ? (
                     <Skeleton className="mt-2 h-48 w-full" />

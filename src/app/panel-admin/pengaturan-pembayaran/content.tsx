@@ -174,7 +174,7 @@ export function PengaturanPembayaranContent() {
               <Input id="qris-name" value={settings.qrisReceiverName} onChange={(e) => patch({ qrisReceiverName: e.target.value })} placeholder="CV Darrell Soft" />
             </div>
             <p className="text-xs text-muted-foreground">
-              QRIS bersifat manual: pelanggan membayar lalu mengunggah bukti — langganan TIDAK aktif otomatis sebelum Anda menyetujui.
+              QRIS bersifat manual: pelanggan membayar lalu mengirim konfirmasi — langganan TIDAK aktif otomatis sebelum Anda menyetujui.
             </p>
           </CardContent>
         </Card>
@@ -199,7 +199,7 @@ export function PengaturanPembayaranContent() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="instructions">Instruksi Pembayaran</Label>
-              <Textarea id="instructions" rows={4} value={settings.paymentInstructions} onChange={(e) => patch({ paymentInstructions: e.target.value })} placeholder={'1. Transfer PERSIS sesuai nominal tagihan\n2. Simpan bukti transfer\n3. Unggah bukti di halaman pembayaran'} />
+              <Textarea id="instructions" rows={4} value={settings.paymentInstructions} onChange={(e) => patch({ paymentInstructions: e.target.value })} placeholder={'1. Transfer PERSIS sesuai nominal tagihan\n2. Kirim konfirmasi di halaman pembayaran\n3. Tunggu verifikasi admin'} />
             </div>
           </CardContent>
         </Card>
