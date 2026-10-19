@@ -87,6 +87,14 @@ function LoginContent() {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
 
+  // Pendaftaran akun kini memakai halaman khusus /daftar (alur baru dengan
+  // OTP WhatsApp + StepIndicator). Semua link ?tab=register diarahkan ke sana.
+  useEffect(() => {
+    if (searchParams.get('tab') === 'register') {
+      router.replace('/daftar')
+    }
+  }, [searchParams, router])
+
   // Check if already logged in + fetch company branding
   useEffect(() => {
     if (isRedirecting) return
@@ -454,7 +462,7 @@ function LoginContent() {
               {t('masuk')}
             </button>
             <button
-              onClick={() => setActiveTab('register')}
+              onClick={() => router.push('/daftar')}
               className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'register'
                   ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
@@ -540,7 +548,7 @@ function LoginContent() {
                     {t('belum_punya_akun')}{' '}
                     <button
                       type="button"
-                      onClick={() => setActiveTab('register')}
+                      onClick={() => router.push('/daftar')}
                       className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                     >
                       {t('daftar_sekarang')}

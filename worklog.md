@@ -14023,3 +14023,25 @@ Stage Summary:
 - Footer verified flush to viewport bottom on mobile (390x844) and desktop (1366x768); long landing page pushes footer naturally
 - Zero HTTP 4xx/5xx in logs, zero console errors; socket.io polling via gateway (?XTransformPort=3003) returns 200
 - Services: next dev :3000 (daemon.cjs supervised), notif-service :3003/:3004 (keepalive supervised)
+
+---
+Task ID: replace-registration-flow
+Agent: Z.ai Code (main)
+Task: Extract workspace-c66ae872 upload and replace the account registration ("cara daftar akun") with its implementation
+
+Work Log:
+- Extracted upload (gzip tar, 401 files) to /tmp/reg-upload — a separate Darrellsoft project containing a dedicated /daftar page (full form + WhatsApp OTP + StepIndicator + brand panel), /api/auth/register and /api/auth/otp/send with zod validation and { ok, message, fieldErrors } contract
+- Studied main project's existing flow: inline register tab in /login (46KB page), /api/register + /api/register/send-otp (Fonnte WhatsApp, RegisterOtp model, CalonPembeli creation, demo permissions, cookies)
+- Copied support components: src/components/auth/password-input.tsx, src/components/darrellsoft/{logo,step-indicator}.tsx (verbatim), site-footer.tsx (adapted)
+- Created src/lib/register-schema.ts — zod v4 schemas (registerSchema, sendOtpSchema) using main project's normalizePhone/phoneVariants
+- Created /api/auth/otp/send — upload's contract, main backend: duplicate-phone check (CalonPembeli/Pembeli/Pengguna), 60s cooldown, 5-per-15min rate limit, Fonnte send, demoCode fallback when otp_dev_mode=true or gateway fails
+- Created /api/auth/register — upload's contract, main backend: OTP verify (5-attempt lock, consume-on-use), uniqueness with orphan cleanup, CalonPembeli demo account, seedUserData, realtime admin notification, single-device session, demo permissions/popup, userId+userRole cookies, redirect '/pilih-paket'
+- Created /daftar page — upload UI (emerald theme, OTP slots, demo-code alert with copy, password toggles) adapted to main auth: useAuth session guard, setAuthUser + permissions + companyDataRequired + notifyDataChange on success, ref-guard so post-register /pilih-paket redirect wins over generic logged-in redirect
+- Rewired entry points: /login "Daftar Akun" tab + "Daftar sekarang" → router.push('/daftar'); ?tab=register → router.replace('/daftar'); landing page goToLogin('register') → /daftar
+- Old /api/register & /api/register/send-otp kept untouched (offline-queue references); legacy inline register form unreachable
+
+Stage Summary:
+- Browser-verified end-to-end: form fill → OTP sent (demo code displayed) → OTP entered → POST /api/auth/register 201 → auto-login → redirect /pilih-paket → dashboard loads as Demo role
+- DB verified: CalonPembeli created (catatan includes company name, expired +demo_days), RegisterOtp consumed, sample data seeded (7 paper, 3 printing cost, 5 finishing, 5 customer)
+- Admin verified: superadmin "Pendaftar Baru" badge incremented to 3; /login?tab=register redirects anonymous users to /daftar
+- Footer on /daftar flush at viewport bottom; type-check clean for all new files (remaining tsc errors are pre-existing in legacy register-tenant route); ESLint clean

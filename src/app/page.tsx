@@ -994,6 +994,11 @@ export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const goToLogin = (tab?: string) => {
+    // Alur pendaftaran baru: halaman khusus /daftar (OTP WhatsApp).
+    if (tab === 'register') {
+      router.push('/daftar');
+      return;
+    }
     router.push(tab ? `/login?tab=${tab}` : '/login');
   };
 
