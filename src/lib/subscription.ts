@@ -630,6 +630,136 @@ export async function reviewPayment(
   return result
 }
 
+// ===== SUBSCRIPTION ACCESS GATE =====
+/**
+ * Evaluasi apakah sebuah akun boleh MENGGUNAKAN aplikasi (modul-modul utama).
+ * Aturan (permintaan pemilik): selama pembayaran BELUM diverifikasi/disetujui
+ * Admin, aplikasi TIDAK bisa digunakan — pelanggan hanya bisa melihat status
+ * tagihan/langganannya.
+ *
+ * Role yang TIDAK pernah diblokir (ditangani pemanggil): admin, superadmin,
+ * manager. Role 'user' (akun lama / hasil aktivasi manual Admin / hasil konversi
+ * CalonPembeli) juga dikecualikan oleh pemanggil agar alur lama tetap berfungsi.
+ *
+ * BUKAN write-operation: hanya membaca DB (aman dipanggil tiap beberapa detik).
+ */
+export interface SubscriptionAccessSubscription {
+  planName: string | null
+  status: string
+  endDate: string | null
+  daysLeft: number | null
+}
+
+export interface SubscriptionAccessInvoice {
+  id: string
+  invoiceNumber: string
+  planName: string
+  amount: number
+  status: string
+  dueDate: string
+}
+
+export interface SubscriptionAccessInfo {
+  allowed: boolean
+  // ok | belum_pilih_paket | menunggu_pembayaran | menunggu_verifikasi | ditolak | ditangguhkan | dibatalkan
+  reason: string
+  message: string
+  subscription: SubscriptionAccessSubscription | null
+  openInvoice: SubscriptionAccessInvoice | null
+}
+
+export async function evaluateSubscriptionAccess(userId: string): Promise<SubscriptionAccessInfo> {
+  const [sub, openInv] = await Promise.all([
+    db.customerSubscription.findUnique({
+      where: { userId },
+      select: { status: true, endDate: true, plan: { select: { name: true } } },
+    }),
+    // Tagihan terbaru yang masih "terbuka": belum dibayar, sedang diverifikasi,
+    // atau pembayarannya ditolak Admin (agar pelanggan punya jalur ajukan ulang).
+    db.subscriptionInvoice.findFirst({
+      where: {
+        userId,
+        status: {
+          in: [INVOICE_STATUS.MENUNGGU_PEMBAYARAN, INVOICE_STATUS.MENUNGGU_VERIFIKASI, INVOICE_STATUS.DITOLAK],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, invoiceNumber: true, planName: true, amount: true, status: true, dueDate: true },
+    }),
+  ])
+
+  const subscription: SubscriptionAccessSubscription | null = sub
+    ? {
+        planName: sub.plan?.name ?? null,
+        status: derivedSubscriptionStatus(sub),
+        endDate: sub.endDate ? sub.endDate.toISOString() : null,
+        daysLeft: subscriptionDaysLeft(sub.endDate),
+      }
+    : null
+
+  const openInvoice: SubscriptionAccessInvoice | null = openInv
+    ? {
+        id: openInv.id,
+        invoiceNumber: openInv.invoiceNumber,
+        planName: openInv.planName,
+        amount: openInv.amount,
+        status: openInv.status,
+        dueDate: openInv.dueDate.toISOString(),
+      }
+    : null
+
+  const ok = (message: string): SubscriptionAccessInfo =>
+    ({ allowed: true, reason: 'ok', message, subscription, openInvoice })
+  const blocked = (reason: string, message: string): SubscriptionAccessInfo =>
+    ({ allowed: false, reason, message, subscription, openInvoice })
+
+  // Langganan berjalan (termasuk akan_berakhir & kedaluwarsa dalam masa tenggang —
+  // kedaluwarsa keras tetap dikunci oleh cek validUntil/expiredDate di login &
+  // verify-session) → aplikasi boleh digunakan, termasuk saat ada tagihan
+  // perpanjangan/ganti paket yang sedang diproses.
+  const accessAllowedStatuses: string[] = [SUB_STATUS.AKTIF, SUB_STATUS.AKAN_BERAKHIR, SUB_STATUS.KEDALUWARSA]
+  if (subscription && accessAllowedStatuses.includes(subscription.status)) {
+    return ok('Langganan aktif.')
+  }
+
+  if (subscription?.status === SUB_STATUS.DITANGGUHKAN) {
+    return blocked(
+      'ditangguhkan',
+      'Langganan Anda ditangguhkan oleh admin. Hubungi administrator untuk mengaktifkan kembali.',
+    )
+  }
+  if (subscription?.status === SUB_STATUS.DIBATALKAN) {
+    return blocked(
+      'dibatalkan',
+      'Langganan Anda dibatalkan. Pilih paket kembali untuk mengaktifkan layanan.',
+    )
+  }
+
+  // Belum aktif / belum pernah berlangganan → tergantung tagihan terbuka:
+  if (openInvoice?.status === INVOICE_STATUS.MENUNGGU_VERIFIKASI) {
+    return blocked(
+      'menunggu_verifikasi',
+      `Bukti pembayaran tagihan ${openInvoice.invoiceNumber} sudah diterima dan sedang diverifikasi admin. Aplikasi dapat digunakan setelah pembayaran disetujui.`,
+    )
+  }
+  if (openInvoice?.status === INVOICE_STATUS.MENUNGGU_PEMBAYARAN) {
+    return blocked(
+      'menunggu_pembayaran',
+      `Tagihan ${openInvoice.invoiceNumber} belum dibayar. Selesaikan pembayaran untuk mengaktifkan langganan Anda.`,
+    )
+  }
+  if (openInvoice?.status === INVOICE_STATUS.DITOLAK) {
+    return blocked(
+      'ditolak',
+      `Pembayaran untuk tagihan ${openInvoice.invoiceNumber} ditolak oleh admin. Silakan ajukan ulang pembayaran atau pilih paket lain.`,
+    )
+  }
+  return blocked(
+    'belum_pilih_paket',
+    'Anda belum memiliki langganan aktif. Pilih paket untuk mulai menggunakan aplikasi.',
+  )
+}
+
 // ===== CSV EXPORT =====
 export function toCsv(rows: (string | number | null)[][]): string {
   return rows

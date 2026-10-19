@@ -4,7 +4,8 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import { Sidebar } from './sidebar-desktop'
 import { MobileHeader, MobileBottomNav } from './sidebar'
 import { CompanyDataPopup } from './company-data-popup'
-import { SubscriptionPendingBanner } from './subscription-pending-banner'
+import { SubscriptionGate } from './subscription-gate'
+import type { SubscriptionAccessInfo } from '@/lib/subscription'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
@@ -23,6 +24,8 @@ interface CachedSession {
   sessionWarning: string | null
   forceLogoutAvailable: boolean
   accountExpired: boolean
+  subBlocked: boolean
+  subInfo: SubscriptionAccessInfo | null
   cachedAt: number
 }
 let _sessionCache: CachedSession | null = null
@@ -108,6 +111,13 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === NO ACCESS STATE ===
   const [noAccess, setNoAccess] = useState(false)
 
+  // === SUBSCRIPTION GATE STATE (aplikasi terkunci selama pembayaran belum diverifikasi admin) ===
+  const [subBlocked, setSubBlocked] = useState(false)
+  const [subInfo, setSubInfo] = useState<SubscriptionAccessInfo | null>(null)
+  const [subRechecking, setSubRechecking] = useState(false)
+  // Ref sinkron dgn state — dipakai saat menulis cache (nilai terbaru tanpa dependensi efek)
+  const subStateRef = useRef<{ blocked: boolean; info: SubscriptionAccessInfo | null }>({ blocked: false, info: null })
+
   // === INIT GUARD (prevent double init in StrictMode) ===
   const initDoneRef = useRef(false)
 
@@ -132,6 +142,11 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       setAutoLogoutMin(0)
       setLogoutWarningSec(0)
       setUserProfile(cache.userProfile ?? null)
+      // Pulihkan juga status gate langganan — agar aplikasi TIDAK sempat tampil
+      // (bahkan sekilas) saat sesi cached ternyata masih terkunci verifikasi.
+      subStateRef.current = { blocked: cache.subBlocked ?? false, info: cache.subInfo ?? null }
+      setSubBlocked(cache.subBlocked ?? false)
+      setSubInfo(cache.subInfo ?? null)
       setReady(true)
     }
   }, [])
@@ -172,6 +187,70 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     setCountdown(0)
   }, [])
 
+  // === APPLY VERIFY-SESSION RESPONSE (dipakai init, bg refresh, interval 10s, recheck manual) ===
+  const applyVerifyData = useCallback((data: {
+    valid?: boolean
+    expired?: boolean
+    warningMessage?: string
+    forceLogoutAvailable?: boolean
+    permissions?: { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }
+    securitySettings?: { auto_logout_min?: number; logout_warning_sec?: number }
+    subscriptionAccess?: SubscriptionAccessInfo | null
+  }) => {
+    const authUser = getAuthUser()
+    if (data.securitySettings) {
+      setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
+      setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
+    }
+    if (data.permissions && authUser?.role) {
+      saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+      setPermVersion(v => v + 1)
+    }
+    if (!data.valid) {
+      if (data.expired) {
+        setAccountExpired(true)
+        setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
+      } else if (data.warningMessage) {
+        setSessionWarning(data.warningMessage)
+        setForceLogoutAvailable(!!data.forceLogoutAvailable)
+      }
+    }
+    // === SUBSCRIPTION GATE: kunci/buka aplikasi sesuai keputusan server ===
+    if (data.subscriptionAccess) {
+      const blocked = !data.subscriptionAccess.allowed
+      subStateRef.current = { blocked, info: data.subscriptionAccess }
+      setSubBlocked(blocked)
+      setSubInfo(data.subscriptionAccess)
+    }
+  }, [t])
+
+  // === MANUAL RECHECK (tombol "Periksa Status Verifikasi" di layar gate) ===
+  const handleSubscriptionRecheck = useCallback(async () => {
+    const authUser = getAuthUser()
+    if (!authUser) return
+    setSubRechecking(true)
+    try {
+      const res = await authFetch('/api/auth/verify-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+      })
+      const data = await res.json()
+      applyVerifyData(data)
+      if (data.subscriptionAccess?.allowed) {
+        toast.success('Pembayaran disetujui — aplikasi dapat digunakan.')
+      } else if (data.subscriptionAccess) {
+        toast.info(data.subscriptionAccess.message)
+      } else {
+        toast.info('Status belum berubah — menunggu verifikasi admin.')
+      }
+    } catch {
+      toast.error('Gagal memeriksa status. Coba lagi.')
+    } finally {
+      setSubRechecking(false)
+    }
+  }, [applyVerifyData])
+
   // === INITIAL AUTH + SETTINGS LOAD (runs once) ===
   useEffect(() => {
     if (initDoneRef.current) return
@@ -193,23 +272,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
           })
           const data = await sessionRes.json()
-          if (data.securitySettings) {
-            setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
-            setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
-          }
-          if (data.permissions && authUser.role) {
-            saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
-            setPermVersion(v => v + 1)
-          }
-          if (!data.valid) {
-            if (data.expired) {
-              setAccountExpired(true)
-              setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
-            } else if (data.warningMessage) {
-              setSessionWarning(data.warningMessage)
-              setForceLogoutAvailable(!!data.forceLogoutAvailable)
-            }
-          }
+          applyVerifyData(data)
           // Update cache with fresh data
           setSessionCache({
             user: authUser,
@@ -219,6 +282,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             sessionWarning: data.valid ? null : (data.warningMessage || null),
             forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
             accountExpired: data.valid ? false : !!data.expired,
+            subBlocked: subStateRef.current.blocked,
+            subInfo: subStateRef.current.info,
           })
         } catch {
           // Background refresh failed — keep using cached data
@@ -260,6 +325,18 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                     setUserProfile({ createdAt: me.createdAt || null, validUntil: me.validUntil || null })
                     setReady(true)
                   }
+                  // Evaluasi gate langganan segera (jangan tunggu interval 10s)
+                  ;(async () => {
+                    try {
+                      const vRes = await authFetch('/api/auth/verify-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: restored.username, sessionId: restored.sessionId, role: restored.role }),
+                      })
+                      const vData = await vRes.json()
+                      if (!cancelled) applyVerifyData(vData)
+                    } catch {}
+                  })()
                   return
                 }
               }
@@ -304,25 +381,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           const data = await sessionRes.json()
           if (cancelled) return
 
-          // Load security settings from verify-session response
-          if (data.securitySettings) {
-            setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
-            setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
-          }
-          // Sync latest permissions from server to localStorage
-          if (data.permissions && authUser.role) {
-            saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
-            setPermVersion(v => v + 1)
-          }
-          if (!data.valid) {
-            if (data.expired) {
-              setAccountExpired(true)
-              setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
-            } else if (data.warningMessage) {
-              setSessionWarning(data.warningMessage)
-              setForceLogoutAvailable(!!data.forceLogoutAvailable)
-            }
-          }
+          applyVerifyData(data)
 
           // Update session cache with verified data
           setSessionCache({
@@ -333,6 +392,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             sessionWarning: data.valid ? null : (data.warningMessage || null),
             forceLogoutAvailable: data.valid ? false : !!data.forceLogoutAvailable,
             accountExpired: data.valid ? false : !!data.expired,
+            subBlocked: subStateRef.current.blocked,
+            subInfo: subStateRef.current.info,
           })
 
           // === AUTO-BACKUP CHECK ===
@@ -367,6 +428,8 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
               sessionWarning: null,
               forceLogoutAvailable: false,
               accountExpired: false,
+              subBlocked: subStateRef.current.blocked,
+              subInfo: subStateRef.current.info,
             })
           }
         }
@@ -407,23 +470,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       })
       .then(r => r.json())
       .then(data => {
-        if (!data.valid) {
-          if (data.expired) {
-            setAccountExpired(true)
-            setSessionWarning(data.warningMessage || t('akun_sudah_expired'))
-          } else if (data.warningMessage) {
-            setSessionWarning(data.warningMessage)
-            setForceLogoutAvailable(!!data.forceLogoutAvailable)
-          }
-        }
-        if (data.permissions && authUser.role) {
-          saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
-          setPermVersion(v => v + 1)
-        }
-        if (data.securitySettings) {
-          setAutoLogoutMin(data.securitySettings.auto_logout_min || 0)
-          setLogoutWarningSec(data.securitySettings.logout_warning_sec || 0)
-        }
+        applyVerifyData(data)
       })
       .catch(() => {})
     }, 10000)
@@ -434,7 +481,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         sessionIntervalRef.current = null
       }
     }
-  }, [ready, user])
+  }, [ready, user, applyVerifyData])
 
   // === ACTIVITY LISTENERS ===
   useEffect(() => {
@@ -507,6 +554,19 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           </button>
         </div>
       </div>
+    )
+  }
+
+  // === SUBSCRIPTION GATE: aplikasi TERKUNCI selama pembayaran belum diverifikasi admin ===
+  // Seluruh isi aplikasi diganti layar pemblokiran — tidak ada modul yang bisa diakses.
+  if (subBlocked) {
+    return (
+      <SubscriptionGate
+        info={subInfo}
+        rechecking={subRechecking}
+        onRecheck={handleSubscriptionRecheck}
+        onLogout={handleLogout}
+      />
     )
   }
 
@@ -595,9 +655,6 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         {/* Main Content — extra bottom padding on mobile for bottom nav + safe area.
             Margin kiri/kanan desktop 3mm untuk SEMUA halaman (permintaan user). Mobile tetap p-4. */}
         <main className="p-4 pb-20 lg:py-8 lg:pb-8 lg:px-[3mm]">
-          {/* Banner "Menunggu Verifikasi Pembayaran" — tampil selama ada tagihan
-              yang sedang diverifikasi admin dan langganan belum aktif. */}
-          <SubscriptionPendingBanner />
           {children}
         </main>
       </div>

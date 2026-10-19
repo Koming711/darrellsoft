@@ -4,12 +4,16 @@ import {
   buildDefaultPermissions,
   buildDefaultSubPermissions,
 } from '@/lib/permission-defaults'
+import { getServerUser } from '@/lib/server-auth'
+import { evaluateSubscriptionAccess, type SubscriptionAccessInfo } from '@/lib/subscription'
 
 export async function POST(request: NextRequest) {
   try {
     const { username, sessionId, role } = await request.json()
 
-    if (!username || !sessionId) {
+    // sessionId tidak dipakai di endpoint ini (sesi tidak pernah berakhir otomatis)
+    // — cukup username sebagai penanda pemanggil sah.
+    if (!username) {
       return NextResponse.json({ valid: true })
     }
 
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
           // Merge: custom overrides defaults, but new features from defaults are kept
           if (allPerms[role].features) {
             for (const [key, val] of Object.entries(allPerms[role].features)) {
-              features[key] = val
+              features[key] = val as boolean
             }
           }
           if (allPerms[role].subPermissions) {
@@ -95,6 +99,30 @@ export async function POST(request: NextRequest) {
 
     const permissions = { features, subPermissions }
 
+    // === SUBSCRIPTION ACCESS GATE ===
+    // Aturan pemilik: selama pembayaran BELUM diverifikasi Admin, aplikasi tidak
+    // bisa digunakan. Identitas diambil dari cookie/header login (bukan body)
+    // agar tidak bisa dipalsukan dari klien. Role admin/superadmin/manager dan
+    // role 'user' (akun lama / aktivasi manual Admin) tidak pernah diblokir.
+    let subscriptionAccess: SubscriptionAccessInfo | null = null
+    try {
+      const serverUser = getServerUser(request)
+      if (serverUser) {
+        const effectiveRole = serverUser.role || role || ''
+        const exempt =
+          effectiveRole === 'admin' ||
+          effectiveRole === 'superadmin' ||
+          effectiveRole === 'manager' ||
+          effectiveRole === 'user'
+        if (!exempt) {
+          subscriptionAccess = await evaluateSubscriptionAccess(serverUser.id)
+        }
+      }
+    } catch (gateError) {
+      // Jangan pernah gagalkan verify-session karena gate — fail-open seperti cek lain.
+      console.error('verify-session subscriptionAccess error:', gateError)
+    }
+
     // === SECURITY SETTINGS ===
     // Kebijakan produk: sesi TIDAK berakhir otomatis. Auto-logout idle
     // dimatikan permanen (0) — sesi hanya berakhir lewat logout manual oleh
@@ -105,7 +133,12 @@ export async function POST(request: NextRequest) {
     }
 
     const cacheHeaders = { 'Cache-Control': 'no-store, max-age=0' }
-    const responseBase = { valid: true as const, permissions, securitySettings }
+    const responseBase = {
+      valid: true as const,
+      permissions,
+      securitySettings,
+      ...(subscriptionAccess ? { subscriptionAccess } : {}),
+    }
 
     // Sesi selalu valid selama akun tidak expired. Login di perangkat lain
     // TIDAK lagi mengeluarkan perangkat ini (multi-device tetap login).
