@@ -2,8 +2,8 @@
 // KEAMANAN:
 // - Tagihan harus milik user (isolasi ketat).
 // - Nominal dibayar = nominal tagihan (validasi server).
-// - Bukti foto/PDF TIDAK wajib (dihapus sesuai permintaan — admin verifikasi manual);
-//   bila tetap dikirim, tipe file dibatasi JPG/PNG/PDF, maks ±350KB.
+// - Bukti pembayaran WAJIB diunggah, HANYA file JPG/PNG (tanpa PDF), maks ±350KB
+//   (client mengompres otomatis sebelum mengirim).
 // - Status langganan TIDAK pernah diaktifkan dari sini — hanya menunggu verifikasi admin.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -20,7 +20,8 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'application/pdf']
+// Bukti wajib & hanya JPG/PNG (tanpa PDF) sesuai permintaan
+const ALLOWED_MIME = ['image/jpeg', 'image/png']
 const MAX_PROOF_BYTES = 350 * 1024 // 350 KB — sinkron dgn kompresi otomatis di client
 
 export async function POST(request: NextRequest) {
@@ -45,23 +46,27 @@ export async function POST(request: NextRequest) {
     if (method === PAYMENT_METHODS.TRANSFER_BANK && (!senderName || !transferDate)) {
       return NextResponse.json({ error: 'Nama pengirim dan tanggal transfer wajib diisi' }, { status: 400 })
     }
-    // Bukti TIDAK wajib — bila dikirim, validasi tipe & ukuran
-    if (proofDataUrl) {
-      if (!proofDataUrl.startsWith('data:')) {
-        return NextResponse.json({ error: 'Bukti pembayaran tidak valid (JPG, PNG, atau PDF)' }, { status: 400 })
-      }
-      const mime = proofDataUrl.slice(5, proofDataUrl.indexOf(';'))
-      if (!ALLOWED_MIME.includes(mime)) {
-        return NextResponse.json({ error: 'Tipe file bukti harus JPG, PNG, atau PDF' }, { status: 400 })
-      }
-      const b64 = proofDataUrl.slice(proofDataUrl.indexOf(',') + 1)
-      const bytes = Math.floor((b64.length * 3) / 4)
-      if (bytes > MAX_PROOF_BYTES) {
-        return NextResponse.json(
-          { error: `Ukuran file bukti maksimal 350KB (file Anda ±${Math.round(bytes / 1024)}KB)` },
-          { status: 400 },
-        )
-      }
+    // Bukti WAJIB — hanya JPG/PNG, maks ±350KB
+    if (!proofDataUrl) {
+      return NextResponse.json(
+        { error: 'Bukti pembayaran wajib diunggah (file JPG atau PNG)' },
+        { status: 400 },
+      )
+    }
+    if (!proofDataUrl.startsWith('data:')) {
+      return NextResponse.json({ error: 'Bukti pembayaran tidak valid (JPG atau PNG)' }, { status: 400 })
+    }
+    const mime = proofDataUrl.slice(5, proofDataUrl.indexOf(';'))
+    if (!ALLOWED_MIME.includes(mime)) {
+      return NextResponse.json({ error: 'Tipe file bukti harus JPG atau PNG' }, { status: 400 })
+    }
+    const b64 = proofDataUrl.slice(proofDataUrl.indexOf(',') + 1)
+    const bytes = Math.floor((b64.length * 3) / 4)
+    if (bytes > MAX_PROOF_BYTES) {
+      return NextResponse.json(
+        { error: `Ukuran file bukti maksimal 350KB (file Anda ±${Math.round(bytes / 1024)}KB)` },
+        { status: 400 },
+      )
     }
 
     const invoice = await db.subscriptionInvoice.findUnique({ where: { id: invoiceId } })
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest) {
         amount: invoice.amount, // server-side — selalu sesuai tagihan
         senderName,
         transferDate,
-        proofFileUrl: proofDataUrl, // boleh kosong — tanpa unggah bukti
+        proofFileUrl: proofDataUrl, // wajib — JPG/PNG terkompresi
         proofFileName: proofFileName || '',
         status: 'menunggu_verifikasi',
       },
@@ -132,8 +137,8 @@ export async function POST(request: NextRequest) {
     })
     await addNotification({
       userId: user.id,
-      title: 'Konfirmasi Pembayaran Terkirim',
-      body: `Konfirmasi pembayaran untuk tagihan ${invoice.invoiceNumber} berhasil dikirim dan sedang menunggu verifikasi admin.`,
+      title: 'Bukti Pembayaran Terkirim',
+      body: `Bukti pembayaran untuk tagihan ${invoice.invoiceNumber} berhasil dikirim dan sedang menunggu verifikasi admin.`,
       type: 'payment',
       link: '/langganan-saya',
     })

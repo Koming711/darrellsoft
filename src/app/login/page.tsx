@@ -1,17 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { Eye, EyeOff, Mail, User as UserIcon, Loader2, AlertCircle, CheckCircle, XCircle, ArrowLeft, KeyRound, X } from 'lucide-react'
+import { Eye, EyeOff, Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft, KeyRound, X, MessageCircle } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser, setAuthUser } from '@/lib/auth'
 import { useLanguage } from '@/contexts/language-context'
-import { toast } from 'sonner'
 import { applyThemeAfterLogin } from '@/contexts/theme-context'
-import { notifyDataChange } from '@/lib/data-sync'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LanguageToggle } from '@/components/language-toggle'
 import { useTheme } from 'next-themes'
-import { PhoneOtpField, useUsernameCheck } from '@/components/phone-otp-field'
 
 
 export default function LoginPage() {
@@ -34,11 +31,9 @@ function LoginContent() {
     // belum pilih paket) → beranda aplikasi.
     window.location.href = nextUrl || postLoginTargetRef.current || '/pembukaan'
   }
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>(searchParams.get('tab') === 'register' ? 'register' : 'login')
   // Arahan lanjut sesuai status langganan (diisi dari respons login server)
   const postLoginTargetRef = useRef('')
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   // Login state
@@ -47,44 +42,27 @@ function LoginContent() {
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
 
-  // Register success state
-  const [regSuccess, setRegSuccess] = useState(false)
-
-  // Register state
-  const [regNamaLengkap, setRegNamaLengkap] = useState('')
-  const [regNomorHP, setRegNomorHP] = useState('')
-  const [regEmail, setRegEmail] = useState('')
-  const [regUsername, setRegUsername] = useState('')
-  const [regPassword, setRegPassword] = useState('')
-  const [regConfirmPassword, setRegConfirmPassword] = useState('')
-  const [regError, setRegError] = useState('')
-  const [regLoading, setRegLoading] = useState(false)
-
-  // OTP WhatsApp + ketersediaan nomor/username
-  const [regOtpCode, setRegOtpCode] = useState('')
-  const [regPhoneBlocked, setRegPhoneBlocked] = useState(false)
-  const regUsernameStatus = useUsernameCheck(regUsername)
-
-  // Forgot password state
+  // Forgot password state — alur OTP WhatsApp ke nomor terdaftar:
+  // step 'search' (cari akun) → 'otp' (kirim + verifikasi OTP) → 'reset' (password baru)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
-  const [fpEmail, setFpEmail] = useState('')
+  const [fpStep, setFpStep] = useState<'search' | 'otp' | 'reset'>('search')
+  const [fpIdentifier, setFpIdentifier] = useState('')
   const [fpLoading, setFpLoading] = useState(false)
   const [fpError, setFpError] = useState('')
-  const [fpAccount, setFpAccount] = useState<{ name: string; username: string; userId: string; userType: string } | null>(null)
+  const [fpAccount, setFpAccount] = useState<{ name: string; username: string; userId: string; userType: string; maskedWhatsApp: string } | null>(null)
+  const [fpOtpSent, setFpOtpSent] = useState(false)
+  const [fpOtpCode, setFpOtpCode] = useState('')
+  const [fpOtpCooldown, setFpOtpCooldown] = useState(0)
+  const [fpDevCode, setFpDevCode] = useState('')
   const [fpNewPassword, setFpNewPassword] = useState('')
   const [fpConfirmPassword, setFpConfirmPassword] = useState('')
   const [fpShowPassword, setFpShowPassword] = useState(false)
   const [fpShowConfirm, setFpShowConfirm] = useState(false)
   const [fpSuccess, setFpSuccess] = useState(false)
 
-  // Username-already-exists popup state
-  const [usernameExistsOpen, setUsernameExistsOpen] = useState(false)
-  const regUsernameRef = useRef<HTMLInputElement>(null)
-
   const router = useRouter()
   const { t } = useLanguage()
   const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme === 'dark'
 
   // Pendaftaran akun kini memakai halaman khusus /daftar (alur baru dengan
   // OTP WhatsApp + StepIndicator). Semua link ?tab=register diarahkan ke sana.
@@ -181,35 +159,69 @@ function LoginContent() {
     }
   }
 
-  // Step 1: Search account by email
+  // ===== Forgot password (OTP WhatsApp ke nomor terdaftar) =====
+
+  // Cooldown countdown untuk kirim ulang OTP (1 detik per tick)
+  useEffect(() => {
+    if (fpOtpCooldown <= 0) return
+    const id = setTimeout(() => setFpOtpCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(id)
+  }, [fpOtpCooldown])
+
+  const requestFpOtp = async (account: { userId: string; userType: string }) => {
+    setFpError('')
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send-otp', userId: account.userId, userType: account.userType }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      if (typeof data.waitSeconds === 'number' && data.waitSeconds > 0) setFpOtpCooldown(data.waitSeconds)
+      setFpError(data.error || t('terjadi_kesalahan'))
+      return false
+    }
+    setFpOtpSent(true)
+    setFpOtpCode('')
+    setFpDevCode(data.devCode || '')
+    setFpOtpCooldown(60)
+    return true
+  }
+
+  // Step 1: cari akun by username/email → langsung kirim OTP ke WhatsApp terdaftar
   const handleFpSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     setFpError('')
-    setFpAccount(null)
     setFpSuccess(false)
-    setFpLoading(true)
 
+    if (!fpIdentifier.trim()) {
+      setFpError(t('fp_identifier_wajib'))
+      return
+    }
+
+    setFpLoading(true)
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'search', email: fpEmail }),
+        body: JSON.stringify({ action: 'search', identifier: fpIdentifier }),
       })
       const data = await res.json()
 
       if (res.status === 404) {
-        setFpError(data.message || t('email_tidak_ditemukan'))
-        setFpLoading(false)
+        setFpError(data.message || t('terjadi_kesalahan'))
         return
       }
-
       if (!res.ok) {
         setFpError(data.error || t('terjadi_kesalahan'))
-        setFpLoading(false)
         return
       }
 
-      setFpAccount({ name: data.name, username: data.username, userId: data.userId, userType: data.userType })
+      const account = { name: data.name, username: data.username, userId: data.userId, userType: data.userType, maskedWhatsApp: data.maskedWhatsApp || '' }
+      setFpAccount(account)
+      setFpStep('otp')
+      // OTP langsung dikirim ke WhatsApp terdaftar begitu akun ditemukan
+      await requestFpOtp(account)
     } catch {
       setFpError(t('terjadi_kesalahan_jaringan'))
     } finally {
@@ -217,10 +229,57 @@ function LoginContent() {
     }
   }
 
-  // Step 2: Reset password directly
+  // Kirim ulang OTP (tombol resend)
+  const handleFpResend = async () => {
+    if (!fpAccount) return
+    setFpLoading(true)
+    try {
+      await requestFpOtp(fpAccount)
+    } finally {
+      setFpLoading(false)
+    }
+  }
+
+  // Step 2: verifikasi OTP
+  const handleFpVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFpError('')
+
+    if (!fpAccount) return
+    if (fpOtpCode.trim().length !== 6) {
+      setFpError(t('otp_wajib'))
+      return
+    }
+
+    setFpLoading(true)
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify-otp', userId: fpAccount.userId, userType: fpAccount.userType, otpCode: fpOtpCode.trim() }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFpError(data.error || t('terjadi_kesalahan'))
+        return
+      }
+
+      setFpError('')
+      setFpStep('reset')
+    } catch {
+      setFpError(t('terjadi_kesalahan_jaringan'))
+    } finally {
+      setFpLoading(false)
+    }
+  }
+
+  // Step 3: simpan password baru
   const handleFpReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setFpError('')
+
+    if (!fpAccount) return
 
     if (fpNewPassword.length < 6) {
       setFpError(t('password_baru_minimal_6'))
@@ -238,13 +297,18 @@ function LoginContent() {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset', email: fpEmail, newPassword: fpNewPassword }),
+        body: JSON.stringify({
+          action: 'reset',
+          userId: fpAccount.userId,
+          userType: fpAccount.userType,
+          otpCode: fpOtpCode.trim(),
+          newPassword: fpNewPassword,
+        }),
       })
       const data = await res.json()
 
       if (!res.ok) {
         setFpError(data.error || t('terjadi_kesalahan'))
-        setFpLoading(false)
         return
       }
 
@@ -256,12 +320,15 @@ function LoginContent() {
     }
   }
 
-
-
   const resetFpFields = () => {
-    setFpEmail('')
+    setFpStep('search')
+    setFpIdentifier('')
     setFpError('')
     setFpAccount(null)
+    setFpOtpSent(false)
+    setFpOtpCode('')
+    setFpOtpCooldown(0)
+    setFpDevCode('')
     setFpNewPassword('')
     setFpConfirmPassword('')
     setFpShowPassword(false)
@@ -272,132 +339,6 @@ function LoginContent() {
   const closeFpDialog = () => {
     setShowForgotPassword(false)
     resetFpFields()
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setRegError('')
-    setRegLoading(true)
-
-    if (!regNamaLengkap.trim() || !regNomorHP.trim() || !regEmail.trim() || !regUsername.trim() || !regPassword || !regConfirmPassword) {
-      setRegError('Semua field wajib diisi')
-      setRegLoading(false)
-      return
-    }
-
-    if (regUsername.trim().length < 3) {
-      setRegError('Username minimal 3 karakter')
-      setRegLoading(false)
-      return
-    }
-
-    if (regPassword.length < 6) {
-      setRegError(t('password_minimal_6'))
-      setRegLoading(false)
-      return
-    }
-
-    if (regPassword !== regConfirmPassword) {
-      setRegError(t('password_konfirmasi_tidak_sama'))
-      setRegLoading(false)
-      return
-    }
-
-    // Nomor handphone sudah terdaftar → tidak boleh daftar
-    if (regPhoneBlocked) {
-      setRegError(t('nomor_hp_sudah_digunakan'))
-      setRegLoading(false)
-      return
-    }
-
-    // OTP wajib diisi sebelum mendaftar
-    if (!regOtpCode.trim() || regOtpCode.trim().length !== 6) {
-      setRegError(t('otp_wajib'))
-      setRegLoading(false)
-      return
-    }
-
-    try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          namaLengkap: regNamaLengkap.trim(),
-          nomorHP: regNomorHP.trim(),
-          email: regEmail.trim(),
-          username: regUsername.trim(),
-          password: regPassword,
-          otpCode: regOtpCode.trim(),
-        })
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        // Username sudah dipakai → tampilkan popup khusus (bukan inline error)
-        if (data.code === 'USERNAME_EXISTS') {
-          setRegError('')
-          setUsernameExistsOpen(true)
-          return
-        }
-        setRegError(data.error || t('pendaftaran_gagal'))
-        return
-      }
-
-      // Pendaftaran berhasil — langsung auto-login
-      if (data.id && data.role) {
-        // Notify other tabs (e.g., admin's pengguna page) about the new calon pembeli
-        notifyDataChange('calon-pembeli')
-        toast.success(t('pendaftaran_berhasil_selamat_prefix') + (data.name || data.username) + t('pendaftaran_berhasil_selamat_suffix'), { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 4000 })
-        setAuthUser({
-          id: data.id,
-          username: data.username,
-          name: data.name,
-          role: data.role,
-          sessionId: data.sessionId,
-        })
-
-        // Tandai bahwa user baru ini wajib mengisi Data Perusahaan.
-        // Flag persisten ini dipantau oleh CompanyDataPopup di DashboardLayout —
-        // popup "Lengkapi Data Perusahaan" akan muncul di /pembukaan (dan halaman
-        // dashboard lainnya) sampai user mengisi & menyimpan data perusahaan.
-        // Sama dengan flow checkout (role demo).
-        localStorage.setItem('companyDataRequired', 'true')
-
-        if (data.permissions) {
-          const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
-          allPerms[data.role] = data.permissions
-          try {
-            const existing = localStorage.getItem('permissions')
-            if (existing) {
-              const parsed = JSON.parse(existing)
-              Object.assign(allPerms, parsed)
-            }
-          } catch {}
-          localStorage.setItem('permissions', JSON.stringify(allPerms))
-        }
-
-        // Daftar Akun berhasil → langsung tampilkan daftar paket untuk dipilih.
-        // Halaman Pilih Paket memuat katalog paket live dari DB (sumber sama
-        // dengan landing page); setelah paket dipilih, tagihan dibuat dan user
-        // masuk ke alur pembayaran QRIS/Transfer Bank. Popup info demo tidak
-        // perlu di alur ini karena user jelas sedang memilih paket berbayar.
-        applyThemeAfterLogin()
-        setIsRedirecting(true)
-        setTimeout(() => {
-          window.location.href = nextUrl || '/pilih-paket'
-        }, 1200)
-      } else {
-        // Notify other tabs about the new calon pembeli
-        notifyDataChange('calon-pembeli')
-        toast.success(t('pendaftaran_berhasil_toast'), { icon: <CheckCircle className="w-4 h-4 text-emerald-600" />, duration: 5000 })
-        setRegSuccess(true)
-      }
-    } catch (err) {
-      setRegError(t('terjadi_kesalahan_jaringan'))
-    } finally {
-      setRegLoading(false)
-    }
   }
 
   // Don't render login page if redirecting
@@ -441,350 +382,97 @@ function LoginContent() {
           <p className="text-muted-foreground mt-2 text-base">{t('app_tagline')}</p>
         </div>
 
-        {/* Card */}
+        {/* Card — tab "Daftar" dihapus: pendaftaran hanya lewat halaman /daftar */}
         <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-border">
-            <button
-              onClick={() => setActiveTab('login')}
-              className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
-                activeTab === 'login'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t('masuk')}
-            </button>
-            <button
-              onClick={() => router.push('/daftar')}
-              className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
-                activeTab === 'register'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t('daftar_akun')}
-            </button>
-          </div>
-
           {/* Form Content */}
           <div className="p-6">
-            {activeTab === 'login' ? (
-              <form onSubmit={handleLogin} className="space-y-4">
-                {/* Error Message */}
-                {loginError && (
-                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    {loginError}
-                  </div>
-                )}
+            <form onSubmit={handleLogin} className="space-y-4">
+              {/* Error Message */}
+              {loginError && (
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {loginError}
+                </div>
+              )}
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('username')}
-                  </label>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t('username')}
+                </label>
+                <input
+                  type="text"
+                  placeholder={t('masukkan_username')}
+                  required
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={username}
+                  onChange={(e) => { setUsername(e.target.value); setLoginError('') }}
+                  className="w-full border border-input rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t('password')}
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
-                    placeholder={t('masukkan_username')}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder={t('masukkan_password')}
                     required
-                    autoComplete="username"
+                    autoComplete="current-password"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
-                    value={username}
-                    onChange={(e) => { setUsername(e.target.value); setLoginError('') }}
-                    className="w-full border border-input rounded-lg px-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setLoginError('') }}
+                    className="w-full border border-input rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('password')}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder={t('masukkan_password')}
-                      required
-                      autoComplete="current-password"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      value={password}
-                      onChange={(e) => { setPassword(e.target.value); setLoginError('') }}
-                      className="w-full border border-input rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loginLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {loginLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('memproses')}
-                    </>
-                  ) : (
-                    t('masuk')
-                  )}
-                </button>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {t('belum_punya_akun')}{' '}
-                    <button
-                      type="button"
-                      onClick={() => router.push('/daftar')}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                    >
-                      {t('daftar_sekarang')}
-                    </button>
-                  </p>
                   <button
                     type="button"
-                    onClick={() => { resetFpFields(); setShowForgotPassword(true) }}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
                   >
-                    {t('lupa_password')}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </form>
-            ) : regSuccess ? (
-              <div className="text-center py-4 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">{t('pendaftaran_berhasil_title')}</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
-                    {t('akun_berhasil_didaftarkan')}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRegSuccess(false)
-                    setActiveTab('login')
-                    setRegNamaLengkap('')
-                    setRegNomorHP('')
-                    setRegEmail('')
-                    setRegUsername('')
-                    setRegPassword('')
-                    setRegConfirmPassword('')
-                    setRegOtpCode('')
-                    setRegPhoneBlocked(false)
-                  }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
-                >
-                  {t('kembali_ke_login')}
-                </button>
               </div>
-            ) : (
-              <form onSubmit={handleRegister} className="space-y-3">
-                {/* Error Message */}
-                {regError && (
-                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    {regError}
-                  </div>
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                {loginLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t('memproses')}
+                  </>
+                ) : (
+                  t('masuk')
                 )}
-
-                {/* Nama Lengkap */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('nama_lengkap')}
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder={t('masukkan_nama_lengkap')}
-                      required
-                      value={regNamaLengkap}
-                      onChange={(e) => setRegNamaLengkap(e.target.value)}
-                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                {/* Nomor Handphone + OTP WhatsApp */}
-                <PhoneOtpField
-                  value={regNomorHP}
-                  onChange={setRegNomorHP}
-                  otpCode={regOtpCode}
-                  onOtpCodeChange={setRegOtpCode}
-                  onBlockedChange={setRegPhoneBlocked}
-                />
-
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('email')}
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="email"
-                      placeholder={t('email_contoh')}
-                      required
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                {/* Username */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('username')} <span className="text-xs text-muted-foreground">(minimal 3 karakter)</span>
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      ref={regUsernameRef}
-                      type="text"
-                      placeholder="Buat username"
-                      required
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      minLength={3}
-                      value={regUsername}
-                      onChange={(e) => setRegUsername(e.target.value)}
-                      className={`w-full border rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        (regUsername.length > 0 && regUsername.length < 3) || regUsernameStatus === 'taken' ? 'border-red-300' : 'border-input'
-                      }`}
-                    />
-                  </div>
-                  {regUsername.length > 0 && regUsername.length < 3 && (
-                    <p className="text-xs text-red-500 mt-1">Username harus minimal 3 karakter ({regUsername.length}/3)</p>
-                  )}
-                  {regUsernameStatus === 'checking' && (
-                    <p className="text-xs text-muted-foreground mt-1">{t('username_mengecek')}</p>
-                  )}
-                  {regUsernameStatus === 'taken' && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                      <XCircle className="w-3 h-3 flex-shrink-0" />
-                      {t('username_sudah_digunakan')}
-                    </p>
-                  )}
-                  {regUsernameStatus === 'available' && (
-                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 flex-shrink-0" />
-                      {t('username_tersedia')}
-                    </p>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('password')} <span className="text-xs text-muted-foreground">{t('minimal_6_karakter')}</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder={t('buat_password')}
-                      required
-                      autoComplete="new-password"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      minLength={6}
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        regPassword.length > 0 && regPassword.length < 6 ? 'border-red-300' : 'border-input'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {regPassword.length > 0 && regPassword.length < 6 && (
-                    <p className="text-xs text-red-500 mt-1">{t('password_harus_minimal_6_prefix')}{regPassword.length}{t('password_harus_minimal_6_suffix')}</p>
-                  )}
-                </div>
-
-                {/* Konfirmasi Password */}
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
-                    {t('konfirmasi_password')}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder={t('ulangi_password')}
-                      required
-                      autoComplete="new-password"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      minLength={6}
-                      value={regConfirmPassword}
-                      onChange={(e) => setRegConfirmPassword(e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2.5 pr-10 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        regConfirmPassword.length > 0 && regConfirmPassword !== regPassword ? 'border-red-300' : 'border-input'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-0.5"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {regConfirmPassword.length > 0 && regConfirmPassword !== regPassword && (
-                    <p className="text-xs text-red-500 mt-1">{t('password_tidak_cocok')}</p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={regLoading || regPhoneBlocked || regUsernameStatus === 'taken'}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {regLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('mendaftar')}
-                    </>
-                  ) : (
-                    t('daftar_akun')
-                  )}
-                </button>
-
-                <p className="text-center text-sm text-muted-foreground">
-                  {t('sudah_punya_akun')}{' '}
+              </button>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {t('belum_punya_akun')}{' '}
                   <button
                     type="button"
-                    onClick={() => setActiveTab('login')}
+                    onClick={() => router.push('/daftar')}
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                   >
-                    {t('login_sekarang')}
+                    {t('daftar_sekarang')}
                   </button>
                 </p>
-              </form>
-            )}
+                <button
+                  type="button"
+                  onClick={() => { resetFpFields(); setShowForgotPassword(true) }}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                >
+                  {t('lupa_password')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 
@@ -794,7 +482,7 @@ function LoginContent() {
       </div>
       </div>
 
-      {/* ===== FORGOT PASSWORD DIALOG ===== */}
+      {/* ===== FORGOT PASSWORD DIALOG (OTP WhatsApp ke nomor terdaftar) ===== */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="bg-card rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
@@ -837,8 +525,8 @@ function LoginContent() {
                   {t('masuk_sekarang')}
                 </button>
               </div>
-            ) : !fpAccount ? (
-              /* === STEP 1: Search account by email === */
+            ) : fpStep === 'search' ? (
+              /* === STEP 1: Cari akun by username/email === */
               <form onSubmit={handleFpSearch} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
@@ -848,20 +536,23 @@ function LoginContent() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">{t('email_label')}</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('fp_identifier_label')}</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
-                      type="email"
-                      placeholder={t('masukkan_email_akun')}
+                      type="text"
+                      placeholder={t('fp_identifier_placeholder')}
                       required
-                      autoComplete="email"
-                      value={fpEmail}
-                      onChange={(e) => { setFpEmail(e.target.value); setFpError('') }}
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      value={fpIdentifier}
+                      onChange={(e) => { setFpIdentifier(e.target.value); setFpError('') }}
                       className="w-full border border-input rounded-lg pl-9 pr-3 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">{t('atur_password_baru_langsung')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('fp_otp_note')}</p>
                 </div>
 
                 <button
@@ -879,8 +570,93 @@ function LoginContent() {
                   {t('kembali_ke_login')}
                 </button>
               </form>
+            ) : fpStep === 'otp' ? (
+              /* === STEP 2: OTP terkirim ke WhatsApp terdaftar → verifikasi === */
+              <form onSubmit={handleFpVerify} className="space-y-4">
+                {fpError && (
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {fpError}
+                  </div>
+                )}
+
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <p className="text-sm text-green-700 dark:text-green-400">
+                      {t('akun_ditemukan_prefix')}<strong>{fpAccount?.name}</strong> {fpAccount?.username ? `(${fpAccount.username})` : ''} {t('akun_ditemukan_suffix')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <MessageCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-sm font-medium text-foreground">
+                        {t('otp_kode_label')}
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {fpOtpSent ? (
+                          <>
+                            {t('fp_terkirim_ke')} <strong className="text-foreground">{fpAccount?.maskedWhatsApp}</strong>{t('otp_terkirim_suffix')}
+                          </>
+                        ) : (
+                          t('fp_otp_note')
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {fpDevCode && (
+                    <div className="rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+                      {t('otp_dev_code')} <span className="tracking-widest">{fpDevCode}</span>
+                    </div>
+                  )}
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    maxLength={6}
+                    placeholder={t('otp_kode_placeholder')}
+                    value={fpOtpCode}
+                    onChange={(e) => { setFpOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setFpError('') }}
+                    className="w-full border border-input rounded-lg px-3 py-2.5 text-center text-lg font-semibold tracking-[0.4em] text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={fpLoading || fpOtpCode.length !== 6}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {fpLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('fp_memverifikasi')}</> : t('fp_verifikasi_otp')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleFpResend()}
+                  disabled={fpLoading || fpOtpCooldown > 0}
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed py-1 transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  {fpOtpCooldown > 0 ? `${t('otp_kirim_ulang_dalam')} ${fpOtpCooldown}${t('otp_detik')}` : t('otp_kirim_ulang')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetFpFields}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
+                >
+                  {t('fp_ganti_akun')}
+                </button>
+              </form>
             ) : (
-              /* === STEP 2: Enter new password directly === */
+              /* === STEP 3: OTP terverifikasi → password baru === */
               <form onSubmit={handleFpReset} className="space-y-4">
                 {fpError && (
                   <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
@@ -893,7 +669,7 @@ function LoginContent() {
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                     <p className="text-sm text-green-700 dark:text-green-400">
-                      {t('akun_ditemukan_prefix')}<strong>{fpAccount.name}</strong> {fpAccount.username ? `(${fpAccount.username})` : ''} {t('akun_ditemukan_suffix')}
+                      {t('akun_ditemukan_prefix')}<strong>{fpAccount?.name}</strong> {fpAccount?.username ? `(${fpAccount.username})` : ''} {t('akun_ditemukan_suffix')}
                     </p>
                   </div>
                 </div>
@@ -956,46 +732,13 @@ function LoginContent() {
 
                 <button
                   type="button"
-                  onClick={() => { setFpAccount(null); setFpError(''); setFpNewPassword(''); setFpConfirmPassword('') }}
+                  onClick={resetFpFields}
                   className="w-full text-sm text-muted-foreground hover:text-foreground py-1 transition-colors"
                 >
-                  {t('ganti_email')}
+                  {t('fp_ganti_akun')}
                 </button>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ===== USERNAME ALREADY EXISTS POPUP DIALOG ===== */}
-      {usernameExistsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-card rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-foreground">{t('username_sudah_ada_title')}</h3>
-              </div>
-              <button
-                onClick={() => { setUsernameExistsOpen(false); regUsernameRef.current?.focus() }}
-                className="text-muted-foreground hover:text-foreground transition-colors -mt-1 -mr-1 p-1"
-                aria-label="Tutup"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
-              <p className="text-sm text-foreground leading-relaxed">{t('username_sudah_ada')}</p>
-            </div>
-            <button
-              onClick={() => { setUsernameExistsOpen(false); regUsernameRef.current?.focus(); regUsernameRef.current?.select() }}
-              className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl transition-colors"
-              autoFocus
-            >
-              {t('ok')}
-            </button>
           </div>
         </div>
       )}

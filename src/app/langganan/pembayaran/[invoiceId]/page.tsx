@@ -3,11 +3,11 @@
 // /langganan/pembayaran/[invoiceId] — Pembayaran Manual (QRIS / Transfer Bank)
 // Port dari implementasi standalone (/pembayaran/[id]) ke backend langganan
 // Darrell Soft. Alur: rincian tagihan (harga paket + kode unik + total) →
-// instruksi QRIS/Transfer Bank → konfirmasi pembayaran TANPA unggah bukti
-// foto/PDF (dihapus sesuai permintaan — admin verifikasi manual) → status
+// instruksi QRIS/Transfer Bank → unggah bukti pembayaran (HANYA file JPG/PNG,
+// otomatis dikompres ≤350KB) + konfirmasi pembayaran → status
 // "Menunggu Verifikasi" → admin setujui.
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,12 @@ import { getAuthHeaders } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
 import { apiFetch } from '@/lib/subscription-client'
 import {
+  compressImageToJpegDataUrl,
+  dataUrlBytes,
+  formatBytes,
+  PAYMENT_PROOF_MAX_BYTES,
+} from '@/lib/image-compress'
+import {
   daysLeft,
   formatDateTime,
   formatRupiah,
@@ -46,6 +52,7 @@ import {
   ChevronLeft,
   Clock,
   Copy,
+  FileUp,
   Hourglass,
   Info,
   Loader2,
@@ -55,6 +62,10 @@ import {
   User,
   XCircle,
 } from 'lucide-react'
+
+/** Bukti pembayaran hanya menerima file JPG/PNG sesuai permintaan. */
+const PROOF_ACCEPT_ATTR = 'image/jpeg,image/png,.jpg,.jpeg,.png'
+const PROOF_ACCEPTED_MIME = ['image/jpeg', 'image/png']
 
 type Invoice = {
   id: string
@@ -118,10 +129,14 @@ function PembayaranContent() {
   const [settings, setSettings] = useState<PaymentSettings | null>(null)
   const [customerName, setCustomerName] = useState('')
 
-  // Form konfirmasi pembayaran (tanpa unggah bukti foto/PDF)
+  // Form konfirmasi pembayaran + unggah bukti (hanya file JPG/PNG)
   const [method, setMethod] = useState<'qris' | 'transfer_bank'>('qris')
   const [senderName, setSenderName] = useState('')
   const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  const [proofPreviewUrl, setProofPreviewUrl] = useState('')
+  const [proofDataUrl, setProofDataUrl] = useState('')
+  const proofInputRef = useRef<HTMLInputElement>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const loadInvoice = useCallback(async () => {
@@ -182,10 +197,46 @@ function PembayaranContent() {
       : invoice.amount
     : 0
 
+  const clearProof = useCallback(() => {
+    setProofFile(null)
+    setProofPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return ''
+    })
+    setProofDataUrl('')
+    if (proofInputRef.current) proofInputRef.current.value = ''
+  }, [])
+
+  const handleSelectProof = async (file: File | null | undefined) => {
+    if (!file) return
+    if (!PROOF_ACCEPTED_MIME.includes(file.type)) {
+      toast.error('File bukti pembayaran harus JPG atau PNG')
+      if (proofInputRef.current) proofInputRef.current.value = ''
+      return
+    }
+    // Pratinjau + kompres otomatis ke JPEG ≤350KB (PNG transparan diberi latar putih)
+    setProofFile(file)
+    setProofPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
+    try {
+      const dataUrl = await compressImageToJpegDataUrl(file, PAYMENT_PROOF_MAX_BYTES)
+      setProofDataUrl(dataUrl)
+    } catch {
+      toast.error('Gagal memproses gambar. Silakan coba file lain.')
+      clearProof()
+    }
+  }
+
   const handleSubmitProof = async () => {
     if (!invoice) return
     if (method === 'transfer_bank' && senderName.trim().length < 2) {
       toast.error('Nama pengirim minimal 2 karakter')
+      return
+    }
+    if (!proofDataUrl || !proofFile) {
+      toast.error('Unggah bukti pembayaran terlebih dahulu (file JPG atau PNG)')
       return
     }
     setSubmitting(true)
@@ -196,12 +247,12 @@ function PembayaranContent() {
           paymentMethod: method,
           senderName: senderName.trim(),
           transferDate, // 'YYYY-MM-DD' — dikirim mentah sesuai kontrak backend
-          // Tanpa unggah bukti foto/PDF — admin verifikasi manual
-          proofDataUrl: '',
-          proofFileName: '',
+          proofDataUrl, // data URL JPEG hasil kompresi otomatis (≤350KB)
+          proofFileName: proofFile.name,
         },
       })
-      toast.success('Konfirmasi pembayaran terkirim — menunggu verifikasi admin')
+      toast.success('Bukti pembayaran terkirim — menunggu verifikasi admin')
+      clearProof()
       await loadInvoice()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal mengirim konfirmasi, coba lagi')
@@ -539,8 +590,8 @@ function PembayaranContent() {
                 <CardHeader>
                   <CardTitle className="text-lg">Konfirmasi Pembayaran</CardTitle>
                   <CardDescription>
-                    Setelah transfer sesuai nominal, kirim konfirmasi di bawah ini. Admin akan
-                    memverifikasi pembayaran Anda.
+                    Setelah transfer sesuai nominal, unggah bukti pembayaran (JPG/PNG) lalu kirim
+                    konfirmasi di bawah ini. Admin akan memverifikasi pembayaran Anda.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -588,6 +639,56 @@ function PembayaranContent() {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Unggah bukti pembayaran — hanya file JPG/PNG */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="proofUpload">
+                      Unggah Bukti Pembayaran <span className="text-destructive">*</span>
+                    </Label>
+                    <input
+                      ref={proofInputRef}
+                      id="proofUpload"
+                      type="file"
+                      accept={PROOF_ACCEPT_ATTR}
+                      className="hidden"
+                      onChange={(e) => void handleSelectProof(e.target.files?.[0])}
+                    />
+                    {!proofFile ? (
+                      <button
+                        type="button"
+                        onClick={() => proofInputRef.current?.click()}
+                        className="flex min-h-24 w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      >
+                        <FileUp className="h-5 w-5" aria-hidden="true" />
+                        <span className="font-medium text-foreground">Pilih file bukti transfer</span>
+                        <span className="text-xs">Hanya file JPG atau PNG — otomatis dikompres ≤350KB</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3 rounded-lg border p-3">
+                        <img
+                          src={proofPreviewUrl}
+                          alt="Pratinjau bukti pembayaran"
+                          className="h-14 w-14 shrink-0 rounded border object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{proofFile.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatBytes(proofFile.size)}
+                            {proofDataUrl && ` • dikompres ke ${formatBytes(dataUrlBytes(proofDataUrl))}`}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11"
+                          onClick={() => proofInputRef.current?.click()}
+                        >
+                          Ganti
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <Button

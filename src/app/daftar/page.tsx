@@ -387,10 +387,6 @@ export default function DaftarPage() {
                 </ul>
               </div>
 
-              <p className="relative text-sm text-teal-100/80">
-                Trial gratis 14 hari — tanpa kartu kredit. Data usaha Anda aman
-                dan terpisah per akun.
-              </p>
             </aside>
 
             {/* Kartu form */}

@@ -310,7 +310,7 @@ function PengaturanContent() {
                 id="payment-instructions"
                 value={paymentInstructions}
                 onChange={(e) => setPaymentInstructions(e.target.value)}
-                placeholder="Contoh: Transfer sesuai nominal tagihan (termasuk kode unik), lalu kirim konfirmasi pembayaran."
+                placeholder="Contoh: Transfer sesuai nominal tagihan (termasuk kode unik), lalu unggah bukti pembayaran (file JPG/PNG)."
                 rows={4}
                 maxLength={2000}
               />
