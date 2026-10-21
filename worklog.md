@@ -14331,3 +14331,29 @@ Stage Summary:
 - Menu "Paket Saya" kini tersedia di sidebar aplikasi pelanggan: desktop (rail hover-expand, seksi LANGGANAN) dan mobile (popup Lainnya) → menuju /langganan-saya (status langganan, tagihan, riwayat pembayaran, kuitansi)
 - Akses untuk semua role yang login (featureId 'langganan-saya' sudah di-whitelist permission); label terjemahan ID "Paket Saya" / EN "My Package"
 - File berubah: src/lib/i18n.ts, src/components/sidebar-desktop.tsx, src/components/sidebar.tsx, src/components/menu-home-screen.tsx
+
+---
+Task ID: sidebar-master-barang
+Agent: Z.ai Code (main)
+Task: "tambahkan master barang i sidebar menu" — tambahkan menu "Master Barang" di sidebar (desktop rail + popup "Lainnya" mobile).
+
+Work Log:
+- ANALISIS: label "Master Barang" TIDAK ada di sidebar saat ini — item /master-barang diganti label "Harga per Customer" oleh permintaan user sebelumnya (worklog 11684). Kesimpulan target: halaman /master-barang-customer ("Daftar Barang per Customer" — kelola barang milik tiap customer) yang statusnya ORPHAN: tidak ada di menu, dan i18n key-nya (master_barang_customer/subtitle) TIDAK PERNAH ada → judul halaman render key mentah.
+- FIX BACKEND (pre-existing broken — API 500): /api/customer-items + /api/customer-items/[id] memakai db.customerItem yang TIDAK ADA di schema (TypeError undefined.findMany; konsumen ikut rusak: customer-item-picker (alur invoice), customer-items-manager, offline-queue). Ditulis ulang di atas model real Barang + BarangCustomer (join barangId/customerId/price, @@unique) DENGAN kontrak flat dipertahankan { id, customerId, barangId, name, satuan, harga, userId, createdAt } — id = id registrasi:
+  • GET (?customerId= → cek ownership customer.userId) • POST {customerId,name,satuan,harga} → pakai-ulang/buat master Barang by nama (kode ITM-xxx per user, sama dgn /api/items) lalu upsert BarangCustomer (price) • PUT [id] {name?,satuan?,harga?} → harga khusus (price) + nama/satuan master Barang via transaksi • DELETE [id] → hapus REGISTRASI saja (master Barang dipertahankan) • ownership check via customer.userId (strict isolation)
+- PERMISSION: GROUP_FEATURES baru 'master-barang-customer' (name 'Master Barang Customer', subs lihat/tambah/edit/hapus) di permission-defaults.ts → hak-akses matrix otomatis menampilkan grup; default superadmin/admin/manager = akses, user/demo = PRO-lock (konsisten dgn grup master lain). permissions.ts: getFeatureIdForPath('/master-barang-customer') + getPathForFeatureId map.
+- I18N: key master_barang_customer ('Master Barang' / EN 'Item Master') + subtitle_master_barang_customer ('Kelola daftar barang per customer' / EN 'Manage customer item list') — memperbaiki judul halaman yang semula key mentah.
+- SIDEBAR (sidebar-desktop.tsx + sidebar.tsx): item baru { titleKey 'master_barang_customer', href '/master-barang-customer', icon PackagePlus, featureId 'master-barang-customer', section 'dokumen' } sebelum item 'Harga per Customer'; fix isActive: href '/master-barang' kini EXACT match (mencegah "Harga per Customer" ikut ter-highlight saat di /master-barang-customer) — di 3 fungsi isActive (Sidebar desktop, Sidebar mobile, MobileBottomNav). menu-home-screen.tsx: TILE_GRADIENT '/master-barang-customer' = 'from-violet-400 to-fuchsia-600'.
+- ESLint 8 file berubah: 0 error.
+- Verifikasi browser E2E (login admin/268899):
+  • Desktop: sidebar DOKUMEN urut Invoice, Surat Jalan, Purchase Order, Master Customer, Master Barang, Harga per Customer ✓; klik "Master Barang" → /master-barang-customer judul "Master Barang" + subtitle benar, panel customer (6 customer) + form Tambah Barang; item baru AKTIF, "Harga per Customer" TIDAK ikut aktif ✓
+  • CRUD penuh via UI: Tambah "Kertas Art Paper" 50.000 → Barang master ITM-008 + registrasi price 50.000 (DB diverifikasi); Edit inline harga → 65.000 (price berubah, master jual TETAP 50.000 — semantik benar); Hapus (confirm dialog) → registrasi hilang, master Barang tetap (by design); test master barang dihapus dari DB setelahnya
+  • Mobile 390x844: popup Lainnya tile "Master Barang" (gradient violet, posisi setelah Master Customer) → tap → halaman render layout mobile (dropdown pilih customer + form) ✓ (klik tile via eval — pointer-capture tile menelan synthetic click Playwright)
+  • Hak Akses (/administrasi/hak-akses): grup "Master Barang Customer" tampil dgn subs Lihat/Tambah/Edit/Hapus ✓
+  • dev.log bersih pasca-fix; health 200
+- BONUS FIX: alur invoice "pilih barang customer" (customer-item-picker) yang sebelumnya pasti gagal (API 500) kini kembali berfungsi dgn data real.
+
+Stage Summary:
+- Menu "Master Barang" tersedia di sidebar (desktop seksi DOKUMEN antara Master Customer dan Harga per Customer; mobile popup Lainnya) → /master-barang-customer
+- Halaman Master Barang (per customer) kini FULLY FUNCTIONAL: judul benar, permission terdaftar di matriks Hak Akses, dan API /api/customer-items diperbaiki dari 500 → CRUD lengkap di atas model Barang+BarangCustomer (kontrak flat dipertahankan — ikut memperbaiki picker barang customer di alur invoice)
+- File berubah: src/components/sidebar-desktop.tsx, src/components/sidebar.tsx, src/components/menu-home-screen.tsx, src/lib/i18n.ts, src/lib/permissions.ts, src/lib/permission-defaults.ts, src/app/api/customer-items/route.ts, src/app/api/customer-items/[id]/route.ts

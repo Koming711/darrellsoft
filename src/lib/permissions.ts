@@ -113,6 +113,7 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/master-ongkos-cetak') return 'master-ongkos-cetak'
   if (pathname === '/master-finishing') return 'master-finishing'
   if (pathname === '/master-customer') return 'master-customer'
+  if (pathname === '/master-barang-customer') return 'master-barang-customer'
   if (pathname === '/master-toko-pemasok') return 'master-toko-pemasok'
   if (pathname === '/stock-bahan') return 'stock-bahan'
   if (pathname === '/riwayat') return 'riwayat'
@@ -149,6 +150,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'master-ongkos-cetak': '/master-ongkos-cetak',
     'master-finishing': '/master-finishing',
     'master-customer': '/master-customer',
+    'master-barang-customer': '/master-barang-customer',
     'master-toko-pemasok': '/master-toko-pemasok',
     'stock-bahan': '/stock-bahan',
     'riwayat': '/riwayat',
