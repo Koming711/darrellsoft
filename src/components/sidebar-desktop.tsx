@@ -103,17 +103,17 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
-    section: 'dokumen',
-  },
-  {
     titleKey: 'master_barang_customer' as TranslationKey,
     href: '/master-barang-customer',
     icon: PackagePlus,
     featureId: 'master-barang-customer',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'master_barang' as TranslationKey,
+    href: '/master-barang',
+    icon: Package,
+    featureId: 'master-barang',
     section: 'dokumen',
   },
   {

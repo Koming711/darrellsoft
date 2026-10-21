@@ -14384,3 +14384,19 @@ Stage Summary:
 - Koreksi konsistensi label: "Master Barang" = /master-barang (UI upload), "Harga per Customer" = /master-barang-customer (kelola barang per customer) — judul halaman, sidebar desktop/mobile, bottom nav ("Barang"), dan i18n ID/EN seragam.
 - File berubah: src/components/views/items-view.tsx (replace), src/app/master-barang/page.tsx (judul), src/lib/i18n.ts (swap label + short_barang), src/components/sidebar-desktop.tsx + sidebar.tsx (swap urutan item).
 - Catatan perilaku: HPP disembunyikan untuk role KASIR (user/demo) sesuai file upload; admin/manager/superadmin tetap lihat + izin Tambah/Edit/Hapus tetap diatur Matriks Hak Akses.
+
+---
+Task ID: master-barang-replace-upload-REVERT
+Agent: Z.ai Code (main)
+Task: "cancel perintah terakhir" — batalkan seluruh perubahan dari task master-barang-replace-upload (ganti menu Master Barang dengan file upload).
+
+Work Log:
+- Revert via git: commit ef0d082 (auto-commit berisi perubahan task terakhir) → checkout 5 file dari commit sebelumnya 2a8c0b7 (kondisi pra-task): src/components/views/items-view.tsx (kembali 782 baris versi "Harga per Customer"), src/app/master-barang/page.tsx (judul kembali "Harga per Customer"), src/lib/i18n.ts (master_barang='Harga per Customer', master_barang_customer='Master Barang', short_barang='Hg/Cust' + versi EN), src/components/sidebar-desktop.tsx + sidebar.tsx (urutan item kembali: master_barang_customer lalu master_barang).
+- db/custom.db TIDAK di-revert (perubahan hanya data test E2E yang sudah dihapus sendiri — net nol; menghindari risiko menghapus data user).
+- worklog.md TIDAK di-revert (append-only audit trail; pembatalan dicatat sebagai entri baru ini).
+- ESLint 5 file: 0 error.
+- E2E verifikasi (login admin/268899): /master-barang kembali menampilkan UI lama "Harga per Customer" (filter Pilih Pelanggan, StatCards, tabel Kode/Nama/Tanggal/Qty/Harga Jual/HPP/Keterangan/Status-toggle/Aksi, chips pelanggan); sidebar: href /master-barang berlabel "Harga per Customer", href /master-barang-customer berlabel "Master Barang" — persis kondisi sebelum task. dev.log bersih.
+
+Stage Summary:
+- Perintah "extract file + ganti menu master barang dengan file upload" DIBATALKAN seluruhnya; codebase kembali ke state commit 2a8c0b7 untuk kelima file terkait.
+- File berubah (revert): src/components/views/items-view.tsx, src/app/master-barang/page.tsx, src/lib/i18n.ts, src/components/sidebar-desktop.tsx, src/components/sidebar.tsx.
