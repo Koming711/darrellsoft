@@ -14357,3 +14357,30 @@ Stage Summary:
 - Menu "Master Barang" tersedia di sidebar (desktop seksi DOKUMEN antara Master Customer dan Harga per Customer; mobile popup Lainnya) → /master-barang-customer
 - Halaman Master Barang (per customer) kini FULLY FUNCTIONAL: judul benar, permission terdaftar di matriks Hak Akses, dan API /api/customer-items diperbaiki dari 500 → CRUD lengkap di atas model Barang+BarangCustomer (kontrak flat dipertahankan — ikut memperbaiki picker barang customer di alur invoice)
 - File berubah: src/components/sidebar-desktop.tsx, src/components/sidebar.tsx, src/components/menu-home-screen.tsx, src/lib/i18n.ts, src/lib/permissions.ts, src/lib/permission-defaults.ts, src/app/api/customer-items/route.ts, src/app/api/customer-items/[id]/route.ts
+
+---
+Task ID: master-barang-replace-upload
+Agent: Z.ai Code (main)
+Task: User upload workspace tar (workspace-8a0af2d8-48ec-4be3-84df-36e0081c93aa) → "extract file ini. ganti menu master barang dengan file ini. fix" — ganti UI menu Master Barang dengan versi klasik dari file upload (items-view: tabel Kode/Nama/Satuan/Harga Standar/HPP/Status + dialog Tambah/Edit + Hapus + search).
+
+Work Log:
+- Extract upload ke _temp/extract (tar gzip, full workspace project lain dgn arsitektur app-root single-page).
+- Identifikasi sumber: _temp/extract/src/components/views/items-view.tsx (508 baris, "Master Barang" klasik) — konsumsi API /api/items (GET ?q&active=all, POST, PUT, DELETE) yang 100% kompatibel dgn /api/items project saat ini (shape { items: Item[] } sama; PUT terima name/unit/standardPrice/hpp/isActive).
+- Verifikasi dependensi tersedia di project: SessionUser, UNIT_OPTIONS, formatIDR/formatNum, apiFetch, toast sonner, semua komponen shadcn/ui (select/table/skeleton/switch/alert-dialog/dll). BarangFormDialog TIDAK dihapus (dipakai dokupro/items-fields + invoice-editor). items-view lama hanya diimpor oleh /master-barang — aman direplace.
+- REPLACE src/components/views/items-view.tsx (782→511 baris): versi klasik dari file upload, SATU adaptasi — props opsional canAdd/canEdit/canDelete (fallback role-based user.role!=='KASIR') agar Matriks Hak Akses (sub-permission master-barang-tambah/edit/hapus) dari page tetap jalan. showHpp ikut file (hidden utk KASIR; admin/owner tetap lihat). Fitur lama versi "Harga per Customer" (filter pelanggan, foto, duplikat, toggle switch tabel) sengaja diganti — sesuai eksplisit permintaan user; fitur per-customer kini penuh di /master-barang-customer.
+- FIX src/app/master-barang/page.tsx: judul DashboardLayout salah ("Harga per Customer") → "Master Barang" / "Kelola data barang".
+- LABEL SWAP (koreksi lanjutan sesi lama yg menempelkan label "Master Barang" ke /master-barang-customer): i18n.ts ID master_barang 'Harga per Customer'→'Master Barang' (+subtitle 'Kelola data barang'), master_barang_customer 'Master Barang'→'Harga per Customer'; EN master_barang 'Price per Customer'→'Item Master' (+subtitle 'Manage items'), master_barang_customer 'Item Master'→'Price per Customer'; short_barang 'Hg/Cust'→'Barang'. Sidebar desktop+mobile: urutan item di-swap → Master Barang (/master-barang, icon Package) SEKARANG sebelum Harga per Customer (/master-barang-customer, icon PackagePlus). featureId/permission & href tidak berubah → gating tak tersentuh. Judul halaman /master-barang-customer otomatis ikut "Harga per Customer" (pakai t('master_barang_customer')).
+- ESLint 5 file berubah (items-view, page, i18n, 2 sidebar): 0 error.
+- E2E (agent-browser, login admin/268899):
+  • Desktop 1280x900: sidebar DOKUMEN urut … Master Customer, Master Barang, Harga per Customer …; "Master Barang" → /master-barang render UI file upload persis: header Master Barang + "7 barang", search, tombol Tambah emerald, tabel Kode/Nama/Satuan/Harga Standar/HPP/Status/Aksi + badge Aktif + tombol Edit/Hapus per baris.
+  • CRUD via UI: Tambah "Barang Uji E2E" 25.000/HPP 15.000 → muncul ITM-008; Edit → harga 30.000, kalkulator margin tampil "Margin: 50%", tersimpan; Hapus → AlertDialog "Hapus barang?" konfirmasi → baris hilang (data bersih).
+  • Search "paperbowl" → "3 barang" terfilter ✓.
+  • Label swap: /master-barang-customer judul "Harga per Customer"; bottom nav mobile item "Barang" (ex-"Hg/Cust") → tap → /master-barang klasik render kartu mobile (Nama/Kode/badge/Satuan/Harga/HPP/Edit/Hapus) ✓.
+  • Browser console + dev.log bersih (tanpa error).
+- Cleanup: _temp/extract + screenshot dihapus, browser ditutup.
+
+Stage Summary:
+- Menu "Master Barang" kini menampilkan UI klasik persis dari file upload user (tabel master barang sederhana + CRUD lengkap), dilayani di /master-barang via items-view hasil replace.
+- Koreksi konsistensi label: "Master Barang" = /master-barang (UI upload), "Harga per Customer" = /master-barang-customer (kelola barang per customer) — judul halaman, sidebar desktop/mobile, bottom nav ("Barang"), dan i18n ID/EN seragam.
+- File berubah: src/components/views/items-view.tsx (replace), src/app/master-barang/page.tsx (judul), src/lib/i18n.ts (swap label + short_barang), src/components/sidebar-desktop.tsx + sidebar.tsx (swap urutan item).
+- Catatan perilaku: HPP disembunyikan untuk role KASIR (user/demo) sesuai file upload; admin/manager/superadmin tetap lihat + izin Tambah/Edit/Hapus tetap diatur Matriks Hak Akses.

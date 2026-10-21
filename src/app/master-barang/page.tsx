@@ -8,13 +8,12 @@ import { hasSubPermission } from '@/lib/permissions'
 import type { Role, SessionUser } from '@/lib/types'
 
 /**
- * Halaman Master Barang (versi lama) — tabel kode/nama/satuan/harga standar/HPP/status.
- * UI asli direstorasi dari versi pertama aplikasi (items-view).
+ * Halaman Master Barang — tabel kode/nama/satuan/harga standar/HPP/status
+ * (versi klasik dari workspace upload; UI persis seperti file items-view asli).
  *
  * Hak akses mengikuti Matriks Hak Akses (sub-permission master-barang-*):
  * superadmin selalu penuh; role lain mengikuti izin Tambah/Edit/Hapus yang
- * diatur admin di Halaman Hak Akses. Tombol "Tambah" muncul setelah
- * pelanggan spesifik dipilih di kotak "Pilih Pelanggan".
+ * diatur admin di Halaman Hak Akses.
  */
 export default function MasterBarangPage() {
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -47,7 +46,7 @@ export default function MasterBarangPage() {
   }, [])
 
   return (
-    <DashboardLayout title="Harga per Customer" subtitle="Kelola harga barang per customer">
+    <DashboardLayout title="Master Barang" subtitle="Kelola data barang">
       {user ? (
         <ItemsView user={user} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
       ) : (
