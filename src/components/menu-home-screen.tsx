@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 
 /* Warna tile ala launcher Android (gradient) — key = href menu */
 const TILE_GRADIENT: Record<string, string> = {
+  '/langganan-saya': 'from-emerald-400 to-teal-600',
   '/pembukaan': 'from-sky-400 to-blue-600',
   '/potong-kertas': 'from-rose-500 to-red-600',
   '/hitung-cetakan': 'from-violet-500 to-purple-600',

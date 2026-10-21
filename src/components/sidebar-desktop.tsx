@@ -27,6 +27,7 @@ import {
   UserCog,
   Package,
   PackageOpen,
+  PackageCheck,
   LayoutDashboard,
   TrendingUp,
   PieChart,
@@ -134,6 +135,13 @@ const menuItems = [
     icon: Coins,
     featureId: 'piutang-dagang',
     section: 'laporan',
+  },
+  {
+    titleKey: 'paket_saya' as TranslationKey,
+    href: '/langganan-saya',
+    icon: PackageCheck,
+    featureId: 'langganan-saya',
+    section: 'langganan',
   },
   {
     titleKey: 'pilih_paket' as TranslationKey,

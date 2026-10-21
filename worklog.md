@@ -14307,3 +14307,27 @@ Stage Summary:
 - /daftar fits one desktop screen with no scrolling; trial text removed; mobile keeps scrollable layout
 - Payment proof image on Konfirmasi Pembayaran Terkirim opens a fit-to-desktop lightbox on click
 - All previously requested fixes confirmed present and working
+
+---
+Task ID: sidebar-paket-saya
+Agent: Z.ai Code (main)
+Task: "tambahkan di menu sidebar paket saya." — tambahkan menu "Paket Saya" di sidebar aplikasi pelanggan (desktop rail + popup "Lainnya" mobile).
+
+Work Log:
+- Menetapkan target: menu item "Paket Saya" → halaman /langganan-saya yang SUDAH ADA (dashboard langganan pelanggan: Ringkasan/Tagihan/Riwayat Pembayaran); permission featureId 'langganan-saya' sudah di-whitelist (hasFeatureAccess selalu true, permissions.ts:69), mapping getFeatureIdForPath/getPathForFeatureId sudah ada — hanya item sidebar yang belum ada
+- src/lib/i18n.ts: key baru `paket_saya` — ID 'Paket Saya', EN 'My Package' (kedua locale, tepat setelah `pilih_paket`)
+- src/components/sidebar-desktop.tsx (sidebar desktop hover-expand): import ikon PackageCheck (lucide); item baru di menuItems SEBELUM 'pilih_paket' — { titleKey:'paket_saya', href:'/langganan-saya', icon:PackageCheck, featureId:'langganan-saya', section:'langganan' } → tampil di seksi LANGGANAN urutan: Paket Saya → Pilih Paket → Panel Admin; semua role (whitelist) tanpa badge PRO
+- src/components/sidebar.tsx (mobile "Lainnya" popup via MenuHomeScreen): item yang sama ditambahkan ke menuItems + import PackageCheck → tile otomatis muncul juga bagi user yang punya urutan tersimpan (MenuHomeScreen meng-append item baru yang belum ada di localStorage order)
+- src/components/menu-home-screen.tsx: TILE_GRADIENT['/langganan-saya'] = 'from-emerald-400 to-teal-600' (sebelumnya fallback slate)
+- ESLint 4 file berubah: 0 error 0 warning
+- Verifikasi browser E2E (agent-browser, login admin — langganan aktif Premium s.d. 18 Nov):
+  • Desktop 1280x900: rail sidebar berisi a[href="/langganan-saya"] aria-label "Paket Saya"; saat hover expand, label urut Beranda | LANGGANAN: Paket Saya, Pilih Paket, Panel Admin | ... (screenshot diverifikasi)
+  • Klik "Paket Saya" → navigasi ke /langganan-saya, h1 "Langganan Saya" render (halaman standalone dengan tombol back "‹ Beranda" sendiri — by design, di luar DashboardLayout)
+  • Mobile 390x844: bottom nav → "Lainnya" → tile "Paket Saya" (gradient emerald) tampil sebelum "Pilih Paket" → tap → /langganan-saya render penuh dengan data nyata (Premium Aktif, 19 Okt–18 Nov, sisa 29 hari, notifikasi) (screenshot diverifikasi)
+  • dev.log bersih — tidak ada error/hydration warning; semua API 200
+- Catatan: /langganan-saya tidak memakai DashboardLayout (halaman standalone bergaya mobile, sudah ada tombol "‹ Beranda" + CTA "Pilih Paket" di header) — item sidebar tetap valid; state active sidebar tidak pernah terlihat karena halaman tidak merender sidebar
+
+Stage Summary:
+- Menu "Paket Saya" kini tersedia di sidebar aplikasi pelanggan: desktop (rail hover-expand, seksi LANGGANAN) dan mobile (popup Lainnya) → menuju /langganan-saya (status langganan, tagihan, riwayat pembayaran, kuitansi)
+- Akses untuk semua role yang login (featureId 'langganan-saya' sudah di-whitelist permission); label terjemahan ID "Paket Saya" / EN "My Package"
+- File berubah: src/lib/i18n.ts, src/components/sidebar-desktop.tsx, src/components/sidebar.tsx, src/components/menu-home-screen.tsx
