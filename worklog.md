@@ -14631,3 +14631,33 @@ Work Log:
 Stage Summary:
 - Production www.darrellsoft.com kini menjalankan versi terbaru: (1) tanpa baris "Gramatur kertas: X gsm" di halaman hitung cetakan, (2) tanpa fitur Simulasi Cepat di halaman potong kertas.
 - Redeploy berikutnya cukup: bunx vercel deploy --prod -t <token> --yes (dari /home/z/my-project).
+
+---
+Task ID: fix-harga-per-customer-umum
+Agent: Main
+Task: "di halaman harga per customer, kenapa nama pelanggan yang sudah dibuat berubah jadi umum semua? check and fix."
+
+Work Log:
+INVESTIGASI (root cause):
+- Tampilan chip pelanggan di /master-barang SUDAH BENAR — chip = BarangCustomer registrations via /api/items (include registrations→customer).
+- Cek DB lokal: 8 barang milik admin, hanya 2 yang ter-registrasi (paperbowl→Budi Susanto 5000, tes→Jaya Wijaya 1200); 6 lainnya (ongkir, box, paperbowl+tutup, paperbowl 800+tutup, ongkos packing, Radio — kode ITM-xxx, dibuat Sep30–Okt8) memang TIDAK PERNAH punya registrasi → tampil "Umum (tanpa pelanggan)".
+- Tidak ada kode yang menghapus registrasi otomatis (semua delete bersifat user-driven); backup xlsx tidak mencakup tabel Barang/BarangCustomer. Data tidak "hilang" — memang belum pernah terdaftar.
+- Penyebab UX: (1) Tambah dari mode "Semua Barang" default "Untuk Pelanggan" = "— Barang umum (tanpa pelanggan) —" (design archive), mudah terlewat; (2) tombol EDIT disembunyikan di mode "Semua Barang" dan barang umum tidak muncul di filter pelanggan mana pun → barang umum TIDAK BISA diedit/diperbaiki sama sekali; (3) tidak ada cara mendaftarkan barang yang SUDAH ADA ke pelanggan (edit = chip read-only).
+- Cek production: items=0 utk admin & superadmin → keluhan merujuk data lokal.
+
+PERBAIKAN:
+1. src/app/api/items/[id]/route.ts (PUT): support opsional body.customerId → validasi kepemilikan → upsert BarangCustomer (reg lama TIDAK diubah harganya; reg baru price = jual barang). Response item kini menyertakan customers[] terbaru (refetch registrations).
+2. src/components/views/barang-form-dialog.tsx: mode edit kini punya select "Tambah Untuk Pelanggan" (default "— Tidak berubah —" = customerId:'keep', tidak dikirim ke API); pilih pelanggan → PUT dengan customerId. Chip "Pelanggan Terdaftar" tetap tampil.
+3. src/components/views/items-view.tsx: showEdit = canEditItem (tombol Edit tampil juga di mode "Semua Barang" — tanpa ini barang umum tak bisa diperbaiki). Duplikat tetap filtered-only sesuai desain.
+4. Robustness: fetch /api/customers diekstrak ke loadCustomers + refetch otomatis saat combobox Pilih Pelanggan / dialog dibuka bila daftar masih kosong (mencegah 401 sesaat di mount membuat semua barang baru jadi "Umum").
+
+VERIFIKASI (E2E agent-browser, login admin):
+- Edit "box" (umum) dari mode Semua Barang → dialog tampil → pilih "Budi Susanto" → Simpan → chip "Budi Susanto" muncul di baris box. Reg terbentuk price=9100 (= jual box). Test data LALU DI-REVERT (reg dihapus, DB kembali 2 regs).
+- Regression: edit paperbowl (reg price 5000) tanpa mengubah select → Simpan → harga khusus 5000 TETAP (path 'keep' tidak menyentuh reg).
+- ESLint 3 file: bersih. Console 0 error.
+
+Stage Summary:
+- Data pelanggan TIDAK hilang — 6 barang memang tersimpan tanpa pelanggan (default "Barang umum" saat Tambah dari mode Semua Barang). paperbowl→Budi & tes→Jaya tampil benar.
+- Sekarang barang lama yang "Umum" bisa diperbaiki langsung: Edit (tombol edit kini tampil di semua mode) → "Tambah Untuk Pelanggan" → pilih pelanggan → Simpan → chip pelanggan muncul; harga khusus reg lama tidak pernah tertimpa.
+- Fetch daftar pelanggan anti-gagal: retry otomatis saat combobox/dialog dibuka.
+- File berubah: api/items/[id]/route.ts, views/barang-form-dialog.tsx, views/items-view.tsx. Belum dideploy ke production.

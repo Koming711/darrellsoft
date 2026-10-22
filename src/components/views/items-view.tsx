@@ -168,11 +168,24 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     return () => clearTimeout(t)
   }, [searchInput])
 
-  useEffect(() => {
+  const loadCustomers = useCallback(() => {
     apiFetch<CustomerOption[]>('/api/customers')
       .then((data) => setCustomers(Array.isArray(data) ? data : []))
       .catch(() => setCustomers([]))
   }, [])
+
+  useEffect(() => {
+    loadCustomers()
+  }, [loadCustomers])
+
+  // Jaringan/fetch pelanggan gagal di mount (mis. 401 sesaat saat SW init) → daftar pelanggan
+  // kosong selamanya & semua barang baru jadi "Umum". Coba lagi saat combobox / dialog dibuka.
+  useEffect(() => {
+    if (custOpen && customers.length === 0) loadCustomers()
+  }, [custOpen, customers.length, loadCustomers])
+  useEffect(() => {
+    if (dialogOpen && customers.length === 0) loadCustomers()
+  }, [dialogOpen, customers.length, loadCustomers])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -260,10 +273,12 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const selectedCustomerOption = customers.find((c) => c.id === customerId) ?? null
   const selectedCustomerName = customers.find((c) => c.id === customerId)?.name ?? null
   // Tambah tersedia di SEMUA mode (termasuk "Semua Barang"); pelanggan dipilih di dalam form.
-  // Edit & Duplikat hanya tampil saat pelanggan spesifik dipilih ( disembunyikan di mode "Semua Barang").
+  // Edit tersedia di SEMUA mode — wajib, agar barang umum (tanpa pelanggan) tetap bisa diedit
+  // (barang umum tidak muncul di filter pelanggan mana pun; tanpa ini tidak bisa diperbaiki).
+  // Duplikat tetap hanya saat pelanggan spesifik dipilih (mengikuti desain halaman).
   const showTambah = canAdd
   const showDuplicate = canAdd && customerId !== 'all'
-  const showEdit = canEditItem && customerId !== 'all'
+  const showEdit = canEditItem
   // Switch status aktif mengikuti izin edit dan tetap tersedia di semua mode (bukan tombol edit).
   const showToggle = canEditItem
   // Hapus SELALU tampil di tabel (selaras Master Pelanggan), termasuk mode "Semua Barang"

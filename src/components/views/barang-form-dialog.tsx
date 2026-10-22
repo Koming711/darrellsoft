@@ -72,7 +72,9 @@ interface ItemFormState {
   isActive: boolean
   /** Foto barang (data URL JPEG hasil kompresi ≤300KB); '' = tanpa foto */
   photoUrl: string
-  /** Pelanggan tujuan saat create/duplicate ('none' = barang umum); tidak dipakai saat edit */
+  /** Pelanggan tujuan saat create/duplicate ('none' = barang umum).
+   *  Mode edit: 'keep' = tidak ada perubahan registrasi; id pelanggan = daftarkan barang
+   *  ke pelanggan tsb (reg lama tidak berubah). */
   customerId: string
 }
 
@@ -166,7 +168,7 @@ export function BarangFormDialog({
         keterangan: editing.keterangan ?? '',
         isActive: editing.isActive,
         photoUrl: editing.photoUrl ?? '',
-        customerId: 'none',
+        customerId: 'keep',
       })
     } else if (duplicateFrom) {
       const modalStr = duplicateFrom.hpp != null ? String(duplicateFrom.hpp) : ''
@@ -265,7 +267,11 @@ export function BarangFormDialog({
         keterangan: form.keterangan.trim(),
         photoUrl: form.photoUrl || null,
         ...(editing
-          ? { isActive: form.isActive }
+          ? {
+              isActive: form.isActive,
+              // Mode edit: kirim customerId hanya bila user memilih pelanggan di select "Tambah Untuk Pelanggan"
+              ...(form.customerId !== 'keep' ? { customerId: form.customerId } : {}),
+            }
           : { customerId: form.customerId !== 'none' ? form.customerId : undefined }),
       }
       let saved: BarangFormSavedItem | null = null
@@ -371,6 +377,25 @@ export function BarangFormDialog({
             <div className="grid gap-1.5">
               <Label>Pelanggan Terdaftar</Label>
               <CustomerChips customers={editing.customers} />
+              <div className="grid gap-1.5 mt-1">
+                <Label htmlFor="item-assign-customer">Tambah Untuk Pelanggan</Label>
+                <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
+                  <SelectTrigger id="item-assign-customer" className="w-full min-h-[44px]" aria-label="Daftarkan barang ke pelanggan">
+                    <SelectValue placeholder="Pilih pelanggan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="keep">— Tidak berubah —</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Pilih pelanggan untuk mendaftarkan barang ini (chip pelanggan di atas ikut bertambah). Harga khusus yang sudah ada tidak berubah.
+                </p>
+              </div>
             </div>
           )}
           <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">

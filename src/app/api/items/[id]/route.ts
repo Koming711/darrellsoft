@@ -20,9 +20,12 @@ function validatePhotoUrl(v: unknown): string | null {
 
 /**
  * PUT /api/items/:id — update barang (nama, satuan, harga jual, HPP, qty, keterangan, status aktif, foto).
- * Body: { name?, unit?, standardPrice?, hpp?, qty?, keterangan?, isActive?, photoUrl? }
+ * Body: { name?, unit?, standardPrice?, hpp?, qty?, keterangan?, isActive?, photoUrl?, customerId? }
  * photoUrl: null = hapus foto; data URL JPEG (≤300KB hasil kompresi client) = ganti foto;
  * undefined = foto tidak diubah (dipakai toggle status cepat).
+ * customerId: opsional (mode edit) — daftarkan barang ini ke pelanggan tsb (upsert registrasi
+ * BarangCustomer). Registrasi yang sudah ada TIDAK diubah harganya; registrasi baru memakai
+ * harga jual barang sebagai harga awal. Response item ikut menyertakan customers[] terbaru.
  */
 export async function PUT(
   request: NextRequest,
@@ -110,6 +113,33 @@ export async function PUT(
 
     const item = await db.barang.update({ where: { id }, data })
 
+    // Opsional (mode edit): daftarkan barang ke pelanggan — chip pelanggan ikut bertambah.
+    // Reg lama tidak disentuh (harga khususnya tetap); reg baru = harga jual barang saat ini.
+    if (body.customerId !== undefined && body.customerId !== null) {
+      const customerId = typeof body.customerId === 'string' ? body.customerId.trim() : ''
+      if (customerId && customerId !== 'none' && customerId !== 'keep') {
+        const customer = await db.customer.findUnique({ where: { id: customerId } })
+        if (!customer || customer.userId !== user.id) {
+          return NextResponse.json({ error: 'Pelanggan tidak ditemukan' }, { status: 404 })
+        }
+        await db.barangCustomer.upsert({
+          where: { barangId_customerId: { barangId: id, customerId } },
+          update: {},
+          create: { barangId: id, customerId, price: data.jual ?? existing.jual, userId: user.id },
+        })
+      }
+    }
+
+    // Ambil ulang dgn registrasi terbaru supaya response memuat customers[] yang akurat
+    const fresh = await db.barang.findUnique({
+      where: { id },
+      include: {
+        registrations: {
+          include: { customer: { select: { id: true, name: true, companyName: true } } },
+        },
+      },
+    })
+
     return NextResponse.json({
       item: {
         id: item.id,
@@ -123,6 +153,11 @@ export async function PUT(
         isActive: item.isActive,
         photoUrl: item.photoUrl,
         createdAt: item.createdAt.toISOString(),
+        customers: (fresh?.registrations ?? []).map((r) => ({
+          id: r.customer.id,
+          name: r.customer.name,
+          companyName: r.customer.companyName,
+        })),
       },
     })
   } catch (error: unknown) {
