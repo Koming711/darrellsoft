@@ -14542,3 +14542,23 @@ Stage Summary:
 - Aplikasi TERBARU (termasuk halaman "Harga per Customer" versi extract) sudah LIVE di https://www.darrellsoft.com (production, region sin1, DB Supabase Postgres).
 - Project lokal kini ter-link ke Vercel project "darrellsoft" (.vercel/project.json) — deploy berikutnya cukup `vercel deploy --prod -t <token>`.
 - Catatan: tabel Barang di DB produksi kosong (data users/customers ada); bukan error deploy.
+---
+Task ID: fix-gramatur-hitung-cetakan
+Agent: main (Z.ai Code)
+Task: Bug — dari halaman Potong Kertas (gramatur 260gsm), tombol "Hitung & Pilih Terbaik" lalu "Hitung Cetakan Lengkap" → di Hitung Cetakan nama bahan berubah jadi 300gsm. Fix + tambahkan tampilan gramatur kertas di halaman Hitung Cetakan.
+
+Work Log:
+- Root cause: halaman /hitung-cetakan mencocokkan bahan HANYA dgn nama (`papers.find(p => p.name === __restorePaperName)`) lalu MENIMPA paperId benar yang dikirim Potong Kertas via URL. Master Harga Kertas mengizinkan nama sama dgn beberapa gramatur (lokal: "art karton" 260gsm ×69 & 300gsm ×2; produksi user: varian 300gsm muncul lebih dulu) → varian pertama hasil find() terpilih, gramatur salah.
+- Fix di src/app/hitung-cetakan/page.tsx (4 titik matching):
+  1. Effect restore matching: prioritas (1) paperId valid di form (dari URL Potong Kertas) → DIPERTAHANKAN tidak ditimpa; (2) cocok nama + gramatur (__restoreGrammage); (3) nama saja (fallback lama).
+  2. URL restore effect: simpan window.__restoreGrammage dari param `grammage`.
+  3. handleRestoreRiwayat: simpan __restoreGrammage dari r.paperGrammage (riwayat HC menyimpan paperGrammage).
+  4. runPkSyncNow (sinkronisasi PK→HC): cocokkan nama + hc.paperGrammage, fallback nama.
+- Tambah tampilan gramatur: di bawah select "Nama Bahan" editor Hitung Cetakan kini ada baris "Gramatur kertas: X gsm" (teal bila ada, abu bila kosong) — perbedaan varian langsung terlihat.
+- Deklarasi global Window: tambah __restoreGrammage?: number; cleanup di effect matching.
+- bunx eslint → bersih. E2E agent-browser: Potong Kertas mode Otomatis → bahan "art karton" gramatur "260 gsm" → potongan 20×30, jumlah pesanan 1000, mata 4 → "Hitung & Pilih Terbaik" (ukuran terbaik 90×120, 18 mata, Rp 47.180) → "Hitung Cetakan Lengkap" → di Hitung Cetakan: bahan terpilih "art karton (90×120, 260gsm · Indojaya)" BENAR + baris "Gramatur kertas: 260 gsm" + harga/lembar Rp 3.370 & harga/kg 12.001 (turunan 260gsm benar). Console 0 error.
+
+Stage Summary:
+- Bug 260gsm→300gsm diperbaiki: identitas bahan dari Potong Kertas tidak lagi ditimpa hasil cocok nama; matching kini sadar-gramatur di semua jalur (URL param, riwayat, sinkronisasi PK).
+- Halaman Hitung Cetakan kini menampilkan gramatur kertas eksplisit di bawah pilihan Nama Bahan.
+- File berubah: src/app/hitung-cetakan/page.tsx (satu file, 8 blok edit).

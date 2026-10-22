@@ -3,6 +3,7 @@
 declare global {
   interface Window {
     __restorePaperName?: string
+    __restoreGrammage?: number
     __restoreMachineName?: string
     __restoreMachineName2?: string
     __restoreFinishingNames?: string
@@ -465,8 +466,12 @@ function HitungCetakanPage() {
       }
       const d = await res.json()
       const hc = d.hc || {}
-      // Cocokkan master paper dari nama bahan hasil sinkron (pola restore existing)
-      const matchedPaper = papers.find(p => (p.name || '').toLowerCase() === (hc.paperName || '').toLowerCase())
+      // Cocokkan master paper dari NAMA + GRAMATUR hasil sinkron — satu nama bahan
+      // boleh punya beberapa gramatur di Master Kertas (mis. Ivory 230/260/300 gsm);
+      // cocok nama saja bisa memilih varian yang salah (260 gsm → tampil 300 gsm).
+      const syncGsm = Number(hc.paperGrammage) || 0
+      const syncByName = papers.filter(p => (p.name || '').toLowerCase() === (hc.paperName || '').toLowerCase())
+      const matchedPaper = (syncGsm > 0 ? syncByName.find(p => p.grammage === syncGsm) : undefined) ?? syncByName[0]
       setFormData(prev => ({
         ...prev,
         customerName: hc.customerName || '',
@@ -488,6 +493,7 @@ function HitungCetakanPage() {
         // Master belum termuat/tak cocok → serahkan ke effect matching restore
         try { delete window.__restorePricePerSheet } catch {}
         window.__restorePaperName = hc.paperName
+        if (syncGsm > 0) window.__restoreGrammage = syncGsm
         setIsRestoring(true)
       }
       setPkSync(prev => (prev ? {
@@ -876,8 +882,11 @@ function HitungCetakanPage() {
       glueBoronganPerSheet: glueBoronganParam || '',
     }))
 
-    // Simpan nama untuk matching setelah data fetch selesai
+    // Simpan nama + gramatur untuk matching setelah data fetch selesai.
+    // Gramatur ikut dicocokkan karena satu nama bahan bisa punya beberapa varian
+    // gramatur di Master Kertas — cocok nama saja bisa salah varian (260 → 300 gsm).
     if (paperNameParam) window.__restorePaperName = paperNameParam
+    if (grammageParam) { const g = parseInt(grammageParam) || 0; if (g > 0) window.__restoreGrammage = g }
     if (machineNameParam) window.__restoreMachineName = machineNameParam
     if (machineName2Param) window.__restoreMachineName2 = machineName2Param
     if (finishingNamesParam && finishingNamesParam !== '-') window.__restoreFinishingNames = finishingNamesParam
@@ -966,21 +975,41 @@ function HitungCetakanPage() {
     if (papers.length === 0 && printingCosts.length === 0 && finishings.length === 0) return
 
     if (window.__restorePaperName && papers.length > 0) {
-      const paper = papers.find(p => p.name === window.__restorePaperName)
-      if (paper) {
-        // Jika pricePerSheet dari riwayat ada, gunakan itu (bukan hitung ulang dari harga kertas saat ini)
-        const restoredPPS = window.__restorePricePerSheet
-        setFormData(prev => {
-          const sheet = restoredPPS || prev.pricePerSheet || Math.round(paper.pricePerRim / 500).toString()
+      // PERBAIKAN gramatur salah (260 gsm → 300 gsm): satu nama bahan boleh punya
+      // beberapa gramatur di Master Harga Kertas. Urutan prioritas matching:
+      //   1) paperId yang sudah valid di form (dikirim Potong Kertas via URL) → PERTAHANKAN;
+      //   2) nama + gramatur (window.__restoreGrammage, dari URL / riwayat.paperGrammage);
+      //   3) nama saja (perilaku lama) bila gramatur tidak diketahui.
+      const rName = window.__restorePaperName
+      const rGsm = window.__restoreGrammage || 0
+      setFormData(prev => {
+        // 1) paperId dari URL sudah menunjuk master yang benar → jangan ditimpa hasil
+        //    cocok nama, cukup pastikan harga/lembar terisi.
+        const current = prev.paperId ? papers.find(p => p.id === prev.paperId) : null
+        if (current) {
+          const keptPPS = window.__restorePricePerSheet
+          const keptSheet = keptPPS || prev.pricePerSheet || Math.round(current.pricePerRim / 500).toString()
           return {
             ...prev,
-            paperId: paper.id,
-            pricePerSheet: sheet,
-            // Harga/kg: pertahankan hasil derive dari record bila sudah ada, kalau tidak hitung dari master
-            pricePerKg: prev.pricePerKg || sheetToKgPrice(parseFloat(sheet) || 0, paper.width, paper.height, paper.grammage),
+            pricePerSheet: keptSheet,
+            pricePerKg: prev.pricePerKg || sheetToKgPrice(parseFloat(keptSheet) || 0, current.width, current.height, current.grammage),
           }
-        })
-      }
+        }
+        // 2+3) cocokkan nama (+ gramatur bila diketahui)
+        const byName = papers.filter(p => (p.name || '') === rName)
+        const paper = (rGsm > 0 ? byName.find(p => p.grammage === rGsm) : undefined) ?? byName[0]
+        if (!paper) return prev
+        // Jika pricePerSheet dari riwayat ada, gunakan itu (bukan hitung ulang dari harga kertas saat ini)
+        const restoredPPS = window.__restorePricePerSheet
+        const sheet = restoredPPS || prev.pricePerSheet || Math.round(paper.pricePerRim / 500).toString()
+        return {
+          ...prev,
+          paperId: paper.id,
+          pricePerSheet: sheet,
+          // Harga/kg: pertahankan hasil derive dari record bila sudah ada, kalau tidak hitung dari master
+          pricePerKg: prev.pricePerKg || sheetToKgPrice(parseFloat(sheet) || 0, paper.width, paper.height, paper.grammage),
+        }
+      })
     }
     if (window.__restoreMachineName && printingCosts.length > 0) {
       const machine = printingCosts.find(m => m.machineName === window.__restoreMachineName)
@@ -1010,6 +1039,7 @@ function HitungCetakanPage() {
 
     // Bersihkan
     delete window.__restorePaperName
+    delete window.__restoreGrammage
     delete window.__restoreMachineName
     delete window.__restoreMachineName2
     delete window.__restoreFinishingNames
@@ -1654,6 +1684,8 @@ function HitungCetakanPage() {
     // Match paper, machine, finishing after data loaded
     setIsRestoring(true)
     if (r.paperName) window.__restorePaperName = r.paperName
+    // Gramatur ikut di-restore agar varian bahan yang cocok tepat (bukan varian lain dgn nama sama)
+    { const g = parseInt(String(r.paperGrammage ?? '')) || 0; if (g > 0) window.__restoreGrammage = g }
     if (r.pricePerSheet) window.__restorePricePerSheet = r.pricePerSheet?.toString()
     if (r.machineName) window.__restoreMachineName = r.machineName
     if (r.machineName2) window.__restoreMachineName2 = r.machineName2
@@ -2600,6 +2632,15 @@ function HitungCetakanPage() {
                       <option value="">Pilih bahan kertas</option>
                       {paperOptions.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</option>)}
                     </select>
+                    {/* Gramatur kertas bahan terpilih — tampil eksplisit (permintaan owner)
+                        agar perbedaan varian gramatur (mis. 260 vs 300 gsm) langsung terlihat. */}
+                    {selectedPaper ? (
+                      <p className={`text-[10px] mt-0.5 font-medium ${(selectedPaper.grammage || 0) > 0 ? 'text-teal-600' : 'text-slate-400'}`}>
+                        Gramatur kertas: {(selectedPaper.grammage || 0) > 0 ? `${selectedPaper.grammage} gsm` : '— belum diisi di Master Harga Kertas'}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 mt-0.5">Gramatur kertas: — (pilih bahan)</p>
+                    )}
                     {formData.namaSuplier && paperOptions.length === 0 && (
                       <p className="text-[10px] text-slate-400 mt-0.5">Tidak ada kertas milik {formData.namaSuplier} — isi kolom Suplier di Master Harga Kertas</p>
                     )}
