@@ -14524,3 +14524,21 @@ Stage Summary:
 - Menu "Harga per Customer" (/master-barang) kini memakai UI versi extract: filter per pelanggan + form barang gabungan (BarangFormDialog) + foto + duplikat.
 - File berubah hanya 2: items-view.tsx (view baru) dan master-barang/page.tsx (judul). Semua dependensi sudah identik sejak snapshot sebelumnya sehingga tidak ada perubahan backend.
 - Halaman lama /master-barang-customer tetap utuh (menu sudah dihapus task sebelumnya) — tak tersentuh oleh task ini.
+---
+Task ID: deploy-vercel-production
+Agent: main (Z.ai Code)
+Task: Deploy aplikasi ke www.darrellsoft.com via Vercel (token diberikan user).
+
+Work Log:
+- Verifikasi token → akun Vercel "koming711" valid.
+- Cek project "darrellsoft" (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB): domain www.darrellsoft.com (verified, primary) + darrellsoft.com redirect www + darrellsoft.vercel.app sudah ter-attach; env vars production lengkap (DATABASE_URL Supabase, Midtrans keys, NEXT_PUBLIC_BASE_URL).
+- Link project (vercel link --yes -p darrellsoft) → .vercel/project.json dibuat; hapus .env.local hasil link (isinya cuma VERCEL_OIDC_TOKEN, dihapus agar dev lokal tetap SQLite).
+- Deploy: `vercel deploy --prod -t … --yes` → build remote (vercel.json: prepare-build.js swap sqlite→postgresql + prisma generate + next build) selesai 2m.
+- Hasil: Production URL darrellsoft-cojonolxg-koming711s-projects.vercel.app, aliased ke https://www.darrellsoft.com.
+- Verifikasi produksi: curl https://www.darrellsoft.com → HTTP 200; /api/health → {"status":"healthy","environment":"production"}; login admin/268899 via agent-browser → masuk ke /master-barang dengan UI BARU "Harga per Customer" (filter Pilih Pelanggan, stats, Tambah). API items 200 (0 item — DB produksi memang belum punya barang), customers 200 (6 pelanggan: angel, Budi Susanto, jaya, Jaya Wijaya, Lunggan, Siti Rohana). Mobile 390×844 render sempurna + EmptyState. Console 0 error.
+- Schema lokal tetap sqlite (swap hanya terjadi di build server Vercel); git status bersih dari perubahan schema.
+
+Stage Summary:
+- Aplikasi TERBARU (termasuk halaman "Harga per Customer" versi extract) sudah LIVE di https://www.darrellsoft.com (production, region sin1, DB Supabase Postgres).
+- Project lokal kini ter-link ke Vercel project "darrellsoft" (.vercel/project.json) — deploy berikutnya cukup `vercel deploy --prod -t <token>`.
+- Catatan: tabel Barang di DB produksi kosong (data users/customers ada); bukan error deploy.
