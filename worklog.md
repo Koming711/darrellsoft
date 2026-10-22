@@ -14581,3 +14581,32 @@ Stage Summary:
 - Edit riwayat Potong Kertas kini selalu menampilkan Nama Bahan & Gramatur — baik riwayat format baru (dgn wasteAreas) maupun lama/hasil Hitung Cetakan Lengkap (tanpa wasteAreas).
 - Riwayat kertas custom kini masuk mode Manual (bukan Otomatis kosong) sehingga nama bahannya tetap terlihat.
 - File berubah: src/app/potong-kertas/page.tsx (1 blok di handleRestore).
+
+---
+Task ID: remove-gramatur-line-and-simulasi-cepat
+Agent: Main
+Task: (1) Hapus tulisan "Gramatur kertas: 260 gsm" di halaman hitung cetakan (dibawah kotak nama suplier). (2) Delete fitur Simulasi Cepat di halaman potong kertas.
+
+Work Log:
+- hitung-cetakan/page.tsx: hapus blok tampilan "Gramatur kertas: X gsm / — (pilih bahan)" di bawah select Nama Bahan (line ~2635-2643, ditambahkan pada task sebelumnya). Verifikasi selectedPaper masih dipakai di 10+ tempat lain — aman.
+- potong-kertas/page.tsx: hapus seluruh fitur Simulasi Cepat via script anchor-based dengan assertion unik (14 operasi, 183643 → 155608 bytes):
+  - import: Plus (lucide), seluruh AlertDialog import (@/components/ui/alert-dialog), calculateCuts static (cutting-engine — pemakaian lain tetap dynamic import)
+  - module level: SIM_ROWS_STORAGE_KEY, interface SimRowSnap/SimRow, fmtRp, fmtHargaPcs
+  - state: 9 useState sim + simJumlahRef + 2 useEffect localStorage (load/save simRows)
+  - logika: computeSimulasi, simulasi memo, simRowValues, applySimulasiPotongValues, addSimulasiRow, startEdit/cancelEdit/saveEdit/removeSimulasiRow, clearSimulasiRows
+  - resetFormFields: hapus setSimRows([]) + cancelEditSimulasi()
+  - JSX: simRowQtyOf/simRowView/simThClass/simTdClass/simEditInputClass, simulasiCard (mobile card + desktop table CRUD), simClearDialog (AlertDialog "Hapus semua simulasi?"), render {simClearDialog}, wrapper mobile <div lg:hidden> dan desktop <div hidden lg:block>
+  - komentar runCuttingCalc disesuaikan ("dipanggil dari tombol Hitung")
+- Verifikasi pemakaian ikon tersisa (Calculator/CheckCircle2/X/Pencil/Trash2 semua masih dipakai; fmtRpCompact riwayat tetap). Save icon unused = pre-existing (juga di git HEAD), dibiarkan.
+- ESLint kedua file: bersih (0 error/warning).
+- E2E agent-browser (login admin → potong-kertas & hitung-cetakan):
+  - hitung-cetakan desktop 1280×900: pilih bahan "art karton (90×120, 260gsm · Indojaya)" → teks "Gramatur kertas" TIDAK ada lagi; form HARGA BAHAN langsung lanjut ke Uk. Bahan.
+  - potong-kertas desktop + mobile 390×844: "Simulasi Cepat"/"Tabel Simulasi"/"Tanpa hitung ulang" = 0 kemunculan.
+  - Golden path potong-kertas: pilih bahan Art Karton → gramatur 260 gsm (90×120) → potongan 20×30 → jumlah pesanan 1000 → cetak 4 mata → "Hitung & Pilih Terbaik" → Perbandingan Ukuran Kertas (4 kandidat) + hasil + visualisasi potong tampil normal.
+  - Tab Riwayat (25 record) tetap tampil normal.
+  - Console 0 error, page errors 0 di kedua halaman.
+
+Stage Summary:
+- Halaman hitung cetakan tidak lagi menampilkan baris "Gramatur kertas" di bawah Nama Bahan/Suplier (gramatur masih terlihat via label opsi bahan "(... 260gsm · Suplier)" dan tersimpan di riwayat).
+- Fitur Simulasi Cepat dihalaman potong kertas dihapus total (UI, state, logika, localStorage, dialog konfirmasi) — hitung-cetakan TIDAK terpengaruh (Simulasi Cepat di sana tetap ada, sesuai permintaan).
+- Tidak ada perubahan API/DB; file yang berubah: src/app/hitung-cetakan/page.tsx, src/app/potong-kertas/page.tsx.

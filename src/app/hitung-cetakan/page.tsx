@@ -2632,15 +2632,6 @@ function HitungCetakanPage() {
                       <option value="">Pilih bahan kertas</option>
                       {paperOptions.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</option>)}
                     </select>
-                    {/* Gramatur kertas bahan terpilih — tampil eksplisit (permintaan owner)
-                        agar perbedaan varian gramatur (mis. 260 vs 300 gsm) langsung terlihat. */}
-                    {selectedPaper ? (
-                      <p className={`text-[10px] mt-0.5 font-medium ${(selectedPaper.grammage || 0) > 0 ? 'text-teal-600' : 'text-slate-400'}`}>
-                        Gramatur kertas: {(selectedPaper.grammage || 0) > 0 ? `${selectedPaper.grammage} gsm` : '— belum diisi di Master Harga Kertas'}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-slate-400 mt-0.5">Gramatur kertas: — (pilih bahan)</p>
-                    )}
                     {formData.namaSuplier && paperOptions.length === 0 && (
                       <p className="text-[10px] text-slate-400 mt-0.5">Tidak ada kertas milik {formData.namaSuplier} — isi kolom Suplier di Master Harga Kertas</p>
                     )}
