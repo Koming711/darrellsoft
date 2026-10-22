@@ -14479,3 +14479,29 @@ Stage Summary:
 - Berbeda dari task pertama yang dicancel: label menu, i18n, urutan sidebar TIDAK diubah sama sekali — hanya konten halaman + judul halamannya.
 - File berubah: src/components/views/items-view.tsx (replace + adaptasi props), src/app/master-barang/page.tsx (judul + docstring).
 - Catatan: label menu "Harga per Customer" masih menunjuk /master-barang (i18n master_barang) — bila user ingin label menu juga diubah/di-swap, itu perubahan terpisah (i18n/sidebar) yg tidak dilakukan demi scope minimal.
+
+---
+Task ID: remove-master-barang-menu-sidebar
+Agent: Z.ai Code (main)
+Task: "delete master barang di menu sidebar." — hapus item menu "Master Barang" (→ /master-barang-customer) dari sidebar.
+
+Work Log:
+- Target tepat: item menu berlabel "Master Barang" (i18n master_barang_customer) yang menunjuk /master-barang-customer — bukan item "Harga per Customer" (i18n master_barang → /master-barang, UI klasik yang baru dipasang) dan bukan bottom-nav "Hg/Cust" (juga → /master-barang).
+- Hapus blok item dari 3 file: src/components/sidebar-desktop.tsx (NAV_ITEMS desktop), src/components/sidebar.tsx (NAV_ITEMS mobile/bottom-sheet), src/components/menu-home-screen.tsx (baris gradient tile '/master-barang-customer' yang jadi mati).
+- Bersihkan import PackagePlus yang jadi unused di kedua sidebar.
+- TIDAK disentuh (demi scope minimal): halaman /master-barang-customer (tetap ada & bisa diakses langsung), i18n keys (dipakai judul halaman tsb), permission-defaults/permissions (gating halaman tetap berfungsi), offline-warmup.ts (prefetch list, tak terlihat), QuickLink "Master Barang" di halaman Beranda (src/app/pembukaan/page.tsx:873 — shortcut hardcode → /master-barang, halaman klasik yg diminta user; bukan bagian sidebar).
+- Bottom-nav mobile tak berubah (5 item: Beranda/Potong/Cetakan/Invoice/Hg/Cust + Lainnya; Hg/Cust → /master-barang).
+- ESLint 3 file: 0 error. Hot-reload tanpa restart.
+- E2E (agent-browser, admin/268899, desktop 1280x900 + mobile 390x844):
+  • Sidebar desktop: item "Master Barang" HILANG; "Master Customer" & "Harga per Customer" tetap; tidak ada <a href=/master-barang-customer> di seluruh DOM.
+  • Home Beranda: tidak ada tile Master Barang Customer.
+  • Mobile bottom nav utuh; sheet "Lainnya" tanpa item Master Barang.
+  • Akses langsung /master-barang-customer masih berfungsi (halaman utuh, judulnya sendiri); /master-barang (klasik) normal.
+  • Catatan investigasi: string "Master Barang" yang masih muncul saat sheet terbuka = QuickLink hardcode di halaman Beranda di belakang sheet (bukan sidebar) — disengaja dipertahankan.
+  • Browser console + dev.log bersih.
+- Cleanup: browser ditutup.
+
+Stage Summary:
+- Menu "Master Barang" (/master-barang-customer) dihapus dari sidebar desktop + mobile + home-screen tile; satu-satunya jalan menuju halaman tsb kini direct URL.
+- Halaman /master-barang-customer, API, permission, dan i18n-nya tetap utuh — bisa dipasang kembali di menu kapan saja bila diminta.
+- File berubah: sidebar-desktop.tsx, sidebar.tsx, menu-home-screen.tsx (masing-masing hanya blok item + import).

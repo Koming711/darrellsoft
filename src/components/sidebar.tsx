@@ -37,7 +37,6 @@ import {
   ListTree,
   UserCog,
   Package,
-  PackagePlus,
   PackageOpen,
   PackageCheck,
   LayoutDashboard,
@@ -104,13 +103,6 @@ const menuItems = [
     href: '/master-customer',
     icon: Users,
     featureId: 'master-customer',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'master_barang_customer' as TranslationKey,
-    href: '/master-barang-customer',
-    icon: PackagePlus,
-    featureId: 'master-barang-customer',
     section: 'dokumen',
   },
   {
