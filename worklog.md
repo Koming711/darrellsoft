@@ -14610,3 +14610,24 @@ Stage Summary:
 - Halaman hitung cetakan tidak lagi menampilkan baris "Gramatur kertas" di bawah Nama Bahan/Suplier (gramatur masih terlihat via label opsi bahan "(... 260gsm · Suplier)" dan tersimpan di riwayat).
 - Fitur Simulasi Cepat dihalaman potong kertas dihapus total (UI, state, logika, localStorage, dialog konfirmasi) — hitung-cetakan TIDAK terpengaruh (Simulasi Cepat di sana tetap ada, sesuai permintaan).
 - Tidak ada perubahan API/DB; file yang berubah: src/app/hitung-cetakan/page.tsx, src/app/potong-kertas/page.tsx.
+
+---
+Task ID: deploy-prod-remove-gramatur-simulasi
+Agent: Main
+Task: Deploy terbaru ke www.darrellsoft.com (hapus baris "Gramatur kertas" di hitung cetakan + hapus Simulasi Cepat di potong kertas). Token "***REDACTED***"
+
+Work Log:
+- Pre-check: git tree bersih, .vercel/project.json masih link ke prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB (darrellsoft), .env lokal hanya DATABASE_URL SQLite & ter-cover .gitignore (.env*) — tidak ikut ter-upload.
+- Deploy: `bunx vercel deploy --prod -t <token> --yes` → build sukses 2m → Production URL darrellsoft-qgce4mbgu-koming711s-projects.vercel.app → Aliased https://www.darrellsoft.com.
+- Verifikasi production:
+  - https://www.darrellsoft.com → HTTP 200 (public, tanpa deployment-protection barrier)
+  - /api/health → {"status":"healthy","environment":"production"}
+  - darrellsoft.com (non-www) → 301 redirect
+  - E2E login admin → hitung-cetakan: pilih bahan art karton 260gsm → teks "Gramatur kertas" TIDAK muncul lagi
+  - E2E potong-kertas: "Simulasi Cepat"/"Tabel Simulasi" = 0 kemunculan di desktop 1280×900 & mobile 390×844; Editor + tombol "Hitung & Pilih Terbaik" tetap ada
+  - Console 0 error
+- Browser ditutup setelah verifikasi.
+
+Stage Summary:
+- Production www.darrellsoft.com kini menjalankan versi terbaru: (1) tanpa baris "Gramatur kertas: X gsm" di halaman hitung cetakan, (2) tanpa fitur Simulasi Cepat di halaman potong kertas.
+- Redeploy berikutnya cukup: bunx vercel deploy --prod -t <token> --yes (dari /home/z/my-project).
