@@ -14505,3 +14505,22 @@ Stage Summary:
 - Menu "Master Barang" (/master-barang-customer) dihapus dari sidebar desktop + mobile + home-screen tile; satu-satunya jalan menuju halaman tsb kini direct URL.
 - Halaman /master-barang-customer, API, permission, dan i18n-nya tetap utuh — bisa dipasang kembali di menu kapan saja bila diminta.
 - File berubah: sidebar-desktop.tsx, sidebar.tsx, menu-home-screen.tsx (masing-masing hanya blok item + import).
+---
+Task ID: replace-harga-per-customer-page
+Agent: main (Z.ai Code)
+Task: Extract workspace-78453881 (2).tar.001-004 dan ganti menu "Harga per Customer" (/master-barang) dengan versi dari file upload. Fix.
+
+Work Log:
+- Extract split tar (cat .001-.004 → combined.tar) ke /tmp/extract_hpcc; snapshot workspace dengan git history berbeda (HEAD 143d94a).
+- Bandingkan seluruh dependensi items-view antara extract dan project: src/lib/types.ts, barang-form-dialog.tsx, api/items/route.ts, api/items/[id]/route.ts, api/customers/route.ts, format.ts, client.ts, data-sync.ts, image-compress.ts — SEMUA SAMA (byte-identical), jadi tidak perlu disentuh.
+- Hanya 2 file yang berbeda dan diganti dari extract:
+  1. src/components/views/items-view.tsx (522 → 782 baris): versi baru dengan filter "Pilih Pelanggan" (combobox searchable via Command/Popover), chip pelanggan per barang, kolom Tanggal/Qty/Keterangan/Foto, tombol Duplikat, toggle status aktif, integrasi BarangFormDialog (Tambah/Edit/Duplikat), EmptyState baru, sinkronisasi via onDataChange(['items']). Edit/Duplikat hanya saat pelanggan spesifik dipilih; Hapus selalu tampil; Tambah selalu tampil.
+  2. src/app/master-barang/page.tsx: judul DashboardLayout "Master Barang" → "Harga per Customer", subtitle → "Kelola harga barang per customer" (+ komentar doc diperbarui). Logika permission tidak berubah.
+- Scope minimal: sidebar, i18n, menu, API, schema TIDAK diubah.
+- bunx eslint kedua file → bersih tanpa error.
+- Verifikasi E2E agent-browser: login admin/268899 → /master-barang. Heading "Harga per Customer" muncul; tabel 7 barang kolom Kode|Nama|Tanggal|Qty|Harga Jual|HPP|Keterangan|Status|Aksi; chip "Umum (tanpa pelanggan)" utk barang umum. Combobox Pilih Pelanggan berisi semua customer; pilih "Budi Susanto — PT. Maju berkah" → filter jadi 1 baris, label "1 barang untuk Budi Susanto", chip "Budi Susanto". Tombol Tambah membuka BarangFormDialog lengkap (Nama/Foto/Untuk Pelanggan/Satuan/Qty/Harga Jual/Harga Modal/Profit/Keterangan). Reset → kembali "Semua Barang" (7 baris), Edit/Duplikat tersembunyi, Hapus tampil 7× (sesuai desain). Mobile 390×844: kartu barang + tab "Hg/Cust" aktif. Desktop & mobile screenshot OK, console tanpa error.
+
+Stage Summary:
+- Menu "Harga per Customer" (/master-barang) kini memakai UI versi extract: filter per pelanggan + form barang gabungan (BarangFormDialog) + foto + duplikat.
+- File berubah hanya 2: items-view.tsx (view baru) dan master-barang/page.tsx (judul). Semua dependensi sudah identik sejak snapshot sebelumnya sehingga tidak ada perubahan backend.
+- Halaman lama /master-barang-customer tetap utuh (menu sudah dihapus task sebelumnya) — tak tersentuh oleh task ini.

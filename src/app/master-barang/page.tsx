@@ -13,7 +13,8 @@ import type { Role, SessionUser } from '@/lib/types'
  *
  * Hak akses mengikuti Matriks Hak Akses (sub-permission master-barang-*):
  * superadmin selalu penuh; role lain mengikuti izin Tambah/Edit/Hapus yang
- * diatur admin di Halaman Hak Akses (fallback: role selain KASIR = penuh).
+ * diatur admin di Halaman Hak Akses. Tombol "Tambah" muncul setelah
+ * pelanggan spesifik dipilih di kotak "Pilih Pelanggan".
  */
 export default function MasterBarangPage() {
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -46,7 +47,7 @@ export default function MasterBarangPage() {
   }, [])
 
   return (
-    <DashboardLayout title="Master Barang" subtitle="Kelola data barang">
+    <DashboardLayout title="Harga per Customer" subtitle="Kelola harga barang per customer">
       {user ? (
         <ItemsView user={user} canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
       ) : (
