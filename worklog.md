@@ -14451,3 +14451,31 @@ Stage Summary:
 - Fitur yang KEMBALI dari snapshot: Task M (Sampah + Hapus Permanen riwayat transaksi, kolom deletedAt), subscription-waiting-popup, panel-admin langganan (beranda/paket/pembayaran/pelanggan), perubahan auth/daftar/pembukaan/globals.css/site-footer/register-schema, dan DATA db 20 Okt (23 invoice langganan, 17 langganan customer).
 - Fitur yang dipertahankan (pasca-snapshot): menu Master Barang Customer (/master-barang-customer) + Paket Saya (/langganan-saya) di sidebar desktop/mobile/home-screen, i18n-nya, permission-defaults, API customer-items di atas model real.
 - Rollback mudah bila diperlukan: git (auto-commit) + _temp/custom.db.pre-replace.bak (db 22 Okt pra-replace).
+
+---
+Task ID: master-barang-page-classic-restore
+Agent: Z.ai Code (main)
+Task: "extract file ini. ganti halaman master barang dengan file ini. fix" (upload: workspace-8a0af2d8-48ec-4be3-84df-36e0081c93aa (1).tar — UI klasik Master Barang 508 baris).
+
+Work Log:
+- Extract tar ke _temp/extract4 → sumber: src/components/views/items-view.tsx (508 baris, tabel Kode/Nama/Satuan/Harga Standar/HPP/Status + dialog Tambah/Edit dgn kalkulator margin + AlertDialog Hapus + search debounce 300ms + Table desktop/Card mobile).
+- SCOPE MINIMAL (beda dgn task pertama yg dicancel): HANYA halaman /master-barang — TIDAK menyentuh i18n, sidebar, urutan menu, atau label menu (semua perubahan menu pada task pertama adalah dugaan pemicu "cancel perintah terakhir").
+- REPLACE src/components/views/items-view.tsx (782→518 baris) dgn versi klasik + SATU adaptasi: props opsional canAdd/canEdit/canDelete (fallback role-based user.role!=='KASIR') → tombol Tambah/Edit/Hapus memakai izin granular Matriks Hak Akses (master-barang-tambah/edit/hapus) yg sudah dikirim page; showHpp tetap role-based (KASIR tidak lihat HPP).
+- Judul page /master-barang: "Harga per Customer" → "Master Barang" / subtitle "Kelola data barang" (page-scoped; label MENU tidak berubah). Docstring page disesuaikan (hapus kalimat "Pilih Pelanggan" yg tak relevan dgn UI klasik).
+- /master-barang-customer (fitur Master Barang Customer), API, db, prisma: TIDAK disentuh.
+- ESLint 2 file: 0 error. Dev server hot-reload (tanpa restart; tak ada perubahan backend).
+- Bersih-bersih: leftover test task sebelumnya (ITM-008 "Uji E2E Restore" Rp 15.000 — sisa POST customer-items yg membuat row Barang) dihapus via UI.
+- E2E (agent-browser, admin/268899, desktop 1280x900 + mobile 390x844):
+  • Render klasik persis: header "Master Barang" + "7 barang", search "Cari barang", tombol Tambah emerald, tabel Kode/Nama/Satuan/Harga Standar/HPP/Status/Aksi, badge Aktif, tombol Edit/Hapus per baris.
+  • CRUD: Hapus leftover → AlertDialog "Hapus barang?" → konfirmasi → hilang; Tambah "Barang Uji UI" 25.000/HPP 15.000 → margin "40%" real-time → tersimpan (ITM-008, 8 barang); Edit harga 30.000 → margin "50%" → tersimpan Rp 30.000; Hapus lagi → 7 barang.
+  • Search: "paperbowl" → "3 barang" terfilter; teks tak ada → "0 barang" + empty state "Tidak ditemukan".
+  • Mobile 390x844: tabel hidden, kartu tampil, tombol Tambah ada, tanpa overflow-X.
+  • Menu sidebar tak berubah (Paket Saya, Master Barang, Harga per Customer semua ada); /master-barang-customer tetap utuh (panel customer + Tambah).
+  • Browser console + dev.log bersih.
+- Cleanup: _temp/extract4 dihapus, browser ditutup.
+
+Stage Summary:
+- Halaman /master-barang kini menampilkan UI klasik Master Barang persis dari file upload (tabel sederhana + CRUD lengkap + margin kalkulator), dgn hak akses granular Matriks Hak Akses tetap berjalan.
+- Berbeda dari task pertama yang dicancel: label menu, i18n, urutan sidebar TIDAK diubah sama sekali — hanya konten halaman + judul halamannya.
+- File berubah: src/components/views/items-view.tsx (replace + adaptasi props), src/app/master-barang/page.tsx (judul + docstring).
+- Catatan: label menu "Harga per Customer" masih menunjuk /master-barang (i18n master_barang) — bila user ingin label menu juga diubah/di-swap, itu perubahan terpisah (i18n/sidebar) yg tidak dilakukan demi scope minimal.
