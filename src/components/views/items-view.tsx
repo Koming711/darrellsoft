@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
-  Check, ChevronsUpDown, Copy, ImagePlus, Package, Pencil, Plus, RefreshCw, Search, Trash2, User, Users, X,
+  Check, ChevronsUpDown, Copy, DatabaseBackup, ImagePlus, Loader2, Package, Pencil, Plus, RefreshCw, Search, Trash2, Upload, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
-import { onDataChange } from '@/lib/data-sync'
+import { authFetch } from '@/lib/auth-fetch'
+import { onDataChange, notifyDataChange } from '@/lib/data-sync'
 import { formatIDR, formatNum } from '@/lib/format'
 import { type Item, type ItemCustomerRef, type SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -160,6 +161,9 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Backup & Restore data halaman (Barang + registrasi harga per pelanggan) — file .xlsx
+  const [backupLoading, setBackupLoading] = useState<string | null>(null)
+
   // Popup foto barang (klik baris tabel / kartu)
   const [viewPhoto, setViewPhoto] = useState<Item | null>(null)
 
@@ -250,6 +254,72 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
     }
   }
 
+  // ===== Backup: unduh .xlsx (barang + harga khusus per pelanggan) =====
+  const handleBackupHpc = async () => {
+    setBackupLoading('backup')
+    try {
+      const res = await authFetch('/api/database/backup-harga-per-customer')
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data harga per customer'
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? decodeURIComponent(match[1]) : `backup-harga-per-customer-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup berhasil diunduh')
+    } catch (e) { console.error('Backup harga per customer error:', e); toast.error('Gagal backup data harga per customer') }
+    setBackupLoading(null)
+  }
+
+  // ===== Restore: unggah file backup → GANTI semua barang + registrasi milik user =====
+  const handleRestoreHpc = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.xlsx'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      if (!confirm('Semua barang & harga per pelanggan yang ada akan DIGANTI dengan data dari file backup. Lanjutkan?')) return
+      setBackupLoading('restore')
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await authFetch('/api/database/restore-harga-per-customer', {
+          method: 'POST',
+          body: fd,
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          const skipped = (data.skippedReg || 0) + (data.skippedBarang || 0)
+          toast.success(
+            `Restore berhasil (${data.count} barang, ${data.regCount} harga khusus)${skipped > 0 ? ` — ${skipped} baris dilewati` : ''}`
+          )
+          void load()
+          loadCustomers()
+          notifyDataChange('items')
+        } else {
+          toast.error(data.error || 'Gagal restore data harga per customer')
+        }
+      } catch { toast.error('File backup tidak valid') }
+      setBackupLoading(null)
+    }
+    input.click()
+  }
+
   /** Toggle status aktif cepat dari tabel/kartu (tanpa membuka dialog edit). */
   const toggleActive = async (it: Item) => {
     setTogglingId(it.id)
@@ -309,6 +379,30 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             />
           </div>
           <div className="flex items-center gap-2">
+            {canEditItem && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleBackupHpc}
+                  disabled={backupLoading !== null}
+                  title="Unduh backup barang & harga per pelanggan (.xlsx)"
+                  className="min-h-[44px] px-3 text-xs shrink-0"
+                >
+                  {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
+                  <span className="hidden sm:inline">Backup</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRestoreHpc}
+                  disabled={backupLoading !== null}
+                  title="Pulihkan dari file backup (.xlsx) — ganti semua data"
+                  className="min-h-[44px] px-3 text-xs shrink-0"
+                >
+                  {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  <span className="hidden sm:inline">Restore</span>
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               size="icon"

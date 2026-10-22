@@ -14661,3 +14661,26 @@ Stage Summary:
 - Sekarang barang lama yang "Umum" bisa diperbaiki langsung: Edit (tombol edit kini tampil di semua mode) → "Tambah Untuk Pelanggan" → pilih pelanggan → Simpan → chip pelanggan muncul; harga khusus reg lama tidak pernah tertimpa.
 - Fetch daftar pelanggan anti-gagal: retry otomatis saat combobox/dialog dibuka.
 - File berubah: api/items/[id]/route.ts, views/barang-form-dialog.tsx, views/items-view.tsx. Belum dideploy ke production.
+
+---
+Task ID: backup-restore-harga-per-customer
+Agent: Main
+Task: "tambahkan backup dan restore di halaman harga per customer. fix"
+
+Work Log:
+- Pelajari pola existing: potong-kertas riwayat pakai /api/database/backup-master?table=X (GET xlsx: Laporan+Data+Info via createPrintStyleExcel) + /api/database/restore-master (POST multipart, replace mode, castRowBySchema).
+- Data "Harga per Customer" = pasangan tabel Barang + BarangCustomer (harga khusus per pelanggan) → dibuat endpoint khusus (satu file xlsx, dua sheet data):
+  1. src/app/api/database/backup-harga-per-customer/route.ts (GET): sheet Laporan (print view: barang + ringkasan "Customer: Rp harga"), Data (raw Barang — kunci gabung restore = kode; photoUrl DISENGAJA tidak ikut karena data URL bisa >32.767 char = batas sel Excel), Data_Registrasi (barangKode+barangNama+customerName+price+createdAt), Info (metadata).
+  2. src/app/api/database/restore-harga-per-customer/route.ts (POST multipart): baca sheet Data + Data_Registrasi → $transaction: deleteMany barang user (registrasi cascade) → createMany barang (castRowBySchema 'Barang', dedupe kode, userId dipaksa user saat ini, photoUrl=null) → bangun ulang registrasi dgn pencocokan barang per KODE + customer milik user per NAMA (baris tak cocok dilewati & dilaporkan). Mode REPLACE (aman: hanya BarangCustomer yg mereferensikan Barang; invoice/PO simpan salinan di dataJson).
+  3. src/components/views/items-view.tsx: tombol Backup + Restore (outline, icon DatabaseBackup/Upload, label teks hidden di mobile, min-h 44px) di header sebelah search; hanya utk canEditItem. handleBackupHpc (authFetch → blob → download, pola potong-kertas) + handleRestoreHpc (input file .xlsx → confirm → FormData POST → toast jumlah barang+harga khusus+yang dilewati → reload + notifyDataChange('items')).
+- Verifikasi:
+  - ESLint 3 file bersih.
+  - Round-trip API: backup (8 barang + 2 registrasi) → simpan xlsx → HAPUS barang "tes" (simulasi kehilangan, regs turun 7/1) → restore → kembali 8 barang + 2 registrasi PERSIS (paperbowl→Budi Susanto:5000, tes→Jaya Wijaya:1200; 0 skipped; id baru, relasi tersusun ulang by kode/nama).
+  - E2E browser (admin): tombol Backup & Restore tampil di header desktop & mobile (ikon saja di mobile) → klik Backup → toast "Backup berhasil diunduh" → console 0 error.
+  - Catatan: file xlsx hasil backup juga bisa dibuka di Excel (sheet Laporan terproteksi view).
+- Dev server sempat mati saat pengujian → di-restart (setsid nohup bun run dev), / 200 OK.
+
+Stage Summary:
+- Halaman Harga per Customer kini punya tombol Backup (unduh .xlsx berisi barang + semua harga khusus per pelanggan) dan Restore (unggah file backup → ganti total data halaman tsb; harga khusus terselamatkan via pencocokan kode barang & nama pelanggan).
+- Endpoint baru: GET /api/database/backup-harga-per-customer, POST /api/database/restore-harga-per-customer.
+- Round-trip terbukti 100% memulihkan data termasuk harga khusus. Belum dideploy ke production.
