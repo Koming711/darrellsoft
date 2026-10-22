@@ -44,11 +44,14 @@ export const registerSchema = z
       .trim()
       .min(3, "Nama lengkap minimal 3 karakter")
       .max(80, "Nama lengkap terlalu panjang"),
+    // Nama perusahaan DIHAPUS dari halaman pendaftaran — tetap diterima
+    // (opsional, boleh kosong) agar kompatibel dengan payload lama.
     companyName: z
       .string()
       .trim()
-      .min(2, "Nama perusahaan/usaha minimal 2 karakter")
-      .max(100, "Nama perusahaan terlalu panjang"),
+      .max(100, "Nama perusahaan terlalu panjang")
+      .optional()
+      .default(""),
     whatsapp: phoneSchema,
     email: z
       .string()

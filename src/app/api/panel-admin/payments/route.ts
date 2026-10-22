@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(200, Math.max(1, Number(searchParams.get('limit')) || 100))
 
     const where = status && Object.values(PAYMENT_STATUS).includes(status as PAYMENT_STATUS)
-      ? { status }
-      : {}
+      ? { status, deletedAt: null }
+      : { deletedAt: null }
 
     const payments = await db.subscriptionPayment.findMany({
       where,

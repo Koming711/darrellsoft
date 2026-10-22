@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   Check,
+  ChevronLeft,
   Copy,
   KeyRound,
   Loader2,
@@ -39,7 +41,6 @@ import { apiFetch, SubscriptionApiError } from "@/lib/subscription-client";
 
 type FormValues = {
   fullName: string;
-  companyName: string;
   whatsapp: string;
   email: string;
   username: string;
@@ -84,10 +85,22 @@ const BENEFITS = [
 export default function DaftarPage() {
   const { user, loading: sessionLoading } = useSession();
   const { toast } = useToast();
+  const router = useRouter();
+
+  // Tombol back: kembali ke halaman sebelumnya (login/beranda).
+  // Bila halaman dibuka langsung tanpa riwayat (tab baru), router.back()
+  // tidak berpindah — fallback ke beranda setelah jeda singkat.
+  function handleBack() {
+    router.back();
+    window.setTimeout(() => {
+      if (window.location.pathname === "/daftar") {
+        router.push("/");
+      }
+    }, 700);
+  }
 
   const [form, setForm] = useState<FormValues>({
     fullName: "",
-    companyName: "",
     whatsapp: "",
     email: "",
     username: "",
@@ -209,9 +222,6 @@ export default function DaftarPage() {
     if (form.fullName.trim().length < 3) {
       errors.fullName = "Nama lengkap minimal 3 karakter";
     }
-    if (form.companyName.trim().length < 2) {
-      errors.companyName = "Nama perusahaan/usaha minimal 2 karakter";
-    }
     if (!whatsappValid) {
       errors.whatsapp = "Nomor WhatsApp tidak valid. Gunakan format 08xxxxxxxxxx";
     }
@@ -256,7 +266,6 @@ export default function DaftarPage() {
         method: "POST",
         json: {
           fullName: form.fullName.trim(),
-          companyName: form.companyName.trim(),
           whatsapp: form.whatsapp.trim(),
           email: form.email.trim(),
           username: form.username.trim(),
@@ -356,7 +365,19 @@ export default function DaftarPage() {
     <div className="flex min-h-screen flex-col bg-background lg:h-screen lg:overflow-hidden">
       <main className="flex-1 lg:flex lg:min-h-0 lg:flex-col lg:justify-center">
         <div className="mx-auto w-full max-w-6xl px-4 py-8 lg:py-3">
-          <StepIndicator step={1} className="mb-6 sm:mb-8 lg:mb-3" />
+          {/* Baris back + indikator langkah — back ikon-only ala halaman
+              pembayaran/konfirmasi paket, tetap muat di layout fit-1-halaman */}
+          <div className="mb-6 flex items-center gap-1.5 sm:mb-8 lg:mb-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label="Kembali"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-8 lg:w-8 lg:hover:bg-muted/60"
+            >
+              <ChevronLeft className="h-5 w-5 lg:h-4 lg:w-4" aria-hidden="true" />
+            </button>
+            <StepIndicator step={1} className="min-w-0 flex-1" />
+          </div>
 
           <div className="grid items-stretch gap-6 lg:grid-cols-2 lg:gap-5">
             {/* Panel brand — hanya tampil di desktop */}
@@ -429,24 +450,6 @@ export default function DaftarPage() {
                     />
                     {fieldErrors.fullName && (
                       <p className="text-xs text-destructive">{fieldErrors.fullName}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="companyName">Nama Perusahaan / Usaha</Label>
-                    <Input
-                      id="companyName"
-                      name="companyName"
-                      autoComplete="organization"
-                      placeholder="cth: Percetakan Maju Jaya"
-                      className="h-11 lg:h-9"
-                      value={form.companyName}
-                      onChange={(e) => updateField("companyName", e.target.value)}
-                      disabled={submitting}
-                      aria-invalid={!!fieldErrors.companyName}
-                    />
-                    {fieldErrors.companyName && (
-                      <p className="text-xs text-destructive">{fieldErrors.companyName}</p>
                     )}
                   </div>
 

@@ -83,7 +83,7 @@ export default function PanelAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Ringkasan</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Beranda Admin</h1>
         <p className="mt-1 text-sm text-muted-foreground">Kondisi langganan & pendapatan Darrellsoft.</p>
       </div>
 

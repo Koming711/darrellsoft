@@ -218,7 +218,7 @@ export function VerifikasiPembayaranContent() {
                       </Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><User className="h-3 w-3" /><b className="text-foreground">{p.customer?.namaLengkap ?? p.userId}</b>{p.customer?.username ? ` (@${p.customer.username})` : ''}</span>
+                      <span className="flex items-center gap-1"><User className="h-3 w-3" /><b className="text-sm text-foreground">{p.customer?.namaLengkap ?? p.userId}</b>{p.customer?.username ? ` (@${p.customer.username})` : ''}</span>
                       {p.customer?.email && <span>{p.customer.email}</span>}
                       {p.customer?.nomorHP && <span>{p.customer.nomorHP}</span>}
                     </div>

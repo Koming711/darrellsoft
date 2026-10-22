@@ -150,7 +150,9 @@ async function buildLoginResponse(
   })
 
   // ===== Arah lanjut sesuai status langganan (alur pendaftaran → pilih paket → bayar) =====
-  // - Ada tagihan terbuka (belum dibayar / menunggu verifikasi) → arahkan ke tagihan tsb.
+  // - Tagihan menunggu_pembayaran → arahkan ke halaman pembayaran (belum kirim bukti).
+  // - Tagihan menunggu_verifikasi (konfirmasi pembayaran sudah terkirim) → masuk ke
+  //   beranda aplikasi (/pembukaan); popup "Aplikasi Belum Dapat Digunakan" tampil di sana.
   // - Belum pernah memilih paket (tanpa langganan aktif) → /pilih-paket.
   // - Admin/superadmin/manager & akun berbayar aktif → tidak diarahkan (null = default).
   // - Role 'user' (aktivasi manual admin tanpa record langganan) tidak dipaksa ke
@@ -162,12 +164,15 @@ async function buildLoginResponse(
         db.subscriptionInvoice.findFirst({
           where: { userId, status: { in: ['menunggu_pembayaran', 'menunggu_verifikasi'] } },
           orderBy: { createdAt: 'desc' },
-          select: { id: true },
+          select: { id: true, status: true },
         }),
         db.customerSubscription.findUnique({ where: { userId }, select: { status: true } }),
       ])
       if (openInv) {
-        subscriptionRedirect = `/langganan/pembayaran/${openInv.id}`
+        subscriptionRedirect =
+          openInv.status === 'menunggu_verifikasi'
+            ? '/pembukaan'
+            : `/langganan/pembayaran/${openInv.id}`
       } else if (role === 'demo' && (!sub || ['belum_aktif', 'kedaluwarsa', 'dibatalkan'].includes(sub.status))) {
         // Pelanggan funnel pendaftaran mandiri yang belum punya langganan aktif
         subscriptionRedirect = '/pilih-paket'

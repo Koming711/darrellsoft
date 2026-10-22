@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         nomorHP: d.whatsapp,
         email: d.email,
         alamat: '',
-        catatan: `Pendaftaran mandiri via halaman Daftar Akun — Perusahaan: ${d.companyName}`,
+        catatan: `Pendaftaran mandiri via halaman Daftar Akun${d.companyName ? ` — Perusahaan: ${d.companyName}` : ''}`,
         status: 'baru',
         role: 'demo',
         expiredDate,

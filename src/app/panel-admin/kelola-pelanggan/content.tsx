@@ -3,7 +3,7 @@
 // /panel-admin/kelola-pelanggan — kelola akun & langganan pelanggan.
 // Pencarian (nama/email/username/HP/perusahaan) + tab status akun baru:
 // Semua · Perlu Verifikasi · Aktif · Akan Berakhir · Expired · Ditolak · Ditangguhkan · Belum Aktif.
-// Aksi: Tangguhkan (wajib alasan — catatan audit) & Aktifkan Kembali.
+// Aksi: Tangguhkan (wajib alasan — catatan audit) & Aktifkan Kembali & Hapus pelanggan (permanen).
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -34,6 +34,7 @@ import {
   RefreshCcw,
   Search,
   ShieldAlert,
+  Trash2,
   UserCog,
 } from 'lucide-react'
 
@@ -96,7 +97,9 @@ export function KelolaPelangganContent() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [suspendTarget, setSuspendTarget] = useState<Row | null>(null)
   const [suspendReason, setSuspendReason] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
   const [busy, setBusy] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   const load = useCallback(async () => {
     setRows(null)
@@ -179,13 +182,37 @@ export function KelolaPelangganContent() {
     }
   }
 
+  // Hapus pelanggan permanen — memakai DELETE /api/panel-admin/subscriptions/customers/[id]
+  // (server: hapus akun + data langganan terkait, tolak akun sendiri/superadmin, catat audit log)
+  const deleteCustomer = async () => {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
+    try {
+      const res = await authFetch(`/api/panel-admin/subscriptions/customers/${deleteTarget.userId}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal menghapus pelanggan')
+        return
+      }
+      toast.success(`Pelanggan @${deleteTarget.username || deleteTarget.namaLengkap} dihapus`)
+      setDeleteTarget(null)
+      await load()
+    } catch {
+      toast.error('Gagal terhubung ke server')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Kelola Pelanggan</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cari pelanggan, lihat paket & status langganan, tangguhkan / aktifkan akun dengan catatan audit.
+            Cari pelanggan, lihat paket & status langganan, tangguhkan / aktifkan / hapus akun dengan catatan audit.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
@@ -296,6 +323,15 @@ export function KelolaPelangganContent() {
                           Aktifkan Kembali
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Hapus pelanggan ${r.namaLengkap || r.username}`}
+                        className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+                        onClick={() => setDeleteTarget(r)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Hapus
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -304,6 +340,29 @@ export function KelolaPelangganContent() {
           })}
         </div>
       )}
+
+      {/* Dialog hapus pelanggan */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-500" /> Hapus Pelanggan
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.namaLengkap || deleteTarget?.username} (@{deleteTarget?.username}) — akun beserta seluruh
+              data langganannya (paket, tagihan, riwayat pembayaran) akan dihapus permanen. Tindakan ini tidak dapat
+              dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
+            <Button variant="destructive" onClick={deleteCustomer} disabled={deleteBusy} className="gap-1.5">
+              {deleteBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Trash2 className="h-4 w-4" /> Hapus Permanen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog tangguhkan */}
       <Dialog open={!!suspendTarget} onOpenChange={(v) => !v && setSuspendTarget(null)}>

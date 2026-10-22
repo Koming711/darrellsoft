@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     // Tagihan & pembayaran terbuka per user
     const [openInvoices, pendingPayments] = await Promise.all([
       db.subscriptionInvoice.findMany({ where: { status: { in: [INVOICE_STATUS.MENUNGGU_PEMBAYARAN, INVOICE_STATUS.MENUNGGU_VERIFIKASI, INVOICE_STATUS.DITOLAK] } }, orderBy: { createdAt: 'desc' } }),
-      db.subscriptionPayment.findMany({ where: { status: 'menunggu_verifikasi' }, orderBy: { createdAt: 'desc' } }),
+      db.subscriptionPayment.findMany({ where: { status: 'menunggu_verifikasi', deletedAt: null }, orderBy: { createdAt: 'desc' } }),
     ])
 
     interface SubsRow {

@@ -35,18 +35,18 @@ export async function GET(request: NextRequest) {
         db.pengguna.count(),
         db.calonPembeli.count(),
         db.subscriptionPayment.findMany({
-          where: { status: PAYMENT_STATUS.MENUNGGU_VERIFIKASI },
+          where: { status: PAYMENT_STATUS.MENUNGGU_VERIFIKASI, deletedAt: null },
           include: { invoice: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
         db.subscriptionPayment.findMany({
-          where: { status: PAYMENT_STATUS.DISETUJUI },
+          where: { status: PAYMENT_STATUS.DISETUJUI, deletedAt: null },
           select: { amount: true, createdAt: true },
         }),
         db.subscriptionPlan.findMany({ orderBy: { sortOrder: 'asc' }, select: { id: true, name: true } }),
         db.subscriptionPayment.findMany({
-          where: { status: PAYMENT_STATUS.DISETUJUI },
+          where: { status: PAYMENT_STATUS.DISETUJUI, deletedAt: null },
           include: {
             invoice: { select: { invoiceNumber: true, planName: true } },
           },

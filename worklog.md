@@ -14420,3 +14420,34 @@ Stage Summary:
 - Halaman "Harga per Customer" saat ini SUDAH 100% sama dengan versi di file upload (terverifikasi diff 10 file terkait + bukti visual E2E) — hasil aksi cancel sebelumnya. Tidak ada perubahan kode.
 - Fitur-fitur yang diminta user setelah 20 Okt (menu Master Barang, Paket Saya, dsb.) dipertahankan.
 - Bila maksud user sebenarnya adalah memasang UI klasik dari file upload PERTAMA (workspace-8a0af2d8, tabel Master Barang sederhana 508 baris) KE halaman Harga per Customer (/master-barang), itu bisa dilakukan — menunggu konfirmasi arah.
+
+---
+Task ID: restore-full-snapshot-upload
+Agent: Z.ai Code (main)
+Task: "ganti semua conten dengan file yg diextract tai." — ganti seluruh konten project dengan snapshot workspace dari upload split tar workspace-78453881 (3).tar.001-004 (snapshot 20 Okt 2026 01:00, git HEAD 2cbe390).
+
+Work Log:
+- Extract 4 part split tar ke _temp/extract3 (200MB, full workspace snapshot; worklog di dalamnya berakhir di Task M).
+- Diff menyeluruh extract vs project: 30 file berbeda + 3 hanya-di-extract (subscription-waiting-popup.tsx, api/panel-admin/transactions/[id]/route.ts, scripts/devd.py). Ternyata extract = state pra-rollback Task I/J/K/L/M (fitur langganan, popup, Sampah) yang sempat dibatalkan setelah 20 Okt.
+- STOP dev server → backup db ke _temp/custom.db.pre-replace.bak → REPLACE 34 file (30 diff + 3 extract-only + scripts/devd.py): auth login/register, beranda API, panel-admin (page/layout/kelola-pelanggan/verifikasi-pembayaran/riwayat-transaksi + API payments/subscription-stats/subscriptions/renewal-proof/transactions), subscription invoice/my API, daftar, pembukaan, globals.css, site-footer, dashboard-layout, register-schema, prisma schema (+field deletedAt utk soft delete), db/custom.db (RESTORE data 20 Okt: 23 SubscriptionInvoice, 17 CustomerSubscription, 181 Customer, Notification 61).
+- REVERT-TO-SNAPSHOT efek samping: menu sidebar master_barang_customer & paket_saya, i18n key-nya, permission-defaults/permissions, API customer-items versi lama (db.customerItem).
+- TEMUAN KRITIS: API customer-items versi snapshot memakai db.customerItem, tapi schema snapshot TIDAK punya model CustomerItem (dulu jalan via prisma client stale di node_modules yang ikut tar). Audit semua db.<model> vs schema → hanya customerItem yang regresi; sisanya (cuttingRecord, expense, masterKertas, payment-manual, dll) = dead code legacy di KEDUA versi, bukan regresi.
+- Patch percobaan: tambah model CustomerItem shim + db push + generate → API kembali 200 []. Lalu diputuskan menyimpan API customer-items versi BARU (rewrite model real Barang+BarangCustomer, permintaan user sesi "tambahkan master barang di sidebar", kontrak flat sama) → shim CustomerItem dibuang lagi (db push drop table), schema kembali persis versi extract.
+- KEPUTUSAN SCOPE: restore penuh snapshot + PERTAHANKAN 8 file milik user sendiri (permintaan eksplisit pasca-snapshot, tak pernah dibatalkan, semua superset dari versi extract — tidak ada konten snapshot yang hilang): sidebar-desktop.tsx, sidebar.tsx, i18n.ts, menu-home-screen.tsx, permission-defaults.ts, permissions.ts, api/customer-items/route.ts + [id]/route.ts (git checkout HEAD). Hasil: menu Master Barang Customer & Paket Saya tetap ada, /master-barang-customer berfungsi utk admin (page identik di kedua state; versi extract blank utk admin karena permission matrix lama belum kenal feature tsb).
+- Restart dev server (2x, terakhir setelah prisma generate) + verifikasi. dev.log bersih; satu baris "duplicate column name: kategoriId" = startup seed idempoten yang menangkap error sendiri, bukan runtime.
+- ESLint: 30 file hasil replace (2 batch) + 8 file overlay = 0 error.
+- E2E (agent-browser, admin/268899, desktop 1280x900 & mobile 390x844):
+  • Sidebar: menu Master Barang Customer & Paket Saya ada (overlay) + konten snapshot aktif.
+  • /panel-admin/riwayat-transaksi: tab "Sampah" muncul (Task M) dgn empty state "Sampah kosong" (db snapshot memang 0 SubscriptionPayment; alur delete-permanent terverifikasi di level API+kode, data-test tidak dibuat agar data user aman).
+  • /panel-admin, kelola-pelanggan, verifikasi-pembayaran, /langganan-saya: semua render.
+  • /master-barang-customer: panel 6 customer + CRUD barang uji "Uji E2E Restore" Rp 15.000 → tambah → tampil → hapus (confirm dialog) → bersih (API []).
+  • /master-barang: "Harga per Customer" + StatCards (Total/Aktif/Nonaktif) dgn data db restore.
+  • /pembukaan: dashboard normal, bottom-nav mobile OK, tanpa overflow-X; console browser & dev.log tanpa error.
+  • subscription-waiting-popup terpasang via dashboard-layout (trigger utk user yang menunggu verifikasi langganan; admin tidak kena — sesuai desain).
+- Cleanup: _temp/extract3 + file diff dihapus; sisa _temp/custom.db.pre-replace.bak sebagai backup tambahan; browser ditutup.
+
+Stage Summary:
+- Seluruh konten project kini = snapshot upload 20 Okt (34 file + schema + db) KECUALI 8 file overlay milik user (menu Master Barang Customer/Paket Saya + API customer-items real-model) yang sengaja dipertahankan karena merupakan permintaan eksplisit user setelah snapshot dibuat dan tidak pernah dibatalkan.
+- Fitur yang KEMBALI dari snapshot: Task M (Sampah + Hapus Permanen riwayat transaksi, kolom deletedAt), subscription-waiting-popup, panel-admin langganan (beranda/paket/pembayaran/pelanggan), perubahan auth/daftar/pembukaan/globals.css/site-footer/register-schema, dan DATA db 20 Okt (23 invoice langganan, 17 langganan customer).
+- Fitur yang dipertahankan (pasca-snapshot): menu Master Barang Customer (/master-barang-customer) + Paket Saya (/langganan-saya) di sidebar desktop/mobile/home-screen, i18n-nya, permission-defaults, API customer-items di atas model real.
+- Rollback mudah bila diperlukan: git (auto-commit) + _temp/custom.db.pre-replace.bak (db 22 Okt pra-replace).

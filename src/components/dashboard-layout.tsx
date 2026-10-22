@@ -5,6 +5,7 @@ import { Sidebar } from './sidebar-desktop'
 import { MobileHeader, MobileBottomNav } from './sidebar'
 import { CompanyDataPopup } from './company-data-popup'
 import { SubscriptionGate } from './subscription-gate'
+import { SubscriptionWaitingPopup } from './subscription-waiting-popup'
 import type { SubscriptionAccessInfo } from '@/lib/subscription'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
@@ -115,6 +116,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   const [subBlocked, setSubBlocked] = useState(false)
   const [subInfo, setSubInfo] = useState<SubscriptionAccessInfo | null>(null)
   const [subRechecking, setSubRechecking] = useState(false)
+  // Popup "Aplikasi Belum Dapat Digunakan" di beranda (/pembukaan) saat
+  // konfirmasi pembayaran pelanggan masih menunggu verifikasi admin.
+  const [subPopupOpen, setSubPopupOpen] = useState(false)
   // Ref sinkron dgn state — dipakai saat menulis cache (nilai terbaru tanpa dependensi efek)
   const subStateRef = useRef<{ blocked: boolean; info: SubscriptionAccessInfo | null }>({ blocked: false, info: null })
 
@@ -250,6 +254,18 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       setSubRechecking(false)
     }
   }, [applyVerifyData])
+
+  // === POPUP BERANDA: pembayaran menunggu verifikasi admin ===
+  // reason 'menunggu_verifikasi' (konfirmasi pembayaran sudah terkirim):
+  // di beranda (/pembukaan) aplikasi tampil normal + popup pemberitahuan;
+  // di rute modul lain tetap layar gate penuh — modul tidak bisa dipakai.
+  const subWaitingVerification = subBlocked && subInfo?.reason === 'menunggu_verifikasi'
+  const onPembukaan = pathname === '/pembukaan'
+  useEffect(() => {
+    // Auto-muncul saat mendarat di beranda; tutup saat pindah rute atau
+    // saat langganan sudah disetujui (subBlocked false).
+    setSubPopupOpen(subWaitingVerification && onPembukaan)
+  }, [subWaitingVerification, onPembukaan])
 
   // === INITIAL AUTH + SETTINGS LOAD (runs once) ===
   useEffect(() => {
@@ -559,7 +575,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
 
   // === SUBSCRIPTION GATE: aplikasi TERKUNCI selama pembayaran belum diverifikasi admin ===
   // Seluruh isi aplikasi diganti layar pemblokiran — tidak ada modul yang bisa diakses.
-  if (subBlocked) {
+  // PENGECUALIAN: reason 'menunggu_verifikasi' di beranda (/pembukaan) — aplikasi tampil
+  // normal dan cukup popup pemberitahuan (sesuai permintaan: login → beranda + popup).
+  if (subBlocked && !(subWaitingVerification && onPembukaan)) {
     return (
       <SubscriptionGate
         info={subInfo}
@@ -805,6 +823,15 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           </div>
         </div>
       )}
+
+      {/* ===== POPUP: APLIKASI BELUM DAPAT DIGUNAKAN (beranda, menunggu verifikasi admin) ===== */}
+      <SubscriptionWaitingPopup
+        info={subInfo}
+        open={subPopupOpen}
+        onOpenChange={setSubPopupOpen}
+        rechecking={subRechecking}
+        onRecheck={() => { void handleSubscriptionRecheck() }}
+      />
 
       {/* ===== MODAL: COMPANY DATA POPUP (untuk demo user baru dari checkout) ===== */}
       {user && <CompanyDataPopup />}

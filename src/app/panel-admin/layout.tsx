@@ -2,7 +2,7 @@
 
 // Layout Panel Admin Langganan — hanya admin & superadmin.
 // Navigasi: SIDEBAR menu sederhana (desktop, bisa diciutkan) + drawer Sheet (mobile).
-// 7 menu inti: Ringkasan · Pelanggan · Paket · Pembayaran · Transaksi · Laporan · Sistem.
+// 7 menu inti: Beranda Admin · Pelanggan · Paket · Pembayaran · Transaksi · Laporan · Sistem.
 // Fitur detail (status akun, verifikasi, dsb.) dikelompokkan sebagai TAB di halaman hub.
 // Server-side tetap dilindungi requireAdmin() di /api/panel-admin/*.
 
@@ -45,9 +45,10 @@ type NavItem = {
 
 const MENU_SECTIONS: { label: string; items: NavItem[] }[] = [
   {
-    label: 'Menu',
+    // label kosong → judul seksi "MENU" tidak dirender (permintaan user)
+    label: '',
     items: [
-      { href: '/panel-admin', label: 'Ringkasan', icon: LayoutDashboard, exact: true },
+      { href: '/panel-admin', label: 'Beranda Admin', icon: LayoutDashboard, exact: true },
       { href: '/panel-admin/pelanggan', label: 'Pelanggan', icon: Users },
       { href: '/panel-admin/kelola-paket', label: 'Paket', icon: PackageOpen },
       { href: '/panel-admin/pembayaran', label: 'Pembayaran', icon: Wallet },
@@ -84,18 +85,23 @@ export default function PanelAdminLayout({ children }: { children: React.ReactNo
 
   // Render menu sidebar (dipakai bersama oleh sidebar desktop & drawer mobile)
   const renderNav = (onNavigate?: () => void, showLabels = true) => (
-    <nav className="flex flex-col" aria-label="Navigasi panel admin">
+    <nav
+      className={cn('flex flex-col', !MENU_SECTIONS[0].label && 'pt-1')}
+      aria-label="Navigasi panel admin"
+    >
       {MENU_SECTIONS.map((section, si) => (
-        <div key={section.label}>
+        <div key={section.label || `sec-${si}`}>
           {showLabels ? (
-            <div
-              className={cn(
-                'px-2.5 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80',
-                si === 0 && 'pt-1',
-              )}
-            >
-              {section.label}
-            </div>
+            section.label ? (
+              <div
+                className={cn(
+                  'px-2.5 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80',
+                  si === 0 && 'pt-1',
+                )}
+              >
+                {section.label}
+              </div>
+            ) : null
           ) : (
             si > 0 && <div className="mx-3 my-2 border-t border-border/60" />
           )}
@@ -127,7 +133,10 @@ export default function PanelAdminLayout({ children }: { children: React.ReactNo
   )
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
+    <div
+      data-panel-admin=""
+      className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950"
+    >
       {/* ===== Header ===== */}
       <header className="sticky top-0 z-30 border-b bg-white shadow-sm dark:bg-slate-950">
         <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">

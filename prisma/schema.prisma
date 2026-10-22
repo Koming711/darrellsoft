@@ -711,6 +711,7 @@ model SubscriptionPayment {
   reviewedBy      String?   @default("") // username admin penyetuju
   reviewedAt      DateTime?
   rejectionReason String    @default("")
+  deletedAt       DateTime? // soft delete — non-null = ada di tab Sampah (riwayat transaksi admin)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

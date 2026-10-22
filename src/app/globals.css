@@ -829,3 +829,26 @@ html:not(.dark) .dark-surface .text-muted-foreground { color: #a1a1aa !important
   .bahan-popup-compact [data-slot='textarea'] { font-size: 11pt; }
   .bahan-popup-compact .text-xs { font-size: 8pt; }
 }
+
+/* ===== Panel Admin Langganan — font SELURUH halaman +1pt (permintaan user) =====
+   Strategi: utility font-size Tailwind v4 memakai var tema (.text-sm → var(--text-sm)),
+   jadi cukup naikkan variabel --text-* hanya saat halaman /panel-admin terpasang
+   (gate :has() pada <body>). Line-height default Tailwind berupa rasio tanpa satuan,
+   sehingga ikut membesar secara proporsional. Portal Radix (Dialog/Sheet/Dropdown/
+   Toast) tergantung di <body> → ikut terdampak juga. Ukuran arbitrer text-[Npx]
+   bernilai literal → dipetakan manual di bawah. 1pt = 1,333px. */
+body:has([data-panel-admin]) {
+  font-size: calc(1rem + 1pt); /* teks tanpa kelas text-* ikut naik */
+  --text-xs: calc(0.75rem + 1pt);
+  --text-sm: calc(0.875rem + 1pt);
+  --text-base: calc(1rem + 1pt);
+  --text-lg: calc(1.125rem + 1pt);
+  --text-xl: calc(1.25rem + 1pt);
+  --text-2xl: calc(1.5rem + 1pt);
+  --text-3xl: calc(1.875rem + 1pt);
+  --text-4xl: calc(2.25rem + 1pt);
+  --text-5xl: calc(3rem + 1pt);
+}
+body:has([data-panel-admin]) .text-\[9px\] { font-size: calc(9px + 1pt); }
+body:has([data-panel-admin]) .text-\[10px\] { font-size: calc(10px + 1pt); }
+body:has([data-panel-admin]) .text-\[11px\] { font-size: calc(11px + 1pt); }

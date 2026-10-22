@@ -51,7 +51,7 @@ export async function GET(
 
     const [payments, settings, sub] = await Promise.all([
       db.subscriptionPayment.findMany({
-        where: { invoiceId: invoice.id },
+        where: { invoiceId: invoice.id, deletedAt: null },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,

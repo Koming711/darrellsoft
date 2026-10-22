@@ -1,5 +1,6 @@
 // GET /api/panel-admin/transactions — riwayat transaksi langganan (semua pelanggan).
 // Filter: ?from=YYYY-MM-DD&to=YYYY-MM-DD&planId=&status=&method=&export=csv
+// Soft delete: default hanya transaksi aktif (deletedAt null); ?trash=1 → hanya yg sudah dihapus.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/server-auth'
@@ -18,12 +19,15 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') ?? ''
     const method = searchParams.get('method') ?? ''
     const exportCsv = searchParams.get('export') === 'csv'
+    const trash = searchParams.get('trash') === '1'
 
     const createdAt: Record<string, Date> = {}
     if (from) createdAt.gte = new Date(`${from}T00:00:00.000Z`)
     if (to) createdAt.lte = new Date(`${to}T23:59:59.999Z`)
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = trash
+      ? { deletedAt: { not: null } }
+      : { deletedAt: null }
     if (Object.keys(createdAt).length) where.createdAt = createdAt
     if (status && Object.values(PAYMENT_STATUS).includes(status as PAYMENT_STATUS)) where.status = status
     if (method === 'qris' || method === 'transfer_bank') where.paymentMethod = method
@@ -65,6 +69,7 @@ export async function GET(request: NextRequest) {
       reviewedBy: p.reviewedBy,
       reviewedAt: p.reviewedAt,
       rejectionReason: p.rejectionReason,
+      deletedAt: p.deletedAt,
       createdAt: p.createdAt,
     }))
 

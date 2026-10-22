@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const invFilter = { docType: 'invoice', deletedAt: null, ...dataFilter }
     const pelFilter = { docType: 'invoice-pelunasan', deletedAt: null, ...dataFilter }
 
-    const [invoices, pelunasan, pelangganCount, userInfo] = await Promise.all([
+    const [invoices, pelunasan, pelangganCount, userInfo, calonInfo] = await Promise.all([
       db.documentHistory.findMany({
         where: invFilter,
         orderBy: { createdAt: 'desc' },
@@ -51,7 +51,12 @@ export async function GET(request: NextRequest) {
       }),
       db.customer.count({ where: dataFilter }),
       user?.id
-        ? db.pengguna.findUnique({ where: { id: user.id }, select: { username: true, role: true } })
+        ? db.pengguna.findUnique({ where: { id: user.id }, select: { namaLengkap: true, role: true } })
+        : Promise.resolve(null),
+      // Akun demo (CalonPembeli dari checkout) tidak ada di tabel Pengguna —
+      // ambil nama asli dari CalonPembeli agar sapaan beranda tetap personal
+      user?.id
+        ? db.calonPembeli.findUnique({ where: { id: user.id }, select: { nama: true, role: true } })
         : Promise.resolve(null),
     ])
 
@@ -384,7 +389,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        user: { name: userInfo?.username ?? user?.name ?? '', role: userInfo?.role ?? user?.role ?? '' },
+        // Sapaan beranda memakai NAMA ASLI (bukan username / "demo"):
+        // pengguna terdaftar → namaLengkap, akun demo → nama calon pembeli
+        user: {
+          name: userInfo?.namaLengkap || calonInfo?.nama || '',
+          role: userInfo?.role ?? calonInfo?.role ?? user?.role ?? '',
+        },
         stats: { totalPenjualan, totalPiutang, invoiceBelumLunas, totalPelanggan: pelangganCount },
         chart: days,
         recent,

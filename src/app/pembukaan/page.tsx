@@ -283,7 +283,7 @@ export default function PembukaanPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
                 {greeting}
-                {s?.user?.name ? `, ${s.user.name.split(' ')[0]}` : ''} 👋
+                {`, ${(s?.user?.name || 'Pengguna').split(' ')[0]}`} 👋
               </h1>
               {s?.user?.role && (
                 <Badge

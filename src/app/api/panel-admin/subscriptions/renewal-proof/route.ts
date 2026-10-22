@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payments = await db.subscriptionPayment.findMany({
-      where: { userId },
+      where: { userId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: {
