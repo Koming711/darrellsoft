@@ -14400,3 +14400,23 @@ Work Log:
 Stage Summary:
 - Perintah "extract file + ganti menu master barang dengan file upload" DIBATALKAN seluruhnya; codebase kembali ke state commit 2a8c0b7 untuk kelima file terkait.
 - File berubah (revert): src/components/views/items-view.tsx, src/app/master-barang/page.tsx, src/lib/i18n.ts, src/components/sidebar-desktop.tsx, src/components/sidebar.tsx.
+
+---
+Task ID: harga-per-customer-replace-upload2
+Agent: Z.ai Code (main)
+Task: "extract file ini. ganti halaman harga per customer dengan file ini." (upload: workspace-78453881...tar.001-004, split tar ~187MB)
+
+Work Log:
+- Extract 4 part split tar (cat .001-.004 | tar -xzf -) ke _temp/extract2 → snapshot workspace ini per 20 Okt 2026 01:00 (git HEAD 2cbe390, worklog berisi Task I/J/K/L/M yg di workspace kini sudah di-rollback).
+- Lokasi halaman "Harga per Customer" di file: src/app/master-barang/page.tsx (judul "Harga per Customer") + src/components/views/items-view.tsx (782 baris, versi kompleks: Pilih Pelanggan/StatCards/toggle status).
+- VERIFIKASI FILE-PER-FILE (diff byte-level) file vs project saat ini — SEMUA IDENTIK: page.tsx, items-view.tsx, barang-form-dialog.tsx, /api/items/route.ts, /api/items/[id]/route.ts, format.ts, types.ts, client.ts, photo-upload.tsx, customer-item-picker.tsx.
+- Penyebab sudah identik: aksi "cancel perintah terakhir" (task master-barang-replace-upload-REVERT) sudah mengembalikan persis state snapshot ini untuk seluruh halaman tsb (git checkout 2a8c0b7 = kondisi pra-perubahan = sama dgn snapshot 20 Okt).
+- Perbedaan ekstrak vs saat ini HANYA di luar halaman tsb (semua permintaan eksplisit user setelah 20 Okt, TIDAK direvert): menu "Master Barang" → /master-barang-customer + API customer-items rewrite + permission-defaults (sesi "tambahkan master barang di sidebar"), menu "Paket Saya" (langganan-saya), perubahan panel-admin/subscription (Task I/M & popup verifikasi), subscription-waiting-popup (ada di ekstrak, tidak di current).
+- E2E bukti visual (login admin): /master-barang live = "Harga per Customer" + Pilih Pelanggan + StatCards (Total 7/Aktif 7/Nonaktif 0) + tabel Kode/Nama/Tanggal/Qty/Harga Jual/HPP/Keterangan/Status/Aksi — persis versi file. Screenshot diambil lalu dihapus setelah verifikasi.
+- TIDAK ada perubahan kode dilakukan (no-op yang benar): mengganti dgn file = menimpa dgn isi yang sama; merefer seluruh snapshot justru akan MENGHAPUS fitur yang diminta user belakangan.
+- Cleanup: _temp/extract2 (~ratusan MB) + screenshot dihapus; browser ditutup.
+
+Stage Summary:
+- Halaman "Harga per Customer" saat ini SUDAH 100% sama dengan versi di file upload (terverifikasi diff 10 file terkait + bukti visual E2E) — hasil aksi cancel sebelumnya. Tidak ada perubahan kode.
+- Fitur-fitur yang diminta user setelah 20 Okt (menu Master Barang, Paket Saya, dsb.) dipertahankan.
+- Bila maksud user sebenarnya adalah memasang UI klasik dari file upload PERTAMA (workspace-8a0af2d8, tabel Master Barang sederhana 508 baris) KE halaman Harga per Customer (/master-barang), itu bisa dilakukan — menunggu konfirmasi arah.
