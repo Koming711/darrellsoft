@@ -14562,3 +14562,22 @@ Stage Summary:
 - Bug 260gsm→300gsm diperbaiki: identitas bahan dari Potong Kertas tidak lagi ditimpa hasil cocok nama; matching kini sadar-gramatur di semua jalur (URL param, riwayat, sinkronisasi PK).
 - Halaman Hitung Cetakan kini menampilkan gramatur kertas eksplisit di bawah pilihan Nama Bahan.
 - File berubah: src/app/hitung-cetakan/page.tsx (satu file, 8 blok edit).
+---
+Task ID: fix-riwayat-pk-edit-bahan-gramatur
+Agent: main (Z.ai Code)
+Task: Bug — di Riwayat Potong Kertas: klik baris → preview OK (bahan & gramatur tampil), klik Edit → editor Potong Kertas terbuka tapi NAMA BAHAN dan GRAMATUR kosong. Fix.
+
+Work Log:
+- Investigasi: data DB lengkap (paperName, paperId, grammage tersimpan) → masalah di handleRestore (src/app/potong-kertas/page.tsx).
+- Root cause: handleRestore memilah riwayat via deteksi savedOptimized yang MENUNTUT wasteAreas di resultData. Riwayat hasil "Hitung Cetakan Lengkap"/recalcForSave & format lama menyimpan resultData TANPA wasteAreas → jatuh ke cabang "manual/lama" yang (a) tidak mengisi autoBahan/autoGrammage, (b) tidak mengatur cutMode. Editor default mode Otomatis → combobox bahan & gramatur KOSONG.
+- Bukti di DB lokal: 2 dari 6 riwayat terbaru okWaste=false (mis. PK/10/26/0043 — dibuat lewat alur Hitung Cetakan Lengkap), sisanya okWaste=true (alur simpan riwayat biasa yang membawa wasteAreas).
+- Fix di handleRestore cabang else: tentukan mode & pilihan bahan dari identitas bahan riwayat —
+  hasMasterBahan = (paperId valid di master ATAU paperName + gramatur > 0):
+  • ya → setCutMode('otomatis') + setAutoBahan(r.paperName) + setAutoGrammage(r.grammage);
+  • tidak (kertas custom) → setCutMode('manual') → nama bahan custom tampil di label amber panel manual.
+- bunx eslint → bersih. E2E agent-browser: Riwayat tab → klik baris PK/10/26/0043 (resultData tanpa wasteAreas) → preview menampilkan "art karton / 260 gsm" → klik Edit → editor: combobox Nama Bahan = "art karton", Gramatur = "260 gsm", mode Otomatis aktif, potongan 20×30, pesanan 1000/mata 4/cetakan 250, panel "Ukuran Kertas Rekomendasi" (90×120, 18 mata, Rp 47.180, "Art Karton 260 Gsm · Grid Normal") + diagram tergambar. Console 0 error.
+
+Stage Summary:
+- Edit riwayat Potong Kertas kini selalu menampilkan Nama Bahan & Gramatur — baik riwayat format baru (dgn wasteAreas) maupun lama/hasil Hitung Cetakan Lengkap (tanpa wasteAreas).
+- Riwayat kertas custom kini masuk mode Manual (bukan Otomatis kosong) sehingga nama bahannya tetap terlihat.
+- File berubah: src/app/potong-kertas/page.tsx (1 blok di handleRestore).

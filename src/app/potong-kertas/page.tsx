@@ -1473,6 +1473,28 @@ function CalculatorPage() {
       setNeedsRecalc(false)
     } else {
       // === Riwayat manual / lama: hitung ulang seperti sebelumnya ===
+      // FIX "nama bahan & gramatur kosong saat edit riwayat": resultData format lama /
+      // hasil hitung manual tidak menyimpan wasteAreas → riwayat yang dibuat lewat
+      // mode Otomatis pun jatuh ke cabang ini. Cabang lama tidak mengisi
+      // autoBahan/autoGrammage dan tidak mengatur cutMode, sehingga editor (default
+      // mode Otomatis) menampilkan bahan & gramatur KOSONG. Sekarang mode & pilihan
+      // bahan ditentukan dari identitas bahan yang tersimpan di riwayat:
+      //   • ada identitas bahan master (paperId valid di master ATAU paperName +
+      //     gramatur > 0) → mode Otomatis, combobox bahan & gramatur diisi dari riwayat;
+      //   • tidak ada (kertas custom) → mode Manual, nama bahan custom tampil di
+      //     panel manual (label amber restoredPaperName).
+      const hasMasterBahan = Boolean(
+        (r.paperId && r.paperId !== 'custom' && papers.some(p => p.id === r.paperId)) ||
+        (r.paperName && parseFloat(r.grammage) > 0)
+      )
+      if (hasMasterBahan) {
+        setCutMode('otomatis')
+        setAutoBahan(r.paperName || '')
+        const gsm = parseInt(r.grammage) || 0
+        setAutoGrammage(gsm > 0 ? String(gsm) : '')
+      } else {
+        setCutMode('manual')
+      }
       const pw = parseFloat(r.paperWidth)
       const ph = parseFloat(r.paperHeight)
       const cw = parseFloat(r.cutWidth)
