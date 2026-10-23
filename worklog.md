@@ -14749,3 +14749,18 @@ Work Log:
 Stage Summary:
 - Redesign CRUD halaman Harga per Customer DIBATALKAN — lokal & www.darrellsoft.com kembali ke tampilan sebelum redesign (perilaku fungsional task J & backup/restore tetap ada karena berasal dari commit sebelumnya).
 - Git: kedua file dimodifikasi (belum di-commit) mengikuti state `ab9f842^`; database & halaman lain tidak tersentuh.
+---
+Task ID: deploy-rollback-harga-per-customer
+Agent: Main
+Task: Deploy hasil pembatalan redesign (UI lama) halaman Harga per Customer ke www.darrellsoft.com
+
+Work Log:
+- Pre-check: commit 4803aba sudah memuat rollback kedua file (items-view.tsx & barang-form-dialog.tsx kembali ke state ab9f842^); marker UI lama "Tampilkan barang per pelanggan" ada, marker redesign (Filter cepat/MarginBadge/RupiahInput/SectionTitle) = 0; .vercel/project.json terverifikasi project "darrellsoft" (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB).
+- Deploy: `bunx vercel deploy --prod -t <token> --yes` → darrellsoft-9rmmv154z Ready in 2m, alias www.darrellsoft.com & darrellsoft.com & darrellsoft.vercel.app menunjuk deployment baru (verifikasi via `vercel alias ls`).
+- Health: curl /api/health → healthy (uptime 12s, production).
+- E2E production (login admin → /master-barang, desktop 1280x900): UI lama live — seksi "Pilih Pelanggan" versi lama dengan dropdown "Semua Barang", 0 chip cepat, 0 kolom Margin, tombol Tambah Barang ada, data tetap 0 barang (bersih). Mobile 390x844: tanpa horizontal overflow, UI lama tetap tampil.
+- Console 0 error, page errors 0.
+
+Stage Summary:
+- www.darrellsoft.com kini resmi kembali ke tampilan LAMA halaman Harga per Customer (pembatalan redesign ter-deploy penuh).
+- Deployment aktif: darrellsoft-9rmmv154z (menggantikan darrellsoft-836fsriuz yang berisi UI lama dari working tree sebelum commit).
