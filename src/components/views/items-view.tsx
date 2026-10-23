@@ -1,8 +1,23 @@
 'use client'
 
+/**
+ * Halaman "Harga per Customer" (Master Barang) — tampilan CRUD utama.
+ *
+ * Redesain UI/UX (logika data & izin TIDAK berubah):
+ * - Toolbar terpadu: pencarian + combobox pelanggan + chip pelanggan cepat (1 ketuk pindah filter).
+ * - Statistik ringkas dengan ikon (Total / Aktif / Nonaktif).
+ * - Tabel desktop: thumbnail foto, chip pelanggan, kolom Margin (profit %) baru,
+ *   switch status + aksi (duplikat/edit/hapus).
+ * - Kartu mobile: foto + harga utama menonjol, meta ringkas, aksi jelas.
+ * - Empty state & dialog hapus yang lebih informatif.
+ *
+ * Sumber data tetap /api/items, save via BarangFormDialog (dipakai bersama
+ * halaman Buat Invoice), backup/restore .xlsx, toggle aktif via PUT.
+ */
+
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
-  Check, ChevronsUpDown, Copy, DatabaseBackup, ImagePlus, Loader2, Package, Pencil, Plus, RefreshCw, Search, Trash2, Upload, User, Users, X,
+  Archive, Check, CheckCircle2, ChevronsUpDown, Copy, DatabaseBackup, ImagePlus, Loader2, Package, Pencil, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Upload, User, Users, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -86,7 +101,7 @@ function CustomerChips({ customers }: { customers?: ItemCustomerRef[] }) {
         <Badge
           key={c.id}
           variant="outline"
-          className="bg-stone-50 text-stone-600 border-stone-200 text-[10px] gap-1 max-w-[200px] font-normal"
+          className="bg-emerald-50/60 text-emerald-800 border-emerald-200/70 text-[10px] gap-1 max-w-[200px] font-normal"
           title={c.companyName ? `${c.name} — ${c.companyName}` : c.name}
         >
           <User className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -97,13 +112,62 @@ function CustomerChips({ customers }: { customers?: ItemCustomerRef[] }) {
   )
 }
 
-/** Kartu ringkasan kecil (Total / Aktif / Nonaktif). */
-function StatCard({ label, value, tone = 'default' }: { label: string; value: number; tone?: 'default' | 'emerald' | 'stone' }) {
-  const toneCls = tone === 'emerald' ? 'text-emerald-600' : tone === 'stone' ? 'text-stone-500' : 'text-stone-800'
+/** Thumbnail foto barang — fallback ikon saat belum ada foto. */
+function PhotoThumb({ item, size = 'md' }: { item: Item; size?: 'sm' | 'md' }) {
+  const box = size === 'sm' ? 'h-9 w-9' : 'h-11 w-11'
+  if (item.photoUrl) {
+    return (
+      <img
+        src={item.photoUrl}
+        alt={`Foto ${item.name}`}
+        className={`${box} shrink-0 rounded-lg border border-stone-200 bg-white object-cover`}
+      />
+    )
+  }
   return (
-    <div className="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-center md:text-left">
-      <p className="text-[11px] font-medium text-muted-foreground leading-tight">{label}</p>
-      <p className={`text-lg md:text-xl font-bold leading-tight mt-0.5 ${toneCls}`}>{value}</p>
+    <span className={`${box} flex shrink-0 items-center justify-center rounded-lg border border-dashed border-stone-200 bg-stone-50`} aria-hidden="true">
+      <ImagePlus className="h-4 w-4 text-stone-300" />
+    </span>
+  )
+}
+
+/** Chip margin (profit %) — dihitung dari Harga Jual & HPP; merah bila rugi. */
+function MarginBadge({ jual, hpp }: { jual: number; hpp: number | null }) {
+  if (hpp == null || jual <= 0) {
+    return <span className="text-xs text-stone-300" title="Isi Harga Modal untuk melihat margin">—</span>
+  }
+  const profit = jual - hpp
+  const margin = (profit / jual) * 100
+  const negative = margin < 0
+  return (
+    <Badge
+      variant="outline"
+      className={`text-[11px] gap-1 font-medium shrink-0 ${negative ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}
+      title={`Profit ${formatIDR(profit)} (margin ${formatNum(margin, 1)}%)`}
+    >
+      {negative ? <TrendingDown className="h-3 w-3" aria-hidden="true" /> : <TrendingUp className="h-3 w-3" aria-hidden="true" />}
+      {formatNum(margin, 1)}%
+    </Badge>
+  )
+}
+
+/** Kartu ringkasan kecil (Total / Aktif / Nonaktif) dengan ikon. */
+function StatCard({ label, value, icon, tone = 'default' }: { label: string; value: number; icon: ReactNode; tone?: 'default' | 'emerald' | 'stone' }) {
+  const toneCls = tone === 'emerald' ? 'text-emerald-600' : tone === 'stone' ? 'text-stone-500' : 'text-stone-800'
+  const iconCls = tone === 'emerald'
+    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+    : tone === 'stone'
+      ? 'bg-stone-100 text-stone-500 border-stone-200'
+      : 'bg-stone-100 text-stone-600 border-stone-200'
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${iconCls}`} aria-hidden="true">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium text-muted-foreground leading-tight">{label}</p>
+        <p className={`text-lg md:text-xl font-bold leading-tight mt-0.5 ${toneCls}`}>{value}</p>
+      </div>
     </div>
   )
 }
@@ -360,96 +424,75 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
       : `${items.length} barang`
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-4">
+      {/* ===== Header ===== */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight">Harga per Customer</h1>
           <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex flex-wrap items-center gap-2">
+          {canEditItem && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleBackupHpc}
+                disabled={backupLoading !== null}
+                title="Unduh backup barang & harga per pelanggan (.xlsx)"
+                className="min-h-[44px] px-3 text-xs shrink-0"
+              >
+                {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
+                <span className="hidden sm:inline">Backup</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRestoreHpc}
+                disabled={backupLoading !== null}
+                title="Pulihkan dari file backup (.xlsx) — ganti semua data"
+                className="min-h-[44px] px-3 text-xs shrink-0"
+              >
+                {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <span className="hidden sm:inline">Restore</span>
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="Muat ulang data"
+            title="Muat ulang"
+            className="min-h-[44px] w-11 shrink-0"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          {showTambah && (
+            <Button
+              onClick={openCreate}
+              title="Tambah barang baru"
+              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
+            >
+              <Plus className="h-4 w-4" /> Tambah
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ===== Toolbar terpadu: cari + pilih pelanggan + chip cepat ===== */}
+      <section aria-label="Filter dan pencarian" className="rounded-xl border border-stone-200 bg-white p-3 md:p-4 space-y-3">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Cari nama / kode barang…"
               aria-label="Cari barang"
-              className="pl-9 min-h-[44px]"
+              className="pl-9 min-h-[44px] bg-white"
             />
           </div>
-          <div className="flex items-center gap-2">
-            {canEditItem && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={handleBackupHpc}
-                  disabled={backupLoading !== null}
-                  title="Unduh backup barang & harga per pelanggan (.xlsx)"
-                  className="min-h-[44px] px-3 text-xs shrink-0"
-                >
-                  {backupLoading === 'backup' ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseBackup className="h-4 w-4" />}
-                  <span className="hidden sm:inline">Backup</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleRestoreHpc}
-                  disabled={backupLoading !== null}
-                  title="Pulihkan dari file backup (.xlsx) — ganti semua data"
-                  className="min-h-[44px] px-3 text-xs shrink-0"
-                >
-                  {backupLoading === 'restore' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  <span className="hidden sm:inline">Restore</span>
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => void load()}
-              disabled={loading}
-              aria-label="Muat ulang data"
-              title="Muat ulang"
-              className="min-h-[44px] w-11 shrink-0"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            {showTambah && (
-              <Button
-                onClick={openCreate}
-                title="Tambah barang baru"
-                className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
-              >
-                <Plus className="h-4 w-4" /> Tambah
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Pilih Pelanggan — kotak filter tepat di bawah judul Master Barang */}
-      <section
-        aria-label="Filter pelanggan"
-        className="rounded-xl border border-stone-200 bg-white p-3 md:px-4 md:py-3"
-      >
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-4">
-          <div className="flex items-center gap-2.5 lg:shrink-0">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-stone-100">
-              <Users className="h-4 w-4 text-stone-500" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <Label
-                htmlFor="pilih-pelanggan"
-                className="block text-sm font-semibold text-stone-800 leading-tight"
-              >
-                Pilih Pelanggan
-              </Label>
-              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                Tampilkan barang per pelanggan
-              </p>
-            </div>
-          </div>
-          <div className="lg:w-80">
+          <div className="lg:w-80 shrink-0">
             {/* Combobox: pelanggan bisa DIKETIK untuk pencarian cepat (selaras halaman Invoice) */}
             <Popover
               open={custOpen}
@@ -468,17 +511,20 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                   aria-label="Pilih Pelanggan"
                   className="w-full min-h-[44px] justify-between gap-2 bg-white px-3 font-normal"
                 >
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {customerId === 'all'
-                      ? 'Semua Barang'
-                      : selectedCustomerOption
-                        ? `${selectedCustomerOption.name}${selectedCustomerOption.companyName ? ` — ${selectedCustomerOption.companyName}` : ''}`
-                        : 'Pilih pelanggan'}
+                  <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <Users className="h-4 w-4 shrink-0 text-stone-400" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">
+                      {customerId === 'all'
+                        ? 'Semua Barang'
+                        : selectedCustomerOption
+                          ? `${selectedCustomerOption.name}${selectedCustomerOption.companyName ? ` — ${selectedCustomerOption.companyName}` : ''}`
+                          : 'Pilih pelanggan'}
+                    </span>
                   </span>
                   <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0">
+              <PopoverContent align="end" className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0">
                 <Command>
                   <CommandInput
                     value={custSearch}
@@ -532,41 +578,69 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               </PopoverContent>
             </Popover>
           </div>
-          {customerId === 'all' && (
-            <p className="text-xs text-muted-foreground lg:ml-auto self-center">
-              Gunakan tombol Tambah untuk barang umum atau per pelanggan; pilih pelanggan untuk mengedit / menduplikat
-            </p>
-          )}
-          {customerId !== 'all' && selectedCustomerName && (
-            <div className="flex items-center gap-2 lg:ml-auto">
-              <Badge
-                variant="outline"
-                className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs max-w-[240px]"
-              >
-                <span className="truncate font-medium">{selectedCustomerName}</span>
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-muted-foreground hover:text-stone-800"
-                onClick={() => setCustomerId('all')}
-                aria-label="Reset filter pelanggan"
-              >
-                <X className="h-3.5 w-3.5" /> Reset
-              </Button>
-            </div>
-          )}
         </div>
+
+        {/* Chip pelanggan cepat — 1 ketuk untuk pindah filter (muncul jika ada pelanggan) */}
+        {customers.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-0.5 -mx-0.5 px-0.5" role="group" aria-label="Filter cepat pelanggan">
+            <button
+              type="button"
+              onClick={() => setCustomerId('all')}
+              aria-pressed={customerId === 'all'}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${
+                customerId === 'all'
+                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                  : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50'
+              }`}
+            >
+              <Package className="h-3.5 w-3.5" aria-hidden="true" />
+              Semua
+            </button>
+            {customers.map((c) => {
+              const active = customerId === c.id
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCustomerId(c.id)}
+                  aria-pressed={active}
+                  title={c.companyName ? `${c.name} — ${c.companyName}` : c.name}
+                  className={`inline-flex shrink-0 max-w-[220px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${
+                    active
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50'
+                  }`}
+                >
+                  <User className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{c.name}</span>
+                  {active && (
+                    <X
+                      className="h-3.5 w-3.5 shrink-0 -mr-1 opacity-70 hover:opacity-100"
+                      aria-hidden="true"
+                      onClick={(e) => { e.stopPropagation(); setCustomerId('all') }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {customerId === 'all' && (
+          <p className="text-[11px] text-muted-foreground">
+            Gunakan tombol <span className="font-medium text-stone-600">Tambah</span> untuk barang umum atau per pelanggan; pilih pelanggan untuk mengedit / menduplikat.
+          </p>
+        )}
       </section>
 
-      {/* Ringkasan cepat */}
+      {/* ===== Ringkasan cepat ===== */}
       <div className="grid grid-cols-3 gap-2 md:gap-3" aria-label="Ringkasan barang">
-        <StatCard label="Total Barang" value={items.length} />
-        <StatCard label="Aktif" value={activeCount} tone="emerald" />
-        <StatCard label="Nonaktif" value={inactiveCount} tone="stone" />
+        <StatCard label="Total Barang" value={items.length} icon={<Package className="h-4 w-4" />} />
+        <StatCard label="Aktif" value={activeCount} icon={<CheckCircle2 className="h-4 w-4" />} tone="emerald" />
+        <StatCard label="Nonaktif" value={inactiveCount} icon={<Archive className="h-4 w-4" />} tone="stone" />
       </div>
 
-      {/* Desktop table */}
+      {/* ===== Desktop table ===== */}
       <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
         {loading ? (
           <div className="p-4 space-y-3">
@@ -588,17 +662,17 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             }
           />
         ) : (
-          <div className="max-h-96 overflow-y-auto scrollbar-thin">
+          <div className="max-h-96 overflow-auto scrollbar-thin">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-stone-50">
-                <TableRow className="bg-stone-50 hover:bg-stone-50">
-                  <TableHead>Kode</TableHead>
-                  <TableHead>Nama</TableHead>
+                <TableRow className="bg-stone-50 hover:bg-stone-50 border-b border-stone-200">
+                  <TableHead className="min-w-[220px]">Barang</TableHead>
+                  <TableHead className="min-w-[120px]">Keterangan</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   {showHpp && <TableHead className="text-right">HPP</TableHead>}
-                  <TableHead>Keterangan</TableHead>
+                  <TableHead className="text-center">Margin</TableHead>
                   <TableHead>Status</TableHead>
                   {(showDuplicate || showEdit || showHapus) && <TableHead className="text-right">Aksi</TableHead>}
                 </TableRow>
@@ -607,33 +681,38 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 {items.map((it) => (
                   <TableRow
                     key={it.id}
-                    className="cursor-pointer"
+                    className={`cursor-pointer transition-colors ${it.isActive ? '' : 'bg-stone-50/60'}`}
                     title="Klik baris untuk melihat foto barang"
                     onClick={() => setViewPhoto(it)}
                   >
-                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
-                    {/* Kolom Satuan dihapus — satuan tetap bisa diatur lewat form */}
-                    <TableCell className="font-medium">
-                      <div className="min-w-0 space-y-1">
-                        <span className="block truncate" title={it.name}>{it.name}</span>
-                        <CustomerChips customers={it.customers} />
+                    <TableCell>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <PhotoThumb item={it} />
+                        <div className="min-w-0 space-y-1">
+                          <span className="block truncate font-medium" title={it.name}>{it.name}</span>
+                          <span className="block font-mono text-[11px] text-muted-foreground">{it.code}</span>
+                          <CustomerChips customers={it.customers} />
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground" title="Tanggal dibuat">{formatTanggalDibuat(it.createdAt)}</TableCell>
-                    <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">{formatIDR(it.standardPrice)}</TableCell>
-                    {showHpp && (
-                      <TableCell className="text-right whitespace-nowrap">
-                        {it.hpp != null ? formatIDR(it.hpp) : '-'}
-                      </TableCell>
-                    )}
-                    <TableCell className="max-w-[200px]">
+                    <TableCell className="max-w-[180px]">
                       <span
                         className="block truncate text-sm text-muted-foreground"
                         title={it.keterangan || undefined}
                       >
                         {it.keterangan || '-'}
                       </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground" title="Tanggal dibuat">{formatTanggalDibuat(it.createdAt)}</TableCell>
+                    <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap font-semibold">{formatIDR(it.standardPrice)}</TableCell>
+                    {showHpp && (
+                      <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                        {it.hpp != null ? formatIDR(it.hpp) : '-'}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-center">
+                      <MarginBadge jual={it.standardPrice} hpp={showHpp ? it.hpp : null} />
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
@@ -699,10 +778,10 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         )}
       </div>
 
-      {/* Mobile cards */}
+      {/* ===== Mobile cards ===== */}
       <div className="md:hidden space-y-3">
         {loading ? (
-          [1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full rounded-xl" />)
+          [1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)
         ) : !hasResults ? (
           <EmptyState
             filtered={query !== ''}
@@ -720,51 +799,64 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
           />
         ) : (
           items.map((it) => (
-            <Card key={it.id} className="p-0 gap-0">
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
+            <Card key={it.id} className={`p-0 gap-0 overflow-hidden ${it.isActive ? '' : 'bg-stone-50/60'}`}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
                   <div
-                    className="min-w-0 space-y-1 cursor-pointer"
+                    className="shrink-0 cursor-pointer"
                     onClick={() => setViewPhoto(it)}
                     title="Ketuk untuk melihat foto barang"
+                    role="button"
+                    aria-label={`Lihat foto ${it.name}`}
                   >
-                    <p className="font-medium text-[14pt] truncate" title={it.name}>{it.name}</p>
+                    <PhotoThumb item={it} />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-snug min-w-0" title={it.name}>
+                        <span className="line-clamp-2">{it.name}</span>
+                      </p>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {showToggle && (
+                          <Switch
+                            checked={it.isActive}
+                            disabled={togglingId === it.id}
+                            onCheckedChange={() => void toggleActive(it)}
+                            aria-label={`${it.isActive ? 'Nonaktifkan' : 'Aktifkan'} ${it.name}`}
+                            className="data-[state=checked]:bg-emerald-600"
+                          />
+                        )}
+                        <ActiveBadge active={it.isActive} />
+                      </div>
+                    </div>
                     <p className="text-xs text-muted-foreground font-mono">{it.code}</p>
                     <CustomerChips customers={it.customers} />
-                    {it.photoUrl && (
-                      <img
-                        src={it.photoUrl}
-                        alt={`Foto ${it.name}`}
-                        className="mt-1 h-14 w-14 rounded-md border border-stone-200 object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    {showToggle && (
-                      <Switch
-                        checked={it.isActive}
-                        disabled={togglingId === it.id}
-                        onCheckedChange={() => void toggleActive(it)}
-                        aria-label={`${it.isActive ? 'Nonaktifkan' : 'Aktifkan'} ${it.name}`}
-                        className="data-[state=checked]:bg-emerald-600"
-                      />
-                    )}
-                    <ActiveBadge active={it.isActive} />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                  <p className="text-muted-foreground">Qty: <span className="font-semibold text-stone-700">{formatNum(it.qty)}</span></p>
-                  <p className="text-muted-foreground">Harga Jual: <span className="font-semibold text-stone-700">{formatIDR(it.standardPrice)}</span></p>
-                  <p className="text-muted-foreground">Tanggal: <span className="font-semibold text-stone-700">{formatTanggalDibuat(it.createdAt)}</span></p>
+                <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 rounded-lg bg-stone-50 px-3 py-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Harga Jual</p>
+                    <p className="text-base font-bold text-stone-800 leading-tight">{formatIDR(it.standardPrice)}</p>
+                  </div>
+                  {showHpp && (
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">HPP</p>
+                      <p className="text-sm font-semibold text-stone-600 leading-tight">{it.hpp != null ? formatIDR(it.hpp) : '-'}</p>
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Margin</p>
+                    <MarginBadge jual={it.standardPrice} hpp={showHpp ? it.hpp : null} />
+                  </div>
                 </div>
-                {showHpp && (
-                  <p className="text-sm text-muted-foreground">
-                    HPP: <span className="font-medium text-stone-700">{it.hpp != null ? formatIDR(it.hpp) : '-'}</span>
-                  </p>
-                )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>Qty: <span className="font-semibold text-stone-700">{formatNum(it.qty)}</span></span>
+                  <span>Tanggal: <span className="font-semibold text-stone-700">{formatTanggalDibuat(it.createdAt)}</span></span>
+                </div>
                 {it.keterangan && (
-                  <p className="text-sm text-muted-foreground">
-                    Keterangan: <span className="text-stone-700">{it.keterangan}</span>
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    <span className="font-medium text-stone-500">Ket: </span>
+                    <span className="text-stone-700">{it.keterangan}</span>
                   </p>
                 )}
                 {(showDuplicate || showEdit || showHapus) && (
@@ -842,6 +934,15 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
               <p className="text-xs text-muted-foreground">Foto bisa ditambahkan lewat tombol Edit.</p>
             </div>
           )}
+          {viewPhoto && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-stone-50 px-3 py-2 text-xs text-muted-foreground">
+              <span>Harga Jual: <span className="font-semibold text-stone-700">{formatIDR(viewPhoto.standardPrice)}</span></span>
+              {showHpp && (
+                <span>HPP: <span className="font-semibold text-stone-700">{viewPhoto.hpp != null ? formatIDR(viewPhoto.hpp) : '-'}</span></span>
+              )}
+              <span>Qty: <span className="font-semibold text-stone-700">{formatNum(viewPhoto.qty)}</span></span>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -850,9 +951,22 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus barang?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteTarget?.name} akan dihapus permanen dari daftar barang.
-              Invoice lama tetap tersimpan. Jika tidak ingin dihapus, gunakan opsi Nonaktifkan sebagai gantinya.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {deleteTarget && (
+                  <div className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 p-3">
+                    <PhotoThumb item={deleteTarget} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-stone-800">{deleteTarget.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{deleteTarget.code}</p>
+                    </div>
+                  </div>
+                )}
+                <p>
+                  Barang ini akan dihapus permanen dari daftar.
+                  Invoice lama tetap tersimpan. Jika tidak ingin dihapus, gunakan opsi <span className="font-medium">Nonaktifkan</span> sebagai gantinya.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -873,16 +987,18 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
 
 function EmptyState({ filtered, customerName, action }: { filtered: boolean; customerName?: string | null; action?: ReactNode }) {
   return (
-    <div className="text-center py-12 px-4">
-      <Package className="h-10 w-10 text-stone-300 mx-auto mb-2" />
-      <p className="text-sm font-medium">
+    <div className="text-center py-14 px-4">
+      <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-stone-100" aria-hidden="true">
+        <Package className="h-6 w-6 text-stone-400" />
+      </span>
+      <p className="text-sm font-semibold">
         {filtered ? 'Tidak ditemukan' : customerName ? `Belum ada barang untuk ${customerName}` : 'Belum ada barang'}
       </p>
-      <p className="text-xs text-muted-foreground mt-1">
+      <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto leading-relaxed">
         {filtered
           ? 'Coba kata kunci lain.'
           : customerName
-            ? `Tambahkan barang pertama untuk pelanggan ini, atau pilih "Semua Barang" untuk melihat semua.`
+            ? `Tambahkan barang pertama untuk pelanggan ini, atau pilih "Semua" untuk melihat semua.`
             : 'Klik "Tambah Barang" untuk membuat barang umum atau per pelanggan, atau pilih pelanggan untuk memfilter.'}
       </p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}

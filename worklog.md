@@ -14684,3 +14684,32 @@ Stage Summary:
 - Halaman Harga per Customer kini punya tombol Backup (unduh .xlsx berisi barang + semua harga khusus per pelanggan) dan Restore (unggah file backup → ganti total data halaman tsb; harga khusus terselamatkan via pencocokan kode barang & nama pelanggan).
 - Endpoint baru: GET /api/database/backup-harga-per-customer, POST /api/database/restore-harga-per-customer.
 - Round-trip terbukti 100% memulihkan data termasuk harga khusus. Belum dideploy ke production.
+---
+Task ID: redesign-harga-per-customer-crud
+Agent: Main
+Task: Rubah tampilan CRUD halaman "Harga per Customer" (/master-barang) — UI & UX
+
+Work Log:
+- Redesain src/components/views/items-view.tsx (logika data/izin/API TIDAK berubah):
+  * Toolbar terpadu dalam satu kartu: pencarian + combobox pelanggan (dengan ikon Users) + chip pelanggan cepat horizontal (1 ketuk pindah filter, "Semua" + tiap pelanggan, chip aktif emerald, ikon X utk reset)
+  * StatCard diberi ikon (Package/CheckCircle2/Archive) + chip warna; label tidak lagi ter-truncate di mobile (hapus class truncate)
+  * Tabel desktop: kolom digabung jadi "Barang" (thumbnail foto/fallback ikon + nama + kode + chip pelanggan emerald), kolom baru "Margin" (badge TrendingUp/TrendingDown, merah bila rugi, tooltip profit Rp), Harga Jual dibold, baris nonaktif diberi latar abu
+  * Kartu mobile: thumbnail kiri, harga utama menonjol dalam strip HARGA JUAL/HPP/MARGIN, meta Qty+Tanggal, aksi Edit/Hapus 44px
+  * Empty state baru (ikon dalam lingkaran), dialog hapus dengan preview item (thumb+nama+kode), dialog foto ditambah strip ringkasan harga
+- Polish src/components/views/barang-form-dialog.tsx (VISUAL SAJA — props/logika/field-id identik karena komponen dipakai bersama halaman Buat Invoice & editor invoice):
+  * Form dibagi 3 seksi (Informasi Barang / Harga & Stok / Lainnya) dengan SectionTitle aksen hijau
+  * Input rupiah diberi prefix "Rp" (komponen RupiahInput), callout margin dengan ikon TrendingUp/Down + role=status
+  * Header & footer dialog menempel (flex-col + area tengah scroll), footer berlatar stone-50/70; "Tambah Untuk Pelanggan" dibungkus kotak bordered
+- ESLint kedua file: bersih (0 error)
+- E2E agent-browser (login admin → /master-barang, desktop 1280x900 & mobile 390x844):
+  * Verifikasi data: 2 registrasi BarangCustomer di DB (paperbowl→Budi Susanto, tes→Jaya Wijaya) tampil benar sebagai chip; barang tanpa registrasi tampil "Umum (tanpa pelanggan)" — sesuai data, bukan bug tampilan
+  * Chip filter: klik "Budi Susanto" → 1 baris + label "1 barang untuk Budi Susanto" + tombol Duplikat muncul; reset via "Semua" OK
+  * Create: isi nama+modal 20.000 → profit otomatis 5.000 (sinkron dua arah OK), callout "Profit: Rp 5.000 · Margin: 20%", Simpan → baris baru muncul (ITM-009)
+  * Edit dialog render data benar → Batal; Hapus: dialog preview → konfirmasi → baris hilang (kembali 8 barang)
+  * Mobile: kartu, chip pelanggan, dialog foto (thumb klik → dialog + ringkasan harga) OK; bottom nav tidak menutupi konten
+  * Console 0 error, page errors 0, dev.log tanpa error kompilasi
+
+Stage Summary:
+- Halaman Harga per Customer tampil baru: toolbar terpadu + chip filter cepat, stats berikon, tabel dengan kolom Margin, kartu mobile rapi, dialog CRUD (tambah/edit/duplikat/hapus/foto) lebih modern
+- Perilaku fungsional 100% terjaga: API, izin granular, backup/restore, toggle aktif, sinkron profit, BarangFormDialog tetap kompatibel utk halaman lain
+- Item tes (ITM-009) sudah dihapus; DB kembali 8 barang
