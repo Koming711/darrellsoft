@@ -14713,3 +14713,23 @@ Stage Summary:
 - Halaman Harga per Customer tampil baru: toolbar terpadu + chip filter cepat, stats berikon, tabel dengan kolom Margin, kartu mobile rapi, dialog CRUD (tambah/edit/duplikat/hapus/foto) lebih modern
 - Perilaku fungsional 100% terjaga: API, izin granular, backup/restore, toggle aktif, sinkron profit, BarangFormDialog tetap kompatibel utk halaman lain
 - Item tes (ITM-009) sudah dihapus; DB kembali 8 barang
+---
+Task ID: deploy-redesign-harga-per-customer
+Agent: Main
+Task: Deploy redesign halaman Harga per Customer ke www.darrellsoft.com
+
+Work Log:
+- Deploy pertama (`bunx vercel deploy --prod`) ternyata masuk project SALAH: .vercel/project.json menunjuk project "my-project" (prj_ZKyRceEX3TLziFO1Q9tGUgZtBghe), sedangkan domain www.darrellsoft.com adalah production domain milik project "darrellsoft" (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB). www.darrellsoft.com masih menyajikan build lama (verifikasi browser: chip cepat=0, kolom Margin=tidak ada).
+- Debugging: bukan service worker (unregister SW + clear caches + reload tetap UI lama); `vercel alias ls` membuktikan www.darrellsoft.com → deployment lama project darrellsoft.
+- Fix: `bunx vercel link --yes --project darrellsoft -t <token>` (relink; CLI ikut menulis .env.local berisi VERCEL_OIDC_TOKEN saja — tidak mengganggu .env SQLite lokal) → deploy ulang `bunx vercel deploy --prod -t <token> --yes` → deployment darrellsoft-cjrdjvom6 Ready.
+- Verifikasi alias: www.darrellsoft.com & darrellsoft.com → darrellsoft-cjrdjvom6 (deployment baru); /api/health healthy (uptime 10s); curl HTTP 200.
+- E2E production (browser, login admin → /master-barang):
+  - UI baru live: 7 chip pelanggan cepat (Semua/angel/Budi Susanto/jaya/Jaya Wijaya/Lunggan/Siti Rohana), toolbar terpadu, 3 stat card berikon
+  - Karena data production kosong (0 barang → empty state), kolom Margin diverifikasi via create item tes "Tes Deploy UI" (Rp25.000/Rp20.000 → margin 20% tampil, sinkron profit OK) lalu DIHAPUS — production kembali 0 barang, bersih
+  - Mobile 390×844: chip scroll OK, label statistik tidak terpotong, empty state baru OK
+  - Console 0 error
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan redesign penuh halaman Harga per Customer.
+- PENTING utk deploy berikutnya: .vercel/project.json harus project "darrellsoft" (bukan "my-project") — kalau link berganti, deploy masuk project salah dan domain tidak ikut update. Perintah aman: `bunx vercel link --yes --project darrellsoft -t <token>` lalu `bunx vercel deploy --prod -t <token> --yes`.
+- Item tes production sudah dihapus; tidak ada artefak data.
