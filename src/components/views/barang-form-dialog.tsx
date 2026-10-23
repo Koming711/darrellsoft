@@ -8,14 +8,9 @@
  * satuan (select), qty, harga jual *, harga modal + profit (sinkron dua
  * arah + info margin), keterangan, status aktif (edit saja), validasi &
  * toast sama. Save tetap via apiFetch /api/items (POST/PUT).
- *
- * Redesain UI (logika & props TIDAK berubah): form terbagi 3 seksi
- * (Informasi Barang / Harga & Stok / Lainnya), input rupiah dengan prefix
- * "Rp", callout margin dengan ikon, header/footer menempel saat form
- * di-scroll.
  */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
 import { formatIDR, formatNum } from '@/lib/format'
@@ -41,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { TrendingDown, TrendingUp, User } from 'lucide-react'
+import { User } from 'lucide-react'
 
 function errText(e: unknown): string {
   return e instanceof Error ? e.message : 'Terjadi kesalahan'
@@ -114,35 +109,13 @@ function CustomerChips({ customers }: { customers?: ItemCustomerRef[] }) {
         <Badge
           key={c.id}
           variant="outline"
-          className="bg-emerald-50/60 text-emerald-800 border-emerald-200/70 text-[10px] gap-1 max-w-[200px] font-normal"
+          className="bg-stone-50 text-stone-600 border-stone-200 text-[10px] gap-1 max-w-[200px] font-normal"
           title={c.companyName ? `${c.name} — ${c.companyName}` : c.name}
         >
           <User className="h-3 w-3 shrink-0" aria-hidden="true" />
           <span className="truncate">{c.name}</span>
         </Badge>
       ))}
-    </div>
-  )
-}
-
-/** Judul seksi form dengan aksen bar hijau. */
-function SectionTitle({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="h-4 w-1 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
-      <h3 className="text-[13px] font-semibold text-stone-800 leading-tight">{children}</h3>
-    </div>
-  )
-}
-
-/** Input angka dengan prefix "Rp" di dalam kotak. */
-function RupiahInput(props: React.ComponentProps<typeof Input>) {
-  return (
-    <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden="true">
-        Rp
-      </span>
-      <Input {...props} className={`pl-10 ${props.className ?? ''}`} />
     </div>
   )
 }
@@ -336,9 +309,8 @@ export function BarangFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden">
-        {/* Header menempel di atas saat form di-scroll */}
-        <DialogHeader className="shrink-0 border-b border-stone-100 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 pr-12 text-left">
+      <DialogContent className="sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin">
+        <DialogHeader className="pr-8">
           <DialogTitle>{editing ? 'Edit Barang' : duplicateFrom ? 'Duplikat Barang' : 'Tambah Barang'}</DialogTitle>
           <DialogDescription>
             {editing
@@ -348,76 +320,45 @@ export function BarangFormDialog({
                 : 'Kode barang dibuat otomatis oleh sistem.'}
           </DialogDescription>
         </DialogHeader>
-
-        {/* Isi form — scroll di tengah, header & footer tetap terlihat */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-4 sm:px-6 py-4 space-y-5">
-          {/* ===== Seksi: Informasi Barang ===== */}
-          <section className="space-y-3.5" aria-label="Informasi barang">
-            <SectionTitle>Informasi Barang</SectionTitle>
+        <div className="grid gap-3 sm:gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="item-name">Nama Barang <span className="text-destructive">*</span></Label>
+            <Input
+              id="item-name"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Nama barang / layanan"
+              autoComplete="off"
+            />
+          </div>
+          <PhotoUpload value={form.photoUrl} onChange={(v) => setForm((f) => ({ ...f, photoUrl: v }))} label="Foto Barang" />
+          {!editing && (
             <div className="grid gap-1.5">
-              <Label htmlFor="item-name">Nama Barang <span className="text-destructive">*</span></Label>
-              <Input
-                id="item-name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Nama barang / layanan"
-                autoComplete="off"
-              />
-            </div>
-            <PhotoUpload value={form.photoUrl} onChange={(v) => setForm((f) => ({ ...f, photoUrl: v }))} label="Foto Barang" />
-            {!editing && (
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-customer">Untuk Pelanggan</Label>
-                {customerFilter !== 'all' ? (
-                  <>
-                    <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))} disabled>
-                      <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.filter((c) => c.id === customerFilter).map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground">{lockedCustomerNote}</p>
-                  </>
-                ) : (
-                  <>
-                    <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
-                      <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
-                        <SelectValue placeholder="Pilih pelanggan (opsional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
-                        {customers.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground">
-                      Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-            {editing && (
-              <div className="grid gap-1.5">
-                <Label>Pelanggan Terdaftar</Label>
-                <CustomerChips customers={editing.customers} />
-                <div className="grid gap-1.5 mt-1 rounded-lg border border-stone-200 bg-stone-50/60 p-3">
-                  <Label htmlFor="item-assign-customer">Tambah Untuk Pelanggan</Label>
-                  <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
-                    <SelectTrigger id="item-assign-customer" className="w-full min-h-[44px] bg-white" aria-label="Daftarkan barang ke pelanggan">
-                      <SelectValue placeholder="Pilih pelanggan" />
+              <Label htmlFor="item-customer">Untuk Pelanggan</Label>
+              {customerFilter !== 'all' ? (
+                <>
+                  <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))} disabled>
+                    <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="keep">— Tidak berubah —</SelectItem>
+                      {customers.filter((c) => c.id === customerFilter).map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">{lockedCustomerNote}</p>
+                </>
+              ) : (
+                <>
+                  <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
+                    <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
+                      <SelectValue placeholder="Pilih pelanggan (opsional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
                       {customers.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
@@ -426,61 +367,83 @@ export function BarangFormDialog({
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
-                    Pilih pelanggan untuk mendaftarkan barang ini (chip pelanggan di atas ikut bertambah). Harga khusus yang sudah ada tidak berubah.
+                    Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan.
                   </p>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* ===== Seksi: Harga & Stok ===== */}
-          <section className="space-y-3.5 border-t border-stone-100 pt-4" aria-label="Harga dan stok">
-            <SectionTitle>Harga &amp; Stok</SectionTitle>
-            <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-unit">Satuan</Label>
-                <Select value={form.unit} onValueChange={(v) => setForm((f) => ({ ...f, unit: v }))}>
-                  <SelectTrigger id="item-unit" className="w-full min-h-[44px]" aria-label="Satuan barang">
-                    <SelectValue placeholder="Pilih satuan" />
+                </>
+              )}
+            </div>
+          )}
+          {editing && (
+            <div className="grid gap-1.5">
+              <Label>Pelanggan Terdaftar</Label>
+              <CustomerChips customers={editing.customers} />
+              <div className="grid gap-1.5 mt-1">
+                <Label htmlFor="item-assign-customer">Tambah Untuk Pelanggan</Label>
+                <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
+                  <SelectTrigger id="item-assign-customer" className="w-full min-h-[44px]" aria-label="Daftarkan barang ke pelanggan">
+                    <SelectValue placeholder="Pilih pelanggan" />
                   </SelectTrigger>
                   <SelectContent>
-                    {UNIT_OPTIONS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
+                    <SelectItem value="keep">— Tidak berubah —</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-qty">Qty</Label>
-                <Input
-                  id="item-qty"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step="any"
-                  value={form.qty}
-                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
-                  placeholder="0"
-                />
+                <p className="text-[11px] text-muted-foreground">
+                  Pilih pelanggan untuk mendaftarkan barang ini (chip pelanggan di atas ikut bertambah). Harga khusus yang sudah ada tidak berubah.
+                </p>
               </div>
             </div>
+          )}
+          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
-              <RupiahInput
-                id="item-price"
+              <Label htmlFor="item-unit">Satuan</Label>
+              <Select value={form.unit} onValueChange={(v) => setForm((f) => ({ ...f, unit: v }))}>
+                <SelectTrigger id="item-unit" className="w-full min-h-[44px]" aria-label="Satuan barang">
+                  <SelectValue placeholder="Pilih satuan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNIT_OPTIONS.map((u) => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-qty">Qty</Label>
+              <Input
+                id="item-qty"
                 type="number"
                 inputMode="numeric"
                 min={0}
                 step="any"
-                value={form.standardPrice}
-                onChange={(e) => setJual(e.target.value)}
+                value={form.qty}
+                onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
                 placeholder="0"
               />
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
+            <Input
+              id="item-price"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step="any"
+              value={form.standardPrice}
+              onChange={(e) => setJual(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="grid gap-1.5">
             <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="grid gap-1.5">
                 <Label htmlFor="item-modal">Harga Modal (Rp)</Label>
-                <RupiahInput
+                <Input
                   id="item-modal"
                   type="number"
                   inputMode="numeric"
@@ -493,14 +456,14 @@ export function BarangFormDialog({
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="item-profit">Profit (Rp)</Label>
-                <RupiahInput
+                <Input
                   id="item-profit"
                   type="number"
                   inputMode="numeric"
                   step="any"
                   value={form.profit}
                   onChange={(e) => setProfit(e.target.value)}
-                  placeholder="Otomatis"
+                  placeholder="Otomatis dari Harga Jual − Modal"
                   className={marginInfo?.negative ? 'text-red-600' : ''}
                 />
               </div>
@@ -509,55 +472,40 @@ export function BarangFormDialog({
               Isi Modal + Profit → Harga Jual terisi otomatis. Isi Harga Jual → Profit terhitung sendiri.
             </p>
             {marginInfo && (
-              <div
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${marginInfo.negative ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}
-                role="status"
-              >
-                {marginInfo.negative
-                  ? <TrendingDown className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  : <TrendingUp className="h-4 w-4 shrink-0" aria-hidden="true" />}
-                <span>
-                  Profit: <span className="font-semibold">{formatIDR(marginInfo.profit)}</span>
-                  {' '}· Margin: <span className="font-semibold">{formatNum(marginInfo.margin, 1)}%</span>
-                  {marginInfo.negative ? ' — rugi! Harga Jual lebih kecil dari Modal.' : ''}
-                </span>
+              <div className={`text-xs rounded-md px-2 py-1.5 ${marginInfo.negative ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
+                Profit: <span className="font-semibold">{formatIDR(marginInfo.profit)}</span>
+                {' '}(Margin: {formatNum(marginInfo.margin, 1)}%)
+                {marginInfo.negative ? ' — rugi! Harga Jual lebih kecil dari Modal.' : ''}
               </div>
             )}
-          </section>
-
-          {/* ===== Seksi: Lainnya ===== */}
-          <section className="space-y-3.5 border-t border-stone-100 pt-4" aria-label="Lainnya">
-            <SectionTitle>Lainnya</SectionTitle>
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-keterangan">Keterangan</Label>
-              <Input
-                id="item-keterangan"
-                value={form.keterangan}
-                onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
-                placeholder="Keterangan tambahan (opsional)"
-                maxLength={500}
-                autoComplete="off"
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="item-keterangan">Keterangan</Label>
+            <Input
+              id="item-keterangan"
+              value={form.keterangan}
+              onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
+              placeholder="Keterangan tambahan (opsional)"
+              maxLength={500}
+              autoComplete="off"
+            />
+          </div>
+          {editing && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 p-3">
+              <div>
+                <Label htmlFor="item-active">Status Aktif</Label>
+                <p className="text-xs text-muted-foreground">Nonaktif = tidak muncul saat buat invoice.</p>
+              </div>
+              <Switch
+                id="item-active"
+                checked={form.isActive}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
+                className="data-[state=checked]:bg-emerald-600"
               />
             </div>
-            {editing && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 p-3">
-                <div>
-                  <Label htmlFor="item-active">Status Aktif</Label>
-                  <p className="text-xs text-muted-foreground">Nonaktif = tidak muncul saat buat invoice.</p>
-                </div>
-                <Switch
-                  id="item-active"
-                  checked={form.isActive}
-                  onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
-                  className="data-[state=checked]:bg-emerald-600"
-                />
-              </div>
-            )}
-          </section>
+          )}
         </div>
-
-        {/* Footer menempel di bawah saat form di-scroll */}
-        <DialogFooter className="shrink-0 gap-2 border-t border-stone-100 bg-stone-50/70 px-4 sm:px-6 py-3 mt-0">
+        <DialogFooter className="gap-2 border-t border-stone-100 pt-3 mt-1">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="min-h-[44px]">
             Batal
           </Button>

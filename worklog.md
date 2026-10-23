@@ -14733,3 +14733,19 @@ Stage Summary:
 - www.darrellsoft.com kini menjalankan redesign penuh halaman Harga per Customer.
 - PENTING utk deploy berikutnya: .vercel/project.json harus project "darrellsoft" (bukan "my-project") — kalau link berganti, deploy masuk project salah dan domain tidak ikut update. Perintah aman: `bunx vercel link --yes --project darrellsoft -t <token>` lalu `bunx vercel deploy --prod -t <token> --yes`.
 - Item tes production sudah dihapus; tidak ada artefak data.
+---
+Task ID: cancel-redesign-harga-per-customer
+Agent: Main
+Task: CANCEL perintah "rubah tampilan di halaman harga per customer yang crud, ui dan ux" — kembalikan tampilan lama
+
+Work Log:
+- Root cause commit redesign = ab9f842 (satu-satunya commit yang mengubah items-view.tsx & barang-form-dialog.tsx untuk redesign). Versi sebelum redesign = parent `ab9f842^` (sudah termasuk fix task J + backup/restore xlsx).
+- Restore: `git show ab9f842^:src/components/views/items-view.tsx` & `...barang-form-dialog.tsx` → tulis ulang ke working tree. Verifikasi marker: "Tampilkan barang per pelanggan" ada (UI lama), marker redesign (Filter cepat pelanggan/MarginBadge/RupiahInput/SectionTitle) = 0.
+- ESLint kedua file: bersih.
+- E2E lokal (login admin → /master-barang): UI lama kembali (tabel Kode/Nama/Tanggal/Qty/Harga Jual/HPP/Keterangan/Status/Aksi tanpa kolom Margin, seksi Pilih Pelanggan versi lama, 8 barang, chip Budi Susanto tampil); dialog Tambah versi lama (tanpa seksi & tanpa prefix Rp, field lengkap).
+- Deploy ulang ke production: .vercel link terverifikasi masih project darrellsoft → `bunx vercel deploy --prod -t <token> --yes` → darrellsoft-836fsriuz Ready & aliased ke www.darrellsoft.com + darrellsoft.com; /api/health healthy.
+- E2E production (login admin → /master-barang): UI lama tampil (Pilih Pelanggan versi lama, 0 chip cepat, 0 kolom Margin), data production tetap 0 barang (item tes sebelumnya sudah dihapus). Console 0 error.
+
+Stage Summary:
+- Redesign CRUD halaman Harga per Customer DIBATALKAN — lokal & www.darrellsoft.com kembali ke tampilan sebelum redesign (perilaku fungsional task J & backup/restore tetap ada karena berasal dari commit sebelumnya).
+- Git: kedua file dimodifikasi (belum di-commit) mengikuti state `ab9f842^`; database & halaman lain tidak tersentuh.
