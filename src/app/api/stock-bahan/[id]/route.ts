@@ -5,7 +5,9 @@ import { sanitizeError } from '@/lib/api-error'
 
 /**
  * GET /api/stock-bahan/[id] — detail bahan + ringkasan + riwayat mutasi.
- * Dipakai dialog Detail Bahan: info master + tab Riwayat/Masuk/Keluar/Penyesuaian.
+ * Dipakai dialog Detail Bahan: info master + ledger riwayat (masuk/keluar/
+ * penyesuaian) + riwayat harga beli. Ringkasan dihitung dari ledger
+ * BahanMutasi (sumber kebenaran stok).
  */
 export async function GET(
   request: NextRequest,
@@ -20,41 +22,63 @@ export async function GET(
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
-    const [masukRows, keluarRows, adjRows, mutasiRows] = await Promise.all([
-      db.bahanMasuk.findMany({ where: { bahanId: id }, orderBy: [{ tanggal: 'desc' }, { createdAt: 'desc' }] }),
-      db.bahanKeluar.findMany({ where: { bahanId: id }, orderBy: [{ tanggal: 'desc' }, { createdAt: 'desc' }] }),
-      db.bahanPenyesuaian.findMany({ where: { bahanId: id }, orderBy: [{ tanggal: 'desc' }, { createdAt: 'desc' }] }),
-      db.bahanMutasi.findMany({ where: { bahanId: id }, orderBy: [{ tanggal: 'desc' }, { createdAt: 'desc' }], take: 200 }),
-    ])
+    const mutasiRows = await db.bahanMutasi.findMany({
+      where: { bahanId: id },
+      orderBy: [{ tanggal: 'desc' }, { createdAt: 'desc' }],
+      take: 200,
+    })
 
-    // Ledger rows: map stokSetelah → saldo agar konsisten dengan kontrak RiwayatItem
+    // Ledger rows untuk dialog detail (urut terbaru dulu)
     const riwayat = mutasiRows.map((r) => ({
       id: r.id,
       tanggal: r.tanggal,
       nomor: r.nomor,
       jenis: r.jenis,
+      qty: r.qty,
       masuk: r.masuk,
       keluar: r.keluar,
       saldo: r.stokSetelah,
+      satuan: r.satuanBahan,
+      tujuan: r.tujuan,
+      referensi: r.referensi,
+      alasan: r.alasan,
       keterangan: r.keterangan,
+      hargaBeli: r.hargaBeli,
+      totalHarga: r.totalHarga,
+      pemasok: r.pemasok,
+      nomorNota: r.nomorNota,
+      createdAt: r.createdAt,
     }))
 
-    const totalMasuk = masukRows.reduce((s, m) => s + m.qty, 0)
-    const totalKeluar = keluarRows.reduce((s, k) => s + k.qty, 0)
+    // Ringkasan dari ledger: total masuk/keluar semua waktu + jumlah transaksi
+    let totalMasuk = 0
+    let totalKeluar = 0
+    for (const r of mutasiRows) {
+      if (r.jenis === 'masuk') totalMasuk += r.qty
+      else if (r.jenis === 'keluar') totalKeluar += r.qty
+    }
     const nilaiStok = bahan.stok * bahan.hargaSatuan
 
-    // Riwayat harga beli (dari stok masuk yang punya harga)
-    const riwayatHarga = masukRows
-      .filter((m) => m.hargaBeli > 0)
-      .map((m) => ({ tanggal: m.tanggal, hargaBeli: m.hargaBeli, qty: m.qty, suplierNama: m.suplierNama, nomor: m.nomor }))
+    // Riwayat harga beli (dari mutasi masuk yang punya harga)
+    const riwayatHarga = mutasiRows
+      .filter((m) => m.jenis === 'masuk' && m.hargaBeli > 0)
+      .map((m) => ({
+        tanggal: m.tanggal,
+        hargaBeli: m.hargaBeli,
+        qty: m.qty,
+        suplierNama: m.pemasok,
+        nomor: m.nomor,
+      }))
 
     return NextResponse.json(
       {
         bahan,
-        ringkasan: { totalMasuk, totalKeluar, jumlahTransaksi: masukRows.length + keluarRows.length + adjRows.length, nilaiStok },
-        masuk: masukRows,
-        keluar: keluarRows,
-        penyesuaian: adjRows,
+        ringkasan: {
+          totalMasuk,
+          totalKeluar,
+          jumlahTransaksi: mutasiRows.length,
+          nilaiStok,
+        },
         riwayat,
         riwayatHarga,
       },
@@ -87,15 +111,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
-    const [cMasuk, cKeluar, cAdj] = await Promise.all([
+    const [cMutasi, cMasuk, cKeluar, cAdj] = await Promise.all([
+      db.bahanMutasi.count({ where: { bahanId: id } }),
       db.bahanMasuk.count({ where: { bahanId: id } }),
       db.bahanKeluar.count({ where: { bahanId: id } }),
       db.bahanPenyesuaian.count({ where: { bahanId: id } }),
     ])
-    if (cMasuk + cKeluar + cAdj > 0) {
+    const totalTrx = cMutasi + cMasuk + cKeluar + cAdj
+    if (totalTrx > 0) {
       return NextResponse.json(
         {
-          error: `Bahan sudah dipakai dalam ${cMasuk + cKeluar + cAdj} transaksi. Gunakan "Nonaktifkan" alih-alih menghapus.`,
+          error: `Bahan sudah dipakai dalam ${totalTrx} transaksi. Gunakan "Nonaktifkan" alih-alih menghapus.`,
           canDeactivate: true,
         },
         { status: 409 }

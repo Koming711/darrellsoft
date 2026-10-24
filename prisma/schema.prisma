@@ -604,6 +604,7 @@ model BahanMutasi {
   satuanBahan String   @default("") // snapshot satuan bahan saat transaksi
   namaBahan   String   @default("") // snapshot nama bahan saat transaksi
   tujuan      String   @default("") // tujuan stok keluar: Produksi/Sampel/Rusak/Pemakaian internal/Lainnya
+  referensi   String   @default("") // nomor pekerjaan / referensi (stok keluar)
   alasan      String   @default("") // alasan penyesuaian: Stok opname/Stok rusak/dll.
   masuk       Float    @default(0) // qty masuk (laporan: masuk += m.masuk)
   keluar      Float    @default(0) // qty keluar (laporan: keluar += m.keluar)

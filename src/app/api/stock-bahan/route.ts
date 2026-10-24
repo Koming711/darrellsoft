@@ -3,11 +3,25 @@ import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 import { composeKeterangan, splitKeterangan, nextNomorMutasi } from '@/lib/stock-bahan-server'
+import { recalcBahanStock } from '@/lib/bahan-stock'
 
 /**
- * GET /api/stock-bahan — daftar semua bahan milik user yang login.
- * Diurutkan berdasarkan nama agar mudah dipindai.
+ * CRUD master Bahan.
+ *
+ * GET    — daftar bahan milik user (urut nama).
+ * POST   — tambah bahan. Kode auto BHN-001, BHN-002, ... (per user, aman dari
+ *          duplikasi lewat retry @@unique([userId, kode])). Stok awal > 0
+ *          dicatat sebagai mutasi 'masuk' "Stok awal" agar riwayat konsisten.
+ * PUT    — edit data master (nama, kategori, satuan, stokMin, harga, dll).
+ *          PENTING: stok tersedia TIDAK boleh diubah lewat form master —
+ *          perubahan stok hanya lewat transaksi (Stok Masuk/Keluar) atau
+ *          Penyesuaian Stok. Field `stok` pada body sengaja diabaikan.
+ * DELETE ?id= — hapus bahan HANYA jika belum punya transaksi apa pun
+ *          (BahanMutasi / BahanMasuk / BahanKeluar / BahanPenyesuaian).
+ *          Bahan dengan riwayat ditolak 409 + canDeactivate (sarankan
+ *          nonaktifkan via form edit).
  */
+
 export async function GET(request: NextRequest) {
   try {
     const user = getServerUser(request)
@@ -27,15 +41,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/stock-bahan — tambah bahan baru.
- * Body: { nama, kategori?, satuan?, stok?, stokMin?, hargaSatuan?, keterangan?,
- *         lokasi?, pemasok?, aktif?, poRef? }
- * - Kode auto-generate: BHN-001, BHN-002, ... (per user).
- * - Jika stok awal > 0, dibuat mutasi 'masuk' dengan keterangan "Stok awal"
- *   agar riwayat mutasi konsisten.
- * - poRef (Referensi PO) digabung ke keterangan: "Ref PO: xxx | catatan".
- */
+/** Kode berurutan per user: BHN-001, BHN-002, ... (ambil max yang terpakai). */
+async function generateKode(userId: string | null): Promise<string> {
+  const existing = await db.bahan.findMany({
+    where: { userId },
+    select: { kode: true },
+  })
+  let maxNum = 0
+  for (const b of existing) {
+    const m = /^BHN-(\d+)$/i.exec(b.kode)
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10))
+  }
+  return `BHN-${String(maxNum + 1).padStart(3, '0')}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
@@ -53,54 +72,75 @@ export async function POST(request: NextRequest) {
     const stokMinNum = Math.max(0, Number(stokMin) || 0)
     const hargaNum = Math.max(0, Number(hargaSatuan) || 0)
 
-    // Kode berurutan per user: BHN-001, BHN-002, ...
-    const existing = await db.bahan.findMany({
-      where: { userId },
-      select: { kode: true },
-    })
-    let maxNum = 0
-    for (const b of existing) {
-      const m = /^BHN-(\d+)$/i.exec(b.kode)
-      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10))
+    // Kode auto + retry bila terjadi tabrakan (concurrent create / max berubah).
+    let created: Awaited<ReturnType<typeof db.bahan.create>> | null = null
+    let lastErr: unknown = null
+    for (let attempt = 0; attempt < 5 && !created; attempt++) {
+      const kode = await generateKode(userId)
+      try {
+        created = await db.$transaction(async (tx) => {
+          const row = await tx.bahan.create({
+            data: {
+              kode,
+              nama: String(nama).trim(),
+              kategori: kategori ? String(kategori).trim() : '',
+              satuan: satuan ? String(satuan).trim() : 'pcs',
+              stok: 0,
+              stokMin: stokMinNum,
+              hargaSatuan: hargaNum,
+              keterangan: composeKeterangan(poRef, keterangan),
+              aktif: aktif === undefined ? true : Boolean(aktif),
+              lokasi: lokasi ? String(lokasi).trim() : '',
+              pemasok: pemasok ? String(pemasok).trim() : '',
+              userId,
+            },
+          })
+
+          // Stok awal > 0 (dipakai integrasi lama/PO fallback) → catat mutasi
+          // "Stok awal" supaya saldo selalu berakar pada riwayat.
+          if (stokNum > 0) {
+            await tx.bahanMutasi.create({
+              data: {
+                bahanId: row.id,
+                jenis: 'masuk',
+                qty: stokNum,
+                stokSetelah: stokNum,
+                masuk: stokNum,
+                keterangan: 'Stok awal',
+                nomor: await nextNomorMutasi(userId, 'masuk'),
+                tanggal: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }),
+                namaBahan: row.nama,
+                satuanBahan: row.satuan,
+                pemasok: row.pemasok,
+                hargaBeli: hargaNum,
+                totalHarga: hargaNum * stokNum,
+                userId,
+              },
+            })
+            await recalcBahanStock(tx, row.id, {
+              allowNegative: false,
+              bahanNama: row.nama,
+              satuan: row.satuan,
+            })
+          }
+          return row
+        })
+      } catch (e: any) {
+        // P2002 = unique constraint (kode bentrok) → coba lagi dgn kode baru.
+        if (e?.code === 'P2002') {
+          lastErr = e
+          continue
+        }
+        throw e
+      }
     }
-    const kode = `BHN-${String(maxNum + 1).padStart(3, '0')}`
 
-    const created = await db.bahan.create({
-      data: {
-        kode,
-        nama: String(nama).trim(),
-        kategori: kategori ? String(kategori).trim() : '',
-        satuan: satuan ? String(satuan).trim() : 'pcs',
-        stok: stokNum,
-        stokMin: stokMinNum,
-        hargaSatuan: hargaNum,
-        keterangan: composeKeterangan(poRef, keterangan),
-        aktif: aktif === undefined ? true : Boolean(aktif),
-        lokasi: lokasi ? String(lokasi).trim() : '',
-        pemasok: pemasok ? String(pemasok).trim() : '',
-        userId,
-      },
-    })
-
-    // Mutasi awal agar riwayat mencatat stok pertama
-    if (stokNum > 0) {
-      await db.bahanMutasi.create({
-        data: {
-          bahanId: created.id,
-          jenis: 'masuk',
-          qty: stokNum,
-          stokSetelah: stokNum,
-          keterangan: 'Stok awal',
-          nomor: await nextNomorMutasi(userId, 'masuk'),
-          tanggal: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }),
-          namaBahan: created.nama,
-          satuanBahan: created.satuan,
-          pemasok: created.pemasok,
-          hargaBeli: hargaNum,
-          totalHarga: hargaNum * stokNum,
-          userId,
-        },
-      })
+    if (!created) {
+      console.error('Error creating bahan: kode gagal unik', lastErr)
+      return NextResponse.json(
+        { error: 'Gagal membuat kode bahan unik — coba lagi' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json(created, { status: 201 })
@@ -114,11 +154,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PUT /api/stock-bahan — edit data bahan.
- * Body: { id, nama, kategori?, satuan?, stok?, stokMin?, hargaSatuan?, keterangan?,
- *         lokasi?, pemasok?, aktif?, poRef? }
- * - Jika `stok` berubah, dibuat mutasi 'penyesuaian' (qty = selisih, boleh negatif)
- *   agar perubahan manual tetap tercatat di riwayat.
+ * PUT /api/stock-bahan — edit data master bahan.
+ * Stok TIDAK diubah di sini (diabaikan) — perubahan stok harus lewat
+ * transaksi stok masuk/keluar atau penyesuaian stok yang tercatat.
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -126,7 +164,7 @@ export async function PUT(request: NextRequest) {
     if (authErr) return authErr
     const user = getServerUser(request)!
     const body = await request.json()
-    const { id, nama, kategori, satuan, stok, stokMin, hargaSatuan, keterangan, lokasi, pemasok, aktif, poRef } = body
+    const { id, nama, kategori, satuan, stokMin, hargaSatuan, keterangan, lokasi, pemasok, aktif, poRef } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID bahan wajib diisi' }, { status: 400 })
@@ -140,7 +178,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
-    const stokNum = Math.max(0, Number(stok) || 0)
     // Pertahankan Ref PO lama bila field-nya tidak dikirim dari form edit
     const existingKet = splitKeterangan(existing.keterangan)
     const finalKeterangan =
@@ -156,7 +193,7 @@ export async function PUT(request: NextRequest) {
         nama: String(nama).trim(),
         kategori: kategori !== undefined ? String(kategori).trim() : existing.kategori,
         satuan: satuan !== undefined && String(satuan).trim() !== '' ? String(satuan).trim() : existing.satuan,
-        stok: stokNum,
+        // stok sengaja tidak diupdate — hanya lewat transaksi / penyesuaian
         stokMin: stokMin !== undefined ? Math.max(0, Number(stokMin) || 0) : existing.stokMin,
         hargaSatuan: hargaSatuan !== undefined ? Math.max(0, Number(hargaSatuan) || 0) : existing.hargaSatuan,
         keterangan: finalKeterangan,
@@ -165,26 +202,6 @@ export async function PUT(request: NextRequest) {
         pemasok: pemasok !== undefined ? String(pemasok).trim() : existing.pemasok,
       },
     })
-
-    // Stok diubah manual → catat sebagai penyesuaian
-    const delta = stokNum - existing.stok
-    if (delta !== 0) {
-      await db.bahanMutasi.create({
-        data: {
-          bahanId: id,
-          jenis: 'penyesuaian',
-          qty: delta,
-          stokSetelah: stokNum,
-          keterangan: 'Penyesuaian manual',
-          nomor: await nextNomorMutasi(user?.id || null, 'penyesuaian'),
-          tanggal: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }),
-          namaBahan: updated.nama,
-          satuanBahan: updated.satuan,
-          alasan: 'Koreksi data',
-          userId: user?.id || null,
-        },
-      })
-    }
 
     return NextResponse.json(updated)
   } catch (error: any) {
@@ -197,7 +214,8 @@ export async function PUT(request: NextRequest) {
 }
 
 /**
- * DELETE /api/stock-bahan?id=xxx — hapus bahan (mutasi ikut terhapus / cascade).
+ * DELETE /api/stock-bahan?id=xxx — hapus bahan.
+ * Ditolak (409) bila bahan sudah punya transaksi stok — gunakan Nonaktifkan.
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -213,6 +231,24 @@ export async function DELETE(request: NextRequest) {
     const existing = await db.bahan.findUnique({ where: { id } })
     if (!existing || !canAccessRecord(user, existing.userId)) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
+    }
+
+    // Lindungi bahan yang sudah punya riwayat transaksi.
+    const [cMutasi, cMasuk, cKeluar, cAdj] = await Promise.all([
+      db.bahanMutasi.count({ where: { bahanId: id } }),
+      db.bahanMasuk.count({ where: { bahanId: id } }),
+      db.bahanKeluar.count({ where: { bahanId: id } }),
+      db.bahanPenyesuaian.count({ where: { bahanId: id } }),
+    ])
+    const totalTrx = cMutasi + cMasuk + cKeluar + cAdj
+    if (totalTrx > 0) {
+      return NextResponse.json(
+        {
+          error: `Bahan sudah dipakai dalam ${totalTrx} transaksi dan tidak bisa dihapus. Gunakan "Nonaktifkan" pada form Edit bahan.`,
+          canDeactivate: true,
+        },
+        { status: 409 }
+      )
     }
 
     await db.bahan.delete({ where: { id } })

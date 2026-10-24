@@ -1,25 +1,27 @@
 'use client'
 
 /**
- * StockBahanView — halaman Stock Bahan versi v123 (paritas produksi
- * www.darrellsoft.com): 8 menu dalam satu halaman.
+ * StockBahanView — versi SIMPLIFIKASI (4 menu sederhana).
  *
- * - Dashboard Stock : ringkasan (jenis, total stok, menipis, habis)
- *                     + daftar "Bahan yang perlu dibeli".
- * - Data Bahan      : CRUD master bahan (kode auto BHN-001, ...), filter
- *                     kategori & status, search nama/kode/lokasi.
- * - Stok Masuk      : pembelian & penerimaan barang (nomor auto SM-001,
- *                     harga beli, total otomatis, supplier, no. nota).
- * - Stok Keluar     : produksi, sampel, rusak (nomor auto SK-001, tujuan).
- * - Penyesuaian Stok: stok fisik vs sistem (nomor auto SP-001, alasan,
- *                     selisih otomatis).
- * - Riwayat Stok    : ledger semua transaksi + filter bahan/jenis/tanggal.
- * - Laporan Stok    : nilai persediaan, menipis, habis + Print/PDF.
- * - Kategori        : dialog kategori otomatis dari bahan (klik → Data Bahan
- *                     terfilter).
+ * 1. Stock Bahan  : master bahan + ringkasan (total jenis, menipis, habis),
+ *                   search nama/kode, filter kategori & status, pagination,
+ *                   detail, edit, hapus (hanya bahan tanpa transaksi).
+ * 2. Stock Masuk  : pembelian & penerimaan barang (nomor auto SM-xxx, harga
+ *                   beli, total otomatis, pemasok, no. nota / referensi PO).
+ * 3. Stock Keluar : pemakaian bahan (nomor auto SK-xxx, stok sebelum/sesudah,
+ *                   tujuan pemakaian, referensi pekerjaan).
+ * 4. Laporan Stock: saldo awal + masuk − keluar = saldo akhir per periode,
+ *                   filter tanggal/bahan/kategori, detail histori, cetak,
+ *                   PDF & ekspor CSV.
  *
- * Switch "Izinkan stok minus" tersimpan per-user (UserSetting key
- * stock_izinkan_minus) dan divalidasi ulang di server.
+ * Fitur pendukung tetap tersedia tanpa menambah menu:
+ * - Dashboard lama  → ringkasan kecil di atas halaman Stock Bahan.
+ * - Penyesuaian stok → tombol di panel samping (dialog SP-xxx).
+ * - Riwayat         → dialog Detail Bahan & dialog Detail Histori Laporan.
+ * - Kategori        → filter & form bahan.
+ *
+ * Semua perubahan stok lewat transaksi/penyesuaian (ledger BahanMutasi);
+ * form master bahan TIDAK mengubah stok langsung.
  */
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
@@ -30,13 +32,13 @@ import {
   Boxes,
   ChevronsUpDown,
   ClipboardList,
+  Eye,
+  FileDown,
   History,
-  LayoutGrid,
   Loader2,
   Menu as MenuIcon,
   Package,
   PackageMinus,
-  PackageOpen,
   PackagePlus,
   Pencil,
   Plus,
@@ -53,6 +55,7 @@ import { apiFetch } from '@/lib/client'
 import { formatIDR } from '@/lib/format'
 import type { SessionUser } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { statusStok, type StockStatus } from '@/lib/stock-bahan-types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -96,6 +99,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -139,9 +143,62 @@ interface Mutasi {
   satuanBahan: string
   namaBahan: string
   tujuan: string
+  referensi?: string
   alasan: string
   createdAt: string
   bahan?: { kode: string; nama: string; satuan: string }
+}
+
+interface LaporanRow {
+  bahanId: string
+  kode: string
+  nama: string
+  kategori: string
+  satuan: string
+  stokMin: number
+  stokAwal: number
+  masuk: number
+  keluar: number
+  penyesuaian: number
+  stokAkhir: number
+  hargaSatuan: number
+  nilai: number
+  status: StockStatus
+}
+
+interface RiwayatRow {
+  id: string
+  tanggal: string
+  nomor: string
+  jenis: string
+  masuk: number
+  keluar: number
+  saldo: number
+  keterangan: string
+  bahanNama?: string
+  satuan?: string
+}
+
+interface DetailResponse {
+  bahan: Bahan
+  ringkasan: { totalMasuk: number; totalKeluar: number; jumlahTransaksi: number; nilaiStok: number }
+  riwayat: Array<{
+    id: string
+    tanggal: string
+    nomor: string
+    jenis: string
+    qty: number
+    saldo: number
+    satuan: string
+    tujuan: string
+    referensi: string
+    alasan: string
+    keterangan: string
+    hargaBeli: number
+    totalHarga: number
+    pemasok: string
+    nomorNota: string
+  }>
 }
 
 interface PoOption {
@@ -149,14 +206,7 @@ interface PoOption {
   supplierName: string
 }
 
-type TabId =
-  | 'dashboard'
-  | 'data'
-  | 'masuk'
-  | 'keluar'
-  | 'penyesuaian'
-  | 'riwayat'
-  | 'laporan'
+type TabId = 'data' | 'masuk' | 'keluar' | 'laporan'
 
 // ============================================================
 // Konstanta
@@ -179,7 +229,7 @@ const SATUAN_OPTIONS = [
 
 const KATEGORI_BAWAAN = ['Kertas', 'Tinta', 'Kimia', 'Plastik', 'Alat', 'Lainnya']
 
-const TUJUAN_KELUAR = ['Produksi', 'Sampel', 'Rusak', 'Pemakaian internal', 'Lainnya']
+const TUJUAN_KELUAR = ['Produksi', 'Pemakaian Internal', 'Sampel', 'Rusak', 'Lainnya']
 
 const ALASAN_PENYESUAIAN = [
   'Stok opname',
@@ -198,18 +248,21 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard Stock', desc: 'Ringkasan & bahan yang perlu dibeli', icon: LayoutGrid },
-  { id: 'data', label: 'Data Bahan', desc: 'Kelola master bahan', icon: Shapes },
-  { id: 'masuk', label: 'Stok Masuk', desc: 'Pembelian & penerimaan barang', icon: PackagePlus },
-  { id: 'keluar', label: 'Stok Keluar', desc: 'Produksi, sampel, rusak', icon: PackageOpen },
-  { id: 'penyesuaian', label: 'Penyesuaian Stok', desc: 'Stok fisik vs sistem', icon: ArrowLeftRight },
-  { id: 'riwayat', label: 'Riwayat Stok', desc: 'Ledger semua transaksi', icon: History },
-  { id: 'laporan', label: 'Laporan Stok', desc: 'Nilai persediaan & filter', icon: BarChart3 },
+  { id: 'data', label: 'Stock Bahan', desc: 'Master bahan & ringkasan stok', icon: Shapes },
+  { id: 'masuk', label: 'Stock Masuk', desc: 'Pembelian & penerimaan barang', icon: PackagePlus },
+  { id: 'keluar', label: 'Stock Keluar', desc: 'Pemakaian bahan produksi', icon: PackageMinus },
+  { id: 'laporan', label: 'Laporan Stock', desc: 'Saldo awal, mutasi & saldo akhir', icon: BarChart3 },
 ]
 
 /** Tanggal hari ini yyyy-mm-dd (zona aplikasi). */
 function todayStr(): string {
   return new Date().toLocaleDateString('sv-SE')
+}
+
+/** Tanggal pertama bulan ini yyyy-mm-dd. */
+function firstDayOfMonth(): string {
+  const t = todayStr()
+  return `${t.slice(0, 7)}-01`
 }
 
 /** Tampilkan angka desimal rapi (buang .0). */
@@ -225,6 +278,10 @@ function fmtTanggal(t: string): string {
   } catch {
     return t
   }
+}
+
+function r2(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 // ============================================================
@@ -257,7 +314,7 @@ function StatCard({
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Icon className="h-4 w-4" />
-          <span>{label}</span>
+          <span className="truncate">{label}</span>
         </div>
         <div className={cn('mt-2 text-3xl font-bold leading-none', toneCls)}>{value}</div>
         <div className="mt-1.5 text-xs text-muted-foreground">{sub}</div>
@@ -282,6 +339,14 @@ function Spinner({ label = 'Memuat…' }: { label?: string }) {
   )
 }
 
+/** Badge status stok: Aman / Menipis / Habis. */
+function StokStatusBadge({ stok, stokMin }: { stok: number; stokMin: number }) {
+  const s = statusStok(stok, stokMin)
+  if (s === 'habis') return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Habis</Badge>
+  if (s === 'menipis') return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Menipis</Badge>
+  return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Aman</Badge>
+}
+
 /** Badge jenis mutasi. */
 function JenisBadge({ jenis }: { jenis: string }) {
   if (jenis === 'masuk') return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Masuk</Badge>
@@ -290,7 +355,7 @@ function JenisBadge({ jenis }: { jenis: string }) {
 }
 
 // ============================================================
-// Export: Print & PDF generik
+// Export: Print, PDF, CSV
 // ============================================================
 
 function printTable(title: string, columns: string[], rows: string[][], summary?: string) {
@@ -332,7 +397,6 @@ function exportPdf(title: string, columns: string[], rows: string[][], summary?:
 
   const colW = (pageW - 28) / columns.length
   let y = 28
-  // header
   doc.setFillColor(241, 245, 249)
   doc.rect(14, y - 5, pageW - 28, 7, 'F')
   doc.setFontSize(8)
@@ -348,6 +412,29 @@ function exportPdf(title: string, columns: string[], rows: string[][], summary?:
     y += 6
   })
   doc.save(`${title.replace(/\s+/g, '-')}.pdf`)
+}
+
+/** Ekspor CSV (pemisah ";" + BOM agar langsung rapi di Excel). */
+function exportCsv(title: string, columns: string[], rows: string[][], summary?: string) {
+  const esc = (v: string | number) => {
+    const s = String(v ?? '')
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const lines: string[] = [title]
+  if (summary) lines.push(summary)
+  lines.push('')
+  lines.push(columns.map(esc).join(';'))
+  for (const r of rows) lines.push(r.map(esc).join(';'))
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title.replace(/\s+/g, '-')}-${todayStr()}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+  toast.success('CSV berhasil diunduh')
 }
 
 // ============================================================
@@ -369,10 +456,8 @@ export default function StockBahanView({
   const [loading, setLoading] = useState(true)
   const [bahan, setBahan] = useState<Bahan[]>([])
   const [mutasi, setMutasi] = useState<Mutasi[]>([])
-  const [tab, setTab] = useState<TabId>('dashboard')
+  const [tab, setTab] = useState<TabId>('data')
   const [menuOpen, setMenuOpen] = useState(false)
-  const [kategoriOpen, setKategoriOpen] = useState(false)
-  const [dataKategoriFilter, setDataKategoriFilter] = useState('')
 
   // switch "Izinkan stok minus"
   const [izinkanMinus, setIzinkanMinus] = useState(false)
@@ -382,6 +467,12 @@ export default function StockBahanView({
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Bahan | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Bahan | null>(null)
+
+  // dialog detail bahan & penyesuaian
+  const [detailTarget, setDetailTarget] = useState<Bahan | null>(null)
+  const [penyesuaianOpen, setPenyesuaianOpen] = useState(false)
+  const [penyesuaianBahanId, setPenyesuaianBahanId] = useState('')
+  const [penyesuaianBahanNama, setPenyesuaianBahanNama] = useState('')
 
   const loadBahan = useCallback(async () => {
     const data = await apiFetch<Bahan[]>('/api/stock-bahan')
@@ -444,21 +535,16 @@ export default function StockBahanView({
     }
   }
 
-  // ====== statistik global ======
+  // ====== statistik ringkasan (dashboard lama → ringkasan kecil) ======
   const aktif = useMemo(() => bahan.filter((b) => b.aktif), [bahan])
-  const totalStok = useMemo(() => bahan.reduce((a, b) => a + (b.stok || 0), 0), [bahan])
   const menipis = useMemo(
-    () => bahan.filter((b) => b.stok > 0 && b.stokMin > 0 && b.stok <= b.stokMin),
+    () => bahan.filter((b) => b.aktif && b.stok > 0 && b.stokMin > 0 && b.stok <= b.stokMin),
     [bahan]
   )
-  const habis = useMemo(() => bahan.filter((b) => (b.stok || 0) <= 0), [bahan])
+  const habis = useMemo(() => bahan.filter((b) => b.aktif && (b.stok || 0) <= 0), [bahan])
   const nilaiPersediaan = useMemo(
     () => bahan.reduce((a, b) => a + (b.stok || 0) * (b.hargaSatuan || 0), 0),
     [bahan]
-  )
-  const perluBeli = useMemo(
-    () => aktif.filter((b) => b.stok <= b.stokMin),
-    [aktif]
   )
   const kategoriTerpakai = useMemo(() => {
     const map = new Map<string, number>()
@@ -476,6 +562,13 @@ export default function StockBahanView({
   const openEdit = (b: Bahan) => {
     setEditing(b)
     setFormOpen(true)
+  }
+
+  const openPenyesuaian = (bahanId?: string) => {
+    setPenyesuaianBahanId(bahanId || '')
+    const b = bahan.find((x) => x.id === bahanId)
+    setPenyesuaianBahanNama(b ? `${b.nama} (${b.kode})` : '')
+    setPenyesuaianOpen(true)
   }
 
   const goTab = (t: TabId) => {
@@ -508,22 +601,6 @@ export default function StockBahanView({
           </button>
         )
       })}
-      <button
-        type="button"
-        onClick={() => {
-          setMenuOpen(false)
-          setKategoriOpen(true)
-        }}
-        className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted"
-      >
-        <Tag className="mt-0.5 h-4.5 w-4.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold leading-tight">Kategori</span>
-          <span className="block text-xs leading-tight text-muted-foreground">
-            {kategoriTerpakai.length} kategori terpakai
-          </span>
-        </span>
-      </button>
     </div>
   )
 
@@ -534,23 +611,35 @@ export default function StockBahanView({
     </div>
   )
 
-  /** Header tiap tab: judul + Nilai persediaan + Tambah Bahan (paritas produksi v123). */
-  const tabHeader = (label: string, Icon: ComponentType<{ className?: string }>) => (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+  const sideTools = (
+    <div className="space-y-2">
+      {canAdd && (
+        <Button variant="outline" className="w-full justify-start gap-2" onClick={() => openPenyesuaian()}>
+          <ArrowLeftRight className="h-4 w-4 text-amber-600" /> Penyesuaian Stok
+        </Button>
+      )}
+      {switchMinus}
+    </div>
+  )
+
+  const currentNav = NAV_ITEMS.find((n) => n.id === tab)
+
+  /** Header tiap tab: judul + Nilai persediaan. */
+  const tabHeader = (
+    <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
       <h2 className="flex items-center gap-2 text-xl font-bold">
-        <Icon className="h-5 w-5 text-emerald-600" /> {label}
+        {currentNav && <currentNav.icon className="h-5 w-5 text-emerald-600" />} {currentNav?.label || 'Stock Bahan'}
       </h2>
       <div className="flex items-center gap-3">
         <span className="hidden text-sm text-muted-foreground sm:inline">Nilai persediaan</span>
         <Badge className="bg-emerald-100 text-sm text-emerald-700 hover:bg-emerald-100">{formatIDR(nilaiPersediaan)}</Badge>
-        {canAdd && (
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openTambah}>
-            <Plus className="h-4 w-4" /> Tambah Bahan
-          </Button>
-        )}
       </div>
     </div>
   )
+
+  // FAB mobile: tambah bahan di tab Stock Bahan (tab transaksi punya tombol
+  // "Catat" sendiri di toolbarnya).
+  const fabAction = tab === 'data' && canAdd ? openTambah : undefined
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
@@ -570,7 +659,7 @@ export default function StockBahanView({
             <Separator className="my-3" />
             {navList}
             <Separator className="my-3" />
-            {switchMinus}
+            {sideTools}
           </CardContent>
         </Card>
       </aside>
@@ -580,7 +669,7 @@ export default function StockBahanView({
         <Button variant="outline" size="sm" onClick={() => setMenuOpen(true)}>
           <MenuIcon className="h-4 w-4" /> Menu
         </Button>
-        <h2 className="text-lg font-bold">{NAV_ITEMS.find((n) => n.id === tab)?.label}</h2>
+        <h2 className="text-lg font-bold">{currentNav?.label || 'Stock Bahan'}</h2>
       </div>
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-72 overflow-y-auto p-4">
@@ -591,7 +680,7 @@ export default function StockBahanView({
           </SheetHeader>
           {navList}
           <Separator className="my-3" />
-          {switchMinus}
+          {sideTools}
         </SheetContent>
       </Sheet>
 
@@ -601,12 +690,9 @@ export default function StockBahanView({
           <Spinner label="Memuat stock bahan…" />
         ) : (
           <>
-            <div className="hidden lg:block">{tabHeader(NAV_ITEMS.find((n) => n.id === tab)?.label || 'Stock Bahan', NAV_ITEMS.find((n) => n.id === tab)?.icon || Boxes)}</div>
-            {tab === 'dashboard' && (
-              <DashboardTab bahan={bahan} aktif={aktif} totalStok={totalStok} menipis={menipis} habis={habis} perluBeli={perluBeli} />
-            )}
+            {tabHeader}
             {tab === 'data' && (
-              <DataBahanTab
+              <DataTab
                 bahan={bahan}
                 canAdd={canAdd}
                 canEdit={canEdit}
@@ -614,35 +700,42 @@ export default function StockBahanView({
                 onTambah={openTambah}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
-                kategoriFilterInit={dataKategoriFilter}
-                onKategoriFilterConsumed={() => setDataKategoriFilter('')}
+                onDetail={setDetailTarget}
+                onPenyesuaian={openPenyesuaian}
               />
             )}
             {tab === 'masuk' && (
-              <MasukTab mutasi={mutasi} bahan={aktif} canAdd={canAdd} onSaved={refresh} />
+              <MasukTab
+                mutasi={mutasi}
+                bahan={aktif}
+                canAdd={canAdd}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                onSaved={refresh}
+              />
             )}
             {tab === 'keluar' && (
-              <KeluarTab mutasi={mutasi} bahan={aktif} canAdd={canAdd} onSaved={refresh} izinkanMinus={izinkanMinus} />
+              <KeluarTab
+                mutasi={mutasi}
+                bahan={aktif}
+                canAdd={canAdd}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                onSaved={refresh}
+                izinkanMinus={izinkanMinus}
+              />
             )}
-            {tab === 'penyesuaian' && (
-              <PenyesuaianTab mutasi={mutasi} bahan={bahan} canAdd={canAdd} onSaved={refresh} />
-            )}
-            {tab === 'riwayat' && (
-              <RiwayatTab mutasi={mutasi} bahan={bahan} canAdd={canAdd} />
-            )}
-            {tab === 'laporan' && (
-              <LaporanTab bahan={bahan} nilaiPersediaan={nilaiPersediaan} menipis={menipis} habis={habis} canAdd={canAdd} />
-            )}
+            {tab === 'laporan' && <LaporanTab bahan={bahan} />}
           </>
         )}
       </div>
 
-      {/* FAB mobile — tambah bahan */}
-      {canAdd && !loading && (
+      {/* FAB mobile — tambah bahan (tab Stock Bahan) */}
+      {!loading && fabAction && (
         <button
           type="button"
-          onClick={openTambah}
-          aria-label="Tambah Bahan"
+          onClick={fabAction}
+          aria-label="Tambah data"
           className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-transform hover:scale-105 active:scale-95 lg:hidden"
         >
           <Plus className="h-6 w-6" />
@@ -658,26 +751,41 @@ export default function StockBahanView({
         onSaved={refresh}
       />
 
-      {/* Dialog kategori (dari nav Kategori) */}
-      <KategoriDialog
-        open={kategoriOpen}
-        onOpenChange={setKategoriOpen}
-        kategori={kategoriTerpakai}
-        onPick={(k) => {
-          setKategoriOpen(false)
-          setDataKategoriFilter(k)
-          setTab('data')
+      {/* Dialog detail bahan */}
+      <DetailDialog
+        bahan={detailTarget}
+        onOpenChange={(o) => {
+          if (!o) setDetailTarget(null)
+        }}
+        canEdit={canEdit}
+        onEdit={(b) => {
+          setDetailTarget(null)
+          openEdit(b)
+        }}
+        onPenyesuaian={(b) => {
+          setDetailTarget(null)
+          openPenyesuaian(b.id)
         }}
       />
 
-      {/* Konfirmasi hapus */}
+      {/* Dialog penyesuaian stok */}
+      <PenyesuaianDialog
+        open={penyesuaianOpen}
+        onOpenChange={setPenyesuaianOpen}
+        bahan={bahan}
+        initialBahanId={penyesuaianBahanId}
+        initialBahanNama={penyesuaianBahanNama}
+        onSaved={refresh}
+      />
+
+      {/* Konfirmasi hapus bahan */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus bahan?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? `"${deleteTarget.nama}" (${deleteTarget.kode}) beserta seluruh riwayat mutasinya akan dihapus permanen.`
+                ? `"${deleteTarget.nama}" (${deleteTarget.kode}) akan dihapus permanen. Bahan yang sudah punya transaksi tidak dapat dihapus — gunakan Nonaktifkan.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -694,6 +802,7 @@ export default function StockBahanView({
                   await refresh()
                 } catch (e: any) {
                   toast.error(e?.message || 'Gagal menghapus bahan')
+                  setDeleteTarget(null)
                 }
               }}
             >
@@ -707,80 +816,10 @@ export default function StockBahanView({
 }
 
 // ============================================================
-// Tab: Dashboard Stock
+// Tab: Stock Bahan (master + ringkasan)
 // ============================================================
 
-function DashboardTab({
-  bahan,
-  aktif,
-  totalStok,
-  menipis,
-  habis,
-  perluBeli,
-}: {
-  bahan: Bahan[]
-  aktif: Bahan[]
-  totalStok: number
-  menipis: Bahan[]
-  habis: Bahan[]
-  perluBeli: Bahan[]
-}) {
-  void bahan
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Shapes} label="Total Jenis Bahan" value={bahan.length} sub={`${aktif.length} aktif`} />
-        <StatCard icon={Package} label="Total Stok" value={fmtNum(totalStok)} sub="semua satuan digabung" />
-        <StatCard icon={AlertTriangle} label="Stok Menipis" value={menipis.length} sub="stok ≤ minimum" tone="amber" />
-        <StatCard icon={TrendingDown} label="Stok Habis" value={habis.length} sub="stok ≤ 0" tone="red" />
-      </div>
-
-      <Card>
-        <CardContent className="p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 className="text-base font-bold">Bahan yang perlu dibeli</h3>
-            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{perluBeli.length} bahan</Badge>
-          </div>
-          {perluBeli.length === 0 ? (
-            <EmptyState text="Semua stok aman — tidak ada bahan yang perlu dibeli 🎉" />
-          ) : (
-            <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
-              {perluBeli.map((b) => (
-                <div
-                  key={b.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{b.nama}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {b.kode} · stok {fmtNum(b.stok)} {b.satuan} / minimum {fmtNum(b.stokMin)} {b.satuan}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {b.stok <= 0 ? (
-                      <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Stok Habis</Badge>
-                    ) : (
-                      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Stok Menipis</Badge>
-                    )}
-                    <span className="whitespace-nowrap text-xs font-medium text-amber-700">
-                      butuh ± {fmtNum(Math.max(b.stokMin - b.stok, 0))} {b.satuan}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// ============================================================
-// Tab: Data Bahan
-// ============================================================
-
-function DataBahanTab({
+function DataTab({
   bahan,
   canAdd,
   canEdit,
@@ -788,8 +827,8 @@ function DataBahanTab({
   onTambah,
   onEdit,
   onDelete,
-  kategoriFilterInit,
-  onKategoriFilterConsumed,
+  onDetail,
+  onPenyesuaian,
 }: {
   bahan: Bahan[]
   canAdd: boolean
@@ -798,19 +837,14 @@ function DataBahanTab({
   onTambah: () => void
   onEdit: (b: Bahan) => void
   onDelete: (b: Bahan) => void
-  kategoriFilterInit: string
-  onKategoriFilterConsumed: () => void
+  onDetail: (b: Bahan) => void
+  onPenyesuaian: (bahanId: string) => void
 }) {
   const [q, setQ] = useState('')
   const [fKategori, setFKategori] = useState('all')
   const [fStatus, setFStatus] = useState('all')
-
-  useEffect(() => {
-    if (kategoriFilterInit) {
-      setFKategori(kategoriFilterInit)
-      onKategoriFilterConsumed()
-    }
-  }, [kategoriFilterInit, onKategoriFilterConsumed])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   const kategoriList = useMemo(() => {
     const set = new Set<string>()
@@ -825,25 +859,47 @@ function DataBahanTab({
     const term = q.trim().toLowerCase()
     return bahan
       .filter((b) => {
-        if (
-          term &&
-          !`${b.nama} ${b.kode} ${b.lokasi}`.toLowerCase().includes(term)
-        )
-          return false
+        if (term && !`${b.nama} ${b.kode}`.toLowerCase().includes(term)) return false
         if (fKategori !== 'all' && (b.kategori || '') !== fKategori) return false
-        if (fStatus === 'aktif' && !b.aktif) return false
-        if (fStatus === 'nonaktif' && b.aktif) return false
+        if (fStatus === 'nonaktif') {
+          if (b.aktif) return false
+        } else {
+          if (!b.aktif) return false
+          const s = statusStok(b.stok, b.stokMin)
+          if (fStatus !== 'all' && s !== fStatus) return false
+        }
         return true
       })
       .sort((a, b) => a.nama.localeCompare(b.nama))
   }, [bahan, q, fKategori, fStatus])
 
+  // reset ke halaman 1 saat filter berubah
+  useEffect(() => {
+    setPage(1)
+  }, [q, fKategori, fStatus, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+
+  // Ringkasan (pengganti Dashboard Stock lama) dihitung dari seluruh bahan aktif
+  const menipis = bahan.filter((b) => b.aktif && b.stok > 0 && b.stokMin > 0 && b.stok <= b.stokMin).length
+  const habis = bahan.filter((b) => b.aktif && (b.stok || 0) <= 0).length
+
   return (
     <div className="space-y-4">
+      {/* Ringkasan kecil (pengganti Dashboard Stock lama) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard icon={Shapes} label="Total Jenis Bahan" value={bahan.length} sub={`${bahan.filter((b) => b.aktif).length} aktif`} />
+        <StatCard icon={AlertTriangle} label="Stok Menipis" value={menipis} sub="stok ≤ stok minimum" tone="amber" />
+        <StatCard icon={TrendingDown} label="Stok Habis" value={habis} sub="stok ≤ 0" tone="red" />
+      </div>
+
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-48 flex-1">
+        <div className="relative min-w-44 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama / kode / lokasi…" className="pl-9" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama / kode bahan…" className="pl-9" />
         </div>
         <Select value={fKategori} onValueChange={setFKategori}>
           <SelectTrigger className="w-full sm:w-44" aria-label="Filter kategori">
@@ -857,15 +913,22 @@ function DataBahanTab({
           </SelectContent>
         </Select>
         <Select value={fStatus} onValueChange={setFStatus}>
-          <SelectTrigger className="w-full sm:w-40" aria-label="Filter status">
+          <SelectTrigger className="w-full sm:w-40" aria-label="Filter status stok">
             <SelectValue placeholder="Semua status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua status</SelectItem>
-            <SelectItem value="aktif">Aktif</SelectItem>
+            <SelectItem value="aman">Aman</SelectItem>
+            <SelectItem value="menipis">Menipis</SelectItem>
+            <SelectItem value="habis">Habis</SelectItem>
             <SelectItem value="nonaktif">Nonaktif</SelectItem>
           </SelectContent>
         </Select>
+        {canAdd && (
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={onTambah}>
+            <Plus className="h-4 w-4" /> Tambah Bahan
+          </Button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -873,50 +936,50 @@ function DataBahanTab({
       ) : (
         <>
           {/* Desktop */}
-          <div className="hidden max-h-[560px] overflow-y-auto rounded-lg border md:block">
+          <div className="hidden overflow-x-auto rounded-lg border md:block">
             <Table>
-              <TableHeader className="sticky top-0 bg-background">
+              <TableHeader>
                 <TableRow>
                   <TableHead>Kode</TableHead>
-                  <TableHead>Nama</TableHead>
+                  <TableHead>Nama bahan</TableHead>
                   <TableHead>Kategori</TableHead>
-                  <TableHead className="text-right">Stok</TableHead>
-                  <TableHead className="text-right">Harga Modal</TableHead>
-                  <TableHead>Lokasi</TableHead>
+                  <TableHead>Satuan</TableHead>
+                  <TableHead className="text-right">Stok tersedia</TableHead>
+                  <TableHead className="text-right">Stok minimum</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((b) => (
-                  <TableRow key={b.id}>
+                {pageRows.map((b) => (
+                  <TableRow key={b.id} className={cn(!b.aktif && 'bg-muted/40')}>
                     <TableCell className="whitespace-nowrap font-mono text-xs">{b.kode}</TableCell>
                     <TableCell>
                       <div className="font-medium">{b.nama}</div>
-                      {(b.pemasok || b.keterangan) && (
+                      {(b.pemasok || b.lokasi) && (
                         <div className="max-w-56 truncate text-xs text-muted-foreground">
-                          {[b.pemasok, b.keterangan].filter(Boolean).join(' · ')}
+                          {[b.pemasok, b.lokasi].filter(Boolean).join(' · ')}
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">{b.kategori || '—'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-right">
-                      <span className={cn('font-semibold', b.stok <= 0 ? 'text-red-600' : b.stokMin > 0 && b.stok <= b.stokMin ? 'text-amber-600' : '')}>
-                        {fmtNum(b.stok)} {b.satuan}
-                      </span>
-                      {b.stokMin > 0 && <div className="text-[11px] text-muted-foreground">min {fmtNum(b.stokMin)}</div>}
+                    <TableCell className="text-sm">{b.satuan}</TableCell>
+                    <TableCell className={cn('whitespace-nowrap text-right font-semibold', b.stok <= 0 ? 'text-red-600' : b.stokMin > 0 && b.stok <= b.stokMin ? 'text-amber-600' : '')}>
+                      {fmtNum(b.stok)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(b.hargaSatuan)}</TableCell>
-                    <TableCell className="text-sm">{b.lokasi || '—'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(b.stokMin)}</TableCell>
                     <TableCell>
                       {b.aktif ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Aktif</Badge>
+                        <StokStatusBadge stok={b.stok} stokMin={b.stokMin} />
                       ) : (
                         <Badge variant="secondary">Nonaktif</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDetail(b)} aria-label={`Detail ${b.nama}`}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         {canEdit && (
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(b)} aria-label={`Edit ${b.nama}`}>
                             <Pencil className="h-4 w-4" />
@@ -936,9 +999,9 @@ function DataBahanTab({
           </div>
 
           {/* Mobile */}
-          <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1 md:hidden">
-            {filtered.map((b) => (
-              <Card key={b.id}>
+          <div className="space-y-2 md:hidden">
+            {pageRows.map((b) => (
+              <Card key={b.id} className={cn(!b.aktif && 'opacity-75')}>
                 <CardContent className="space-y-2 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -946,34 +1009,67 @@ function DataBahanTab({
                       <div className="text-xs text-muted-foreground">{b.kode} · {b.kategori || 'Tanpa kategori'}</div>
                     </div>
                     {b.aktif ? (
-                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Aktif</Badge>
+                      <StokStatusBadge stok={b.stok} stokMin={b.stokMin} />
                     ) : (
                       <Badge variant="secondary">Nonaktif</Badge>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 text-xs">
-                    <div><span className="text-muted-foreground">Stok: </span><span className={cn('font-semibold', b.stok <= 0 && 'text-red-600')}>{fmtNum(b.stok)} {b.satuan}</span></div>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <div><span className="text-muted-foreground">Stok: </span><span className={cn('font-semibold', b.stok <= 0 && 'text-red-600')}>{fmtNum(b.stok)}</span></div>
                     <div><span className="text-muted-foreground">Min: </span><span className="font-semibold">{fmtNum(b.stokMin)}</span></div>
-                    <div><span className="text-muted-foreground">Harga modal: </span><span className="font-semibold">{formatIDR(b.hargaSatuan)}</span></div>
-                    <div><span className="text-muted-foreground">Lokasi: </span><span className="font-semibold">{b.lokasi || '—'}</span></div>
+                    <div><span className="text-muted-foreground">Satuan: </span><span className="font-semibold">{b.satuan}</span></div>
                   </div>
-                  {(canEdit || canDelete) && (
-                    <div className="flex justify-end gap-1 pt-1">
-                      {canEdit && (
-                        <Button variant="outline" size="sm" onClick={() => onEdit(b)}>
-                          <Pencil className="h-3.5 w-3.5" /> Edit
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => onDelete(b)}>
-                          <Trash2 className="h-3.5 w-3.5" /> Hapus
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    <Button variant="outline" size="sm" onClick={() => onDetail(b)}>
+                      <Eye className="h-3.5 w-3.5" /> Detail
+                    </Button>
+                    {canEdit && (
+                      <Button variant="outline" size="sm" onClick={() => onEdit(b)}>
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => onDelete(b)}>
+                        <Trash2 className="h-3.5 w-3.5" /> Hapus
+                      </Button>
+                    )}
+                    {canAdd && (
+                      <Button variant="outline" size="sm" onClick={() => onPenyesuaian(b.id)}>
+                        <ArrowLeftRight className="h-3.5 w-3.5" /> Sesuaikan
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filtered.length)}`} dari {filtered.length} bahan
+              </span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="h-7 w-[70px] text-xs" aria-label="Baris per halaman">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n} / hal</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+                Sebelumnya
+              </Button>
+              <span className="text-xs text-muted-foreground">Hal. {safePage} / {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+                Berikutnya
+              </Button>
+            </div>
           </div>
         </>
       )}
@@ -982,285 +1078,289 @@ function DataBahanTab({
 }
 
 // ============================================================
-// Tab: Stok Masuk
+// Dialog: Detail Bahan (riwayat lengkap satu bahan)
 // ============================================================
 
-function MutasiFilterBar({
-  q,
-  setQ,
-  qPlaceholder,
-  dari,
-  setDari,
-  sampai,
-  setSampai,
-  onReset,
-}: {
-  q: string
-  setQ: (v: string) => void
-  qPlaceholder: string
-  dari: string
-  setDari: (v: string) => void
-  sampai: string
-  setSampai: (v: string) => void
-  onReset: () => void
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-48 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={qPlaceholder} className="pl-9" />
-        </div>
-        <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Dari tanggal" className="w-full sm:w-40" />
-        <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Sampai tanggal" className="w-full sm:w-40" />
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onReset}>
-          Reset
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function MasukTab({
-  mutasi,
+function DetailDialog({
   bahan,
-  canAdd,
-  onSaved,
+  onOpenChange,
+  canEdit,
+  onEdit,
+  onPenyesuaian,
 }: {
-  mutasi: Mutasi[]
-  bahan: Bahan[]
-  canAdd: boolean
-  onSaved: () => Promise<void>
+  bahan: Bahan | null
+  onOpenChange: (o: boolean) => void
+  canEdit: boolean
+  onEdit: (b: Bahan) => void
+  onPenyesuaian: (b: Bahan) => void
 }) {
-  const [q, setQ] = useState('')
-  const [dari, setDari] = useState('')
-  const [sampai, setSampai] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editRow, setEditRow] = useState<Mutasi | null>(null)
+  const [detail, setDetail] = useState<DetailResponse | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const rows = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    return mutasi
-      .filter((m) => m.jenis === 'masuk')
-      .filter((m) => {
-        if (term && !`${m.nomor} ${m.namaBahan} ${m.keterangan} ${m.pemasok} ${m.nomorNota}`.toLowerCase().includes(term))
-          return false
-        if (dari && m.tanggal && m.tanggal < dari) return false
-        if (sampai && m.tanggal && m.tanggal > sampai) return false
-        return true
+  useEffect(() => {
+    if (!bahan) {
+      setDetail(null)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    apiFetch<DetailResponse>(`/api/stock-bahan/${encodeURIComponent(bahan.id)}`)
+      .then((d) => {
+        if (!cancelled) setDetail(d)
       })
-  }, [mutasi, q, dari, sampai])
-
-  const totalNilai = rows.reduce((a, m) => a + (m.totalHarga || 0), 0)
+      .catch(() => {
+        if (!cancelled) toast.error('Gagal memuat detail bahan')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bahan])
 
   return (
-    <div className="space-y-4">
-      <MutasiFilterBar
-        q={q} setQ={setQ} qPlaceholder="Cari nomor / bahan / catatan…"
-        dari={dari} setDari={setDari} sampai={sampai} setSampai={setSampai}
-        onReset={() => { setQ(''); setDari(''); setSampai('') }}
-      />
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => printTable('Stok Masuk', ['Nomor', 'Tanggal', 'Bahan', 'Jumlah', 'Harga Beli', 'Total', 'Pemasok', 'No. Nota', 'Catatan'], rows.map((m) => [m.nomor, fmtTanggal(m.tanggal), m.namaBahan, `${fmtNum(m.qty)} ${m.satuanBahan}`, formatIDR(m.hargaBeli), formatIDR(m.totalHarga), m.pemasok || '-', m.nomorNota || '-', m.keterangan || '-']), `${rows.length} transaksi · total ${formatIDR(totalNilai)}`)}>
-          <Printer className="h-4 w-4" /> Print
-        </Button>
-        {canAdd && (
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setDialogOpen(true)}>
-            <PackagePlus className="h-4 w-4" /> Stok Masuk
-          </Button>
+    <Dialog open={!!bahan} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="h-5 w-5 text-emerald-600" /> Detail Bahan
+          </DialogTitle>
+          <DialogDescription>
+            {bahan ? `${bahan.kode} — ${bahan.nama}` : ''}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading || !detail ? (
+          <Spinner label="Memuat detail…" />
+        ) : (
+          <div className="space-y-4">
+            {/* Info master */}
+            <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 text-sm sm:grid-cols-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Stok tersedia</div>
+                <div className="font-bold">{fmtNum(detail.bahan.stok)} {detail.bahan.satuan}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Stok minimum</div>
+                <div className="font-semibold">{fmtNum(detail.bahan.stokMin)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Harga modal</div>
+                <div className="font-semibold">{formatIDR(detail.bahan.hargaSatuan)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Nilai stok</div>
+                <div className="font-semibold">{formatIDR(detail.ringkasan.nilaiStok)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Kategori</div>
+                <div className="font-medium">{detail.bahan.kategori || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Pemasok</div>
+                <div className="truncate font-medium">{detail.bahan.pemasok || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Lokasi</div>
+                <div className="truncate font-medium">{detail.bahan.lokasi || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Total transaksi</div>
+                <div className="font-medium">
+                  +{fmtNum(detail.ringkasan.totalMasuk)} / −{fmtNum(detail.ringkasan.totalKeluar)} ({detail.ringkasan.jumlahTransaksi})
+                </div>
+              </div>
+              {(detail.bahan.keterangan) && (
+                <div className="col-span-2 sm:col-span-4">
+                  <div className="text-xs text-muted-foreground">Spesifikasi / keterangan</div>
+                  <div className="whitespace-pre-wrap text-sm">{detail.bahan.keterangan || '—'}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Riwayat mutasi */}
+            <div>
+              <div className="mb-2 text-sm font-semibold">Riwayat transaksi (terbaru dulu)</div>
+              {detail.riwayat.length === 0 ? (
+                <EmptyState text="Belum ada transaksi untuk bahan ini." />
+              ) : (
+                <div className="max-h-72 overflow-y-auto rounded-lg border">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background">
+                      <TableRow>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Nomor</TableHead>
+                        <TableHead>Jenis</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Saldo</TableHead>
+                        <TableHead>Keterangan</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detail.riwayat.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="whitespace-nowrap text-xs">{fmtTanggal(r.tanggal)}</TableCell>
+                          <TableCell className="whitespace-nowrap font-mono text-xs">{r.nomor || '—'}</TableCell>
+                          <TableCell><JenisBadge jenis={r.jenis} /></TableCell>
+                          <TableCell className={cn('whitespace-nowrap text-right text-xs font-semibold', r.jenis === 'masuk' ? 'text-emerald-700' : r.jenis === 'keluar' ? 'text-red-600' : r.qty > 0 ? 'text-emerald-700' : 'text-red-600')}>
+                            {r.jenis === 'masuk' ? '+' : r.jenis === 'keluar' ? '−' : r.qty > 0 ? '+' : ''}
+                            {fmtNum(Math.abs(r.qty))} {r.satuan}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-right text-xs">{fmtNum(r.saldo)}</TableCell>
+                          <TableCell className="max-w-44 truncate text-xs text-muted-foreground">
+                            {r.jenis === 'keluar'
+                              ? [r.tujuan, r.referensi, r.keterangan].filter(Boolean).join(' — ') || '—'
+                              : r.jenis === 'penyesuaian'
+                                ? [r.alasan, r.keterangan].filter(Boolean).join(' — ') || '—'
+                                : [r.pemasok, r.nomorNota, r.keterangan].filter(Boolean).join(' — ') || '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </div>
         )}
-      </div>
 
-      {rows.length === 0 ? (
-        <EmptyState text="Belum ada transaksi stok masuk." />
-      ) : (
-        <div className="max-h-[520px] overflow-y-auto rounded-lg border">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background">
-              <TableRow>
-                <TableHead>Nomor</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Bahan</TableHead>
-                <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead className="text-right">Harga Beli</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Pemasok</TableHead>
-                <TableHead>No. Nota</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow
-                  key={m.id}
-                  className="cursor-pointer"
-                  title="Klik untuk edit transaksi"
-                  onClick={() => setEditRow(m)}
-                >
-                  <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
-                  <TableCell className="text-sm font-medium">{m.namaBahan || m.bahan?.nama || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm text-emerald-700">
-                    +{fmtNum(m.qty)} {m.satuanBahan}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(m.hargaBeli)}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm font-semibold">{formatIDR(m.totalHarga)}</TableCell>
-                  <TableCell className="text-sm">{m.pemasok || '—'}</TableCell>
-                  <TableCell className="text-sm">{m.nomorNota || '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      <MasukDialog
-        open={dialogOpen || !!editRow}
-        onOpenChange={(o) => {
-          setDialogOpen(o)
-          if (!o) setEditRow(null)
-        }}
-        bahan={bahan}
-        onSaved={onSaved}
-        edit={editRow}
-      />
-    </div>
+        <DialogFooter className="gap-2">
+          {bahan && canEdit && (
+            <Button variant="outline" onClick={() => onPenyesuaian(bahan)}>
+              <ArrowLeftRight className="h-4 w-4" /> Penyesuaian
+            </Button>
+          )}
+          {bahan && canEdit && (
+            <Button variant="outline" onClick={() => onEdit(bahan)}>
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
+          )}
+          <Button onClick={() => onOpenChange(false)}>Tutup</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-function BahanPicker({
-  bahan,
-  value,
-  onChange,
-  disabled,
-}: {
-  bahan: Bahan[]
-  value: string
-  onChange: (id: string) => void
-  disabled?: boolean
-}) {
-  return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger aria-label="Pilih bahan">
-        <SelectValue placeholder="Pilih bahan" />
-      </SelectTrigger>
-      <SelectContent>
-        {bahan.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Belum ada bahan aktif</div>}
-        {bahan.map((b) => (
-          <SelectItem key={b.id} value={b.id}>
-            {b.nama} ({b.kode}) — stok {fmtNum(b.stok)} {b.satuan}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
+// ============================================================
+// Dialog: Tambah / Edit Bahan (tanpa ubah stok langsung)
+// ============================================================
 
-function MasukDialog({
+function BahanFormDialog({
   open,
   onOpenChange,
+  editing,
   bahan,
   onSaved,
-  edit,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
+  editing: Bahan | null
   bahan: Bahan[]
   onSaved: () => Promise<void>
-  edit?: Mutasi | null
 }) {
-  const [bahanId, setBahanId] = useState('')
-  const [tanggal, setTanggal] = useState(todayStr())
-  const [qty, setQty] = useState('')
-  const [hargaBeli, setHargaBeli] = useState('')
+  const [nama, setNama] = useState('')
+  const [kategori, setKategori] = useState('Tanpa kategori')
+  const [spesifikasi, setSpesifikasi] = useState('')
+  const [satuan, setSatuan] = useState('pcs')
+  const [stokMin, setStokMin] = useState('0')
   const [pemasok, setPemasok] = useState('')
-  const [nomorNota, setNomorNota] = useState('')
+  const [supplierListOpen, setSupplierListOpen] = useState(false)
+  const [lokasi, setLokasi] = useState('')
   const [keterangan, setKeterangan] = useState('')
+  const [aktif, setAktif] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // Bahan nonaktif tidak ada di daftar `bahan` — tambahkan dari snapshot mutasi agar tetap tampil saat edit.
-  const bahanList = useMemo(() => {
-    if (!edit || bahan.some((b) => b.id === edit.bahanId)) return bahan
-    const fallback = {
-      id: edit.bahanId,
-      kode: edit.bahan?.kode || '',
-      nama: edit.namaBahan || edit.bahan?.nama || '(bahan nonaktif)',
-      satuan: edit.satuanBahan || edit.bahan?.satuan || 'pcs',
-      stok: 0,
-    } as Bahan
-    return [...bahan, fallback]
-  }, [bahan, edit])
+  const kategoriOptions = useMemo(() => {
+    const set = new Set<string>(KATEGORI_BAWAAN)
+    for (const b of bahan) {
+      const k = (b.kategori || '').trim()
+      if (k) set.add(k)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [bahan])
 
-  const selected = bahanList.find((b) => b.id === bahanId)
-  const total = (Number(qty) || 0) * (Number(hargaBeli) || 0)
-  const canSave = !!bahanId && Number(qty) > 0 && !saving
+  const supplierOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const b of bahan) {
+      const s = (b.pemasok || '').trim()
+      if (s) set.add(s)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [bahan])
 
-  const reset = () => {
-    setBahanId('')
-    setTanggal(todayStr())
-    setQty('')
-    setHargaBeli('')
-    setPemasok('')
-    setNomorNota('')
-    setKeterangan('')
-  }
+  const filteredSuppliers = useMemo(() => {
+    const q = pemasok.trim().toLowerCase()
+    if (!q) return supplierOptions
+    return supplierOptions.filter((s) => s.toLowerCase().includes(q))
+  }, [supplierOptions, pemasok])
 
-  // Prefill saat edit transaksi; reset saat mode tambah.
+  // Prediksi kode bahan berikutnya — logika sama dengan POST /api/stock-bahan.
+  const nextKode = useMemo(() => {
+    let maxNum = 0
+    for (const b of bahan) {
+      const m = /^BHN-(\d+)$/i.exec(b.kode || '')
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10))
+    }
+    return `BHN-${String(maxNum + 1).padStart(3, '0')}`
+  }, [bahan])
+
   useEffect(() => {
     if (!open) return
-    if (edit) {
-      setBahanId(edit.bahanId)
-      setTanggal(edit.tanggal || todayStr())
-      setQty(String(edit.qty ?? ''))
-      setHargaBeli(String(edit.hargaBeli ?? 0))
-      setPemasok(edit.pemasok || '')
-      setNomorNota(edit.nomorNota || '')
-      setKeterangan(edit.keterangan || '')
+    if (editing) {
+      setNama(editing.nama)
+      setKategori(editing.kategori || 'Tanpa kategori')
+      // keterangan menyimpan "Ref PO: x | catatan" — tampilkan bagian catatan saja
+      const m = /^Ref PO:\s*(.+?)(?:\s*\|\s*(.*))?$/.exec((editing.keterangan || '').trim())
+      setSpesifikasi('')
+      setKeterangan(m ? (m[2] || '').trim() : (editing.keterangan || '').trim())
+      setSatuan(editing.satuan || 'pcs')
+      setStokMin(String(editing.stokMin ?? 0))
+      setPemasok(editing.pemasok || '')
+      setLokasi(editing.lokasi || '')
+      setAktif(editing.aktif)
     } else {
-      reset()
+      setNama('')
+      setKategori('Tanpa kategori')
+      setSpesifikasi('')
+      setSatuan('pcs')
+      setStokMin('0')
+      setPemasok('')
+      setLokasi('')
+      setKeterangan('')
+      setAktif(true)
     }
-  }, [open, edit])
+    setSupplierListOpen(false)
+  }, [open, editing])
 
   const submit = async () => {
-    if (!canSave) return
+    if (!nama.trim() || saving) return
     setSaving(true)
     try {
-      if (edit) {
-        await apiFetch('/api/stock-bahan/mutasi', {
-          method: 'PUT',
-          body: JSON.stringify({
-            id: edit.id,
-            bahanId,
-            qty: Number(qty),
-            tanggal,
-            hargaBeli: Number(hargaBeli) || 0,
-            pemasok,
-            nomorNota,
-            keterangan,
-          }),
-        })
-        toast.success(`Transaksi ${edit.nomor} diperbarui (stok ikut disesuaikan)`)
+      // Spesifikasi digabung rapi ke keterangan (baris pertama spesifikasi).
+      const ketParts = [spesifikasi.trim(), keterangan.trim()].filter(Boolean)
+      const payload = {
+        nama: nama.trim(),
+        kategori: kategori === 'Tanpa kategori' ? '' : kategori,
+        satuan,
+        stokMin: Number(stokMin) || 0,
+        pemasok: pemasok.trim(),
+        lokasi: lokasi.trim(),
+        aktif,
+        keterangan: ketParts.join('\n'),
+      }
+      if (editing) {
+        await apiFetch('/api/stock-bahan', { method: 'PUT', body: JSON.stringify({ id: editing.id, ...payload }) })
+        toast.success('Perubahan bahan disimpan')
       } else {
-        await apiFetch('/api/stock-bahan/mutasi', {
-          method: 'POST',
-          body: JSON.stringify({
-            bahanId,
-            jenis: 'masuk',
-            qty: Number(qty),
-            tanggal,
-            hargaBeli: Number(hargaBeli) || 0,
-            pemasok,
-            nomorNota,
-            keterangan,
-          }),
-        })
-        toast.success(`Stok masuk tercatat (${selected?.nama} +${fmtNum(Number(qty))} ${selected?.satuan})`)
+        await apiFetch('/api/stock-bahan', { method: 'POST', body: JSON.stringify(payload) })
+        toast.success(`Bahan ditambahkan (${payload.nama}) — catat stok lewat Stock Masuk atau Penyesuaian`)
       }
       onOpenChange(false)
       await onSaved()
     } catch (e: any) {
-      toast.error(e?.message || 'Gagal menyimpan stok masuk')
+      toast.error(e?.message || 'Gagal menyimpan bahan')
     } finally {
       setSaving(false)
     }
@@ -1268,70 +1368,137 @@ function MasukDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="bahan-popup-compact max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{edit ? 'Edit Stok Masuk' : 'Stok Masuk'}</DialogTitle>
+          <DialogTitle>{editing ? 'Edit Bahan' : 'Tambah Bahan'}</DialogTitle>
           <DialogDescription>
-            {edit
-              ? `Nomor ${edit.nomor} — ubah data transaksi. Stok bahan disesuaikan otomatis.`
-              : 'Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.'}
+            {editing
+              ? `Kode ${editing.kode} — stok tersedia ${fmtNum(editing.stok)} ${editing.satuan} (diubah lewat transaksi / penyesuaian).`
+              : `Kode bahan: ${nextKode} (otomatis & unik). Stok diisi lewat Stock Masuk atau Penyesuaian Stok.`}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Tanggal</Label>
-            <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Bahan</Label>
-            <BahanPicker
-              bahan={bahanList}
-              value={bahanId}
-              onChange={(id) => {
-                setBahanId(id)
-                const b = bahanList.find((x) => x.id === id)
-                if (b?.pemasok && !pemasok) setPemasok(b.pemasok)
-              }}
-            />
+            <Label htmlFor="bhn-nama">Nama bahan *</Label>
+            <Input id="bhn-nama" value={nama} onChange={(e) => setNama(e.target.value)} placeholder="mis. Kertas Art Paper 150gsm" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Jumlah *</Label>
-              <Input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
+              <Label>Kategori</Label>
+              <Select value={kategori} onValueChange={setKategori}>
+                <SelectTrigger aria-label="Kategori">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bahan-popup-compact">
+                  <SelectItem value="Tanpa kategori">Tanpa kategori</SelectItem>
+                  {kategoriOptions.map((k) => (
+                    <SelectItem key={k} value={k}>{k}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Satuan</Label>
-              <Input value={selected?.satuan || '—'} disabled />
+              <Label>Satuan *</Label>
+              <Select value={satuan} onValueChange={setSatuan}>
+                <SelectTrigger aria-label="Satuan">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bahan-popup-compact">
+                  {SATUAN_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Harga beli / satuan</Label>
-              <Input type="number" min="0" step="any" value={hargaBeli} onChange={(e) => setHargaBeli(e.target.value)} placeholder="0" />
+              <Label>Spesifikasi / gramatur</Label>
+              <Input value={spesifikasi} onChange={(e) => setSpesifikasi(e.target.value)} placeholder="mis. 150gsm, A3+ / Kertas Kraf" />
             </div>
             <div className="space-y-1.5">
-              <Label>Total</Label>
-              <Input value={formatIDR(total)} disabled />
+              <Label>Stok minimum</Label>
+              <Input type="number" min="0" step="any" value={stokMin} onChange={(e) => setStokMin(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Pemasok utama</Label>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <Input
+                    value={pemasok}
+                    onChange={(e) => {
+                      setPemasok(e.target.value)
+                      setSupplierListOpen(true)
+                    }}
+                    onFocus={() => setSupplierListOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setSupplierListOpen(false)
+                    }}
+                    placeholder="Ketik atau pilih dari daftar…"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSupplierListOpen((v) => !v)}
+                    aria-label="Tampilkan daftar pemasok"
+                    aria-expanded={supplierListOpen}
+                  >
+                    <ChevronsUpDown className="h-4 w-4" />
+                  </Button>
+                </div>
+                {supplierListOpen && (
+                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-md">
+                    {supplierOptions.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Belum ada pemasok tersimpan — ketik manual saja.</div>
+                    ) : filteredSuppliers.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Tidak ada yang cocok — lanjut ketik manual.</div>
+                    ) : (
+                      filteredSuppliers.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted',
+                            pemasok === s && 'bg-muted font-medium'
+                          )}
+                          onClick={() => {
+                            setPemasok(s)
+                            setSupplierListOpen(false)
+                          }}
+                        >
+                          <span className="truncate">{s}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Lokasi penyimpanan</Label>
+              <Input value={lokasi} onChange={(e) => setLokasi(e.target.value)} placeholder="mis. Gudang A — Rak 2" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Nama supplier</Label>
-            <Input value={pemasok} onChange={(e) => setPemasok(e.target.value)} placeholder="Nama supplier" />
+            <Label>Keterangan</Label>
+            <Textarea rows={2} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Opsional" />
           </div>
-          <div className="space-y-1.5">
-            <Label>Nomor nota / faktur</Label>
-            <Input value={nomorNota} onChange={(e) => setNomorNota(e.target.value)} placeholder="Nomor nota / faktur" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Catatan</Label>
-            <Textarea rows={2} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Catatan" />
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <div className="text-sm font-medium">Status aktif bahan</div>
+              <div className="text-xs text-muted-foreground">Bahan nonaktif disembunyikan dari transaksi baru.</div>
+            </div>
+            <Switch checked={aktif} onCheckedChange={setAktif} aria-label="Status aktif bahan" />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!canSave} onClick={submit}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
-            {edit ? 'Simpan Perubahan' : 'Catat Stok Masuk'}
+          <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!nama.trim() || saving} onClick={submit}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {editing ? 'Simpan Perubahan' : 'Tambah Bahan'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1340,354 +1507,22 @@ function MasukDialog({
 }
 
 // ============================================================
-// Tab: Stok Keluar
+// Dialog: Penyesuaian Stok (fitur pendukung, akses via panel samping)
 // ============================================================
-
-function KeluarTab({
-  mutasi,
-  bahan,
-  canAdd,
-  onSaved,
-  izinkanMinus,
-}: {
-  mutasi: Mutasi[]
-  bahan: Bahan[]
-  canAdd: boolean
-  onSaved: () => Promise<void>
-  izinkanMinus: boolean
-}) {
-  const [q, setQ] = useState('')
-  const [dari, setDari] = useState('')
-  const [sampai, setSampai] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editRow, setEditRow] = useState<Mutasi | null>(null)
-
-  const rows = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    return mutasi
-      .filter((m) => m.jenis === 'keluar')
-      .filter((m) => {
-        if (term && !`${m.nomor} ${m.namaBahan} ${m.keterangan} ${m.tujuan}`.toLowerCase().includes(term)) return false
-        if (dari && m.tanggal && m.tanggal < dari) return false
-        if (sampai && m.tanggal && m.tanggal > sampai) return false
-        return true
-      })
-  }, [mutasi, q, dari, sampai])
-
-  return (
-    <div className="space-y-4">
-      <MutasiFilterBar
-        q={q} setQ={setQ} qPlaceholder="Cari nomor / bahan / catatan…"
-        dari={dari} setDari={setDari} sampai={sampai} setSampai={setSampai}
-        onReset={() => { setQ(''); setDari(''); setSampai('') }}
-      />
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => printTable('Stok Keluar', ['Nomor', 'Tanggal', 'Bahan', 'Jumlah', 'Tujuan', 'Catatan'], rows.map((m) => [m.nomor, fmtTanggal(m.tanggal), m.namaBahan, `${fmtNum(m.qty)} ${m.satuanBahan}`, m.tujuan || '-', m.keterangan || '-']), `${rows.length} transaksi`)}>
-          <Printer className="h-4 w-4" /> Print
-        </Button>
-        {canAdd && (
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setDialogOpen(true)}>
-            <PackageMinus className="h-4 w-4" /> Stok Keluar
-          </Button>
-        )}
-        {!izinkanMinus && <span className="text-xs text-muted-foreground">Stok tidak boleh minus — aktifkan "Izinkan stok minus" bila perlu.</span>}
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptyState text="Belum ada transaksi stok keluar." />
-      ) : (
-        <div className="max-h-[520px] overflow-y-auto rounded-lg border">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background">
-              <TableRow>
-                <TableHead>Nomor</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Bahan</TableHead>
-                <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead>Tujuan</TableHead>
-                <TableHead>Catatan</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow
-                  key={m.id}
-                  className="cursor-pointer"
-                  title="Klik untuk edit transaksi"
-                  onClick={() => setEditRow(m)}
-                >
-                  <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
-                  <TableCell className="text-sm font-medium">{m.namaBahan || m.bahan?.nama || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm text-red-600">
-                    −{fmtNum(m.qty)} {m.satuanBahan}
-                  </TableCell>
-                  <TableCell className="text-sm">{m.tujuan || '—'}</TableCell>
-                  <TableCell className="max-w-48 truncate text-sm text-muted-foreground">{m.keterangan || '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      <KeluarDialog
-        open={dialogOpen || !!editRow}
-        onOpenChange={(o) => {
-          setDialogOpen(o)
-          if (!o) setEditRow(null)
-        }}
-        bahan={bahan}
-        onSaved={onSaved}
-        edit={editRow}
-      />
-    </div>
-  )
-}
-
-function KeluarDialog({
-  open,
-  onOpenChange,
-  bahan,
-  onSaved,
-  edit,
-}: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  bahan: Bahan[]
-  onSaved: () => Promise<void>
-  edit?: Mutasi | null
-}) {
-  const [bahanId, setBahanId] = useState('')
-  const [tanggal, setTanggal] = useState(todayStr())
-  const [qty, setQty] = useState('')
-  const [tujuan, setTujuan] = useState('Lainnya')
-  const [keterangan, setKeterangan] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  // Bahan nonaktif tidak ada di daftar `bahan` — tambahkan dari snapshot mutasi agar tetap tampil saat edit.
-  const bahanList = useMemo(() => {
-    if (!edit || bahan.some((b) => b.id === edit.bahanId)) return bahan
-    const fallback = {
-      id: edit.bahanId,
-      kode: edit.bahan?.kode || '',
-      nama: edit.namaBahan || edit.bahan?.nama || '(bahan nonaktif)',
-      satuan: edit.satuanBahan || edit.bahan?.satuan || 'pcs',
-      stok: 0,
-    } as Bahan
-    return [...bahan, fallback]
-  }, [bahan, edit])
-
-  const selected = bahanList.find((b) => b.id === bahanId)
-  const canSave = !!bahanId && Number(qty) > 0 && !saving
-
-  const reset = () => {
-    setBahanId('')
-    setTanggal(todayStr())
-    setQty('')
-    setTujuan('Lainnya')
-    setKeterangan('')
-  }
-
-  // Prefill saat edit transaksi; reset saat mode tambah.
-  useEffect(() => {
-    if (!open) return
-    if (edit) {
-      setBahanId(edit.bahanId)
-      setTanggal(edit.tanggal || todayStr())
-      setQty(String(edit.qty ?? ''))
-      setTujuan(edit.tujuan || 'Lainnya')
-      setKeterangan(edit.keterangan || '')
-    } else {
-      reset()
-    }
-  }, [open, edit])
-
-  const submit = async () => {
-    if (!canSave) return
-    setSaving(true)
-    try {
-      if (edit) {
-        await apiFetch('/api/stock-bahan/mutasi', {
-          method: 'PUT',
-          body: JSON.stringify({ id: edit.id, bahanId, qty: Number(qty), tanggal, tujuan, keterangan }),
-        })
-        toast.success(`Transaksi ${edit.nomor} diperbarui (stok ikut disesuaikan)`)
-      } else {
-        await apiFetch('/api/stock-bahan/mutasi', {
-          method: 'POST',
-          body: JSON.stringify({ bahanId, jenis: 'keluar', qty: Number(qty), tanggal, tujuan, keterangan }),
-        })
-        toast.success(`Stok keluar tercatat (${selected?.nama} −${fmtNum(Number(qty))} ${selected?.satuan})`)
-      }
-      onOpenChange(false)
-      await onSaved()
-    } catch (e: any) {
-      toast.error(e?.message || 'Gagal menyimpan stok keluar')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{edit ? 'Edit Stok Keluar' : 'Stok Keluar'}</DialogTitle>
-          <DialogDescription>
-            {edit
-              ? `Nomor ${edit.nomor} — ubah data transaksi. Stok bahan disesuaikan otomatis.`
-              : 'Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Tanggal</Label>
-            <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Bahan</Label>
-            <BahanPicker bahan={bahanList} value={bahanId} onChange={setBahanId} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Jumlah *</Label>
-              <Input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Satuan</Label>
-              <Input value={selected?.satuan || '—'} disabled />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Tujuan</Label>
-            <Select value={tujuan} onValueChange={setTujuan}>
-              <SelectTrigger aria-label="Tujuan">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TUJUAN_KELUAR.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Catatan</Label>
-            <Textarea rows={2} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Catatan" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!canSave} onClick={submit}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageMinus className="h-4 w-4" />}
-            {edit ? 'Simpan Perubahan' : 'Catat Stok Keluar'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ============================================================
-// Tab: Penyesuaian Stok
-// ============================================================
-
-function PenyesuaianTab({
-  mutasi,
-  bahan,
-  canAdd,
-  onSaved,
-}: {
-  mutasi: Mutasi[]
-  bahan: Bahan[]
-  canAdd: boolean
-  onSaved: () => Promise<void>
-}) {
-  const [q, setQ] = useState('')
-  const [dari, setDari] = useState('')
-  const [sampai, setSampai] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-
-  const rows = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    return mutasi
-      .filter((m) => m.jenis === 'penyesuaian')
-      .filter((m) => {
-        if (term && !`${m.nomor} ${m.namaBahan} ${m.keterangan} ${m.alasan}`.toLowerCase().includes(term)) return false
-        if (dari && m.tanggal && m.tanggal < dari) return false
-        if (sampai && m.tanggal && m.tanggal > sampai) return false
-        return true
-      })
-  }, [mutasi, q, dari, sampai])
-
-  return (
-    <div className="space-y-4">
-      <MutasiFilterBar
-        q={q} setQ={setQ} qPlaceholder="Cari nomor / bahan / catatan…"
-        dari={dari} setDari={setDari} sampai={sampai} setSampai={setSampai}
-        onReset={() => { setQ(''); setDari(''); setSampai('') }}
-      />
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => printTable('Penyesuaian Stok', ['Nomor', 'Tanggal', 'Bahan', 'Stok Sistem', 'Stok Fisik', 'Selisih', 'Alasan', 'Catatan'], rows.map((m) => [m.nomor, fmtTanggal(m.tanggal), m.namaBahan, `${fmtNum(m.stokSetelah - m.qty)} ${m.satuanBahan}`, `${fmtNum(m.stokSetelah)} ${m.satuanBahan}`, `${m.qty > 0 ? '+' : ''}${fmtNum(m.qty)}`, m.alasan || '-', m.keterangan || '-']), `${rows.length} penyesuaian`)}>
-          <Printer className="h-4 w-4" /> Print
-        </Button>
-        {canAdd && (
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setDialogOpen(true)}>
-            <ArrowLeftRight className="h-4 w-4" /> Penyesuaian Stok
-          </Button>
-        )}
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptyState text="Belum ada penyesuaian stok." />
-      ) : (
-        <div className="max-h-[520px] overflow-y-auto rounded-lg border">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background">
-              <TableRow>
-                <TableHead>Nomor</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Bahan</TableHead>
-                <TableHead className="text-right">Stok Sistem</TableHead>
-                <TableHead className="text-right">Stok Fisik</TableHead>
-                <TableHead className="text-right">Selisih</TableHead>
-                <TableHead>Alasan</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
-                  <TableCell className="text-sm font-medium">{m.namaBahan || m.bahan?.nama || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(m.stokSetelah - m.qty)} {m.satuanBahan}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm font-semibold">{fmtNum(m.stokSetelah)} {m.satuanBahan}</TableCell>
-                  <TableCell className={cn('whitespace-nowrap text-right text-sm font-semibold', m.qty > 0 ? 'text-emerald-700' : 'text-red-600')}>
-                    {m.qty > 0 ? '+' : ''}{fmtNum(m.qty)}
-                  </TableCell>
-                  <TableCell className="text-sm">{m.alasan || '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      <PenyesuaianDialog open={dialogOpen} onOpenChange={setDialogOpen} bahan={bahan} onSaved={onSaved} />
-    </div>
-  )
-}
 
 function PenyesuaianDialog({
   open,
   onOpenChange,
   bahan,
+  initialBahanId,
+  initialBahanNama,
   onSaved,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   bahan: Bahan[]
+  initialBahanId: string
+  initialBahanNama: string
   onSaved: () => Promise<void>
 }) {
   const [bahanId, setBahanId] = useState('')
@@ -1697,17 +1532,40 @@ function PenyesuaianDialog({
   const [keterangan, setKeterangan] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const selected = bahan.find((b) => b.id === bahanId)
-  const selisih = selected ? (Number(stokFisik) || 0) - selected.stok : null
+  // Bahan nonaktif yang dipilih dari detail → tetap ada di daftar.
+  const bahanList = useMemo(() => {
+    if (!initialBahanId || bahan.some((b) => b.id === initialBahanId)) return bahan
+    return [
+      ...bahan,
+      {
+        id: initialBahanId,
+        kode: '',
+        nama: initialBahanNama || '(bahan nonaktif)',
+        kategori: '',
+        satuan: 'pcs',
+        stok: 0,
+        stokMin: 0,
+        hargaSatuan: 0,
+        keterangan: '',
+        aktif: false,
+        lokasi: '',
+        pemasok: '',
+      } as Bahan,
+    ]
+  }, [bahan, initialBahanId, initialBahanNama])
+
+  const selected = bahanList.find((b) => b.id === bahanId)
+  const selisih = selected ? r2((Number(stokFisik) || 0) - selected.stok) : null
   const canSave = !!bahanId && stokFisik !== '' && Number(stokFisik) >= 0 && selisih !== 0 && !saving
 
-  const reset = () => {
-    setBahanId('')
+  useEffect(() => {
+    if (!open) return
+    setBahanId(initialBahanId || '')
     setTanggal(todayStr())
     setStokFisik('')
     setAlasan('Lainnya')
     setKeterangan('')
-  }
+  }, [open, initialBahanId])
 
   const submit = async () => {
     if (!canSave) return
@@ -1724,9 +1582,8 @@ function PenyesuaianDialog({
           keterangan,
         }),
       })
-      toast.success(`Penyesuaian tercatat (${selected?.nama}: ${selected?.stok} → ${fmtNum(Number(stokFisik))} ${selected?.satuan})`)
+      toast.success(`Penyesuaian tercatat (${selected?.nama}: ${fmtNum(selected?.stok || 0)} → ${fmtNum(Number(stokFisik))} ${selected?.satuan || ''})`)
       onOpenChange(false)
-      reset()
       await onSaved()
     } catch (e: any) {
       toast.error(e?.message || 'Gagal menyimpan penyesuaian')
@@ -1740,7 +1597,9 @@ function PenyesuaianDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Penyesuaian Stok</DialogTitle>
-          <DialogDescription>Nomor transaksi dibuat otomatis. Stok diperbarui setelah disimpan.</DialogDescription>
+          <DialogDescription>
+            Stok opname: samakan stok sistem dengan stok fisik. Nomor transaksi dibuat otomatis (SP-xxx).
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -1749,7 +1608,7 @@ function PenyesuaianDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Bahan</Label>
-            <BahanPicker bahan={bahan} value={bahanId} onChange={setBahanId} />
+            <BahanPicker bahan={bahanList} value={bahanId} onChange={setBahanId} />
           </div>
           <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
             <div>
@@ -1800,427 +1659,405 @@ function PenyesuaianDialog({
 }
 
 // ============================================================
-// Tab: Riwayat Stok (ledger)
+// Pemilih bahan (dropdown dengan info stok)
 // ============================================================
 
-function RiwayatTab({
+function BahanPicker({
+  bahan,
+  value,
+  onChange,
+  disabled,
+}: {
+  bahan: Bahan[]
+  value: string
+  onChange: (id: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger aria-label="Pilih bahan">
+        <SelectValue placeholder="Pilih bahan" />
+      </SelectTrigger>
+      <SelectContent>
+        {bahan.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Belum ada bahan aktif</div>}
+        {bahan.map((b) => (
+          <SelectItem key={b.id} value={b.id}>
+            {b.nama} ({b.kode}) — stok {fmtNum(b.stok)} {b.satuan}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// ============================================================
+// Bar filter tanggal umum untuk tab transaksi
+// ============================================================
+
+function FilterBar({
+  q,
+  setQ,
+  qPlaceholder,
+  dari,
+  setDari,
+  sampai,
+  setSampai,
+  children,
+  onReset,
+}: {
+  q: string
+  setQ: (v: string) => void
+  qPlaceholder: string
+  dari: string
+  setDari: (v: string) => void
+  sampai: string
+  setSampai: (v: string) => void
+  children?: React.ReactNode
+  onReset: () => void
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-44 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={qPlaceholder} className="pl-9" />
+        </div>
+        <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Dari tanggal" className="w-full sm:w-40" />
+        <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Sampai tanggal" className="w-full sm:w-40" />
+        {children}
+      </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onReset}>
+          Reset
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Konfirmasi batalkan transaksi (masuk/keluar/penyesuaian)
+// ============================================================
+
+function CancelTransaksiDialog({
+  target,
+  onClose,
+  onDeleted,
+}: {
+  target: { mutasi: Mutasi; label: string } | null
+  onClose: () => void
+  onDeleted: () => Promise<void>
+}) {
+  const [deleting, setDeleting] = useState(false)
+  return (
+    <AlertDialog open={!!target} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Batalkan transaksi?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {target
+              ? `Transaksi ${target.mutasi.nomor} (${target.mutasi.namaBahan} ${target.mutasi.jenis === 'masuk' ? '+' : '−'}${fmtNum(target.mutasi.qty)} ${target.mutasi.satuanBahan}) akan dibatalkan. Saldo stok ${target.mutasi.namaBahan} dikoreksi otomatis mengikuti pembatalan ini.`
+              : ''}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleting}>Kembali</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-600 hover:bg-red-700"
+            disabled={deleting}
+            onClick={async () => {
+              if (!target) return
+              setDeleting(true)
+              try {
+                await apiFetch(`/api/stock-bahan/mutasi?id=${encodeURIComponent(target.mutasi.id)}`, { method: 'DELETE' })
+                toast.success(`Transaksi ${target.mutasi.nomor} dibatalkan — saldo dikoreksi`)
+                onClose()
+                await onDeleted()
+              } catch (e: any) {
+                toast.error(e?.message || 'Gagal membatalkan transaksi')
+              } finally {
+                setDeleting(false)
+              }
+            }}
+          >
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Ya, Batalkan
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+// ============================================================
+// Tab: Stock Masuk
+// ============================================================
+
+function MasukTab({
   mutasi,
   bahan,
   canAdd,
+  canEdit,
+  canDelete,
+  onSaved,
 }: {
   mutasi: Mutasi[]
   bahan: Bahan[]
   canAdd: boolean
+  canEdit: boolean
+  canDelete: boolean
+  onSaved: () => Promise<void>
 }) {
   const [q, setQ] = useState('')
   const [dari, setDari] = useState('')
   const [sampai, setSampai] = useState('')
-  const [fBahan, setFBahan] = useState('all')
-  const [fJenis, setFJenis] = useState('all')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editRow, setEditRow] = useState<Mutasi | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Mutasi | null>(null)
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase()
-    return mutasi.filter((m) => {
-      if (term && !`${m.namaBahan} ${m.nomor} ${m.keterangan}`.toLowerCase().includes(term)) return false
-      if (dari && m.tanggal && m.tanggal < dari) return false
-      if (sampai && m.tanggal && m.tanggal > sampai) return false
-      if (fBahan !== 'all' && m.bahanId !== fBahan) return false
-      if (fJenis !== 'all' && m.jenis !== fJenis) return false
-      return true
-    })
-  }, [mutasi, q, dari, sampai, fBahan, fJenis])
+    return mutasi
+      .filter((m) => m.jenis === 'masuk')
+      .filter((m) => {
+        if (term && !`${m.nomor} ${m.namaBahan} ${m.keterangan} ${m.pemasok} ${m.nomorNota}`.toLowerCase().includes(term))
+          return false
+        if (dari && m.tanggal && m.tanggal < dari) return false
+        if (sampai && m.tanggal && m.tanggal > sampai) return false
+        return true
+      })
+      .sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || ''))
+  }, [mutasi, q, dari, sampai])
+
+  const totalNilai = rows.reduce((a, m) => a + (m.totalHarga || 0), 0)
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-48 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari bahan / nomor / catatan…" className="pl-9" />
-        </div>
-        <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Dari tanggal" className="w-full sm:w-40" />
-        <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Sampai tanggal" className="w-full sm:w-40" />
-        <Select value={fBahan} onValueChange={setFBahan}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Filter bahan">
-            <SelectValue placeholder="Semua bahan" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua bahan</SelectItem>
-            {bahan.map((b) => (
-              <SelectItem key={b.id} value={b.id}>{b.nama}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={fJenis} onValueChange={setFJenis}>
-          <SelectTrigger className="w-full sm:w-40" aria-label="Filter jenis">
-            <SelectValue placeholder="Semua jenis" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua jenis</SelectItem>
-            <SelectItem value="masuk">Stok Masuk</SelectItem>
-            <SelectItem value="keluar">Stok Keluar</SelectItem>
-            <SelectItem value="penyesuaian">Penyesuaian</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FilterBar
+        q={q} setQ={setQ} qPlaceholder="Cari nomor / bahan / pemasok / nota…"
+        dari={dari} setDari={setDari} sampai={sampai} setSampai={setSampai}
+        onReset={() => { setQ(''); setDari(''); setSampai('') }}
+      >
+        {canAdd && (
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setDialogOpen(true)}>
+            <PackagePlus className="h-4 w-4" /> Catat Stok Masuk
+          </Button>
+        )}
+      </FilterBar>
+
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => { setQ(''); setDari(''); setSampai(''); setFBahan('all'); setFJenis('all') }}>
-          Reset
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => printTable('Riwayat Stok', ['Tanggal', 'Nomor', 'Jenis', 'Bahan', 'Qty', 'Stok Akhir', 'Keterangan'], rows.map((m) => [fmtTanggal(m.tanggal), m.nomor, m.jenis, m.namaBahan, `${m.qty < 0 ? '' : m.jenis === 'keluar' ? '−' : '+'}${fmtNum(Math.abs(m.qty))} ${m.satuanBahan}`, `${fmtNum(m.stokSetelah)} ${m.satuanBahan}`, m.keterangan || '-']), `${rows.length} transaksi`)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            printTable(
+              'Stok Masuk',
+              ['Nomor', 'Tanggal', 'Bahan', 'Jumlah', 'Satuan', 'Harga Beli', 'Total', 'Pemasok', 'No. Nota'],
+              rows.map((m) => [m.nomor, fmtTanggal(m.tanggal), m.namaBahan, fmtNum(m.qty), m.satuanBahan, formatIDR(m.hargaBeli), formatIDR(m.totalHarga), m.pemasok || '-', m.nomorNota || '-']),
+              `${rows.length} transaksi · total ${formatIDR(totalNilai)}`
+            )
+          }
+        >
           <Printer className="h-4 w-4" /> Print
         </Button>
-        {canAdd && <span className="text-xs text-muted-foreground">Catat transaksi lewat tab Stok Masuk / Stok Keluar / Penyesuaian.</span>}
+        <span className="text-xs text-muted-foreground">{rows.length} transaksi · total {formatIDR(totalNilai)}</span>
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState text="Belum ada transaksi stok." />
+        <EmptyState text="Belum ada transaksi stok masuk." />
       ) : (
-        <div className="max-h-[520px] overflow-y-auto rounded-lg border">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background">
-              <TableRow>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Nomor</TableHead>
-                <TableHead>Jenis</TableHead>
-                <TableHead>Bahan</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Stok Akhir</TableHead>
-                <TableHead>Keterangan</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
-                  <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
-                  <TableCell><JenisBadge jenis={m.jenis} /></TableCell>
-                  <TableCell className="text-sm font-medium">{m.namaBahan || m.bahan?.nama || '-'}</TableCell>
-                  <TableCell className={cn('whitespace-nowrap text-right text-sm font-semibold', m.jenis === 'masuk' ? 'text-emerald-700' : m.jenis === 'keluar' ? 'text-red-600' : m.qty > 0 ? 'text-emerald-700' : 'text-red-600')}>
-                    {m.jenis === 'masuk' ? '+' : m.jenis === 'keluar' ? '−' : m.qty > 0 ? '+' : ''}
-                    {fmtNum(Math.abs(m.qty))} {m.satuanBahan}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(m.stokSetelah)} {m.satuanBahan}</TableCell>
-                  <TableCell className="max-w-52 truncate text-sm text-muted-foreground">
-                    {m.jenis === 'keluar' && m.tujuan ? `${m.tujuan}${m.keterangan ? ' — ' + m.keterangan : ''}` : m.jenis === 'penyesuaian' && m.alasan ? `${m.alasan}${m.keterangan ? ' — ' + m.keterangan : ''}` : m.keterangan || '—'}
-                  </TableCell>
+        <>
+          {/* Desktop */}
+          <div className="hidden overflow-x-auto rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nomor</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Nama bahan</TableHead>
+                  <TableHead className="text-right">Jumlah masuk</TableHead>
+                  <TableHead>Satuan</TableHead>
+                  <TableHead className="text-right">Harga beli</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Pemasok</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
-  )
-}
+              </TableHeader>
+              <TableBody>
+                {rows.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <div>{m.namaBahan || m.bahan?.nama || '-'}</div>
+                      {(m.nomorNota || m.keterangan) && (
+                        <div className="max-w-48 truncate text-xs text-muted-foreground">
+                          {[m.nomorNota && `Nota: ${m.nomorNota}`, m.keterangan].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm font-semibold text-emerald-700">
+                      +{fmtNum(m.qty)}
+                    </TableCell>
+                    <TableCell className="text-sm">{m.satuanBahan}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(m.hargaBeli)}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm font-semibold">{formatIDR(m.totalHarga)}</TableCell>
+                    <TableCell className="text-sm">{m.pemasok || '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditRow(m)} aria-label={`Edit ${m.nomor}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => setCancelTarget(m)} aria-label={`Batalkan ${m.nomor}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
-// ============================================================
-// Tab: Laporan Stok
-// ============================================================
-
-function LaporanTab({
-  bahan,
-  nilaiPersediaan,
-  menipis,
-  habis,
-  canAdd,
-}: {
-  bahan: Bahan[]
-  nilaiPersediaan: number
-  menipis: Bahan[]
-  habis: Bahan[]
-  canAdd: boolean
-}) {
-  const [fKategori, setFKategori] = useState('all')
-  const [fSupplier, setFSupplier] = useState('all')
-
-  const kategoriList = useMemo(() => {
-    const set = new Set<string>()
-    for (const b of bahan) {
-      const k = (b.kategori || '').trim()
-      if (k) set.add(k)
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [bahan])
-
-  const supplierList = useMemo(() => {
-    const set = new Set<string>()
-    for (const b of bahan) {
-      const s = (b.pemasok || '').trim()
-      if (s) set.add(s)
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [bahan])
-
-  const rows = useMemo(
-    () =>
-      bahan
-        .filter((b) => {
-          if (fKategori !== 'all' && (b.kategori || '') !== fKategori) return false
-          if (fSupplier !== 'all' && (b.pemasok || '') !== fSupplier) return false
-          return true
-        })
-        .sort((a, b) => a.nama.localeCompare(b.nama)),
-    [bahan, fKategori, fSupplier]
-  )
-
-  const nilaiFiltered = rows.reduce((a, b) => a + (b.stok || 0) * (b.hargaSatuan || 0), 0)
-
-  const tableCols = ['Kode', 'Nama', 'Kategori', 'Stok', 'Satuan', 'Harga Modal', 'Nilai']
-  const tableRows = rows.map((b) => [
-    b.kode,
-    b.nama,
-    b.kategori || '-',
-    fmtNum(b.stok),
-    b.satuan,
-    formatIDR(b.hargaSatuan),
-    formatIDR((b.stok || 0) * (b.hargaSatuan || 0)),
-  ])
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={fKategori} onValueChange={setFKategori}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Filter kategori">
-            <SelectValue placeholder="Semua kategori" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua kategori</SelectItem>
-            {kategoriList.map((k) => (
-              <SelectItem key={k} value={k}>{k}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={fSupplier} onValueChange={setFSupplier}>
-          <SelectTrigger className="w-full sm:w-48" aria-label="Filter supplier">
-            <SelectValue placeholder="Semua supplier" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua supplier</SelectItem>
-            {supplierList.map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={() => { setFKategori('all'); setFSupplier('all') }}>
-          Reset
-        </Button>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => printTable('Laporan Stok', tableCols, tableRows, `Nilai persediaan ${formatIDR(nilaiFiltered)}`)}>
-          <Printer className="h-4 w-4" /> Print
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => exportPdf('Laporan Stok', tableCols, tableRows, `Nilai persediaan ${formatIDR(nilaiFiltered)}`)}>
-          <ClipboardList className="h-4 w-4" /> PDF
-        </Button>
-        {canAdd && <span className="hidden text-xs text-muted-foreground sm:inline">Stok akhir × harga modal terakhir</span>}
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard icon={Package} label="Nilai Persediaan" value={formatIDR(nilaiPersediaan)} sub="stok akhir × harga modal terakhir" tone="emerald" />
-        <StatCard icon={AlertTriangle} label="Bahan Menipis" value={menipis.length} sub="stok ≤ stok minimum" tone="amber" />
-        <StatCard icon={TrendingDown} label="Bahan Habis" value={habis.length} sub="stok ≤ 0" tone="red" />
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptyState text="Tidak ada data untuk filter ini" />
-      ) : (
-        <div className="max-h-[520px] overflow-y-auto rounded-lg border">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background">
-              <TableRow>
-                <TableHead>Kode</TableHead>
-                <TableHead>Nama</TableHead>
-                <TableHead>Kategori</TableHead>
-                <TableHead className="text-right">Stok</TableHead>
-                <TableHead className="text-right">Harga Modal</TableHead>
-                <TableHead className="text-right">Nilai</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((b) => (
-                <TableRow key={b.id}>
-                  <TableCell className="whitespace-nowrap font-mono text-xs">{b.kode}</TableCell>
-                  <TableCell className="text-sm font-medium">{b.nama}</TableCell>
-                  <TableCell className="text-sm">{b.kategori || '—'}</TableCell>
-                  <TableCell className={cn('whitespace-nowrap text-right text-sm font-semibold', b.stok <= 0 ? 'text-red-600' : b.stokMin > 0 && b.stok <= b.stokMin ? 'text-amber-600' : '')}>
-                    {fmtNum(b.stok)} {b.satuan}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(b.hargaSatuan)}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right text-sm font-semibold">{formatIDR((b.stok || 0) * (b.hargaSatuan || 0))}</TableCell>
-                </TableRow>
-              ))}
-              <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={5} className="text-right text-sm">Total Nilai</TableCell>
-                <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(nilaiFiltered)}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * Dialog Kategori Bahan — daftar kategori otomatis dari bahan.
- * Klik kategori → buka Data Bahan terfilter kategori tersebut.
- */
-function KategoriDialog({
-  open,
-  onOpenChange,
-  kategori,
-  onPick,
-}: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  kategori: Array<[string, number]>
-  onPick: (k: string) => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Kategori Bahan</DialogTitle>
-          <DialogDescription>Klik kategori untuk membuka Data Bahan terfilter</DialogDescription>
-        </DialogHeader>
-        {kategori.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Belum ada kategori. Kategori otomatis muncul saat bahan dibuat.
-          </p>
-        ) : (
-          <div className="flex max-h-72 flex-wrap gap-2 overflow-y-auto py-1">
-            {kategori.map(([k, count]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => onPick(k)}
-                className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1.5 text-sm transition-colors hover:border-emerald-500 hover:bg-emerald-50"
-              >
-                <Tag className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="font-medium">{k}</span>
-                <span className="text-xs text-muted-foreground">({count})</span>
-              </button>
+          {/* Mobile */}
+          <div className="space-y-2 md:hidden">
+            {rows.map((m) => (
+              <Card key={m.id}>
+                <CardContent className="space-y-2 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold">{m.namaBahan || m.bahan?.nama || '-'}</div>
+                      <div className="font-mono text-xs text-muted-foreground">{m.nomor} · {fmtTanggal(m.tanggal)}</div>
+                    </div>
+                    <span className="whitespace-nowrap text-sm font-bold text-emerald-700">+{fmtNum(m.qty)} {m.satuanBahan}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    <div><span className="text-muted-foreground">Harga: </span><span className="font-semibold">{formatIDR(m.hargaBeli)}</span></div>
+                    <div><span className="text-muted-foreground">Total: </span><span className="font-semibold">{formatIDR(m.totalHarga)}</span></div>
+                    <div><span className="text-muted-foreground">Pemasok: </span><span className="font-semibold">{m.pemasok || '—'}</span></div>
+                    <div><span className="text-muted-foreground">Nota: </span><span className="font-semibold">{m.nomorNota || '—'}</span></div>
+                  </div>
+                  {(canEdit || canDelete) && (
+                    <div className="flex justify-end gap-1 pt-1">
+                      {canEdit && (
+                        <Button variant="outline" size="sm" onClick={() => setEditRow(m)}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => setCancelTarget(m)}>
+                          <Trash2 className="h-3.5 w-3.5" /> Batalkan
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             ))}
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+
+      <MasukDialog
+        open={dialogOpen || !!editRow}
+        onOpenChange={(o) => {
+          setDialogOpen(o)
+          if (!o) setEditRow(null)
+        }}
+        bahan={bahan}
+        onSaved={onSaved}
+        edit={editRow}
+      />
+      <CancelTransaksiDialog target={cancelTarget ? { mutasi: cancelTarget, label: cancelTarget.nomor } : null} onClose={() => setCancelTarget(null)} onDeleted={onSaved} />
+    </div>
   )
 }
 
 // ============================================================
-// Helper: pisah keterangan "Ref PO: x | catatan"
+// Dialog: Stok Masuk (nomor otomatis, total otomatis, referensi PO)
 // ============================================================
 
-function splitRefPo(ket: string): { poRef: string; catatan: string } {
-  const m = /^Ref PO:\s*(.+?)(?:\s*\|\s*(.*))?$/.exec((ket || '').trim())
-  if (m) return { poRef: m[1].trim(), catatan: (m[2] || '').trim() }
-  return { poRef: '', catatan: (ket || '').trim() }
-}
-
-// ============================================================
-// Dialog: Tambah / Edit Bahan
-// ============================================================
-
-function BahanFormDialog({
+function MasukDialog({
   open,
   onOpenChange,
-  editing,
   bahan,
   onSaved,
+  edit,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
-  editing: Bahan | null
   bahan: Bahan[]
   onSaved: () => Promise<void>
+  edit?: Mutasi | null
 }) {
-  const [nama, setNama] = useState('')
-  const [kategori, setKategori] = useState('Tanpa kategori')
-  const [satuan, setSatuan] = useState('pcs')
-  const [stok, setStok] = useState('0')
-  const [stokMin, setStokMin] = useState('0')
-  const [hargaSatuan, setHargaSatuan] = useState('0')
+  const [bahanId, setBahanId] = useState('')
+  const [tanggal, setTanggal] = useState(todayStr())
+  const [qty, setQty] = useState('')
+  const [hargaBeli, setHargaBeli] = useState('')
   const [pemasok, setPemasok] = useState('')
-  const [supplierListOpen, setSupplierListOpen] = useState(false)
-  const [lokasi, setLokasi] = useState('')
-  const [poRef, setPoRef] = useState('')
-  const [catatan, setCatatan] = useState('')
-  const [aktif, setAktif] = useState(true)
+  const [nomorNota, setNomorNota] = useState('')
+  const [keterangan, setKeterangan] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Referensi PO — daftar PO dari /api/purchase-order
+  // Referensi PO (opsional — menghubungkan transaksi masuk dengan PO)
   const [poList, setPoList] = useState<PoOption[]>([])
   const [poListOpen, setPoListOpen] = useState(false)
   const [poLoading, setPoLoading] = useState(false)
 
-  const kategoriOptions = useMemo(() => {
-    const set = new Set<string>(KATEGORI_BAWAAN)
-    for (const b of bahan) {
-      const k = (b.kategori || '').trim()
-      if (k) set.add(k)
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [bahan])
+  // Bahan nonaktif tidak ada di daftar `bahan` — tambahkan dari snapshot mutasi agar tetap tampil saat edit.
+  const bahanList = useMemo(() => {
+    if (!edit || bahan.some((b) => b.id === edit.bahanId)) return bahan
+    const fallback = {
+      id: edit.bahanId,
+      kode: edit.bahan?.kode || '',
+      nama: edit.namaBahan || edit.bahan?.nama || '(bahan nonaktif)',
+      kategori: '',
+      satuan: edit.satuanBahan || edit.bahan?.satuan || 'pcs',
+      stok: 0,
+      stokMin: 0,
+      hargaSatuan: 0,
+      keterangan: '',
+      aktif: false,
+      lokasi: '',
+      pemasok: '',
+    } as Bahan
+    return [...bahan, fallback]
+  }, [bahan, edit])
 
-  // Opsi dropdown Nama Supplier — dikumpulkan dari bahan yang sudah ada (unik + urut abjad).
-  const supplierOptions = useMemo(() => {
-    const set = new Set<string>()
-    for (const b of bahan) {
-      const s = (b.pemasok || '').trim()
-      if (s) set.add(s)
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [bahan])
+  const selected = bahanList.find((b) => b.id === bahanId)
+  const total = (Number(qty) || 0) * (Number(hargaBeli) || 0)
+  const canSave = !!bahanId && Number(qty) > 0 && !saving
 
-  // Ketik manual selalu bisa; daftar dropdown menyeleksi mengikuti teks yang diketik.
-  const filteredSuppliers = useMemo(() => {
-    const q = pemasok.trim().toLowerCase()
-    if (!q) return supplierOptions
-    return supplierOptions.filter((s) => s.toLowerCase().includes(q))
-  }, [supplierOptions, pemasok])
+  const reset = () => {
+    setBahanId('')
+    setTanggal(todayStr())
+    setQty('')
+    setHargaBeli('')
+    setPemasok('')
+    setNomorNota('')
+    setKeterangan('')
+  }
 
-  // Prediksi kode bahan berikutnya — logika sama persis dgn POST /api/stock-bahan (BHN-001, …).
-  const nextKode = useMemo(() => {
-    let maxNum = 0
-    for (const b of bahan) {
-      const m = /^BHN-(\d+)$/i.exec(b.kode || '')
-      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10))
-    }
-    return `BHN-${String(maxNum + 1).padStart(3, '0')}`
-  }, [bahan])
-
+  // Prefill saat edit transaksi; reset saat mode tambah.
   useEffect(() => {
     if (!open) return
-    if (editing) {
-      setNama(editing.nama)
-      setKategori(editing.kategori || 'Tanpa kategori')
-      setSatuan(editing.satuan || 'pcs')
-      setStok(String(editing.stok ?? 0))
-      setStokMin(String(editing.stokMin ?? 0))
-      setHargaSatuan(String(editing.hargaSatuan ?? 0))
-      setPemasok(editing.pemasok || '')
-      setLokasi(editing.lokasi || '')
-      const split = splitRefPo(editing.keterangan || '')
-      setPoRef(split.poRef)
-      setCatatan(split.catatan)
-      setAktif(editing.aktif)
-    } else {
-      setNama('')
-      setKategori('Tanpa kategori')
-      setSatuan('pcs')
-      setStok('0')
-      setStokMin('0')
-      setHargaSatuan('0')
-      setPemasok('')
-      setLokasi('')
-      setPoRef('')
-      setCatatan('')
-      setAktif(true)
-    }
     setPoListOpen(false)
-    setSupplierListOpen(false)
-  }, [open, editing])
+    if (edit) {
+      setBahanId(edit.bahanId)
+      setTanggal(edit.tanggal || todayStr())
+      setQty(String(edit.qty ?? ''))
+      setHargaBeli(String(edit.hargaBeli ?? 0))
+      setPemasok(edit.pemasok || '')
+      setNomorNota(edit.nomorNota || '')
+      setKeterangan(edit.keterangan || '')
+    } else {
+      reset()
+    }
+  }, [open, edit])
 
   const loadPoList = async () => {
     setPoListOpen((v) => !v)
@@ -2238,33 +2075,44 @@ function BahanFormDialog({
   }
 
   const submit = async () => {
-    if (!nama.trim() || saving) return
+    if (!canSave) return
     setSaving(true)
     try {
-      const payload = {
-        nama: nama.trim(),
-        kategori: kategori === 'Tanpa kategori' ? '' : kategori,
-        satuan,
-        stok: Number(stok) || 0,
-        stokMin: Number(stokMin) || 0,
-        hargaSatuan: Number(hargaSatuan) || 0,
-        pemasok: pemasok.trim(),
-        lokasi: lokasi.trim(),
-        aktif,
-        keterangan: catatan.trim(),
-        poRef: poRef.trim(),
-      }
-      if (editing) {
-        await apiFetch('/api/stock-bahan', { method: 'PUT', body: JSON.stringify({ id: editing.id, ...payload }) })
-        toast.success('Perubahan bahan disimpan')
+      if (edit) {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'PUT',
+          body: JSON.stringify({
+            id: edit.id,
+            bahanId,
+            qty: Number(qty),
+            tanggal,
+            hargaBeli: Number(hargaBeli) || 0,
+            pemasok,
+            nomorNota,
+            keterangan,
+          }),
+        })
+        toast.success(`Transaksi ${edit.nomor} diperbarui (saldo ikut dihitung ulang)`)
       } else {
-        await apiFetch('/api/stock-bahan', { method: 'POST', body: JSON.stringify(payload) })
-        toast.success(`Bahan ditambahkan (${payload.nama})`)
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'POST',
+          body: JSON.stringify({
+            bahanId,
+            jenis: 'masuk',
+            qty: Number(qty),
+            tanggal,
+            hargaBeli: Number(hargaBeli) || 0,
+            pemasok,
+            nomorNota,
+            keterangan,
+          }),
+        })
+        toast.success(`Stok masuk tercatat (${selected?.nama} +${fmtNum(Number(qty))} ${selected?.satuan})`)
       }
       onOpenChange(false)
       await onSaved()
     } catch (e: any) {
-      toast.error(e?.message || 'Gagal menyimpan bahan')
+      toast.error(e?.message || 'Gagal menyimpan stok masuk')
     } finally {
       setSaving(false)
     }
@@ -2272,128 +2120,62 @@ function BahanFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bahan-popup-compact max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Edit Bahan' : 'Tambah Bahan'}</DialogTitle>
+          <DialogTitle>{edit ? 'Edit Stok Masuk' : 'Stock Masuk'}</DialogTitle>
           <DialogDescription>
-            {editing ? `Kode ${editing.kode} — ubah data bahan.` : `Kode bahan : ${nextKode} (otomatis)`}
+            {edit
+              ? `Nomor ${edit.nomor} — ubah data transaksi. Saldo dihitung ulang otomatis.`
+              : 'Nomor transaksi dibuat otomatis. Stok bertambah setelah disimpan.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="bhn-nama">Nama bahan *</Label>
-            <Input id="bhn-nama" value={nama} onChange={(e) => setNama(e.target.value)} placeholder="mis. Kertas Kraft 250gsm" />
+            <Label>Tanggal</Label>
+            <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Bahan</Label>
+            <BahanPicker
+              bahan={bahanList}
+              value={bahanId}
+              onChange={(id) => {
+                setBahanId(id)
+                const b = bahanList.find((x) => x.id === id)
+                if (b?.pemasok && !pemasok) setPemasok(b.pemasok)
+              }}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Kategori</Label>
-              <Select value={kategori} onValueChange={setKategori}>
-                <SelectTrigger aria-label="Kategori">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bahan-popup-compact">
-                  <SelectItem value="Tanpa kategori">Tanpa kategori</SelectItem>
-                  {kategoriOptions.map((k) => (
-                    <SelectItem key={k} value={k}>{k}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Jumlah masuk *</Label>
+              <Input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
             </div>
             <div className="space-y-1.5">
-              <Label>Satuan *</Label>
-              <Select value={satuan} onValueChange={setSatuan}>
-                <SelectTrigger aria-label="Satuan">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bahan-popup-compact">
-                  {SATUAN_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Satuan</Label>
+              <Input value={selected?.satuan || '—'} disabled />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Stok awal</Label>
-              <Input type="number" min="0" step="any" value={stok} onChange={(e) => setStok(e.target.value)} />
+              <Label>Harga beli / satuan</Label>
+              <Input type="number" min="0" step="any" value={hargaBeli} onChange={(e) => setHargaBeli(e.target.value)} placeholder="0" />
             </div>
             <div className="space-y-1.5">
-              <Label>Stok minimum</Label>
-              <Input type="number" min="0" step="any" value={stokMin} onChange={(e) => setStokMin(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Harga modal / pcs</Label>
-              <Input type="number" min="0" step="any" value={hargaSatuan} onChange={(e) => setHargaSatuan(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Nama Supplier</Label>
-              <div className="relative">
-                <div className="flex gap-2">
-                  <Input
-                    value={pemasok}
-                    onChange={(e) => {
-                      setPemasok(e.target.value)
-                      setSupplierListOpen(true)
-                    }}
-                    onFocus={() => setSupplierListOpen(true)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setSupplierListOpen(false)
-                    }}
-                    placeholder="Ketik manual atau pilih dari daftar…"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setSupplierListOpen((v) => !v)}
-                    aria-label="Tampilkan daftar supplier"
-                    aria-expanded={supplierListOpen}
-                  >
-                    <ChevronsUpDown className="h-4 w-4" />
-                  </Button>
-                </div>
-                {supplierListOpen && (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-md">
-                    {supplierOptions.length === 0 ? (
-                      <div className="p-3 text-xs text-muted-foreground">Belum ada supplier tersimpan — ketik manual saja.</div>
-                    ) : filteredSuppliers.length === 0 ? (
-                      <div className="p-3 text-xs text-muted-foreground">Tidak ada yang cocok — ketik manual lanjut.</div>
-                    ) : (
-                      filteredSuppliers.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          className={cn(
-                            'flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted',
-                            pemasok === s && 'bg-muted font-medium'
-                          )}
-                          onClick={() => {
-                            setPemasok(s)
-                            setSupplierListOpen(false)
-                          }}
-                        >
-                          <span className="truncate">{s}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Lokasi penyimpanan</Label>
-              <Input value={lokasi} onChange={(e) => setLokasi(e.target.value)} placeholder="mis. Gudang A — Rak 2" />
+              <Label>Total</Label>
+              <Input value={formatIDR(total)} disabled aria-label="Total (otomatis)" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Referensi PO</Label>
+            <Label>Pemasok</Label>
+            <Input value={pemasok} onChange={(e) => setPemasok(e.target.value)} placeholder="Nama pemasok" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Nomor nota / referensi pembelian</Label>
             <div className="relative">
               <div className="flex gap-2">
-                <Input value={poRef} onChange={(e) => setPoRef(e.target.value)} placeholder="Ketik atau pilih nomor PO…" />
-                <Button type="button" variant="outline" size="icon" onClick={loadPoList} aria-label="Tampilkan daftar PO">
+                <Input value={nomorNota} onChange={(e) => setNomorNota(e.target.value)} placeholder="mis. NOTA-123 / nomor PO" />
+                <Button type="button" variant="outline" size="icon" onClick={loadPoList} aria-label="Tampilkan daftar PO" aria-expanded={poListOpen}>
                   {poLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronsUpDown className="h-4 w-4" />}
                 </Button>
               </div>
@@ -2408,7 +2190,7 @@ function BahanFormDialog({
                         type="button"
                         className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
                         onClick={() => {
-                          setPoRef(p.poNumber)
+                          setNomorNota(p.poNumber)
                           if (!pemasok && p.supplierName) setPemasok(p.supplierName)
                           setPoListOpen(false)
                         }}
@@ -2421,26 +2203,728 @@ function BahanFormDialog({
                 </div>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">Nomor PO pembelian bahan ini (opsional).</p>
+            <p className="text-xs text-muted-foreground">Bisa diisi dari daftar Purchase Order (tombol di kanan).</p>
           </div>
           <div className="space-y-1.5">
-            <Label>Catatan</Label>
-            <Textarea rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Opsional" />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <div className="text-sm font-medium">Status aktif bahan</div>
-              <div className="text-xs text-muted-foreground">Bahan nonaktif disembunyikan dari transaksi baru.</div>
-            </div>
-            <Switch checked={aktif} onCheckedChange={setAktif} aria-label="Status aktif bahan" />
+            <Label>Keterangan</Label>
+            <Textarea rows={2} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Catatan" />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!nama.trim() || saving} onClick={submit}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {editing ? 'Simpan Perubahan' : 'Tambah Bahan'}
+          <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!canSave} onClick={submit}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
+            {edit ? 'Simpan Perubahan' : 'Simpan'}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ============================================================
+// Tab: Stock Keluar
+// ============================================================
+
+function KeluarTab({
+  mutasi,
+  bahan,
+  canAdd,
+  canEdit,
+  canDelete,
+  onSaved,
+  izinkanMinus,
+}: {
+  mutasi: Mutasi[]
+  bahan: Bahan[]
+  canAdd: boolean
+  canEdit: boolean
+  canDelete: boolean
+  onSaved: () => Promise<void>
+  izinkanMinus: boolean
+}) {
+  const [q, setQ] = useState('')
+  const [dari, setDari] = useState('')
+  const [sampai, setSampai] = useState('')
+  const [fTujuan, setFTujuan] = useState('all')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editRow, setEditRow] = useState<Mutasi | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Mutasi | null>(null)
+
+  const rows = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    return mutasi
+      .filter((m) => m.jenis === 'keluar')
+      .filter((m) => {
+        if (term && !`${m.nomor} ${m.namaBahan} ${m.keterangan} ${m.tujuan} ${m.referensi || ''}`.toLowerCase().includes(term)) return false
+        if (fTujuan !== 'all' && (m.tujuan || '') !== fTujuan) return false
+        if (dari && m.tanggal && m.tanggal < dari) return false
+        if (sampai && m.tanggal && m.tanggal > sampai) return false
+        return true
+      })
+      .sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || ''))
+  }, [mutasi, q, fTujuan, dari, sampai])
+
+  return (
+    <div className="space-y-4">
+      <FilterBar
+        q={q} setQ={setQ} qPlaceholder="Cari nomor / bahan / referensi…"
+        dari={dari} setDari={setDari} sampai={sampai} setSampai={setSampai}
+        onReset={() => { setQ(''); setDari(''); setSampai(''); setFTujuan('all') }}
+      >
+        <Select value={fTujuan} onValueChange={setFTujuan}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filter tujuan">
+            <SelectValue placeholder="Semua tujuan" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua tujuan</SelectItem>
+            {TUJUAN_KELUAR.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {canAdd && (
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setDialogOpen(true)}>
+            <PackageMinus className="h-4 w-4" /> Catat Stok Keluar
+          </Button>
+        )}
+      </FilterBar>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            printTable(
+              'Stok Keluar',
+              ['Nomor', 'Tanggal', 'Bahan', 'Stok Sebelum', 'Jumlah', 'Satuan', 'Stok Sesudah', 'Tujuan', 'Referensi'],
+              rows.map((m) => [
+                m.nomor,
+                fmtTanggal(m.tanggal),
+                m.namaBahan,
+                fmtNum(r2(m.stokSetelah + m.qty)),
+                fmtNum(m.qty),
+                m.satuanBahan,
+                fmtNum(m.stokSetelah),
+                m.tujuan || '-',
+                m.referensi || '-',
+              ]),
+              `${rows.length} transaksi`
+            )
+          }
+        >
+          <Printer className="h-4 w-4" /> Print
+        </Button>
+        {!izinkanMinus && <span className="text-xs text-muted-foreground">Stok tidak boleh minus — transaksi melebihi saldo ditolak.</span>}
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState text="Belum ada transaksi stok keluar." />
+      ) : (
+        <>
+          {/* Desktop */}
+          <div className="hidden overflow-x-auto rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nomor</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Nama bahan</TableHead>
+                  <TableHead className="text-right">Stok sebelum</TableHead>
+                  <TableHead className="text-right">Jumlah keluar</TableHead>
+                  <TableHead>Satuan</TableHead>
+                  <TableHead className="text-right">Stok sesudah</TableHead>
+                  <TableHead>Tujuan</TableHead>
+                  <TableHead>Referensi pekerjaan</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="whitespace-nowrap font-mono text-xs font-semibold">{m.nomor}</TableCell>
+                    <TableCell className="whitespace-nowrap text-sm">{fmtTanggal(m.tanggal)}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <div>{m.namaBahan || m.bahan?.nama || '-'}</div>
+                      {m.keterangan && <div className="max-w-40 truncate text-xs text-muted-foreground">{m.keterangan}</div>}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(r2(m.stokSetelah + m.qty))}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm font-semibold text-red-600">−{fmtNum(m.qty)}</TableCell>
+                    <TableCell className="text-sm">{m.satuanBahan}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(m.stokSetelah)}</TableCell>
+                    <TableCell className="text-sm">{m.tujuan || '—'}</TableCell>
+                    <TableCell className="max-w-32 truncate text-sm">{m.referensi || '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditRow(m)} aria-label={`Edit ${m.nomor}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => setCancelTarget(m)} aria-label={`Batalkan ${m.nomor}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile */}
+          <div className="space-y-2 md:hidden">
+            {rows.map((m) => (
+              <Card key={m.id}>
+                <CardContent className="space-y-2 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold">{m.namaBahan || m.bahan?.nama || '-'}</div>
+                      <div className="font-mono text-xs text-muted-foreground">{m.nomor} · {fmtTanggal(m.tanggal)}</div>
+                    </div>
+                    <span className="whitespace-nowrap text-sm font-bold text-red-600">−{fmtNum(m.qty)} {m.satuanBahan}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <div><span className="text-muted-foreground">Sebelum: </span><span className="font-semibold">{fmtNum(r2(m.stokSetelah + m.qty))}</span></div>
+                    <div><span className="text-muted-foreground">Sesudah: </span><span className="font-semibold">{fmtNum(m.stokSetelah)}</span></div>
+                    <div><span className="text-muted-foreground">Tujuan: </span><span className="font-semibold">{m.tujuan || '—'}</span></div>
+                  </div>
+                  {m.referensi && <div className="text-xs text-muted-foreground">Ref: {m.referensi}</div>}
+                  {(canEdit || canDelete) && (
+                    <div className="flex justify-end gap-1 pt-1">
+                      {canEdit && (
+                        <Button variant="outline" size="sm" onClick={() => setEditRow(m)}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => setCancelTarget(m)}>
+                          <Trash2 className="h-3.5 w-3.5" /> Batalkan
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
+      <KeluarDialog
+        open={dialogOpen || !!editRow}
+        onOpenChange={(o) => {
+          setDialogOpen(o)
+          if (!o) setEditRow(null)
+        }}
+        bahan={bahan}
+        onSaved={onSaved}
+        edit={editRow}
+        izinkanMinus={izinkanMinus}
+      />
+      <CancelTransaksiDialog target={cancelTarget ? { mutasi: cancelTarget, label: cancelTarget.nomor } : null} onClose={() => setCancelTarget(null)} onDeleted={onSaved} />
+    </div>
+  )
+}
+
+// ============================================================
+// Dialog: Stok Keluar (validasi stok tersedia, tujuan, referensi)
+// ============================================================
+
+function KeluarDialog({
+  open,
+  onOpenChange,
+  bahan,
+  onSaved,
+  edit,
+  izinkanMinus,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  bahan: Bahan[]
+  onSaved: () => Promise<void>
+  edit?: Mutasi | null
+  izinkanMinus: boolean
+}) {
+  const [bahanId, setBahanId] = useState('')
+  const [tanggal, setTanggal] = useState(todayStr())
+  const [qty, setQty] = useState('')
+  const [tujuan, setTujuan] = useState('Produksi')
+  const [referensi, setReferensi] = useState('')
+  const [keterangan, setKeterangan] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Bahan nonaktif tidak ada di daftar `bahan` — tambahkan dari snapshot mutasi agar tetap tampil saat edit.
+  const bahanList = useMemo(() => {
+    if (!edit || bahan.some((b) => b.id === edit.bahanId)) return bahan
+    const fallback = {
+      id: edit.bahanId,
+      kode: edit.bahan?.kode || '',
+      nama: edit.namaBahan || edit.bahan?.nama || '(bahan nonaktif)',
+      kategori: '',
+      satuan: edit.satuanBahan || edit.bahan?.satuan || 'pcs',
+      stok: 0,
+      stokMin: 0,
+      hargaSatuan: 0,
+      keterangan: '',
+      aktif: false,
+      lokasi: '',
+      pemasok: '',
+    } as Bahan
+    return [...bahan, fallback]
+  }, [bahan, edit])
+
+  const selected = bahanList.find((b) => b.id === bahanId)
+  const qtyNum = Number(qty) || 0
+  // Validasi frontend: jumlah > 0 dan tidak melebihi stok tersedia.
+  const melebihiStok = !izinkanMinus && !!selected && qtyNum > selected.stok
+  const canSave = !!bahanId && qtyNum > 0 && !melebihiStok && !saving
+
+  const reset = () => {
+    setBahanId('')
+    setTanggal(todayStr())
+    setQty('')
+    setTujuan('Produksi')
+    setReferensi('')
+    setKeterangan('')
+  }
+
+  // Prefill saat edit transaksi; reset saat mode tambah.
+  useEffect(() => {
+    if (!open) return
+    if (edit) {
+      setBahanId(edit.bahanId)
+      setTanggal(edit.tanggal || todayStr())
+      setQty(String(edit.qty ?? ''))
+      setTujuan(edit.tujuan || 'Produksi')
+      setReferensi(edit.referensi || '')
+      setKeterangan(edit.keterangan || '')
+    } else {
+      reset()
+    }
+  }, [open, edit])
+
+  const submit = async () => {
+    if (!canSave) return
+    setSaving(true)
+    try {
+      if (edit) {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'PUT',
+          body: JSON.stringify({ id: edit.id, bahanId, qty: qtyNum, tanggal, tujuan, referensi, keterangan }),
+        })
+        toast.success(`Transaksi ${edit.nomor} diperbarui (saldo ikut dihitung ulang)`)
+      } else {
+        await apiFetch('/api/stock-bahan/mutasi', {
+          method: 'POST',
+          body: JSON.stringify({ bahanId, jenis: 'keluar', qty: qtyNum, tanggal, tujuan, referensi, keterangan }),
+        })
+        toast.success(`Stok keluar tercatat (${selected?.nama} −${fmtNum(qtyNum)} ${selected?.satuan})`)
+      }
+      onOpenChange(false)
+      await onSaved()
+    } catch (e: any) {
+      toast.error(e?.message || 'Gagal menyimpan stok keluar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{edit ? 'Edit Stok Keluar' : 'Stock Keluar'}</DialogTitle>
+          <DialogDescription>
+            {edit
+              ? `Nomor ${edit.nomor} — ubah data transaksi. Saldo dihitung ulang otomatis.`
+              : 'Nomor transaksi dibuat otomatis. Stok berkurang setelah disimpan.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Tanggal</Label>
+            <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Bahan</Label>
+            <BahanPicker bahan={bahanList} value={bahanId} onChange={setBahanId} />
+          </div>
+          <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3 text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">Stok tersedia</div>
+              <div className="font-semibold">{selected ? `${fmtNum(selected.stok)} ${selected.satuan}` : '— pilih bahan'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Sisa setelah transaksi</div>
+              <div className={cn('font-semibold', !selected ? '' : !izinkanMinus && qtyNum > selected.stok ? 'text-red-600' : qtyNum > 0 ? 'text-emerald-700' : '')}>
+                {selected ? `${fmtNum(r2(selected.stok - qtyNum))} ${selected.satuan}` : '—'}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Jumlah keluar *</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                placeholder="0"
+                aria-invalid={melebihiStok}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Satuan</Label>
+              <Input value={selected?.satuan || '—'} disabled />
+            </div>
+          </div>
+          {melebihiStok && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+              Jumlah keluar melebihi stok tersedia ({fmtNum(selected?.stok || 0)} {selected?.satuan}) — transaksi akan ditolak.
+            </p>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Tujuan pemakaian</Label>
+              <Select value={tujuan} onValueChange={setTujuan}>
+                <SelectTrigger aria-label="Tujuan">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TUJUAN_KELUAR.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nomor pekerjaan / referensi</Label>
+              <Input value={referensi} onChange={(e) => setReferensi(e.target.value)} placeholder="mis. INV-0451 / Ordin 12" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Keterangan</Label>
+            <Textarea rows={2} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Catatan" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!canSave} onClick={submit}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageMinus className="h-4 w-4" />}
+            {edit ? 'Simpan Perubahan' : 'Simpan'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ============================================================
+// Tab: Laporan Stock
+// ============================================================
+
+function LaporanTab({ bahan }: { bahan: Bahan[] }) {
+  const [dari, setDari] = useState(firstDayOfMonth())
+  const [sampai, setSampai] = useState(todayStr())
+  const [fKategori, setFKategori] = useState('all')
+  const [q, setQ] = useState('')
+  const [items, setItems] = useState<LaporanRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [detailRow, setDetailRow] = useState<LaporanRow | null>(null)
+
+  const kategoriList = useMemo(() => {
+    const set = new Set<string>()
+    for (const b of bahan) {
+      const k = (b.kategori || '').trim()
+      if (k) set.add(k)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [bahan])
+
+  const loadLaporan = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (dari) params.set('dari', dari)
+      if (sampai) params.set('sampai', sampai)
+      if (fKategori !== 'all') params.set('kategori', fKategori)
+      if (q.trim()) params.set('q', q.trim())
+      const data = await apiFetch<{ items: LaporanRow[] }>(`/api/stock-bahan/laporan?${params.toString()}`)
+      setItems(Array.isArray(data?.items) ? data.items : [])
+    } catch {
+      toast.error('Gagal memuat laporan stok')
+    } finally {
+      setLoading(false)
+    }
+  }, [dari, sampai, fKategori, q])
+
+  useEffect(() => {
+    const t = setTimeout(loadLaporan, q ? 350 : 0)
+    return () => clearTimeout(t)
+  }, [loadLaporan, q])
+
+  const totalMasuk = items.reduce((a, i) => a + i.masuk, 0)
+  const totalKeluar = items.reduce((a, i) => a + i.keluar, 0)
+  const totalNilai = items.reduce((a, i) => a + i.nilai, 0)
+
+  const periodeLabel = `${dari ? fmtTanggal(dari) : 'awal'} — ${sampai ? fmtTanggal(sampai) : 'sekarang'}`
+
+  const tableCols = ['Kode', 'Nama Bahan', 'Satuan', 'Saldo Awal', 'Total Masuk', 'Total Keluar', 'Saldo Akhir', 'Stok Minimum', 'Status']
+  const tableRows = items.map((i) => [
+    i.kode,
+    i.nama,
+    i.satuan,
+    fmtNum(i.stokAwal),
+    fmtNum(i.masuk),
+    fmtNum(i.keluar),
+    fmtNum(i.stokAkhir),
+    fmtNum(i.stokMin),
+    i.status === 'aman' ? 'Aman' : i.status === 'menipis' ? 'Menipis' : 'Habis',
+  ])
+
+  return (
+    <div className="space-y-4">
+      {/* Filter periode + bahan + kategori */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Dari tanggal" className="w-full sm:w-40" />
+        <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Sampai tanggal" className="w-full sm:w-40" />
+        <div className="relative min-w-40 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nama / kode bahan…" className="pl-9" />
+        </div>
+        <Select value={fKategori} onValueChange={setFKategori}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filter kategori">
+            <SelectValue placeholder="Semua kategori" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua kategori</SelectItem>
+            {kategoriList.map((k) => (
+              <SelectItem key={k} value={k}>{k}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { setDari(firstDayOfMonth()); setSampai(todayStr()); setQ(''); setFKategori('all') }}
+        >
+          Reset
+        </Button>
+      </div>
+
+      {/* Aksi cetak / ekspor */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => printTable('Laporan Stock', tableCols, tableRows, `Periode ${periodeLabel} · ${items.length} bahan`)}>
+          <Printer className="h-4 w-4" /> Cetak
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => exportPdf('Laporan Stock', tableCols, tableRows, `Periode ${periodeLabel} · ${items.length} bahan`)}>
+          <ClipboardList className="h-4 w-4" /> PDF
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => exportCsv('Laporan Stock', tableCols, tableRows, `Periode ${periodeLabel} · ${items.length} bahan`)}>
+          <FileDown className="h-4 w-4" /> CSV/Excel
+        </Button>
+        <span className="text-xs text-muted-foreground">Periode {periodeLabel}</span>
+      </div>
+
+      {/* Ringkasan kecil */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard icon={PackagePlus} label="Total Masuk (periode)" value={fmtNum(r2(totalMasuk))} sub="seluruh bahan terfilter" tone="emerald" />
+        <StatCard icon={PackageMinus} label="Total Keluar (periode)" value={fmtNum(r2(totalKeluar))} sub="seluruh bahan terfilter" tone="red" />
+        <StatCard icon={Package} label="Nilai Persediaan" value={formatIDR(totalNilai)} sub="saldo akhir × harga modal" tone="emerald" />
+      </div>
+
+      {loading ? (
+        <Spinner label="Menghitung laporan…" />
+      ) : items.length === 0 ? (
+        <EmptyState text="Tidak ada data untuk filter ini." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode</TableHead>
+                <TableHead>Nama bahan</TableHead>
+                <TableHead>Satuan</TableHead>
+                <TableHead className="text-right">Saldo awal</TableHead>
+                <TableHead className="text-right">Total masuk</TableHead>
+                <TableHead className="text-right">Total keluar</TableHead>
+                <TableHead className="text-right">Saldo akhir</TableHead>
+                <TableHead className="text-right">Stok minimum</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((i) => (
+                <TableRow
+                  key={i.bahanId}
+                  className="cursor-pointer"
+                  title="Klik untuk lihat detail histori"
+                  onClick={() => setDetailRow(i)}
+                >
+                  <TableCell className="whitespace-nowrap font-mono text-xs">{i.kode}</TableCell>
+                  <TableCell className="text-sm font-medium">{i.nama}</TableCell>
+                  <TableCell className="text-sm">{i.satuan}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(i.stokAwal)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-sm text-emerald-700">+{fmtNum(i.masuk)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-sm text-red-600">−{fmtNum(i.keluar)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-sm font-bold">
+                    {fmtNum(i.stokAkhir)}
+                    {i.penyesuaian !== 0 && (
+                      <div className="text-[11px] font-normal text-muted-foreground">termasuk penyesuaian {i.penyesuaian > 0 ? '+' : ''}{fmtNum(i.penyesuaian)}</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right text-sm">{fmtNum(i.stokMin)}</TableCell>
+                  <TableCell><StokStatusBadge stok={i.stokAkhir} stokMin={i.stokMin} /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow className="bg-muted/50 font-semibold">
+                <TableCell colSpan={4} className="text-right text-sm">Total ({items.length} bahan)</TableCell>
+                <TableCell className="whitespace-nowrap text-right text-sm">+{fmtNum(r2(totalMasuk))}</TableCell>
+                <TableCell className="whitespace-nowrap text-right text-sm">−{fmtNum(r2(totalKeluar))}</TableCell>
+                <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(totalNilai)}</TableCell>
+                <TableCell colSpan={2} />
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </div>
+      )}
+
+      {/* Detail histori bahan dalam periode */}
+      <LaporanDetailDialog
+        row={detailRow}
+        dari={dari}
+        sampai={sampai}
+        onOpenChange={(o) => {
+          if (!o) setDetailRow(null)
+        }}
+      />
+    </div>
+  )
+}
+
+// ============================================================
+// Dialog: Detail histori satu bahan (dari Laporan)
+// ============================================================
+
+function LaporanDetailDialog({
+  row,
+  dari,
+  sampai,
+  onOpenChange,
+}: {
+  row: LaporanRow | null
+  dari: string
+  sampai: string
+  onOpenChange: (o: boolean) => void
+}) {
+  const [rows, setRows] = useState<RiwayatRow[] | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!row) {
+      setRows(null)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    const params = new URLSearchParams({ bahanId: row.bahanId })
+    if (dari) params.set('dari', dari)
+    if (sampai) params.set('sampai', sampai)
+    apiFetch<{ items: RiwayatRow[] }>(`/api/stock-bahan/riwayat?${params.toString()}`)
+      .then((d) => {
+        if (!cancelled) setRows(Array.isArray(d?.items) ? d.items : [])
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Gagal memuat histori bahan')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [row, dari, sampai])
+
+  const periodeLabel = `${dari ? fmtTanggal(dari) : 'awal'} — ${sampai ? fmtTanggal(sampai) : 'sekarang'}`
+
+  return (
+    <Dialog open={!!row} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="h-5 w-5 text-emerald-600" /> Detail Histori Bahan
+          </DialogTitle>
+          <DialogDescription>
+            {row ? `${row.kode} — ${row.nama} · periode ${periodeLabel}` : ''}
+          </DialogDescription>
+        </DialogHeader>
+
+        {row && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 text-sm sm:grid-cols-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Saldo awal</div>
+                <div className="font-semibold">{fmtNum(row.stokAwal)} {row.satuan}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Total masuk</div>
+                <div className="font-semibold text-emerald-700">+{fmtNum(row.masuk)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Total keluar</div>
+                <div className="font-semibold text-red-600">−{fmtNum(row.keluar)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Saldo akhir</div>
+                <div className="font-bold">{fmtNum(row.stokAkhir)} {row.satuan}</div>
+              </div>
+            </div>
+
+            {loading ? (
+              <Spinner label="Memuat histori…" />
+            ) : !rows || rows.length === 0 ? (
+              <EmptyState text="Tidak ada transaksi pada periode ini." />
+            ) : (
+              <div className="max-h-80 overflow-y-auto rounded-lg border">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Nomor</TableHead>
+                      <TableHead>Jenis</TableHead>
+                      <TableHead className="text-right">Masuk</TableHead>
+                      <TableHead className="text-right">Keluar</TableHead>
+                      <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead>Keterangan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="whitespace-nowrap text-xs">{fmtTanggal(r.tanggal)}</TableCell>
+                        <TableCell className="whitespace-nowrap font-mono text-xs">{r.nomor || '—'}</TableCell>
+                        <TableCell><JenisBadge jenis={r.jenis} /></TableCell>
+                        <TableCell className="whitespace-nowrap text-right text-xs text-emerald-700">{r.masuk ? `+${fmtNum(r.masuk)}` : ''}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right text-xs text-red-600">{r.keluar ? `−${fmtNum(r.keluar)}` : ''}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right text-xs">{fmtNum(r.saldo)}</TableCell>
+                        <TableCell className="max-w-40 truncate text-xs text-muted-foreground">{r.keterangan || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Tutup</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

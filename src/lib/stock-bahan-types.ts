@@ -110,6 +110,7 @@ export interface LaporanItem {
   satuan: string
   suplierNama: string
   aktif: boolean
+  stokMin: number
   stokAwal: number
   masuk: number
   keluar: number
