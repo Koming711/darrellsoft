@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
 import { pruneOldBackups } from '@/lib/backup-retention'
+import { saveBackupToFileSystem } from '@/lib/backup-folder'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -182,6 +183,10 @@ export async function POST(req: NextRequest) {
     const fileName = `backup-user-${dateStr}.xlsx`
     const jsonFileName = `backup-user-${dateStr}.json`
 
+    // Status salinan ke folder (diisi di blok try di bawah)
+    let folderSaved = false
+    let folderUsed = ''
+
     // Simpan salinan JSON ke DATABASE (tabel BackupFile) — bukan filesystem.
     // Di Vercel filesystem read-only, sehingga Riwayat Backup & hapus hanya
     // bisa berfungsi bila salinan backup disimpan di database.
@@ -203,9 +208,18 @@ export async function POST(req: NextRequest) {
         create: { fileName: jsonFileName, ...data },
       })
 
-      // Retensi maks 10 file (FIFO): setelah backup baru tersimpan,
-      // buang backup tertua agar riwayat hanya berisi 10 backup terakhir.
+      // Retensi maks 7 file (FIFO): setelah backup baru tersimpan,
+      // buang backup tertua agar riwayat hanya berisi 7 backup terakhir.
       await pruneOldBackups()
+
+      // Salinan JSON juga ditulis ke folder pilihan user di server (best-effort).
+      // Di Vercel filesystem read-only → gagal diabaikan, salinan database tetap aman.
+      const fsSave = await saveBackupToFileSystem(jsonFileName, content)
+      if (!fsSave.ok) {
+        console.warn(`Salinan backup ke folder "${fsSave.folder}" dilewati:`, fsSave.error)
+      }
+      folderSaved = fsSave.ok
+      folderUsed = fsSave.folder
     } catch (saveError) {
       console.warn(
         'Salinan backup ke database dilewati:',
@@ -222,6 +236,8 @@ export async function POST(req: NextRequest) {
         'Content-Length': String(excelBuffer.length),
         'X-Backup-FileName': fileName,
         'X-Backup-FileCount': String(totalRows),
+        'X-Backup-Folder': encodeURIComponent(folderUsed),
+        'X-Backup-Folder-Saved': folderSaved ? 'true' : 'false',
         'Cache-Control': 'no-cache',
       },
     })

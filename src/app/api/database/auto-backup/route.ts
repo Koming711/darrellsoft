@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
 import { pruneOldBackups } from '@/lib/backup-retention'
+import { saveBackupToFileSystem } from '@/lib/backup-folder'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -187,6 +188,10 @@ export async function POST(req: NextRequest) {
     const fileName = `auto-backup-${dateStr}.xlsx`
     const jsonFileName = `auto-backup-${dateStr}.json`
 
+    // Status salinan ke folder (diisi di blok try di bawah)
+    let folderSaved = false
+    let folderUsed = ''
+
     // Simpan salinan JSON ke DATABASE (tabel BackupFile) — bukan filesystem.
     // Di Vercel filesystem read-only, sehingga Riwayat Backup & hapus hanya
     // bisa berfungsi bila salinan backup disimpan di database.
@@ -208,10 +213,17 @@ export async function POST(req: NextRequest) {
         create: { fileName: jsonFileName, ...data },
       })
 
-      // Retensi maks 10 file (FIFO) untuk SELURUH Riwayat Backup:
-      // backup baru masuk → backup tertua terhapus, sisanya bergeser
-      // (menggantikan cleanup lama "keep last 30").
+      // Retensi maks 7 file (FIFO) untuk SELURUH Riwayat Backup:
+      // backup baru masuk → backup tertua terhapus, sisanya bergeser.
       await pruneOldBackups()
+
+      // Salinan JSON juga ditulis ke folder pilihan user di server (best-effort).
+      const fsSave = await saveBackupToFileSystem(jsonFileName, content)
+      if (!fsSave.ok) {
+        console.warn(`Salinan auto backup ke folder "${fsSave.folder}" dilewati:`, fsSave.error)
+      }
+      folderSaved = fsSave.ok
+      folderUsed = fsSave.folder
     } catch (saveError) {
       console.warn(
         'Salinan auto backup ke database dilewati:',
@@ -231,6 +243,8 @@ export async function POST(req: NextRequest) {
       message: `Auto backup berhasil: ${fileName} (${totalRows} records)`,
       fileName,
       totalRows,
+      folder: folderUsed,
+      folderSaved,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {

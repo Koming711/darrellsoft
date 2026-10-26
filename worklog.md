@@ -15019,3 +15019,28 @@ Stage Summary:
 - Retensi Riwayat Backup kini **maksimal 7 file (FIFO by count)** — berlaku di backup manual, auto-backup, dan saat daftar dibuka; konstanta tunggal `BACKUP_MAX_FILES = 7` di `src/lib/backup-retention.ts`.
 - Tidak ada perubahan skema DB / API contract; UI note sudah sinkron (ID+EN).
 - BELUM dideploy ke www.darrellsoft.com — produksi masih "keep last 30" versi lama; menunggu instruksi deploy.
+
+---
+Task ID: backup-folder-setting
+Agent: Z.ai Code (main)
+Task: "dihalaman backup, tambah tentukan folder dimana file backup mau disimpan" — fitur penentuan folder penyimpanan file backup di halaman Pengaturan → Database.
+
+Work Log:
+- Check struktur: salinan backup JSON disimpan ke tabel BackupFile (DB); route backup & auto-backup sama-sama meng-upsert salinan; settings global via Setting table dengan SYSTEM_SETTING_KEYS.
+- Buat `src/lib/backup-folder.ts`: `sanitizeBackupFolder()` (tolak absolute path/drive letter/`..` traversal, normalisasi backslash→slash, trim slash; kosong → default `backups`), `getBackupFolder()` (baca Setting global, fallback default), `saveBackupToFileSystem()` (mkdir recursive + writeFile, tidak pernah throw, return status).
+- `src/lib/settings-shared.ts`: daftarkan `backup_folder` ke SYSTEM_SETTING_KEYS (global, bukan per-user) agar server & semua user membaca nilai yang sama.
+- `src/app/api/database/backup/route.ts`: import helper; setelah upsert DB + prune FIFO, tulis salinan JSON ke folder (best-effort); header response baru `X-Backup-Folder` + `X-Backup-Folder-Saved`; perbaiki komentar lama "maks 10 file" → 7.
+- `src/app/api/database/auto-backup/route.ts`: sama (tulis ke folder best-effort) + field `folder` & `folderSaved` di response JSON; perbaiki komentar "maks 10" → 7.
+- `src/lib/i18n.ts`: 8 key baru ID+EN (backup_folder_title/desc/label/placeholder/saved/save_error/invalid/active).
+- `src/app/administrasi/pengaturan/page.tsx`: state backupFolder/backupFolderInput/savingFolder; fetchBackupFolder (GET ?key=backup_folder) saat tab Database; handleSaveBackupFolder (validasi klien + POST /api/settings); kartu UI "Folder Penyimpanan Backup" (ikon FolderOpen) antara Auto Backup dan Riwayat Backup — input + Simpan + indikator "📁 Folder aktif: X/".
+- Uji fungsional: set `backups/uji` via API → POST backup → file `backups/uji/backup-user-*.json` (102KB, 16 tabel, JSON valid) + header `x-backup-folder-saved: true`.
+- Uji keamanan: set `../evil` → backup tetap aman difallback ke `backups/`, tidak ada folder di luar project.
+- Uji UI (agent-browser): kartu tampil, ubah ke `backups/harian` → toast "Folder backup tersimpan" + "Folder aktif: backups/harian/" + DB sinkron; input `../evil` → toast error ditolak, nilai tak berubah; reset ke `backups`.
+- Cleanup: hapus folder uji & file json uji, hapus 7 baris BackupFile uji, setting di-reset `backups`, localStorage.clear + browser close.
+- Lint: eslint pada backup-folder.ts, settings-shared.ts, 2 route, page.tsx → bersih (tanpa temuan terkait folder).
+
+Stage Summary:
+- Fitur baru: user bisa menentukan folder penyimpanan file backup (JSON) di server dari halaman Pengaturan → Database; folder dibuat otomatis; kegagalan filesystem (mis. Vercel read-only) tidak mengganggu backup utama ke database.
+- Keamanan: path traversal (`..`), absolute path, drive letter diblokir di sanitasi server + validasi klien.
+- Konstanta: `BACKUP_FOLDER_SETTING_KEY='backup_folder'`, default `DEFAULT_BACKUP_FOLDER='backups'`.
+- BELUM dideploy ke www.darrellsoft.com — menunggu instruksi deploy.
