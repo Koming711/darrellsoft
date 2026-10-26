@@ -145,6 +145,9 @@ interface PrintCalculation {
   biayaLain1Label?: string
   biayaLain2Label?: string
   paperGrammage?: number
+  /** Cetak bolak-balik: jumlah cetakan ×2, jumlah bahan (kertas) tetap. */
+  bbs?: boolean
+  bbk?: boolean
   recordNumber?: string
   recordDate?: string
   photoUrl?: string
@@ -319,9 +322,12 @@ function HitungCetakanPage() {
   const [totalPaperPrice, setTotalPaperPrice] = useState<number>(0)
   // Derived paper price computed via the SAME cutting engine used by potong-kertas,
   // so the total harga kertas matches exactly between the two pages.
-  // Logic: totalQty = quantity + setelanKertas; sheetsNeeded = ceil(totalQty / totalPieces);
+  // Logic: totalQty = paperQty + setelanKertas; sheetsNeeded = ceil(totalQty / totalPieces);
   // paperPriceValue = sheetsNeeded × pricePerSheet.
-  // Falls back to pricePerSheet × quantity when paper/cut dimensions are missing
+  // BBS/BBK (cetak bolak-balik): Jumlah Cetakan ×2 TAPI jumlah bahan (lembar kertas) TIDAK
+  // bertambah — satu lembar yang sama dicetak dua sisi. Karena formData.quantity sudah ×2,
+  // kertas dihitung dari jumlah dasar = ceil(Jumlah Pesanan ÷ Cetak Brp Mata) tanpa ×2.
+  // Falls back to pricePerSheet × paperQty when paper/cut dimensions are missing
   // (so the grand total still becomes > 0 and all action buttons activate).
   const computedPaper = useMemo(() => {
     const pw = parseFloat(formData.paperLength) || 0
@@ -329,9 +335,14 @@ function HitungCetakanPage() {
     const cw = parseFloat(formData.cutWidth) || 0
     const ch = parseFloat(formData.cutHeight) || 0
     const qty = parseInt(formData.quantity) || 0
+    const jp = parseInt(formData.jumlahPesanan) || 0
+    const bm = parseInt(formData.berapaMata) || 0
+    const bbsBbk = formData.bbs || formData.bbk
+    // Jumlah bahan (kertas) tidak ikut ×2 saat cetak bolak-balik
+    const paperQty = bbsBbk ? (jp > 0 && bm > 0 ? Math.ceil(jp / bm) : Math.ceil(qty / 2)) : qty
     const setelan = parseInt(formData.setelanKertas) || 0
     const price = parseFloat(formData.pricePerSheet) || 0
-    const totalQty = qty + setelan
+    const totalQty = paperQty + setelan
     if (pw > 0 && ph > 0 && cw > 0 && ch > 0 && totalQty > 0 && price > 0) {
       try {
         const result = calculateCuts({
@@ -343,8 +354,8 @@ function HitungCetakanPage() {
       } catch { /* fall through to simple calc */ }
     }
     // Fallback: simple price × quantity (keeps buttons active even without dims)
-    return { sheetsNeeded: 0, totalPrice: price * qty }
-  }, [formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.quantity, formData.setelanKertas, formData.pricePerSheet])
+    return { sheetsNeeded: 0, totalPrice: price * paperQty }
+  }, [formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.quantity, formData.jumlahPesanan, formData.berapaMata, formData.bbs, formData.bbk, formData.setelanKertas, formData.pricePerSheet])
   const paperPriceValue = computedPaper.totalPrice
   const [calculatedPrintingCost, setCalculatedPrintingCost] = useState<number>(0)
   const [calculatedPrintingCost2, setCalculatedPrintingCost2] = useState<number>(0)
@@ -1316,6 +1327,7 @@ function HitungCetakanPage() {
       printName: formData.printName, paperLength: formData.paperLength, paperWidth: formData.paperWidth,
       cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
       quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
+      bbs: formData.bbs === true, bbk: formData.bbk === true,
       hargaPlat: formData.hargaPlat, namaSuplier: formData.namaSuplier, paperId: formData.paperId, paperName: selectedPaper?.name || 'Custom', paperGrammage: selectedPaper?.grammage || 0,
       recordNumber: '', recordDate: new Date().toISOString(),
       machineId: formData.machineId, machineName: selectedMachine?.machineName || '-',
@@ -1855,6 +1867,7 @@ function HitungCetakanPage() {
       }) : [],
       jumlahPesanan: r.jumlahPesanan?.toString() || '',
       berapaMata: r.berapaMata?.toString() || '',
+      bbs: r.bbs === true, bbk: r.bbk === true,
       setelanKertas: r.setelanKertas?.toString() || '',
       glueLengthCm: r.glueLengthCm?.toString() || '',
       glueCostPerCm: r.glueCostPerCm?.toString() || '',
@@ -1899,12 +1912,15 @@ function HitungCetakanPage() {
     const qty = bm > 0 ? Math.ceil(jumlah / bm) * ((formData.bbs || formData.bbk) ? 2 : 1) : jumlah
     if (qty <= 0) return null
     // Kertas: hitung ulang dengan cutting engine (jumlah cetakan simulasi + insit)
+    // BBS/BBK: jumlah bahan (lembar kertas) TIDAK ikut ×2 — satu lembar dicetak dua sisi,
+    // jadi kertas memakai jumlah dasar. Ongkos cetak & finishing tetap ikut jumlah cetakan (×2).
+    const paperQty = (formData.bbs || formData.bbk) && bm > 0 ? Math.ceil(jumlah / bm) : qty
     const pw = parseFloat(formData.paperLength) || 0
     const ph = parseFloat(formData.paperWidth) || 0
     const cw = parseFloat(formData.cutWidth) || 0
     const ch = parseFloat(formData.cutHeight) || 0
     const price = parseFloat(formData.pricePerSheet) || 0
-    const totalQty = qty + (parseInt(formData.setelanKertas) || 0)
+    const totalQty = paperQty + (parseInt(formData.setelanKertas) || 0)
     let kertas = 0
     let sheetsNeeded = 0
     if (pw > 0 && ph > 0 && cw > 0 && ch > 0 && totalQty > 0 && price > 0) {
@@ -1912,9 +1928,9 @@ function HitungCetakanPage() {
         const r = calculateCuts({ paperWidth: pw, paperHeight: ph, cutWidth: cw, cutHeight: ch, quantity: totalQty, pricePerSheet: price, optimizationMode: 'maximal', customerName: '', paperMaterial: '', grammage: 0 })
         kertas = r.totalPrice
         sheetsNeeded = r.sheetsNeeded
-      } catch { kertas = price * qty }
+      } catch { kertas = price * paperQty }
     } else {
-      kertas = price * qty
+      kertas = price * paperQty
     }
     // Ongkos Cetak 1 (pakai minimum quantity mesin, sama seperti perhitungan utama)
     let ongkos1 = 0

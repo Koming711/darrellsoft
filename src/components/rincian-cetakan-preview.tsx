@@ -66,6 +66,9 @@ export interface RincianCetakanData {
   berapaMata: string
   setelanKertas?: string
   namaSuplier?: string
+  /** Cetak bolak-balik: jumlah cetakan ×2, jumlah bahan (kertas) tetap. */
+  bbs?: boolean
+  bbk?: boolean
   warna: string
   warnaKhusus: string
   warna2?: string
@@ -117,6 +120,8 @@ export interface RiwayatCetakanRow {
   berapaMata?: string | null
   setelanKertas?: string | null
   namaSuplier?: string | null
+  bbs?: boolean | null
+  bbk?: boolean | null
   warna?: string | null
   warnaKhusus?: string | null
   warna2?: string | null
@@ -170,6 +175,8 @@ export function mapRiwayatToRincianData(r: RiwayatCetakanRow): RincianCetakanDat
     berapaMata: r.berapaMata || '',
     setelanKertas: r.setelanKertas || '',
     namaSuplier: r.namaSuplier || '',
+    bbs: r.bbs === true,
+    bbk: r.bbk === true,
     warna: r.warna || '',
     warnaKhusus: r.warnaKhusus || '',
     warna2: r.warna2 || '',
@@ -268,7 +275,14 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
   const pvCutWidth = d?.cutWidth || ''
   const pvCutHeight = d?.cutHeight || ''
   const pvQuantity = parseInt(d?.quantity || '0') || 0
-  const pvPaperPrice = d?.totalPaperPrice || ((parseFloat(d?.pricePerSheet || '0') || 0) * pvQuantity)
+  // BBS/BBK (cetak bolak-balik): field "quantity" = Jumlah Cetakan yang sudah ×2.
+  // Jumlah bahan (lembar kertas) TIDAK bertambah — satu lembar dicetak dua sisi —
+  // jadi kertas dihitung dari jumlah dasar = ceil(Jumlah Pesanan ÷ Cetak Brp Mata).
+  const pvBbsBbk = !!(d?.bbs || d?.bbk)
+  const pvJpNum = parseInt(d?.jumlahPesanan || '0') || 0
+  const pvBmNum = parseInt(d?.berapaMata || '0') || 0
+  const pvBaseQty = pvBbsBbk ? (pvJpNum > 0 && pvBmNum > 0 ? Math.ceil(pvJpNum / pvBmNum) : Math.ceil(pvQuantity / 2)) : pvQuantity
+  const pvPaperPrice = d?.totalPaperPrice || ((parseFloat(d?.pricePerSheet || '0') || 0) * pvBaseQty)
   const pvPrintingCost = d?.calculatedPrintingCost ?? 0
   const pvPrintingCost2 = d?.calculatedPrintingCost2 ?? 0
   const pvFinishingCost = d?.calculatedFinishingCost ?? 0
@@ -318,14 +332,15 @@ export function RincianCetakanPreview({ data }: { data: RincianCetakanData | nul
   // Harga Modal per Pcs = Sub Total (total modal) ÷ jumlah pesanan — sama dengan "Harga Modal" di summary editor
   const pvHargaModalPcs = pvJumlahPesanan > 0 ? pvSubTotal / pvJumlahPesanan : pvQuantity > 0 ? pvSubTotal / pvQuantity : 0
   // Cutting engine result for the gambar potong kertas (same engine & mapping as computedPaper:
-  // paperLength -> paperWidth param, paperWidth -> paperHeight param)
+  // paperLength -> paperWidth param, paperWidth -> paperHeight param).
+  // BBS/BBK: memakai jumlah dasar (bahan tidak ×2) — sama dengan computedPaper di editor.
   const pvCutResult = useMemo(() => {
     if (!d) return null
     const pw = parseFloat(d.paperLength) || 0
     const ph = parseFloat(d.paperWidth) || 0
     const cw = parseFloat(d.cutWidth) || 0
     const ch = parseFloat(d.cutHeight) || 0
-    const qty = parseInt(d.quantity || '0') || 0
+    const qty = pvBaseQty
     const setelan = parseInt(d.setelanKertas || '0') || 0
     const price = parseFloat(d.pricePerSheet || '0') || 0
     const totalQty = qty + setelan

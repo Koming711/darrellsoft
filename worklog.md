@@ -14862,3 +14862,28 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com now serves the BBS/BBK feature: checkboxes in the Ongkos Cetak box under Total Ongkos, no hint text, ×2 jumlah cetakan, persisted in riwayat (bbs/bbk columns migrated in production DB).
 - KEY LEARNING: this directory is linked to Vercel project "my-project", but production domain www.darrellsoft.com/darrellsoft.com belong to project "darrellsoft" — every future deploy MUST `vercel link --project darrellsoft` first (then optionally relink back to my-project), or the deploy silently goes nowhere user-visible.
+
+---
+Task ID: hc-bbsbbk-bahan-fix
+Agent: Z.ai Code (main)
+Task: Hitung Cetakan — BBS/BBK: Jumlah Cetakan ×2 TAPI jumlah bahan (kertas) TIDAK bertambah
+
+Work Log:
+- Requirement refinement: sebelumnya ×2 mengalir ke SEMUA perhitungan termasuk kertas. Sekarang: Jumlah Cetakan ×2 (display + ongkos cetak + finishing tetap ikut), tetapi lembar kertas & harga kertas pakai jumlah DASAR ceil(Jumlah Pesanan ÷ Cetak Brp Mata) tanpa ×2 (satu lembar dicetak dua sisi).
+- src/app/hitung-cetakan/page.tsx:
+  1. computedPaper: paperQty = bbsBbk ? ceil(jp/bm) (fallback ceil(qty/2) bila jp/bm kosong) : qty; cutting engine & fallback pakai paperQty; deps + jumlahPesanan/berapaMata/bbs/bbk.
+  2. computeSimulasi: paperQty dasar untuk kertas (cutting engine + fallback price*paperQty); ongkos1/ongkos2/finishing TETAP pakai qty (×2).
+  3. PrintCalculation interface + handlePreview + handlePreviewRiwayat: kirim bbs/bbk ke preview (setelanKertas line sengaja tidak hilang — dicek).
+- src/components/rincian-cetakan-preview.tsx: type RincianCetakanData + RiwayatCetakanRow + mapRiwayatToRincianData + bbs/bbk; pvBaseQty (aturan sama) untuk pvPaperPrice fallback & pvCutResult (gambar potong kertas & "Lembar Kertas"); "Jumlah Cetakan" tetap tampil ×2 (pvQuantity).
+- Tidak diubah: toggleSide & onChange handlers (quantity tetap ×2), ongkos cetak formula, finishing, potong-sync (path PK→HC terpisah, tidak melibatkan bbs).
+- ESLint: 0 errors (kedua file).
+- Browser-verified (simulated user-admin, dibersihkan): sm52 + warna 1, bahan 100×70, potong 25×35 (8/lembar), harga 1000, insit 0, profit 40%:
+  * BBS off: JC 5000, Ongkos Rp 302.500, Kertas Rp 625.000 (625 lbr)
+  * BBS on:  JC 10000 (×2), Ongkos Rp 602.500 (×2), Kertas Rp 625.000 (TIDAK nambah) ✓
+  * Simulasi Cepat (5000/40%): baris = Cetak 10.000 | Kertas 625 lbr | Modal Rp 1.227.500 (625.000 + 602.500) ✓
+  * Preview Rincian Cetakan: "Jumlah Cetakan 10.000 lbr" + "Lembar Kertas 625 lbr" ✓
+  * Konsol bersih, dev.log bersih, localStorage test dibersihkan.
+
+Stage Summary:
+- BBS/BBK sekarang: Jumlah Cetakan ×2 (dan ongkos cetak ikut ×2 karena mesin jalan 2 pass), tetapi jumlah bahan/lembar kertas + harga kertas tetap 1× di form, Simulasi Cepat (kolom Cetak vs Kertas), dan dokumen preview/JPG/cetak.
+- Belum di-deploy ke produksi.
