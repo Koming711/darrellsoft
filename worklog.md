@@ -14930,3 +14930,23 @@ Stage Summary:
 - Stock Bahan module now = snapshot "(5)" version: v123 8-menu UI + ui-tweak-1..5 popup (Supplier/Kategori/Satuan/Nama bahan/Referensi PO pure selects, auto-isi Ukuran/Gramatur/Harga modal dari Master Bahan), backed by pre-simplifikasi API routes ([id] detail tabs, laporan saldo-awal via stokSetelah, mutasi non-atomic nextNomorMutasi, CRUD POST/PUT with ukuran/gramatur + poRef).
 - Schema/auto-seed merged (ukuran+gramatur added; bbs/bbk + referensi preserved) → local SQLite synced; production Postgres will self-upgrade on next deploy via auto-seed.
 - Hitung Cetakan BBS/BBK work and other local-newer files untouched. Not deployed — production still runs ui-tweak-5 state until next `vercel --prod` on project darrellsoft.
+
+---
+Task ID: deploy-stock-bahan-v123
+Agent: Z.ai Code (main)
+Task: Deploy the restored Stock Bahan v123 (8-menu + ui-tweak-1..5) + schema additions to www.darrellsoft.com production (user: "deploy")
+
+Work Log:
+- Pre-deploy: .vercel/project.json was linked to my-project (known trap) → `vercel link --project darrellsoft` with user token; deleted the auto-generated .env.local (VERCEL_OIDC only; local .env keeps sqlite DATABASE_URL).
+- Deployed `vercel --prod` → deployment darrellsoft-ar3viad9s (status ● Ready), aliased to https://www.darrellsoft.com and https://darrellsoft.com. Relinked back to my-project; .env.local removed again.
+- Production verification:
+  * / , /stock-bahan , /api/public-settings , /api/riwayat-cetakan → all HTTP 200.
+  * RSC payload (cache-bust) of /stock-bahan → 18 chunks downloaded; chunk ee0471f2cc335e77.js contains ALL new strings: "Pilih dari Master Bahan", "Izinkan stok minus", "Bahan yang perlu dibeli", "Ukuran (cm)", "Gramatur (gsm)", "Tanpa PO" → v123 8-menu + ui-tweak-2..5 popup live (same content-hash as the ui-tweak-5 deploy → byte-parity).
+  * Auto-seed Postgres migration ran on boot: GET /api/stock-bahan (admin cookie) returns 6 real bahan rows with ukuran & gramatur fields present → Supabase "Bahan" table self-upgraded (no manual SQL).
+  * Regression: /api/riwayat-cetakan → 15 rows, bbs/bbk fields intact; hitung-cetakan chunk e8ec1793e37bff03.js contains "Cetak Bolak-Balik" and no "dicentang" (hint removal from hc-remove-hint still live).
+- Local: dev server still running as daemon on :3000, schema sqlite, worklog updated.
+
+Stage Summary:
+- www.darrellsoft.com now serves the full snapshot-(5) Stock Bahan: v123 8-menu UI, popup Tambah Bahan with 5 pure selects + auto-isi Ukuran/Gramatur/Harga modal from Master Bahan, Referensi PO select, Izinkan stok minus switch — with pre-simplifikasi API routes.
+- Bahan.ukuran & Bahan.gramatur columns live in production Postgres via auto-seed; bbs/bbk hitung-cetakan features untouched and verified.
+- Local dir relinked to my-project (post-deploy hygiene), no leftover .env.local.
