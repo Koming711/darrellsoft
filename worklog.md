@@ -14887,3 +14887,19 @@ Work Log:
 Stage Summary:
 - BBS/BBK sekarang: Jumlah Cetakan ×2 (dan ongkos cetak ikut ×2 karena mesin jalan 2 pass), tetapi jumlah bahan/lembar kertas + harga kertas tetap 1× di form, Simulasi Cepat (kolom Cetak vs Kertas), dan dokumen preview/JPG/cetak.
 - Belum di-deploy ke produksi.
+
+---
+Task ID: deploy-hc-bahan-fix
+Agent: Z.ai Code (main)
+Task: Deploy BBS/BBK "jumlah bahan tidak nambah" fix ke www.darrellsoft.com
+
+Work Log:
+- Procedure (dari learning deploy sebelumnya): vercel link --project darrellsoft → rm .env.local (auto-created, hanya VERCEL_OIDC_TOKEN) → vercel --prod --yes → link back ke my-project → rm .env.local lagi. Local .env tetap sqlite.
+- Deploy sukses: darrellsoft-893up8tvm, Ready 2m, "Aliased https://www.darrellsoft.com".
+- VERIFIKASI PRODUKSI END-TO-END (agent-browser di https://www.darrellsoft.com/hitung-cetakan, simulasi user-admin, tanpa tulis DB — hanya ketik form):
+  * BBS off: JC 5000, Kertas Rp 625.000
+  * BBS on:  JC 10000 (×2), Kertas Rp 625.000 TIDAK berubah ✓ (perilaku lama akan menunjukkan Rp 1.250.000 → bukti definitif build baru live)
+- Local dev tetap 200 bersih setelah relink churn; localStorage test production dibersihkan (auth juga dihapus).
+
+Stage Summary:
+- www.darrellsoft.com sekarang menjalankan perilaku final BBS/BBK: Jumlah Cetakan ×2 (ongkos cetak ikut ×2), jumlah bahan/lembar kertas + harga kertas tetap 1× — konsisten di form, Simulasi Cepat, dan preview/JPG/cetak.
