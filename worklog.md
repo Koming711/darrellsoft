@@ -14846,3 +14846,19 @@ Work Log:
 Stage Summary:
 - BBS/BBK row in Ongkos Cetak box now shows only "Cetak Bolak-Balik: BBS ☐ BBK ☐" without the explanatory hint; behavior identical (×2 jumlah cetakan when either checked).
 - Not yet deployed to production.
+
+---
+Task ID: deploy-hc-bbsbbk
+Agent: Z.ai Code (main)
+Task: Deploy BBS/BBK hitung-cetakan changes (hc-bbs-bbk, hc-bbs-bbk-move, hc-remove-hint) to www.darrellsoft.com
+
+Work Log:
+- Pre-flight: local schema.prisma = sqlite (correct — remote build swaps via scripts/prepare-build.js); auto-seed.ts migrateExistingTablesPg() contains bbs/bbk ALTER TABLE ... IF NOT EXISTS for production.
+- FIRST DEPLOY WENT TO WRONG PROJECT: `npx vercel --prod` used the linked project (.vercel/project.json = "my-project", prj_ZKyRceEX3TLziFO1Q9tGUgZtBghe) → deployment Ready but ZERO aliases; www.darrellsoft.com actually belongs to project "darrellsoft" (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB, latest deployment darrellsoft-k571wtx1s). Domain still served the old build (RSC age 22969s, old page chunk 4369d5fbab7c81a1.js without any BBS/BBK strings).
+- FIX: `vercel link --project darrellsoft --yes --token <token>` → `vercel --prod --yes --token <token>` → Ready in 2m, "Aliased https://www.darrellsoft.com" (deployment darrellsoft-fkyjtnaqh). Re-linked back to my-project afterwards and removed the .env.local that `vercel link` auto-creates (it only contained VERCEL_OIDC_TOKEN; local .env keeps sqlite DATABASE_URL).
+- Verified production end-to-end: (1) fresh RSC payload now references new chunks — page logic chunk d8aac6d332f9d660.js contains "Bolak-Balik"/BBK aria-label, string "dicentang" ABSENT from all 19 chunks; (2) DB migration ran — GET /api/public-settings (200, triggers ensureSeedData→migrateExistingTablesPg), then GET /api/riwayat-cetakan (200, 15 records, every record has bbs & bbk fields → columns exist in Supabase Postgres; Prisma full-model SELECT would 500 if missing); next number preview HC/10/26/0033.
+- Local dev unaffected after relink churn: /hitung-cetakan 200, dev.log clean.
+
+Stage Summary:
+- www.darrellsoft.com now serves the BBS/BBK feature: checkboxes in the Ongkos Cetak box under Total Ongkos, no hint text, ×2 jumlah cetakan, persisted in riwayat (bbs/bbk columns migrated in production DB).
+- KEY LEARNING: this directory is linked to Vercel project "my-project", but production domain www.darrellsoft.com/darrellsoft.com belong to project "darrellsoft" — every future deploy MUST `vercel link --project darrellsoft` first (then optionally relink back to my-project), or the deploy silently goes nowhere user-visible.
