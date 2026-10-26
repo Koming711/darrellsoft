@@ -14810,3 +14810,23 @@ Stage Summary:
 - Hitung Cetakan now has BBS/BBK checkboxes: either checked → Jumlah Cetakan = 2 × (Jumlah Pesanan ÷ Cetak Berapa Mata); all costs downstream (kertas via cutting engine, ongkos cetak, finishing, simulasi) follow automatically since they derive from quantity
 - Flags persist per-record (riwayat) and per-device (localStorage); mutually exclusive by design
 - Production deploy NOT yet done for this change (auto-seed will migrate Supabase on next deploy)
+
+---
+Task ID: hc-bbs-bbk-move
+Agent: Z.ai Code (main)
+Task: Hitung Cetakan — pindahkan kotak centang BBS/BBK ke kotak Ongkos Cetak, di bawah Total Ongkos
+
+Work Log:
+- Extracted the BBS/BBK checkbox row into shared const `bbsBbkRow` (after ValueBox definition) in src/app/hitung-cetakan/page.tsx — one markup used by both layouts.
+- Removed the row from Section 1 (Informasi Cetakan, after the Jumlah grid) where it was added in hc-bbs-bbk.
+- Rendered `{bbsBbkRow}` below "Total Ongkos" in BOTH Ongkos Cetak boxes:
+  * Mobile (lg:hidden section): wrapped in col-span-2 div inside the grid
+  * Desktop (COLUMN 2, hidden lg:flex): direct grid child (grid-cols-1)
+- Logic unchanged: toggleSide mutual exclusion, ×2 factor at all quantity sites, persistence (formData → localStorage + riwayat bbs/bbk columns).
+- ESLint: 0 errors.
+- Browser-verified (simulated user-admin, cleaned after): 4 checkbox instances in DOM (2 layouts), correct pair visible per viewport; DOM order = Total Ongkos → Cetak Bolak-Balik row, inside the Ongkos Cetak card; functional retest from new location: base 1000÷4=250 → BBS=500; mobile 390x844 screenshot: row directly under Total Ongkos; desktop 1440x900 screenshot: same in column 2; Section 1 clean; BBS state still restored from localStorage form persistence; dev.log clean; no test records left.
+
+Stage Summary:
+- BBS/BBK checkboxes now live in the Ongkos Cetak box, right below Total Ongkos (mobile + desktop), single shared markup
+- Behavior identical to before (×2 jumlah cetakan, mutual exclusion, persists in riwayat & localStorage)
+- Not yet deployed to production

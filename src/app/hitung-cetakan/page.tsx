@@ -2129,6 +2129,23 @@ function HitungCetakanPage() {
     </div>
   )
 
+  // ===== Kotak centang BBS / BBK (cetak bolak-balik) — tampil di kotak Ongkos Cetak,
+  // di bawah "Total Ongkos" (dipakai bersama layout mobile & desktop) =====
+  const bbsBbkRow = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Cetak Bolak-Balik:</span>
+      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" checked={!!formData.bbs} onChange={() => toggleSide('bbs')} className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" aria-label="BBS — bolak balik sama (jumlah cetakan kali 2)" />
+        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">BBS</span>
+      </label>
+      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" checked={!!formData.bbk} onChange={() => toggleSide('bbk')} className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" aria-label="BBK — bolak balik kendali (jumlah cetakan kali 2)" />
+        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">BBK</span>
+      </label>
+      <span className="text-[10px] text-slate-400">dicentang → Jumlah Cetakan × 2</span>
+    </div>
+  )
+
   const fmtNum = (n: number) => Math.round(n).toLocaleString('id-ID')
   const formatRp = (n: number) => `Rp ${fmtNum(n)}`
   // Harga per pcs: tampilkan 2 desimal bila < Rp1.000 (bisa jadi senilai puluhan/ratusan rupiah, bahkan < Rp1)
@@ -2609,19 +2626,6 @@ function HitungCetakanPage() {
                       <input type="number" placeholder="Auto" value={formData.quantity} className={`${inputClass} bg-slate-100 cursor-not-allowed`} readOnly />
                     </div>
                   </div>
-                  {/* Kotak centang BBS / BBK — cetak bolak-balik: dicentang → jumlah cetakan ×2 */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Cetak Bolak-Balik:</span>
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                      <input type="checkbox" checked={!!formData.bbs} onChange={() => toggleSide('bbs')} className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" aria-label="BBS — bolak balik sama (jumlah cetakan kali 2)" />
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">BBS</span>
-                    </label>
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                      <input type="checkbox" checked={!!formData.bbk} onChange={() => toggleSide('bbk')} className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" aria-label="BBK — bolak balik kendali (jumlah cetakan kali 2)" />
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">BBK</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400">dicentang → Jumlah Cetakan × 2</span>
-                  </div>
                 </div>
               </div>
 
@@ -2772,6 +2776,10 @@ function HitungCetakanPage() {
                   <div className="col-span-2">
                     <label className={labelClass}>Total Ongkos</label>
                     <ValueBox label={t('ongkos_cetak_label')} value={calculatedPrintingCost > 0 ? `Rp ${Math.round(calculatedPrintingCost).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200" />
+                  </div>
+                  {/* BBS/BBK di bawah Total Ongkos (cetak bolak-balik → jumlah cetakan ×2) */}
+                  <div className="col-span-2">
+                    {bbsBbkRow}
                   </div>
               </div>
               </div>
@@ -3073,6 +3081,8 @@ function HitungCetakanPage() {
                     <label className={labelClass}>Total Ongkos</label>
                     <ValueBox label={t('ongkos_cetak_label')} value={calculatedPrintingCost > 0 ? `Rp ${Math.round(calculatedPrintingCost).toLocaleString('id-ID')}` : 'Rp 0'} gradient="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200" />
                   </div>
+                  {/* BBS/BBK di bawah Total Ongkos (cetak bolak-balik → jumlah cetakan ×2) */}
+                  {bbsBbkRow}
                 </div>
               </div>
 
