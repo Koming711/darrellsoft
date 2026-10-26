@@ -1,6 +1,6 @@
 'use client'
 
-import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun, FolderOpen, Search } from 'lucide-react'
+import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -109,13 +109,6 @@ export default function PengaturanPage() {
   const [showRestoreConfirm, setShowRestoreConfirm] = useState<string | null>(null)
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null)
   const [nextAutoBackup, setNextAutoBackup] = useState<string | null>(null)
-  const [backupFolder, setBackupFolder] = useState('backups')
-  const [backupFolderInput, setBackupFolderInput] = useState('backups')
-  const [savingFolder, setSavingFolder] = useState(false)
-  const [folderFiles, setFolderFiles] = useState<Array<{ name: string; size: number; sizeFormatted: string; modified: string }>>([])
-  const [loadingFolderFiles, setLoadingFolderFiles] = useState(false)
-  const [showFolderFiles, setShowFolderFiles] = useState(false)
-  const [folderExists, setFolderExists] = useState(true)
 
   // Display settings
   const [fontSize, setFontSize] = useState('medium')
@@ -594,45 +587,7 @@ export default function PengaturanPage() {
     } catch { /* silent */ }
   }, [])
 
-  const fetchBackupFolder = useCallback(async () => {
-    try {
-      const res = await authFetch('/api/settings?key=backup_folder', { headers: getAuthHeaders() })
-      if (res.ok) { const data = await res.json(); const v = (data.value || 'backups').trim() || 'backups'; setBackupFolder(v); setBackupFolderInput(v) }
-    } catch { /* silent */ }
-  }, [])
-
-  useEffect(() => { fetchAutoBackupDays(); fetchAutoBackupStatus(); fetchBackupFolder() }, [fetchAutoBackupDays, fetchAutoBackupStatus, fetchBackupFolder])
-
-  const handleSaveBackupFolder = async () => {
-    const v = backupFolderInput.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
-    if (v && (v.includes('..') || /^[a-zA-Z]:/.test(v))) {
-      toast.error(t('backup_folder_invalid'))
-      return
-    }
-    setSavingFolder(true)
-    try {
-      const res = await authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'backup_folder', value: v || 'backups' }) })
-      if (res.ok) { setBackupFolder(v || 'backups'); toast.success(t('backup_folder_saved')) } else toast.error(t('backup_folder_save_error'))
-    } catch { toast.error(t('backup_folder_save_error')) }
-    setSavingFolder(false)
-  }
-
-  const handleSearchFolderFiles = async () => {
-    setLoadingFolderFiles(true)
-    setShowFolderFiles(true)
-    try {
-      const res = await authFetch('/api/database/backup-folder', { headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          setFolderFiles(data.files || [])
-          setFolderExists(data.exists !== false)
-          setBackupFolder(data.folder || backupFolder)
-        } else toast.error(t('backup_folder_files_error'))
-      } else toast.error(t('backup_folder_files_error'))
-    } catch { toast.error(t('backup_folder_files_error')) }
-    setLoadingFolderFiles(false)
-  }
+  useEffect(() => { fetchAutoBackupDays(); fetchAutoBackupStatus() }, [fetchAutoBackupDays, fetchAutoBackupStatus])
 
   const handleBackupDatabase = async () => {
     setBackupLoading(true)
@@ -1178,56 +1133,6 @@ export default function PengaturanPage() {
                       <p className="text-[11px] text-muted-foreground mt-0.5">
                         ⏰ {t('next_backup')}: {new Date(nextAutoBackup).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
-                    )}
-                  </div>
-                  {/* Folder penyimpanan file backup */}
-                  <div className="bg-muted/50 border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <FolderOpen className="w-4 h-4 text-muted-foreground" />
-                      <h4 className="text-sm font-semibold text-foreground">{t('backup_folder_title')}</h4>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mb-3">{t('backup_folder_desc')}</p>
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                      <div className="flex-1">
-                        <label className="block text-xs text-muted-foreground mb-1">{t('backup_folder_label')}</label>
-                        <input
-                          type="text"
-                          value={backupFolderInput}
-                          onChange={(e) => setBackupFolderInput(e.target.value)}
-                          placeholder={t('backup_folder_placeholder')}
-                          className={`${inputClass} max-w-full sm:max-w-[280px]`}
-                        />
-                      </div>
-                      <Button onClick={handleSearchFolderFiles} disabled={loadingFolderFiles} size="sm" variant="outline">
-                        {loadingFolderFiles ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Search className="w-3.5 h-3.5 mr-1.5" />}
-                        {t('backup_folder_search')}
-                      </Button>
-                      <Button onClick={handleSaveBackupFolder} disabled={savingFolder} size="sm">{savingFolder ? t('menyimpan') : t('simpan')}</Button>
-                    </div>
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">📁 {t('backup_folder_active')}: <span className="font-medium">{backupFolder}/</span></p>
-                    {showFolderFiles && (
-                      <div className="mt-3">
-                        <p className="text-[11px] font-medium text-muted-foreground mb-2">{t('backup_folder_files_title')} ({folderFiles.length})</p>
-                        {loadingFolderFiles ? (
-                          <div className="flex items-center justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-                        ) : !folderExists ? (
-                          <div className="text-center py-4 text-muted-foreground"><p className="text-xs">{t('backup_folder_files_notfound')}</p></div>
-                        ) : folderFiles.length === 0 ? (
-                          <div className="text-center py-4 text-muted-foreground"><p className="text-xs">{t('backup_folder_files_empty')}</p></div>
-                        ) : (
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                            {folderFiles.map((f) => (
-                              <div key={f.name} className="flex items-center justify-between gap-3 p-2 bg-card border border-border rounded-lg hover:border-input transition-colors">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                                  <p className="text-xs text-foreground truncate" title={f.name}>{f.name}</p>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground flex-shrink-0">{f.sizeFormatted} • {new Date(f.modified).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
                   <div>

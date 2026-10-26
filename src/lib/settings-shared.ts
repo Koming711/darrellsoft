@@ -24,7 +24,6 @@ export const SYSTEM_SETTING_KEYS: ReadonlySet<string> = new Set([
   'auto_logout_min',
   'logout_warning_sec',
   'auto_backup_days',
-  'backup_folder',
   'branding_default_v3',
   'appName',
   'currency',

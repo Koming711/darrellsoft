@@ -15062,3 +15062,24 @@ Stage Summary:
 - Tombol "Cari File" di kartu Folder Penyimpanan Backup menampilkan isi folder server (nama, ukuran, tanggal, terbaru dulu) — membantu user memverifikasi file backup tersimpan.
 - API baru GET /api/database/backup-folder (auth required).
 - BELUM dideploy ke www.darrellsoft.com — menunggu instruksi deploy (menumpuk dengan retensi 7 file + fitur folder).
+
+---
+Task ID: cancel-backup-folder-and-search
+Agent: Z.ai Code (main)
+Task: "cancel 2 perintah terakhir" — batalkan fitur folder penyimpanan backup (backup-folder-setting) dan tombol Cari File (backup-folder-search). Retensi maks 7 file (backup-retention-7files) DIPERTAHANKAN.
+
+Work Log:
+- Hapus file: `src/lib/backup-folder.ts`, `src/app/api/database/backup-folder/` (seluruh dir API).
+- Revert `src/app/api/database/backup/route.ts`: buang import saveBackupToFileSystem, var folderSaved/folderUsed, blok tulis folder, header X-Backup-Folder/X-Backup-Folder-Saved. Komentar "Retensi maks 7 file" dipertahankan (benar).
+- Revert `src/app/api/database/auto-backup/route.ts`: buang import, var status folder, blok tulis folder, field folder/folderSaved di response JSON.
+- Revert `src/lib/i18n.ts`: hapus 14 key backup_folder_* (8 dari fitur folder + 6 dari fitur cari) di ID+EN; backup_retention_note (7 file) tetap.
+- Revert `src/lib/settings-shared.ts`: keluarkan 'backup_folder' dari SYSTEM_SETTING_KEYS.
+- Revert `src/app/administrasi/pengaturan/page.tsx`: hapus ikon FolderOpen+Search dari import, 7 state (backupFolder, backupFolderInput, savingFolder, folderFiles, loadingFolderFiles, showFolderFiles, folderExists), fetchBackupFolder + handleSaveBackupFolder + handleSearchFolderFiles, dan seluruh kartu "Folder Penyimpanan Backup" dari JSX.
+- DB: DELETE Setting key='backup_folder' (1 row); bersihkan baris BackupFile test dari uji POST (backup-user-*) → 0 baris.
+- Verifikasi: rg tidak menemukan referensi tersisa (backup_folder/backupFolder/FolderOpen/saveBackupToFileSystem/dll); eslint 5 file revert → bersih; POST backup 200 tanpa header folder; GET backups 200 (retensi 7 aktif); GET /api/database/backup-folder → 404 (API terhapus).
+- Browser: tab Database kembali 3 kartu semula (Backup & Restore Penuh, Auto Backup, Riwayat Backup + note 7 file); tanpa jejak kartu folder/tombol Cari; console tanpa error; screenshot /tmp/backup-after-cancel.png; localStorage.clear + close.
+
+Stage Summary:
+- Kode kembali persis ke kondisi setelah task backup-retention-7files (sebelum fitur folder & cari file).
+- Yang tersisa untuk deploy bila diminta: retensi maks 7 file (FIFO) + note i18n-nya.
+- Produksi www.darrellsoft.com masih versi lama ("keep last 30") — belum pernah dideploy sejak itu.
