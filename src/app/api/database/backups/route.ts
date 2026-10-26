@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
   try {
     await migrateFsBackupsOnce()
 
-    // Retensi maks 10 file (FIFO): buang backup tertua sebelum listing
-    // agar riwayat hanya berisi 10 backup terakhir (baru masuk → terlama terhapus).
+    // Retensi maks 7 file (FIFO): buang backup tertua sebelum listing
+    // agar riwayat hanya berisi 7 backup terakhir (baru masuk → terlama terhapus).
     await pruneOldBackups()
 
     const rows = await db.backupFile.findMany({

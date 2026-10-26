@@ -14997,3 +14997,25 @@ Work Log:
 Stage Summary:
 - Riwayat Backup sekarang antrean maks 10 file (FIFO): setiap backup baru (manual/auto) menggeser backup paling lama keluar dari daftar & database.
 - Perubahan sifatnya lokal di helper retensi — tidak ada perubahan skema/API/UI lain. Belum di-deploy (produksi menyusul saat perintah deploy berikutnya).
+
+---
+Task ID: backup-retention-7files
+Agent: Z.ai Code (main)
+Task: "rubah jadi menyimpan max 7 file backup" — ubah retensi Riwayat Backup dari 10 file (sesi sebelumnya) menjadi maksimal 7 file backup (FIFO: backup baru masuk → yang terlama terhapus).
+
+Work Log:
+- Check: `src/lib/backup-retention.ts` sudah berbasis jumlah (FIFO) dengan `BACKUP_MAX_FILES = 10` dari sesi sebelumnya; 3 titik integrasi (GET /api/database/backups, POST /api/database/backup, POST /api/database/auto-backup) masih memanggil `pruneOldBackups()`.
+- Edit `src/lib/backup-retention.ts`: `BACKUP_MAX_FILES` 10 → **7** + update komentar header (maksimal 7 file, ke-8 masuk → tertua terhapus).
+- Edit `src/lib/i18n.ts`: `backup_retention_note` ID → "Riwayat hanya menyimpan maksimal 7 file backup — saat backup baru dibuat, backup paling lama otomatis terhapus." ; EN → "History keeps a maximum of 7 backup files — when a new backup is created, the oldest one is deleted automatically."
+- Edit komentar `src/app/api/database/backups/route.ts` (maks 10 → maks 7).
+- Uji fungsional (10 baris test leftover dari sesi sebelumnya): GET /api/database/backups (cookie admin) → prune otomatis, tersisa **7 terbaru**, 3 terlama (12-25-27/30/41) terhapus; log: "Retensi backup: 3 backup terlama terhapus (maks 7 file)".
+- Uji FIFO masuk-baru: POST /api/database/backup → backup baru 12-28-53 masuk, terlama 12-25-43 terhapus, total tetap 7; log: "Retensi backup: 1 backup terlama terhapus (maks 7 file)".
+- Dev server sempat mati saat verifikasi browser → restart python double-fork daemon (bun run dev → dev.log).
+- Verifikasi browser (agent-browser, auth user-admin/superadmin): tutup dialog "Versi Baru! v151" → Pengaturan → Database → Riwayat Backup; note tampil benar (fontSize 11px, visible): "Riwayat hanya menyimpan maksimal 7 file backup — saat backup baru dibuat, backup paling lama otomatis terhapus."; empty state "Belum ada backup tersimpan" ok; screenshot /tmp/backup-retention-7files.png.
+- Cleanup: hapus 7 baris test `backup-user-*` → BackupFile kosong kembali; localStorage.clear() + browser close.
+- Lint: `bunx eslint` pada 4 file yang disentuh → clean (1284 masalah project-wide adalah pre-existing).
+
+Stage Summary:
+- Retensi Riwayat Backup kini **maksimal 7 file (FIFO by count)** — berlaku di backup manual, auto-backup, dan saat daftar dibuka; konstanta tunggal `BACKUP_MAX_FILES = 7` di `src/lib/backup-retention.ts`.
+- Tidak ada perubahan skema DB / API contract; UI note sudah sinkron (ID+EN).
+- BELUM dideploy ke www.darrellsoft.com — produksi masih "keep last 30" versi lama; menunggu instruksi deploy.

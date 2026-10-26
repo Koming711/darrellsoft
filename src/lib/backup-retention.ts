@@ -3,15 +3,15 @@ import { db } from '@/lib/db'
 /**
  * Retensi Riwayat Backup (halaman Pengaturan → Database).
  *
- * Riwayat backup hanya menyimpan 10 file backup terakhir (FIFO):
- * - Backup ke-1 s/d ke-10 (terbaru) tampil.
- * - Saat backup baru masuk (ke-11), backup tertua (paling pertama) otomatis
+ * Riwayat backup hanya menyimpan maksimal 7 file backup (FIFO):
+ * - Backup ke-1 s/d ke-7 (terbaru) tampil.
+ * - Saat backup baru masuk (ke-8), backup tertua (paling pertama) otomatis
  *   terhapus, sisanya bergeser — seperti antrean.
  *
  * Pembersihan dijalankan setiap kali backup dibuat (manual/auto) dan setiap
  * kali daftar riwayat dibuka — idempoten & murah.
  */
-export const BACKUP_MAX_FILES = 10
+export const BACKUP_MAX_FILES = 7
 
 /** Simpan hanya BACKUP_MAX_FILES backup terbaru; sisanya (tertua dulu) dihapus. Return jumlah yang terhapus. */
 export async function pruneOldBackups(): Promise<number> {
