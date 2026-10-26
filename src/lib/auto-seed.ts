@@ -126,6 +126,9 @@ async function migrateExistingTablesPg(): Promise<void> {
     { table: '"Paper"', column: '"kategoriId"', type: 'TEXT' },
     // Missing column for Paper (Suplier per-suplier — harga beda tiap suplier)
     { table: '"Paper"', column: '"suplier"', type: 'TEXT' },
+    // Kolom Bahan: ukuran & gramatur (auto-isi dari Master Bahan di popup Tambah Bahan)
+    { table: '"Bahan"', column: '"ukuran"', type: "TEXT NOT NULL DEFAULT ''" },
+    { table: '"Bahan"', column: '"gramatur"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
   ]
   for (const m of migrations) {
     try {

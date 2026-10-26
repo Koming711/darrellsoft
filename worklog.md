@@ -14903,3 +14903,30 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com sekarang menjalankan perilaku final BBS/BBK: Jumlah Cetakan ×2 (ongkos cetak ikut ×2), jumlah bahan/lembar kertas + harga kertas tetap 1× — konsisten di form, Simulasi Cepat, dan preview/JPG/cetak.
+
+---
+Task ID: replace-stock-bahan-v123
+Agent: Z.ai Code (main)
+Task: Extract uploaded split-tar workspace snapshot "(5).tar.001-005" and replace the local Stock Bahan module content with the snapshot's version (user request: "extract file ini. ganti conten stock bahan dengan file ini")
+
+Work Log:
+- Concatenated the 5 split-tar parts (~218 MB) → combined.tar → extracted to /tmp/stockbahan-extract (excluded .git).
+- Identified snapshot lineage via its worklog: this snapshot = same workspace lineage branched after deploy-rollback-harga-per-customer, continued with restore-workspace-1, deploy-prod-1, ui-tweak-1..5 (popup Tambah Bahan improvements) and deploy-ui-tweaks-2-5 (v123 parity on www.darrellsoft.com). It does NOT contain the local simplifikasi-total-modul-stock-bahan nor the hc-bbs/bbk tasks.
+- Full-tree diff (excluding .git/node_modules/.next/db) found exactly 19 differing files: 6 stock-bahan files (snapshot = target version), prisma/schema.prisma + src/lib/auto-seed.ts (merge needed), and 11 hitung-cetakan/sidebars/i18n files where LOCAL is newer (hc work) — kept local.
+- Replaced with snapshot versions: src/app/api/stock-bahan/{route,[id],laporan,mutasi}/route.ts, src/components/views/stock-bahan-view.tsx, src/lib/stock-bahan-types.ts (page.tsx renders views/stock-bahan-view → this swaps the whole UI back to v123 8-menu: Dashboard/Data Bahan/Stok Masuk/Stok Keluar/Penyesuaian/Riwayat/Laporan/Kategori + switch Izinkan stok minus).
+- Merged prisma/schema.prisma: added Bahan.ukuran (String default "") + Bahan.gramatur (Float default 0); kept local-only RiwayatCetakan.bbs/bbk and BahanMutasi.referensi (superset of snapshot schema).
+- Merged src/lib/auto-seed.ts migrateExistingTablesPg(): added Bahan '"ukuran"' TEXT + '"gramatur"' DOUBLE PRECISION ALTER lines (prod Postgres self-upgrade); kept bbs/bbk lines.
+- bun run db:push OK (SQLite synced, Prisma client regenerated with ukuran/gramatur). ESLint on all changed files: 0 problems.
+- Dev server was down (exit_code 7 on health check); restarted via double-fork daemonization (python os.fork×2 + setsid + exec bun run dev) — survives across tool calls.
+- Browser-verified (simulated user-admin: localStorage auth + cookies userId/userRole, version dialog closed, cleaned after):
+  * /stock-bahan renders v123 8-menu sidebar (Dashboard Stock…Kategori, "2 kategori terpakai") — simplifikasi 4-menu gone.
+  * Popup Tambah Bahan: Kode auto BHN-010; field order = Nama Supplier select ("Tanpa supplier") → Kategori select → Satuan select (pcs) → Nama bahan select ("Pilih dari Master Bahan…") → Ukuran (mis. 65x100) → Gramatur (mis. 210) → Stok/StokMin/Harga → Lokasi → Referensi PO select ("Tanpa PO") → Catatan → aktif switch; submit disabled until Nama bahan chosen.
+  * Master auto-fill: pilih "ivory" → 65x100 / 210 / 1.078.350; ganti "duplek" → 90x120 / 270 / 2.210.000 (exact worklog-parity values). Referensi PO dropdown loads (local DB has 0 PO → only "Tanpa PO").
+  * Save cycle: created BHN-010 "duplek" — sqlite row persisted ukuran='90x120', gramatur=270, hargaSatuan=2210000 → restored POST route persists the new columns. Test record deleted via DELETE /api/stock-bahan?id= (200) → DB clean.
+- Regression: / , /hitung-cetakan , /stock-bahan , /potong-kertas all HTTP 200; dev.log no errors (only benign notification polling).
+- Backup of the replaced (simplifikasi) files saved at .backups/stock-bahan-restore-v123-20261026/ (6 stock files + schema.prisma + auto-seed.ts) for easy revert.
+
+Stage Summary:
+- Stock Bahan module now = snapshot "(5)" version: v123 8-menu UI + ui-tweak-1..5 popup (Supplier/Kategori/Satuan/Nama bahan/Referensi PO pure selects, auto-isi Ukuran/Gramatur/Harga modal dari Master Bahan), backed by pre-simplifikasi API routes ([id] detail tabs, laporan saldo-awal via stokSetelah, mutasi non-atomic nextNomorMutasi, CRUD POST/PUT with ukuran/gramatur + poRef).
+- Schema/auto-seed merged (ukuran+gramatur added; bbs/bbk + referensi preserved) → local SQLite synced; production Postgres will self-upgrade on next deploy via auto-seed.
+- Hitung Cetakan BBS/BBK work and other local-newer files untouched. Not deployed — production still runs ui-tweak-5 state until next `vercel --prod` on project darrellsoft.

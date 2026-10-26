@@ -571,6 +571,8 @@ model Bahan {
   nama        String
   kategori    String   @default("") // e.g. Kertas, Tinta, Kimia, Plastik, Lainnya
   satuan      String   @default("pcs") // pcs, rim, lembar, kg, roll, box, pack, liter, tube
+  ukuran      String   @default("") // ukuran bahan, mis. 65x100 (cm) — auto dari Master Bahan
+  gramatur    Float    @default(0) // gramatur kertas (gsm) — auto dari Master Bahan
   stok        Float    @default(0)
   stokMin     Float    @default(0) // batas minimum — peringatan stok rendah
   hargaSatuan Float    @default(0) // harga modal per satuan (Rupiah) untuk nilai stok
