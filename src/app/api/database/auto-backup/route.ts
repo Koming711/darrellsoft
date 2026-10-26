@@ -208,9 +208,9 @@ export async function POST(req: NextRequest) {
         create: { fileName: jsonFileName, ...data },
       })
 
-      // Retensi 7 hari (jendela bergulir) untuk SELURUH Riwayat Backup:
-      // hari ke-8 → hari ke-1 terhapus, hari ke-2 jadi hari ke-1, backup baru
-      // jadi hari ke-7, dst. (menggantikan cleanup lama "keep last 30").
+      // Retensi maks 10 file (FIFO) untuk SELURUH Riwayat Backup:
+      // backup baru masuk → backup tertua terhapus, sisanya bergeser
+      // (menggantikan cleanup lama "keep last 30").
       await pruneOldBackups()
     } catch (saveError) {
       console.warn(

@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
   try {
     await migrateFsBackupsOnce()
 
-    // Retensi 7 hari (jendela bergulir): buang backup > 7 hari sebelum listing
-    // agar riwayat selalu hanya hari ke-1 s/d ke-7 (hari ke-8 menggeser yang lama).
+    // Retensi maks 10 file (FIFO): buang backup tertua sebelum listing
+    // agar riwayat hanya berisi 10 backup terakhir (baru masuk → terlama terhapus).
     await pruneOldBackups()
 
     const rows = await db.backupFile.findMany({

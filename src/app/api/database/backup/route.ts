@@ -203,8 +203,8 @@ export async function POST(req: NextRequest) {
         create: { fileName: jsonFileName, ...data },
       })
 
-      // Retensi 7 hari (jendela bergulir): setelah backup baru tersimpan,
-      // buang backup > 7 hari agar riwayat hanya berisi hari ke-1 s/d ke-7.
+      // Retensi maks 10 file (FIFO): setelah backup baru tersimpan,
+      // buang backup tertua agar riwayat hanya berisi 10 backup terakhir.
       await pruneOldBackups()
     } catch (saveError) {
       console.warn(

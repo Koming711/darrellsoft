@@ -14977,3 +14977,23 @@ Stage Summary:
 - Riwayat Backup kini berumur rolling 7 hari: backup > 7 hari terhapus otomatis saat backup baru dibuat (manual/auto) maupun saat daftar dibuka — hari ke-8 menggeser hari ke-1 keluar, persis seperti permintaan.
 - Aturan "keep last 30" lama pada auto-backup digantikan aturan 7 hari tunggal; perilaku restore/hapus/backup tidak berubah.
 - Belum di-deploy — production menyusul via `vercel link --project darrellsoft` + `vercel --prod`.
+
+---
+Task ID: backup-retention-10files
+Agent: Z.ai Code (main)
+Task: Rubah retensi Riwayat Backup dari "7 hari terakhir" menjadi "maks 10 file backup saja" (FIFO — backup baru masuk → yang paling lama terhapus). User: "rubah data riwayat backup hanya 10 file backup saja. apabila ada backup yang masuk lagi maka data yang pertama di delete. check and fix"
+
+Work Log:
+- Replaced rule in src/lib/backup-retention.ts: BACKUP_RETENTION_DAYS(7d) → BACKUP_MAX_FILES = 10; pruneOldBackups() kini berbasis jumlah — findMany orderBy [{createdAt desc},{id desc}] skip:10 → deleteMany sisanya (tertua keluar lebih dulu, antrean FIFO). Tetap idempoten + try/catch.
+- Titik pembersihan tidak berubah (3 titik): GET /api/database/backups (sebelum listing), POST /api/database/backup & POST /api/database/auto-backup (setelah salinan JSON tersimpan) — hanya komentar/javadoc di 3 route diperbarui ke aturan 10 file.
+- i18n `backup_retention_note` diperbarui (ID + EN): "Riwayat hanya menyimpan 10 backup terakhir — saat backup baru dibuat, backup paling lama otomatis terhapus."
+- ESLint: 0 problems pada semua file yang diubah.
+- Functional verification (local dev, sqlite, dibersihkan setelahnya):
+  * Seeded 11 baris uji (test-fifo-01h..11h) + 2 baris asli → 13 rows. GET /api/database/backups → tepat 10 terbaru; 3 tertua (09h/10h/11h) terhapus otomatis.
+  * FIFO on arrival: insert test-fifo-NEW (terbaru) + GET → tetap 10 rows, NEW tampil, test-fifo-08h (tertua) terhapus. ✓
+  * Cleanup: semua baris test-fifo-* dihapus; createdAt real auto-backup-2026-10-24 dikembalikan ke nilai aslinya (1792829367355); DB tinggal 2 backup asli (auto-backup 24 Okt + backup-user 26 Okt 12:20).
+- Browser-verified (simulated user-admin, dibersihkan setelahnya): tab Database → note baru "…10 backup terakhir…" tampil, note lama "7 hari terakhir" hilang; list backup render normal (2 file asli); screenshot disimpan; dev.log bersih.
+
+Stage Summary:
+- Riwayat Backup sekarang antrean maks 10 file (FIFO): setiap backup baru (manual/auto) menggeser backup paling lama keluar dari daftar & database.
+- Perubahan sifatnya lokal di helper retensi — tidak ada perubahan skema/API/UI lain. Belum di-deploy (produksi menyusul saat perintah deploy berikutnya).
