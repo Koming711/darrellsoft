@@ -14950,3 +14950,30 @@ Stage Summary:
 - www.darrellsoft.com now serves the full snapshot-(5) Stock Bahan: v123 8-menu UI, popup Tambah Bahan with 5 pure selects + auto-isi Ukuran/Gramatur/Harga modal from Master Bahan, Referensi PO select, Izinkan stok minus switch — with pre-simplifikasi API routes.
 - Bahan.ukuran & Bahan.gramatur columns live in production Postgres via auto-seed; bbs/bbk hitung-cetakan features untouched and verified.
 - Local dir relinked to my-project (post-deploy hygiene), no leftover .env.local.
+
+---
+Task ID: backup-retention-7days
+Agent: Z.ai Code (main)
+Task: Halaman Pengaturan → Database — Riwayat Backup hanya menyimpan 7 hari terakhir (rolling window): hari ke-8 → hari ke-1 terhapus, hari ke-2 jadi hari ke-1, backup baru jadi hari ke-7, dst.
+
+Work Log:
+- Located the backup history pipeline: salinan backup JSON disimpan di tabel BackupFile (bukan filesystem, agar bekerja di Vercel). Penulis: POST /api/database/backup (manual) & POST /api/database/auto-backup. Daftar: GET /api/database/backups. Cleanup lama: auto-backup "keep last 30" (berbasis jumlah, bukan hari).
+- New src/lib/backup-retention.ts: BACKUP_RETENTION_DAYS = 7 + pruneOldBackups() → satu deleteMany { createdAt < now-7d }, idempoten, try/catch (kegagalan prune tidak pernah menggagalkan backup/list).
+- Wired prune into 3 points:
+  1. GET /api/database/backups — prune sebelum findMany → daftar yang tampil selalu hanya 7 hari terakhir.
+  2. POST /api/database/backup — prune setelah upsert salinan JSON (proaktif saat backup baru dibuat).
+  3. POST /api/database/auto-backup — menggantikan cleanup "keep last 30" dengan prune 7 hari (kini aturan retensi tunggal & konsisten: 7 hari untuk seluruh riwayat, manual + auto).
+- UI: i18n key baru `backup_retention_note` (ID + EN) + catatan text-[11px] di bawah header "Riwayat Backup" pada src/app/administrasi/pengaturan/page.tsx.
+- ESLint: 0 problems pada semua file yang diubah.
+- Functional verification (local dev, sqlite):
+  * Seeded 2 baris uji: test-backup-8days-ago.json (8 hari lalu) & test-backup-6days-ago.json (6 hari lalu) + real auto-backup (2 hari lalu).
+  * GET /api/database/backups → 8-days-ago TERHAPUS otomatis (DB & list), 6-days-ago + 2-days-ago tetap → perilaku jendela bergulir sesuai permintaan.
+  * POST /api/database/backup → 200, xlsx 40KB, salinan JSON baru muncul di riwayat.
+  * DELETE /api/database/backups?fileName= tetap berfungsi (dipakai utk membersihkan baris uji).
+  * DB kembali bersih: hanya auto-backup-2026-10-24T08-09-27.json (asli) yang tersisa.
+- Browser-verified (simulated user-admin, dibersihkan setelahnya): tab Database → section "Riwayat Backup" menampilkan catatan retensi baru "Riwayat hanya menyimpan backup 7 hari terakhir — backup lebih tua dari 7 hari terhapus otomatis (hari ke-8 menggeser hari ke-1)." + list backup render normal (Restore/Hapus tersedia); screenshot disimpan; dev.log bersih.
+
+Stage Summary:
+- Riwayat Backup kini berumur rolling 7 hari: backup > 7 hari terhapus otomatis saat backup baru dibuat (manual/auto) maupun saat daftar dibuka — hari ke-8 menggeser hari ke-1 keluar, persis seperti permintaan.
+- Aturan "keep last 30" lama pada auto-backup digantikan aturan 7 hari tunggal; perilaku restore/hapus/backup tidak berubah.
+- Belum di-deploy — production menyusul via `vercel link --project darrellsoft` + `vercel --prod`.

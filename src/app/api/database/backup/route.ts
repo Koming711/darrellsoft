@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
+import { pruneOldBackups } from '@/lib/backup-retention'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -201,6 +202,10 @@ export async function POST(req: NextRequest) {
         update: data,
         create: { fileName: jsonFileName, ...data },
       })
+
+      // Retensi 7 hari (jendela bergulir): setelah backup baru tersimpan,
+      // buang backup > 7 hari agar riwayat hanya berisi hari ke-1 s/d ke-7.
+      await pruneOldBackups()
     } catch (saveError) {
       console.warn(
         'Salinan backup ke database dilewati:',

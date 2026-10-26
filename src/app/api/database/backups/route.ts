@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/server-auth'
+import { pruneOldBackups } from '@/lib/backup-retention'
 import fs from 'fs'
 import path from 'path'
 
@@ -69,6 +70,10 @@ export async function GET(req: NextRequest) {
   const err = requireAuth(req); if (err) return err;
   try {
     await migrateFsBackupsOnce()
+
+    // Retensi 7 hari (jendela bergulir): buang backup > 7 hari sebelum listing
+    // agar riwayat selalu hanya hari ke-1 s/d ke-7 (hari ke-8 menggeser yang lama).
+    await pruneOldBackups()
 
     const rows = await db.backupFile.findMany({
       select: { fileName: true, size: true, tableCount: true, rowCount: true, createdAt: true },

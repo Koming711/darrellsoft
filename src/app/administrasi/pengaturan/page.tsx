@@ -1140,6 +1140,7 @@ export default function PengaturanPage() {
                       <div className="flex items-center gap-2"><h4 className="text-sm font-semibold text-foreground">{t('backup_history')}</h4></div>
                       <button onClick={fetchBackups} disabled={loadingBackups} className="text-xs text-blue-600 hover:text-blue-700 dark:hover:text-blue-400">{t('refresh')}</button>
                     </div>
+                    <p className="text-[11px] text-muted-foreground mb-3">{t('backup_retention_note')}</p>
                     {loadingBackups ? (
                       <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
                     ) : backups.length === 0 ? (

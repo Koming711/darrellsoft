@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
+import { pruneOldBackups } from '@/lib/backup-retention'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -207,16 +208,10 @@ export async function POST(req: NextRequest) {
         create: { fileName: jsonFileName, ...data },
       })
 
-      // Cleanup auto backup lama (keep last 30) — berbasis database
-      const olds = await db.backupFile.findMany({
-        where: { fileName: { startsWith: 'auto-backup-' } },
-        orderBy: { createdAt: 'desc' },
-        skip: 30,
-        select: { id: true },
-      })
-      if (olds.length > 0) {
-        await db.backupFile.deleteMany({ where: { id: { in: olds.map(o => o.id) } } })
-      }
+      // Retensi 7 hari (jendela bergulir) untuk SELURUH Riwayat Backup:
+      // hari ke-8 → hari ke-1 terhapus, hari ke-2 jadi hari ke-1, backup baru
+      // jadi hari ke-7, dst. (menggantikan cleanup lama "keep last 30").
+      await pruneOldBackups()
     } catch (saveError) {
       console.warn(
         'Salinan auto backup ke database dilewati:',
