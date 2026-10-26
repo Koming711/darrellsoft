@@ -14830,3 +14830,19 @@ Stage Summary:
 - BBS/BBK checkboxes now live in the Ongkos Cetak box, right below Total Ongkos (mobile + desktop), single shared markup
 - Behavior identical to before (×2 jumlah cetakan, mutual exclusion, persists in riwayat & localStorage)
 - Not yet deployed to production
+
+---
+Task ID: hc-remove-hint
+Agent: Z.ai Code (main)
+Task: Hitung Cetakan — hapus tulisan "dicentang → Jumlah Cetakan × 2" di baris BBS/BBK
+
+Work Log:
+- Removed the hint span `<span className="text-[10px] text-slate-400">dicentang → Jumlah Cetakan × 2</span>` from the shared `bbsBbkRow` const in src/app/hitung-cetakan/page.tsx (was rendered next to BBS/BBK checkboxes in the Ongkos Cetak box, both mobile & desktop layouts).
+- No logic touched: toggleSide mutual exclusion, ×2 factor at all quantity sites, formData persistence all unchanged.
+- ESLint: 0 errors.
+- Browser-verified (simulated user-admin, cleaned after): hint string absent from DOM; "Cetak Bolak-Balik: BBS / BBK" row still present; functional ×2 retest — persisted state 1000÷4: BBS on=500 → off=250 → BBK on=500 → off=250 → BBS on=500; fresh form after clearing localStorage: 250 → BBS=500 → 250; 4 checkbox instances (2 per layout) intact; no console/page errors; dev.log clean.
+- Cleaned test residue from localStorage (hitung-cetakan-form-data / simulasi-rows incl. leftover TEST-BBS-ROUNDTRIP from prior session).
+
+Stage Summary:
+- BBS/BBK row in Ongkos Cetak box now shows only "Cetak Bolak-Balik: BBS ☐ BBK ☐" without the explanatory hint; behavior identical (×2 jumlah cetakan when either checked).
+- Not yet deployed to production.
