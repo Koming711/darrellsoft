@@ -38,6 +38,8 @@ export async function PUT(
         quantity: body.quantity ?? item.quantity,
         jumlahPesanan: body.jumlahPesanan ?? item.jumlahPesanan,
         berapaMata: body.berapaMata ?? item.berapaMata,
+        bbs: typeof body.bbs === 'boolean' ? body.bbs : item.bbs,
+        bbk: typeof body.bbk === 'boolean' ? body.bbk : item.bbk,
         setelanKertas: body.setelanKertas ?? item.setelanKertas,
         warna: body.warna ?? item.warna,
         warnaKhusus: body.warnaKhusus ?? item.warnaKhusus,

@@ -14785,3 +14785,28 @@ Work Log:
 Stage Summary:
 - Modul Stock Bahan kini SATU sistem sederhana 4 menu (bukan 7 tab) dengan CRUD nyata, ledger BahanMutasi sebagai satu-satunya sumber saldo, semua perubahan stok atomik ($transaction + recalcBahanStock + guard minus), nomor auto unik per user/bulan, PO receive tetap kompatibel & anti-dobel, laporan dengan saldo awal dari histori, ekspor CSV/PDF/Cetak, izin granular tetap dipakai (lihat/tambah/edit/hapus) dan divalidasi server (auth + ownership + guard).
 - File berubah: prisma/schema.prisma (+referensi), src/app/api/stock-bahan/route.ts, src/app/api/stock-bahan/mutasi/route.ts (+DELETE), src/app/api/stock-bahan/laporan/route.ts, src/app/api/stock-bahan/[id]/route.ts, src/lib/stock-bahan-types.ts (+stokMin), src/components/views/stock-bahan-view.tsx (ditulis ulang).
+
+---
+Task ID: hc-bbs-bbk
+Agent: Z.ai Code (main)
+Task: Halaman Hitung Cetakan — kotak centang BBS & BBK; dicentang → Jumlah Cetakan ×2
+
+Work Log:
+- Schema: RiwayatCetakan + bbs/bbk (Boolean, default false) in prisma/schema.prisma; bun run db:push applied to SQLite (Prisma client regenerated).
+- Prod auto-upgrade: both columns added to migrateExistingTablesPg() in src/lib/auto-seed.ts (ALTER TABLE "RiwayatCetakan" ADD COLUMN IF NOT EXISTS "bbs"/"bbk" BOOLEAN NOT NULL DEFAULT false).
+- API: POST /api/riwayat-cetakan persists bbs: body.bbs === true, bbk: body.bbk === true; PUT [id] uses typeof check fallback to item (matches ?? style of other fields).
+- Frontend (src/app/hitung-cetakan/page.tsx) — factor ×2 applied at EVERY quantity computation site:
+  1. formData + bbs/bbk state (localStorage persist via saveToStorage automatically)
+  2. Both onChange handlers: Jumlah Pesanan & Cetak Berapa Mata → quantity = ceil(jp/bm) × ((bbs||bbk)?2:1) via prev-state read
+  3. toggleSide('bbs'|'bbk'): mutually exclusive checkboxes; toggling recomputes quantity from current jp/bm; unchecking → back to base
+  4. computeSimulasi (Simulasi Cepat live + tabel baris), applySimulasiValues, simRowQtyOf — all use the same factor; deps updated
+  5. UI: row "Cetak Bolak-Balik:" + BBS + BBK checkboxes + hint "dicentang → Jumlah Cetakan × 2" under the Jumlah Pesanan/Mata/Cetakan grid (accent-emerald, aria-labels)
+  6. buildRiwayatPayload sends bbs/bbk; handleRestoreRiwayat restores r.bbs/r.bbk; both reset paths clear to false
+- Dev server restarted via double-fork daemon (Prisma client reload — known requirement after db:push).
+- ESLint: 0 errors on page + both API routes + auto-seed.
+- Browser-verified (simulated user-admin, cleaned after): checkboxes render; 1000÷4=250 → BBS=500 → BBK switch keeps 500 with mutual exclusion [false,true] → uncheck=250; editing jumlahPesanan to 2000 while BBS → 1000 (factor persists); API POST with bbs:true → persisted (HC/10/26/0034); restore via /hitung-cetakan?loadRiwayat=<id> → BBS re-checked + 2000/4/1000; test record deleted via API; dev.log clean.
+
+Stage Summary:
+- Hitung Cetakan now has BBS/BBK checkboxes: either checked → Jumlah Cetakan = 2 × (Jumlah Pesanan ÷ Cetak Berapa Mata); all costs downstream (kertas via cutting engine, ongkos cetak, finishing, simulasi) follow automatically since they derive from quantity
+- Flags persist per-record (riwayat) and per-device (localStorage); mutually exclusive by design
+- Production deploy NOT yet done for this change (auto-seed will migrate Supabase on next deploy)

@@ -109,6 +109,9 @@ async function migrateExistingTablesPg(): Promise<void> {
     { table: '"RiwayatCetakan"', column: '"otherCostLabel2"', type: "TEXT NOT NULL DEFAULT ''" },
     { table: '"RiwayatCetakan"', column: '"glueLengthCm"', type: "TEXT NOT NULL DEFAULT ''" },
     { table: '"RiwayatCetakan"', column: '"glueCostPerCm"', type: "TEXT NOT NULL DEFAULT ''" },
+    // Kolom RiwayatCetakan: BBS/BBK (cetak bolak-balik → jumlah cetakan ×2)
+    { table: '"RiwayatCetakan"', column: '"bbs"', type: 'BOOLEAN NOT NULL DEFAULT false' },
+    { table: '"RiwayatCetakan"', column: '"bbk"', type: 'BOOLEAN NOT NULL DEFAULT false' },
     // Missing columns for RiwayatOngkosCetak
     { table: '"RiwayatOngkosCetak"', column: '"machineId2"', type: "TEXT NOT NULL DEFAULT ''" },
     { table: '"RiwayatOngkosCetak"', column: '"machineName2"', type: "TEXT NOT NULL DEFAULT ''" },

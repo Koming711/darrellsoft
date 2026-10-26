@@ -311,7 +311,9 @@ function HitungCetakanPage() {
     machineId2: '',
     warna2: '',
     warnaKhusus2: '',
-    hargaPlat2: ''
+    hargaPlat2: '',
+    bbs: false, // cetak bolak-balik sama → jumlah cetakan ×2
+    bbk: false  // cetak bolak-balik kendali → jumlah cetakan ×2
   })
 
   const [totalPaperPrice, setTotalPaperPrice] = useState<number>(0)
@@ -1369,7 +1371,7 @@ function HitungCetakanPage() {
     clearStorage()
     pkLinkRiwayatIdRef.current = ''
     setPkSync(null)
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', bbs: false, bbk: false, setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1395,7 +1397,7 @@ function HitungCetakanPage() {
       paperGrammage: selectedPaper?.grammage?.toString() || '0',
       paperLength: formData.paperLength, paperWidth: formData.paperWidth,
       cutWidth: formData.cutWidth, cutHeight: formData.cutHeight,
-      quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, setelanKertas: formData.setelanKertas, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
+      quantity: formData.quantity, jumlahPesanan: formData.jumlahPesanan, berapaMata: formData.berapaMata, bbs: formData.bbs === true, bbk: formData.bbk === true, setelanKertas: formData.setelanKertas, warna: formData.warna, warnaKhusus: formData.warnaKhusus,
       machineName: selectedMachine?.machineName || '',
       hargaPlat: parseFloat(formData.hargaPlat) || 0,
       ongkosCetak: calculatedPrintingCost,
@@ -1428,7 +1430,7 @@ function HitungCetakanPage() {
     setPhotoUrl('')
     setPkSync(null)
     clearStorage()
-    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
+    setFormData({ customerName: '', printName: '', paperLength: '', paperWidth: '', cutWidth: '', cutHeight: '', quantity: '', jumlahPesanan: '', berapaMata: '', bbs: false, bbk: false, setelanKertas: '', warna: '', warnaKhusus: '', hargaPlat: '', paperId: '', machineId: '', packingCost: '', shippingCost: '', pricePerSheet: '', pricePerKg: '', namaSuplier: '', glueLengthCm: '', glueCostPerCm: '', glueBoronganPerSheet: '', biayaLain1: '', biayaLain2: '', machineId2: '', warna2: '', warnaKhusus2: '', hargaPlat2: '' })
     setSelectedFinishings([])
     setCalculatedCost(0)
     setCalculatedGlueCost(0)
@@ -1636,6 +1638,8 @@ function HitungCetakanPage() {
       quantity: r.quantity || '',
       jumlahPesanan: r.jumlahPesanan || '',
       berapaMata: r.berapaMata || '',
+      bbs: r.bbs === true,
+      bbk: r.bbk === true,
       setelanKertas: r.setelanKertas || '',
       warna: r.warna || '',
       warnaKhusus: r.warnaKhusus || '',
@@ -1892,7 +1896,7 @@ function HitungCetakanPage() {
   const computeSimulasi = useCallback((jumlah: number, profit: number) => {
     if (jumlah <= 0) return null
     const bm = parseInt(formData.berapaMata) || 0
-    const qty = bm > 0 ? Math.ceil(jumlah / bm) : jumlah
+    const qty = bm > 0 ? Math.ceil(jumlah / bm) * ((formData.bbs || formData.bbk) ? 2 : 1) : jumlah
     if (qty <= 0) return null
     // Kertas: hitung ulang dengan cutting engine (jumlah cetakan simulasi + insit)
     const pw = parseFloat(formData.paperLength) || 0
@@ -1951,7 +1955,7 @@ function HitungCetakanPage() {
     const hargaPcs = grandTotal / jumlah
     const modalPcs = subTotal / jumlah
     return { sheetsNeeded, kertas, ongkos1, ongkos2, finishing, lem, borongan, subTotal, profitAmount, grandTotal, hargaPcs, modalPcs }
-  }, [formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.berapaMata, formData.setelanKertas, formData.pricePerSheet, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, formData.packingCost, formData.shippingCost, formData.biayaLain1, formData.biayaLain2, selectedMachine, selectedMachine2, selectedFinishingItems])
+  }, [formData.paperLength, formData.paperWidth, formData.cutWidth, formData.cutHeight, formData.berapaMata, formData.bbs, formData.bbk, formData.setelanKertas, formData.pricePerSheet, formData.warna, formData.warnaKhusus, formData.hargaPlat, formData.warna2, formData.warnaKhusus2, formData.hargaPlat2, formData.glueLengthCm, formData.glueCostPerCm, formData.glueBoronganPerSheet, formData.packingCost, formData.shippingCost, formData.biayaLain1, formData.biayaLain2, selectedMachine, selectedMachine2, selectedFinishingItems])
 
   const simulasi = useMemo(() => computeSimulasi(simJumlah, simProfitVal), [computeSimulasi, simJumlah, simProfitVal])
 
@@ -1969,10 +1973,25 @@ function HitungCetakanPage() {
   const applySimulasiValues = (jumlah: number, profit: number) => {
     if (jumlah <= 0) { toast.error('Ketik jumlah pesanan simulasi terlebih dahulu'); return }
     const bm = parseInt(formData.berapaMata) || 0
-    const qty = bm > 0 ? Math.ceil(jumlah / bm) : jumlah
+    const qty = bm > 0 ? Math.ceil(jumlah / bm) * ((formData.bbs || formData.bbk) ? 2 : 1) : jumlah
     setFormData(prev => ({ ...prev, jumlahPesanan: String(jumlah), quantity: String(qty) }))
     handleProfitChange(profit)
     toast.success(`Simulasi diterapkan: ${jumlah.toLocaleString('id-ID')} pcs · profit ${profit}%`)
+  }
+
+  // ===== BBS / BBK (cetak bolak-balik): dicentang → Jumlah Cetakan = 2 × (Jumlah Pesanan ÷ Cetak Brp Mata) =====
+  // Kedua kotak saling eksklusif (bolak-balik ya BBS atau BBK, bukan keduanya).
+  const toggleSide = (side: 'bbs' | 'bbk') => {
+    setFormData(prev => {
+      const wasChecked = side === 'bbs' ? prev.bbs : prev.bbk
+      const bbs = side === 'bbs' ? !wasChecked : false
+      const bbk = side === 'bbk' ? !wasChecked : false
+      const x2 = bbs || bbk
+      const jp = parseInt(prev.jumlahPesanan) || 0
+      const bm = parseInt(prev.berapaMata) || 0
+      const quantity = (jp > 0 && bm > 0) ? (Math.ceil(jp / bm) * (x2 ? 2 : 1)).toString() : prev.quantity
+      return { ...prev, bbs, bbk, quantity }
+    })
   }
 
   // ===== CRUD Tabel Simulasi =====
@@ -2118,7 +2137,7 @@ function HitungCetakanPage() {
   // Nilai tampilan per baris: live bila bisa dihitung, fallback ke snapshot saat disimpan
   const simRowQtyOf = (jumlah: number) => {
     const bm = parseInt(formData.berapaMata) || 0
-    return bm > 0 ? Math.ceil(jumlah / bm) : jumlah
+    return bm > 0 ? Math.ceil(jumlah / bm) * ((formData.bbs || formData.bbk) ? 2 : 1) : jumlah
   }
   const simRowView = (row: SimRow) => {
     const live = simRowValues.get(row.id)
@@ -2568,7 +2587,7 @@ function HitungCetakanPage() {
                         setFormData(prev => ({
                           ...prev,
                           jumlahPesanan: val,
-                          quantity: (jp > 0 && bm > 0) ? Math.ceil(jp / bm).toString() : prev.quantity
+                          quantity: (jp > 0 && bm > 0) ? (Math.ceil(jp / bm) * ((prev.bbs || prev.bbk) ? 2 : 1)).toString() : prev.quantity
                         }))
                       }} className={inputClass} />
                     </div>
@@ -2581,7 +2600,7 @@ function HitungCetakanPage() {
                         setFormData(prev => ({
                           ...prev,
                           berapaMata: val,
-                          quantity: (jp > 0 && bm > 0) ? Math.ceil(jp / bm).toString() : prev.quantity
+                          quantity: (jp > 0 && bm > 0) ? (Math.ceil(jp / bm) * ((prev.bbs || prev.bbk) ? 2 : 1)).toString() : prev.quantity
                         }))
                       }} className={inputClass} />
                     </div>
@@ -2589,6 +2608,19 @@ function HitungCetakanPage() {
                       <label className={labelClass}>Jumlah Cetakan <span className="text-red-500">*</span></label>
                       <input type="number" placeholder="Auto" value={formData.quantity} className={`${inputClass} bg-slate-100 cursor-not-allowed`} readOnly />
                     </div>
+                  </div>
+                  {/* Kotak centang BBS / BBK — cetak bolak-balik: dicentang → jumlah cetakan ×2 */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Cetak Bolak-Balik:</span>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox" checked={!!formData.bbs} onChange={() => toggleSide('bbs')} className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" aria-label="BBS — bolak balik sama (jumlah cetakan kali 2)" />
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">BBS</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox" checked={!!formData.bbk} onChange={() => toggleSide('bbk')} className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" aria-label="BBK — bolak balik kendali (jumlah cetakan kali 2)" />
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">BBK</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">dicentang → Jumlah Cetakan × 2</span>
                   </div>
                 </div>
               </div>

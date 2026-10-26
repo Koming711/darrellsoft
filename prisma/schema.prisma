@@ -261,6 +261,8 @@ model RiwayatCetakan {
   quantity           String
   jumlahPesanan      String   @default("")
   berapaMata         String   @default("")
+  bbs                Boolean  @default(false) // cetak bolak-balik sama → jumlah cetakan ×2
+  bbk                Boolean  @default(false) // cetak bolak-balik kendali → jumlah cetakan ×2
   namaSuplier        String   @default("") // suplier harga bahan (Master Toko Pemasok)
   setelanKertas      String   @default("")
   warna              String

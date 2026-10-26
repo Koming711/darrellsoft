@@ -107,6 +107,8 @@ export async function POST(request: NextRequest) {
         quantity: body.quantity || '',
         jumlahPesanan: body.jumlahPesanan || '',
         berapaMata: body.berapaMata || '',
+        bbs: body.bbs === true,
+        bbk: body.bbk === true,
         setelanKertas: body.setelanKertas || '',
         warna: body.warna || '',
         warnaKhusus: body.warnaKhusus || '',
