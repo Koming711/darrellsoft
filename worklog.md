@@ -15103,3 +15103,20 @@ Stage Summary:
 - "Backup Semua" kini menghasilkan file backup JSON yang persis sama formatnya dengan yang dipakai "Restore dari File" — konsisten dengan deskripsi UI, Riwayat Backup, dan auto-backup.
 - Bug restore jalur multipart untuk .json diperbaiki; .xlsx lama tetap didukung; error file tidak dikenal jelas.
 - BELUM dideploy ke www.darrellsoft.com — menumpuk dengan retensi maks 7 file.
+
+---
+Task ID: cancel-backup-all-json-file
+Agent: Z.ai Code (main)
+Task: "cancel perintah terakhir" — batalkan penuh tugas backup-all-json-file (Backup Semua → file JSON seperti Restore dari File).
+
+Work Log:
+- Verifikasi state: tugas backup-all-json-file tersimpan di commit 96f3217 (mengubah backup route → JSON, restore route → deteksi ekstensi, page.tsx → cek ekstensi lowercase).
+- Revert: `git restore --source=HEAD~1 -- src/app/api/database/backup/route.ts src/app/api/database/restore/route.ts src/app/administrasi/pengaturan/page.tsx` → src/ kini identik dengan keadaan sebelum tugas tersebut (setelah cancel-backup-folder-and-search / retensi 7 file).
+- Verifikasi revert: `git diff HEAD~1 -- src/` kosong; backup route kembali menghasilkan .xlsx (ExcelJS, X-Backup-FileName .xlsx); restore route multipart kembali parseExcelBackup murni; page.tsx kembali cek `.endsWith('.xlsx')`.
+- Uji API: POST /api/database/backup → 200, Content-Type xlsx, file valid "Microsoft Excel 2007+", header X-Backup-TableCount hilang (sesuai state lama).
+- Uji browser: halaman Pengaturan → tab Database render normal (kartu Backup & Restore Penuh, Auto Backup, Riwayat Backup); klik "Backup Semua" → POST 200 + riwayat refresh; tanpa error console.
+- Cleanup: hapus 2 baris BackupFile hasil pengujian (14-13-29 & 14-14-21); sisakan 1 baris pra-ada (14-11-18); localStorage/cookies browser dibersihkan; lint 3 file bersih.
+
+Stage Summary:
+- Perubahan tugas backup-all-json-file dibatalkan penuh — kode kembali persis ke keadaan sebelumnya: "Backup Semua" mengunduh .xlsx, restore multipart hanya menerima .xlsx.
+- Menumpuk yang belum dideploy: retensi maks 7 file (dan kini tidak ada perubahan lain).

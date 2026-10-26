@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import ExcelJS from 'exceljs'
 import { pruneOldBackups } from '@/lib/backup-retention'
 
 function getUserFromRequest(req: NextRequest) {
@@ -64,31 +65,142 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Susun konten backup JSON — format inilah yang dipakai "Restore dari File"
-    // (path .json) dan yang disimpan sebagai salinan di Riwayat Backup (BackupFile).
-    const jsonBackup = {
-      version: '2.0',
-      type: 'user-backup',
-      timestamp: new Date().toISOString(),
-      userId: user.id,
-      database: tableData,
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'DarrellSoft'
+    workbook.created = new Date()
+
+    // ============== Sheet 1: Info (metadata) ==============
+    const infoSheet = workbook.addWorksheet('Info', {
+      properties: { tabColor: { argb: 'FF9CA3AF' } },
+    })
+    infoSheet.addRow(['Key', 'Value'])
+    infoSheet.addRow(['Type', 'user-backup'])
+    infoSheet.addRow(['Version', '2.0'])
+    infoSheet.addRow(['Timestamp', new Date().toISOString()])
+    infoSheet.addRow(['Total Tables', Object.keys(tableData).length.toString()])
+    infoSheet.addRow(['Total Records', totalRows.toString()])
+    infoSheet.addRow(['UserId', user.id])
+
+    // List all tables with row counts
+    infoSheet.addRow([])
+    infoSheet.addRow(['Table', 'Label', 'Records'])
+    for (const [key, rows] of Object.entries(tableData)) {
+      infoSheet.addRow([key, USER_TABLES[key]?.label || key, rows.length.toString()])
     }
-    const content = JSON.stringify(jsonBackup)
-    const size = Buffer.byteLength(content, 'utf-8')
-    const tableCount = Object.keys(tableData).length
+
+    infoSheet.getRow(1).font = { bold: true }
+    infoSheet.getColumn(1).width = 22
+    infoSheet.getColumn(2).width = 36
+
+    await infoSheet.protect('', {
+      selectLockedCells: true,
+      selectUnlockedCells: true,
+      formatCells: false, formatColumns: false, formatRows: false,
+      insertColumns: false, insertRows: false, insertHyperlinks: false,
+      deleteColumns: false, deleteRows: false,
+      sort: false, autoFilter: false, pivotTables: false,
+    })
+
+    // ============== Sheet per table ==============
+    for (const [tableKey, rows] of Object.entries(tableData)) {
+      const sheetName = `Data_${tableKey}`.substring(0, 31) // Excel max 31 chars
+      const sheet = workbook.addWorksheet(sheetName, {
+        properties: { tabColor: { argb: 'FF10B981' } },
+      })
+
+      if (rows.length === 0) {
+        sheet.addRow(['(Tidak ada data)'])
+      } else {
+        // Get all unique keys from all records
+        const allKeys = new Set<string>()
+        rows.forEach((row: any) => Object.keys(row).forEach((k) => allKeys.add(k)))
+        const headers = Array.from(allKeys)
+
+        // Header row with styling
+        const headerRow = sheet.addRow(headers)
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF374151' },
+        }
+        headerRow.alignment = { horizontal: 'center', vertical: 'middle' }
+        headerRow.height = 24
+
+        // Data rows
+        rows.forEach((row: any) => {
+          const values = headers.map((key) => {
+            const val = row[key]
+            if (val === null || val === undefined) return ''
+            if (val instanceof Date) return val.toISOString()
+            if (typeof val === 'object') return JSON.stringify(val)
+            return val
+          })
+          sheet.addRow(values)
+        })
+
+        // Auto-fit column widths
+        headers.forEach((header, i) => {
+          const col = sheet.getColumn(i + 1)
+          let maxLen = header.length
+          rows.forEach((row: any) => {
+            const val = row[header]
+            const str = val === null || val === undefined ? '' : String(val)
+            maxLen = Math.max(maxLen, str.length)
+          })
+          col.width = Math.min(Math.max(maxLen + 2, 10), 50)
+        })
+
+        // Alternating row colors
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1 && rowNumber % 2 === 0) {
+            row.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF3F4F6' },
+            }
+          }
+        })
+      }
+
+      // Protect the sheet
+      await sheet.protect('', {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false, formatColumns: false, formatRows: false,
+        insertColumns: false, insertRows: false, insertHyperlinks: false,
+        deleteColumns: false, deleteRows: false,
+        sort: false, autoFilter: false, pivotTables: false,
+      })
+    }
+
+    // Generate buffer
+    const excelBuffer = Buffer.from(await workbook.xlsx.writeBuffer())
 
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const fileName = `backup-user-${dateStr}.json`
+    const fileName = `backup-user-${dateStr}.xlsx`
+    const jsonFileName = `backup-user-${dateStr}.json`
 
-    // Simpan salinan ke DATABASE (tabel BackupFile) — bukan filesystem.
+    // Simpan salinan JSON ke DATABASE (tabel BackupFile) — bukan filesystem.
     // Di Vercel filesystem read-only, sehingga Riwayat Backup & hapus hanya
     // bisa berfungsi bila salinan backup disimpan di database.
     try {
+      const jsonBackup = {
+        version: '2.0',
+        type: 'user-backup',
+        timestamp: new Date().toISOString(),
+        userId: user.id,
+        database: tableData,
+      }
+      const content = JSON.stringify(jsonBackup)
+      const size = Buffer.byteLength(content, 'utf-8')
+      const tableCount = Object.keys(tableData).length
       const data = { content, size, tableCount, rowCount: totalRows, userId: user.id }
       await db.backupFile.upsert({
-        where: { fileName },
+        where: { fileName: jsonFileName },
         update: data,
-        create: { fileName, ...data },
+        create: { fileName: jsonFileName, ...data },
       })
 
       // Retensi maks 7 file (FIFO): setelah backup baru tersimpan,
@@ -101,21 +213,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // File JSON inilah yang di-download user — file yang sama persis bisa
-    // langsung dipakai tombol "Restore dari File".
-    return new NextResponse(content, {
+    // Return the Excel file
+    return new NextResponse(excelBuffer, {
       status: 200,
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
-        'Content-Length': String(size),
+        'Content-Length': String(excelBuffer.length),
         'X-Backup-FileName': fileName,
         'X-Backup-FileCount': String(totalRows),
-        'X-Backup-TableCount': String(tableCount),
         'Cache-Control': 'no-cache',
       },
     })
-
   } catch (error) {
     console.error('Backup error:', error)
     return NextResponse.json(
