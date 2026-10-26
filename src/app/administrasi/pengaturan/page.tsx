@@ -1,6 +1,6 @@
 'use client'
 
-import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun, FolderOpen } from 'lucide-react'
+import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun, FolderOpen, Search } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -112,6 +112,10 @@ export default function PengaturanPage() {
   const [backupFolder, setBackupFolder] = useState('backups')
   const [backupFolderInput, setBackupFolderInput] = useState('backups')
   const [savingFolder, setSavingFolder] = useState(false)
+  const [folderFiles, setFolderFiles] = useState<Array<{ name: string; size: number; sizeFormatted: string; modified: string }>>([])
+  const [loadingFolderFiles, setLoadingFolderFiles] = useState(false)
+  const [showFolderFiles, setShowFolderFiles] = useState(false)
+  const [folderExists, setFolderExists] = useState(true)
 
   // Display settings
   const [fontSize, setFontSize] = useState('medium')
@@ -611,6 +615,23 @@ export default function PengaturanPage() {
       if (res.ok) { setBackupFolder(v || 'backups'); toast.success(t('backup_folder_saved')) } else toast.error(t('backup_folder_save_error'))
     } catch { toast.error(t('backup_folder_save_error')) }
     setSavingFolder(false)
+  }
+
+  const handleSearchFolderFiles = async () => {
+    setLoadingFolderFiles(true)
+    setShowFolderFiles(true)
+    try {
+      const res = await authFetch('/api/database/backup-folder', { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setFolderFiles(data.files || [])
+          setFolderExists(data.exists !== false)
+          setBackupFolder(data.folder || backupFolder)
+        } else toast.error(t('backup_folder_files_error'))
+      } else toast.error(t('backup_folder_files_error'))
+    } catch { toast.error(t('backup_folder_files_error')) }
+    setLoadingFolderFiles(false)
   }
 
   const handleBackupDatabase = async () => {
@@ -1177,9 +1198,37 @@ export default function PengaturanPage() {
                           className={`${inputClass} max-w-full sm:max-w-[280px]`}
                         />
                       </div>
+                      <Button onClick={handleSearchFolderFiles} disabled={loadingFolderFiles} size="sm" variant="outline">
+                        {loadingFolderFiles ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Search className="w-3.5 h-3.5 mr-1.5" />}
+                        {t('backup_folder_search')}
+                      </Button>
                       <Button onClick={handleSaveBackupFolder} disabled={savingFolder} size="sm">{savingFolder ? t('menyimpan') : t('simpan')}</Button>
                     </div>
                     <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">📁 {t('backup_folder_active')}: <span className="font-medium">{backupFolder}/</span></p>
+                    {showFolderFiles && (
+                      <div className="mt-3">
+                        <p className="text-[11px] font-medium text-muted-foreground mb-2">{t('backup_folder_files_title')} ({folderFiles.length})</p>
+                        {loadingFolderFiles ? (
+                          <div className="flex items-center justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                        ) : !folderExists ? (
+                          <div className="text-center py-4 text-muted-foreground"><p className="text-xs">{t('backup_folder_files_notfound')}</p></div>
+                        ) : folderFiles.length === 0 ? (
+                          <div className="text-center py-4 text-muted-foreground"><p className="text-xs">{t('backup_folder_files_empty')}</p></div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {folderFiles.map((f) => (
+                              <div key={f.name} className="flex items-center justify-between gap-3 p-2 bg-card border border-border rounded-lg hover:border-input transition-colors">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                  <p className="text-xs text-foreground truncate" title={f.name}>{f.name}</p>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground flex-shrink-0">{f.sizeFormatted} • {new Date(f.modified).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-3">

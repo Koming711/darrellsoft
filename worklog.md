@@ -15044,3 +15044,21 @@ Stage Summary:
 - Keamanan: path traversal (`..`), absolute path, drive letter diblokir di sanitasi server + validasi klien.
 - Konstanta: `BACKUP_FOLDER_SETTING_KEY='backup_folder'`, default `DEFAULT_BACKUP_FOLDER='backups'`.
 - BELUM dideploy ke www.darrellsoft.com — menunggu instruksi deploy.
+
+---
+Task ID: backup-folder-search
+Agent: Z.ai Code (main)
+Task: "tambahkan tombol search di folder penyimpanan backup" — tombol Cari File di kartu Folder Penyimpanan Backup untuk melihat daftar file di folder tersebut.
+
+Work Log:
+- Buat `src/app/api/database/backup-folder/route.ts` (GET, requireAuth): baca folder aktif via `getBackupFolder()`, cek exists, readdir + stat tiap file → { name, size, sizeFormatted, modified }, sort terbaru dulu; folder belum ada → exists:false + files:[]; tanpa auth → 401.
+- `src/lib/i18n.ts`: 6 key baru ID+EN (backup_folder_search 'Cari File'/files_title 'Isi folder'/files_empty/files_error/files_notfound).
+- `src/app/administrasi/pengaturan/page.tsx`: state folderFiles/loadingFolderFiles/showFolderFiles/folderExists; handler handleSearchFolderFiles (GET /api/database/backup-folder, sync label folder aktif dari response); UI tombol "Cari File" (ikon Search, variant outline) di samping Simpan + panel hasil: judul "Isi folder (N)", loading spinner, empty state, not-found state, daftar file max-h-48 scroll (nama + ukuran + tanggal, hover border).
+- Uji API: folder `backups` → 35 file legacy terdaftar (37.6 KB xlsx teratas); tanpa cookie → 401.
+- Uji browser (agent-browser, auth user-admin): klik "Cari File" → "Isi folder (35)" + 35 baris file render; screenshot /tmp/backup-folder-search.png; localStorage.clear + close.
+- Lint: backup-folder route + backup-folder.ts + i18n.ts → bersih.
+
+Stage Summary:
+- Tombol "Cari File" di kartu Folder Penyimpanan Backup menampilkan isi folder server (nama, ukuran, tanggal, terbaru dulu) — membantu user memverifikasi file backup tersimpan.
+- API baru GET /api/database/backup-folder (auth required).
+- BELUM dideploy ke www.darrellsoft.com — menunggu instruksi deploy (menumpuk dengan retensi 7 file + fitur folder).
