@@ -631,7 +631,7 @@ export default function PengaturanPage() {
     if (!file) return
     setShowRestoreConfirm(null); setRestoreLoading(true)
     try {
-      if (file.name.endsWith('.xlsx')) {
+      if (file.name.toLowerCase().endsWith('.xlsx')) {
         // Excel file — upload via FormData
         const formData = new FormData()
         formData.append('file', file)

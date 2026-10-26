@@ -15083,3 +15083,23 @@ Stage Summary:
 - Kode kembali persis ke kondisi setelah task backup-retention-7files (sebelum fitur folder & cari file).
 - Yang tersisa untuk deploy bila diminta: retensi maks 7 file (FIFO) + note i18n-nya.
 - Produksi www.darrellsoft.com masih versi lama ("keep last 30") — belum pernah dideploy sejak itu.
+
+---
+Task ID: backup-all-json-file
+Agent: Z.ai Code (main)
+Task: "dihalaman backup. apabila diklik backup semua maka backup ke file seperti restore dari file. check and fix" — pastikan file hasil "Backup Semua" bisa langsung dipakai "Restore dari File".
+
+Work Log:
+- CHECK menyeluruh: round-trip lama (backup xlsx → restore xlsx) ternyata SUDAH benar (81 data utuh, tipe kolom sesuai schema, boolean bbs/bbk benar — quantity/paperGrammage memang String di schema). Respons backup 200 di curl & browser. Tapi ditemukan INKONSISTENSI: deskripsi UI berjanji "Backup seluruh database ke file JSON" sementara tombol Backup Semua mengunduh .xlsx.
+- BUG DITEMUKAN (akar masalah): POST /api/database/restore jalur multipart SELALU parse file sebagai Excel (parseExcelBackup) tanpa melihat ekstensi → file .json yang di-upload via FormData gagal dengan error membingungkan "Can't find end of central directory : is this a zip file?" (ExcelJS). File hasil Backup Semua (jika berupa .json) tidak bisa di-restore lewat jalur upload file.
+- FIX 1 — src/app/api/database/backup/route.ts: "Backup Semua" kini menghasilkan file JSON (backup-user-<ts>.json, Content-Type application/json) — konten sama persis dengan salinan Riwayat Backup dan format asli "Restore dari File". Pembuatan workbook ExcelJS dibuang (route jauh lebih ringan). Salinan DB + retensi maks 7 file tetap. Header baru X-Backup-TableCount.
+- FIX 2 — src/app/api/database/restore/route.ts: jalur multipart kini deteksi ekstensi: .xlsx/.xls → parseExcelBackup; selain itu → JSON.parse (dukung wrapper {database:...} maupun objek tabel langsung); file rusak → error jelas "Format file tidak dikenali — gunakan file backup .json atau .xlsx" (400), bukan zip error.
+- FIX 3 — pengaturan/page.tsx handleRestoreFromFile: cek ekstensi .xlsx jadi case-insensitive (lowercase).
+- UJI API: backup → .json valid (16 tabel, 81 rows); restore .json via multipart → success 8 tabel (sebelumnya gagal zip error); restore .json via JSON body → success; restore .xlsx lama → success (kompatibel mundur); file korup → 400 pesan jelas; total data 81 tetap utuh, tipe kolom benar (text/real/integer).
+- UJI browser: Backup Semua → 200; upload file .json hasil backup via "Restore dari File" → POST restore 200; screenshot /tmp/backup-json-flow.png; cleanup: localStorage.clear, hapus 4 baris BackupFile test → 0.
+- Lint: backup route, restore route, page.tsx → bersih.
+
+Stage Summary:
+- "Backup Semua" kini menghasilkan file backup JSON yang persis sama formatnya dengan yang dipakai "Restore dari File" — konsisten dengan deskripsi UI, Riwayat Backup, dan auto-backup.
+- Bug restore jalur multipart untuk .json diperbaiki; .xlsx lama tetap didukung; error file tidak dikenal jelas.
+- BELUM dideploy ke www.darrellsoft.com — menumpuk dengan retensi maks 7 file.

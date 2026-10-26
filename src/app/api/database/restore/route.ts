@@ -190,14 +190,31 @@ export async function POST(req: NextRequest) {
     let data: Record<string, any[]>
 
     if (contentType.includes('multipart/form-data')) {
-      // Excel file upload
+      // File upload (dari tombol "Restore dari File")
       const formData = await req.formData()
       const file = formData.get('file') as File | null
       if (!file) {
         return NextResponse.json({ success: false, error: 'File tidak ditemukan' }, { status: 400 })
       }
-      const buffer = Buffer.from(await file.arrayBuffer())
-      data = await parseExcelBackup(buffer)
+      const fileName = (file.name || '').toLowerCase()
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        // Excel backup — parse multi-sheet (Data_*)
+        const buffer = Buffer.from(await file.arrayBuffer())
+        data = await parseExcelBackup(buffer)
+      } else {
+        // File .json (hasil "Backup Semua") — parse JSON, JANGAN dibaca sebagai Excel.
+        const text = Buffer.from(await file.arrayBuffer()).toString('utf-8')
+        let parsed: any
+        try {
+          parsed = JSON.parse(text)
+        } catch {
+          return NextResponse.json(
+            { success: false, error: 'Format file tidak dikenali — gunakan file backup .json atau .xlsx' },
+            { status: 400 }
+          )
+        }
+        data = parsed && typeof parsed === 'object' && parsed.database ? parsed.database : parsed
+      }
     } else {
       // JSON body (backward compatibility with old JSON backups & server restore)
       const body = await req.json()
