@@ -129,6 +129,9 @@ async function migrateExistingTablesPg(): Promise<void> {
     // Kolom Bahan: ukuran & gramatur (auto-isi dari Master Bahan di popup Tambah Bahan)
     { table: '"Bahan"', column: '"ukuran"', type: "TEXT NOT NULL DEFAULT ''" },
     { table: '"Bahan"', column: '"gramatur"', type: 'DOUBLE PRECISION NOT NULL DEFAULT 0' },
+    // Soft delete & nomor unik invoice langganan (panel admin SaaS)
+    { table: '"SubscriptionPayment"', column: '"deletedAt"', type: 'TIMESTAMP(3)' },
+    { table: '"SubscriptionInvoice"', column: '"uniqueCode"', type: 'INTEGER' },
   ]
   for (const m of migrations) {
     try {

@@ -15154,3 +15154,22 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com kini menjalankan build terbaru: retensi Riwayat Backup maks 7 file (FIFO — backup baru masuk, paling lama terhapus otomatis) + fitur backup sebelumnya.
 - Link vercel lokal dibersihkan; tidak ada file env yang tertinggal.
+
+---
+Task ID: fix-panel-admin-prod-schema-drift
+Agent: Z.ai Code (main)
+Task: "di online halaman panel admin semua gagal. check and fix" — semua halaman panel admin error di www.darrellsoft.com setelah deploy.
+
+Work Log:
+- Reproduksi: GET /api/panel-admin/subscription-stats (cookie admin) di produksi → 500 "Gagal memuat ringkasan". Halaman /panel-admin sendiri 200 (CSR), tapi semua data gagal.
+- Runtime logs Vercel (`vercel logs --deployment ... --scope koming711s-projects`): akar masalah P2022 — `The column SubscriptionPayment.deletedAt does not exist in the current database`. DB produksi = Supabase Postgres (bukan SQLite lokal); skema lokal punya kolom yang belum pernah ditambahkan ke Supabase.
+- FULL SCHEMA DIFF (bun + pg via pooler session aws-1-ap-southeast-1:5432, direct host tak bisa diakses — tanpa IPv6): 47 tabel lokal vs 47 tabel prod; TEPAT 2 kolom hilang: SubscriptionPayment.deletedAt TIMESTAMP(3) & SubscriptionInvoice.uniqueCode INTEGER (keduanya nullable → DDL aditif, tanpa risiko data).
+- FIX: ALTER TABLE ADD COLUMN IF NOT EXISTS untuk keduanya langsung ke Supabase → verifikasi information_schema: kolom ada.
+- Future-proofing: src/lib/auto-seed.ts migrateExistingTablesPg() + 2 entri (SubscriptionPayment.deletedAt, SubscriptionInvoice.uniqueCode) agar deploy berikutnya self-heal (pola sama dengan bbs/bbk & Bahan ukuran/gramatur). Lint bersih.
+- Redeploy --prod (1m) supaya bundle produksi = kode lokal; cleanup .env.local/.vercel hasil link.
+- VERIFIKASI PASCA-FIX: subscription-stats 200, transactions 200, payments 200, stats 200, akun 200, plans 200, audit 200, homepage 200. Tidak ada error baru di runtime logs.
+
+Stage Summary:
+- Penyebab: schema drift — kolom soft-delete (SubscriptionPayment.deletedAt) & uniqueCode (SubscriptionInvoice) ada di skema lokal tapi belum di Supabase; semua API panel admin yang membaca SubscriptionPayment → 500.
+- Perbaikan permanen: kolom ditambahkan ke Supabase + auto-seed migrateExistingTablesPg() kini mencakup keduanya.
+- Semua halaman panel admin di www.darrellsoft.com kini berfungsi normal.
