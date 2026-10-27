@@ -15120,3 +15120,21 @@ Work Log:
 Stage Summary:
 - Perubahan tugas backup-all-json-file dibatalkan penuh — kode kembali persis ke keadaan sebelumnya: "Backup Semua" mengunduh .xlsx, restore multipart hanya menerima .xlsx.
 - Menumpuk yang belum dideploy: retensi maks 7 file (dan kini tidak ada perubahan lain).
+
+---
+Task ID: workspace-download-fix
+Agent: Z.ai Code (main)
+Task: "tidak bisa download workspace. check and fix" — workspace (2.9 GB) terlalu besar sehingga download workspace platform gagal.
+
+Work Log:
+- CHECK: tidak ada fitur "download workspace" di dalam aplikasi (grep src → tidak ada); yang dimaksud adalah download workspace sandbox dari platform. Total workspace 2.9 GB → hampir pasti melebihi batas download.
+- BREAKDOWN ditemukan: node_modules 1.4G (wajib, untuk dev), upload/ 900M (sampah), .next 317M (cache build), .git 204M, sisanya project ~120M.
+- FIX 1: upload/ adalah mountpoint (ossfs, tidak bisa di-rm) → isi dihapus: 22 potong arsip workspace-*.tar.00x (50M each) dari sesi file-drop lama (18–26 Okt, proses ganti konten sudah selesai) → 900M bebas.
+- FIX 2: dev server distop → .next (317M) dihapus → dev server dinyalakan ulang (python double-fork daemon, dev.log) → rebuild cache normal.
+- FIX 3: git gc --prune=now → .git 204M → 87M.
+- VERIFIKASI: root 200, /login 200, GET /api/database/backups 200 (dengan cookie admin); dev.log "Ready"; tanpa error. Data backup user tidak tersentuh.
+- HASIL: 2.9 GB → ~1.85 GB (sisanya dominan node_modules 1.4G yang memang diperlukan agar dev server jalan).
+
+Stage Summary:
+- Penyebab: workspace kebanyakan sampah — 900M arsip upload lama + 317M cache + .git bengkak. Semua dibersihkan; download workspace seharusnya bisa lagi (ukuran ~1.85 GB, file jauh lebih sedikit).
+- Bila masih gagal karena node_modules (1.4G, tidak bisa dihapus), opsi lanjutan: buat zip khusus source (src+prisma+db+public, ~40M) yang bisa diunduh lewat URL aplikasi.
