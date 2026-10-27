@@ -15215,3 +15215,20 @@ Stage Summary:
 - Perbaikan: tile kembali touch-action:auto; scroll hanya diblokir selama drag-reorder aktif; context menu Android dicegah; overscroll popup di-contain.
 - Popup "Lainnya" kini bisa digeser atas-bawah, sambil tetap: tekan-lama+geser = pindah urutan icon, swipe = scroll, tap = buka menu.
 - Hanya 2 file diubah; tidak ada perubahan API/skema. Deployment menunggu instruksi user.
+
+---
+Task ID: deploy-fix-mobile-lainnya-icon-scroll
+Agent: Z.ai Code (main)
+Task: "deploy ke www.darrellsoft.com" dengan token vercel (perbaikan scroll popup Lainnya di mobile).
+
+Work Log:
+- Pre-check: working tree bersih (auto-commit a41b037 sudah menyimpan fix: menu-home-screen.tsx +17, sidebar.tsx +1, worklog). Tidak ada .vercel/.env.local.
+- Link: `npx vercel link --project darrellsoft --yes --token <TOKEN>` (jebakan dual-project dihindari; link auto-generate .env.local).
+- Deploy: `npx vercel --prod --token <TOKEN>` → sukses → darrellsoft-gbqf2g8p7-koming711s-projects.vercel.app → alias www.darrellsoft.com.
+- Cleanup: rm .env.local + rm -rf .vercel → kondisi lokal kembali bersih.
+- Verifikasi produksi: / → 200, /login → 200, /api/health → 200 ({"status":"healthy","uptime":56s} = deployment baru).
+- Verifikasi BUNDLE (bukti fix live): chunk dashboard /_next/static/chunks/97f3905fc8559cbd.js — overscroll-contain: ADA (1); class lama tile "flex touch-none flex-col items-center justify-start": 0 (BUG HILANG); onContextMenu: ADA; touchmove blocker: ADA. 4/4 elemen perbaikan terkonfirmasi di produksi.
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan perbaikan scroll popup "Lainnya" mobile: grid icon bisa digeser atas-bawah, tekan-lama+geser (reorder) & tap (navigasi) tetap berfungsi.
+- Verifikasi bundle 4/4 marker fix hadir di chunk produksi. Tidak ada file env/link yang tertinggal.
