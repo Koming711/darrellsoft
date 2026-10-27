@@ -15138,3 +15138,19 @@ Work Log:
 Stage Summary:
 - Penyebab: workspace kebanyakan sampah — 900M arsip upload lama + 317M cache + .git bengkak. Semua dibersihkan; download workspace seharusnya bisa lagi (ukuran ~1.85 GB, file jauh lebih sedikit).
 - Bila masih gagal karena node_modules (1.4G, tidak bisa dihapus), opsi lanjutan: buat zip khusus source (src+prisma+db+public, ~40M) yang bisa diunduh lewat URL aplikasi.
+
+---
+Task ID: deploy-7file-retention
+Agent: Z.ai Code (main)
+Task: "deploy ke www.darrellsoft.com" dengan token vercel yang diberikan.
+
+Work Log:
+- Pra-check: state kode = retensi maks 7 file (FIFO) + backup .xlsx + restore orisinal (tugas JSON sudah dibatalkan); auto-commit sistem sudah menyimpan state revert (bbd7b16, e6cf5e4). Tidak ada .vercel/.env.local di awal.
+- Link ke project yang benar: `npx vercel link --project darrellsoft --yes` → projectId prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB (project darrellsoft, BUKAN my-project — jebakan dual-project dihindari). Link otomatis membuat .env.local.
+- Deploy: `npx vercel --prod` → sukses 3m → https://darrellsoft-c3m3ud9bu-koming711s-projects.vercel.app → aliased ke https://www.darrellsoft.com.
+- Cleanup: hapus .env.local hasil auto-generate + rm -rf .vercel (mengembalikan kondisi awal local).
+- Verifikasi produksi: GET https://www.darrellsoft.com → 200, <title>Darrell Soft - Kalkulator Hitung Cetakan</title>; /login → 200; /api/health → 200.
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan build terbaru: retensi Riwayat Backup maks 7 file (FIFO — backup baru masuk, paling lama terhapus otomatis) + fitur backup sebelumnya.
+- Link vercel lokal dibersihkan; tidak ada file env yang tertinggal.
