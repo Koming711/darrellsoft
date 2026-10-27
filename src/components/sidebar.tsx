@@ -518,7 +518,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
 
           {/* Menu — home screen Android: ikon berwarna + FOLDER, bisa dipindah (tekan lama & geser) */}
           <div
-            className="flex-1 overflow-y-auto pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
+            className="flex-1 overflow-y-auto overscroll-contain pb-[max(10px,env(safe-area-inset-bottom))] hide-scrollbar"
             style={{ maxHeight: 'calc(100dvh - 48px)' }}
           >
             <MenuHomeScreen

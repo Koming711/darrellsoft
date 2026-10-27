@@ -15190,3 +15190,28 @@ Work Log:
 Stage Summary:
 - Panel admin kini REALTIME: data baru (akun, pembayaran, transaksi, pelanggan) tampil otomatis ±10-12 detik tanpa reload, dengan indikator Live & toast notifikasi pembayaran baru; hemat kuota (pause saat tab hidden).
 - Local DB bersih (baris uji dihapus); tidak ada perubahan skema/API.
+
+---
+Task ID: fix-mobile-lainnya-icon-scroll
+Agent: Z.ai Code (main)
+Task: "ditampilan mobile halaman lainnya, halaman icon tidak bisa digeser atas bawah. check and fix" — di tampilan mobile, grid icon pada popup "Lainnya" tidak bisa di-scroll naik/turun.
+
+Work Log:
+- Akar masalah: tile icon di MenuHomeScreen (src/components/menu-home-screen.tsx) memakai class `touch-none` (touch-action: none) untuk mendukung drag-reorder tekan-lama. Karena grid 100% tersusun dari tile, SENTUHAN DI MANA PUN dimulai dari elemen dengan touch-action:none → browser tidak boleh memulai scroll native → popup tak bisa digeser sama sekali (scrollHeight 869px > clientHeight 796px, konten terpotong tak terjangkau).
+- FIX 1 (menu-home-screen.tsx): hapus `touch-none` dari tile → touch panning native pulih.
+- FIX 2 (menu-home-screen.tsx): scroll native diblokir HANYA saat drag aktif (setelah tekan-lama 280ms tercapai) — useEffect memasang listener document 'touchmove' non-passive + preventDefault selama `dragging !== null`; dilepas saat drag selesai. Pola standar dnd (SortableJS/dnd-kit): swipe cepat = scroll, tekan lama = drag.
+- FIX 3 (menu-home-screen.tsx): onContextMenu preventDefault pada tile — mencegah menu konteks tekan-lama Android mengirim pointercancel yang memutus drag di tengah jalan.
+- FIX 4 (sidebar.tsx): container scroll popup Lainnya + `overscroll-contain` agar overscroll tidak menjalar ke halaman di belakang popup.
+- Lint (eslint 2 file): bersih; tsc: tidak ada error.
+- VERIFIKASI (agent-browser, device emulation iPhone 14, auth superadmin localStorage 'auth' + cookie userId/userRole, tutup dialog "Versi Baru!" dulu):
+  a) getComputedStyle tile → touchAction: "auto" (sebelumnya "none" — bukti akar masalah); container overflow-y:auto + overscroll-behavior:contain; scrollable (scrollTop 0 → 73 = maksimum).
+  b) REGRESI DRAG: pointerdown tunggu 450ms → pointermove ke tile lain → pointerup → tile "Beranda" pindah ke posisi ke-3, ghost terbersihkan → drag-reorder MASIH BEKERJA.
+  c) REGRESI SWIPE: pointermove <280ms dengan pergeseran >8px → tidak ada ghost, urutan utuh → geser cepat TIDAK memicu drag (scroll native).
+  d) REGRESI KLIK: click tile "Hitung Cetakan" → popup tertutup, navigate ke /hitung-cetakan.
+  e) Urutan icon uji dipulihkan ke default (localStorage darrellsoft_menu_home_v2_superadmin direset); browser ditutup; tidak ada page error.
+
+Stage Summary:
+- Penyebab: `touch-action: none` pada semua tile grid icon popup "Lainnya" memblokir scroll sentuh native di mobile.
+- Perbaikan: tile kembali touch-action:auto; scroll hanya diblokir selama drag-reorder aktif; context menu Android dicegah; overscroll popup di-contain.
+- Popup "Lainnya" kini bisa digeser atas-bawah, sambil tetap: tekan-lama+geser = pindah urutan icon, swipe = scroll, tap = buka menu.
+- Hanya 2 file diubah; tidak ada perubahan API/skema. Deployment menunggu instruksi user.

@@ -250,6 +250,18 @@ export function MenuHomeScreen({
     })
   }
 
+  /* ---------- Blokir scroll native SAAT drag aktif saja ----------
+     Tanpa touch-action:none pada tile (agar popup bisa di-scroll normal),
+     browser akan merebut gesture utk scroll saat tile digeser (pointercancel).
+     Solusi: selama drag AKTIF (tekan-lama sudah tercapai), blokir touchmove
+     via listener non-passive. Sentuhan cepat (<280ms) tetap scroll normal. */
+  useEffect(() => {
+    if (dragging === null) return
+    const blockScroll = (e: TouchEvent) => e.preventDefault()
+    document.addEventListener('touchmove', blockScroll, { passive: false })
+    return () => document.removeEventListener('touchmove', blockScroll)
+  }, [dragging])
+
   /* ---------- Render ---------- */
 
   const renderAppTile = (href: string, index: number) => {
@@ -271,8 +283,11 @@ export function MenuHomeScreen({
         onPointerMove={handlePointerMove}
         onPointerUp={() => handlePointerEnd(false)}
         onPointerCancel={() => handlePointerEnd(true)}
+        /* Cegah menu konteks tekan-lama (Android) — tanpa ini browser mengirim
+           pointercancel & drag-reorder terputus di tengah jalan */
+        onContextMenu={e => e.preventDefault()}
         className={cn(
-          'relative flex touch-none flex-col items-center justify-start gap-[5px] rounded-[12px] px-[3px] py-[6px] transition-colors select-none',
+          'relative flex flex-col items-center justify-start gap-[5px] rounded-[12px] px-[3px] py-[6px] transition-colors select-none',
           item.isPro ? 'opacity-70' : '',
           active ? 'bg-white/15' : 'hover:bg-white/10',
           isDragSource && 'opacity-30',
