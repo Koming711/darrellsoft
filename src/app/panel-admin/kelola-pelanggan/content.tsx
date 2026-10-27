@@ -23,6 +23,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { authFetch } from '@/lib/auth-fetch'
+import { useLiveData } from '@/hooks/use-live-data'
+import { LiveIndicator } from '../live-indicator'
 import { toast } from 'sonner'
 import {
   Ban,
@@ -101,8 +103,8 @@ export function KelolaPelangganContent() {
   const [busy, setBusy] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
 
-  const load = useCallback(async () => {
-    setRows(null)
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setRows(null) // silent = segarkan tanpa kedip skeleton
     try {
       const q = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : ''
       const res = await authFetch(`/api/panel-admin/subscriptions${q}`)
@@ -123,6 +125,9 @@ export function KelolaPelangganContent() {
     const t = setTimeout(load, 300)
     return () => clearTimeout(t)
   }, [load, tab])
+
+  // Data masuk real-time: pelanggan & status langganan baru tampil otomatis
+  const { lastUpdated } = useLiveData({ load, intervalMs: 12000 })
 
   const filtered = (rows ?? []).filter((r) => {
     if (tab === 'semua') return true
@@ -215,9 +220,10 @@ export function KelolaPelangganContent() {
             Cari pelanggan, lihat paket & status langganan, tangguhkan / aktifkan / hapus akun dengan catatan audit.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
           <RefreshCcw className="h-3.5 w-3.5" /> Muat Ulang
         </Button>
+        <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
       </div>
 
       <div className="relative max-w-md">

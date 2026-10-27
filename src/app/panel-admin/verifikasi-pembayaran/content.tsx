@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { authFetch } from '@/lib/auth-fetch'
+import { useLiveData } from '@/hooks/use-live-data'
+import { LiveIndicator } from '../live-indicator'
 import { toast } from 'sonner'
 import {
   BadgeCheck,
@@ -73,8 +75,8 @@ export function VerifikasiPembayaranContent() {
   const [proofView, setProofView] = useState<{ url: string; name: string; meta: PaymentRow } | null>(null)
   const [approveTarget, setApproveTarget] = useState<PaymentRow | null>(null)
 
-  const load = useCallback(async () => {
-    setRows(null)
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setRows(null) // silent = segarkan tanpa kedip skeleton
     try {
       const res = await authFetch(`/api/panel-admin/payments?status=${tab}&limit=200`)
       const json = await res.json()
@@ -93,6 +95,9 @@ export function VerifikasiPembayaranContent() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Data masuk real-time: pembayaran baru muncul otomatis tanpa memuat ulang
+  const { lastUpdated } = useLiveData({ load, intervalMs: 10000 })
 
   const openProof = async (p: PaymentRow) => {
     try {
@@ -174,9 +179,10 @@ export function VerifikasiPembayaranContent() {
             Bukti transfer/QRIS tidak otomatis membuktikan uang masuk — periksa sebelum menyetujui.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
           <RefreshCcw className="h-3.5 w-3.5" /> Muat Ulang
         </Button>
+        <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>

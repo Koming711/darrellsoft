@@ -4,13 +4,15 @@
 // total akun, pelanggan aktif/kedaluwarsa, pembayaran menunggu verifikasi,
 // total pendapatan disetujui, pendapatan bulan ini, pelanggan per paket.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { authFetch } from '@/lib/auth-fetch'
+import { useLiveData } from '@/hooks/use-live-data'
+import { LiveIndicator } from './live-indicator'
 import { toast } from 'sonner'
 import {
   Users,
@@ -47,25 +49,39 @@ interface Stats {
 export default function PanelAdminPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const pendingRef = useRef<number | null>(null)
+
+  const load = async () => {
+    try {
+      const res = await authFetch('/api/panel-admin/subscription-stats')
+      const json = await res.json()
+      if (!res.ok) {
+        // Pemuatan awal gagal → tampilkan pesan; refresh silent senyap saja
+        if (loading) toast.error(json.error || 'Gagal memuat ringkasan')
+        return
+      }
+      setStats(json)
+      // Notifikasi real-time: pembayaran baru masuk menunggu verifikasi
+      const cnt = (json as Stats)?.pembayaranMenungguVerifikasi ?? 0
+      if (pendingRef.current !== null && cnt > pendingRef.current) {
+        toast.info(`${cnt - pendingRef.current} pembayaran baru menunggu verifikasi`, {
+          description: 'Data panel diperbarui otomatis.',
+        })
+      }
+      pendingRef.current = cnt
+    } catch {
+      if (loading) toast.error('Gagal terhubung ke server')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await authFetch('/api/panel-admin/subscription-stats')
-        const json = await res.json()
-        if (!res.ok) {
-          toast.error(json.error || 'Gagal memuat ringkasan')
-          return
-        }
-        setStats(json)
-      } catch {
-        toast.error('Gagal terhubung ke server')
-      } finally {
-        setLoading(false)
-      }
-    }
     load()
   }, [])
+
+  // Data masuk real-time: segarkan otomatis tiap 10 detik saat halaman terlihat
+  const { lastUpdated } = useLiveData({ load, intervalMs: 10000 })
 
   if (loading) {
     return (
@@ -82,9 +98,12 @@ export default function PanelAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Beranda Admin</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Kondisi langganan & pendapatan Darrellsoft.</p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">Beranda Admin</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Kondisi langganan & pendapatan Darrellsoft.</p>
+        </div>
+        <LiveIndicator lastUpdated={lastUpdated} />
       </div>
 
       {/* Alert verifikasi tertunda */}

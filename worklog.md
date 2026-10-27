@@ -15173,3 +15173,20 @@ Stage Summary:
 - Penyebab: schema drift — kolom soft-delete (SubscriptionPayment.deletedAt) & uniqueCode (SubscriptionInvoice) ada di skema lokal tapi belum di Supabase; semua API panel admin yang membaca SubscriptionPayment → 500.
 - Perbaikan permanen: kolom ditambahkan ke Supabase + auto-seed migrateExistingTablesPg() kini mencakup keduanya.
 - Semua halaman panel admin di www.darrellsoft.com kini berfungsi normal.
+
+---
+Task ID: panel-admin-realtime
+Agent: Z.ai Code (main)
+Task: "buatlah di panel admin data masuk secara realtime" — data panel admin diperbarui otomatis tanpa reload.
+
+Work Log:
+- Arsitektur: produksi = Vercel serverless (tanpa WebSocket persisten) → implementasi realtime-style via SMART POLLING: hook reusable + indikator Live; polling hanya saat tab terlihat, refresh seketika saat tab kembali visible/fokus, pengaman in-flight anti penumpukan permintaan.
+- File baru: src/hooks/use-live-data.ts (hook useLiveData — interval + visibility gating + focus refresh + lastUpdated) & src/app/panel-admin/live-indicator.tsx (badge "● Live · HH.mm.ss" berdenyut, aria-live polite).
+- Terpasang di 5 halaman panel admin: Beranda Admin (10s + toast "pembayaran baru menunggu verifikasi" saat angka naik), Verifikasi Pembayaran (10s), Daftar Akun Baru/Aktif/Expired/Ditolak (12s), Riwayat Transaksi (12s), Kelola Pelanggan (12s). Semua load() diberi opsi {silent:true} — refresh malam tanpa kedip skeleton; tombol Muat Ulang tetap non-silent; onClick={load} diperbaiki jadi () => load() (MouseEvent tidak valid sbg opts).
+- Lint 7 file: bersih; tsc: tidak ada error baru pada file yang diubah.
+- VERIFIKASI LOKAL (agent-browser): polling subscription-stats terukur tepat tiap 10.000ms (performance timing: 429 → 10430 → 20430 → ...); UJI DATA REALTIME: sisip 1 Pengguna via Prisma saat dashboard terbuka → "Total Akun Terdaftar" berubah 3 → 4 TANPA reload; hapus → kembali 3 otomatis; Verifikasi Pembayaran menampilkan Live + polling payments; screenshot /tmp/panel-live.png. Catatan: localStorage auth = key 'auth' (bukan user_session); dev server sempat mati → di-daemonize ulang.
+- Deploy: vercel link darrellsoft → --prod sukses (2m) → aliased www.darrellsoft.com; cleanup .env.local/.vercel; produksi: homepage 200, /api/panel-admin/subscription-stats 200.
+
+Stage Summary:
+- Panel admin kini REALTIME: data baru (akun, pembayaran, transaksi, pelanggan) tampil otomatis ±10-12 detik tanpa reload, dengan indikator Live & toast notifikasi pembayaran baru; hemat kuota (pause saat tab hidden).
+- Local DB bersih (baris uji dihapus); tidak ada perubahan skema/API.

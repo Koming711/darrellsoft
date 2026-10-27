@@ -5,6 +5,8 @@
 // Tab "Sampah": transaksi yang dihapus (soft delete) — bisa dipulihkan atau dihapus permanen.
 
 import { useCallback, useEffect, useState } from 'react'
+import { useLiveData } from '@/hooks/use-live-data'
+import { LiveIndicator } from '../live-indicator'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -78,8 +80,8 @@ export function RiwayatTransaksiContent() {
     return params.toString()
   }, [from, to, planId, status, method, view])
 
-  const load = useCallback(async () => {
-    setRows(null)
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setRows(null) // silent = segarkan tanpa kedip skeleton
     try {
       const res = await authFetch(`/api/panel-admin/transactions?${query()}`)
       const json = await res.json()
@@ -98,6 +100,9 @@ export function RiwayatTransaksiContent() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Data masuk real-time: transaksi baru/hapus tampil otomatis
+  const { lastUpdated } = useLiveData({ load, intervalMs: 12000 })
 
   useEffect(() => {
     const loadPlans = async () => {
@@ -205,9 +210,10 @@ export function RiwayatTransaksiContent() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
             <RefreshCcw className="h-3.5 w-3.5" /> Muat Ulang
           </Button>
+          <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
           {view === 'riwayat' && (
             <Button size="sm" onClick={exportCsv} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
               <Download className="h-3.5 w-3.5" /> Ekspor CSV

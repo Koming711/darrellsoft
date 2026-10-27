@@ -15,6 +15,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { panelFetch } from './panel-fetch'
+import { useLiveData } from '@/hooks/use-live-data'
+import { LiveIndicator } from './live-indicator'
 
 export type KategoriAkun = 'baru' | 'aktif' | 'expired' | 'ditolak'
 
@@ -122,18 +124,24 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
   const [proofBusyId, setProofBusyId] = useState<string | null>(null)
   const [proofView, setProofView] = useState<{ url: string; name: string; title: string } | null>(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    panelFetch<AkunData>(`/api/panel-admin/akun?status=${kategori}`)
-      .then(({ data, error, authError }) => {
-        if (authError) return
-        if (error) setError(error)
-        else { setData(data); setError('') }
-      })
-      .finally(() => setLoading(false))
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = !!opts?.silent
+    if (!silent) { setLoading(true); setError('') }
+    const { data, error, authError } = await panelFetch<AkunData>(`/api/panel-admin/akun?status=${kategori}`)
+    if (authError) return
+    if (error) {
+      if (!silent) setError(error) // silent: jangan ganggu data lama yang tampil
+    } else {
+      setData(data)
+      setError('')
+    }
+    if (!silent) setLoading(false)
   }, [kategori])
 
   useEffect(() => { load() }, [load])
+
+  // Data masuk real-time: akun baru/perubahan status muncul otomatis
+  const { lastUpdated } = useLiveData({ load, intervalMs: 12000 })
 
   const act = async (item: AkunItem, action: 'verifikasi' | 'tolak' | 'aktifkan') => {
     setActing(item.id + action)
@@ -258,9 +266,10 @@ export function AkunListPage({ kategori }: { kategori: KategoriAkun }) {
             aria-label="Cari akun"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Muat ulang
         </Button>
+        <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
       </div>
 
       {error && (
