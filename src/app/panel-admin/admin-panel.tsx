@@ -15,8 +15,6 @@ import {
   Clock,
   UserX,
   CreditCard,
-  ShieldCheck,
-  Wallet,
   BarChart3,
   Receipt,
   ScrollText,
@@ -70,12 +68,12 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
     desc: 'CRUD paket langganan & perincian fitur.',
   },
   pembayaran: {
-    title: 'Pelanggan Baru',
-    desc: 'Verifikasi pembayaran manual & metode pembayaran.',
-    subs: [
-      { key: 'verifikasi', label: 'Verifikasi', icon: ShieldCheck },
-      { key: 'pengaturan', label: 'Pengaturan', icon: Wallet },
-    ],
+    title: 'Pendaftar Baru',
+    desc: 'Verifikasi pembayaran manual calon pelanggan.',
+  },
+  pengaturan: {
+    title: 'Pengaturan',
+    desc: 'Metode pembayaran & pengaturan verifikasi.',
   },
   transaksi: {
     title: 'Transaksi',
@@ -138,13 +136,11 @@ function AdminPanelInner() {
       case 'paket':
         return <KelolaPaketContent />
       case 'pembayaran':
-        return (
-          <>
-            <HubTabs tabs={SECTIONS.pembayaran.subs!} param="sub" />
-            {activeSub === 'verifikasi' && <VerifikasiPembayaranContent />}
-            {activeSub === 'pengaturan' && <PengaturanPembayaranContent />}
-          </>
-        )
+        // Tanpa baris sub-tab — Pengaturan dipindah ke menu sidebar (permintaan user),
+        // jadi seksi ini langsung menampilkan antrean verifikasi.
+        return <VerifikasiPembayaranContent />
+      case 'pengaturan':
+        return <PengaturanPembayaranContent />
       case 'transaksi':
         return <RiwayatTransaksiContent />
       case 'laporan':

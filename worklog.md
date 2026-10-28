@@ -15370,3 +15370,18 @@ Stage Summary:
 - Halaman Pengguna panel admin kini mengikuti desain workspace referensi: judul jumlah pengguna, kartu ringkas di mobile, tabel rapi di desktop, klik → popup detail, hapus via AlertDialog.
 - Aksi langganan (aktifkan/tangguhkan/aktifkan kembali) pindah ke popup detail — daftar tetap bersih seperti referensi; tidak ada fungsi hilang.
 - 1 file diubah: kelola-pelanggan/content.tsx. Deployment menunggu instruksi user.
+---
+Task ID: move-pengaturan-to-sidebar-rename-pendaftar
+Agent: Z.ai Code (main)
+Task: "dihalaman panel admin. dihalaman pelanggan baru. pindahkan pengaturan ke sidebar menu. ganti tulisan pelanggan baru jadi pendaftar baru."
+
+Work Log:
+- SIDEBAR (admin-sidebar.tsx): AdminTab type + 'pengaturan'; menu baru { tab: 'pengaturan', label: 'Pengaturan', icon: Settings } diletakkan tepat setelah Pendaftar Baru; label seksi pembayaran 'Pelanggan Baru' → 'Pendaftar Baru'; komentar badge disesuaikan (badge Pendaftar Baru = antrean verifikasi, tetap berfungsi).
+- ADMIN-PANEL (admin-panel.tsx): SECTIONS.pembayaran — title 'Pendaftar Baru', subs DIHAPUS (baris sub-tab Verifikasi/Pengaturan tidak ada lagi); section baru SECTIONS.pengaturan { title: 'Pengaturan', desc: 'Metode pembayaran & pengaturan verifikasi.' }; case 'pembayaran' kini langsung render <VerifikasiPembayaranContent /> (tanpa HubTabs — satu-satunya sub tinggal verifikasi); case 'pengaturan' render <PengaturanPembayaranContent />; import ikon Wallet/ShieldCheck tak terpakai dibersihkan.
+- DEEP-LINK: redirect rute lama /panel-admin/pengaturan-pembayaran kini → ?tab=pengaturan (sebelumnya ?tab=pembayaran&sub=pengaturan); link ?tab=pembayaran&sub=verifikasi yang tersisa (beranda, rute verifikasi lama) tetap aman — param sub diabaikan, konten verifikasi tetap tampil; komentar seksi di page.tsx disesuaikan.
+- VERIFIKASI (agent-browser, desktop 1440x900 + iPhone 14): sidebar tampil Beranda Admin · Pengguna · Paket · Pendaftar Baru · Pengaturan · Transaksi · Laporan · Sistem; ?tab=pembayaran langsung "Verifikasi Pembayaran" TANPA baris sub-tab; ?tab=pengaturan menampilkan "Pengaturan Pembayaran" penuh (QRIS Manual, Transfer Bank, Kebijakan Tagihan & Tenggang) dgn menu aktif; redirect rute lama terbukti → ?tab=pengaturan; bar atas mobile "Pendaftar Baru"; drawer mobile memuat menu baru. Lint 4 file bersih. Screenshot /tmp/desktop-pengaturan.png, /tmp/mobile-pendaftar.png, /tmp/mobile-drawer.png.
+
+Stage Summary:
+- Pengaturan (metode pembayaran) kini menu sidebar tersendiri — halaman Pendaftar Baru bersih tanpa baris sub-tab, langsung antrean verifikasi.
+- Label "Pelanggan Baru" diganti "Pendaftar Baru" di sidebar + bar atas mobile.
+- 4 file diubah (admin-sidebar, admin-panel, page.tsx komentar, redirect rute lama). Deployment menunggu instruksi user.

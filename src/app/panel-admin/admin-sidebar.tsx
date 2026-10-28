@@ -28,16 +28,19 @@ export type AdminTab =
   | 'pelanggan'
   | 'paket'
   | 'pembayaran'
+  | 'pengaturan'
   | 'transaksi'
   | 'laporan'
   | 'sistem'
 
 const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { tab: 'beranda', label: 'Beranda Admin', icon: LayoutDashboard },
-  // Penamaan sesuai permintaan user: seksi pelanggan = "Pengguna", seksi pembayaran = "Pelanggan Baru"
+  // Penamaan sesuai permintaan user: seksi pelanggan = "Pengguna", seksi pembayaran = "Pendaftar Baru",
+  // dan Pengaturan (metode pembayaran) jadi menu sidebar tersendiri (dipindah dari sub-tab Pendaftar Baru).
   { tab: 'pelanggan', label: 'Pengguna', icon: Users },
   { tab: 'paket', label: 'Paket', icon: Crown },
-  { tab: 'pembayaran', label: 'Pelanggan Baru', icon: UserPlus },
+  { tab: 'pembayaran', label: 'Pendaftar Baru', icon: UserPlus },
+  { tab: 'pengaturan', label: 'Pengaturan', icon: Settings },
   { tab: 'transaksi', label: 'Transaksi', icon: Receipt },
   { tab: 'laporan', label: 'Laporan', icon: FileText },
 ]
@@ -102,7 +105,7 @@ export function AdminSidebar({
 
   const renderItem = (item: (typeof ADMIN_MENU)[number]) => {
     const isActive = active === item.tab
-    // Badge: Pembayaran = antrean verifikasi; Pelanggan = akun belum aktif
+    // Badge: Pendaftar Baru = antrean verifikasi; Pengguna = akun belum aktif
     const count =
       item.tab === 'pembayaran' ? counts?.pembayaran : item.tab === 'pelanggan' ? counts?.belumAktif : undefined
     return (
