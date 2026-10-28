@@ -15294,3 +15294,23 @@ Stage Summary:
 - Halaman "Kelola Pelanggan" kini bersih tanpa baris sub-tab di atas judulnya; daftar akun Baru/Aktif/Expired/Ditolak tetap terjangkau (deep-link ?sub=, kartu ringkasan AkunListPage, Sistem › Pengaturan Akun).
 - Bonus fix: sub-tab Pembayaran/Laporan/Sistem kini benar (menulis ?sub=, tidak menimpa ?tab= seksi — sebelumnya klik sub-tab melempar ke Beranda).
 - 2 file diubah: admin-panel.tsx, hub-tabs.tsx. Deployment menunggu instruksi user.
+---
+Task ID: rename-sidebar-pengguna-pelanggan-baru
+Agent: Z.ai Code (main)
+Task: "dihalaman panel admin. tulisan pelanggan disidebar menu diganti jadi pengguna. tulisan pembayaran diganti jadi pelanggan baru. check and fix"
+
+Work Log:
+- RENAME sidebar (admin-sidebar.tsx): menu 'Pelanggan' → 'Pengguna', menu 'Pembayaran' → 'Pelanggan Baru'. Ikon Pembayaran (Wallet) diganti UserPlus agar cocok dengan makna baru; ikon Pengguna tetap Users. Badge realtime tidak berubah (tetap hitung per seksi: Pengguna = akun belum aktif, Pelanggan Baru = antrean verifikasi).
+- KONSISTENSI judul bar atas MOBILE (admin-panel.tsx SECTIONS): pelanggan.title 'Pelanggan' → 'Pengguna', pembayaran.title 'Pembayaran' → 'Pelanggan Baru' — sehingga nama menu sidebar & judul di bar atas sama. Komentar header page.tsx ikut diperbarui.
+- TIDAK diubah: judul konten dalam halaman ("Kelola Pelanggan", "Verifikasi Pembayaran", "Pengaturan Pembayaran") — itu nama konten, bukan menu; URL ?tab=pelanggan|pembayaran & seluruh route lama tetap sama (rename murni label).
+- Lint 3 file: bersih (0 error).
+- VERIFIKASI BROWSER (desktop 1440x900 + iPhone 14, auth superadmin, tutup dialog "Versi Baru!" dulu):
+  a) Desktop sidebar: "Pengguna 11" (badge) & "Pelanggan Baru 1" tampil dengan ikon baru; menu aktif solid emerald tetap benar.
+  b) Navigasi: klik "Pengguna" → ?tab=pelanggan → konten "Kelola Pelanggan"; klik "Pelanggan Baru" → ?tab=pembayaran → sub-tab Verifikasi/Pengaturan + konten "Verifikasi Pembayaran" (ada antrean SUB-2610-8ELY).
+  c) Mobile: bar atas menampilkan "Pelanggan Baru"; drawer berisi label baru. Tidak ada page error.
+- TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Sidebar panel admin kini: Beranda Admin · Pengguna · Paket · Pelanggan Baru · Transaksi · Laporan · Sistem (+ ikon UserPlus untuk Pelanggan Baru); judul bar atas mobile konsisten.
+- Fungsi tidak berubah: badge, deep-link ?tab=&sub=, redirect route lama, dan seluruh konten tetap bekerja (rename murni label).
+- 3 file diubah: admin-sidebar.tsx, admin-panel.tsx, page.tsx (komentar). Deployment menunggu instruksi user.
