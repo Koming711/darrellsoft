@@ -15353,3 +15353,20 @@ Stage Summary:
 - Akun Super Administrator kini AKTIF (paket Premium, berlaku s/d 25 Okt 2036) — badge "1" di sidebar Pengguna hilang.
 - Halaman Pengguna punya aksi baru "Aktifkan" utk akun Belum Aktif: pilih paket + masa berlaku + catatan audit, lengkap dgn audit log & notifikasi.
 - Perubahan kode: subscriptions/action/route.ts (action activate) + kelola-pelanggan/content.tsx (tombol & dialog). Data hanya di DB LOKAL; deployment menunggu instruksi user.
+---
+Task ID: redesign-pengguna-page-from-workspace
+Agent: Z.ai Code (main)
+Task: "extract file ini. rubah halaman pengguna di panel admin seperti di file ini. fix" — ekstrak arsip workspace referensi & tiru desain halaman Pengguna-nya.
+
+Work Log:
+- EKSTRAKSI: 2 file split tar.gz di upload/ (workspace-af8d5e42...(2).tar.001+.002) digabung → /tmp/workspace-extract. Isi = backup workspace versi lama project (app gomesin/marketplace, TANPA panel-admin).
+- DESAIN REFERENSI DITEMUKAN: src/components/gomesin/views/admin.tsx › PenggunaTab (baris 2049-2263) — judul "{n} pengguna terdaftar"; MOBILE (<sm) daftar kartu ringkas (nama + HP + chevron, klik → popup); DESKTOP (sm+) tabel (avatar inisial 2 huruf, email, HP, kota, badge role amber utk admin, tgl bergabung, kolom aksi = tombol hapus merah yang DISABLED utk admin); klik baris/kartu → popup detail manual z-[60] (avatar besar, nama+role, baris data dgn Separator: email/HP/kota/bergabung/role, tombol hapus atau kotak peringatan "Akun admin tidak dapat dihapus"); konfirmasi hapus pakai AlertDialog.
+- ADAPTASI ke panel admin: ganti "Kota" → "Perusahaan" (data UserSetting company_name); sumber data tetap GET /api/panel-admin/subscriptions; judul section jadi "Kelola Pengguna"; search & tab status lama DIHAPUS (mengikuti referensi).
+- FUNGSI LANGGANAN DIPERTAHANKAN di dalam popup detail: section langganan (Paket/Status badge/berlaku s/d/alasan penangguhan) + aksi kontekstual — Aktifkan Langganan (belum aktif, buka dialog paket+durasi yg sudah ada), Tangguhkan (dialog alasan), Aktifkan Kembali; popup ditutup dulu sebelum dialog lain terbuka (fix z-index: dialog shadcn z-50 < popup z-[60], bug serupa ada di kode referensi).
+- HAPUS: memakai endpoint DELETE /api/panel-admin/subscriptions/customers/[id] yang sama; AlertDialog konfirmasi baru; tombol hapus disabled utk role admin/superadmin ( konsisten dgn server guard).
+- VERIFIKASI (agent-browser, desktop 1440x900 + iPhone 14): tabel "2 pengguna terdaftar" dgn avatar inisial SA/A, badge role, hapus disabled utk kedua akun admin; popup Super Administrator tampil lengkap (Premium · Aktif · s/d 25 Okt 2036 · notice admin); mobile = kartu nama+HP; uji end-to-end dgn pengguna sementara "Budi Uji Coba" (role user, dibuat via DB): popup tampil Belum Aktif + tombol Aktifkan Langganan → hapus via AlertDialog → toast sukses, list & DB bersih (0 baris tersisa). Lint file bersih; tanpa error halaman. Screenshot /tmp/popup-detail.png, /tmp/mobile-pengguna.png.
+
+Stage Summary:
+- Halaman Pengguna panel admin kini mengikuti desain workspace referensi: judul jumlah pengguna, kartu ringkas di mobile, tabel rapi di desktop, klik → popup detail, hapus via AlertDialog.
+- Aksi langganan (aktifkan/tangguhkan/aktifkan kembali) pindah ke popup detail — daftar tetap bersih seperti referensi; tidak ada fungsi hilang.
+- 1 file diubah: kelola-pelanggan/content.tsx. Deployment menunggu instruksi user.

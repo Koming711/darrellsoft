@@ -1,18 +1,19 @@
 'use client'
 
-// /panel-admin/kelola-pelanggan — kelola akun & langganan pelanggan.
-// Pencarian (nama/email/username/HP/perusahaan) + tab status akun baru:
-// Semua · Perlu Verifikasi · Aktif · Akan Berakhir · Expired · Ditolak · Ditangguhkan · Belum Aktif.
-// Aksi: Aktifkan (pilih paket + masa berlaku — untuk akun belum aktif), Tangguhkan (wajib alasan —
-// catatan audit) & Aktifkan Kembali & Hapus pelanggan (permanen).
+// /panel-admin/kelola-pelanggan — halaman PENGGUNA panel admin.
+// Desain mengikuti workspace referensi (gomesin admin.tsx › PenggunaTab):
+// judul "{n} pengguna terdaftar", MOBILE = daftar kartu ringkas (nama + HP,
+// klik → popup detail), DESKTOP = tabel (avatar inisial, email, HP, perusahaan,
+// role, tanggal bergabung, aksi hapus), popup detail pengguna, konfirmasi hapus.
+// Aksi langganan (Aktifkan / Tangguhkan / Aktifkan Kembali) tetap ada —
+// dipindah ke dalam popup detail agar daftar tetap bersih seperti referensi.
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -22,7 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Dialog,
   DialogContent,
@@ -34,19 +44,21 @@ import {
 import { authFetch } from '@/lib/auth-fetch'
 import { useLiveData } from '@/hooks/use-live-data'
 import { LiveIndicator } from '../live-indicator'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Ban,
   Building2,
+  Calendar,
   CheckCircle2,
+  ChevronRight,
   Loader2,
   Mail,
   Phone,
   RefreshCcw,
-  Search,
-  ShieldAlert,
+  ShieldCheck,
   Trash2,
-  UserCog,
+  XCircle,
 } from 'lucide-react'
 
 const rupiah = (n: number) => `Rp ${Math.round(n ?? 0).toLocaleString('id-ID')}`
@@ -60,14 +72,6 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   kedaluwarsa: { label: 'Expired', className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
   ditangguhkan: { label: 'Ditangguhkan', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
   dibatalkan: { label: 'Dibatalkan', className: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-}
-
-const INV_META: Record<string, { label: string; className: string }> = {
-  menunggu_pembayaran: { label: 'Belum Bayar', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
-  menunggu_verifikasi: { label: 'Nunggu Verifikasi', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300' },
-  disetujui: { label: 'Disetujui', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  ditolak: { label: 'Ditolak', className: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
-  kedaluwarsa: { label: 'Kedaluwarsa', className: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
 }
 
 interface PlanOption {
@@ -99,41 +103,41 @@ interface Row {
   hasPendingPayment: boolean
 }
 
-const TABS = [
-  { key: 'semua', label: 'Semua' },
-  { key: 'perlu_verifikasi', label: 'Perlu Verifikasi' },
-  { key: 'aktif', label: 'Aktif' },
-  { key: 'akan_berakhir', label: 'Akan Berakhir' },
-  { key: 'kedaluwarsa', label: 'Expired' },
-  { key: 'ditolak', label: 'Ditolak' },
-  { key: 'ditangguhkan', label: 'Ditangguhkan' },
-  { key: 'belum_aktif', label: 'Belum Aktif' },
-]
+/** Inisial avatar — 2 kata pertama (pola referensi PenggunaTab). */
+const initials = (name: string) =>
+  (name || '?')
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
 
 export function KelolaPelangganContent() {
-  const [search, setSearch] = useState('')
-  const [tab, setTab] = useState('semua')
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [previewUser, setPreviewUser] = useState<Row | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
+  // Dialog tangguhkan
   const [suspendTarget, setSuspendTarget] = useState<Row | null>(null)
   const [suspendReason, setSuspendReason] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  // Dialog aktivasi
   const [activateTarget, setActivateTarget] = useState<Row | null>(null)
   const [plans, setPlans] = useState<PlanOption[] | null>(null)
   const [planId, setPlanId] = useState('')
   const [durationDays, setDurationDays] = useState('30')
   const [activateNotes, setActivateNotes] = useState('')
   const [activateBusy, setActivateBusy] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [deleteBusy, setDeleteBusy] = useState(false)
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setRows(null) // silent = segarkan tanpa kedip skeleton
     try {
-      const q = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : ''
-      const res = await authFetch(`/api/panel-admin/subscriptions${q}`)
+      const res = await authFetch('/api/panel-admin/subscriptions')
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || 'Gagal memuat pelanggan')
+        toast.error(json.error || 'Gagal memuat pengguna')
         setRows([])
         return
       }
@@ -142,23 +146,43 @@ export function KelolaPelangganContent() {
       toast.error('Gagal terhubung ke server')
       setRows([])
     }
-  }, [search])
+  }, [])
 
   useEffect(() => {
-    const t = setTimeout(load, 300)
-    return () => clearTimeout(t)
-  }, [load, tab])
+    load()
+  }, [load])
 
-  // Data masuk real-time: pelanggan & status langganan baru tampil otomatis
+  // Data masuk real-time: pengguna & status langganan baru tampil otomatis
   const { lastUpdated } = useLiveData({ load, intervalMs: 12000 })
 
-  const filtered = (rows ?? []).filter((r) => {
-    if (tab === 'semua') return true
-    if (tab === 'perlu_verifikasi') return r.hasPendingPayment
-    if (tab === 'ditolak') return r.openInvoices.some((i) => i.status === 'ditolak')
-    return r.subscription?.status === tab || (!r.subscription && tab === 'belum_aktif')
-  })
+  const isAdminRow = (r: Row) => r.role === 'admin' || r.role === 'superadmin'
+  const subStatusOf = (r: Row) => r.subscription?.status ?? 'belum_aktif'
 
+  // ---- HAPUS pengguna permanen (pola referensi: AlertDialog konfirmasi) ----
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
+    try {
+      const res = await authFetch(`/api/panel-admin/subscriptions/customers/${deleteTarget.userId}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal menghapus pengguna')
+        return
+      }
+      toast.success(`Pengguna ${deleteTarget.namaLengkap || deleteTarget.username} dihapus`)
+      setDeleteTarget(null)
+      setPreviewUser(null)
+      await load()
+    } catch {
+      toast.error('Gagal terhubung ke server')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
+  // ---- TANGGUHKAN (wajib alasan — catatan audit) ----
   const suspend = async () => {
     if (!suspendTarget) return
     if (!suspendReason.trim()) {
@@ -180,6 +204,7 @@ export function KelolaPelangganContent() {
       toast.success('Langganan ditangguhkan — akses akun terkunci')
       setSuspendTarget(null)
       setSuspendReason('')
+      setPreviewUser(null)
       await load()
     } catch {
       toast.error('Gagal terhubung ke server')
@@ -188,7 +213,31 @@ export function KelolaPelangganContent() {
     }
   }
 
-  // Buka dialog aktivasi — muat daftar paket (cache sekali) + isi default durasi sesuai paket terpilih
+  // ---- AKTIFKAN KEMBALI (dari ditangguhkan) ----
+  const unsuspend = async (r: Row) => {
+    setBusy(true)
+    try {
+      const res = await authFetch('/api/panel-admin/subscriptions/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: r.userId, action: 'unsuspend', notes: '' }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal mengaktifkan kembali')
+        return
+      }
+      toast.success('Langganan diaktifkan kembali')
+      setPreviewUser(null)
+      await load()
+    } catch {
+      toast.error('Gagal terhubung ke server')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ---- AKTIFKAN (akun belum aktif: pilih paket + durasi) ----
   const openActivate = async (r: Row) => {
     setActivateTarget(r)
     setActivateNotes('')
@@ -207,7 +256,6 @@ export function KelolaPelangganContent() {
     }
   }
 
-  // Ganti paket di dialog → ikutkan durasi default paket (admin masih bisa mengubah)
   const selectPlan = (id: string) => {
     setPlanId(id)
     const p = plans?.find((x) => x.id === id)
@@ -241,6 +289,7 @@ export function KelolaPelangganContent() {
       }
       toast.success(json.message || 'Langganan diaktifkan')
       setActivateTarget(null)
+      setPreviewUser(null)
       await load()
     } catch {
       toast.error('Gagal terhubung ke server')
@@ -249,59 +298,13 @@ export function KelolaPelangganContent() {
     }
   }
 
-  const unsuspend = async (r: Row) => {
-    setBusy(true)
-    try {
-      const res = await authFetch('/api/panel-admin/subscriptions/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: r.userId, action: 'unsuspend', notes: '' }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        toast.error(json.error || 'Gagal mengaktifkan kembali')
-        return
-      }
-      toast.success('Langganan diaktifkan kembali')
-      await load()
-    } catch {
-      toast.error('Gagal terhubung ke server')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // Hapus pelanggan permanen — memakai DELETE /api/panel-admin/subscriptions/customers/[id]
-  // (server: hapus akun + data langganan terkait, tolak akun sendiri/superadmin, catat audit log)
-  const deleteCustomer = async () => {
-    if (!deleteTarget) return
-    setDeleteBusy(true)
-    try {
-      const res = await authFetch(`/api/panel-admin/subscriptions/customers/${deleteTarget.userId}`, {
-        method: 'DELETE',
-      })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(json.error || 'Gagal menghapus pelanggan')
-        return
-      }
-      toast.success(`Pelanggan @${deleteTarget.username || deleteTarget.namaLengkap} dihapus`)
-      setDeleteTarget(null)
-      await load()
-    } catch {
-      toast.error('Gagal terhubung ke server')
-    } finally {
-      setDeleteBusy(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Kelola Pelanggan</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">Kelola Pengguna</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cari pelanggan, lihat paket & status langganan, tangguhkan / aktifkan / hapus akun dengan catatan audit.
+            Klik pengguna untuk melihat detail lengkap, langganan, dan aksi.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
@@ -310,131 +313,314 @@ export function KelolaPelangganContent() {
         <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cari nama, email, username, HP, perusahaan…"
-          className="pl-9"
-        />
-      </div>
-
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex w-full flex-wrap justify-start gap-1 overflow-x-auto">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key} className="text-xs">
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
       {rows === null ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
+            <Skeleton key={i} className="h-16 rounded-xl" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <Card className="rounded-2xl">
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <UserCog className="h-10 w-10 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">Tidak ada pelanggan pada filter ini.</p>
-          </CardContent>
-        </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((r) => {
-            const subStatus = r.subscription?.status ?? 'belum_aktif'
-            const meta = STATUS_META[subStatus] ?? STATUS_META.belum_aktif
-            return (
-              <Card key={r.userId} className="rounded-2xl">
-                <CardContent className="p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold">{r.namaLengkap || r.username}</span>
-                        {r.username && <span className="text-xs text-muted-foreground">@{r.username}</span>}
-                        <Badge className={meta.className}>{meta.label}</Badge>
-                        {r.hasPendingPayment && (
-                          <Badge className="gap-1 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-300">
-                            <ShieldAlert className="h-3 w-3" /> Perlu Verifikasi
-                          </Badge>
-                        )}
-                        <Badge variant="outline">{r.role}</Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        {r.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{r.email}</span>}
-                        {r.nomorHP && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{r.nomorHP}</span>}
-                        {r.companyName && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{r.companyName}</span>}
-                      </div>
-                      <div className="text-sm">
-                        Paket: <b>{r.subscription?.planName ?? '-'}</b>
-                        {r.subscription?.endDate && (
-                          <span className="text-muted-foreground"> · berlaku s/d {fmtDate(r.subscription.endDate)}</span>
-                        )}
-                        {subStatus === 'ditangguhkan' && r.subscription?.suspendReason && (
-                          <span className="block text-xs text-orange-600">Alasan: {r.subscription.suspendReason}</span>
-                        )}
-                      </div>
-                      {r.openInvoices.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {r.openInvoices.map((i) => {
-                            const m = INV_META[i.status] ?? INV_META.menunggu_pembayaran
-                            return (
-                              <Link
-                                key={i.id}
-                                href="/panel-admin?tab=pembayaran&sub=verifikasi"
-                                className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] hover:bg-muted"
-                              >
-                                <span className="font-mono">{i.invoiceNumber}</span>
-                                <span>{rupiah(i.amount)}</span>
-                                <Badge className={`px-1.5 py-0 text-[9px] ${m.className}`}>{m.label}</Badge>
-                              </Link>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
+          <h2 className="text-base font-bold">{rows.length} pengguna terdaftar</h2>
 
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      {subStatus === 'belum_aktif' && (
-                        <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={() => openActivate(r)}>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Aktifkan
-                        </Button>
-                      )}
-                      {(subStatus === 'aktif' || subStatus === 'akan_berakhir' || subStatus === 'kedaluwarsa') && (
-                        <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => {
-                          setSuspendTarget(r)
-                          setSuspendReason('')
-                        }}>
-                          <Ban className="h-3.5 w-3.5" /> Tangguhkan
-                        </Button>
-                      )}
-                      {subStatus === 'ditangguhkan' && (
-                        <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" disabled={busy} onClick={() => unsuspend(r)}>
-                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                          Aktifkan Kembali
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        aria-label={`Hapus pelanggan ${r.namaLengkap || r.username}`}
-                        className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
-                        onClick={() => setDeleteTarget(r)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Hapus
-                      </Button>
-                    </div>
+          {/* ===== MOBILE: daftar kartu — hanya nama + HP, klik utk detail (pola referensi) ===== */}
+          <div className="space-y-2 sm:hidden">
+            {rows.map((u) => (
+              <div
+                key={u.userId}
+                onClick={() => setPreviewUser(u)}
+                className="cursor-pointer rounded-xl border border-border bg-card p-3 transition hover:bg-accent/30 active:bg-accent/50"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold">{u.namaLengkap || u.username}</p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Phone className="size-3 shrink-0" /> {u.nomorHP || '-'}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </div>
+              </div>
+            ))}
+            {rows.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">Belum ada pengguna terdaftar.</p>
+            )}
+          </div>
+
+          {/* ===== DESKTOP: tabel (pola referensi PenggunaTab) ===== */}
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/50 text-left text-xs font-semibold text-muted-foreground">
+                  <th className="p-2">Nama</th>
+                  <th className="p-2">Email</th>
+                  <th className="p-2">No. HP</th>
+                  <th className="p-2">Perusahaan</th>
+                  <th className="p-2">Role</th>
+                  <th className="p-2">Bergabung</th>
+                  <th className="p-2 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((u) => (
+                  <tr
+                    key={u.userId}
+                    onClick={() => setPreviewUser(u)}
+                    className="cursor-pointer border-b border-border hover:bg-accent/30"
+                  >
+                    <td className="p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {initials(u.namaLengkap || u.username)}
+                        </span>
+                        <span className="text-xs font-medium">{u.namaLengkap || u.username}</span>
+                      </div>
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground">{u.email || '-'}</td>
+                    <td className="p-2 text-xs">{u.nomorHP || '-'}</td>
+                    <td className="p-2 text-xs">{u.companyName || '-'}</td>
+                    <td className="p-2">
+                      <Badge className={isAdminRow(u) ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-muted text-muted-foreground'}>
+                        {u.role}
+                      </Badge>
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground">{fmtDate(u.registeredAt)}</td>
+                    <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => !isAdminRow(u) && setDeleteTarget(u)}
+                          disabled={isAdminRow(u) || deleteBusy}
+                          className={cn(
+                            'grid size-7 place-items-center rounded transition',
+                            isAdminRow(u)
+                              ? 'cursor-not-allowed bg-muted text-muted-foreground/40'
+                              : 'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/70',
+                          )}
+                          title={isAdminRow(u) ? 'Akun admin tidak dapat dihapus' : 'Hapus pengguna'}
+                          aria-label={`Hapus pengguna ${u.namaLengkap || u.username}`}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {rows.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">Belum ada pengguna terdaftar.</p>
+            )}
+          </div>
         </div>
       )}
+
+      {/* ===== POPUP DETAIL PENGGUNA (pola referensi: overlay manual z-[60]) ===== */}
+      {previewUser && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPreviewUser(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Detail pengguna ${previewUser.namaLengkap || previewUser.username}`}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl bg-card shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* header */}
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <h3 className="text-base font-bold">Detail Pengguna</h3>
+              <button
+                onClick={() => setPreviewUser(null)}
+                className="grid size-8 place-items-center rounded-lg hover:bg-accent"
+                aria-label="Tutup detail pengguna"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            {/* content */}
+            <div className="space-y-4 p-4">
+              {/* avatar + nama + role */}
+              <div className="flex items-center gap-3">
+                <span className="grid size-16 shrink-0 place-items-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                  {initials(previewUser.namaLengkap || previewUser.username)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-bold">{previewUser.namaLengkap || previewUser.username}</p>
+                  <Badge
+                    className={
+                      isAdminRow(previewUser)
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                        : 'bg-muted text-muted-foreground'
+                    }
+                  >
+                    {previewUser.role}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* data lengkap */}
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Mail className="size-3.5" /> Email</span>
+                  <span className="truncate font-medium">{previewUser.email || '-'}</span>
+                </div>
+                <Separator className="bg-border" />
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Phone className="size-3.5" /> No. HP</span>
+                  <span className="font-medium">{previewUser.nomorHP || '-'}</span>
+                </div>
+                <Separator className="bg-border" />
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Building2 className="size-3.5" /> Perusahaan</span>
+                  <span className="truncate font-medium">{previewUser.companyName || '-'}</span>
+                </div>
+                <Separator className="bg-border" />
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Calendar className="size-3.5" /> Bergabung</span>
+                  <span className="font-medium">{fmtDate(previewUser.registeredAt)}</span>
+                </div>
+                <Separator className="bg-border" />
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><ShieldCheck className="size-3.5" /> Role</span>
+                  <Badge
+                    className={
+                      isAdminRow(previewUser)
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                        : 'bg-muted text-muted-foreground'
+                    }
+                  >
+                    {previewUser.role}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* langganan — konteks khusus aplikasi ini (status turunan real dari DB) */}
+              {(() => {
+                const st = subStatusOf(previewUser)
+                const meta = STATUS_META[st] ?? STATUS_META.belum_aktif
+                return (
+                  <div className="space-y-2 rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Paket</span>
+                      <span className="font-medium">{previewUser.subscription?.planName ?? '-'}</span>
+                    </div>
+                    <Separator className="bg-border" />
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Status langganan</span>
+                      <Badge className={meta.className}>{meta.label}</Badge>
+                    </div>
+                    {previewUser.subscription?.endDate && (
+                      <>
+                        <Separator className="bg-border" />
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Berlaku s/d</span>
+                          <span className="font-medium">{fmtDate(previewUser.subscription.endDate)}</span>
+                        </div>
+                      </>
+                    )}
+                    {st === 'ditangguhkan' && previewUser.subscription?.suspendReason && (
+                      <>
+                        <Separator className="bg-border" />
+                        <p className="text-xs text-orange-600">Alasan: {previewUser.subscription.suspendReason}</p>
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* aksi langganan */}
+              {(() => {
+                const st = subStatusOf(previewUser)
+                if (st === 'belum_aktif') {
+                  return (
+                    <Button
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => {
+                        setPreviewUser(null)
+                        openActivate(previewUser)
+                      }}
+                    >
+                      <CheckCircle2 className="size-4" /> Aktifkan Langganan
+                    </Button>
+                  )
+                }
+                if (st === 'ditangguhkan') {
+                  return (
+                    <Button
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      disabled={busy}
+                      onClick={() => unsuspend(previewUser)}
+                    >
+                      {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                      Aktifkan Kembali
+                    </Button>
+                  )
+                }
+                return (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-900/60 dark:text-orange-400 dark:hover:bg-orange-950/40"
+                    onClick={() => {
+                      setPreviewUser(null)
+                      setSuspendTarget(previewUser)
+                      setSuspendReason('')
+                    }}
+                  >
+                    <Ban className="size-4" /> Tangguhkan Langganan
+                  </Button>
+                )
+              })()}
+
+              {/* aksi hapus / catatan admin */}
+              {!isAdminRow(previewUser) ? (
+                <Button
+                  variant="destructive"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    setPreviewUser(null)
+                    setDeleteTarget(previewUser)
+                  }}
+                  disabled={deleteBusy}
+                >
+                  <Trash2 className="size-4" /> Hapus Pengguna
+                </Button>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                  <ShieldCheck className="mx-auto mb-1 size-5" />
+                  Akun admin tidak dapat dihapus.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Konfirmasi hapus (pola referensi: AlertDialog) */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Pengguna?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `${deleteTarget.namaLengkap || deleteTarget.username} (${deleteTarget.email || 'tanpa email'}) beserta seluruh data langganannya (paket, tagihan, riwayat pembayaran) akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteBusy ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              {deleteBusy ? 'Menghapus…' : 'Hapus'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog aktifkan langganan (akun belum aktif) */}
       <Dialog open={!!activateTarget} onOpenChange={(v) => !v && setActivateTarget(null)}>
@@ -497,29 +683,6 @@ export function KelolaPelangganContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog hapus pelanggan */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-red-500" /> Hapus Pelanggan
-            </DialogTitle>
-            <DialogDescription>
-              {deleteTarget?.namaLengkap || deleteTarget?.username} (@{deleteTarget?.username}) — akun beserta seluruh
-              data langganannya (paket, tagihan, riwayat pembayaran) akan dihapus permanen. Tindakan ini tidak dapat
-              dibatalkan.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
-            <Button variant="destructive" onClick={deleteCustomer} disabled={deleteBusy} className="gap-1.5">
-              {deleteBusy && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Trash2 className="h-4 w-4" /> Hapus Permanen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Dialog tangguhkan */}
       <Dialog open={!!suspendTarget} onOpenChange={(v) => !v && setSuspendTarget(null)}>
         <DialogContent className="max-w-md">
@@ -527,7 +690,7 @@ export function KelolaPelangganContent() {
             <DialogTitle className="flex items-center gap-2"><Ban className="h-5 w-5 text-red-500" /> Tangguhkan Langganan</DialogTitle>
             <DialogDescription>
               {suspendTarget?.namaLengkap || suspendTarget?.username} — akses akun langsung terkunci.
-              Data pelanggan tidak dihapus.
+              Data pengguna tidak dihapus.
             </DialogDescription>
           </DialogHeader>
           <Textarea
