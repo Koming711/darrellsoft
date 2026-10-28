@@ -15314,3 +15314,24 @@ Stage Summary:
 - Sidebar panel admin kini: Beranda Admin · Pengguna · Paket · Pelanggan Baru · Transaksi · Laporan · Sistem (+ ikon UserPlus untuk Pelanggan Baru); judul bar atas mobile konsisten.
 - Fungsi tidak berubah: badge, deep-link ?tab=&sub=, redirect route lama, dan seluruh konten tetap bekerja (rename murni label).
 - 3 file diubah: admin-sidebar.tsx, admin-panel.tsx, page.tsx (komentar). Deployment menunggu instruksi user.
+---
+Task ID: seed-real-customer-data
+Agent: Z.ai Code (main)
+Task: "dihalaman panel admin. dihalaman beranda admin. buat data pelanggan yang real." — isi panel admin dengan data pelanggan realistis (DB lokal dev).
+
+Work Log:
+- AUDIT DATA AWAL: DB lokal hanya punya 2 pengguna (admin & superadmin); 20 langganan/26 invoice lama adalah data uji lama (sebagian yatim — pemilik akun sudah dihapus user via panel). Data uji jelek (adi @adi, jimmy, HP 0000000000).
+- SEED (script tmp di root, dihapus setelah jalan; guard idempotensi username budi.santoso):
+  a) Cleanup yatim: hapus CustomerSubscription/SubscriptionInvoice(+payment cascade)/audit milik userId yang tak ada di Pengguna.
+  b) 17 PENGGUNA pelanggan realistis (nama Indonesia, username, email gmail/yahoo, HP 08xx valid, role user, password bcrypt 'darrell123', createdAt tersebar Agu–Okt 2026): Budi Santoso, Siti Rahayu, Agus Wijaya, Dewi Lestari, Hendra Gunawan, Rina Marlina, Joko Susilo, Sari Wulandari, Dedi Kurniawan, Maya Anggraini, Fajar Nugroho, Indah Permata, Rudi Hartono, Bambang Setiawan, Rizki Ramadhan, Putri Handayani, Andi Pratama. 9 di antaranya punya UserSetting company_name (Konveksi Mitra Jaya, Digital Print Solo, CV Kreatif Media, dst).
+  c) Langganan (CustomerSubscription + plan): 7 aktif (premium/basic/pro/trial), 2 akan berakhir (sisa 4-5 hari), 4 kedaluwarsa (endDate lampau), 1 ditangguhkan (alasan wajar), 3 belum aktif — status turunan konsisten dgn derivedSubscriptionStatus (EXPIRY_WARNING_DAYS=7).
+  d) Tagihan & pembayaran: 15 disetujui (nominal = harga paket + kode unik 3 digit; QRIS/transfer bergantian; senderName nama pelanggan; reviewedBy admin; tersebar Agu–Okt), 1 menunggu verifikasi (Rizki, Basic QRIS Rp 119.328 — antrean Pelanggan Baru), 1 ditolak (Bambang, alasan "Nominal transfer tidak sesuai tagihan"), 1 menunggu pembayaran (Putri, due +2 hari → Tagihan Terbuka). 2 riwayat perpanjangan bulan sebelumnya (Rina & Joko). 73 audit log (payment_submitted/approved/rejected, subscription_activated/suspended) dgn performedBy & notes wajar.
+  e) CalonPembeli 9 baris: 3 baru (Yoga Prasetya, Lestari Ningsih, Dimas Aditya — alamat kota nyata), 4 aktif dgn expiredDate masa depan, 1 expired (Galih Saputra), 1 ditolak (Hendi Kurniawan) — mengisi halaman Akun Baru/Aktif/Expired/Ditolak.
+  f) Akun admin & superadmin TIDAK disentuh; langganan milik admin (premium) ikut terhitung di statistik.
+- VERIFIKASI: API stats → totalAkun 31, aktif 8, akanBerakhir 2, kedaluwarsa 4, ditangguhkan 1, belumAktif 4, menungguVerifikasi 1, pendapatan Rp 2.411.471 (bulan ini Rp 1.514.770), tagihanTerbuka 1, perPaket Trial 1/Basic 4/Pro 2/Premium 3. Browser: Beranda tampil angka realistis + kartu pembayaran SUB-2610-30ZW; Kelola Pelanggan menampilkan nama/perusahaan/tagihan nyata (badge Belum Aktif/Perlu Verifikasi/Ditangguhkan); antrean verifikasi punya tombol Setujui/Tolak; Akun Baru 4 baris (3 seed + jimmy milik user sendiri); laporan bulanan: Sep 4, Okt 8 (kumulatif 12 calon). Screenshot /tmp/beranda-real.png, /tmp/pelanggan-real.png, /tmp/akun-baru-real.png.
+- CATATAN PENTING: data ini hanya di DB LOKAL (db/custom.db). Produksi (Supabase) TIDAK tersentuh — deploy tidak akan membawa data ini.
+
+Stage Summary:
+- Beranda Admin & seluruh panel kini menampilkan data pelanggan yang realistis: 27+ akun, langganan beragam status, pendapatan Rp 2,4 jt, antrean verifikasi berisi, audit log hidup.
+- Semua akun seed password: darrell123 (bisa login utk uji tampilan pelanggan).
+- Tidak ada perubahan kode; hanya data DB lokal. Deployment menunggu instruksi user.
