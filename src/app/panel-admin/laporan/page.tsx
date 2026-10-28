@@ -1,37 +1,15 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-// Hub LAPORAN — laporan bulanan, riwayat penjualan, dan laporan/audit
-// dalam satu halaman bertab. Sebelumnya 3 menu terpisah.
+// Rute lama (hub multi-halaman) — kini panel admin satu halaman.
+// /panel-admin/laporan?tab=X  →  /panel-admin?tab=laporan&sub=X
+const ALLOWED = ['bulanan', 'penjualan', 'audit']
 
-import { Suspense } from 'react'
-import { BarChart3, Receipt, ScrollText } from 'lucide-react'
-import { HubTabs, useHubTab } from '../hub-tabs'
-import { LaporanBulananContent } from '../laporan-bulanan/content'
-import { RiwayatPenjualanContent } from '../riwayat-penjualan/content'
-import { LaporanAuditContent } from '../laporan-audit/content'
-
-const TABS = [
-  { key: 'bulanan', label: 'Bulanan', icon: BarChart3 },
-  { key: 'penjualan', label: 'Penjualan', icon: Receipt },
-  { key: 'audit', label: 'Audit', icon: ScrollText },
-]
-
-function LaporanHubInner() {
-  const tab = useHubTab(TABS)
-  return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-8">
-      <HubTabs tabs={TABS} />
-      {tab === 'bulanan' && <LaporanBulananContent />}
-      {tab === 'penjualan' && <RiwayatPenjualanContent />}
-      {tab === 'audit' && <LaporanAuditContent />}
-    </div>
-  )
-}
-
-export default function LaporanHubPage() {
-  return (
-    <Suspense fallback={null}>
-      <LaporanHubInner />
-    </Suspense>
-  )
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab } = await searchParams
+  const sub = tab && ALLOWED.includes(tab) ? `&sub=${tab}` : ''
+  redirect(`/panel-admin?tab=laporan${sub}`)
 }

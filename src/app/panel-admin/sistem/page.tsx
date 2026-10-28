@@ -1,37 +1,15 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-// Hub SISTEM — pengguna, hak akses, dan pengaturan akun dalam satu
-// halaman bertab. Sebelumnya 3 menu terpisah.
+// Rute lama (hub multi-halaman) — kini panel admin satu halaman.
+// /panel-admin/sistem?tab=X  →  /panel-admin?tab=sistem&sub=X
+const ALLOWED = ['pengguna', 'hak-akses', 'akun']
 
-import { Suspense } from 'react'
-import { Users2, KeyRound, Settings } from 'lucide-react'
-import { HubTabs, useHubTab } from '../hub-tabs'
-import { PenggunaContent } from '@/app/administrasi/pengguna/page'
-import { HakAksesContent } from '@/app/administrasi/hak-akses/page'
-import { PengaturanAkunContent } from '../pengaturan/content'
-
-const TABS = [
-  { key: 'pengguna', label: 'Pengguna', icon: Users2 },
-  { key: 'hak-akses', label: 'Hak Akses', icon: KeyRound },
-  { key: 'akun', label: 'Pengaturan Akun', icon: Settings },
-]
-
-function SistemHubInner() {
-  const tab = useHubTab(TABS)
-  return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-8">
-      <HubTabs tabs={TABS} />
-      {tab === 'pengguna' && <PenggunaContent />}
-      {tab === 'hak-akses' && <HakAksesContent />}
-      {tab === 'akun' && <PengaturanAkunContent />}
-    </div>
-  )
-}
-
-export default function SistemHubPage() {
-  return (
-    <Suspense fallback={null}>
-      <SistemHubInner />
-    </Suspense>
-  )
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab } = await searchParams
+  const sub = tab && ALLOWED.includes(tab) ? `&sub=${tab}` : ''
+  redirect(`/panel-admin?tab=sistem${sub}`)
 }

@@ -1,34 +1,15 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-// Hub PEMBAYARAN — verifikasi pembayaran manual (QRIS/transfer) + pengaturan
-// metode pembayaran dalam satu halaman bertab. Sebelumnya 2 menu terpisah.
+// Rute lama (hub multi-halaman) — kini panel admin satu halaman.
+// /panel-admin/pembayaran?tab=X  →  /panel-admin?tab=pembayaran&sub=X
+const ALLOWED = ['verifikasi', 'pengaturan']
 
-import { Suspense } from 'react'
-import { ShieldCheck, Wallet } from 'lucide-react'
-import { HubTabs, useHubTab } from '../hub-tabs'
-import { VerifikasiPembayaranContent } from '../verifikasi-pembayaran/content'
-import { PengaturanPembayaranContent } from '../pengaturan-pembayaran/content'
-
-const TABS = [
-  { key: 'verifikasi', label: 'Verifikasi', icon: ShieldCheck },
-  { key: 'pengaturan', label: 'Pengaturan', icon: Wallet },
-]
-
-function PembayaranHubInner() {
-  const tab = useHubTab(TABS)
-  return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-8">
-      <HubTabs tabs={TABS} />
-      {tab === 'verifikasi' && <VerifikasiPembayaranContent />}
-      {tab === 'pengaturan' && <PengaturanPembayaranContent />}
-    </div>
-  )
-}
-
-export default function PembayaranHubPage() {
-  return (
-    <Suspense fallback={null}>
-      <PembayaranHubInner />
-    </Suspense>
-  )
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab } = await searchParams
+  const sub = tab && ALLOWED.includes(tab) ? `&sub=${tab}` : ''
+  redirect(`/panel-admin?tab=pembayaran${sub}`)
 }

@@ -301,7 +301,7 @@ export function KelolaPelangganContent() {
                             return (
                               <Link
                                 key={i.id}
-                                href="/panel-admin/verifikasi-pembayaran"
+                                href="/panel-admin?tab=pembayaran&sub=verifikasi"
                                 className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] hover:bg-muted"
                               >
                                 <span className="font-mono">{i.invoiceNumber}</span>

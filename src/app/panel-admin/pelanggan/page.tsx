@@ -1,41 +1,15 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-// Hub PELANGGAN — menggabungkan 5 halaman lama menjadi satu halaman bertab:
-// Langganan (kelola langganan) · Baru · Aktif · Expired · Ditolak (daftar akun).
-// Tab tersimpan di ?tab= agar deep-link tetap berfungsi.
+// Rute lama (hub multi-halaman) — kini panel admin satu halaman.
+// /panel-admin/pelanggan?tab=X  →  /panel-admin?tab=pelanggan&sub=X
+const ALLOWED = ['langganan', 'baru', 'aktif', 'expired', 'ditolak']
 
-import { Suspense } from 'react'
-import { UserPlus, UserCheck, Clock, UserX, CreditCard } from 'lucide-react'
-import { HubTabs, useHubTab } from '../hub-tabs'
-import { KelolaPelangganContent } from '../kelola-pelanggan/content'
-import { AkunListPage } from '../akun-list'
-
-const TABS = [
-  { key: 'langganan', label: 'Langganan', icon: CreditCard },
-  { key: 'baru', label: 'Baru', icon: UserPlus },
-  { key: 'aktif', label: 'Aktif', icon: UserCheck },
-  { key: 'expired', label: 'Expired', icon: Clock },
-  { key: 'ditolak', label: 'Ditolak', icon: UserX },
-]
-
-function PelangganHubInner() {
-  const tab = useHubTab(TABS)
-  return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-8">
-      <HubTabs tabs={TABS} />
-      {tab === 'langganan' && <KelolaPelangganContent />}
-      {tab === 'baru' && <AkunListPage kategori="baru" />}
-      {tab === 'aktif' && <AkunListPage kategori="aktif" />}
-      {tab === 'expired' && <AkunListPage kategori="expired" />}
-      {tab === 'ditolak' && <AkunListPage kategori="ditolak" />}
-    </div>
-  )
-}
-
-export default function PelangganHubPage() {
-  return (
-    <Suspense fallback={null}>
-      <PelangganHubInner />
-    </Suspense>
-  )
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab } = await searchParams
+  const sub = tab && ALLOWED.includes(tab) ? `&sub=${tab}` : ''
+  redirect(`/panel-admin?tab=pelanggan${sub}`)
 }

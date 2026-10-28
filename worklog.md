@@ -15232,3 +15232,28 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com kini menjalankan perbaikan scroll popup "Lainnya" mobile: grid icon bisa digeser atas-bawah, tekan-lama+geser (reorder) & tap (navigasi) tetap berfungsi.
 - Verifikasi bundle 4/4 marker fix hadir di chunk produksi. Tidak ada file env/link yang tertinggal.
+
+---
+Task ID: replace-panel-admin-rajamesin-style
+Agent: Z.ai Code (main)
+Task: "extract file ini. ganti panel admin dengan file ini dan sesuaikan dengan conten yang ada. fxi" — extract arsip workspace (multi-part tar.001/.002, ternyata snapshot RAJAMESIN rajamesin.com dengan AdminSidebar/AdminView bergaya sidebar-tab), lalu ganti panel admin Darrellsoft dengan panel admin gaya Rajamesin tersebut, disesuaikan dengan konten yang ada.
+
+Work Log:
+- EXTRACTION: cat tar.001+tar.002 | tar -xzf - (archive terkompresi gzip) ke /tmp/wsx → full workspace rajamesin (marketplace, task 114 di worklog-nya). Panel admin-nya = src/components/gomesin/views/admin.tsx (5665 baris, 18 tab TanStack Query) + admin-sidebar.tsx (drawer mobile + sidebar solid + badge count).
+- KEPUTUSAN DESAIN: data Rajamesin (iklan/penjual/banner) tak punya padanan di Darrellsoft → yang diporting adalah UX/UI shell-nya (sidebar + tab satu halaman + badge + drawer), sementara KONTEN tetap komponen lama Darrellsoft (permintaan "sesuaikan dengan conten yang ada").
+- REFACTOR konten jadi komponen reusable: riwayat-transaksi/content.tsx & kelola-paket/content.tsx (dipindah dari page.tsx, named export), beranda-content.tsx (dari page.tsx; link internal di-update ke URL tab baru).
+- FILE BARU: admin-sidebar.tsx (pola Rajamesin: drawer slide-in + overlay mobile, sidebar sticky desktop, menu aktif solid emerald, badge jumlah realtime via /api/panel-admin/subscription-stats poll 30s — pola RT Rajamesin; seksi Sistem setelah divider; footer "Kembali ke Aplikasi") + admin-panel.tsx (AdminView: satu route, tab via ?tab=&sub= deep-linkable, sub-tab memakai HubTabs lama, konten = komponen lama persis).
+- REWRITE: page.tsx (render AdminPanel) + layout.tsx (shell minimal: guard admin/superadmin + flex row; header/sidebar/footer lama dilepas — footer pindah ke kolom konten).
+- ROUTE LAMA → REDIRECT satu hop (searchParams dipertahankan, Next 16 Promise): 4 hub (pelanggan/pembayaran/laporan/sistem) + 14 redirect lama diarahkan langsung ke /panel-admin?tab=...&sub=...; link internal akun-list.tsx & kelola-pelanggan/content.tsx ikut di-update.
+- QA: eslint panel-admin = 0 error; tsc hanya 2 error TS2749 baseline lama di API (bukan file saya — terkonfirmasi sama di HEAD); tidak ada error console/dev.log.
+- VERIFIKASI BROWSER (agent-browser, iPhone 14 + desktop 1440x900, auth superadmin localStorage 'auth', tutup dialog "Versi Baru!" dulu):
+  a) Mobile: drawer terbuka dengan overlay, menu aktif solid, badge "Pelanggan 10" dari stats realtime; bar atas hamburger muncul; konten Beranda + Live indicator render.
+  b) Navigasi tab: klik Pembayaran → URL ?tab=pembayaran, drawer tertutup, sub-tab Verifikasi/Pengaturan muncul (konten verifikasi punya tab dalam sendiri: Menunggu/Disetujui/Ditolak).
+  c) Sub-tab & semua konten: transaksi ("Riwayat Transaksi"), laporan&sub=audit, sistem&sub=hak-akses ("Mode Super Admin"), pelanggan&sub=aktif (statistik akun), paket ("Kelola Paket" + kartu paket), beranda (dashboard + Live) — SEMUA render benar, menu aktif mengikuti.
+  d) DEEP-LINK/REDIRECT: /panel-admin/pembayaran?tab=verifikasi → /panel-admin?tab=pembayaran&sub=verifikasi (URL direwrite benar); akun-aktif, kelola-paket, riwayat-transaksi, laporan?tab=bulanan, verifikasi-pembayaran → semua satu hop benar.
+  e) Desktop 1440x900: sidebar sticky terlihat, hamburger tersembunyi (header mobile display:none), footer menempel di bawah; screenshot /tmp/panel-admin-desktop.png, /tmp/panel-admin-mobile.png, /tmp/panel-admin-mobile-drawer.png.
+
+Stage Summary:
+- Panel admin Darrellsoft KINI SATU HALAMAN bergaya Rajamesin: sidebar menu (Beranda · Pelanggan · Paket · Pembayaran · Transaksi · Laporan · Sistem) dengan badge realtime, drawer mobile, navigasi ?tab=&sub= tanpa reload penuh.
+- Seluruh konten lama dipertahankan utuh (komponen sama dipakai ulang) — realtime polling (use-live-data), guard, dan API tidak berubah.
+- Semua rute lama tetap hidup via redirect satu hop. Deployment menunggu instruksi user.
