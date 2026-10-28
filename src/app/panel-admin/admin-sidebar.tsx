@@ -11,7 +11,7 @@ import {
   LayoutDashboard,
   Users,
   Crown,
-  Wallet,
+  UserPlus,
   Receipt,
   FileText,
   Settings,
@@ -34,9 +34,10 @@ export type AdminTab =
 
 const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { tab: 'beranda', label: 'Beranda Admin', icon: LayoutDashboard },
-  { tab: 'pelanggan', label: 'Pelanggan', icon: Users },
+  // Penamaan sesuai permintaan user: seksi pelanggan = "Pengguna", seksi pembayaran = "Pelanggan Baru"
+  { tab: 'pelanggan', label: 'Pengguna', icon: Users },
   { tab: 'paket', label: 'Paket', icon: Crown },
-  { tab: 'pembayaran', label: 'Pembayaran', icon: Wallet },
+  { tab: 'pembayaran', label: 'Pelanggan Baru', icon: UserPlus },
   { tab: 'transaksi', label: 'Transaksi', icon: Receipt },
   { tab: 'laporan', label: 'Laporan', icon: FileText },
 ]

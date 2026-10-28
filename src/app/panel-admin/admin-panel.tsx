@@ -55,7 +55,7 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
     desc: 'Kondisi langganan & pendapatan Darrellsoft.',
   },
   pelanggan: {
-    title: 'Pelanggan',
+    title: 'Pengguna',
     desc: 'Kelola langganan & daftar akun pelanggan.',
     subs: [
       { key: 'langganan', label: 'Langganan', icon: CreditCard },
@@ -70,7 +70,7 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
     desc: 'CRUD paket langganan & perincian fitur.',
   },
   pembayaran: {
-    title: 'Pembayaran',
+    title: 'Pelanggan Baru',
     desc: 'Verifikasi pembayaran manual & metode pembayaran.',
     subs: [
       { key: 'verifikasi', label: 'Verifikasi', icon: ShieldCheck },
