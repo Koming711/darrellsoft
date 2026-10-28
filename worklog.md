@@ -15335,3 +15335,21 @@ Stage Summary:
 - Beranda Admin & seluruh panel kini menampilkan data pelanggan yang realistis: 27+ akun, langganan beragam status, pendapatan Rp 2,4 jt, antrean verifikasi berisi, audit log hidup.
 - Semua akun seed password: darrell123 (bisa login utk uji tampilan pelanggan).
 - Tidak ada perubahan kode; hanya data DB lokal. Deployment menunggu instruksi user.
+---
+Task ID: activate-superadmin-account
+Agent: Z.ai Code (main)
+Task: "dihalaman pengguna buat akun super administrator aktif." — aktifkan akun Super Administrator yang ber-status Belum Aktif (penyebab badge "1" di sidebar Pengguna).
+
+Work Log:
+- DIAGNOSIS: badge "1" di sidebar Pengguna = jumlah langganan ber-status belum_aktif (dari /api/panel-admin/subscription-stats → pelangganBelumAktif). Saat itu pelakunya 1: akun Super Administrator (user-superadmin) — langganan tanpa paket & tanpa endDate. validUntil aksesnya sebenarnya sudah 2036.
+- GAP: halaman Pengguna belum punya aksi aktivasi manual (hanya Tangguhkan / Aktifkan Kembali / Hapus) — akun belum aktif tidak bisa diaktifkan dari UI.
+- BACKEND (subscriptions/action/route.ts): action baru 'activate' — body { userId, planId?, durationDays?, notes? }; validasi paket, durasi default = plan.durationDays (fallback 30), set status aktif + planId + startDate + endDate = now + durasi, suspendReason dikosongkan, akses (validUntil/expiredDate) = endDate + masa tenggang; audit log 'subscription_activated' + notifikasi pelanggan; pesan sukses memuat paket & tanggal berakhir. Blokir akun-sendiri kini HANYA untuk suspend/unsuspend (aktivasi akun sendiri diperbolehkan — superadmin mengaktifkan dirinya sendiri).
+- FRONTEND (kelola-pelanggan/content.tsx): tombol "Aktifkan" (emerald) pada baris ber-status Belum Aktif; dialog "Aktifkan Langganan" — Select paket (dari /api/panel-admin/plans, hanya aktif; ganti paket = durasi default ikut terisi), Input masa berlaku (hari, bisa diubah, hint utk akun internal 3650), catatan opsional; validasi durasi > 0; toast sukses/error + muat ulang daftar.
+- EKSEKUSI VIA UI (agent-browser, sesi superadmin): klik Aktifkan di baris Super Administrator → pilih paket Premium → durasi 3650 hari → catatan "Aktivasi manual oleh admin — akun internal superadmin" → submit.
+- HASIL: toast "Langganan diaktifkan — paket Premium, berlaku s/d 25 Oktober 2036"; baris Super Administrator kini badge Aktif · Paket Premium · s/d 25 Okt 2036; badge "1" di sidebar Pengguna HILANG; stats API → pelangganAktif 2, pelangganBelumAktif 0; audit log tercatat (belum_aktif → aktif, performedBy superadmin). Screenshot /tmp/before-activate.png, /tmp/dialog-activate.png, /tmp/after-activate.png. Lint 2 file bersih.
+- CATATAN: (1) data seed pelanggan realistis dari sesi sebelumnya (27+ akun) TIDAK ADA lagi di DB lokal — DB ter-reset oleh lingkungan sandbox antar sesi (bukan karena aksi ini; kini 2 pengguna: admin & superadmin). Bila perlu, seed bisa diulang. (2) error lama "duplicate column: kategoriId" di dev.log berasal dari auto-seed legacy, tidak terkait.
+
+Stage Summary:
+- Akun Super Administrator kini AKTIF (paket Premium, berlaku s/d 25 Okt 2036) — badge "1" di sidebar Pengguna hilang.
+- Halaman Pengguna punya aksi baru "Aktifkan" utk akun Belum Aktif: pilih paket + masa berlaku + catatan audit, lengkap dgn audit log & notifikasi.
+- Perubahan kode: subscriptions/action/route.ts (action activate) + kelola-pelanggan/content.tsx (tombol & dialog). Data hanya di DB LOKAL; deployment menunggu instruksi user.
