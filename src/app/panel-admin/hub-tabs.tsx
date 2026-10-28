@@ -1,9 +1,9 @@
 'use client'
 
-// HubTabs — navigasi tab untuk halaman hub Panel Admin.
-// Tab tersimpan di query ?tab= agar deep-link dapat dibagikan
-// (mis. /panel-admin/pelanggan?tab=baru) dan sidebar tetap menyorot hub yang benar.
-// Hanya tab aktif yang dirender (data dimuat ulang saat ganti tab).
+// HubTabs — navigasi sub-tab untuk seksi Panel Admin satu halaman.
+// Sub-tab tersimpan di query ?sub= agar deep-link dapat dibagikan, sementara
+// query lain (mis. ?tab=pembayaran yang memilih seksi sidebar) DIPERTAHANKAN
+// saat berpindah sub-tab. Hanya sub aktif yang dirender (data dimuat ulang saat ganti).
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { LucideIcon } from 'lucide-react'
@@ -17,11 +17,19 @@ export interface HubTab {
   count?: number
 }
 
-export function HubTabs({ tabs, param = 'tab' }: { tabs: HubTab[]; param?: string }) {
+export function HubTabs({ tabs, param = 'sub' }: { tabs: HubTab[]; param?: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const active = searchParams.get(param) || tabs[0]?.key || ''
+
+  // Ganti sub-tab TANPA menghilangkan query lain — ?tab=<seksi> harus tetap ada
+  // agar sidebar tetap menyorot seksi yang benar (bug lama: menimpa ?tab= → lempar ke Beranda).
+  const select = (key: string) => {
+    const sp = new URLSearchParams(searchParams.toString())
+    sp.set(param, key)
+    router.replace(`${pathname}?${sp.toString()}`, { scroll: false })
+  }
 
   return (
     <div
@@ -37,9 +45,7 @@ export function HubTabs({ tabs, param = 'tab' }: { tabs: HubTab[]; param?: strin
             type="button"
             role="tab"
             aria-selected={isActive}
-            onClick={() =>
-              router.replace(`${pathname}?${param}=${t.key}`, { scroll: false })
-            }
+            onClick={() => select(t.key)}
             className={cn(
               'flex min-h-[36px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
               isActive
@@ -66,8 +72,8 @@ export function HubTabs({ tabs, param = 'tab' }: { tabs: HubTab[]; param?: strin
   )
 }
 
-/** Baca tab aktif dari query ?tab= (fallback: tab pertama) */
-export function useHubTab(tabs: HubTab[], param = 'tab'): string {
+/** Baca sub-tab aktif dari query ?sub= (fallback: tab pertama) */
+export function useHubTab(tabs: HubTab[], param = 'sub'): string {
   const searchParams = useSearchParams()
   const raw = searchParams.get(param) || ''
   return tabs.some((t) => t.key === raw) ? raw : tabs[0]?.key || ''

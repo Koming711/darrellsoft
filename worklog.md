@@ -15274,3 +15274,23 @@ Stage Summary:
 - Kesimpulan: "belum berubah" = user melihat www.darrellsoft.com yang masih menjalankan panel admin LAMA; panel admin GAYA BARU sudah live di preview lokal dan lulus QA penuh (desktop + mobile, semua tab + redirect).
 - Tidak ada file diubah; working tree bersih (semua kode panel baru sudah di commit 8105ebf).
 - Panel baru akan tampil di www.darrellsoft.com HANYA setelah deploy — menunggu instruksi user (token sudah ada di riwayat).
+---
+Task ID: remove-subtabs-kelola-pelanggan
+Agent: Z.ai Code (main)
+Task: "dihalaman kelola pelanggan. delete tulisan langganan, baru, aktif, expire, ditolak diatas tulisan kelola pelanggan" — hapus baris sub-tab di atas judul "Kelola Pelanggan" di panel admin baru (tanpa deploy).
+
+Work Log:
+- HAPUS baris sub-tab: admin-panel.tsx case 'pelanggan' tidak lagi merender <HubTabs> — halaman ?tab=pelanggan kini langsung menampilkan judul "Kelola Pelanggan" (sub=langganan default). Sub lain (baru/aktif/expired/ditolak) tetap hidup via deep-link ?sub= & kartu ringkasan di AkunListPage; juga terjangkau dari Sistem › Pengaturan Akun.
+- BUG DITEMUKAN & DIPERBAIKI saat mengerjakan ini: HubTabs lama menulis ?tab=<subkey> (param default 'tab') — di panel satu halaman itu MENIMPA pemilih seksi (klik sub-tab "Verifikasi/Pengaturan/Bulanan/…" melempar user ke Beranda karena ?tab=verifikasi bukan seksi valid). Fix: hub-tabs.tsx → param default 'sub' + navigasi mempertahankan query lain (URLSearchParams dari searchParams saat ini, set 'sub', replace) sehingga ?tab=<seksi> tidak hilang; admin-panel.tsx memberi param="sub" eksplisit pada 3 seksi bersub-tab (pembayaran/laporan/sistem).
+- Lint 2 file: bersih (0 error).
+- VERIFIKASI BROWSER (desktop 1440x900 + iPhone 14, auth superadmin, tutup dialog "Versi Baru!" dulu):
+  a) ?tab=pelanggan → TIDAK ada baris [Langganan][Baru][Aktif][Expired][Ditolak]; langsung "Kelola Pelanggan" + pencarian + tab status internal konten (Semua/Perlu Verifikasi/…) + kartu pelanggan dengan data. Screenshot /tmp/pelanggan-no-tabs.png; mobile /tmp/pelanggan-mobile.png.
+  b) Deep-link ?tab=pelanggan&sub=aktif → AkunListPage tetap render (kartu "2 Akun Aktif" dst).
+  c) REGRESI SUB-TAB (bug fix): Pembayaran → klik "Pengaturan" → URL ?tab=pembayaran&sub=pengaturan, konten "Pengaturan Pembayaran" (sebelumnya ?tab=pengaturan → Beranda); Laporan → "Audit" → ?tab=laporan&sub=audit; Sistem → "Pengaturan Akun" → ?tab=sistem&sub=akun.
+  d) Sidebar "Pelanggan" → ?tab=pelanggan → "Kelola Pelanggan" (default langganan) ✓. Tidak ada page error.
+- TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Halaman "Kelola Pelanggan" kini bersih tanpa baris sub-tab di atas judulnya; daftar akun Baru/Aktif/Expired/Ditolak tetap terjangkau (deep-link ?sub=, kartu ringkasan AkunListPage, Sistem › Pengaturan Akun).
+- Bonus fix: sub-tab Pembayaran/Laporan/Sistem kini benar (menulis ?sub=, tidak menimpa ?tab= seksi — sebelumnya klik sub-tab melempar ke Beranda).
+- 2 file diubah: admin-panel.tsx, hub-tabs.tsx. Deployment menunggu instruksi user.

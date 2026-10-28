@@ -122,9 +122,12 @@ function AdminPanelInner() {
       case 'beranda':
         return <BerandaContent />
       case 'pelanggan':
+        // TANPA baris sub-tab di atas konten (permintaan user: hapus tulisan
+        // Langganan/Baru/Aktif/Expired/Ditolak di atas judul "Kelola Pelanggan").
+        // Sub tetap bisa diakses via deep-link ?sub= dan kartu ringkasan di
+        // AkunListPage; daftar akun juga terjangkau dari Sistem › Pengaturan Akun.
         return (
           <>
-            <HubTabs tabs={SECTIONS.pelanggan.subs!} />
             {activeSub === 'langganan' && <KelolaPelangganContent />}
             {activeSub === 'baru' && <AkunListPage kategori="baru" />}
             {activeSub === 'aktif' && <AkunListPage kategori="aktif" />}
@@ -137,7 +140,7 @@ function AdminPanelInner() {
       case 'pembayaran':
         return (
           <>
-            <HubTabs tabs={SECTIONS.pembayaran.subs!} />
+            <HubTabs tabs={SECTIONS.pembayaran.subs!} param="sub" />
             {activeSub === 'verifikasi' && <VerifikasiPembayaranContent />}
             {activeSub === 'pengaturan' && <PengaturanPembayaranContent />}
           </>
@@ -147,7 +150,7 @@ function AdminPanelInner() {
       case 'laporan':
         return (
           <>
-            <HubTabs tabs={SECTIONS.laporan.subs!} />
+            <HubTabs tabs={SECTIONS.laporan.subs!} param="sub" />
             {activeSub === 'bulanan' && <LaporanBulananContent />}
             {activeSub === 'penjualan' && <RiwayatPenjualanContent />}
             {activeSub === 'audit' && <LaporanAuditContent />}
@@ -156,7 +159,7 @@ function AdminPanelInner() {
       case 'sistem':
         return (
           <>
-            <HubTabs tabs={SECTIONS.sistem.subs!} />
+            <HubTabs tabs={SECTIONS.sistem.subs!} param="sub" />
             {activeSub === 'pengguna' && <PenggunaContent />}
             {activeSub === 'hak-akses' && <HakAksesContent />}
             {activeSub === 'akun' && <PengaturanAkunContent />}
