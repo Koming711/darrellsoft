@@ -5,10 +5,13 @@
 // judul "{n} pengguna terdaftar", MOBILE = daftar kartu ringkas (nama + HP,
 // klik → popup detail), DESKTOP = tabel (avatar inisial, email, HP, perusahaan,
 // role, tanggal bergabung, aksi hapus), popup detail pengguna, konfirmasi hapus.
+// Tab filter status (permintaan user): Semua · Aktif · Perlu Verifikasi ·
+// Akan Berakhir · Expired · Belum Aktif — difilter di klien (API sudah
+// mengirim status TURUNAN + hasPendingPayment, tanpa refetch per tab).
 // Aksi langganan (Aktifkan / Tangguhkan / Aktifkan Kembali) tetap ada —
 // dipindah ke dalam popup detail agar daftar tetap bersih seperti referensi.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -112,8 +115,31 @@ const initials = (name: string) =>
     .join('')
     .toUpperCase()
 
+// ===== TAB FILTER STATUS (permintaan user) =====
+// 'perlu_verifikasi' = punya pembayaran menunggu verifikasi (hasPendingPayment);
+// selain itu = status turunan langganan — API sudah menghitungnya
+// (subscription.status = derivedSubscriptionStatus, label sama dgn STATUS_META).
+type StatusFilterKey = 'semua' | 'aktif' | 'perlu_verifikasi' | 'akan_berakhir' | 'kedaluwarsa' | 'belum_aktif'
+
+const STATUS_FILTERS: { key: StatusFilterKey; label: string }[] = [
+  { key: 'semua', label: 'Semua' },
+  { key: 'aktif', label: 'Aktif' },
+  { key: 'perlu_verifikasi', label: 'Perlu Verifikasi' },
+  { key: 'akan_berakhir', label: 'Akan Berakhir' },
+  { key: 'kedaluwarsa', label: 'Expired' },
+  { key: 'belum_aktif', label: 'Belum Aktif' },
+]
+
+function matchesStatusFilter(r: Row, f: StatusFilterKey): boolean {
+  if (f === 'semua') return true
+  if (f === 'perlu_verifikasi') return r.hasPendingPayment
+  return (r.subscription?.status ?? 'belum_aktif') === f
+}
+
 export function KelolaPelangganContent() {
   const [rows, setRows] = useState<Row[] | null>(null)
+  // Tab status aktif (default: Semua)
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('semua')
   const [previewUser, setPreviewUser] = useState<Row | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
@@ -154,6 +180,22 @@ export function KelolaPelangganContent() {
 
   // Data masuk real-time: pengguna & status langganan baru tampil otomatis
   const { lastUpdated } = useLiveData({ load, intervalMs: 12000 })
+
+  // Filter tab status di klien — ganti tab instan tanpa refetch;
+  // polling live 12s tetap menyegarkan hitungan & isi tab otomatis
+  const filteredRows = useMemo(
+    () => (rows ?? []).filter((r) => matchesStatusFilter(r, statusFilter)),
+    [rows, statusFilter],
+  )
+  const filterTabs = useMemo(
+    () =>
+      STATUS_FILTERS.map((t) => ({
+        ...t,
+        count: (rows ?? []).filter((r) => matchesStatusFilter(r, t.key)).length,
+      })),
+    [rows],
+  )
+  const activeFilterLabel = STATUS_FILTERS.find((t) => t.key === statusFilter)?.label ?? 'Semua'
 
   const isAdminRow = (r: Row) => r.role === 'admin' || r.role === 'superadmin'
   const subStatusOf = (r: Row) => r.subscription?.status ?? 'belum_aktif'
@@ -321,11 +363,47 @@ export function KelolaPelangganContent() {
         </div>
       ) : (
         <div className="space-y-3">
-          <h2 className="text-base font-bold">{rows.length} pengguna terdaftar</h2>
+          <h2 className="text-base font-bold">
+            {statusFilter === 'semua'
+              ? `${rows.length} pengguna terdaftar`
+              : `${filteredRows.length} pengguna — ${activeFilterLabel}`}
+          </h2>
+
+          {/* Tab status (permintaan user) — pill + hitungan per status */}
+          <div role="tablist" aria-label="Filter status pengguna" className="flex flex-wrap items-center gap-2">
+            {filterTabs.map((t) => {
+              const active = statusFilter === t.key
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setStatusFilter(t.key)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                    active
+                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      : 'border-border bg-card text-muted-foreground hover:bg-accent/40 hover:text-foreground',
+                  )}
+                >
+                  {t.label}
+                  <span
+                    className={cn(
+                      'min-w-5 rounded-full px-1.5 text-center text-[10px] font-bold leading-4',
+                      active ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {t.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
 
           {/* ===== MOBILE: daftar kartu — hanya nama + HP, klik utk detail (pola referensi) ===== */}
           <div className="space-y-2 sm:hidden">
-            {rows.map((u) => (
+            {filteredRows.map((u) => (
               <div
                 key={u.userId}
                 onClick={() => setPreviewUser(u)}
@@ -342,8 +420,12 @@ export function KelolaPelangganContent() {
                 </div>
               </div>
             ))}
-            {rows.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">Belum ada pengguna terdaftar.</p>
+            {filteredRows.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {statusFilter === 'semua'
+                  ? 'Belum ada pengguna terdaftar.'
+                  : `Tidak ada pengguna berstatus "${activeFilterLabel}".`}
+              </p>
             )}
           </div>
 
@@ -362,7 +444,7 @@ export function KelolaPelangganContent() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((u) => (
+                {filteredRows.map((u) => (
                   <tr
                     key={u.userId}
                     onClick={() => setPreviewUser(u)}
@@ -407,8 +489,12 @@ export function KelolaPelangganContent() {
                 ))}
               </tbody>
             </table>
-            {rows.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">Belum ada pengguna terdaftar.</p>
+            {filteredRows.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {statusFilter === 'semua'
+                  ? 'Belum ada pengguna terdaftar.'
+                  : `Tidak ada pengguna berstatus "${activeFilterLabel}".`}
+              </p>
             )}
           </div>
         </div>

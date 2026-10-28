@@ -15385,3 +15385,17 @@ Stage Summary:
 - Pengaturan (metode pembayaran) kini menu sidebar tersendiri — halaman Pendaftar Baru bersih tanpa baris sub-tab, langsung antrean verifikasi.
 - Label "Pelanggan Baru" diganti "Pendaftar Baru" di sidebar + bar atas mobile.
 - 4 file diubah (admin-sidebar, admin-panel, page.tsx komentar, redirect rute lama). Deployment menunggu instruksi user.
+---
+Task ID: tab-status-halaman-pengguna
+Agent: Z.ai Code (main)
+Task: "dihalaman panel admin. di halaman pengguna, tambahkan tab aktif, perlu verifikasi, akan berakhir, expired, belum aktif." — tambah tab filter status di halaman Pengguna.
+
+Work Log:
+- TEMUAN: API /api/panel-admin/subscriptions sudah mengembalikan subscription.status = status TURUNAN (derivedSubscriptionStatus) + field hasPendingPayment — filter tab cukup di sisi klien tanpa refetch per tab. STATUS_META halaman sudah memakai label "Expired" utk kedaluwarsa (konsisten dgn istilah user).
+- IMPLEMENTASI (kelola-pelanggan/content.tsx): konstanta STATUS_FILTERS (Semua · Aktif · Perlu Verifikasi · Akan Berakhir · Expired · Belum Aktif) + matchesStatusFilter() — 'perlu_verifikasi' = hasPendingPayment (pembayaran menunggu verifikasi), selain itu = perbandingan status turunan; state statusFilter (default 'semua'); useMemo filteredRows & filterTabs (hitungan per status dari data penuh, update otomatis saat polling live 12s); bar tab pill (role=tablist/tab + aria-selected) dgn badge hitungan, tab aktif solid emerald (konsisten aksen panel); judul h2 dinamis ("{n} pengguna terdaftar" saat Semua, "{n} pengguna — {label}" saat tab lain); daftar mobile & desktop memakai filteredRows; empty state dinamis ("Tidak ada pengguna berstatus ...").
+- CATATAN: status Ditangguhkan/Dibatalkan tidak punya tab sendiri (tidak diminta user) — tetap terlihat di tab Semua; pengguna dgn pembayaran menunggu verifikasi muncul di tab Perlu Verifikasi (bisa juga muncul di Aktif bila langganannya aktif — filter predikat transparan, hitungan konsisten).
+- VERIFIKASI (agent-browser, desktop 1440x900 + iPhone 14): 6 tab tampil dgn hitungan benar (Semua 2 · Aktif 2 · lainnya 0 — DB lokal hanya 2 akun admin aktif); klik tiap tab mengubah daftar + judul ("2 pengguna — Aktif", "0 pengguna — Perlu Verifikasi", "0 pengguna — Expired", "0 pengguna — Akan Berakhir", "0 pengguna — Belum Aktif"); empty state tampil; kembali ke Semua normal; polling live tetap jalan; footer tetap menempel. Lint bersih, tanpa page error. Screenshot /tmp/pengguna-tabs-desktop.png, /tmp/pengguna-tabs-mobile.png.
+
+Stage Summary:
+- Halaman Pengguna panel admin kini punya tab filter status: Semua · Aktif · Perlu Verifikasi · Akan Berakhir · Expired · Belum Aktif — masing-masing dgn hitungan realtime, filter instan tanpa refetch.
+- 1 file diubah: kelola-pelanggan/content.tsx. Deployment menunggu instruksi user.
