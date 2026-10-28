@@ -15257,3 +15257,20 @@ Stage Summary:
 - Panel admin Darrellsoft KINI SATU HALAMAN bergaya Rajamesin: sidebar menu (Beranda · Pelanggan · Paket · Pembayaran · Transaksi · Laporan · Sistem) dengan badge realtime, drawer mobile, navigasi ?tab=&sub= tanpa reload penuh.
 - Seluruh konten lama dipertahankan utuh (komponen sama dipakai ulang) — realtime polling (use-live-data), guard, dan API tidak berubah.
 - Semua rute lama tetap hidup via redirect satu hop. Deployment menunggu instruksi user.
+---
+Task ID: check-panel-admin-belum-berubah
+Agent: Z.ai Code (main)
+Task: "panel admin belum berubah. jangan deploy. check and fix" — user melaporkan panel admin belum berubah; diminta cek & perbaiki TANPA deploy.
+
+Work Log:
+- DIAGNOSA AKAR: panel admin baru (gaya Rajamesin) SUDAH terpasang & berfungsi di LOKAL — yang "belum berubah" adalah www.darrellsoft.com (PRODUKSI) karena perubahan memang BELUM di-deploy (deploy task sebelumnya sengaja menunggu instruksi user; kini juga dilarang eksplisit).
+- Bukti produksi masih kode lama: (a) GET /panel-admin/pembayaran di produksi = 200 tanpa redirect (kode baru = redirect 1 hop ke /panel-admin?tab=pembayaran); (b) HTML produksi hanya memuat marker layout LAMA ("Panel Admin Langganan" dari layout.tsx lama, footer lama), tanpa marker sidebar baru ("Beranda Admin", "Menu panel admin"); (c) belum ada vercel deploy setelah commit 8105ebf.
+- Bukti lokal sudah baru: agent-browser (desktop 1440x900 + iPhone 14, auth superadmin, tutup dialog "Versi Baru! v151" dulu) → /panel-admin me-render sidebar "Panel Admin Langganan/Superadmin" + menu Beranda Admin (aktif solid emerald), Pelanggan (badge 10), Paket, Pembayaran, Transaksi, Laporan, divider, Sistem, footer "Kembali ke Aplikasi". Screenshot /tmp/check-panel-now2.png.
+- QA PENUH LOKAL: 7/7 tab sidebar navigasi benar (URL ?tab=...) + konten render (Beranda dashboard+Live; Pembayaran sub-tab Verifikasi/Pengaturan; Laporan Bulanan render grafik; Sistem Pengguna/Hak Akses/Pengaturan Akun render; Pelanggan sub=aktif render stat akun + tabel); redirect route lama via browser: /panel-admin/pembayaran?tab=verifikasi → /panel-admin?tab=pembayaran&sub=verifikasi, /panel-admin/kelola-paket → /panel-admin?tab=paket; MOBILE: bar atas hamburger + judul seksi, drawer buka → klik Transaksi → drawer tutup + URL ?tab=transaksi + konten Riwayat Transaksi dengan data (screenshot /tmp/check-mobile-drawer-nav.png); eslint panel-admin = 0 error; tidak ada page error/console error.
+- SW bukan penyebab: dev mode otomatis unregister service worker + clear caches (service-worker-registration.tsx IS_DEV branch), jadi preview lokal selalu fresh; hipotesis user melihat tab/URL lama (produksi) atau tab browser lama sebelum reload.
+- TIDAK ada perubahan kode diperlukan — tidak ada bug di panel baru. TIDAK melakukan deploy sesuai instruksi.
+
+Stage Summary:
+- Kesimpulan: "belum berubah" = user melihat www.darrellsoft.com yang masih menjalankan panel admin LAMA; panel admin GAYA BARU sudah live di preview lokal dan lulus QA penuh (desktop + mobile, semua tab + redirect).
+- Tidak ada file diubah; working tree bersih (semua kode panel baru sudah di commit 8105ebf).
+- Panel baru akan tampil di www.darrellsoft.com HANYA setelah deploy — menunggu instruksi user (token sudah ada di riwayat).
