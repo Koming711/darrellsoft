@@ -15486,3 +15486,26 @@ Work Log:
 Stage Summary:
 - Fitur Manajemen Grup & Multi-Akun live end-to-end: pembayaran paket multi-akun disetujui → grup perusahaan otomatis (Owner + kuota anggota); semua akun berbagi satu data perusahaan (invoice, pembayaran, customer, stok, laporan) dengan hak akses per-menu yang diatur Owner; kuota anti-race; kelola anggota lengkap (tambah/edit/nonaktif/keluarkan/reset sandi); superadmin memantau & menonaktifkan grup dengan audit; kedaluwarsa langganan grup memblokir semua anggota tanpa menghapus data.
 - 54 file diubah (commit 328ef5b). Deployment menunggu instruksi user.
+---
+Task ID: grup-lanjutan-registrasi-beranda
+Agent: Z.ai Code (main)
+Task: "lanjutkan" — melengkapi 2 bagian tersisa fitur grup: (1) E2E alur pendaftaran penuh dgn owner CalonPembeli (jalur belum teruji), (2) Dashboard Grup di beranda (pasal 7 prompt).
+
+Work Log:
+- E2E ALUR PENDAFTARAN PENUH (semua API asli, akun uji dihapus bersih setelahnya):
+  a) POST /api/register/send-otp (devMode → devCode di respons) → POST /api/register dgn OTP → CalonPembeli "calonowner" (role demo) ✓
+  b) Login calon (real login) → POST /api/subscription/invoice (Pro, SUB-… amount server-side + kode unik) ✓
+  c) ATURAN TERBUKTI: sebelum verifikasi → /api/grup = null (grup & akses berbayar belum aktif), setelah upload bukti (menunggu_verifikasi) → tetap null ✓
+  d) Approve via /api/panel-admin/payments/review → grup GRP-00001 OTOMatis dgn owner tipeAnggota=calon; calon dipromosikan demo→user; login payload membawa grup info ✓
+  e) Owner-calon menambah anggota → Pengguna+Pembeli+GrupAnggota dibuat, validUntil = graceEnd langganan grup (endDate+7 hari tenggang) ✓
+  f) Semua data uji dihapus (grup, anggota, calon, tagihan, pembayaran, langganan, notifikasi, OTP uji); DB kembali ke kondisi pra-uji.
+- BERANDA — KOTAK DASHBOARD GRUP (/pembukaan + /api/beranda):
+  a) API: field baru grupRingkas (id, kode, nama, peran, paket dgn fallback plan langganan owner, kuotaAkun, terpakai, sisa, langgananStatus, endDate) — null utk user tanpa grup; query dibungkus try/catch agar tak menggagalkan beranda.
+  b) UI: kotak ringkas di atas Grafik Penjualan — icon Building2, nama+badge kode, "Grup Perusahaan · {paket} · Akun X/Y (sisa N/penuh)", badge status langganan (Aktif/Akan Berakhir/Kedaluwarsa) + tanggal berakhir, tombol "Kelola Grup" (owner) / "Lihat Grup" (anggota) → /grup. data-testid kotak-grup-beranda & tombol-kelola-grup.
+- VERIFIKASI (curl + agent-browser, desktop 1280 + mobile 390): API grupRingkas benar (Premium 5 akun, s/d 18 Nov); kotak tampil di beranda owner dgn semua elemen; klik Kelola Grup → /grup ✓; mobile tanpa scroll horizontal; console 0 error; dev.log bersih; grup uji dihapus setelahnya.
+- CATATAN: calon "william" (2026-10-29 15:28 UTC) BUKAN data uji agent — tidak ada di kode; kemungkinan registrasi nyata via Preview → dibiarkan utuh.
+- TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Seluruh pasal prompt PAKET 3 AKUN DENGAN SISTEM GRUP kini terpenuhi & teruji termasuk alur pendaftaran mandiri (CalonPembeli sebagai owner) dan Dashboard Grup di beranda.
+- 2 file diubah: api/beranda/route.ts, pembukaan/page.tsx (commit d644886). Deployment menunggu instruksi user.
