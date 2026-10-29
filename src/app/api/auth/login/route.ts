@@ -37,6 +37,20 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // === GRUP PERUSAHAAN: blokir anggota nonaktif / grup dinonaktifkan ===
+      const grupMember = await db.grupAnggota.findFirst({
+        where: { memberId: pengguna.id, status: { not: 'keluar' } },
+        include: { grup: { select: { nama: true, status: true } } },
+      })
+      if (grupMember) {
+        if (grupMember.status === 'nonaktif') {
+          return NextResponse.json({ error: 'Akun Anda dinonaktifkan oleh Owner grup. Hubungi Owner untuk mengaktifkan kembali.' }, { status: 403 })
+        }
+        if (grupMember.grup.status === 'dinonaktifkan') {
+          return NextResponse.json({ error: 'Grup perusahaan dinonaktifkan. Hubungi admin Darrellsoft.' }, { status: 403 })
+        }
+      }
+
       // For non-admin roles (user, demo, manager), verify they have a Pembeli record
       // This prevents "ghost" accounts that can login but don't appear in any list
       if (pengguna.role !== 'admin' && pengguna.role !== 'superadmin') {
@@ -84,6 +98,15 @@ export async function POST(request: NextRequest) {
       // Check expiry date for CalonPembeli
       if (calon.expiredDate && new Date(calon.expiredDate) < new Date()) {
         return NextResponse.json({ error: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.', expired: true }, { status: 403 })
+      }
+
+      // === GRUP PERUSAHAAN: blokir bila grup dinonaktifkan (owner CalonPembeli) ===
+      const grupCalon = await db.grupAnggota.findFirst({
+        where: { memberId: calon.id, status: { not: 'keluar' } },
+        include: { grup: { select: { status: true } } },
+      })
+      if (grupCalon?.grup.status === 'dinonaktifkan') {
+        return NextResponse.json({ error: 'Grup perusahaan dinonaktifkan. Hubungi admin Darrellsoft.' }, { status: 403 })
       }
 
       // Status "baru" atau "aktif" → langsung izinkan login
@@ -138,16 +161,25 @@ async function buildLoginResponse(
   }
 
   // Seed sample master data in background - don't block login response
-  // This handles the case where existing accounts were created before auto-seed was added
-  seedUserData(userId).catch(seedErr => {
-    console.warn('⚠️ Seed data error during login (non-fatal):', seedErr)
-  })
+  // This handles the case where existing accounts were created before auto-seed was added.
+  // GRUP PERUSAHAAN: anggota grup TIDAK di-seed data personal agar tidak menduplikasi
+  // data perusahaan yang dibagikan (mereka bekerja pada data milik grup).
+  const isGroupMember = await db.grupAnggota.findFirst({
+    where: { memberId: userId, status: { not: 'keluar' }, peran: { not: 'owner' } },
+    select: { id: true },
+  }).catch(() => null)
 
-  // Seed 10 kategori default (Daftar Kategori v123) — independen dari master data,
-  // user lama yang sudah punya master data tetap mendapat kategori bawaan.
-  seedKategoriForUser(userId).catch(seedErr => {
-    console.warn('⚠️ Seed kategori error during login (non-fatal):', seedErr)
-  })
+  if (!isGroupMember) {
+    seedUserData(userId).catch(seedErr => {
+      console.warn('⚠️ Seed data error during login (non-fatal):', seedErr)
+    })
+
+    // Seed 10 kategori default (Daftar Kategori v123) — independen dari master data,
+    // user lama yang sudah punya master data tetap mendapat kategori bawaan.
+    seedKategoriForUser(userId).catch(seedErr => {
+      console.warn('⚠️ Seed kategori error during login (non-fatal):', seedErr)
+    })
+  }
 
   // ===== Arah lanjut sesuai status langganan (alur pendaftaran → pilih paket → bayar) =====
   // - Tagihan menunggu_pembayaran → arahkan ke halaman pembayaran (belum kirim bukti).
@@ -195,7 +227,7 @@ async function buildLoginResponse(
         // Merge: custom overrides defaults, but new features from defaults are kept
         if (allPerms[role].features) {
           for (const [key, val] of Object.entries(allPerms[role].features)) {
-            features[key] = val
+            features[key] = val as boolean
           }
         }
         if (allPerms[role].subPermissions) {
@@ -209,6 +241,24 @@ async function buildLoginResponse(
     }
   } catch {}
 
+  // ===== Info grup perusahaan (untuk RBAC menu di sisi klien) =====
+  // Owner: mengelola grup; anggota: hak akses dari izin yang diatur Owner.
+  let grupInfo: { grupId: string; peran: string; status: string; izin: string[] } | null = null
+  try {
+    const gm = await db.grupAnggota.findFirst({
+      where: { memberId: userId, status: { not: 'keluar' } },
+      select: { grupId: true, peran: true, status: true, izin: true },
+    })
+    if (gm) {
+      let izin: string[] = []
+      try {
+        const parsed = JSON.parse(gm.izin || '[]')
+        if (Array.isArray(parsed)) izin = parsed.filter((x: unknown) => typeof x === 'string')
+      } catch {}
+      grupInfo = { grupId: gm.grupId, peran: gm.peran, status: gm.status, izin }
+    }
+  } catch {}
+
   const response = NextResponse.json({
     id: userId,
     username,
@@ -218,6 +268,7 @@ async function buildLoginResponse(
     singleDevice,
     permissions: { features, subPermissions },
     subscriptionRedirect,
+    grup: grupInfo,
     ...(demoPopupMessage ? { demoPopupMessage, demoRemainingDays } : {}),
   })
 

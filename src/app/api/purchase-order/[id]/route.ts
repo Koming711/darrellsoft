@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Check ownership
-    if (!canAccessRecord(user, purchaseOrder.userId)) {
+    if (!(await canAccessRecord(user, purchaseOrder.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!existing) {
       return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 })
     }
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
@@ -79,7 +79,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!existing) {
       return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 })
     }
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 

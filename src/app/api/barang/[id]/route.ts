@@ -17,7 +17,7 @@ export async function PUT(
     const { nama, modal, jual, keterangan } = body
 
     const existing = await db.barang.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Barang tidak ditemukan' }, { status: 404 })
     }
 
@@ -58,7 +58,7 @@ export async function DELETE(
     const { id } = await params
 
     const existing = await db.barang.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Barang tidak ditemukan' }, { status: 404 })
     }
 

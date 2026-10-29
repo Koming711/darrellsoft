@@ -9,6 +9,7 @@ import { SubscriptionWaitingPopup } from './subscription-waiting-popup'
 import type { SubscriptionAccessInfo } from '@/lib/subscription'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
+import { setGrupInfo } from '@/lib/permissions'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
 import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
@@ -200,6 +201,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     permissions?: { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }
     securitySettings?: { auto_logout_min?: number; logout_warning_sec?: number }
     subscriptionAccess?: SubscriptionAccessInfo | null
+    grup?: { grupId: string; peran: string; status: string; izin: string[] } | null
   }) => {
     const authUser = getAuthUser()
     if (data.securitySettings) {
@@ -208,6 +210,11 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     }
     if (data.permissions && authUser?.role) {
       saveRolePermissions(authUser.role, data.permissions.features, data.permissions.subPermissions)
+      setPermVersion(v => v + 1)
+    }
+    // RBAC grup perusahaan: sinkronkan izin menu anggota/owner (poll 10 detik)
+    if (data.grup !== undefined) {
+      setGrupInfo(data.grup ? data.grup : null)
       setPermVersion(v => v + 1)
     }
     if (!data.valid) {

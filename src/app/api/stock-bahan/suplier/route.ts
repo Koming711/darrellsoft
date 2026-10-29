@@ -80,7 +80,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const existing = await db.suplier.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Supplier tidak ditemukan' }, { status: 404 })
     }
 
@@ -121,7 +121,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ error: 'ID supplier wajib diisi' }, { status: 400 })
 
     const existing = await db.suplier.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Supplier tidak ditemukan' }, { status: 404 })
     }
 

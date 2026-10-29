@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const record = await db.documentHistory.findUnique({ where: { id: historyId } })
-    if (!record || !canAccessRecord(user, record.userId)) {
+    if (!record || !(await canAccessRecord(user, record.userId))) {
       return NextResponse.json({ error: 'Purchase order tidak ditemukan' }, { status: 404 })
     }
     if (record.docType !== 'purchase-order') {

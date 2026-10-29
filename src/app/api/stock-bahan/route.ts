@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter, requireAuth, canAccessRecord } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, requireAuth, canAccessRecord , requireGroupMenu } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 import { composeKeterangan, splitKeterangan, nextNomorMutasi } from '@/lib/stock-bahan-server'
 
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
     if (authErr) return authErr
+
+    // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+    const menuErr = await requireGroupMenu(request, 'stock-bahan')
+    if (menuErr) return menuErr
     const user = getServerUser(request)!
     const body = await request.json()
     const { nama, kategori, satuan, ukuran, gramatur, stok, stokMin, hargaSatuan, keterangan, lokasi, pemasok, aktif, poRef } = body
@@ -138,7 +142,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const existing = await db.bahan.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
@@ -215,7 +219,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const existing = await db.bahan.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 

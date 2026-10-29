@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter } from '@/lib/server-auth'
+import { getServerUser, getDataFilter , requireGroupMenu } from '@/lib/server-auth'
 
 /**
  * GET /api/beranda — agregat data untuk halaman Beranda (/pembukaan).
@@ -33,6 +33,10 @@ import { getServerUser, getDataFilter } from '@/lib/server-auth'
 export async function GET(request: NextRequest) {
   try {
     const user = getServerUser(request)
+  // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+  const menuErr = await requireGroupMenu(request, 'pembukaan')
+  if (menuErr) return menuErr
+
     const dataFilter = await getDataFilter(user)
 
     const invFilter = { docType: 'invoice', deletedAt: null, ...dataFilter }

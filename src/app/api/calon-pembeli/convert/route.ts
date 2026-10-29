@@ -131,6 +131,26 @@ export async function POST(request: NextRequest) {
         await db.purchaseOrder.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
         await db.tokoPemasok.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
         await db.documentHistory.updateMany({ where: { userId: oldUserId }, data: { userId: newUserId } })
+        // GRUP PERUSAHAAN: pindahkan keanggotaan grup ke identitas Pengguna baru
+        // (owner yang masih CalonPembeli saat grup dibuat otomatis dari pembayaran)
+        const gm = await db.grupAnggota.findFirst({ where: { memberId: oldUserId }, select: { grupId: true } })
+        if (gm) {
+          await db.grupAnggota.updateMany({
+            where: { memberId: oldUserId },
+            data: { memberId: newUserId, tipeAnggota: 'pengguna' },
+          })
+          await db.grup.updateMany({ where: { id: gm.grupId, ownerUserId: oldUserId }, data: { ownerUserId: newUserId } })
+          await db.pengguna.updateMany({ where: { id: newUserId, grupId: null }, data: { grupId: gm.grupId } })
+          await db.auditLog.create({
+            data: {
+              grupId: gm.grupId,
+              aktorId: 'system',
+              aktorNama: 'system',
+              aksi: 'grup_owner_dikonversi',
+              detail: JSON.stringify({ dari: oldUserId, ke: newUserId }),
+            },
+          }).catch(() => {})
+        }
         console.log(`✅ Migrated data from CalonPembeli ${oldUserId} to Pengguna ${newUserId}`)
       } catch (migrateErr) {
         console.error('⚠️ Data migration error (non-fatal):', migrateErr)

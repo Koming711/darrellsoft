@@ -20,7 +20,7 @@ export async function GET(
     }
 
     // Check ownership
-    if (!canAccessRecord(user, entry.userId)) {
+    if (!(await canAccessRecord(user, entry.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     }
 
@@ -49,7 +49,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     }
 
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     }
 
@@ -102,7 +102,7 @@ export async function POST(
     if (!existing) {
       return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     }
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     }
     if (!existing.deletedAt) {
@@ -170,7 +170,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     }
 
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     }
 

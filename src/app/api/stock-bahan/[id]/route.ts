@@ -16,7 +16,7 @@ export async function GET(
     const user = getServerUser(request)
 
     const bahan = await db.bahan.findUnique({ where: { id } })
-    if (!bahan || !canAccessRecord(user, bahan.userId)) {
+    if (!bahan || !(await canAccessRecord(user, bahan.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
@@ -83,7 +83,7 @@ export async function DELETE(
 
     const { id } = await params
     const existing = await db.bahan.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const customer = await db.customer.findUnique({ where: { id: customerId } })
-    if (!customer || !canAccessRecord(user, customer.userId)) {
+    if (!customer || !(await canAccessRecord(user, customer.userId))) {
       return NextResponse.json({ error: 'Customer tidak ditemukan' }, { status: 404 })
     }
 
@@ -78,13 +78,13 @@ export async function PUT(request: NextRequest) {
     }
 
     const customer = await db.customer.findUnique({ where: { id: customerId } })
-    if (!customer || !canAccessRecord(user, customer.userId)) {
+    if (!customer || !(await canAccessRecord(user, customer.userId))) {
       return NextResponse.json({ error: 'Customer tidak ditemukan' }, { status: 404 })
     }
 
     for (const entry of entries) {
       const barang = await db.barang.findUnique({ where: { id: entry.barangId } })
-      if (!barang || !canAccessRecord(user, barang.userId)) continue
+      if (!barang || !(await canAccessRecord(user, barang.userId))) continue
 
       await db.barangCustomer.upsert({
         where: { barangId_customerId: { barangId: entry.barangId, customerId } },

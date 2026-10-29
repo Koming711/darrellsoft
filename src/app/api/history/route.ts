@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth';
+import { getServerUser, getDataFilter, requireAuth , requireGroupMenu } from '@/lib/server-auth';
 import { generateDocumentHistoryNumber, previewDocumentHistoryNumber } from '@/lib/doc-number';
 
 // Prefix mapping for doc types
@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     const user = getServerUser(req);
     const authErr = requireAuth(req);
     if (authErr) return authErr;
+
+    // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+    const menuErr = await requireGroupMenu(req, 'invoice')
+    if (menuErr) return menuErr
 
     const body = await req.json();
     const { docType, tanggal, pihakKedua, total, dataJson } = body;

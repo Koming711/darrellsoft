@@ -67,6 +67,17 @@ export function hasFeatureAccess(roleId: string, featureId: string): boolean {
   if (featureId === 'daftar-kategori') return true
   // Halaman langganan bersifat akun-level — selalu tersedia untuk semua user login.
   if (featureId === 'pilih-paket' || featureId === 'langganan-saya') return true
+  // Halaman grup milik akun sendiri — selalu tersedia (owner kelola, anggota lihat).
+  if (featureId === 'grup-saya') return true
+
+  // RBAC GRUP PERUSAHAAN: anggota grup (admin/staf) hanya dapat mengakses
+  // menu yang diizinkan Owner (izin disimpan di localStorage 'grup_info').
+  const grup = getGrupInfo()
+  if (grup && grup.peran !== 'owner') {
+    if (featureId === 'panel-admin') return false
+    return grup.izin.includes(featureId)
+  }
+
   return getFeaturePermissions(roleId)[featureId] || false
 }
 
@@ -94,6 +105,37 @@ export function saveRolePermissions(
   stored[roleId] = { features, subPermissions }
   setStoredPermissionData(stored)
   // Dispatch event so DashboardLayout can re-render sidebar immediately
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('permissions-updated'))
+  }
+}
+
+// ===== GRUP PERUSAHAAN (RBAC anggota grup) =====
+
+export interface GrupInfoKlien {
+  grupId: string
+  peran: string // owner | admin | staf
+  status: string
+  izin: string[]
+}
+
+export function getGrupInfo(): GrupInfoKlien | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('grup_info')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed.grupId === 'string' && Array.isArray(parsed.izin)) return parsed as GrupInfoKlien
+  } catch {}
+  return null
+}
+
+export function setGrupInfo(info: GrupInfoKlien | null): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (info) localStorage.setItem('grup_info', JSON.stringify(info))
+    else localStorage.removeItem('grup_info')
+  } catch {}
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('permissions-updated'))
   }
@@ -132,6 +174,7 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/administrasi') return 'pengguna' // default to first accessible admin feature
   if (pathname === '/pilih-paket') return 'pilih-paket'
   if (pathname === '/langganan-saya') return 'langganan-saya'
+  if (pathname === '/grup') return 'grup-saya'
   return null
 }
 
@@ -166,6 +209,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'pengaturan': '/administrasi/pengaturan',
     'pilih-paket': '/pilih-paket',
     'langganan-saya': '/langganan-saya',
+    'grup-saya': '/grup',
   }
   return map[featureId] || null
 }

@@ -589,6 +589,110 @@ export async function reviewPayment(
       data: { role: 'user', status: 'aktif' },
     }).catch(() => { /* bukan CalonPembeli — abaikan */ })
 
+    // ================================================================
+    // FITUR GRUP PERUSAHAAN (multi-akun satu langganan)
+    // Paket multi-akun (maxAccounts >= 2) → sistem otomatis menyiapkan
+    // satu grup perusahaan + akun pendaftar sebagai Owner. Owner dapat
+    // menambah anggota sebanyak (maxAccounts - 1). Idempoten: grup yang
+    // sudah ada hanya disinkronkan (paket & masa berlaku anggota).
+    // ================================================================
+    let grupAktivasi: { id: string; kode: string; nama: string; dibuat: boolean } | null = null
+    try {
+      if (plan && plan.maxAccounts >= 2) {
+        const pemilikPengguna = await tx.pengguna.findUnique({
+          where: { id: payment.userId },
+          select: { id: true, namaLengkap: true, grupId: true },
+        })
+        const namaOwner = pemilikPengguna?.namaLengkap
+          || (await tx.calonPembeli.findUnique({ where: { id: payment.userId }, select: { nama: true } }))?.nama
+          || 'Pemilik Grup'
+
+        const existingAnggota = await tx.grupAnggota.findFirst({
+          where: { memberId: payment.userId, status: { not: 'keluar' } },
+          include: { grup: { select: { id: true, kode: true, nama: true, planId: true } } },
+        })
+
+        if (existingAnggota) {
+          // Sudah punya grup → sinkronkan paket grup bila berubah (ganti paket)
+          if (existingAnggota.grup.planId !== invoice.planId) {
+            await tx.grup.update({
+              where: { id: existingAnggota.grup.id },
+              data: { planId: invoice.planId },
+            })
+          }
+          grupAktivasi = { id: existingAnggota.grup.id, kode: existingAnggota.grup.kode, nama: existingAnggota.grup.nama, dibuat: false }
+        } else {
+          // Buat grup baru + owner (kode unik GRP-00001 dst, aman terhadap race)
+          let grup: { id: string; kode: string; nama: string } | null = null
+          for (let attempt = 0; attempt < 5 && !grup; attempt++) {
+            const last = await tx.grup.findFirst({ orderBy: { kode: 'desc' }, select: { kode: true } })
+            const lastNum = last ? parseInt(last.kode.replace('GRP-', ''), 10) || 0 : 0
+            const kode = `GRP-${String(lastNum + 1 + attempt).padStart(5, '0')}`
+            try {
+              grup = await tx.grup.create({
+                data: {
+                  nama: namaOwner,
+                  kode,
+                  planId: invoice.planId,
+                  ownerUserId: payment.userId,
+                  status: 'aktif',
+                },
+              })
+            } catch {
+              // kode collision (race) — coba nomor berikutnya
+            }
+          }
+          if (grup) {
+            await tx.grupAnggota.create({
+              data: {
+                grupId: grup.id,
+                memberId: payment.userId,
+                tipeAnggota: pemilikPengguna ? 'pengguna' : 'calon',
+                peran: 'owner',
+                status: 'aktif',
+                izin: '[]',
+                namaLengkap: namaOwner,
+              },
+            })
+            if (pemilikPengguna && !pemilikPengguna.grupId) {
+              await tx.pengguna.update({ where: { id: pemilikPengguna.id }, data: { grupId: grup.id } })
+            }
+            grupAktivasi = { id: grup.id, kode: grup.kode, nama: grup.nama, dibuat: true }
+          }
+        }
+
+        if (grupAktivasi) {
+          // Seluruh anggota grup mengikuti masa berlaku langganan grup
+          const anggotaRows = await tx.grupAnggota.findMany({
+            where: { grupId: grupAktivasi.id, status: { not: 'keluar' } },
+            select: { memberId: true },
+          })
+          for (const m of anggotaRows) {
+            if (m.memberId !== payment.userId) {
+              await setAccessValidUntil(tx, m.memberId, graceEnd)
+            }
+          }
+          await tx.auditLog.create({
+            data: {
+              grupId: grupAktivasi.id,
+              aktorId: adminUsername,
+              aktorNama: adminUsername,
+              aksi: grupAktivasi.dibuat ? 'grup_dibuat' : 'grup_langganan_diperbarui',
+              detail: JSON.stringify({
+                planId: invoice.planId,
+                planName: invoice.planName,
+                maxAccounts: plan.maxAccounts,
+                endDate: newEnd.toISOString(),
+              }),
+            },
+          })
+        }
+      }
+    } catch (grupError) {
+      // Kegagalan aktivasi grup TIDAK boleh menggagalkan persetujuan pembayaran
+      console.error('reviewPayment group activation error:', grupError)
+    }
+
     await tx.notification.create({
       data: {
         userId: payment.userId,

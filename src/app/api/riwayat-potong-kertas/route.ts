@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, requireAuth , requireGroupMenu } from '@/lib/server-auth'
 import { generatePotongKertasNumber, previewPotongKertasNumber } from '@/lib/doc-number'
 import { validatePhotoDataUrl } from '@/lib/image-compress'
 
@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
     if (authErr) return authErr
+
+    // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+    const menuErr = await requireGroupMenu(request, 'potong-kertas')
+    if (menuErr) return menuErr
     const user = getServerUser(request)!
     const body = await request.json()
 

@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const hargaNum = Math.max(0, Number(hargaBeli) || 0)
 
     const bahan = await db.bahan.findUnique({ where: { id: String(bahanId) } })
-    if (!bahan || !canAccessRecord(user, bahan.userId)) {
+    if (!bahan || !(await canAccessRecord(user, bahan.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
@@ -119,7 +119,7 @@ export async function PUT(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'ID transaksi wajib diisi' }, { status: 400 })
     const existing = await db.bahanMasuk.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Transaksi tidak ditemukan' }, { status: 404 })
     }
 
@@ -165,7 +165,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ error: 'ID transaksi wajib diisi' }, { status: 400 })
 
     const existing = await db.bahanMasuk.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Transaksi tidak ditemukan' }, { status: 404 })
     }
 

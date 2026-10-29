@@ -97,7 +97,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const existing = await db.kategori.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Kategori tidak ditemukan' }, { status: 404 })
     }
 
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const existing = await db.kategori.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Kategori tidak ditemukan' }, { status: 404 })
     }
 

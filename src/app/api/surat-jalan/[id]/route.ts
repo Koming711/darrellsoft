@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Check ownership
-    if (!canAccessRecord(user, suratJalan.userId)) {
+    if (!(await canAccessRecord(user, suratJalan.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!existing) {
       return NextResponse.json({ error: 'Surat Jalan not found' }, { status: 404 })
     }
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 
@@ -74,7 +74,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!existing) {
       return NextResponse.json({ error: 'Surat Jalan not found' }, { status: 404 })
     }
-    if (!canAccessRecord(user, existing.userId)) {
+    if (!(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
     }
 

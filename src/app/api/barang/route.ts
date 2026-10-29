@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, requireAuth , requireGroupMenu } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 
 // Common company suffixes that must NOT be used for code initials
@@ -80,6 +80,10 @@ export async function POST(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
     if (authErr) return authErr
+
+    // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+    const menuErr = await requireGroupMenu(request, 'master-barang')
+    if (menuErr) return menuErr
     const user = getServerUser(request)!
     const body = await request.json()
     const { nama, modal, jual, keterangan, customerId, price } = body

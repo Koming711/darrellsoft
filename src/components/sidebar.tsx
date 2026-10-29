@@ -47,7 +47,7 @@ import {
   PiggyBank,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
-import { hasFeatureAccess } from '@/lib/permissions'
+import { hasFeatureAccess, getGrupInfo } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
@@ -145,6 +145,13 @@ const menuItems = [
     href: '/langganan-saya',
     icon: PackageCheck,
     featureId: 'langganan-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'grup_saya' as TranslationKey,
+    href: '/grup',
+    icon: Users,
+    featureId: 'grup-saya',
     section: 'langganan',
   },
   {
@@ -326,7 +333,10 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
   // Determine which menu items are accessible:
   // - hak-akses & pengguna: HIDDEN if not allowed (not shown at all)
   // - other features: show with PRO badge if not allowed (visible but locked)
+  // - ANGGOTA GRUP (RBAC Owner): menu yang tidak diizinkan Owner DISEMBUNYIKAN
   const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
+  const grupInfo = getGrupInfo()
+  const isAnggotaGrup = !!grupInfo && grupInfo.peran !== 'owner'
   const menuWithAccess = menuItems
     .map(item => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }
@@ -334,6 +344,12 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
       return { ...item, isPro: !accessible }
     })
     .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
+    .filter(item => {
+      if (!isAnggotaGrup) return true
+      // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun
+      if (['grup-saya', 'langganan-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
+      return grupInfo!.izin.includes(item.featureId)
+    })
 
   return (
     <>
@@ -469,15 +485,23 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // Bottom nav items — show all, but mark locked ones with PRO badge.
   // Locked items appear in the bar (visible) but clicking shows a toast instead of navigating.
   // This mirrors the desktop sidebar & "Lainnya" popup behavior so PRO features are discoverable.
-  const visibleItems = bottomNavItems.map(item => {
-    if (!role || role === 'superadmin') return { ...item, isPro: false }
-    const accessible = hasFeatureAccess(role, item.featureId)
-    return { ...item, isPro: !accessible }
-  })
+  // ANGGOTA GRUP (RBAC Owner): menu yang tidak diizinkan DISEMBUNYIKAN dari bottom bar.
+  const grupInfoNav = getGrupInfo()
+  const isAnggotaNav = !!grupInfoNav && grupInfoNav.peran !== 'owner'
+  const bolehGrupNav = (featureId: string) =>
+    ['grup-saya', 'langganan-saya', 'pilih-paket', 'pengaturan'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
+  const visibleItems = bottomNavItems
+    .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
+    .map(item => {
+      if (!role || role === 'superadmin') return { ...item, isPro: false }
+      const accessible = hasFeatureAccess(role, item.featureId)
+      return { ...item, isPro: !accessible }
+    })
 
   // All menu items for the "Lainnya" popup — mirror desktop sidebar behavior:
   // - hak-akses & pengguna: HIDDEN if not allowed
   // - other features: show with PRO badge if not allowed (visible but locked)
+  // - anggota grup: menu yang tidak diizinkan Owner disembunyikan
   const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
   const allMenuItems = menuItems
     .map(item => {
@@ -486,6 +510,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
       return { ...item, isPro: !accessible }
     })
     .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
+    .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
 
   // Check if current page is one of the bottom nav items
   const isOnBottomNavPage = visibleItems.some(item => isActive(item.href))

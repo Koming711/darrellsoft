@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     const bahan = await db.bahan.findUnique({ where: { id: bahanId } })
-    if (!bahan || !canAccessRecord(user, bahan.userId)) {
+    if (!bahan || !(await canAccessRecord(user, bahan.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 
@@ -232,7 +232,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const mutasi = await db.bahanMutasi.findUnique({ where: { id: String(id) } })
-    if (!mutasi || !canAccessRecord(user, mutasi.userId)) {
+    if (!mutasi || !(await canAccessRecord(user, mutasi.userId))) {
       return NextResponse.json({ error: 'Transaksi tidak ditemukan' }, { status: 404 })
     }
     if (mutasi.jenis !== 'masuk' && mutasi.jenis !== 'keluar') {
@@ -250,7 +250,7 @@ export async function PUT(request: NextRequest) {
 
     const bahanLama = await db.bahan.findUnique({ where: { id: mutasi.bahanId } })
     const bahanBaru = newBahanId === mutasi.bahanId ? bahanLama : await db.bahan.findUnique({ where: { id: newBahanId } })
-    if (!bahanLama || !bahanBaru || !canAccessRecord(user, bahanBaru.userId)) {
+    if (!bahanLama || !bahanBaru || !(await canAccessRecord(user, bahanBaru.userId))) {
       return NextResponse.json({ error: 'Bahan tidak ditemukan' }, { status: 404 })
     }
 

@@ -19,13 +19,26 @@ import { db } from '@/lib/db'
  * NOMOR KONTINU: sengaja TANPA periode (YYMM) — sequence berlanjut terus
  * walaupun bulan/tahun berubah. MM/YY pada nomor dokumen tetap mengikuti
  * tanggal pembuatan dokumen.
+ *
+ * GRUP PERUSAHAAN: bila dataFilter cakupan grup (userId: { in: [...] }),
+ * counter memakai satu key bersama "grup|id1,id2,..." — owner & anggota
+ * memakai urutan nomor dokumen perusahaan yang sama (tidak dobel).
  */
+function resolveFilterUserId(dataFilter: Record<string, any>): string {
+  const raw = (dataFilter as any)?.userId
+  if (typeof raw === 'string') return raw
+  if (raw && typeof raw === 'object' && Array.isArray(raw.in)) {
+    return 'grup|' + [...raw.in].sort().join(',')
+  }
+  return 'global'
+}
+
 function buildCounterKey(
   context: string,
   prefix: string,
   dataFilter: Record<string, any>
 ): string {
-  const userId = (dataFilter.userId as string) || 'global'
+  const userId = resolveFilterUserId(dataFilter)
   return `${context}|${prefix}|${userId}`
 }
 
@@ -40,7 +53,7 @@ async function legacyCounterMax(
   prefix: string,
   dataFilter: Record<string, any>
 ): Promise<number> {
-  const userId = (dataFilter.userId as string) || 'global'
+  const userId = resolveFilterUserId(dataFilter)
   try {
     const rows = await db.documentCounter.findMany({
       where: { key: { startsWith: `${context}|${prefix}|` } },

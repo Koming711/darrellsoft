@@ -10,6 +10,8 @@ export interface User {
   name?: string
   role?: string
   sessionId?: string
+  /** Info grup perusahaan (owner/anggota) — ikut disimpan ke grup_info. */
+  grup?: { grupId: string; peran: string; status: string; izin: string[] } | null
 }
 
 // Custom event name dispatched whenever localStorage 'auth' changes.
@@ -42,12 +44,26 @@ export function getAuthUser(): User | null {
 export function setAuthUser(user: User): void {
   if (typeof window === 'undefined') return
   localStorage.setItem('auth', JSON.stringify(user))
+  // Info grup perusahaan (RBAC menu anggota grup) — sinkron dgn cache klien
+  try {
+    if (user.grup) {
+      localStorage.setItem('grup_info', JSON.stringify(user.grup))
+    }
+  } catch {
+    // ignore
+  }
   notifyAuthChange()
 }
 
 export function clearAuthUser(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem('auth')
+  // Hapus juga cache RBAC grup perusahaan
+  try {
+    localStorage.removeItem('grup_info')
+  } catch {
+    // ignore
+  }
   // Logout manual harus menghapus JUGA cookie sesi (userId, userRole) yang
   // di-set oleh API login. Tanpa ini server masih menganggap browser login
   // dan pengguna bisa "ter-logged in" kembali secara tidak sengaja.

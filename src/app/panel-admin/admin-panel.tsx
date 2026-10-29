@@ -39,6 +39,7 @@ import { LaporanAuditContent } from './laporan-audit/content'
 import { PenggunaContent } from '@/app/administrasi/pengguna/page'
 import { HakAksesContent } from '@/app/administrasi/hak-akses/page'
 import { PengaturanAkunContent } from './pengaturan/content'
+import { ManajemenGrupContent } from './grup/content'
 
 interface SectionDef {
   title: string
@@ -78,6 +79,10 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
   transaksi: {
     title: 'Transaksi',
     desc: 'Riwayat pembayaran langganan semua pelanggan.',
+  },
+  grup: {
+    title: 'Manajemen Grup',
+    desc: 'Seluruh grup perusahaan: owner, anggota, kuota, dan status langganan.',
   },
   laporan: {
     title: 'Laporan',
@@ -143,6 +148,8 @@ function AdminPanelInner() {
         return <PengaturanPembayaranContent />
       case 'transaksi':
         return <RiwayatTransaksiContent />
+      case 'grup':
+        return <ManajemenGrupContent />
       case 'laporan':
         return (
           <>

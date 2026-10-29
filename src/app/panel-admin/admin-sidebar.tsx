@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   ExternalLink,
   X,
+  Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
@@ -30,6 +31,7 @@ export type AdminTab =
   | 'pembayaran'
   | 'pengaturan'
   | 'transaksi'
+  | 'grup'
   | 'laporan'
   | 'sistem'
 
@@ -40,6 +42,7 @@ const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ cl
   { tab: 'pelanggan', label: 'Pengguna', icon: Users },
   { tab: 'paket', label: 'Paket', icon: Crown },
   { tab: 'pembayaran', label: 'Pendaftar Baru', icon: UserPlus },
+  { tab: 'grup', label: 'Manajemen Grup', icon: Building2 },
   { tab: 'pengaturan', label: 'Pengaturan', icon: Settings },
   { tab: 'transaksi', label: 'Transaksi', icon: Receipt },
   { tab: 'laporan', label: 'Laporan', icon: FileText },

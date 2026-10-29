@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const existing = await db.stockSupplier.findUnique({ where: { id } })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Supplier tidak ditemukan' }, { status: 404 })
     }
 
@@ -127,7 +127,7 @@ export async function DELETE(request: NextRequest) {
       where: { id },
       include: { _count: { select: { stockIns: true } } },
     })
-    if (!existing || !canAccessRecord(user, existing.userId)) {
+    if (!existing || !(await canAccessRecord(user, existing.userId))) {
       return NextResponse.json({ error: 'Supplier tidak ditemukan' }, { status: 404 })
     }
 

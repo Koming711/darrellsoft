@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, requireAuth, getDataFilter } from '@/lib/server-auth'
+import { getServerUser, requireAuth, getDataFilter , requireGroupMenu } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 
 /**
@@ -52,6 +52,10 @@ export async function GET(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
     if (authErr) return authErr
+
+    // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+    const menuErr = await requireGroupMenu(request, 'laporan')
+    if (menuErr) return menuErr
     const user = getServerUser(request)!
     const dataFilter = await getDataFilter(user)
 

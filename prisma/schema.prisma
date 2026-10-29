@@ -21,8 +21,57 @@ model User {
 model Grup {
   id        String     @id @default(cuid())
   nama      String
+  kode      String     @unique @default("GRP-00000") // ID grup unik GRP-00001 dst (diisi saat aktivasi)
+  planId    String? // paket langganan yang menentukan kuota akun
+  plan      SubscriptionPlan? @relation("GrupPlan", fields: [planId], references: [id])
+  ownerUserId String? // memberId (Pengguna.id | CalonPembeli.id) pemilik grup
+  status    String     @default("aktif") // aktif | dinonaktifkan (oleh superadmin)
+  suspendReason String @default("")
   createdAt DateTime   @default(now())
-  pengguna  Pengguna[]
+  updatedAt DateTime   @updatedAt
+
+  anggota  GrupAnggota[]
+  pengguna Pengguna[]
+  auditLogs AuditLog[]
+
+  @@index([ownerUserId])
+  @@index([planId])
+}
+
+// Keanggotaan grup perusahaan: pemilik (owner) + anggota tambahan.
+// memberId = identitas login & data (Pengguna.id ATAU CalonPembeli.id —
+// akun hasil checkout yang belum dikonversi tetap bisa menjadi owner).
+model GrupAnggota {
+  id          String   @id @default(cuid())
+  grupId      String
+  grup        Grup     @relation(fields: [grupId], references: [id], onDelete: Cascade)
+  memberId    String   @unique // satu akun hanya boleh anggota satu grup
+  tipeAnggota String   @default("pengguna") // pengguna | calon
+  peran       String   @default("staf") // owner | admin | staf
+  status      String   @default("aktif") // aktif | nonaktif | keluar (dikeluarkan)
+  izin        String   @default("[]") // JSON array featureId menu yang diizinkan Owner
+  namaLengkap String   @default("") // snapshot nama saat ditambahkan
+  tanggalGabung DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([grupId])
+}
+
+// Catatan aktivitas penting grup (tambah/edit/keluarkan anggota, reset sandi,
+// aktifasi/nonaktif oleh superadmin, perubahan langganan grup).
+model AuditLog {
+  id        String   @id @default(cuid())
+  grupId    String?
+  grup      Grup?    @relation(fields: [grupId], references: [id], onDelete: SetNull)
+  aktorId   String   @default("") // id pengguna atau username admin
+  aktorNama String   @default("")
+  aksi      String
+  detail    String   @default("{}") // JSON
+  createdAt DateTime @default(now())
+
+  @@index([grupId])
+  @@index([createdAt])
 }
 
 model Pengguna {
@@ -38,6 +87,8 @@ model Pengguna {
   createdAt    DateTime       @default(now())
   validUntil   DateTime?
   calonPembeli CalonPembeli[]
+
+  @@index([grupId])
 }
 
 model Post {
@@ -649,6 +700,7 @@ model SubscriptionPlan {
 
   invoices  SubscriptionInvoice[]
   subscriptions CustomerSubscription[]
+  grupPlan  Grup[] @relation("GrupPlan")
 }
 
 // Langganan milik satu pelanggan (get-or-create on demand).

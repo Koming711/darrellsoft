@@ -67,6 +67,34 @@ export async function POST(request: NextRequest) {
           }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
         }
       }
+
+      // 4. GRUP PERUSAHAAN: anggota nonaktif / grup dinonaktifkan → sesi tidak valid
+      if (pengguna?.id) {
+        const grupMember = await db.grupAnggota.findFirst({
+          where: { memberId: pengguna.id, status: { not: 'keluar' } },
+          select: { status: true, grupId: true, peran: true, izin: true, grup: { select: { status: true } } },
+        })
+        if (grupMember) {
+          if (grupMember.status === 'nonaktif') {
+            return NextResponse.json({
+              valid: false,
+              expired: true,
+              warningMessage: 'Akun Anda dinonaktifkan oleh Owner grup.',
+              permissions: { features: {}, subPermissions: {} },
+              securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+            }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+          }
+          if (grupMember.grup.status === 'dinonaktifkan') {
+            return NextResponse.json({
+              valid: false,
+              expired: true,
+              warningMessage: 'Grup perusahaan dinonaktifkan. Hubungi admin Darrellsoft.',
+              permissions: { features: {}, subPermissions: {} },
+              securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+            }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+          }
+        }
+      }
     }
 
     // === LOAD LATEST PERMISSIONS FROM DATABASE ===
@@ -133,10 +161,33 @@ export async function POST(request: NextRequest) {
     }
 
     const cacheHeaders = { 'Cache-Control': 'no-store, max-age=0' }
+
+    // ===== Info grup perusahaan (RBAC menu klien — sinkron tiap poll) =====
+    let grup: { grupId: string; peran: string; status: string; izin: string[] } | null = null
+    try {
+      const pu = await db.pengguna.findUnique({ where: { username }, select: { id: true } })
+      const memberId = pu?.id || getServerUser(request)?.id || ''
+      if (memberId) {
+        const gm = await db.grupAnggota.findFirst({
+          where: { memberId, status: { not: 'keluar' } },
+          select: { grupId: true, peran: true, status: true, izin: true },
+        })
+        if (gm) {
+          let izin: string[] = []
+          try {
+            const parsed = JSON.parse(gm.izin || '[]')
+            if (Array.isArray(parsed)) izin = parsed.filter((x: unknown) => typeof x === 'string')
+          } catch {}
+          grup = { grupId: gm.grupId, peran: gm.peran, status: gm.status, izin }
+        }
+      }
+    } catch {}
+
     const responseBase = {
       valid: true as const,
       permissions,
       securitySettings,
+      grup,
       ...(subscriptionAccess ? { subscriptionAccess } : {}),
     }
 

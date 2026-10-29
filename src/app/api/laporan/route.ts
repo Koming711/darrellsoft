@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
+import { getServerUser, getDataFilter, requireAuth , requireGroupMenu } from '@/lib/server-auth'
 
 /**
  * GET /api/laporan?periode=all|hari_ini|minggu_ini|bulan_ini|tahun_ini
@@ -78,6 +78,10 @@ function computePOGrandTotal(parsed: POParsed | null): number {
 export async function GET(request: NextRequest) {
   const authErr = requireAuth(request)
   if (authErr) return authErr
+
+  // RBAC grup: anggota grup hanya boleh mengakses menu yang diizinkan Owner
+  const menuErr = await requireGroupMenu(request, 'laporan')
+  if (menuErr) return menuErr
 
   const user = getServerUser(request)
 
