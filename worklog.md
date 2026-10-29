@@ -15433,3 +15433,24 @@ Stage Summary:
 - Badge role di header Beranda untuk akun role `user` kini bertuliskan "User" (sebelumnya "Kasir").
 - Perubahan 1 baris, tidak menyentuh logika permission (akses menu tetap berdasarkan role asli `user`).
 - **Belum deploy** — menunggu instruksi deploy dari user.
+---
+Task ID: replace-workspace-tar-001-003
+Agent: Z.ai Code (main)
+Task: "extract file ini. ganti semua conten dengan file ini." (upload workspace-78453881-...tar.001/.002/.003)
+
+Work Log:
+- 3 file split archive (52428800+52428800+37667055 byte) digabung: cat .001 .002 .003 > /tmp/ws8.tar.gz (gzip OK, ~160MB uncompressed, 1576 entri incl. .git).
+- PRA-REPLACE: dev server dihentikan; backup aman ke /tmp/backup-pre-replace8/ (git lengkap 110M, worklog.md, db/custom.db, beranda-content.tsx, subscription-stats/route.ts, sidebar.tsx, sidebar-desktop.tsx, i18n.ts).
+- ROOT dibersihkan KECUALI: node_modules/ (arsip tidak memuatnya — bun.lock identik), upload/, dev.log, tool-results/. Lalu seluruh isi arsip disalin masuk (cp -a /tmp/ws8-new/.).
+- HASIL: repo kini di garis history arsip — HEAD 07bf460 (line: d8c00d9 "ganti label role Kasir -> User", 1328334 verifikasi tabel ringkas, d92361c tab filter Pengguna, fac78c3 Pengaturan ke sidebar, d94a938 redesign halaman Pengguna, seed 17 pengguna), working tree BERSIH; .env/DATABASE_URL, package.json (78 deps), bun.lock, prisma/schema.prisma, Caddyfile SEMUA identik dgn baseline lama.
+- bun install: "no changes (1003 installs)" — node_modules lama tetap kompatibel. Dev server restart: / 200, /pembukaan 200, /invoice 200, /panel-admin 200.
+- VERIFIKASI BROWSER (cookie user-admin; desktop 1280 + mobile 390, hanya-baca): landing login OK; beranda dgn data baru (16 invoice, SUB-2610-0ZGT dst); /invoice tab tampil; panel-admin beranda OK; tanpa scroll horizontal; console 0 error; dev.log bersih.
+- DELTA DIKETAHUI (isi arsip TIDAK memuat 2 fitur yang dibuat di chat ini sesudah snapshot arsip):
+  1) rename sidebar "Biaya Produksi"→"Hitung Produksi" + reorder section (Dokumen→Master Cetak→Laporan) + Panel Admin→Administrasi (i18n.ts arsip masih "Biaya Produksi");
+  2) field "akun" di kotak "Pembayaran Terakhir Disetujui" panel-admin (beranda-content.tsx arsip versi lama).
+  Keduanya masih ada di backup /tmp/backup-pre-replace8/ dan bisa di-apply ulang bila diminta.
+- TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Seluruh konten workspace kini = isi upload tar.001-.003 (HEAD 07bf460, tree bersih); aplikasi jalan normal dengan data & kode versi terbaru milik workspace tsb.
+- Runtime files dipertahankan: node_modules, upload/, dev.log. Deployment menunggu instruksi user.
