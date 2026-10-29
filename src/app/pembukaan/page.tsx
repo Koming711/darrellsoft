@@ -27,6 +27,7 @@ import {
   Inbox,
   HandCoins,
   Coins,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -96,6 +97,19 @@ interface BerandaData {
   dueSoon: BerandaDueSoonItem[]
   /** Daftar piutang: SEMUA invoice belum lunas (sisa pembayaran / DP) */
   piutang?: BerandaPiutangItem[]
+  /** Ringkasan grup perusahaan (owner & anggota grup) — null bila tanpa grup */
+  grupRingkas?: {
+    id: string
+    kode: string
+    nama: string
+    peran: string
+    paket: string
+    kuotaAkun: number
+    terpakai: number
+    sisa: number
+    langgananStatus: string
+    endDate: string | null
+  } | null
 }
 
 /** Item daftar piutang (sisa pembayaran yang belum dibayar) — sesuai respons API */
@@ -402,6 +416,73 @@ export default function PembukaanPage() {
             </Card>
           </button>
         </div>
+
+        {/* ===== Grup Perusahaan (owner & anggota grup) =====
+            Dashboard grup ringkas: nama, kode, paket, kuota akun,
+            status langganan, dan tombol ke manajemen grup. */}
+        {s?.grupRingkas && (
+          <Card className="p-0 gap-0 dark:border-zinc-800" data-testid="kotak-grup-beranda">
+            <CardContent className="p-4 md:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/40">
+                    <Building2 className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-bold text-stone-900 dark:text-zinc-100">{s.grupRingkas.nama}</p>
+                      <Badge variant="outline" className="text-[10px]">{s.grupRingkas.kode}</Badge>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      Grup Perusahaan · {s.grupRingkas.paket} · Akun {s.grupRingkas.terpakai}/{s.grupRingkas.kuotaAkun}
+                      {s.grupRingkas.sisa > 0 ? ` (sisa ${s.grupRingkas.sisa})` : ' (penuh)'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <Badge
+                      className={
+                        s.grupRingkas.langgananStatus === 'aktif'
+                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300'
+                          : s.grupRingkas.langgananStatus === 'akan_berakhir'
+                            ? 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300'
+                            : 'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/40 dark:text-red-300'
+                      }
+                    >
+                      {s.grupRingkas.langgananStatus === 'aktif'
+                        ? 'Langganan Aktif'
+                        : s.grupRingkas.langgananStatus === 'akan_berakhir'
+                          ? 'Akan Berakhir'
+                          : s.grupRingkas.langgananStatus === 'kedaluwarsa'
+                            ? 'Kedaluwarsa'
+                            : s.grupRingkas.langgananStatus}
+                    </Badge>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {s.grupRingkas.endDate ? `s/d ${formatTanggalID(s.grupRingkas.endDate)}` : '-'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px]"
+                    onClick={() => navigate('/grup')}
+                    data-testid="tombol-kelola-grup"
+                  >
+                    {s.grupRingkas.peran === 'owner' ? (
+                      <>
+                        <Building2 className="mr-1.5 h-4 w-4" /> Kelola Grup
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="mr-1.5 h-4 w-4" /> Lihat Grup
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ===== Grafik + Status ===== */}
         <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-5">

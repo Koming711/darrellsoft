@@ -391,6 +391,46 @@ export async function GET(request: NextRequest) {
         }
       })
 
+    // ===== Ringkasan grup perusahaan (Dashboard Grup di beranda) =====
+    // Owner & anggota grup melihat kotak ringkas: nama, kode, paket, kuota,
+    // pemakaian akun, status langganan. User tanpa grup → null (kotak tak tampil).
+    let grupRingkas: {
+      id: string; kode: string; nama: string; peran: string
+      paket: string; kuotaAkun: number; terpakai: number; sisa: number
+      langgananStatus: string; endDate: string | null
+    } | null = null
+    if (user?.id) {
+      try {
+        const anggota = await db.grupAnggota.findFirst({
+          where: { memberId: user.id, status: { not: 'keluar' } },
+          include: { grup: { include: { plan: { select: { name: true, maxAccounts: true } } } } },
+        })
+        if (anggota) {
+          const g = anggota.grup
+          const terpakai = await db.grupAnggota.count({ where: { grupId: g.id, status: { not: 'keluar' } } })
+          let kuota = g.plan?.maxAccounts ?? 0
+          let paketNama = g.plan?.name ?? '-'
+          const subOwner0 = g.ownerUserId
+            ? await db.customerSubscription.findUnique({
+                where: { userId: g.ownerUserId },
+                select: { status: true, endDate: true, plan: { select: { name: true, maxAccounts: true } } },
+              })
+            : null
+          if (subOwner0?.plan) { kuota = subOwner0.plan.maxAccounts; paketNama = subOwner0.plan.name }
+          if (!kuota) kuota = 1
+          grupRingkas = {
+            id: g.id, kode: g.kode, nama: g.nama, peran: anggota.peran,
+            paket: paketNama, kuotaAkun: kuota, terpakai,
+            sisa: Math.max(0, kuota - terpakai),
+            langgananStatus: subOwner0?.status ?? 'belum_aktif',
+            endDate: subOwner0?.endDate?.toISOString() ?? null,
+          }
+        }
+      } catch (e) {
+        console.error('beranda grupRingkas error:', e)
+      }
+    }
+
     return NextResponse.json(
       {
         // Sapaan beranda memakai NAMA ASLI (bukan username / "demo"):
@@ -421,6 +461,7 @@ export async function GET(request: NextRequest) {
         ops: { sjCount, poCount },
         dueSoon,
         piutang,
+        grupRingkas,
       },
       { headers: { 'Cache-Control': 'no-store' } }
     )
