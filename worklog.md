@@ -15454,3 +15454,35 @@ Work Log:
 Stage Summary:
 - Seluruh konten workspace kini = isi upload tar.001-.003 (HEAD 07bf460, tree bersih); aplikasi jalan normal dengan data & kode versi terbaru milik workspace tsb.
 - Runtime files dipertahankan: node_modules, upload/, dev.log. Deployment menunggu instruksi user.
+---
+Task ID: fitur-grup-multi-akun
+Agent: Z.ai Code (main)
+Task: "PROMPT DARRELLSOFT — PAKET 3 AKUN DENGAN SISTEM GRUP" (manajemen grup & multi-akun end-to-end)
+
+Work Log:
+- SKEMA (db push additive, tanpa kehilangan data): Grup +kode@unique (GRP-00001 dst) +planId +ownerUserId +status(aktif|dinonaktifkan) +suspendReason; model baru GrupAnggota (memberId@unique = Pengguna.id | CalonPembeli.id, tipeAnggota, peran owner|admin|staf, status aktif|nonaktif|keluar, izin JSON array, tanggalGabung); model baru AuditLog (grupId, aktor, aksi, detail JSON); index Pengguna.grupId; relasi GrupPlan ke SubscriptionPlan.
+- DATA BERSAMA (inti): getDataFilter (server-auth) kini sadar grup — user dalam grup → where userId IN (semua memberId grup, termasuk yang keluar agar datanya tetap terlihat); 49 route/111 titik otomatis berbagi data perusahaan tanpa duplikasi DB. canAccessRecord → async sadar grup (43 titik di 17 file). Tanpa grup = perilaku lama 100%.
+- NOMOR DOKUMEN: doc-number counter key "grup|id1,id2" saat cakupan grup → INV/PEL/PO/SJ/PK/HC/GB satu urutan berikutnya per perusahaan (tidak dobel antar anggota).
+- AKTIVASI OTOMATIS (hook reviewPayment approve, dalam transaksi): plan.maxAccounts>=2 → find-or-create grup + anggota owner (idempoten; ganti paket sinkron planId); validUntil seluruh anggota diset graceEnd (ikut masa tenggang langganan grup); audit grup_dibuat/grup_langganan_diperbarui. Konversi CalonPembeli→Pengguna ikut memindahkan keanggotaan/owner (grup_owner_dikonversi).
+- API GRUP: GET/PATCH /api/grup (info grup+kuota+langganan+anggota+izin saya; PATCH nama perusahaan owner-only; tanpa grup → daftarPaketMultiAkun utk upsell). POST /api/grup/anggota (owner-only; kuota dihitung ulang DALAM transaksi anti-race; buat Pengguna(bcrypt)+Pembeli(wajib aturan login)+GrupAnggota; sandi acak tampil SEKALI). PATCH/DELETE /api/grup/anggota/[id] (edit nama/hp/email/peran/status/izin; nonaktif≠keluar; keluar → status keluar + hapus akun login, data perusahaan TETAP di cakupan grup; owner-row tak bisa diubah/dikeluarkan). POST .../reset-sandi (hash bcrypt, sandi dikembalikan sekali, tak pernah di audit).
+- API SUPERADMIN: GET /api/panel-admin/grup (semua grup + owner + kuota/terpakai + status langganan owner + anggota), PATCH /[id] (aktif/nonaktif + alasan wajib + notifikasi owner), GET /[id]/audit (100 terakhir).
+- BLOKIR AKSES: login & verify-session menolak anggota nonaktif ("dinonaktifkan oleh Owner") & grup dinonaktifkan ("hubungi admin Darrellsoft"); requireGroupMenu guard di 12 route data utama (beranda, dashboard, customers, barang, history, biaya, riwayat-potong-kertas, riwayat-cetakan, stock-bahan, laporan×3) — anggota tanpa izin menu → 403; owner/admin sistem/akun tanpa grup lolos.
+- RBAC KLIEN: login & verify-session mengirim {grupId, peran, status, izin}; disimpan ke localStorage grup_info (auth.ts set/clear); permissions.hasFeatureAccess override utk anggota grup; sidebar desktop + mobile + drawer Lainnya + bottom-nav menyembunyikan menu tanpa izin (kecuali grup-saya/langganan-saya/pilih-paket/pengaturan); dashboard-layout applyVerifyData menyinkron tiap poll 10 detik.
+- UI /grup: header (nama+kode+status, owner), 4 kotak (grup/paket/terpakai-progress/langganan), tab pill Ringkasan|Data Perusahaan|Anggota Grup|Langganan; tabel anggota desktop + kartu mobile dengan pencarian, filter status, pagination; dialog tambah (nama/username/hp/email/peran/izin checkbox), edit, reset sandi (tampil sekali + salin), AlertDialog nonaktifkan & keluarkan; pesan kuota penuh persis sesuai prompt; toast sukses/gagal; upsell paket multi-akun utk user tanpa grup. Menu sidebar 'Grup Saya' (section LANGGANAN) + i18n id/en.
+- UI PANEL ADMIN: tab 'Manajemen Grup' (sidebar + SECTIONS + content) — tabel desktop/kartu mobile (grup, owner, paket, terpakai/kuota, langganan, status), pencarian, dialog detail (anggota + riwayat aktivitas berlabel Indonesia), nonaktifkan w/ AlertDialog + alasan, aktifkan.
+- VERIFIKASI E2E GOLDEN PATH (curl + agent-browser; akun uji ownertest dibuat lalu dibersihkan bersih setelahnya):
+  a) Invoice Pro dibayar → approve via /api/panel-admin/payments/review → GRP-00001 OTOMATIS (owner, Pro, kuota 3, langganan aktif s/d 28 Nov) ✓
+  b) Tambah staf1 (izin master-customer+invoice) + staf2 → 3/3; anggota ke-3 → 403 "Kuota akun Anda sudah penuh..." (transaksi anti-race) ✓
+  c) Login staf1 (form asli) → payload.grup terisi; localStorage grup_info tersinkron ✓
+  d) RBAC: GET /api/beranda (tanpa izin) → 403; /api/customers (berizin) → 200; sidebar staf hanya menampilkan menu berizin + halaman akun; /master-customer terbuka; /pembukaan → layar "Fitur Belum Tersedia" ✓
+  e) DATA BERSAMA dua arah: staf1 melihat customer milik owner; customer buatan staf1 terlihat oleh owner ✓
+  f) Reset sandi (API + UI dialog) → login sandi baru sukses ✓
+  g) Superadmin nonaktifkan grup (alasan) → login staf1 403 "Grup perusahaan dinonaktifkan"; aktifkan → login sukses; audit lengkap (grup_dibuat, anggota_ditambahkan ×2, sandi_direset, dinonaktifkan, diaktifkan) ✓
+  h) UI: /grup owner desktop+mobile 390 (tanpa scroll horizontal, read-only utk anggota, tombol Tambah toast kuota penuh), panel-admin tab Manajemen Grup + detail + audit ✓; lint 40+ file bersih; tsc bersih utk file baru (error tersisa pre-existing di backups/duplikat root).
+- CATATAN DATA: akun uji (ownertest, staf1, staf2, grup, invoice/tagihan uji) dihapus bersih setelah verifikasi; agus.wijaya sempat terhapus oleh aturan lama "ghost account" (akun role user tanpa link Pembeli/CalonPembeli di DB upload — arsip terbukti 0 Pembeli; aturan pre-existing, bukan efek fitur baru) → dipulihkan verbatim dari DB arsip.
+- PAKET AKTIF DI DB USER: Trial 1 akun, Basic 2, Pro 3, Premium 5 (nilai milik user; Pro = paket 3 akun). Kuota diambil dari SubscriptionPlan.maxAccounts.
+- TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Fitur Manajemen Grup & Multi-Akun live end-to-end: pembayaran paket multi-akun disetujui → grup perusahaan otomatis (Owner + kuota anggota); semua akun berbagi satu data perusahaan (invoice, pembayaran, customer, stok, laporan) dengan hak akses per-menu yang diatur Owner; kuota anti-race; kelola anggota lengkap (tambah/edit/nonaktif/keluarkan/reset sandi); superadmin memantau & menonaktifkan grup dengan audit; kedaluwarsa langganan grup memblokir semua anggota tanpa menghapus data.
+- 54 file diubah (commit 328ef5b). Deployment menunggu instruksi user.
