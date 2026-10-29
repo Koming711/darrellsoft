@@ -4,6 +4,9 @@
 // Tab: Menunggu Verifikasi | Disetujui | Ditolak.
 // Setujui → langganan aktif/otomatis diperpanjang (IDEMPOTEN — persetujuan ganda
 // tidak menambah masa aktif dua kali). Tolak → wajib isi alasan.
+// Daftar (permintaan user): DESKTOP = tabel ringkas (pola halaman Pengguna —
+// pelanggan, invoice, paket, tagihan, metode, diajukan, status, aksi),
+// MOBILE = kartu ringkas yang sudah ada (sentuhan, klik aksi eksplisit).
 
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -42,6 +45,15 @@ import {
 const rupiah = (n: number) => `Rp ${Math.round(n ?? 0).toLocaleString('id-ID')}`
 const fmtDateTime = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
+
+/** Inisial avatar — 2 kata pertama (pola halaman Pengguna). */
+const initials = (name: string) =>
+  (name || '?')
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
 
 interface PaymentRow {
   id: string
@@ -210,6 +222,8 @@ export function VerifikasiPembayaranContent() {
         </Card>
       ) : (
         <div className="space-y-3">
+          {/* ===== MOBILE: kartu ringkas — sentuh, aksi eksplisit ===== */}
+          <div className="space-y-3 sm:hidden">
           {rows.map((p) => (
             <Card key={p.id} className="rounded-2xl">
               <CardContent className="p-4">
@@ -298,6 +312,142 @@ export function VerifikasiPembayaranContent() {
               </CardContent>
             </Card>
           ))}
+          </div>
+
+          {/* ===== DESKTOP: tabel ringkas (pola halaman Pengguna) ===== */}
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+            <table className="w-full min-w-[980px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/50 text-left text-xs font-semibold text-muted-foreground">
+                  <th className="p-2">Pelanggan</th>
+                  <th className="p-2">Invoice</th>
+                  <th className="p-2">Paket</th>
+                  <th className="p-2">Tagihan</th>
+                  <th className="p-2">Metode</th>
+                  <th className="p-2">Diajukan</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id} className="border-b border-border align-top hover:bg-accent/30">
+                    {/* Pelanggan */}
+                    <td className="p-2">
+                      <div className="flex items-start gap-2">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          {initials(p.customer?.namaLengkap || p.userId)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold">
+                            {p.customer?.namaLengkap ?? p.userId}
+                            {p.customer?.username ? <span className="font-normal text-muted-foreground"> @{p.customer.username}</span> : null}
+                          </p>
+                          {p.customer?.email && <p className="truncate text-[11px] text-muted-foreground">{p.customer.email}</p>}
+                          {p.customer?.nomorHP && <p className="text-[11px] text-muted-foreground">{p.customer.nomorHP}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    {/* Invoice */}
+                    <td className="p-2">
+                      <p className="font-mono text-xs font-bold">{p.invoiceNumber}</p>
+                      {p.isPlanChange && (
+                        <Badge className="mt-1 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-300">Ganti Paket</Badge>
+                      )}
+                    </td>
+                    {/* Paket */}
+                    <td className="p-2 text-xs font-medium">{p.planName}</td>
+                    {/* Tagihan */}
+                    <td className="p-2">
+                      <p className="text-xs font-bold">{rupiah(p.invoiceAmount)}</p>
+                      {typeof p.uniqueCode === 'number' && (
+                        <Badge className="mt-1 bg-violet-100 text-violet-800 hover:bg-violet-100 dark:bg-violet-900/40 dark:text-violet-300">
+                          Kode {String(p.uniqueCode).padStart(3, '0')}
+                        </Badge>
+                      )}
+                      {p.amount !== p.invoiceAmount && (
+                        <p className="mt-1 text-[11px] font-semibold text-red-600">dibayar: {rupiah(p.amount)}!</p>
+                      )}
+                    </td>
+                    {/* Metode */}
+                    <td className="p-2">
+                      <Badge variant="outline" className="gap-1">
+                        {p.paymentMethod === 'qris' ? <QrCode className="h-3 w-3" /> : <Landmark className="h-3 w-3" />}
+                        {p.paymentMethod === 'qris' ? 'QRIS' : 'Transfer Bank'}
+                      </Badge>
+                      {p.paymentMethod === 'transfer_bank' && (p.senderName || p.transferDate) && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {p.senderName || '-'}
+                          {p.transferDate ? ` · ${p.transferDate}` : ''}
+                        </p>
+                      )}
+                    </td>
+                    {/* Diajukan */}
+                    <td className="p-2 text-xs text-muted-foreground">{fmtDateTime(p.createdAt)}</td>
+                    {/* Status */}
+                    <td className="p-2">
+                      {p.status === 'menunggu_verifikasi' ? (
+                        <Badge className="gap-1 bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300">
+                          <Clock className="h-3 w-3" /> Menunggu
+                        </Badge>
+                      ) : p.status === 'disetujui' ? (
+                        <>
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300">Disetujui</Badge>
+                          <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+                            {p.reviewedBy ?? '-'} · {fmtDateTime(p.reviewedAt)}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <Badge className="bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/40 dark:text-red-300">Ditolak</Badge>
+                          {p.rejectionReason && (
+                            <p className="mt-1 max-w-[180px] truncate text-[11px] text-red-600" title={p.rejectionReason}>
+                              {p.rejectionReason}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </td>
+                    {/* Aksi */}
+                    <td className="p-2">
+                      <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        {p.hasProof && (
+                          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openProof(p)}>
+                            <Eye className="h-3.5 w-3.5" /> Bukti
+                          </Button>
+                        )}
+                        {p.status === 'menunggu_verifikasi' && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                              disabled={busyId === p.id}
+                              onClick={() => setApproveTarget(p)}
+                            >
+                              {busyId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Setujui
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="gap-1.5"
+                              disabled={busyId === p.id}
+                              onClick={() => {
+                                setRejectTarget(p)
+                                setRejectReason('')
+                              }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> Tolak
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

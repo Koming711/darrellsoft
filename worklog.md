@@ -15399,3 +15399,18 @@ Work Log:
 Stage Summary:
 - Halaman Pengguna panel admin kini punya tab filter status: Semua · Aktif · Perlu Verifikasi · Akan Berakhir · Expired · Belum Aktif — masing-masing dgn hitungan realtime, filter instan tanpa refetch.
 - 1 file diubah: kelola-pelanggan/content.tsx. Deployment menunggu instruksi user.
+---
+Task ID: tabel-verifikasi-pembayaran
+Agent: Z.ai Code (main)
+Task: "dihalaman verifikasi pembayaran. buatkan tabel. check" — ubah daftar kartu bertumpuk di Verifikasi Pembayaran menjadi tabel.
+
+Work Log:
+- SEBELUM: tiap pembayaran = satu Card besar bertumpuk (semua info + aksi dalam kartu) — di desktop boros ruang & sulit dipindai.
+- IMPLEMENTASI (verifikasi-pembayaran/content.tsx): DESKTOP (sm+) = tabel ringkas pola halaman Pengguna (rounded-xl border bg-card, header bg-secondary/50, overflow-x-auto min-w-[980px]) dgn kolom: Pelanggan (avatar inisial + nama @username + email + HP) · Invoice (mono + badge "Ganti Paket") · Paket · Tagihan (nominal + badge kode unik violet + warning merah "dibayar: Rp X!" bila nominal tidak cocok) · Metode (badge QRIS/Transfer Bank + pengirim & tgl transfer utk transfer) · Diajukan · Status (badge Menunggu amber / Disetujui emerald + reviewer·waktu / Ditolak merah + alasan truncate dgn title) · Aksi (Bukti / Setujui / Tolak — hanya utk menunggu; bukti tersedia utk semua status). MOBILE (<sm) = kartu ringkas lama dipertahankan apa adanya. Helper initials() ditambah; komentar header diperbarui.
+- DATA UJI (DB lokal, script tmp dihapus setelah jalan): 2 pelanggan seed — Siti Rahayu (Pro, QRIS Rp 199.571 nominal pas, bukti SVG simulasi) & Agus Wijaya (Basic, transfer Rp 114.279 = tagihan 119.279 kurang 5.000 utk uji warning, bukti SVG). Pembayaran asli milik mike (calon pembeli) TIDAK disentuh.
+- VERIFIKASI (agent-browser, desktop 1440x900 + iPhone 14): tabel tampil 3 baris dgn semua kolom benar; warning merah "dibayar: Rp 114.279!" muncul di baris Agus; dialog Bukti menampilkan gambar bukti + tombol Setujui/Tolak; alur SETUJUI (Siti): dialog konfirmasi → toast → pindah ke tab Disetujui dgn "Disetujui superadmin · 29 Okt 2026, 01.13" + langganan jadi aktif; alur TOLAK (Agus): dialog alasan wajib → pindah ke tab Ditolak dgn alasan tampil di bawah badge; tab Menunggu tersisa mike (data asli utuh); badge sidebar ter-update (Pendaftar Baru 3→1, Pengguna 3→2); mobile = kartu utuh dgn aksi. Tanpa page error; lint bersih. Screenshot /tmp/verif-table-desktop.png, /tmp/verif-table-mobile.png, /tmp/bukti-dialog.png.
+
+Stage Summary:
+- Halaman Verifikasi Pembayaran kini berbentuk tabel ringkas di desktop (8 kolom: Pelanggan/Invoice/Paket/Tagihan/Metode/Diajukan/Status/Aksi) — mudah dipindai, aksi tetap lengkap; mobile tetap kartu sentuh.
+- Semua fungsi lama utuh: dialog bukti, setujui (idempoten), tolak wajib alasan, live polling 10s.
+- 1 file kode diubah + 2 baris data uji di DB lokal (1 disetujui, 1 ditolak, milik akun seed). Deployment menunggu instruksi user.
