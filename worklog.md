@@ -15414,3 +15414,22 @@ Stage Summary:
 - Halaman Verifikasi Pembayaran kini berbentuk tabel ringkas di desktop (8 kolom: Pelanggan/Invoice/Paket/Tagihan/Metode/Diajukan/Status/Aksi) — mudah dipindai, aksi tetap lengkap; mobile tetap kartu sentuh.
 - Semua fungsi lama utuh: dialog bukti, setujui (idempoten), tolak wajib alasan, live polling 10s.
 - 1 file kode diubah + 2 baris data uji di DB lokal (1 disetujui, 1 ditolak, milik akun seed). Deployment menunggu instruksi user.
+
+---
+
+## Task ID: beranda-label-kasir-ke-user
+**Agent:** Z.ai Code
+**Task:** "dihalaman beranda ganti kasir dengan user" — ganti label role "Kasir" menjadi "User" di halaman Beranda aplikasi utama.
+
+### Work Log:
+- Telusuri teks "Kasir" yang tampil di halaman Beranda (`/pembukaan`, `DashboardLayout title="Beranda"`) → satu-satunya sumber: konstanta `ROLE_LABEL` di `src/app/pembukaan/page.tsx` (`user: 'Kasir'`), dipakai badge role di header sapaan.
+- Sidebar/MobileHeader tidak merender label role (hanya untuk permission), jadi cukup 1 perubahan.
+- Edit `ROLE_LABEL.user`: `'Kasir'` → `'User'` (superadmin/admin/manager/demo tidak berubah).
+- Lint bersih (`bunx eslint src/app/pembukaan/page.tsx`).
+- Verifikasi browser (agent-browser): set localStorage `auth` akun role `user` (siti.rahayu) → buka `/pembukaan` → tutup dialog "Versi Baru!" → header tampil "Selamat pagi, Siti 👋" + badge hijau **"User"** (bukan "Kasir"). Tidak ada page error.
+- Commit: `d8c00d9`.
+
+### Stage Summary:
+- Badge role di header Beranda untuk akun role `user` kini bertuliskan "User" (sebelumnya "Kasir").
+- Perubahan 1 baris, tidak menyentuh logika permission (akses menu tetap berdasarkan role asli `user`).
+- **Belum deploy** — menunggu instruksi deploy dari user.
