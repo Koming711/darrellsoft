@@ -15538,3 +15538,23 @@ Work Log:
 
 Stage Summary:
 - 18 permintaan owner dipenuhi dalam 1 commit (c0410ee, 13 file, +1296/−388): penataan ulang sidebar + scroll persist, beranda role-name & motivasi harian, auto-langkah 4 verifikasi, halaman Tambah Anggota dgn hak akses lengkap, nama grup=nama perusahaan, profit di editor & riwayat invoice + kotak total + filter bulanan + tabel bergrup, panel-admin 8 kotak klikable + tabel akun. Deployment menunggu instruksi user.
+---
+Task ID: check-and-fix-reverify
+Agent: Z.ai Code (main)
+Task: "check and fix" — re-verifikasi menyeluruh setelah perbaikan massal UI (18 item).
+
+Work Log:
+- Ditemukan dev server Next.js (port 3000) MATI saat sesi baru dimulai — hanya mini service (3003/3004) yang hidup. Di-restart, `/` kembali 200.
+- VERIFIKASI agent-browser (desktop 1280 + mobile 390, tanpa perubahan kode):
+  a) Sidebar: urutan seksi benar (DOKUMEN → MASTER CETAK → LAPORAN → OPERASIONAL → HITUNG PRODUKSI → LANGGANAN → ADMINISTRASI berisi Panel Admin → SETTING); scroll persist 250 → reload → 250.
+  b) Beranda: sapaan nama + badge role "Admin"; motivasi usaha harian tampil; mobile 390 tanpa scroll horizontal.
+  c) Riwayat invoice: kolom Profit ada; kotak Total Invoice & Total Profit mengikuti filter (Bulan ini = 3 invoice, Rp3.810.000 / Rp1.020.000); grup tabel INV/0003 diikuti PEL/0003 (profit PEL "—").
+  d) Grup Saya (login owner lina): nama grup = "CV Lina Printing", Premium 2/5; Tambah Anggota = halaman penuh dgn Hak Akses RBAC 6 seksi 22 menu; Pilih Semua → 22/22.
+  e) Panel admin: 8 kotak statistik = button; klik Total Pendapatan → dialog perincian (Akun/Keterangan/Jumlah/Tanggal/Status); Pembayaran Terakhir Disetujui = TABEL nama akun saja (lina/william/mike/Siti Rahayu, tanpa nomor tagihan).
+  f) Editor invoice: INFORMASI TAMBAHAN menampilkan Total + Profit.
+  g) Halaman pembayaran langganan SUB-2610-2WT5 (disetujui): aria-current=step "4" — otomatis masuk langkah Verifikasi.
+- Console 0 error di 4 halaman kunci (mobile); dev.log hanya noise prisma lama (duplicate column kategoriId, pre-existing); eslint bersih pada file kunci.
+- TIDAK ada perubahan kode → tidak ada commit kode. Deployment menunggu instruksi user.
+
+Stage Summary:
+- Seluruh 18 item perbaikan massal TERVERIFIKASI ulang dan berfungsi; satu-satunya perbaikan = restart dev server yang mati. Aplikasi siap dipakai (belum deploy).
