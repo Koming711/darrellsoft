@@ -129,6 +129,9 @@ const MENU_IZIN: { id: string; label: string; grup: string }[] = [
   { id: 'master-toko-pemasok', label: 'Master Toko Pemasok', grup: 'Master Cetak' },
   { id: 'stock-bahan', label: 'Stock Bahan', grup: 'Master Cetak' },
   { id: 'pengaturan', label: 'Pengaturan', grup: 'Lainnya' },
+  // Langganan — bila TIDAK dicentang, menu Langganan disembunyikan dari
+  // anggota grup (owner & non-grup tetap selalu melihat).
+  { id: 'langganan-saya', label: 'Langganan', grup: 'Lainnya' },
   // Data sensitif — bila TIDAK dicentang, anggota tidak melihat profit
   // (kolom & kotak Total Profit di riwayat invoice, baris Profit di editor,
   // kotak Laba Kotor di beranda). SINKRON dengan GRUP_MENU_IZIN server.
@@ -274,6 +277,22 @@ function GrupContent() {
     )
   }
 
+  // ===== Halaman penuh "Edit Anggota" (bukan popup — permintaan owner):
+  // pola sama dgn Tambah Anggota — form lengkap + hak akses menu dikelompokkan.
+  if (editTarget) {
+    return (
+      <HalamanEditAnggota
+        key={editTarget.id}
+        target={editTarget}
+        onBatal={() => setEditTarget(null)}
+        onDone={() => {
+          setEditTarget(null)
+          load({ silent: true })
+        }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* ===== Header grup ===== */}
@@ -391,12 +410,8 @@ function GrupContent() {
         <KartuLangganan grup={grup} lang={lang} />
       )}
 
-      {/* ===== Dialog edit anggota ===== */}
-      <DialogEditAnggota
-        target={editTarget}
-        onOpenChange={(o) => !o && setEditTarget(null)}
-        onDone={() => load({ silent: true })}
-      />
+      {/* Edit anggota kini HALAMAN PENUH (HalamanEditAnggota) — bukan popup.
+          Reset sandi tetap dialog kecil. */}
 
       {/* ===== Dialog reset sandi ===== */}
       <DialogResetSandi
@@ -1009,46 +1024,49 @@ function HalamanTambahAnggota({
   )
 }
 
-// ===== Dialog edit anggota =====
-function DialogEditAnggota({
-  target, onOpenChange, onDone,
+// ===== Halaman penuh "Edit Anggota" (pengganti popup — permintaan owner):
+// pola & tampilan sama dgn HalamanTambahAnggota — form lengkap + hak akses
+// menu dikelompokkan per seksi. Username & sandi tidak diubah di sini
+// (sandi diatur via Reset Kata Sandi).
+function HalamanEditAnggota({
+  target, onBatal, onDone,
 }: {
-  target: Anggota | null
-  onOpenChange: (o: boolean) => void
+  target: Anggota
+  onBatal: () => void
   onDone: () => void
 }) {
-  const [nama, setNama] = useState('')
-  const [nomorHP, setNomorHP] = useState('')
-  const [email, setEmail] = useState('')
-  const [peran, setPeran] = useState('staf')
-  const [izin, setIzin] = useState<string[]>([])
+  const router = useRouter()
+  const [namaLengkap, setNama] = useState(target.namaLengkap)
+  const [email, setEmail] = useState(target.email)
+  const [nomorHP, setNomorHP] = useState(target.nomorHP)
+  const [peran, setPeran] = useState(target.peran === 'admin' ? 'admin' : 'staf')
+  const [izin, setIzin] = useState<string[]>(target.izin)
   const [saving, setSaving] = useState(false)
-  const [loadedFor, setLoadedFor] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (target && target.id !== loadedFor) {
-      setNama(target.namaLengkap); setNomorHP(target.nomorHP); setEmail(target.email)
-      setPeran(target.peran === 'admin' ? 'admin' : 'staf'); setIzin(target.izin)
-      setLoadedFor(target.id)
-    }
-  }, [target, loadedFor])
 
   const toggleIzin = (id: string) =>
     setIzin((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
+  const pilihSemua = () => setIzin(MENU_IZIN.map((m) => m.id))
+  const hapusSemua = () => setIzin([])
+
+  const kembali = () => {
+    startNavigation()
+    router.push('/grup')
+    onBatal()
+  }
+
   const simpan = async () => {
-    if (!target) return
+    if (!namaLengkap.trim()) { toast.error('Nama lengkap wajib diisi.'); return }
     setSaving(true)
     try {
       const res = await authFetch(`/api/grup/anggota/${target.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ namaLengkap: nama, nomorHP, email, peran, izin }),
+        body: JSON.stringify({ namaLengkap, nomorHP, email, peran, izin }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Gagal menyimpan')
       toast.success('Perubahan anggota tersimpan')
-      onOpenChange(false)
       onDone()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan anggota')
@@ -1058,54 +1076,147 @@ function DialogEditAnggota({
   }
 
   return (
-    <Dialog open={!!target} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Edit Anggota</DialogTitle>
-          <DialogDescription>{target?.username ? `@${target.username}` : '-'}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="e-nama">Nama Lengkap</Label>
-            <Input id="e-nama" value={nama} onChange={(e) => setNama(e.target.value)} maxLength={120} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="e-hp">Nomor HP</Label>
-              <Input id="e-hp" value={nomorHP} onChange={(e) => setNomorHP(e.target.value)} maxLength={25} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="e-email">Email</Label>
-              <Input id="e-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Peran</Label>
-            <select value={peran} onChange={(e) => setPeran(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" aria-label="Peran anggota">
-              <option value="staf">Staf</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Hak Akses Menu (RBAC)</Label>
-            <div className="grid max-h-44 gap-1.5 overflow-y-auto rounded-lg border p-3 sm:grid-cols-2" data-testid="edit-izin">
-              {MENU_IZIN.map((m) => (
-                <label key={m.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <Checkbox checked={izin.includes(m.id)} onCheckedChange={() => toggleIzin(m.id)} />
-                  {m.label}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button onClick={simpan} disabled={saving} className="min-h-[44px] bg-emerald-600 hover:bg-emerald-700" data-testid="edit-simpan">
-            {saving ? 'Menyimpan…' : 'Simpan'}
+    <div className="space-y-4 md:space-y-6" data-testid="halaman-edit-anggota">
+      {/* Header halaman */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={kembali}
+            className="mb-2 min-h-[36px]"
+            data-testid="edit-kembali"
+          >
+            ← Kembali ke Grup Saya
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <h1 className="text-xl font-extrabold tracking-tight md:text-2xl">Edit Anggota Grup</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            @{target.username || '-'}{' · '}Status:{' '}
+            <span className={target.status === 'aktif' ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-red-700 dark:text-red-400'}>
+              {target.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* ===== Kolom kiri: data anggota ===== */}
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Data Anggota</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-nama">Nama Lengkap *</Label>
+              <Input id="e-nama" value={namaLengkap} onChange={(e) => setNama(e.target.value)} maxLength={120} placeholder="cth. Budi Susanto" data-testid="edit-nama" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-username">Username</Label>
+              <Input id="e-username" value={target.username || '-'} disabled readOnly className="bg-muted text-muted-foreground" />
+              <p className="text-[11px] text-muted-foreground">
+                Username tidak dapat diubah — identitas login akun anggota.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="e-hp">Nomor HP</Label>
+                <Input id="e-hp" value={nomorHP} onChange={(e) => setNomorHP(e.target.value)} maxLength={25} placeholder="08…" data-testid="edit-hp" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="e-email">Email</Label>
+                <Input id="e-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} placeholder="opsional" data-testid="edit-email" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Peran</Label>
+              <select
+                value={peran}
+                onChange={(e) => setPeran(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                aria-label="Peran anggota"
+                data-testid="edit-peran"
+              >
+                <option value="staf">Staf</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300">
+              Untuk mengganti kata sandi anggota, gunakan aksi <span className="font-semibold">Reset Kata Sandi</span> di daftar anggota.
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ===== Kolom kanan: hak akses menu LENGKAP ===== */}
+        <Card className="rounded-2xl">
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 pb-3">
+            <div>
+              <CardTitle className="text-base">Hak Akses Menu (RBAC)</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Daftar lengkap semua menu aplikasi — centang menu yang boleh dibuka anggota.
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <Button type="button" size="sm" variant="outline" className="h-8" onClick={pilihSemua} data-testid="edit-izin-pilih-semua">
+                Pilih Semua
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8" onClick={hapusSemua} data-testid="edit-izin-hapus-semua">
+                Hapus Semua
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-lg border p-3" data-testid="edit-izin">
+              {IZIN_GRUP_ORDER.map((namaGrup) => {
+                const items = MENU_IZIN.filter((m) => m.grup === namaGrup)
+                if (items.length === 0) return null
+                const semuaTerpilih = items.every((m) => izin.includes(m.id))
+                return (
+                  <div key={namaGrup}>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{namaGrup}</p>
+                      <button
+                        type="button"
+                        className="text-[10px] font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                        onClick={() => {
+                          if (semuaTerpilih) {
+                            setIzin((prev) => prev.filter((x) => !items.some((m) => m.id === x)))
+                          } else {
+                            setIzin((prev) => [...new Set([...prev, ...items.map((m) => m.id)])])
+                          }
+                        }}
+                      >
+                        {semuaTerpilih ? 'Kosongkan seksi' : 'Pilih seksi'}
+                      </button>
+                    </div>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {items.map((m) => (
+                        <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-accent/40">
+                          <Checkbox checked={izin.includes(m.id)} onCheckedChange={() => toggleIzin(m.id)} data-testid={`edit-izin-${m.id}`} />
+                          <span className="min-w-0 truncate">{m.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {izin.length} dari {MENU_IZIN.length} menu dipilih. Tanpa pilihan = anggota belum dapat mengakses menu data sampai Owner mengaturnya.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tombol aksi */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" onClick={kembali} disabled={saving} className="min-h-[44px]">
+          Batal
+        </Button>
+        <Button onClick={simpan} disabled={saving} className="min-h-[44px] bg-emerald-600 hover:bg-emerald-700" data-testid="edit-simpan">
+          {saving ? 'Menyimpan…' : 'Simpan Perubahan'}
+        </Button>
+      </div>
+    </div>
   )
 }
 

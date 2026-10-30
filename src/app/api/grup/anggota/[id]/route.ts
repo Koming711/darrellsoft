@@ -102,7 +102,13 @@ export async function PATCH(
         if (email !== undefined) puData.email = email
         if (sandibaru !== undefined && sandibaru) puData.password = hashPassword(sandibaru)
         if (Object.keys(puData).length > 0) {
-          await tx.pengguna.update({ where: { id: anggota.memberId }, data: puData })
+          // Guard: memberId bisa menggantung (akun sudah terhapus, baris
+          // GrupAnggota tersisa) — jangan biarkan update P2025 menggagalkan
+          // seluruh simpanan; data GrupAnggota (nama/peran/izin) tetap disimpan.
+          const akunAda = await tx.pengguna.findUnique({ where: { id: anggota.memberId }, select: { id: true } })
+          if (akunAda) {
+            await tx.pengguna.update({ where: { id: anggota.memberId }, data: puData })
+          }
         }
         // Sinkronkan record Pembeli (nama tampil di daftar pembeli)
         if (namaLengkap !== undefined || nomorHP !== undefined || email !== undefined) {

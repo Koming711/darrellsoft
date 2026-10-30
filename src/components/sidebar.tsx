@@ -401,8 +401,9 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     .filter(item => !isAdminSistem || item.featureId !== 'grup-saya')
     .filter(item => {
       if (!isAnggotaGrup) return true
-      // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun
-      if (['grup-saya', 'langganan-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
+      // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun.
+      // 'langganan-saya' TIDAK bypass — mengikuti izin Owner (RBAC Langganan).
+      if (['grup-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
       return grupInfo!.izin.includes(item.featureId)
     })
 
@@ -546,7 +547,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // Admin sistem tidak melihat menu grup pelanggan (sama dgn sidebar desktop)
   const isAdminNav = role === 'admin' || role === 'superadmin'
   const bolehGrupNav = (featureId: string) =>
-    ['grup-saya', 'langganan-saya', 'pilih-paket', 'pengaturan'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
+    ['grup-saya', 'pilih-paket', 'pengaturan'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
   const visibleItems = bottomNavItems
     .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
     .filter(item => !isAdminNav || item.featureId !== 'grup-saya')

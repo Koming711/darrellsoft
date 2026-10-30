@@ -65,8 +65,17 @@ export function hasFeatureAccess(roleId: string, featureId: string): boolean {
   // 'daftar-kategori' TIDAK terdaftar di matriks Hak Akses (pola produksi v123):
   // menu & halaman selalu tampil/bisa diakses untuk semua user yang login.
   if (featureId === 'daftar-kategori') return true
-  // Halaman langganan bersifat akun-level — selalu tersedia untuk semua user login.
-  if (featureId === 'pilih-paket' || featureId === 'langganan-saya') return true
+  // Halaman langganan bersifat akun-level — selalu tersedia untuk semua user
+  // login, KECUALI anggota grup (admin/staf): mengikuti izin Owner di Hak
+  // Akses Menu (RBAC grup, id 'langganan-saya'). Owner & non-grup tetap bebas.
+  if (featureId === 'pilih-paket') return true
+  if (featureId === 'langganan-saya') {
+    const grupLangganan = getGrupInfo()
+    if (grupLangganan && grupLangganan.peran !== 'owner') {
+      return grupLangganan.izin.includes('langganan-saya')
+    }
+    return true
+  }
   // Halaman grup milik akun sendiri — selalu tersedia (owner kelola, anggota lihat).
   if (featureId === 'grup-saya') return true
 

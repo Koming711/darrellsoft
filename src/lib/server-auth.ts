@@ -185,6 +185,9 @@ export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
   { id: 'stock-bahan', label: 'Stock Bahan' },
   // Lainnya
   { id: 'pengaturan', label: 'Pengaturan' },
+  // Langganan — bila TIDAK dicentang, menu Langganan disembunyikan dari
+  // anggota grup (owner & non-grup tetap selalu melihat).
+  { id: 'langganan-saya', label: 'Langganan' },
   // Data sensitif — bila TIDAK dicentang, anggota tidak melihat profit
   // (kolom & kotak Total Profit di riwayat invoice, baris Profit di editor,
   // kotak Laba Kotor di beranda).

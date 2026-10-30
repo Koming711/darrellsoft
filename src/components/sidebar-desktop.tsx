@@ -426,8 +426,9 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     .filter((item) => !isAdminSistem || item.featureId !== 'grup-saya')
     .filter((item) => {
       if (!isAnggotaGrup) return true
-      // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun
-      if (['grup-saya', 'langganan-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
+      // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun.
+      // 'langganan-saya' TIDAK bypass — mengikuti izin Owner (RBAC Langganan).
+      if (['grup-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
       return grupInfo!.izin.includes(item.featureId)
     })
 
