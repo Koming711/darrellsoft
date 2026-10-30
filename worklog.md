@@ -15668,3 +15668,16 @@ Work Log:
 
 Stage Summary:
 - Menu sidebar (desktop & mobile) untuk halaman Daftar Kategori kini berlabel "Daftar" sesuai permintaan, tanpa mengubah judul halaman, URL, hak akses, maupun nama menu di Hak Akses (RBAC).
+---
+Task ID: sidebar-label-kategori
+Agent: Z.ai Code (main)
+Task: Tulisan "Daftar" di sidebar menu diganti jadi "Kategori".
+
+Work Log:
+- PERUBAHAN: value i18n menu_daftar_kategori — id 'Daftar' → 'Kategori', en 'List' → 'Category'. Tidak ada perubahan komponen (sidebar mobile & desktop sudah memakai key menu_daftar_kategori dari tugas sebelumnya).
+- Judul halaman /daftar-kategori tetap "Daftar Kategori"; nama menu RBAC & URL tidak berubah. Tidak ada menu lain bernama "Kategori" di sidebar (tidak ada duplikat label).
+- LINT: i18n.ts bersih.
+- E2E (agent-browser, login owner lina): desktop 1280 — sidebar tampil "Kategori", h1 halaman "Daftar Kategori"; mobile 390 — label "Kategori"; console & page errors bersih.
+
+Stage Summary:
+- Label menu sidebar untuk Daftar Kategori kini "Kategori" (desktop + mobile, ID/EN). Judul halaman, hak akses, dan URL tidak berubah.
