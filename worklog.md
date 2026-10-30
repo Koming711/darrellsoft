@@ -15617,3 +15617,24 @@ Work Log:
 
 Stage Summary:
 - Owner kini dapat MENENTUKAN kata sandi akun anggota saat menambah anggota grup (opsional — kosongkan untuk sandi otomatis yang ditampilkan sekali). Field sandi tersedia di form Tambah Anggota Grup dengan toggle lihat sandi, validasi min 6 karakter di klien & server, dan sandi kustom langsung bisa dipakai anggota untuk login (terverifikasi E2E).
+---
+Task ID: namespace-username-grup-vs-pengelola
+Agent: Z.ai Code (main)
+Task: Tambah Anggota Grup ditolak "Username sudah digunakan" padahal username belum ada di grup — hanya ada di halaman Kelola Pengguna. Harusnya namespace username grup vs pengelola TERPISAH.
+
+Work Log:
+- AKAR MASALAH: Pengguna.username ber-constraint @unique GLOBAL + cek isUsernameTerpakai global — username yang dipakai akun Kelola Pengguna (admin) / grup lain memblokir penambahan anggota grup, padahal grup dan pengelola adalah ruang nama berbeda.
+- SCHEMA: Pengguna.username @unique dihapus; diganti @@unique([grupId, username]) (unik per-grup; SQLite NULL = distinct → akun pengelola tak terikat composite) + @@index([username]). db:push --accept-data-loss (hanya drop index lama, tidak ada data hilang).
+- NAMESPACE:
+  a) GRUP (POST /api/grup/anggota): cek baru isUsernameTerpakaiDiGrup(grupId, username, ownerUserId) — hanya anggota aktif grup yang sama + username Owner grup yang dicadangkan. Pesan 409 diperjelas "di grup ini".
+  b) PENGELOLA (Kelola Pengguna, create-account, add-account, register, check-username, calon-pembeli/convert): cek diganti findFirst({username, grupId: null}) — anggota grup tidak menghalangi namespace pengelola.
+  c) Email fallback anggota diberi kode grup (username.grp-xxxxx@grup.local) agar email @unique global tetap aman saat dua grup memakai username sama.
+- LOGIN (multi-kandidat): username kini bisa dipakai akun grup + pengelola + grup lain sekaligus — login mengambil SEMUA kandidat Pengguna (findMany, verifyPassword per kandidat, createdAt asc), lalu kandidat CalonPembeli; sandi yang menentukan akun. Salah sandi → 401 (tetap). verify-session, reclaim-session, dan 8 endpoint lain yang memakai pengguna.findUnique({username}) dimigrasi ke findFirst (wajib setelah constraint dilepas).
+- UJI (curl, 11 skenario): kelola "budibentrok" dibuat admin → LINA tambah anggota username sama → 201 SUKSES (inti perbaikan); duplikat dalam grup sama → 409 "di grup ini"; username = username owner → 409; DAREL (grup lain) username sama → 201; login 3 kandidat (kelola/grup lina/grup darel) → masing-masing akun benar sesuai sandi; sandi salah → 401; regresi: duplikat Kelola Pengguna tetap 409, check-username sisi pengelola tetap tidak tersedia; constraint DB diuji langsung (lintas namespace lolos, dup dalam grup P2002).
+- E2E (agent-browser): lina desktop 1280 — helper text baru "Unik di dalam grup ini — boleh sama dengan akun di luar grup" tampil; tambah anggota username bentrok dgn Kelola Pengguna → sukses + masuk daftar; mobile 390 tanpa scroll horizontal; console 0 error; lint bersih (19 file).
+- CLEANUP: semua akun/anggota uji dihapus (baris GrupAnggota tersisa hanya status "keluar" sebagai riwayat audit — by design).
+- CATATAN: akun dibuat via Kelola Pengguna tanpa record Pembeli tetap dianggap "ghost" saat login (perilaku lama, tidak diubah) — pengujian login dua-namespace memakai akun kelola dengan Pembeli terhubung.
+- Commit: de62674 (kode, 20 file) + 65faf29 (checkpoint DB). TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Username kini per-namespace: setiap grup punya ruang nama sendiri (unik di dalam grup-nya saja, termasuk username Owner-nya), terpisah dari ruang nama pengelola (Kelola Pengguna/pendaftaran). Owner tidak lagi terblokir username yang kebetulan dipakai di Kelola Pengguna atau grup lain. Login tetap aman — akun dipilih lewat password; sandi salah tetap ditolak.
