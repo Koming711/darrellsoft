@@ -15698,3 +15698,16 @@ Work Log:
 
 Stage Summary:
 - Menu sidebar kini konsisten menampilkan "Master Barang" (halaman harga barang per customer — selaras dgn Dashboard, RBAC, dan API) dan "Master Bahan" (Master Harga Kertas). URL, judul halaman, hak akses, dan RBAC tidak berubah.
+---
+Task ID: cancel-sidebar-master-barang-bahan
+Agent: Z.ai Code (main)
+Task: User membatalkan perintah terakhir (sidebar "Master Barang" + "Master Bahan").
+
+Work Log:
+- REVERT: git revert 210e622 (commit 39ac524) — kembalikan 3 file (i18n.ts, sidebar.tsx, sidebar-desktop.tsx) ke kondisi sebelum tugas sidebar-master-barang-bahan: label /master-barang kembali "Harga per Customer" (+ short "Hg/Cust"), /master-harga-kertas kembali "Master Harga Kertas", key menu_master_bahan dihapus.
+- TIDAK TERPENGARUH: perubahan "Kategori" (menu_daftar_kategori, commit bf7c3c9) tetap utuh.
+- LINT: 3 file bersih.
+- E2E (agent-browser, owner lina, desktop 1280): sidebar "Harga per Customer" + "Hg/Cust", "Master Harga Kertas", "Kategori" — sesuai kondisi sebelum tugas dibatalkan; console 0 error.
+
+Stage Summary:
+- Perintah "tambahkan master barang + ganti Master Harga Kertas jadi Master Bahan" DIBATALKAN — sidebar kembali ke kondisi sebelumnya. Perubahan "Kategori" tetap berlaku.
