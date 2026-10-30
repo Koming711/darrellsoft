@@ -15726,3 +15726,16 @@ Work Log:
 
 Stage Summary:
 - Hak Akses Menu kini punya item "Langganan" — Owner mengontrol apakah anggota grup melihat menu Langganan (Paket Saya). Edit anggota kini halaman penuh yang sama nyamannya dengan Tambah Anggota (bukan popup kecil). Bonus: PATCH edit tidak lagi 500 untuk anggota dengan akun yang sudah terhapus.
+---
+Task ID: sidebar-master-bahan
+Agent: Z.ai Code (main)
+Task: Di sidebar menu, tulisan "Master Harga Kertas" diganti jadi "Master Bahan".
+
+Work Log:
+- PATERN menu_*: key baru menu_master_harga_kertas ditambah di i18n.ts (id: 'Master Bahan', en: 'Material Master' — konsisten dgn penamaan "X Master" di dict EN). Hanya sidebar yg berubah — judul & subtitle halaman /master-harga-kertas tetap "Master Harga Kertas" (t() memakai key master_harga_kertas yang tidak disentuh, termasuk 2 salinan backup-section).
+- SIDEBAR: titleKey item /master-harga-kertas diganti 'master_harga_kertas' → 'menu_master_harga_kertas' di sidebar.tsx (drawer HP) & sidebar-desktop.tsx (desktop). Bottom-nav HP tidak memuat item ini — tidak ada short label yg berubah. Label RBAC/hak akses tidak disentuh (scope permintaan: sidebar saja).
+- LINT: 3 file bersih (i18n.ts, sidebar.tsx, sidebar-desktop.tsx).
+- E2E (agent-browser, owner lina): desktop 1280 — sidebar rail (aria-label) + hover expand menampilkan "Master Bahan" di seksi MASTER CETAK, "Master Harga Kertas" tidak ada lagi di menu; klik "Master Bahan" → /master-harga-kertas, judul halaman tetap "Master Harga Kertas". Mobile 390 — drawer via Lainnya menampilkan "Master Bahan" (screenshot); klik → /master-harga-kertas, judul tetap. Console & page errors bersih di kedua viewport.
+
+Stage Summary:
+- Menu sidebar (HP & desktop) kini menampilkan "Master Bahan" untuk halaman Master Harga Kertas — hanya label sidebar yang berubah; URL, judul halaman, RBAC, dan hak akses tidak berubah.
