@@ -15600,3 +15600,20 @@ Work Log:
 
 Stage Summary:
 - Penambahan anggota grup kini eksklusif akun Owner: tombol & halaman hanya di grup milik Owner, admin sistem tidak lagi melihat menu/halaman grup (cukup memantau via Panel Admin), 2 backdoor API legacy dihapus, dan seluruh API kelola anggota menolak admin + menolak owner lain (403/404). Data grup terisolasi per owner — terverifikasi E2E lintas 4 peran.
+---
+Task ID: tambah-anggota-password
+Agent: Z.ai Code (main)
+Task: Halaman Tambah Anggota Grup — tambahkan "password akun" (Kata Sandi Akun) + check and fix.
+
+Work Log:
+- AUDIT: API POST /api/grup/anggota SEBENARNYA sudah mendukung body.password (sandiAwal, min 6 karakter, fallback acakPassword(8), bcrypt hash) — tetapi FORM HalamanTambahAnggota tidak punya field password & tidak mengirimnya (kata sandi kustom tak pernah bisa dipakai Owner). Itu bug yang diperbaiki.
+- FORM: field "Kata Sandi Akun" baru di kartu Data Anggota (di bawah Peran): Input type=password dengan toggle lihat/sembunyikan (Eye/EyeOff, aria-label), maxLength 72 (batas bcrypt), autoComplete new-password, helper text "Kosongkan agar sistem membuat kata sandi otomatis".
+- VALIDASI KLIEN: sandi terisi & < 6 karakter → toast error "Kata sandi minimal 6 karakter." (request tak dikirim); API tetap memvalidasi ulang (400).
+- BODY: password kini dikirim ke API; toast sukses dibedakan — sandi kustom: "Anggota berhasil ditambahkan dengan kata sandi akun yang Anda atur." (API tidak mengirim balik sandi kustom); sandi otomatis: tetap tampil SEKALI via toast 15 detik.
+- INFO BOX diperbarui: sandi tulisan sendiri TIDAK ditampilkan kembali — catat di tempat aman.
+- UJI API (curl): kustom sandi123 → 201 tanpa sandiAwal; login ujisandi1/sandi123 → sukses; sandi "abc" → 400 "minimal 6 karakter"; tanpa sandi → 201 + sandiAwal otomatis; POST sbg admin → 403 (regresi grup-owner-only tetap).
+- E2E (agent-browser): lina (Owner CV Lina Printing) desktop 1280 — field ada (type=password), toggle eye password↔text, sandi "abc" → toast validasi tanpa menyimpan, sandi kustom sandiBrowser456 → toast sukses + anggota masuk daftar + LOGIN dgn sandi kustom BERHASIL; admin → tetap tanpa tombol Tambah Anggota; mobile 390 — field tampil, tanpa scroll horizontal; console 0 error; lint bersih.
+- CLEANUP: 3 anggota uji (ujisandi1, ujiauto1, ujibrowsersandi) dihapus dari DB (Pengguna+Pembeli+GrupAnggota), kuota kembali normal.
+
+Stage Summary:
+- Owner kini dapat MENENTUKAN kata sandi akun anggota saat menambah anggota grup (opsional — kosongkan untuk sandi otomatis yang ditampilkan sekali). Field sandi tersedia di form Tambah Anggota Grup dengan toggle lihat sandi, validasi min 6 karakter di klien & server, dan sandi kustom langsung bisa dipakai anggota untuk login (terverifikasi E2E).
