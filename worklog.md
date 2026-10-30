@@ -15509,3 +15509,32 @@ Work Log:
 Stage Summary:
 - Seluruh pasal prompt PAKET 3 AKUN DENGAN SISTEM GRUP kini terpenuhi & teruji termasuk alur pendaftaran mandiri (CalonPembeli sebagai owner) dan Dashboard Grup di beranda.
 - 2 file diubah: api/beranda/route.ts, pembukaan/page.tsx (commit d644886). Deployment menunggu instruksi user.
+---
+Task ID: perbaikan-massal-ui
+Agent: Z.ai Code (main)
+Task: 18 permintaan owner sekaligus (sidebar, beranda, riwayat invoice, grup, panel-admin, pembayaran) + "check and fix".
+
+Work Log:
+- SIDEBAR (desktop + mobile "Lainnya" + i18n):
+  a) Urutan seksi baru: Beranda → Hitung Total Biaya → DOKUMEN → MASTER CETAK (ke bawah Dokumen) → LAPORAN (ke bawah Master Cetak) → Operasional → HITUNG PRODUKSI (rename BIAYA PRODUKSI, ID+EN) → LANGGANAN (ke bawah Master Cetak) → ADMINISTRASI (kini berisi Panel Admin) → Setting.
+  b) Posisi scroll sidebar tersimpan di localStorage (ds_sidebar_scroll) — scroll ke menu yang dituju, tutup/buka browser/reload → posisi TETAP (diverifikasi: scroll 250 → reload → 250).
+- BERANDA (/pembukaan): badge peran kini menampilkan NAMA ROLE — peran grup perusahaan (Owner/Admin/Staf) bila anggota grup, selain itu role akun (Super Admin/Admin/Manajer/Owner/User/Demo; 'owner' ditambahkan ke ROLE_LABEL); kotak MOTIVASI USAHA HARIAN (32 kutipan bisnis) berganti otomatis tiap hari (indeks hari-ke-n tahun, deterministik).
+- PEMBAYARAN LANGGANAN (/langganan/pembayaran/[invoiceId]): polling status tiap 10 detik; begitu admin menyetujui → StepIndicator otomatis pindah ke langkah 4 VERIFIKASI (terverifikasi dengan invoice disetujui mike: aria-current=step "4").
+- GRUP SAYA (/grup):
+  a) Klik "Tambah Anggota" membuka HALAMAN penuh (bukan dialog): header + tombol kembali, form data anggota, dan HAK AKSES MENU LENGKAP — 22 menu (selaras seluruh sidebar) dikelompokkan 6 seksi (Beranda, Hitung Produksi, Dokumen, Keuangan & Laporan, Master Cetak, Lainnya) + Pilih Semua/Hapus Semua/per-seksi; GRUP_MENU_IZIN (server) disinkronkan supaya izin baru divalidasi & dijalankan requireGroupMenu.
+  b) NAMA GRUP = NAMA PERUSAHAAN: POST /api/settings key=company_name (popup Data Perusahaan & halaman Pengaturan) kini ikut memperbarui grup.nama bila penyimpan adalah Owner grup (diverifikasi: "CV Lina Printing" tersimpan & header /grup ikut berubah).
+- RIWAYAT INVOICE (/invoice):
+  a) Kolom PROFIT di tabel (desktop+mobile) — Total(inc PPN) − HPP snapshot modal, fallback uangCapek (profit referensi HC); pelunasan/batal tidak dihitung.
+  b) Kotak TOTAL INVOICE & TOTAL PROFIT gaya beranda (mengikuti filter aktif; pelunasan tidak dihitung dua kali).
+  c) CARI PER BULAN: filter periode penuh (Hari ini/Minggu ini/Bulan ini+select Bulan&Tahun/Tahun ini/Custom/Semua) satu baris dengan kotak cari, gaya riwayat lain.
+  d) CHECK & FIX ditemukan: input Dari/Sampai tanggal LAMA TIDAK BERFUNGSI (state period='all' mengabaikannya) — digabung ke RiwayatPeriodFilter (Custom) sehingga filter tanggal kini benar-benar menyaring.
+  e) Riwayat DP & PELUNASAN DIBUAT GRUP di tabel: baris invoice DP diikuti baris transaksi pelunasannya (badge PEL, latar hijau, item/profit "—"); pelunasan tanpa induk tampil di urutan tanggal.
+- BUAT INVOICE (editor): kotak Informasi Tambahan kini menampilkan baris PROFIT (Total − HPP / uangCapek) di blok hijau Total.
+- PANEL ADMIN BERANDA:
+  a) 8 kotak statistik BISA DIKLIK → dialog perincian (tabel Akun/Keterangan/Jumlah/Tanggal/Status + footer Total Rp / jumlah baris). API baru GET /api/panel-admin/stats/detail?type=… (8 tipe; divverifikasi semua).
+  b) "Pembayaran Terakhir Disetujui" diubah jadi TABEL: NAMA AKUN SAJA (tanpa nomor tagihan) + Paket + Jumlah + waktu; akun di-resolve dari Pengguna/CalonPembeli (recentApproved + pendingPaymentList dpt field akun).
+- VERIFIKASI (curl + agent-browser, desktop 1280 + mobile 390): urutan sidebar & label seksi benar; scroll persist 250→250; motivasi & badge Owner/Admin tampil; step 4 aktif utk invoice disetujui; halaman Tambah Anggota 22 hak akses + simpan anggota sukses (sandi awal tampil sekali); grup tabel bergrup INV→PEL benar; 8 dialog perincian OK (Total Pendapatan Rp817.801); tabel terakhir disetujui nama akun; mobile 390 tanpa scroll horizontal; console 0 error di 8 halaman; lint bersih.
+- TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- 18 permintaan owner dipenuhi dalam 1 commit (c0410ee, 13 file, +1296/−388): penataan ulang sidebar + scroll persist, beranda role-name & motivasi harian, auto-langkah 4 verifikasi, halaman Tambah Anggota dgn hak akses lengkap, nama grup=nama perusahaan, profit di editor & riwayat invoice + kotak total + filter bulanan + tabel bergrup, panel-admin 8 kotak klikable + tabel akun. Deployment menunggu instruksi user.
