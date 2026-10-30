@@ -30,6 +30,8 @@ import {
   Hash,
   Crown,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { authFetch } from '@/lib/auth-fetch'
@@ -785,6 +787,8 @@ function HalamanTambahAnggota({
   const [email, setEmail] = useState('')
   const [nomorHP, setNomorHP] = useState('')
   const [peran, setPeran] = useState('staf')
+  const [password, setPassword] = useState('')
+  const [lihatSandi, setLihatSandi] = useState(false)
   const [izin, setIzin] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -803,12 +807,13 @@ function HalamanTambahAnggota({
   const simpan = async () => {
     if (!namaLengkap.trim()) { toast.error('Nama lengkap wajib diisi.'); return }
     if (!username.trim()) { toast.error('Username wajib diisi.'); return }
+    if (password && password.length < 6) { toast.error('Kata sandi minimal 6 karakter.'); return }
     setSaving(true)
     try {
       const res = await authFetch('/api/grup/anggota', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ namaLengkap, username, email, nomorHP, peran, izin }),
+        body: JSON.stringify({ namaLengkap, username, email, nomorHP, peran, izin, password }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Gagal menambah anggota')
@@ -818,10 +823,12 @@ function HalamanTambahAnggota({
           description: 'Bagikan kata sandi ini ke anggota — hanya ditampilkan sekali.',
           duration: 15000,
         })
+      } else if (password) {
+        toast.success('Anggota berhasil ditambahkan dengan kata sandi akun yang Anda atur.')
       } else {
         toast.success('Anggota berhasil ditambahkan')
       }
-      setNama(''); setUsername(''); setEmail(''); setNomorHP(''); setIzin([]); setPeran('staf')
+      setNama(''); setUsername(''); setEmail(''); setNomorHP(''); setIzin([]); setPeran('staf'); setPassword(''); setLihatSandi(false)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menambah anggota')
     } finally {
@@ -888,9 +895,39 @@ function HalamanTambahAnggota({
                 <option value="admin">Admin</option>
               </select>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="t-password">Kata Sandi Akun</Label>
+              <div className="relative">
+                <Input
+                  id="t-password"
+                  type={lihatSandi ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  maxLength={72}
+                  autoComplete="new-password"
+                  placeholder="Min. 6 karakter — opsional"
+                  className="pr-10"
+                  data-testid="tambah-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setLihatSandi((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+                  aria-label={lihatSandi ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                  title={lihatSandi ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                  data-testid="tambah-password-lihat"
+                >
+                  {lihatSandi ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Sandi untuk akun login anggota. Kosongkan agar sistem membuat kata sandi otomatis.
+              </p>
+            </div>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
               Jika kata sandi tidak diisi, sistem membuat kata sandi otomatis dan
-              menampilkannya SEKALI setelah anggota tersimpan.
+              menampilkannya SEKALI setelah anggota tersimpan. Sandi yang Anda tulis
+              sendiri TIDAK ditampilkan kembali — catat di tempat aman.
             </div>
           </CardContent>
         </Card>
